@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit --pretty)",
+      "mcp__mcp-registry__search_mcp_registry",
+      "WebFetch(domain:uiland.design)",
+      "Bash(npx expo install victory-native react-native-reanimated react-native-gesture-handler @shopify/react-native-skia expo-linear-gradient)",
+      "Bash(npm ls react-native-reanimated react-native-gesture-handler @shopify/react-native-skia expo-linear-gradient)",
+      "Bash(npx expo export --platform web --output-dir /tmp/athleticore-test)",
+      "Bash(npx expo export --platform web --output-dir /tmp/athleticore-test2)",
+      "Bash(tree -L 3 -d \"C:\\\\Users\\\\karll\\\\Documents\\\\Athleticore OS\" --ignore node_modules)",
+      "Bash(npm install @react-navigation/native-stack)",
+      "Bash(npx expo install expo-blur)",
+      "Bash(grep -r \"prescribe\\\\|readiness\\\\|ACWR\\\\|cut\\\\|camp\" lib/engine/*.ts)",
+      "Bash(xargs grep -l \"FitnessQuestionnaire\\\\|calculateFitness\\\\|FitnessLevel\")",
+      "Bash(xargs grep -l \"ProgressScreen\\\\|Progress\\\\|timeline\\\\|week\")",
+      "Bash(python3 -c \":*)"
+    ]
+  }
+}

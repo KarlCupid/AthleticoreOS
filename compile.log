@@ -1,0 +1,10 @@
+﻿src/components/DayPlanCard.tsx(153,5): error TS2322: Type 'false | { borderLeftColor: string; }' is not assignable to type 'ViewStyle'.
+  Type 'false' has no properties in common with type 'ViewStyle'.
+src/components/DayPlanCard.tsx(154,5): error TS2322: Type 'false | { backgroundColor: string; }' is not assignable to type 'ViewStyle'.
+  Type 'false' has no properties in common with type 'ViewStyle'.
+src/hooks/useGuidedWorkout.ts(145,54): error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'string'.
+src/hooks/useGuidedWorkout.ts(253,17): error TS2353: Object literal may only specify known properties, and 'currentFatigue' does not exist in type 'SetCompletionInput'.
+src/hooks/useGuidedWorkout.ts(265,54): error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'string'.
+src/hooks/useGuidedWorkout.ts(331,17): error TS2345: Argument of type 'number' is not assignable to parameter of type 'FatigueLevel'.
+src/hooks/useGuidedWorkout.ts(437,23): error TS2554: Expected 3 arguments, but got 2.
+src/hooks/useWeeklyPlan.ts(87,63): error TS2554: Expected 1 arguments, but got 2.

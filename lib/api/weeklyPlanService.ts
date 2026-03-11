@@ -1,0 +1,435 @@
+import { supabase } from '../supabase';
+import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow } from '../engine/types';
+import { formatLocalDate, todayLocalDate } from '../utils/date';
+
+const today = todayLocalDate;
+
+function normalizeDay(day: number): number | null {
+    if (day === 7) return 0;
+    if (day < 0 || day > 6) return null;
+    return day;
+}
+
+function normalizeDays(days: number[] | null | undefined, fallback: number[]): number[] {
+    if (!days || days.length === 0) return [...fallback];
+
+    const normalized = Array.from(
+        new Set(
+            days
+                .map((day) => normalizeDay(Number(day)))
+                .filter((day): day is number => day !== null),
+        ),
+    );
+
+    return normalized.length > 0 ? normalized : [...fallback];
+}
+
+function normalizeAvailabilityWindows(windows: AvailabilityWindow[] | null | undefined): AvailabilityWindow[] {
+    if (!windows || windows.length === 0) return [];
+
+    return windows
+        .map((window) => ({
+            dayOfWeek: normalizeDay(Number(window.dayOfWeek)) ?? 0,
+            startTime: window.startTime,
+            endTime: window.endTime,
+        }))
+        .filter((window) => typeof window.startTime === 'string' && typeof window.endTime === 'string')
+        .sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
+}
+// --- Weekly Plan Config -------------------------------------
+
+/**
+ * Get the user's weekly plan configuration.
+ */
+export async function getWeeklyPlanConfig(userId: string): Promise<WeeklyPlanConfigRow | null> {
+    const { data, error } = await supabase
+        .from('weekly_plan_config')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    const config = data as WeeklyPlanConfigRow;
+    return {
+        ...config,
+        available_days: normalizeDays(config.available_days, [1, 3, 5]),
+        availability_windows: normalizeAvailabilityWindows(config.availability_windows),
+        two_a_day_days: normalizeDays(config.two_a_day_days, []),
+    };
+}
+
+/**
+ * Save or update the weekly plan configuration.
+ */
+export async function saveWeeklyPlanConfig(
+    userId: string,
+    config: Omit<WeeklyPlanConfigRow, 'id' | 'user_id' | 'created_at' | 'updated_at'>,
+): Promise<WeeklyPlanConfigRow> {
+    const normalizedAvailability = normalizeAvailabilityWindows(config.availability_windows);
+    const normalizedAvailable = normalizeDays(config.available_days, normalizedAvailability.map((window) => window.dayOfWeek));
+    const normalizedTwoADays = normalizeDays(config.two_a_day_days, []).filter((day) =>
+        normalizedAvailable.includes(day),
+    );
+
+    const { data, error } = await supabase
+        .from('weekly_plan_config')
+        .upsert(
+            {
+                user_id: userId,
+                available_days: normalizedAvailable,
+                availability_windows: normalizedAvailability,
+                session_duration_min: config.session_duration_min,
+                allow_two_a_days: config.allow_two_a_days,
+                two_a_day_days: normalizedTwoADays,
+                am_session_type: config.am_session_type,
+                pm_session_type: config.pm_session_type,
+                preferred_gym_profile_id: config.preferred_gym_profile_id,
+                auto_deload_interval_weeks: config.auto_deload_interval_weeks,
+                updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' },
+        )
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    const saved = data as WeeklyPlanConfigRow;
+    return {
+        ...saved,
+        available_days: normalizeDays(saved.available_days, [1, 3, 5]),
+        availability_windows: normalizeAvailabilityWindows(saved.availability_windows),
+        two_a_day_days: normalizeDays(saved.two_a_day_days, []),
+    };
+}
+
+/**
+ * Cancel the active plan completely.
+ * Deletes all uncompleted sessions from the weekly plan and the schedule.
+ */
+export async function cancelActivePlan(userId: string): Promise<void> {
+    const { data: latestEntry } = await supabase
+        .from('weekly_plan_entries')
+        .select('week_start_date')
+        .eq('user_id', userId)
+        .order('week_start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (!latestEntry) return;
+
+    const weekStart = latestEntry.week_start_date;
+
+    await supabase
+        .from('weekly_plan_entries')
+        .delete()
+        .eq('user_id', userId)
+        .eq('week_start_date', weekStart)
+        .neq('status', 'completed');
+
+    await supabase
+        .from('scheduled_activities')
+        .delete()
+        .eq('user_id', userId)
+        .eq('source', 'engine')
+        .gte('date', today())
+        .eq('status', 'scheduled');
+}
+
+// --- Weekly Plan Entries -----------------------------------
+
+/**
+ * Get the active week plan (entries for the current week).
+ * Finds the most recent plan and returns it if it is less than 7 days old.
+ */
+export async function getActiveWeekPlan(userId: string): Promise<WeeklyPlanEntryRow[]> {
+    const { data: latestEntry, error: latestErr } = await supabase
+        .from('weekly_plan_entries')
+        .select('week_start_date')
+        .eq('user_id', userId)
+        .order('week_start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (latestErr) throw latestErr;
+    if (!latestEntry) return [];
+
+    const weekStart = latestEntry.week_start_date;
+    const weekStartDateObj = new Date(`${weekStart}T00:00:00`);
+    const todayObj = new Date(`${today()}T00:00:00`);
+
+    const daysOld = (todayObj.getTime() - weekStartDateObj.getTime()) / (1000 * 3600 * 24);
+    if (daysOld >= 7) {
+        return [];
+    }
+
+    const { data, error } = await supabase
+        .from('weekly_plan_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('week_start_date', weekStart)
+        .order('date')
+        .order('slot');
+
+    if (error) throw error;
+    return (data ?? []) as WeeklyPlanEntryRow[];
+}
+
+/**
+ * Save a batch of weekly plan entries (replaces existing for the same week).
+ */
+export async function saveWeekPlan(
+    userId: string,
+    entries: Omit<WeeklyPlanEntryRow, 'id' | 'created_at'>[],
+): Promise<WeeklyPlanEntryRow[]> {
+    if (entries.length === 0) return [];
+
+    const weekStart = entries[0].week_start_date;
+    const endDate = new Date(`${weekStart}T00:00:00`);
+    endDate.setDate(endDate.getDate() + 6);
+    const weekEnd = formatLocalDate(endDate);
+
+    await supabase
+        .from('weekly_plan_entries')
+        .delete()
+        .eq('user_id', userId)
+        .eq('week_start_date', weekStart)
+        .neq('status', 'completed');
+
+    await supabase
+        .from('scheduled_activities')
+        .delete()
+        .eq('user_id', userId)
+        .eq('source', 'engine')
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
+        .eq('status', 'scheduled');
+
+    const { data: generatedEntries, error: weeklyPlanError } = await supabase
+        .from('weekly_plan_entries')
+        .insert(
+            entries.map((e) => ({
+                user_id: userId,
+                week_start_date: e.week_start_date,
+                day_of_week: e.day_of_week,
+                date: e.date,
+                slot: e.slot,
+                session_type: e.session_type,
+                focus: e.focus,
+                estimated_duration_min: e.estimated_duration_min,
+                target_intensity: e.target_intensity,
+                status: e.status,
+                rescheduled_to: e.rescheduled_to,
+                workout_log_id: e.workout_log_id,
+                prescription_snapshot: e.prescription_snapshot,
+                engine_notes: e.engine_notes,
+                is_deload: e.is_deload,
+            })),
+        )
+        .select();
+
+    if (weeklyPlanError) throw weeklyPlanError;
+
+    const scheduledActivitiesToInsert = entries.map((e) => ({
+        user_id: userId,
+        date: e.date,
+        activity_type: e.session_type,
+        expected_intensity: e.target_intensity ?? 5,
+        estimated_duration_min: e.estimated_duration_min,
+        engine_recommendation: e.engine_notes,
+        custom_label: e.focus ? e.focus.replace(/_/g, ' ') : null,
+        source: 'engine',
+        athlete_locked: false,
+        session_kind: e.session_type,
+        intended_intensity: e.target_intensity ?? null,
+        recommendation_reason: e.engine_notes,
+        recommendation_severity: 'recommended',
+        recommendation_affected_subsystem: 'schedule',
+        recommendation_change: e.focus ? `Focus on ${e.focus.replace(/_/g, ' ')}` : 'Follow planned session',
+        recommendation_education: 'This session is recommended based on your weekly context, readiness, and camp goals.',
+        recommendation_status: 'pending',
+        status: e.status === 'planned' ? 'scheduled' : e.status === 'rescheduled' ? 'scheduled' : e.status,
+    }));
+
+    const { error: scheduledError } = await supabase
+        .from('scheduled_activities')
+        .insert(scheduledActivitiesToInsert);
+
+    if (scheduledError) {
+        console.error('Failed to sync scheduled_activities:', scheduledError);
+    }
+
+    return (generatedEntries ?? []) as WeeklyPlanEntryRow[];
+}
+
+/**
+ * Mark a plan entry as completed, linking it to a workout log.
+ */
+export async function markDayCompleted(
+    entryId: string,
+    workoutLogId: string,
+): Promise<void> {
+    const { data: entry } = await supabase
+        .from('weekly_plan_entries')
+        .select('user_id, date, session_type')
+        .eq('id', entryId)
+        .single();
+
+    const { error } = await supabase
+        .from('weekly_plan_entries')
+        .update({ status: 'completed' as PlanEntryStatus, workout_log_id: workoutLogId })
+        .eq('id', entryId);
+
+    if (error) throw error;
+
+    if (entry) {
+        await supabase
+            .from('scheduled_activities')
+            .update({ status: 'completed', recommendation_status: 'completed' })
+            .eq('user_id', entry.user_id)
+            .eq('date', entry.date)
+            .eq('activity_type', entry.session_type)
+            .eq('source', 'engine');
+    }
+}
+
+/**
+ * Mark a plan entry as skipped.
+ */
+export async function markDaySkipped(entryId: string): Promise<void> {
+    const { data: entry } = await supabase
+        .from('weekly_plan_entries')
+        .select('user_id, date, session_type')
+        .eq('id', entryId)
+        .single();
+
+    const { error } = await supabase
+        .from('weekly_plan_entries')
+        .update({ status: 'skipped' as PlanEntryStatus })
+        .eq('id', entryId);
+
+    if (error) throw error;
+
+    if (entry) {
+        await supabase
+            .from('scheduled_activities')
+            .update({ status: 'skipped', recommendation_status: 'declined' })
+            .eq('user_id', entry.user_id)
+            .eq('date', entry.date)
+            .eq('activity_type', entry.session_type)
+            .eq('source', 'engine');
+    }
+}
+
+/**
+ * Reschedule a missed day to a new date.
+ */
+export async function rescheduleMissedDay(
+    entryId: string,
+    newDate: string,
+): Promise<void> {
+    const { data: entry } = await supabase
+        .from('weekly_plan_entries')
+        .select('user_id, date, session_type')
+        .eq('id', entryId)
+        .single();
+
+    const { error } = await supabase
+        .from('weekly_plan_entries')
+        .update({
+            status: 'rescheduled' as PlanEntryStatus,
+            rescheduled_to: newDate,
+        })
+        .eq('id', entryId);
+
+    if (error) throw error;
+
+    if (entry) {
+        await supabase
+            .from('scheduled_activities')
+            .update({ date: newDate, status: 'scheduled', recommendation_status: 'declined' })
+            .eq('user_id', entry.user_id)
+            .eq('date', entry.date)
+            .eq('activity_type', entry.session_type)
+            .eq('source', 'engine');
+    }
+}
+
+/**
+ * Get plan entries that were missed (past date, still 'planned').
+ */
+export async function getMissedEntries(userId: string): Promise<WeeklyPlanEntryRow[]> {
+    const { data, error } = await supabase
+        .from('weekly_plan_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'planned')
+        .lt('date', today())
+        .order('date');
+
+    if (error) throw error;
+    return (data ?? []) as WeeklyPlanEntryRow[];
+}
+
+/**
+ * Get the most recent week start date that had a deload.
+ */
+export async function getLastDeloadWeekStart(userId: string): Promise<string | null> {
+    const { data, error } = await supabase
+        .from('weekly_plan_entries')
+        .select('week_start_date')
+        .eq('user_id', userId)
+        .eq('is_deload', true)
+        .order('week_start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data?.week_start_date ?? null;
+}
+
+/**
+ * Get today's plan entry (if any).
+ */
+export async function getTodayPlanEntry(
+    userId: string,
+    slot?: string,
+): Promise<WeeklyPlanEntryRow | null> {
+    let q = supabase
+        .from('weekly_plan_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', today());
+
+    if (slot) q = q.eq('slot', slot);
+
+    const { data, error } = await q.limit(1).maybeSingle();
+
+    if (error) throw error;
+    return data as WeeklyPlanEntryRow | null;
+}
+
+export async function markRecommendationAccepted(entryId: string): Promise<void> {
+    const { data: entry } = await supabase
+        .from('weekly_plan_entries')
+        .select('user_id, date, session_type')
+        .eq('id', entryId)
+        .single();
+
+    if (!entry) return;
+
+    await supabase
+        .from('scheduled_activities')
+        .update({ recommendation_status: 'accepted' })
+        .eq('user_id', entry.user_id)
+        .eq('date', entry.date)
+        .eq('activity_type', entry.session_type)
+        .eq('source', 'engine')
+        .eq('recommendation_status', 'pending');
+}
+
+
+
+

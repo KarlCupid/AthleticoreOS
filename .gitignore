@@ -39,3 +39,13 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local diagnostics
+compile.log
+compile_errors.txt
+
+# environment files
+.env
+.env.*
+!.env.example
+
