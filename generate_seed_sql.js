@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 const seedContent = fs.readFileSync('lib/data/exerciseSeed.ts', 'utf-8');
 
@@ -107,5 +108,9 @@ const values = exercises.map(ex => {
 
 sql += values.join(',\n') + '\nON CONFLICT DO NOTHING;\n'; // NOTE: Add unique index constraint or ON CONFLICT resolution if exercise_library has unique names.
 
-fs.writeFileSync('supabase_migration_and_seed.sql', sql);
-console.log("Successfully generated supabase_migration_and_seed.sql");
+const outputDir = path.join('archive', 'generated');
+const outputFile = path.join(outputDir, 'supabase_migration_and_seed.sql');
+
+fs.mkdirSync(outputDir, { recursive: true });
+fs.writeFileSync(outputFile, sql);
+console.log(`Successfully generated ${outputFile}`);

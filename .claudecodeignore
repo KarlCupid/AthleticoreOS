@@ -39,14 +39,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # Local generated SQL bundles (keep canonical migrations under supabase/migrations)
-supabase_migration_and_seed.sql
-supabase_schedule_migration.sql
-migration_recurring_activities.sql
+archive/generated/supabase_migration_and_seed.sql
+archive/generated/supabase_schedule_migration.sql
+archive/generated/migration_recurring_activities.sql
 
 # Large local simulation/seed artifacts (open manually only when relevant)
 scripts/simulate_*.ts
 lib/data/exerciseSeed.ts
-test.js
+archive/generated/test.js
 
 # Environment
 .env
@@ -60,3 +60,4 @@ test.js
 .Trashes
 ehthumbs.db
 Thumbs.db
+

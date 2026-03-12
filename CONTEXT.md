@@ -49,5 +49,5 @@ When possible, avoid opening entire high-line files. Jump directly to the releva
 ## Excluded by Agent Ignore
 To reduce context cost across Codex/Antigravity/Claude, these are excluded by default:
 - Local compile diagnostics (`compile_errors.txt`, `*.log`)
-- Generated SQL bundles in repo root (`supabase_migration_and_seed.sql`, `supabase_schedule_migration.sql`, `migration_recurring_activities.sql`)
-- Large local simulation/seed artifacts (`scripts/simulate_*.ts`, `lib/data/exerciseSeed.ts`, `test.js`)
+- Generated SQL bundles in `archive/generated/` (`supabase_migration_and_seed.sql`, `supabase_schedule_migration.sql`, `migration_recurring_activities.sql`)
+- Large local simulation/seed artifacts (`scripts/simulate_*.ts`, `lib/data/exerciseSeed.ts`, `archive/generated/test.js`)

@@ -12,9 +12,7 @@ module.exports = [
       'assets/**',
       'compile.log',
       'compile_errors.txt',
-      'supabase_migration_and_seed.sql',
-      'supabase_schedule_migration.sql',
-      'migration_recurring_activities.sql'
+      'archive/generated/**'
     ]
   },
   {
