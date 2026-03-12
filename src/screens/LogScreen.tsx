@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Alert, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,22 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { todayLocalDate } from '../../lib/utils/date';
 
+type WorkoutDraft = {
+    id: string;
+    label: string;
+    intensity: number;
+    minutes: string;
+};
+
+function createWorkoutDraft(): WorkoutDraft {
+    return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        label: '',
+        intensity: 5,
+        minutes: '',
+    };
+}
+
 export function LogScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
@@ -23,9 +39,8 @@ export function LogScreen() {
     const [sleep, setSleep] = useState(3);
     const [readiness, setReadiness] = useState(3);
 
-    // Session Logger State
-    const [intensity, setIntensity] = useState(5);
-    const [minutes, setMinutes] = useState('');
+    // Workout Logger State (supports multiple workouts)
+    const [workouts, setWorkouts] = useState<WorkoutDraft[]>([createWorkoutDraft()]);
 
     const [isSaving, setIsSaving] = useState(false);
 
@@ -64,11 +79,23 @@ export function LogScreen() {
 
             let hasSaveError = Boolean(dailyError);
 
-            if (minutes && parseInt(minutes) > 0) {
+            const validWorkouts = workouts
+                .map((workout) => ({
+                    ...workout,
+                    parsedMinutes: parseInt(workout.minutes, 10),
+                }))
+                .filter((workout) => Number.isFinite(workout.parsedMinutes) && workout.parsedMinutes > 0);
+
+            if (validWorkouts.length > 0) {
+                const totalMinutes = validWorkouts.reduce((sum, workout) => sum + workout.parsedMinutes, 0);
+                const weightedIntensity = Math.round(
+                    validWorkouts.reduce((sum, workout) => sum + (workout.intensity * workout.parsedMinutes), 0) / totalMinutes,
+                );
+
                 const trainingData = {
                     user_id: userId,
-                    duration_minutes: parseInt(minutes),
-                    intensity_srpe: intensity,
+                    duration_minutes: totalMinutes,
+                    intensity_srpe: weightedIntensity,
                     date: logDate,
                 };
 
@@ -78,6 +105,59 @@ export function LogScreen() {
 
                 if (trainingError) {
                     console.error("Error saving training session:", trainingError);
+                    hasSaveError = true;
+                } else {
+                    const { error: deleteActivityError } = await supabase
+                        .from('activity_log')
+                        .delete()
+                        .eq('user_id', userId)
+                        .eq('date', logDate);
+
+                    if (deleteActivityError) {
+                        console.error("Error clearing prior activity log rows:", deleteActivityError);
+                        hasSaveError = true;
+                    } else {
+                        const { error: activityError } = await supabase
+                            .from('activity_log')
+                            .insert(
+                                validWorkouts.map((workout) => ({
+                                    user_id: userId,
+                                    date: logDate,
+                                    component_type: workout.label.trim()
+                                        ? workout.label.trim().toLowerCase().replace(/\s+/g, '_')
+                                        : 'training',
+                                    duration_min: workout.parsedMinutes,
+                                    intensity: workout.intensity,
+                                    notes: workout.label.trim() || null,
+                                })),
+                            );
+
+                        if (activityError) {
+                            console.error("Error saving workout details:", activityError);
+                            hasSaveError = true;
+                        }
+                    }
+                }
+            } else {
+                const { error: deleteTrainingError } = await supabase
+                    .from('training_sessions')
+                    .delete()
+                    .eq('user_id', userId)
+                    .eq('date', logDate);
+
+                if (deleteTrainingError) {
+                    console.error("Error clearing training session:", deleteTrainingError);
+                    hasSaveError = true;
+                }
+
+                const { error: deleteActivityError } = await supabase
+                    .from('activity_log')
+                    .delete()
+                    .eq('user_id', userId)
+                    .eq('date', logDate);
+
+                if (deleteActivityError) {
+                    console.error("Error clearing activity logs:", deleteActivityError);
                     hasSaveError = true;
                 }
             }
@@ -137,12 +217,54 @@ export function LogScreen() {
                 {/* Training Session */}
                 <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
                     <Card title="Training Session">
-                        <SessionLogger
-                            intensity={intensity}
-                            setIntensity={setIntensity}
-                            minutes={minutes}
-                            setMinutes={setMinutes}
-                        />
+                        <Text style={styles.trainingHint}>
+                            Log each workout block for {todayFormatted}. We combine them into one daily training load score.
+                        </Text>
+                        {workouts.map((workout, index) => (
+                            <View key={workout.id} style={[styles.workoutBlock, index > 0 && styles.workoutBlockSpaced]}>
+                                <View style={styles.workoutBlockHeader}>
+                                    <Text style={styles.workoutBlockTitle}>Workout {index + 1}</Text>
+                                    {workouts.length > 1 ? (
+                                        <TouchableOpacity
+                                            onPress={() => setWorkouts((prev) => prev.filter((entry) => entry.id !== workout.id))}
+                                        >
+                                            <Text style={styles.removeWorkoutText}>Remove</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+                                </View>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Type (optional): S&C, Boxing, Roadwork..."
+                                    placeholderTextColor={COLORS.text.tertiary}
+                                    value={workout.label}
+                                    onChangeText={(value) => {
+                                        setWorkouts((prev) => prev.map((entry) =>
+                                            entry.id === workout.id ? { ...entry, label: value } : entry
+                                        ));
+                                    }}
+                                />
+                                <SessionLogger
+                                    intensity={workout.intensity}
+                                    setIntensity={(value) => {
+                                        setWorkouts((prev) => prev.map((entry) =>
+                                            entry.id === workout.id ? { ...entry, intensity: value } : entry
+                                        ));
+                                    }}
+                                    minutes={workout.minutes}
+                                    setMinutes={(value) => {
+                                        setWorkouts((prev) => prev.map((entry) =>
+                                            entry.id === workout.id ? { ...entry, minutes: value } : entry
+                                        ));
+                                    }}
+                                />
+                            </View>
+                        ))}
+                        <AnimatedPressable
+                            style={styles.addWorkoutButton}
+                            onPress={() => setWorkouts((prev) => [...prev, createWorkoutDraft()])}
+                        >
+                            <Text style={styles.addWorkoutButtonText}>+ Add Another Workout</Text>
+                        </AnimatedPressable>
                     </Card>
                 </Animated.View>
 
@@ -214,6 +336,64 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: SPACING.lg,
+    },
+    trainingHint: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        marginBottom: SPACING.sm,
+        lineHeight: 19,
+    },
+    workoutBlock: {
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
+        borderRadius: RADIUS.md,
+        padding: SPACING.sm,
+    },
+    workoutBlockSpaced: {
+        marginTop: SPACING.md,
+    },
+    workoutBlockHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: SPACING.xs,
+    },
+    workoutBlockTitle: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+    },
+    removeWorkoutText: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.readiness.depleted,
+    },
+    input: {
+        backgroundColor: COLORS.surfaceSecondary,
+        borderRadius: RADIUS.md,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.primary,
+        marginBottom: SPACING.sm,
+    },
+    addWorkoutButton: {
+        marginTop: SPACING.md,
+        borderWidth: 1,
+        borderColor: COLORS.accent,
+        borderRadius: RADIUS.md,
+        paddingVertical: SPACING.sm,
+        alignItems: 'center',
+        backgroundColor: COLORS.accentLight,
+    },
+    addWorkoutButtonText: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.accent,
     },
     saveButtonWrapper: {
         marginTop: SPACING.lg,

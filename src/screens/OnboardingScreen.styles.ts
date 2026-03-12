@@ -174,6 +174,7 @@ export const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderWidth: 1,
         borderColor: COLORS.border,
+        alignItems: 'center',
     },
     pillActive: {
         backgroundColor: COLORS.readiness.prime,
@@ -186,6 +187,70 @@ export const styles = StyleSheet.create({
     },
     pillTextActive: {
         color: COLORS.text.inverse,
+    },
+    pillDescriptor: {
+        marginTop: 2,
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.tertiary,
+    },
+    pillDescriptorActive: {
+        color: COLORS.text.inverse,
+        opacity: 0.9,
+    },
+    activityOptionsList: {
+        gap: SPACING.sm,
+    },
+    activityOptionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surface,
+        paddingVertical: SPACING.sm + 2,
+        paddingHorizontal: SPACING.md,
+    },
+    activityOptionCardActive: {
+        borderColor: COLORS.readiness.prime,
+        backgroundColor: COLORS.readiness.primeLight,
+    },
+    activityOptionCopy: {
+        flex: 1,
+        paddingRight: SPACING.sm,
+    },
+    activityOptionTitle: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+    },
+    activityOptionTitleActive: {
+        color: COLORS.readiness.prime,
+    },
+    activityOptionDescription: {
+        marginTop: 2,
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        lineHeight: 17,
+    },
+    activityOptionDescriptionActive: {
+        color: COLORS.text.primary,
+    },
+    activityOptionIndicator: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surfaceSecondary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    activityOptionIndicatorActive: {
+        borderColor: COLORS.readiness.prime,
+        backgroundColor: '#FFFFFF',
     },
     navRow: {
         flexDirection: 'row',

@@ -16,39 +16,58 @@ interface OnboardingScreenProps {
     onComplete: () => void;
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 4;
 
 const STEP_META = [
     {
         eyebrow: 'Phase 1',
         title: 'Welcome',
-        description: 'We will collect the basics first, then tailor training and nutrition around your athlete profile.',
+        description: 'We will collect only the inputs that actually power your training and nutrition recommendations.',
     },
     {
         eyebrow: 'Phase 2',
         title: 'Body Stats',
-        description: 'These numbers set your starting point for bodyweight, fueling, and weight-class planning.',
+        description: 'These numbers set your baseline for bodyweight trends, calorie targets, and weight planning.',
     },
     {
         eyebrow: 'Phase 3',
-        title: 'Training Context',
-        description: 'This tells us what kind of athlete you are and whether we should plan around a live fight date.',
+        title: 'Athlete Profile',
+        description: 'These selections control physiology and fight-context assumptions used in daily guidance.',
     },
     {
         eyebrow: 'Phase 4',
-        title: 'Biology',
-        description: 'We ask this so readiness and workload guidance can reflect physiology-specific training considerations.',
-    },
-    {
-        eyebrow: 'Phase 5',
         title: 'Fueling Setup',
-        description: 'These answers shape your baseline calorie and nutrition recommendations.',
+        description: 'This sets your baseline nutrition direction before planning setup personalizes the week.',
     },
-    {
-        eyebrow: 'Phase 6',
-        title: 'Priorities',
-        description: 'Share the outcome you want so recommendations can stay aligned with your current focus.',
-    },
+] as const;
+
+const ACTIVITY_LEVEL_OPTIONS = [
+    { value: 'sedentary', label: 'Sedentary', descriptor: 'Mostly seated day' },
+    { value: 'light', label: 'Light', descriptor: 'Easy movement most days' },
+    { value: 'moderate', label: 'Moderate', descriptor: 'Regular training and an active day' },
+    { value: 'very_active', label: 'Very Active', descriptor: 'Hard training and high daily movement' },
+    { value: 'extra_active', label: 'Extra Active', descriptor: 'Two-a-days or very high workload' },
+] as const;
+
+const FIGHT_STATUS_OPTIONS = [
+    { value: 'amateur', label: 'Amateur', descriptor: 'Building competitive experience' },
+    { value: 'pro', label: 'Pro', descriptor: 'Competing at professional level' },
+] as const;
+
+const BIO_SEX_OPTIONS = [
+    { value: 'male', label: 'Male', descriptor: 'Uses male physiology defaults' },
+    { value: 'female', label: 'Female', descriptor: 'Supports cycle-aware readiness options' },
+] as const;
+
+const CYCLE_TRACKING_OPTIONS = [
+    { value: true, label: 'Enable', descriptor: 'Use cycle phases in readiness guidance' },
+    { value: false, label: 'Skip', descriptor: 'Use standard readiness guidance only' },
+] as const;
+
+const NUTRITION_GOAL_OPTIONS = [
+    { value: 'maintain', label: 'Maintain', descriptor: 'Hold bodyweight while fueling performance' },
+    { value: 'cut', label: 'Cut Weight', descriptor: 'Reduce bodyweight with controlled deficit' },
+    { value: 'bulk', label: 'Lean Gain', descriptor: 'Add size and strength with surplus' },
 ] as const;
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
@@ -63,13 +82,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [weight, setWeight] = useState('');
     const [targetWeight, setTargetWeight] = useState('');
     const [fightStatus, setFightStatus] = useState<'amateur' | 'pro'>('amateur');
-    const [phase, setPhase] = useState<'off-season' | 'pre-camp' | 'fight-camp'>('off-season');
     const [bioSex, setBioSex] = useState<'male' | 'female'>('male');
     const [cycleTracking, setCycleTracking] = useState(false);
     const [activityLevel, setActivityLevel] = useState<'sedentary' | 'light' | 'moderate' | 'very_active' | 'extra_active'>('moderate');
     const [nutritionGoal, setNutritionGoal] = useState<'maintain' | 'cut' | 'bulk'>('maintain');
-    const [goals, setGoals] = useState('');
-    const [fightDate, setFightDate] = useState('');
     const [saving, setSaving] = useState(false);
 
     const currentStepMeta = STEP_META[step];
@@ -131,7 +147,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 user_id: session.user.id,
                 biological_sex: bioSex,
                 fight_status: fightStatus,
-                phase,
+                phase: 'off-season',
                 target_weight: targetWeight ? parseFloat(targetWeight) : null,
                 base_weight: weight ? parseFloat(weight) : null,
                 cycle_tracking: cycleTracking,
@@ -142,7 +158,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 athlete_goal_mode: 'build_phase',
                 performance_goal_type: 'conditioning',
                 planning_setup_version: 0,
-                fight_date: fightDate || null,
+                fight_date: null,
             });
 
             if (error) {
@@ -264,81 +280,62 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 2:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Training Context</Text>
-                        <Text style={styles.stepSubtitle}>This tells us what environment to plan for and whether your timeline is open-ended or fight-driven.</Text>
+                        <Text style={styles.stepTitle}>Athlete Profile</Text>
+                        <Text style={styles.stepSubtitle}>These settings influence readiness, recovery assumptions, and fight-specific safety guidance.</Text>
 
                         <Text style={styles.inputLabel}>Fight Status</Text>
                         <Text style={styles.helperText}>Choose the level you currently compete at so training assumptions match your experience.</Text>
-                        <View style={styles.pillRow}>
-                            {(['amateur', 'pro'] as const).map((status) => (
-                                <TouchableOpacity
-                                    key={status}
-                                    style={[styles.pill, fightStatus === status && styles.pillActive]}
-                                    onPress={() => setFightStatus(status)}
-                                >
-                                    <Text style={[styles.pillText, fightStatus === status && styles.pillTextActive]}>
-                                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Current Phase</Text>
-                        <Text style={styles.helperText}>Pick the phase you are in right now so the app can shift priorities appropriately.</Text>
-                        <View style={styles.pillRow}>
-                            {([
-                                { value: 'off-season', label: 'Off Season' },
-                                { value: 'pre-camp', label: 'Pre Camp' },
-                                { value: 'fight-camp', label: 'Fight Camp' },
-                            ] as const).map((option) => (
+                        <View style={styles.activityOptionsList}>
+                            {FIGHT_STATUS_OPTIONS.map((option) => (
                                 <TouchableOpacity
                                     key={option.value}
-                                    style={[styles.pill, phase === option.value && styles.pillActive]}
-                                    onPress={() => setPhase(option.value)}
+                                    style={[styles.activityOptionCard, fightStatus === option.value && styles.activityOptionCardActive]}
+                                    onPress={() => setFightStatus(option.value)}
+                                    activeOpacity={0.85}
                                 >
-                                    <Text style={[styles.pillText, phase === option.value && styles.pillTextActive]}>
-                                        {option.label}
-                                    </Text>
+                                    <View style={styles.activityOptionCopy}>
+                                        <Text style={[styles.activityOptionTitle, fightStatus === option.value && styles.activityOptionTitleActive]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={[styles.activityOptionDescription, fightStatus === option.value && styles.activityOptionDescriptionActive]}>
+                                            {option.descriptor}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.activityOptionIndicator, fightStatus === option.value && styles.activityOptionIndicatorActive]}>
+                                        {fightStatus === option.value ? (
+                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
+                                        ) : null}
+                                    </View>
                                 </TouchableOpacity>
                             ))}
                         </View>
 
-                        {phase === 'fight-camp' ? (
-                            <View style={{ marginTop: SPACING.lg }}>
-                                <Text style={styles.inputLabel}>Fight Date</Text>
-                                <Text style={styles.helperText}>Enter the date of your next fight so camp timing and weight-cut projections are built around a real deadline.</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="YYYY-MM-DD"
-                                    placeholderTextColor={COLORS.text.tertiary}
-                                    value={fightDate}
-                                    onChangeText={setFightDate}
-                                />
-                            </View>
-                        ) : null}
-                    </View>
-                );
-            case 3:
-                return (
-                    <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Biology</Text>
-                        <Text style={styles.stepSubtitle}>We ask for physiology inputs only because they affect recovery, readiness, and training guidance.</Text>
-
-                        <Text style={styles.inputLabel}>Biological Sex</Text>
+                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Biological Sex</Text>
                         <Text style={styles.helperText}>Used for physiology-specific planning logic. It does not change the rest of your profile experience.</Text>
-                        <View style={styles.pillRow}>
-                            {(['male', 'female'] as const).map((sex) => (
+                        <View style={styles.activityOptionsList}>
+                            {BIO_SEX_OPTIONS.map((option) => (
                                 <TouchableOpacity
-                                    key={sex}
-                                    style={[styles.pill, bioSex === sex && styles.pillActive]}
+                                    key={option.value}
+                                    style={[styles.activityOptionCard, bioSex === option.value && styles.activityOptionCardActive]}
                                     onPress={() => {
-                                        setBioSex(sex);
-                                        if (sex === 'male') setCycleTracking(false);
+                                        setBioSex(option.value);
+                                        if (option.value === 'male') setCycleTracking(false);
                                     }}
+                                    activeOpacity={0.85}
                                 >
-                                    <Text style={[styles.pillText, bioSex === sex && styles.pillTextActive]}>
-                                        {sex.charAt(0).toUpperCase() + sex.slice(1)}
-                                    </Text>
+                                    <View style={styles.activityOptionCopy}>
+                                        <Text style={[styles.activityOptionTitle, bioSex === option.value && styles.activityOptionTitleActive]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={[styles.activityOptionDescription, bioSex === option.value && styles.activityOptionDescriptionActive]}>
+                                            {option.descriptor}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.activityOptionIndicator, bioSex === option.value && styles.activityOptionIndicatorActive]}>
+                                        {bioSex === option.value ? (
+                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
+                                        ) : null}
+                                    </View>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -347,89 +344,93 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             <View style={{ marginTop: SPACING.lg }}>
                                 <Text style={styles.inputLabel}>Cycle Tracking</Text>
                                 <Text style={styles.helperText}>Turn this on if you want readiness and workload suggestions to account for cycle phases.</Text>
-                                <View style={styles.pillRow}>
-                                    <TouchableOpacity
-                                        style={[styles.pill, cycleTracking && styles.pillActive]}
-                                        onPress={() => setCycleTracking(true)}
-                                    >
-                                        <Text style={[styles.pillText, cycleTracking && styles.pillTextActive]}>Enable</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.pill, !cycleTracking && styles.pillActive]}
-                                        onPress={() => setCycleTracking(false)}
-                                    >
-                                        <Text style={[styles.pillText, !cycleTracking && styles.pillTextActive]}>Skip</Text>
-                                    </TouchableOpacity>
+                                <View style={styles.activityOptionsList}>
+                                    {CYCLE_TRACKING_OPTIONS.map((option) => (
+                                        <TouchableOpacity
+                                            key={option.label}
+                                            style={[styles.activityOptionCard, cycleTracking === option.value && styles.activityOptionCardActive]}
+                                            onPress={() => setCycleTracking(option.value)}
+                                            activeOpacity={0.85}
+                                        >
+                                            <View style={styles.activityOptionCopy}>
+                                                <Text style={[styles.activityOptionTitle, cycleTracking === option.value && styles.activityOptionTitleActive]}>
+                                                    {option.label}
+                                                </Text>
+                                                <Text style={[styles.activityOptionDescription, cycleTracking === option.value && styles.activityOptionDescriptionActive]}>
+                                                    {option.descriptor}
+                                                </Text>
+                                            </View>
+                                            <View style={[styles.activityOptionIndicator, cycleTracking === option.value && styles.activityOptionIndicatorActive]}>
+                                                {cycleTracking === option.value ? (
+                                                    <IconCheckCircle size={14} color={COLORS.readiness.prime} />
+                                                ) : null}
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
                                 </View>
                             </View>
                         ) : null}
                     </View>
                 );
-            case 4:
+            case 3:
                 return (
                     <View style={styles.stepContent}>
                         <Text style={styles.stepTitle}>Fueling Setup</Text>
                         <Text style={styles.stepSubtitle}>These answers define the baseline we use for calories, recovery needs, and body-composition direction.</Text>
 
                         <Text style={styles.inputLabel}>Activity Level</Text>
-                        <Text style={styles.helperText}>Think beyond formal training: choose the option that best reflects your full-day movement and workload.</Text>
-                        <View style={styles.pillRow}>
-                            {([
-                                { value: 'sedentary', label: 'Sedentary' },
-                                { value: 'light', label: 'Light' },
-                                { value: 'moderate', label: 'Moderate' },
-                                { value: 'very_active', label: 'Very Active' },
-                                { value: 'extra_active', label: 'Extra Active' },
-                            ] as const).map((option) => (
+                        <Text style={styles.helperText}>Think beyond formal training and choose the option that best matches your full-day workload.</Text>
+                        <View style={styles.activityOptionsList}>
+                            {ACTIVITY_LEVEL_OPTIONS.map((option) => (
                                 <TouchableOpacity
                                     key={option.value}
-                                    style={[styles.pill, activityLevel === option.value && styles.pillActive]}
+                                    style={[styles.activityOptionCard, activityLevel === option.value && styles.activityOptionCardActive]}
                                     onPress={() => setActivityLevel(option.value)}
+                                    activeOpacity={0.85}
                                 >
-                                    <Text style={[styles.pillText, activityLevel === option.value && styles.pillTextActive]}>
-                                        {option.label}
-                                    </Text>
+                                    <View style={styles.activityOptionCopy}>
+                                        <Text style={[styles.activityOptionTitle, activityLevel === option.value && styles.activityOptionTitleActive]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={[styles.activityOptionDescription, activityLevel === option.value && styles.activityOptionDescriptionActive]}>
+                                            {option.descriptor}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.activityOptionIndicator, activityLevel === option.value && styles.activityOptionIndicatorActive]}>
+                                        {activityLevel === option.value ? (
+                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
+                                        ) : null}
+                                    </View>
                                 </TouchableOpacity>
                             ))}
                         </View>
 
                         <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Nutrition Goal</Text>
                         <Text style={styles.helperText}>Tell us whether you want to maintain, cut, or add lean mass so targets move in the right direction.</Text>
-                        <View style={styles.pillRow}>
-                            {([
-                                { value: 'maintain', label: 'Maintain' },
-                                { value: 'cut', label: 'Cut Weight' },
-                                { value: 'bulk', label: 'Lean Gain' },
-                            ] as const).map((option) => (
+                        <View style={styles.activityOptionsList}>
+                            {NUTRITION_GOAL_OPTIONS.map((option) => (
                                 <TouchableOpacity
                                     key={option.value}
-                                    style={[styles.pill, nutritionGoal === option.value && styles.pillActive]}
+                                    style={[styles.activityOptionCard, nutritionGoal === option.value && styles.activityOptionCardActive]}
                                     onPress={() => setNutritionGoal(option.value)}
+                                    activeOpacity={0.85}
                                 >
-                                    <Text style={[styles.pillText, nutritionGoal === option.value && styles.pillTextActive]}>
-                                        {option.label}
-                                    </Text>
+                                    <View style={styles.activityOptionCopy}>
+                                        <Text style={[styles.activityOptionTitle, nutritionGoal === option.value && styles.activityOptionTitleActive]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={[styles.activityOptionDescription, nutritionGoal === option.value && styles.activityOptionDescriptionActive]}>
+                                            {option.descriptor}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.activityOptionIndicator, nutritionGoal === option.value && styles.activityOptionIndicatorActive]}>
+                                        {nutritionGoal === option.value ? (
+                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
+                                        ) : null}
+                                    </View>
                                 </TouchableOpacity>
                             ))}
                         </View>
-                    </View>
-                );
-            case 5:
-                return (
-                    <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Priorities</Text>
-                        <Text style={styles.stepSubtitle}>Describe the result you want, not every detail. We use this as context for future recommendations.</Text>
-
-                        <Text style={styles.inputLabel}>Current Priority (optional)</Text>
-                        <Text style={styles.helperText}>Example: first amateur bout, move down a weight class, rebuild conditioning, or return from time off.</Text>
-                        <TextInput
-                            style={[styles.input, { height: 120, textAlignVertical: 'top', paddingTop: SPACING.md }]}
-                            placeholder="e.g. Prepare for my first amateur fight in 8 weeks"
-                            placeholderTextColor={COLORS.text.tertiary}
-                            multiline
-                            value={goals}
-                            onChangeText={setGoals}
-                        />
                     </View>
                 );
             default:

@@ -3,6 +3,16 @@ import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityW
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
+let hasScheduledActivityIdColumn: boolean | null = null;
+
+function isMissingScheduledActivityIdColumnError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const maybe = error as { code?: string; message?: string };
+    return maybe.code === 'PGRST204'
+        && typeof maybe.message === 'string'
+        && maybe.message.includes('scheduled_activity_id')
+        && maybe.message.includes('weekly_plan_entries');
+}
 
 function normalizeDay(day: number): number | null {
     if (day === 7) return 0;
@@ -72,6 +82,29 @@ function toScheduledActivityPayload(
         recommendation_status: 'pending',
         status: entry.status === 'planned' ? 'scheduled' : entry.status === 'rescheduled' ? 'scheduled' : entry.status,
     };
+}
+
+async function getScheduledActivityIdForEntry(entryId: string): Promise<string | null> {
+    if (hasScheduledActivityIdColumn === false) {
+        return null;
+    }
+
+    const { data, error } = await supabase
+        .from('weekly_plan_entries')
+        .select('scheduled_activity_id')
+        .eq('id', entryId)
+        .single();
+
+    if (error) {
+        if (isMissingScheduledActivityIdColumnError(error)) {
+            hasScheduledActivityIdColumn = false;
+            return null;
+        }
+        throw error;
+    }
+
+    hasScheduledActivityIdColumn = true;
+    return (data as { scheduled_activity_id?: string | null } | null)?.scheduled_activity_id ?? null;
 }
 // --- Weekly Plan Config -------------------------------------
 
@@ -244,33 +277,60 @@ export async function saveWeekPlan(
         .lte('date', weekEnd)
         .eq('status', 'scheduled');
 
-    const { data: generatedEntries, error: weeklyPlanError } = await supabase
-        .from('weekly_plan_entries')
-        .insert(
-            entries.map((e) => ({
-                user_id: userId,
-                week_start_date: e.week_start_date,
-                day_of_week: e.day_of_week,
-                date: e.date,
-                slot: e.slot,
-                session_type: e.session_type,
-                focus: e.focus,
-                estimated_duration_min: e.estimated_duration_min,
-                target_intensity: e.target_intensity,
-                status: e.status,
-                rescheduled_to: e.rescheduled_to,
-                workout_log_id: e.workout_log_id,
-                scheduled_activity_id: e.scheduled_activity_id ?? null,
-                prescription_snapshot: e.prescription_snapshot,
-                engine_notes: e.engine_notes,
-                is_deload: e.is_deload,
-            })),
-        )
-        .select();
+    const baseInsertPayload = entries.map((e) => ({
+        user_id: userId,
+        week_start_date: e.week_start_date,
+        day_of_week: e.day_of_week,
+        date: e.date,
+        slot: e.slot,
+        session_type: e.session_type,
+        focus: e.focus,
+        estimated_duration_min: e.estimated_duration_min,
+        target_intensity: e.target_intensity,
+        status: e.status,
+        rescheduled_to: e.rescheduled_to,
+        workout_log_id: e.workout_log_id,
+        prescription_snapshot: e.prescription_snapshot,
+        engine_notes: e.engine_notes,
+        is_deload: e.is_deload,
+    }));
 
-    if (weeklyPlanError) throw weeklyPlanError;
+    const withScheduledActivityPayload = entries.map((e, index) => ({
+        ...baseInsertPayload[index],
+        scheduled_activity_id: e.scheduled_activity_id ?? null,
+    }));
 
-    const insertedEntries = (generatedEntries ?? []) as WeeklyPlanEntryRow[];
+    let generatedEntries: WeeklyPlanEntryRow[] | null = null;
+
+    if (hasScheduledActivityIdColumn !== false) {
+        const { data, error } = await supabase
+            .from('weekly_plan_entries')
+            .insert(withScheduledActivityPayload)
+            .select();
+
+        if (error) {
+            if (isMissingScheduledActivityIdColumnError(error)) {
+                hasScheduledActivityIdColumn = false;
+            } else {
+                throw error;
+            }
+        } else {
+            generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
+            hasScheduledActivityIdColumn = true;
+        }
+    }
+
+    if (!generatedEntries) {
+        const { data, error } = await supabase
+            .from('weekly_plan_entries')
+            .insert(baseInsertPayload)
+            .select();
+
+        if (error) throw error;
+        generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
+    }
+
+    const insertedEntries = generatedEntries;
 
     const { data: scheduledActivities, error: scheduledError } = await supabase
         .from('scheduled_activities')
@@ -285,14 +345,25 @@ export async function saveWeekPlan(
             map((activity) => [activity.weekly_plan_entry_id as string, activity.id]),
     );
 
-    await Promise.all(
-        insertedEntries
-            .filter((entry) => scheduledByEntryId.has(entry.id))
-            .map((entry) => supabase
-                .from('weekly_plan_entries')
-                .update({ scheduled_activity_id: scheduledByEntryId.get(entry.id) })
-                .eq('id', entry.id)),
-    );
+    if (hasScheduledActivityIdColumn !== false) {
+        try {
+            await Promise.all(
+                insertedEntries
+                    .filter((entry) => scheduledByEntryId.has(entry.id))
+                    .map((entry) => supabase
+                        .from('weekly_plan_entries')
+                        .update({ scheduled_activity_id: scheduledByEntryId.get(entry.id) })
+                        .eq('id', entry.id)),
+            );
+            hasScheduledActivityIdColumn = true;
+        } catch (error) {
+            if (isMissingScheduledActivityIdColumnError(error)) {
+                hasScheduledActivityIdColumn = false;
+            } else {
+                throw error;
+            }
+        }
+    }
 
     const { data: finalEntries, error: finalEntriesError } = await supabase
         .from('weekly_plan_entries')
@@ -313,11 +384,7 @@ export async function markDayCompleted(
     entryId: string,
     workoutLogId: string,
 ): Promise<void> {
-    const { data: entry } = await supabase
-        .from('weekly_plan_entries')
-        .select('scheduled_activity_id')
-        .eq('id', entryId)
-        .single();
+    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
 
     const { error } = await supabase
         .from('weekly_plan_entries')
@@ -326,11 +393,11 @@ export async function markDayCompleted(
 
     if (error) throw error;
 
-    if (entry?.scheduled_activity_id) {
+    if (scheduledActivityId) {
         const { error: scheduledError } = await supabase
             .from('scheduled_activities')
             .update({ status: 'completed', recommendation_status: 'completed' })
-            .eq('id', entry.scheduled_activity_id);
+            .eq('id', scheduledActivityId);
         if (scheduledError) throw scheduledError;
     }
 }
@@ -339,11 +406,7 @@ export async function markDayCompleted(
  * Mark a plan entry as skipped.
  */
 export async function markDaySkipped(entryId: string): Promise<void> {
-    const { data: entry } = await supabase
-        .from('weekly_plan_entries')
-        .select('scheduled_activity_id')
-        .eq('id', entryId)
-        .single();
+    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
 
     const { error } = await supabase
         .from('weekly_plan_entries')
@@ -352,11 +415,11 @@ export async function markDaySkipped(entryId: string): Promise<void> {
 
     if (error) throw error;
 
-    if (entry?.scheduled_activity_id) {
+    if (scheduledActivityId) {
         const { error: scheduledError } = await supabase
             .from('scheduled_activities')
             .update({ status: 'skipped', recommendation_status: 'declined' })
-            .eq('id', entry.scheduled_activity_id);
+            .eq('id', scheduledActivityId);
         if (scheduledError) throw scheduledError;
     }
 }
@@ -368,11 +431,7 @@ export async function rescheduleMissedDay(
     entryId: string,
     newDate: string,
 ): Promise<void> {
-    const { data: entry } = await supabase
-        .from('weekly_plan_entries')
-        .select('scheduled_activity_id')
-        .eq('id', entryId)
-        .single();
+    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
 
     const { error } = await supabase
         .from('weekly_plan_entries')
@@ -384,11 +443,11 @@ export async function rescheduleMissedDay(
 
     if (error) throw error;
 
-    if (entry?.scheduled_activity_id) {
+    if (scheduledActivityId) {
         const { error: scheduledError } = await supabase
             .from('scheduled_activities')
             .update({ date: newDate, status: 'scheduled', recommendation_status: 'declined' })
-            .eq('id', entry.scheduled_activity_id);
+            .eq('id', scheduledActivityId);
         if (scheduledError) throw scheduledError;
     }
 }
@@ -459,18 +518,13 @@ export async function getWeeklyPlanEntryById(entryId: string): Promise<WeeklyPla
 }
 
 export async function markRecommendationAccepted(entryId: string): Promise<void> {
-    const { data: entry } = await supabase
-        .from('weekly_plan_entries')
-        .select('scheduled_activity_id')
-        .eq('id', entryId)
-        .single();
-
-    if (!entry?.scheduled_activity_id) return;
+    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
+    if (!scheduledActivityId) return;
 
     const { error } = await supabase
         .from('scheduled_activities')
         .update({ recommendation_status: 'accepted' })
-        .eq('id', entry.scheduled_activity_id)
+        .eq('id', scheduledActivityId)
         .eq('recommendation_status', 'pending');
 
     if (error) throw error;

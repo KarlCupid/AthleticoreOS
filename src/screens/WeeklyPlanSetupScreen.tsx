@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Switch,
@@ -16,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../theme/theme';
 import { DatePickerField } from '../components/DatePickerField';
 import { TimePickerField } from '../components/TimePickerField';
+import { IconCheckCircle } from '../components/icons';
 import { supabase } from '../../lib/supabase';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
@@ -86,6 +88,7 @@ const DAY_OPTIONS = [
 
 const DAY_ORDER: Record<number, number> = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6 };
 const DURATION_OPTIONS = [30, 45, 60, 75, 90];
+const COMMITMENT_DURATION_OPTIONS = [30, 45, 60, 75, 90, 105, 120];
 const DELOAD_OPTIONS = [4, 5, 6, 8];
 const ROUND_OPTIONS = [3, 4, 5, 6, 8, 10, 12];
 const ROUND_DURATION_OPTIONS = [120, 180, 240, 300];
@@ -312,14 +315,39 @@ function isGuidedBuildGoal(buildGoal: BuildPhaseGoalRow, recommendation: BuildPh
     && buildGoal.target_horizon_weeks === recommendation.targetHorizonWeeks;
 }
 
-function OptionPill({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) {
+function OptionPill({
+  selected,
+  label,
+  onPress,
+  compact = false,
+}: {
+  selected: boolean;
+  label: string;
+  onPress: () => void;
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <TouchableOpacity
+        style={[styles.optionPill, selected && styles.optionPillSelected]}
+        onPress={onPress}
+        activeOpacity={0.75}
+      >
+        <Text style={[styles.optionPillText, selected && styles.optionPillTextSelected]}>{label}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
-      style={[styles.optionPill, selected && styles.optionPillSelected]}
+      style={[styles.optionCard, selected && styles.optionCardSelected]}
       onPress={onPress}
       activeOpacity={0.75}
     >
-      <Text style={[styles.optionPillText, selected && styles.optionPillTextSelected]}>{label}</Text>
+      <Text style={[styles.optionCardText, selected && styles.optionCardTextSelected]}>{label}</Text>
+      <View style={[styles.optionCardIndicator, selected && styles.optionCardIndicatorSelected]}>
+        {selected ? <IconCheckCircle size={14} color={COLORS.readiness.prime} /> : null}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -366,6 +394,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
   const [pmSessionType, setPmSessionType] = useState<SessionType>('boxing_practice');
   const [autoDeloadInterval, setAutoDeloadInterval] = useState(5);
   const [commitments, setCommitments] = useState<EditableCommitment[]>([]);
+  const [durationPickerCommitmentId, setDurationPickerCommitmentId] = useState<string | null>(null);
 
   const [goalMode, setGoalMode] = useState<AthleteGoalMode>('build_phase');
   const [buildGoalType, setBuildGoalType] = useState<BuildPhaseGoalType>('conditioning');
@@ -801,7 +830,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
 
         <Section label="Plan Type" description="Choose the kind of block you want the engine to build.">
           <FieldNote>Every athlete should be in either Fight Camp or Build Phase so the planner can prioritize correctly.</FieldNote>
-          <View style={styles.pillRow}>
+          <View style={styles.optionList}>
             <OptionPill selected={goalMode === 'fight_camp'} label="Fight Camp" onPress={() => setGoalMode('fight_camp')} />
             <OptionPill selected={goalMode === 'build_phase'} label="Build Phase" onPress={() => setGoalMode('build_phase')} />
           </View>
@@ -810,7 +839,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             <>
               <Text style={styles.subLabel}>Primary Focus</Text>
               <FieldNote>Pick the area you want the engine to lead. We will recommend the scoreboard, target, and time frame for you.</FieldNote>
-              <View style={styles.pillRow}>
+              <View style={styles.optionList}>
                 {BUILD_GOAL_OPTIONS.map((option) => (
                   <OptionPill key={option.value} selected={buildGoalType === option.value} label={option.label} onPress={() => setBuildGoalType(option.value)} />
                 ))}
@@ -844,7 +873,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                   <TextInput style={[styles.input, styles.multilineInput]} value={goalStatement} onChangeText={setGoalStatement} placeholder={BUILD_GOAL_OBJECTIVE_PLACEHOLDERS[buildGoalType]} placeholderTextColor={COLORS.text.tertiary} multiline />
                   <Text style={styles.subLabel}>Success Metric</Text>
                   <FieldNote>Choose the exact scoreboard the engine should optimize if you want to override the default.</FieldNote>
-                  <View style={styles.pillRow}>
+                  <View style={styles.optionList}>
                     {getBuildMetricOptions(buildGoalType).map((option) => (
                       <OptionPill key={option.value} selected={selectedBuildMetric.value === option.value} label={option.label} onPress={() => setTargetMetric(option.value)} />
                     ))}
@@ -894,7 +923,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
               <TextInput style={styles.input} value={targetWeight} onChangeText={setTargetWeight} keyboardType="decimal-pad" placeholder="155" placeholderTextColor={COLORS.text.tertiary} />
               <Text style={styles.subLabel}>Weigh-in Timing</Text>
               <FieldNote>This changes how aggressive weight-cut assumptions can be.</FieldNote>
-              <View style={styles.pillRow}>
+              <View style={styles.optionList}>
                 <OptionPill selected={weighInTiming === 'same_day'} label="Same Day" onPress={() => setWeighInTiming('same_day')} />
                 <OptionPill selected={weighInTiming === 'next_day'} label="Next Day" onPress={() => setWeighInTiming('next_day')} />
               </View>
@@ -987,22 +1016,22 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             </View>
             <Text style={styles.subLabel}>Session Type</Text>
             <FieldNote>Choose what this session actually is so the engine can model load correctly.</FieldNote>
-            <View style={styles.pillRow}>
+            <View style={styles.optionList}>
               {COMMITMENT_OPTIONS.map((option) => (
                 <OptionPill key={option.value} selected={commitment.activityType === option.value} label={option.label} onPress={() => updateCommitment(commitment.id, { activityType: option.value })} />
               ))}
             </View>
             <Text style={styles.subLabel}>Constraint Tier</Text>
-            <View style={styles.pillRow}>
+            <View style={styles.optionList}>
               <OptionPill selected={commitment.tier === 'mandatory'} label="Mandatory" onPress={() => updateCommitment(commitment.id, { tier: 'mandatory' })} />
               <OptionPill selected={commitment.tier === 'preferred'} label="Preferred" onPress={() => updateCommitment(commitment.id, { tier: 'preferred' })} />
             </View>
             <Text style={styles.subLabel}>Day</Text>
-            <View style={styles.pillRow}>
-              {DAY_OPTIONS.map((day) => (
-                <OptionPill key={day.value} selected={commitment.dayOfWeek === day.value} label={day.label} onPress={() => updateCommitment(commitment.id, { dayOfWeek: day.value })} />
-              ))}
-            </View>
+              <View style={styles.pillRow}>
+                {DAY_OPTIONS.map((day) => (
+                  <OptionPill compact key={day.value} selected={commitment.dayOfWeek === day.value} label={day.label} onPress={() => updateCommitment(commitment.id, { dayOfWeek: day.value })} />
+                ))}
+              </View>
             <Text style={styles.subLabel}>Label</Text>
             <FieldNote>Use the real session name if you have one, such as Team Sparring or Technical Boxing.</FieldNote>
             <TextInput style={styles.input} value={commitment.label} onChangeText={(value) => updateCommitment(commitment.id, { label: value })} placeholder="Team sparring" placeholderTextColor={COLORS.text.tertiary} />
@@ -1013,16 +1042,23 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
               </View>
               <View style={styles.inlineField}>
                 <Text style={styles.subLabel}>Duration</Text>
-                <TextInput style={styles.input} value={commitment.durationMin} onChangeText={(value) => updateCommitment(commitment.id, { durationMin: value })} keyboardType="number-pad" placeholder="90" placeholderTextColor={COLORS.text.tertiary} />
+                <TouchableOpacity
+                  style={styles.dropdownField}
+                  onPress={() => setDurationPickerCommitmentId(commitment.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownFieldText}>{commitment.durationMin ? `${commitment.durationMin} min` : 'Select duration'}</Text>
+                  <Text style={styles.dropdownFieldChevron}>▾</Text>
+                </TouchableOpacity>
               </View>
             </View>
             <Text style={styles.subLabel}>Typical Intensity</Text>
             <FieldNote>This should reflect how hard the session usually is, not the best-case day.</FieldNote>
-            <View style={styles.pillRow}>
-              {[4, 5, 6, 7, 8, 9].map((value) => (
-                <OptionPill key={value} selected={commitment.expectedIntensity === value} label={`RPE ${value}`} onPress={() => updateCommitment(commitment.id, { expectedIntensity: value })} />
-              ))}
-            </View>
+              <View style={styles.pillRow}>
+                {[4, 5, 6, 7, 8, 9].map((value) => (
+                  <OptionPill compact key={value} selected={commitment.expectedIntensity === value} label={`RPE ${value}`} onPress={() => updateCommitment(commitment.id, { expectedIntensity: value })} />
+                ))}
+              </View>
           </View>
         ))}
         <TouchableOpacity style={styles.secondaryButton} onPress={() => setCommitments((prev) => [...prev, createCommitment(availableDays[0] ?? 1)])}>
@@ -1039,7 +1075,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         <FieldNote>Pick the standard duration for sessions the engine creates automatically.</FieldNote>
         <View style={styles.pillRow}>
           {DURATION_OPTIONS.map((minutes) => (
-            <OptionPill key={minutes} selected={sessionDuration === minutes} label={`${minutes}m`} onPress={() => setSessionDuration(minutes)} />
+            <OptionPill compact key={minutes} selected={sessionDuration === minutes} label={`${minutes}m`} onPress={() => setSessionDuration(minutes)} />
           ))}
         </View>
         <View style={styles.toggleRow}>
@@ -1050,7 +1086,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
               setAllowTwoADays(value);
               if (!value) setTwoADayDays([]);
             }}
-            trackColor={{ false: COLORS.border, true: COLORS.accent }}
+            trackColor={{ false: COLORS.border, true: COLORS.readiness.prime }}
             thumbColor="#FFFFFF"
             ios_backgroundColor={COLORS.border}
           />
@@ -1063,18 +1099,18 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             <View style={styles.pillRow}>
               {availableDays.map((day) => {
                 const label = DAY_OPTIONS.find((option) => option.value === day)?.label ?? 'Day';
-                return <OptionPill key={day} selected={twoADayDays.includes(day)} label={label} onPress={() => toggleTwoADay(day)} />;
+                return <OptionPill compact key={day} selected={twoADayDays.includes(day)} label={label} onPress={() => toggleTwoADay(day)} />;
               })}
             </View>
             <Text style={styles.subLabel}>AM session type</Text>
             <FieldNote>Choose what the first session should usually be.</FieldNote>
-            <View style={styles.pillRow}>
+            <View style={styles.optionList}>
               <OptionPill selected={amSessionType === 'sc'} label="S&C" onPress={() => setAmSessionType('sc')} />
               <OptionPill selected={amSessionType === 'boxing_practice'} label="Boxing" onPress={() => setAmSessionType('boxing_practice')} />
               <OptionPill selected={amSessionType === 'conditioning'} label="Conditioning" onPress={() => setAmSessionType('conditioning')} />
             </View>
             <Text style={styles.subLabel}>PM session type</Text>
-            <View style={styles.pillRow}>
+            <View style={styles.optionList}>
               <OptionPill selected={pmSessionType === 'sc'} label="S&C" onPress={() => setPmSessionType('sc')} />
               <OptionPill selected={pmSessionType === 'boxing_practice'} label="Boxing" onPress={() => setPmSessionType('boxing_practice')} />
               <OptionPill selected={pmSessionType === 'conditioning'} label="Conditioning" onPress={() => setPmSessionType('conditioning')} />
@@ -1085,7 +1121,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         <FieldNote>Choose how often the planner should reduce loading to manage fatigue over time.</FieldNote>
         <View style={styles.pillRow}>
           {DELOAD_OPTIONS.map((weeks) => (
-            <OptionPill key={weeks} selected={autoDeloadInterval === weeks} label={`Every ${weeks}w`} onPress={() => setAutoDeloadInterval(weeks)} />
+            <OptionPill compact key={weeks} selected={autoDeloadInterval === weeks} label={`Every ${weeks}w`} onPress={() => setAutoDeloadInterval(weeks)} />
           ))}
         </View>
       </Section>
@@ -1110,7 +1146,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
+        <ActivityIndicator size="large" color={COLORS.readiness.prime} />
       </View>
     );
   }
@@ -1162,6 +1198,41 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           </TouchableOpacity>
         )}
       </View>
+
+      <Modal
+        visible={Boolean(durationPickerCommitmentId)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDurationPickerCommitmentId(null)}
+      >
+        <View style={styles.durationPickerOverlay}>
+          <View style={styles.durationPickerSheet}>
+            <Text style={styles.durationPickerTitle}>Select Duration</Text>
+            {COMMITMENT_DURATION_OPTIONS.map((minutes) => {
+              const selectedCommitment = commitments.find((item) => item.id === durationPickerCommitmentId);
+              const selected = selectedCommitment?.durationMin === String(minutes);
+              return (
+                <TouchableOpacity
+                  key={minutes}
+                  style={[styles.durationPickerOption, selected && styles.durationPickerOptionSelected]}
+                  onPress={() => {
+                    if (!durationPickerCommitmentId) return;
+                    updateCommitment(durationPickerCommitmentId, { durationMin: String(minutes) });
+                    setDurationPickerCommitmentId(null);
+                  }}
+                >
+                  <Text style={[styles.durationPickerOptionText, selected && styles.durationPickerOptionTextSelected]}>
+                    {minutes} min
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={styles.durationPickerCancel} onPress={() => setDurationPickerCommitmentId(null)}>
+              <Text style={styles.durationPickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1171,17 +1242,17 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   backButton: { minWidth: 64, paddingVertical: SPACING.xs },
-  backButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
+  backButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.prime },
   headerTitle: { fontSize: 18, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
   headerRight: { minWidth: 64, alignItems: 'flex-end' },
   progressShell: { marginHorizontal: SPACING.lg, marginBottom: SPACING.md, backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, ...SHADOWS.card },
   progressHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xs },
-  progressEyebrow: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent, textTransform: 'uppercase', letterSpacing: 0.8 },
+  progressEyebrow: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.prime, textTransform: 'uppercase', letterSpacing: 0.8 },
   progressCount: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
   phaseTitle: { fontSize: 24, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
   phaseDescription: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 21, marginBottom: SPACING.md },
   progressTrack: { height: 6, borderRadius: RADIUS.full, backgroundColor: COLORS.border, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.accent },
+  progressFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.readiness.prime },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.xs, gap: SPACING.sm },
   section: { backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, ...SHADOWS.card },
@@ -1191,29 +1262,81 @@ const styles = StyleSheet.create({
   fieldNote: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 18, marginTop: SPACING.xs },
   dateRow: { paddingRight: SPACING.lg, paddingTop: SPACING.sm },
   datePill: { width: 72, height: 72, borderRadius: RADIUS.md, borderWidth: 1.5, marginRight: SPACING.sm, alignItems: 'center', justifyContent: 'center' },
-  datePillSelected: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  datePillSelected: { backgroundColor: COLORS.readiness.prime, borderColor: COLORS.readiness.prime },
   datePillIdle: { backgroundColor: COLORS.surfaceSecondary, borderColor: COLORS.border },
   dateTopText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 4 },
   dateBottomText: { fontSize: 13, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
   dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
   dayPill: { minWidth: 58, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.surfaceSecondary },
-  dayPillSelected: { borderColor: COLORS.accent, backgroundColor: COLORS.accent },
+  dayPillSelected: { borderColor: COLORS.readiness.prime, backgroundColor: COLORS.readiness.prime },
   dayPillText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  optionList: { gap: SPACING.sm, marginTop: SPACING.sm },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
+  optionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+  },
+  optionCardSelected: {
+    borderColor: COLORS.readiness.prime,
+    backgroundColor: COLORS.readiness.primeLight,
+  },
+  optionCardText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  optionCardTextSelected: {
+    color: COLORS.readiness.prime,
+  },
+  optionCardIndicator: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionCardIndicatorSelected: {
+    borderColor: COLORS.readiness.prime,
+    backgroundColor: '#FFFFFF',
+  },
   optionPill: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.surfaceSecondary },
-  optionPillSelected: { borderColor: COLORS.accent, backgroundColor: COLORS.accent },
+  optionPillSelected: { borderColor: COLORS.readiness.prime, backgroundColor: COLORS.readiness.prime },
   optionPillText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   optionPillTextSelected: { color: '#FFFFFF' },
   advancedToggle: { marginTop: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, padding: SPACING.md, backgroundColor: COLORS.surfaceSecondary, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   advancedToggleTextWrap: { flex: 1, paddingRight: SPACING.md },
   advancedToggleTitle: { fontSize: 14, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, marginBottom: 2 },
   advancedToggleDescription: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 18 },
-  advancedToggleAction: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
+  advancedToggleAction: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.prime },
 
   input: { marginTop: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, fontSize: 15, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary, backgroundColor: COLORS.surfaceSecondary },
   multilineInput: { minHeight: 96, textAlignVertical: 'top' },
   inputRow: { flexDirection: 'row', alignItems: 'flex-start' },
   inlineField: { flex: 1 },
+  dropdownField: {
+    marginTop: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownFieldText: { fontSize: 15, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary },
+  dropdownFieldChevron: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
   windowCard: { marginTop: SPACING.md, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, padding: SPACING.md, backgroundColor: COLORS.surfaceSecondary },
   windowTitle: { fontSize: 14, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
   commitmentCard: { marginTop: SPACING.md, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, padding: SPACING.md, backgroundColor: COLORS.surfaceSecondary },
@@ -1225,12 +1348,64 @@ const styles = StyleSheet.create({
   previewCard: { marginTop: SPACING.lg, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.md, gap: SPACING.xs },
   previewTitle: { fontSize: 13, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, marginBottom: 2 },
   previewLine: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 17 },
-  secondaryButton: { marginTop: SPACING.lg, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.accent, paddingVertical: SPACING.md, alignItems: 'center' },
-  secondaryButtonText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
+  secondaryButton: { marginTop: SPACING.lg, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.readiness.prime, paddingVertical: SPACING.md, alignItems: 'center' },
+  secondaryButtonText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.prime },
   saveBar: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: COLORS.background, paddingHorizontal: SPACING.lg, paddingTop: SPACING.md },
-  saveButton: { height: 52, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.accent, ...SHADOWS.card },
+  saveButton: { height: 52, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.readiness.prime, ...SHADOWS.card },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#FFFFFF' },
+  durationPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.lg,
+  },
+  durationPickerSheet: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: RADIUS.xl,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    ...SHADOWS.card,
+  },
+  durationPickerTitle: {
+    fontSize: 16,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.sm,
+  },
+  durationPickerOption: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  durationPickerOptionSelected: {
+    borderColor: COLORS.readiness.prime,
+    backgroundColor: COLORS.readiness.primeLight,
+  },
+  durationPickerOptionText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  durationPickerOptionTextSelected: {
+    color: COLORS.readiness.prime,
+  },
+  durationPickerCancel: {
+    marginTop: SPACING.sm,
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  durationPickerCancelText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+  },
 });
 
 
