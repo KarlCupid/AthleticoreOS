@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { DailyNutritionTargetSource, FoodItemRow, FoodLogRow, MealType } from '../engine/types';
+import { DailyNutritionTargetSource, FoodItemRow, MealType } from '../engine/types';
 import { todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;

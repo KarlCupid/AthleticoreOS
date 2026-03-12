@@ -34,7 +34,7 @@ export async function getActiveBuildPhaseGoal(userId: string): Promise<BuildPhas
 }
 
 export async function setupBuildPhaseGoal(userId: string, input: BuildPhaseSetupInput): Promise<BuildPhaseGoalRow> {
-  const { data: activeCamp, error: campError } = await supabase
+  const { error: campError } = await supabase
     .from('fight_camps')
     .update({ status: 'completed', updated_at: new Date().toISOString() })
     .eq('user_id', userId)

@@ -14,8 +14,7 @@ import {
     MuscleGroup,
     WeightCutPlanRow,
 } from '../engine/types';
-import { calculateWeeklyCompliance, getTrainingStreak, generateWeekPlan, generateSmartWeekPlan, adaptDailySchedule } from '../engine/calculateSchedule';
-import { getFitnessProfile } from './fitnessService';
+import { calculateWeeklyCompliance, getTrainingStreak, generateSmartWeekPlan, adaptDailySchedule } from '../engine/calculateSchedule';
 import { calculateACWR } from '../engine/calculateACWR';
 import { getRecentExerciseIds, getExerciseLibrary } from './scService';
 import { formatLocalDate, todayLocalDate } from '../utils/date';

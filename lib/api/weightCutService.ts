@@ -311,7 +311,6 @@ export async function completeCutPlan(
     .eq('user_id', userId);
 
   // Gather plan summary
-  const plan = await getActiveWeightCutPlan(userId);  // won't return now (completed), use direct fetch
   const { data: planData } = await supabase
     .from('weight_cut_plans')
     .select('*')
