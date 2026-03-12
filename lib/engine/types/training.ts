@@ -1,34 +1,416 @@
-﻿export type {
-  AutoRegulateSCInput,
-  AutoRegulateSCResult,
-  CampSCModifier,
-  ConditioningExercise,
-  ConditioningPrescription,
-  ConditioningType,
-  EquipmentItem,
-  ExerciseAdjustment,
-  ExerciseHistoryEntry,
-  ExerciseLibraryRow,
-  ExerciseScoringContext,
-  GenerateWorkoutInput,
-  GenerateWorkoutInputV2,
-  GymProfileRow,
-  OverloadInput,
-  OverloadSuggestion,
-  PrescribedExercise,
-  PrescribedExerciseV2,
-  ProgressionModel,
-  RestTimerConfig,
-  RoadWorkInterval,
-  RoadWorkPrescription,
-  RoadWorkType,
-  SetCompletionInput,
-  WarmupInput,
-  WarmupResult,
-  WarmupSet,
-  WorkoutLogRow,
-  WorkoutPrescription,
-  WorkoutPrescriptionV2,
-  WorkoutSetLogRow
-} from './legacy';
+import type {
+  Equipment,
+  ExerciseType,
+  FitnessLevel,
+  MuscleGroup,
+  Phase,
+  ReadinessState,
+  WorkoutFocus,
+  WorkoutType,
+} from './foundational';
+import type {
+  AdjustmentType,
+  FeedbackSeverity,
+  HRZone,
+  SessionFatigueState,
+} from './misc';
+import type { CampConfig, CampPhase } from './camp';
+import type {
+  DailyTimelineRow,
+  RecurringActivityRow,
+  ScheduledActivityRow,
+} from './schedule';
+import type { WeightCutPlanRow } from './weight_cut';
 
+export interface ExerciseLibraryRow {
+  id: string;
+  name: string;
+  type: ExerciseType;
+  cns_load: number;
+  muscle_group: MuscleGroup;
+  equipment: Equipment;
+  description: string;
+  cues: string;
+  sport_tags: string[];
+}
+
+export interface WorkoutPrescription {
+  focus: WorkoutFocus;
+  workoutType: WorkoutType;
+  exercises: PrescribedExercise[];
+  totalCNSBudget: number;
+  usedCNS: number;
+  message: string;
+}
+
+export interface PrescribedExercise {
+  exercise: ExerciseLibraryRow;
+  targetSets: number;
+  targetReps: number;
+  targetRPE: number;
+  supersetGroup: number | null;
+  score: number;
+}
+
+export interface ExerciseScoringContext {
+  readinessState: ReadinessState;
+  phase: Phase;
+  acwr: number;
+  recentExerciseIds: string[];
+  recentMuscleVolume: Record<MuscleGroup, number>;
+  cnsBudgetRemaining: number;
+  fitnessLevel: FitnessLevel;
+}
+
+export interface GenerateWorkoutInput {
+  readinessState: ReadinessState;
+  phase: Phase;
+  acwr: number;
+  exerciseLibrary: ExerciseLibraryRow[];
+  recentExerciseIds: string[];
+  recentMuscleVolume: Record<MuscleGroup, number>;
+  trainingDate?: string;
+  focus?: WorkoutFocus;
+  trainingIntensityCap?: number | null;
+  fitnessLevel: FitnessLevel;
+}
+
+export interface WorkoutLogRow {
+  id: string;
+  user_id: string;
+  date: string;
+  weekly_plan_entry_id?: string | null;
+  scheduled_activity_id?: string | null;
+  gym_profile_id?: string | null;
+  workout_type: WorkoutType;
+  focus: WorkoutFocus | null;
+  total_volume: number;
+  total_sets: number;
+  session_rpe: number | null;
+  duration_minutes: number | null;
+  notes: string | null;
+}
+
+export interface WorkoutSetLogRow {
+  id: string;
+  workout_log_id: string;
+  exercise_library_id: string;
+  superset_group: number | null;
+  set_number: number;
+  reps: number;
+  weight_lbs: number;
+  rpe: number | null;
+  tempo: string | null;
+  rest_seconds: number | null;
+  is_warmup: boolean;
+}
+
+export interface WorkoutComplianceResult {
+  setsCompletedPct: number;
+  volumeCompliancePct: number;
+  overall: 'Target Met' | 'Close Enough' | 'Missed It';
+}
+
+export interface AutoRegulateSCInput {
+  boxingBlock: DailyTimelineRow;
+  next24hBlocks: DailyTimelineRow[];
+  exerciseLibrary: ExerciseLibraryRow[];
+}
+
+export interface AutoRegulateSCResult {
+  swapped: boolean;
+  originalBlockId: string | null;
+  replacementType: ExerciseType | null;
+  message: string;
+}
+
+export type EquipmentItem =
+  | 'barbell'
+  | 'dumbbells'
+  | 'kettlebells'
+  | 'cables'
+  | 'pull_up_bar'
+  | 'dip_station'
+  | 'resistance_bands'
+  | 'heavy_bag'
+  | 'speed_bag'
+  | 'double_end_bag'
+  | 'medicine_balls'
+  | 'battle_ropes'
+  | 'sled'
+  | 'assault_bike'
+  | 'rowing_machine'
+  | 'jump_rope'
+  | 'squat_rack'
+  | 'bench'
+  | 'plyo_box'
+  | 'trx'
+  | 'smith_machine'
+  | 'leg_press_machine'
+  | 'cable_crossover'
+  | 'lat_pulldown_machine';
+
+export interface GymProfileRow {
+  id: string;
+  user_id: string;
+  name: string;
+  equipment: EquipmentItem[];
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProgressionModel = 'linear' | 'wave' | 'block';
+
+export interface ExerciseHistoryEntry {
+  date: string;
+  bestSetWeight: number;
+  bestSetReps: number;
+  bestSetRPE: number | null;
+  totalVolume: number;
+  workingSets: number;
+  estimated1RM: number;
+}
+
+export interface OverloadSuggestion {
+  exerciseId: string;
+  exerciseName: string;
+  suggestedWeight: number;
+  suggestedReps: number;
+  suggestedRPE: number;
+  lastSessionWeight: number;
+  lastSessionReps: number;
+  lastSessionRPE: number | null;
+  progressionModel: ProgressionModel;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+  isDeloadSet: boolean;
+}
+
+export interface OverloadInput {
+  exerciseId: string;
+  exerciseName: string;
+  history: ExerciseHistoryEntry[];
+  fitnessLevel: FitnessLevel;
+  progressionModel: ProgressionModel;
+  isDeloadWeek: boolean;
+  readinessState: ReadinessState;
+  targetRPE: number;
+  targetReps: number;
+  muscleGroup: MuscleGroup;
+}
+
+export interface DeloadDecisionInput {
+  weeksSinceLastDeload: number;
+  autoDeloadIntervalWeeks: number;
+  acwr: number;
+  readinessState: ReadinessState;
+  recentSessionRPEs: number[];
+  consecutiveCautionDays: number;
+}
+
+export interface DeloadDecisionResult {
+  shouldDeload: boolean;
+  reason: string;
+  suggestedDurationWeeks: number;
+}
+
+export interface WarmupSet {
+  setNumber: number;
+  weight: number;
+  reps: number;
+  label: string;
+  isCompleted: boolean;
+}
+
+export interface WarmupInput {
+  workingWeight: number;
+  exerciseType: ExerciseType;
+  equipment: Equipment;
+  isFirstExerciseForMuscle: boolean;
+  fitnessLevel: FitnessLevel;
+}
+
+export interface WarmupResult {
+  sets: WarmupSet[];
+  totalWarmupSets: number;
+  estimatedTimeMinutes: number;
+}
+
+export interface SetCompletionInput {
+  exerciseId: string;
+  exerciseName: string;
+  setNumber: number;
+  actualWeight: number;
+  actualReps: number;
+  actualRPE: number;
+  targetWeight: number;
+  targetReps: number;
+  targetRPE: number;
+  currentFatigueState: SessionFatigueState;
+  remainingExercises: PrescribedExerciseV2[];
+  exerciseLibrary: ExerciseLibraryRow[];
+  availableEquipment?: EquipmentItem[];
+}
+
+export interface ExerciseAdjustment {
+  exerciseId: string;
+  adjustmentType: AdjustmentType;
+  originalValue: number;
+  adjustedValue: number;
+  swapExerciseId?: string;
+  swapExerciseName?: string;
+  reason: string;
+}
+
+export interface SetAdaptationResult {
+  updatedFatigueState: SessionFatigueState;
+  adjustments: ExerciseAdjustment[];
+  shouldEndWorkoutEarly: boolean;
+  endEarlyReason: string | null;
+  feedbackMessage: string;
+  feedbackSeverity: FeedbackSeverity;
+}
+
+export interface RestTimerConfig {
+  exerciseType: ExerciseType;
+  defaultSeconds: number;
+  minSeconds: number;
+  maxSeconds: number;
+}
+
+export interface SparringDayGuidance {
+  preActivation: PrescribedExercise[];
+  postRecovery: PrescribedExercise[];
+  scRestriction: 'none' | 'activation_only' | 'recovery_only';
+  message: string;
+}
+
+export interface CampSCModifier {
+  sparringDaysThisWeek: number;
+  scVolumeMultiplier: number;
+  allowHeavyLifts: boolean;
+  maxCNSBudget: number;
+  recommendedFocus: WorkoutFocus;
+}
+
+export type RoadWorkType =
+  | 'easy_run'
+  | 'tempo'
+  | 'intervals'
+  | 'hill_sprints'
+  | 'long_slow_distance'
+  | 'recovery_jog';
+
+export interface RoadWorkInterval {
+  effortLabel: string;
+  durationSec: number;
+  restSec: number;
+  zone: HRZone;
+  repetitions: number;
+}
+
+export interface RoadWorkPrescription {
+  type: RoadWorkType;
+  totalDurationMin: number;
+  targetDistanceMiles: number | null;
+  hrZone: HRZone;
+  hrZoneRange: [HRZone, HRZone];
+  estimatedMaxHR: number | null;
+  paceGuidance: string;
+  warmupCooldownMin: number;
+  intervals: RoadWorkInterval[];
+  progressionNote: string;
+  message: string;
+  cnsBudget: number;
+  estimatedLoad: number;
+}
+
+export interface WeeklyRoadWorkInput {
+  weekStartDate: string;
+  prescriptionsNeeded: number;
+  recurringActivities: RecurringActivityRow[];
+  existingActivities: ScheduledActivityRow[];
+  fitnessLevel: FitnessLevel;
+  phase: Phase;
+  readinessState: ReadinessState;
+  acwr: number;
+  age: number | null;
+  campConfig: CampConfig | null;
+  activeCutPlan: WeightCutPlanRow | null;
+}
+
+export type ConditioningType =
+  | 'heavy_bag_rounds'
+  | 'circuit'
+  | 'jump_rope'
+  | 'sled_work'
+  | 'agility_drills'
+  | 'sport_specific_drill';
+
+export interface ConditioningExercise {
+  name: string;
+  durationSec: number | null;
+  reps: number | null;
+  rounds: number;
+  restSec: number;
+}
+
+export interface ConditioningPrescription {
+  type: ConditioningType;
+  totalDurationMin: number;
+  rounds: number;
+  workIntervalSec: number;
+  restIntervalSec: number;
+  exercises: ConditioningExercise[];
+  intensityLabel: 'light' | 'moderate' | 'hard';
+  message: string;
+  cnsBudget: number;
+  estimatedLoad: number;
+}
+
+export interface WeeklyConditioningInput {
+  weekStartDate: string;
+  prescriptionsNeeded: number;
+  recurringActivities: RecurringActivityRow[];
+  existingActivities: ScheduledActivityRow[];
+  fitnessLevel: FitnessLevel;
+  phase: Phase;
+  readinessState: ReadinessState;
+  acwr: number;
+  campConfig: CampConfig | null;
+  activeCutPlan: WeightCutPlanRow | null;
+}
+
+export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
+  availableMinutes?: number;
+  gymEquipment?: EquipmentItem[];
+  exerciseHistory?: Map<string, ExerciseHistoryEntry[]>;
+  isDeloadWeek?: boolean;
+  weeklyPlanFocus?: WorkoutFocus;
+  sparringDaysThisWeek?: number;
+  isSparringDay?: boolean;
+  progressionModel?: ProgressionModel;
+}
+
+export interface PrescribedExerciseV2 extends PrescribedExercise {
+  suggestedWeight?: number;
+  weightSuggestionReasoning?: string;
+  warmupSets?: WarmupSet[];
+  restSeconds?: number;
+  formCues?: string;
+  isSubstitute?: boolean;
+  originalExerciseId?: string;
+  originalExerciseName?: string;
+  overloadSuggestion?: OverloadSuggestion;
+}
+
+export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
+  exercises: PrescribedExerciseV2[];
+  estimatedDurationMin: number;
+  isDeloadWorkout: boolean;
+  equipmentProfile: string | null;
+  campPhaseContext: CampPhase | null;
+  weeklyPlanDay: number | null;
+  sparringDayGuidance: SparringDayGuidance | null;
+}

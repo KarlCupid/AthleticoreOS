@@ -47,7 +47,7 @@ export const COLORS = {
         water: '#34D399',
     },
 
-    // Keep legacy status colors for backward compat during migration
+    // Keep status colors stable across the current daily flow
     status: {
         optimal: '#22C55E',
         caution: '#EAB308',

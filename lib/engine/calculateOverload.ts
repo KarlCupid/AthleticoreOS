@@ -425,7 +425,10 @@ export function shouldDeload(input: DeloadDecisionInput): DeloadDecisionResult {
 
   // ── Trigger 3: Chronic fatigue (high avg RPE over recent sessions) ──
   if (recentSessionRPEs.length >= 4) {
-    const avgRPE = recentSessionRPEs.reduce((sum, r) => sum + r, 0) / recentSessionRPEs.length;
+    const avgRPE = recentSessionRPEs.reduce(
+      (sum: number, r: number) => sum + r,
+      0
+    ) / recentSessionRPEs.length;
     if (avgRPE >= 8.5) {
       return {
         shouldDeload: true,

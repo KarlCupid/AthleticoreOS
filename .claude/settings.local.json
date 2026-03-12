@@ -21,7 +21,9 @@
       "Bash(cp \"C:/Users/karll/Documents/Athleticore OS/lib/api/scheduleService.ts\" \"C:/Users/karll/Documents/Athleticore OS/lib/api/scheduleService.ts.bak\")",
       "Bash(cp /tmp/scheduleService_clean.ts \"C:/Users/karll/Documents/Athleticore OS/lib/api/scheduleService.ts\")",
       "Bash(gh pr:*)",
-      "Bash(where gh:*)"
+      "Bash(where gh:*)",
+      "Bash(xargs grep:*)",
+      "Bash(git filter-repo:*)"
     ]
   }
 }
