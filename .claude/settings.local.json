@@ -15,7 +15,11 @@
       "Bash(grep -r \"prescribe\\\\|readiness\\\\|ACWR\\\\|cut\\\\|camp\" lib/engine/*.ts)",
       "Bash(xargs grep -l \"FitnessQuestionnaire\\\\|calculateFitness\\\\|FitnessLevel\")",
       "Bash(xargs grep -l \"ProgressScreen\\\\|Progress\\\\|timeline\\\\|week\")",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(awk 'length <= 1000' \"C:/Users/karll/Documents/Athleticore OS/lib/api/scheduleService.ts\")",
+      "Read(//tmp/**)",
+      "Bash(cp \"C:/Users/karll/Documents/Athleticore OS/lib/api/scheduleService.ts\" \"C:/Users/karll/Documents/Athleticore OS/lib/api/scheduleService.ts.bak\")",
+      "Bash(cp /tmp/scheduleService_clean.ts \"C:/Users/karll/Documents/Athleticore OS/lib/api/scheduleService.ts\")"
     ]
   }
 }

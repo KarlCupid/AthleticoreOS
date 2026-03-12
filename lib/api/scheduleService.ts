@@ -136,7 +136,9 @@ export async function removeRecurringActivity(
 /**
  * Generate scheduled activities up to `weeksAhead` weeks in the future.
  */
-export async function replaceRecurringActivities(`r`n    userId: string,`r`n    entries: Array<{
+export async function replaceRecurringActivities(
+    userId: string,
+    entries: Array<{
         activity_type: ActivityType;
         custom_label?: string | null;
         start_time?: string;
