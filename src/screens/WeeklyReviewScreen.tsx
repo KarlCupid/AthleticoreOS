@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
@@ -15,6 +15,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 
 import { getWeeklyReview } from '../../lib/api/scheduleService';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
+import { withOptionalColumnsSelectFallback } from '../../lib/api/schemaFallback';
 import type { WeeklyComplianceReport } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { calculateCampRisk, type CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
@@ -79,13 +80,18 @@ export function WeeklyReviewScreen() {
           .gte('date', weekStart)
           .lte('date', weekEnd)
           .order('date', { ascending: true }),
-        supabase
-          .from('scheduled_activities')
-          .select('status, recommendation_severity, recommendation_status')
-          .eq('user_id', session.user.id)
-          .gte('date', weekStart)
-          .lte('date', weekEnd)
-          .not('recommendation_severity', 'is', null),
+        withOptionalColumnsSelectFallback(
+          'scheduled_activities',
+          ['status'],
+          ['recommendation_severity', 'recommendation_status'],
+          (selectClause) => supabase
+            .from('scheduled_activities')
+            .select(selectClause)
+            .eq('user_id', session.user.id)
+            .gte('date', weekStart)
+            .lte('date', weekEnd)
+            .not('recommendation_severity', 'is', null),
+        ),
       ]);
 
       setReport(review);
@@ -126,7 +132,7 @@ export function WeeklyReviewScreen() {
           ? Math.max(0, latestWeight - targetWeight)
           : null;
 
-      const recommendationRows = (recommendationsResult.data ?? []) as {
+      const recommendationRows = ((recommendationsResult.data ?? []) as unknown) as {
         status: string;
         recommendation_severity: 'info' | 'recommended' | 'strongly_recommended' | null;
         recommendation_status: 'pending' | 'accepted' | 'declined' | 'completed' | null;
@@ -239,7 +245,7 @@ export function WeeklyReviewScreen() {
             ) : null}
             <Text style={styles.metricMeta}>
               Readiness avg: {insights.readinessAvg ?? 'n/a'}
-              {insights.readinessDelta != null ? ` � Trend ${insights.readinessDelta > 0 ? '+' : ''}${insights.readinessDelta}` : ''}
+              {insights.readinessDelta != null ? ` · Trend ${insights.readinessDelta > 0 ? '+' : ''}${insights.readinessDelta}` : ''}
             </Text>
             <Text style={styles.metricMeta}>
               Weekly weight: {insights.weightDelta != null ? `${insights.weightDelta > 0 ? '+' : ''}${insights.weightDelta} lb` : 'n/a'}
@@ -348,4 +354,5 @@ const styles = StyleSheet.create({
   loadLabel: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 2 },
   loadDivider: { width: 1, height: 40, backgroundColor: COLORS.borderLight },
 });
+
 

@@ -3,6 +3,7 @@ import { generateCampPlan, determineCampPhase, toCampEnginePhase } from '../engi
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getAthleteContext } from './athleteContextService';
 import { getEffectiveWeight } from './weightService';
+import { getMissingSchemaCacheColumn } from './schemaFallback';
 import type {
   CampConfig,
   CampPlanInput,
@@ -318,11 +319,22 @@ export async function getFightCampStatus(userId: string, date: string = todayLoc
   if (camp) {
     const campPhase = determineCampPhase(camp, date);
     const daysOut = Math.max(0, daysBetween(date, camp.fightDate));
-    const campRow = (await supabase
+    const campRowResponse = await supabase
       .from('fight_camps')
       .select('weight_cut_state')
       .eq('id', camp.id)
-      .maybeSingle()).data as { weight_cut_state?: WeightCutInfluenceState } | null;
+      .maybeSingle();
+
+    if (
+      campRowResponse.error
+      && getMissingSchemaCacheColumn(campRowResponse.error, 'fight_camps') !== 'weight_cut_state'
+    ) {
+      throw campRowResponse.error;
+    }
+
+    const campRow = (campRowResponse.error
+      ? null
+      : campRowResponse.data) as { weight_cut_state?: WeightCutInfluenceState } | null;
 
     const weightCutState = campRow?.weight_cut_state ?? camp.weightCutState ?? 'none';
     const labelPhase = campPhase ? campPhase.charAt(0).toUpperCase() + campPhase.slice(1) : 'Camp';

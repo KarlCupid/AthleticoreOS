@@ -10,17 +10,31 @@ import {
     SessionComponent,
     ScheduleSource,
     WeeklyComplianceReport,
+    DailyAdaptationResult,
+    MuscleGroup,
+    WeightCutPlanRow,
 } from '../engine/types';
-import { calculateWeeklyCompliance, getTrainingStreak, generateWeekPlan, adaptDailySchedule } from '../engine/calculateSchedule';
+import { calculateWeeklyCompliance, getTrainingStreak, generateWeekPlan, generateSmartWeekPlan, adaptDailySchedule } from '../engine/calculateSchedule';
 import { getFitnessProfile } from './fitnessService';
 import { calculateACWR } from '../engine/calculateACWR';
 import { getRecentExerciseIds, getExerciseLibrary } from './scService';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getGlobalReadinessState } from '../engine/getGlobalReadinessState';
 import { getActiveFightCamp, resolvePhaseForDate } from './fightCampService';
+import { withOptionalColumnsMutationFallback } from './schemaFallback';
+import { getAthleteContext } from './athleteContextService';
+import { getDefaultGymProfile } from './gymProfileService';
+import { getWeeksSinceLastDeload } from './overloadService';
+import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
 
 function today(): string {
     return todayLocalDate();
+}
+
+function addDays(dateStr: string, days: number): string {
+    const date = new Date(`${dateStr}T00:00:00`);
+    date.setDate(date.getDate() + days);
+    return formatLocalDate(date);
 }
 
 const DEFAULT_WEEKLY_TARGETS: Omit<WeeklyTargetsRow, 'id' | 'user_id'> = {
@@ -33,6 +47,46 @@ const DEFAULT_WEEKLY_TARGETS: Omit<WeeklyTargetsRow, 'id' | 'user_id'> = {
     total_weekly_load_cap: 4000,
 };
 
+const OPTIONAL_RECURRING_ACTIVITY_COLUMNS = new Set<string>([
+    'session_kind',
+    'rounds',
+    'round_duration_sec',
+    'rest_duration_sec',
+    'athlete_locked',
+    'intended_intensity',
+    'constraint_tier',
+]);
+
+const OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS = new Set<string>([
+    'session_kind',
+    'rounds',
+    'round_duration_sec',
+    'rest_duration_sec',
+    'athlete_locked',
+    'intended_intensity',
+    'constraint_tier',
+    'recommendation_reason',
+    'recommendation_severity',
+    'recommendation_affected_subsystem',
+    'recommendation_change',
+    'recommendation_education',
+    'recommendation_status',
+]);
+
+const EMPTY_VOLUME: Record<MuscleGroup, number> = {
+    chest: 0,
+    back: 0,
+    shoulders: 0,
+    quads: 0,
+    hamstrings: 0,
+    glutes: 0,
+    arms: 0,
+    core: 0,
+    full_body: 0,
+    neck: 0,
+    calves: 0,
+};
+
 export type SameDayOverrideType = 'lighter' | 'harder' | 'moved' | 'skipped' | 'completed';
 
 export interface SameDayOverrideInput {
@@ -42,6 +96,76 @@ export interface SameDayOverrideInput {
     actual_duration_min?: number;
     actual_rpe?: number;
     notes?: string;
+}
+
+type RecurringActivityInput = {
+    id?: string;
+    activity_type: ActivityType;
+    custom_label?: string | null;
+    start_time?: string;
+    estimated_duration_min?: number;
+    expected_intensity?: number;
+    session_components?: SessionComponent[];
+    recurrence: RecurrencePattern;
+    session_kind?: string | null;
+    rounds?: number | null;
+    round_duration_sec?: number | null;
+    rest_duration_sec?: number | null;
+    athlete_locked?: boolean;
+    intended_intensity?: number | null;
+    constraint_tier?: 'mandatory' | 'preferred';
+};
+
+async function insertScheduledActivities(
+    rows: Record<string, unknown>[],
+): Promise<ScheduledActivityRow[]> {
+    const { data, error } = await withOptionalColumnsMutationFallback(
+        'scheduled_activities',
+        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
+        { rows },
+        ({ rows: nextRows }) => supabase
+            .from('scheduled_activities')
+            .insert(nextRows as Record<string, unknown>[])
+            .select(),
+    );
+
+    if (error) throw error;
+    return (data ?? []) as ScheduledActivityRow[];
+}
+
+async function insertScheduledActivity(
+    row: Record<string, unknown>,
+): Promise<ScheduledActivityRow> {
+    const { data, error } = await withOptionalColumnsMutationFallback(
+        'scheduled_activities',
+        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
+        row,
+        (nextRow) => supabase
+            .from('scheduled_activities')
+            .insert(nextRow)
+            .select()
+            .single(),
+    );
+
+    if (error) throw error;
+    if (!data) {
+        throw new Error('Failed to insert scheduled activity.');
+    }
+    return data as unknown as ScheduledActivityRow;
+}
+
+async function updateScheduledActivities(
+    payload: Record<string, unknown>,
+    execute: (nextPayload: Record<string, unknown>) => PromiseLike<{ error?: unknown }>,
+): Promise<void> {
+    const { error } = await withOptionalColumnsMutationFallback(
+        'scheduled_activities',
+        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
+        payload,
+        execute,
+    );
+
+    if (error) throw error;
 }
 
 /**
@@ -63,16 +187,7 @@ export async function getRecurringActivities(userId: string): Promise<RecurringA
  */
 export async function upsertRecurringActivity(
     userId: string,
-    entry: {
-        id?: string;
-        activity_type: ActivityType;
-        custom_label?: string | null;
-        start_time?: string;
-        estimated_duration_min?: number;
-        expected_intensity?: number;
-        session_components?: SessionComponent[];
-        recurrence: RecurrencePattern;
-    },
+    entry: RecurringActivityInput,
 ): Promise<RecurringActivityRow> {
     const row = {
         user_id: userId,
@@ -92,14 +207,22 @@ export async function upsertRecurringActivity(
         ...(entry.id ? { id: entry.id } : {}),
     };
 
-    const { data, error } = await supabase
-        .from('recurring_activities')
-        .upsert(row)
-        .select()
-        .single();
+    const { data, error } = await withOptionalColumnsMutationFallback(
+        'recurring_activities',
+        OPTIONAL_RECURRING_ACTIVITY_COLUMNS,
+        row,
+        (nextRow) => supabase
+            .from('recurring_activities')
+            .upsert(nextRow)
+            .select()
+            .single(),
+    );
 
     if (error) throw error;
-    return data as RecurringActivityRow;
+    if (!data) {
+        throw new Error('Failed to save recurring activity.');
+    }
+    return data as unknown as RecurringActivityRow;
 }
 
 /**
@@ -138,15 +261,7 @@ export async function removeRecurringActivity(
  */
 export async function replaceRecurringActivities(
     userId: string,
-    entries: Array<{
-        activity_type: ActivityType;
-        custom_label?: string | null;
-        start_time?: string;
-        estimated_duration_min?: number;
-        expected_intensity?: number;
-        session_components?: SessionComponent[];
-        recurrence: RecurrencePattern;
-    }>,
+    entries: RecurringActivityInput[],
 ): Promise<RecurringActivityRow[]> {
     const { error } = await supabase
         .from('recurring_activities')
@@ -240,13 +355,7 @@ export async function generateRollingSchedule(
 
     if (newRows.length === 0) return [];
 
-    const { data, error } = await supabase
-        .from('scheduled_activities')
-        .insert(newRows)
-        .select();
-
-    if (error) throw error;
-    return (data ?? []) as ScheduledActivityRow[];
+    return insertScheduledActivities(newRows);
 }
 
 function createScheduledObj(tmpl: RecurringActivityRow, dateStr: string) {
@@ -316,33 +425,26 @@ export async function addManualActivity(
         notes?: string;
     },
 ): Promise<ScheduledActivityRow> {
-    const { data, error } = await supabase
-        .from('scheduled_activities')
-        .insert({
-            user_id: userId,
-            date: activity.date,
-            activity_type: activity.activity_type,
-            custom_label: activity.custom_label ?? null,
-            start_time: activity.start_time ?? null,
-            estimated_duration_min: activity.estimated_duration_min ?? 60,
-            expected_intensity: activity.expected_intensity ?? 5,
-            session_components: activity.session_components ?? [],
-            session_kind: activity.session_kind ?? null,
-            rounds: activity.rounds ?? null,
-            round_duration_sec: activity.round_duration_sec ?? null,
-            rest_duration_sec: activity.rest_duration_sec ?? null,
-            athlete_locked: activity.athlete_locked ?? true,
-            intended_intensity: activity.intended_intensity ?? null,
-            notes: activity.notes ?? null,
-            source: 'manual' as ScheduleSource,
-            recurring_activity_id: null,
-            status: 'scheduled',
-        })
-        .select()
-        .single();
-
-    if (error) throw error;
-    return data as ScheduledActivityRow;
+    return insertScheduledActivity({
+        user_id: userId,
+        date: activity.date,
+        activity_type: activity.activity_type,
+        custom_label: activity.custom_label ?? null,
+        start_time: activity.start_time ?? null,
+        estimated_duration_min: activity.estimated_duration_min ?? 60,
+        expected_intensity: activity.expected_intensity ?? 5,
+        session_components: activity.session_components ?? [],
+        session_kind: activity.session_kind ?? null,
+        rounds: activity.rounds ?? null,
+        round_duration_sec: activity.round_duration_sec ?? null,
+        rest_duration_sec: activity.rest_duration_sec ?? null,
+        athlete_locked: activity.athlete_locked ?? true,
+        intended_intensity: activity.intended_intensity ?? null,
+        notes: activity.notes ?? null,
+        source: 'manual' as ScheduleSource,
+        recurring_activity_id: null,
+        status: 'scheduled',
+    });
 }
 
 /**
@@ -488,19 +590,20 @@ export async function completeActivity(
     },
 ): Promise<void> {
     // 1. Update the scheduled activity
-    const { error: updateError } = await supabase
-        .from('scheduled_activities')
-        .update({
+    await updateScheduledActivities(
+        {
             status: 'completed',
             actual_duration_min: log.actual_duration_min,
             actual_rpe: log.actual_rpe,
             notes: log.notes ?? null,
             recommendation_status: 'completed',
-        })
-        .eq('id', activityId)
-        .eq('user_id', userId);
-
-    if (updateError) throw updateError;
+        },
+        (nextPayload) => supabase
+            .from('scheduled_activities')
+            .update(nextPayload)
+            .eq('id', activityId)
+            .eq('user_id', userId),
+    );
 
     // 2. Get the activity date
     const { data: activity } = await supabase
@@ -556,17 +659,18 @@ export async function skipActivity(
     activityId: string,
     reason?: string,
 ): Promise<void> {
-    const { error } = await supabase
-        .from('scheduled_activities')
-        .update({
+    await updateScheduledActivities(
+        {
             status: 'skipped',
             notes: reason ?? null,
             recommendation_status: 'declined',
-        })
-        .eq('id', activityId)
-        .eq('user_id', userId);
-
-    if (error) throw error;
+        },
+        (nextPayload) => supabase
+            .from('scheduled_activities')
+            .update(nextPayload)
+            .eq('id', activityId)
+            .eq('user_id', userId),
+    );
 }
 
 /**
@@ -634,3 +738,200 @@ export async function updateWeeklyTargets(
     return data as WeeklyTargetsRow;
 }
 
+async function fetchWeeklyTargetsRow(userId: string): Promise<WeeklyTargetsRow | null> {
+    const { data, error } = await supabase
+        .from('weekly_targets')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (error) throw error;
+    return (data as WeeklyTargetsRow | null) ?? null;
+}
+
+export async function getTrainingStreakDays(userId: string): Promise<number> {
+    const { data, error } = await supabase
+        .from('training_sessions')
+        .select('date')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .limit(60);
+
+    if (error) throw error;
+
+    return getTrainingStreak(
+        ((data ?? []) as Array<{ date: string | null }>).
+            map((row) => row.date).
+            filter((date): date is string => Boolean(date)),
+    );
+}
+
+export async function getWeeklyReview(
+    userId: string,
+    weekStartDate: string,
+): Promise<WeeklyComplianceReport> {
+    const weekEndDate = addDays(weekStartDate, 6);
+
+    const [plannedResult, actualResult, streak] = await Promise.all([
+        supabase
+            .from('scheduled_activities')
+            .select('activity_type, expected_intensity, estimated_duration_min')
+            .eq('user_id', userId)
+            .gte('date', weekStartDate)
+            .lte('date', weekEndDate),
+        supabase
+            .from('scheduled_activities')
+            .select('activity_type, status, actual_rpe, actual_duration_min, expected_intensity, estimated_duration_min')
+            .eq('user_id', userId)
+            .gte('date', weekStartDate)
+            .lte('date', weekEndDate),
+        getTrainingStreakDays(userId),
+    ]);
+
+    if (plannedResult.error) throw plannedResult.error;
+    if (actualResult.error) throw actualResult.error;
+
+    return calculateWeeklyCompliance(
+        (plannedResult.data ?? []) as Pick<ScheduledActivityRow, 'activity_type' | 'expected_intensity' | 'estimated_duration_min'>[],
+        (actualResult.data ?? []) as Pick<ScheduledActivityRow, 'activity_type' | 'status' | 'actual_rpe' | 'actual_duration_min' | 'expected_intensity' | 'estimated_duration_min'>[],
+        streak,
+    );
+}
+
+export async function getDailyAdaptationForToday(userId: string): Promise<DailyAdaptationResult | null> {
+    const todayStr = today();
+    const yesterdayStr = addDays(todayStr, -1);
+    const athleteContext = await getAthleteContext(userId);
+    const [todayActivities, yesterdayActivities, checkinResult, campConfig, exerciseLibrary] = await Promise.all([
+        getScheduledActivities(userId, todayStr, todayStr),
+        getScheduledActivities(userId, yesterdayStr, yesterdayStr),
+        supabase
+            .from('daily_checkins')
+            .select('sleep_quality, readiness')
+            .eq('user_id', userId)
+            .eq('date', todayStr)
+            .maybeSingle(),
+        getActiveFightCamp(userId),
+        getExerciseLibrary(),
+    ]);
+
+    let trainingIntensityCap: number | null = null;
+    if (athleteContext.profile?.active_cut_plan_id) {
+        const { data: cutProtocol, error: cutProtocolError } = await supabase
+            .from('daily_cut_protocols')
+            .select('training_intensity_cap')
+            .eq('user_id', userId)
+            .eq('date', todayStr)
+            .maybeSingle();
+
+        if (cutProtocolError) throw cutProtocolError;
+        trainingIntensityCap = cutProtocol?.training_intensity_cap ?? null;
+    }
+
+    let acwr = 1.0;
+    try {
+        const acwrResult = await calculateACWR({
+            userId,
+            supabaseClient: supabase,
+            asOfDate: todayStr,
+            fitnessLevel: athleteContext.fitnessLevel,
+            phase: athleteContext.phase,
+            isOnActiveCut: athleteContext.isOnActiveCut,
+        });
+        acwr = acwrResult.ratio;
+    } catch (error) {
+        console.warn('Could not calculate ACWR for daily adaptation:', error);
+    }
+
+    const readinessState = getGlobalReadinessState({
+        sleep: checkinResult.data?.sleep_quality ?? 4,
+        readiness: checkinResult.data?.readiness ?? 4,
+        acwr,
+    });
+    const phase = await resolvePhaseForDate(userId, todayStr, athleteContext.phase);
+
+    return adaptDailySchedule({
+        today: todayStr,
+        todayActivities,
+        yesterdayActivities,
+        readinessState,
+        acwr,
+        sleepLastNight: checkinResult.data?.sleep_quality ?? 4,
+        fitnessLevel: athleteContext.fitnessLevel,
+        phase,
+        campConfig,
+        trainingIntensityCap,
+        exerciseLibrary,
+    });
+}
+
+export async function syncEngineSchedule(userId: string, weekStartDate: string): Promise<void> {
+    const [config, athleteContext, campConfig, weeksSinceLastDeload, recurringActivities, gymProfile] = await Promise.all([
+        getWeeklyPlanConfig(userId),
+        getAthleteContext(userId),
+        getActiveFightCamp(userId),
+        getWeeksSinceLastDeload(userId),
+        getRecurringActivities(userId),
+        getDefaultGymProfile(userId),
+    ]);
+
+    if (!config) return;
+
+    let activeCutPlan: WeightCutPlanRow | null = null;
+    if (athleteContext.profile?.active_cut_plan_id) {
+        const { data: cutPlan, error: cutPlanError } = await supabase
+            .from('weight_cut_plans')
+            .select('*')
+            .eq('id', athleteContext.profile.active_cut_plan_id)
+            .maybeSingle();
+
+        if (cutPlanError) throw cutPlanError;
+        activeCutPlan = (cutPlan as WeightCutPlanRow | null) ?? null;
+    }
+
+    let acwr = 1.0;
+    try {
+        const acwrResult = await calculateACWR({
+            userId,
+            supabaseClient: supabase,
+            asOfDate: weekStartDate,
+            fitnessLevel: athleteContext.fitnessLevel,
+            phase: athleteContext.phase,
+            isOnActiveCut: athleteContext.isOnActiveCut,
+        });
+        acwr = acwrResult.ratio;
+    } catch (error) {
+        console.warn('Could not calculate ACWR for engine sync:', error);
+    }
+
+    const { data: checkin } = await supabase
+        .from('daily_checkins')
+        .select('sleep_quality, readiness')
+        .eq('user_id', userId)
+        .eq('date', today())
+        .maybeSingle();
+
+    const readinessState = getGlobalReadinessState({
+        sleep: checkin?.sleep_quality ?? 4,
+        readiness: checkin?.readiness ?? 4,
+        acwr,
+    });
+
+    const result = generateSmartWeekPlan({
+        config,
+        readinessState,
+        phase: athleteContext.phase,
+        acwr,
+        fitnessLevel: athleteContext.fitnessLevel,
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        campConfig,
+        activeCutPlan,
+        weeksSinceLastDeload,
+        gymProfile,
+        weekStartDate,
+        recurringActivities,
+    });
+
+    await saveWeekPlan(userId, result.entries);
+}
