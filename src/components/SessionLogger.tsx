@@ -21,9 +21,30 @@ export function SessionLogger({ intensity, setIntensity, minutes, setMinutes }: 
     };
 
     const getIntensityLabel = (val: number) => {
-        if (val <= 4) return 'Light drill work';
-        if (val <= 8) return 'Hard sparring';
-        return 'Nothing left';
+        switch (val) {
+            case 1:
+                return 'Very easy - movement and mobility only';
+            case 2:
+                return 'Easy - technique pace, no strain';
+            case 3:
+                return 'Light - crisp reps, full control';
+            case 4:
+                return 'Moderate light - working but comfortable';
+            case 5:
+                return 'Moderate - steady training effort';
+            case 6:
+                return 'Moderate hard - breathing up, still repeatable';
+            case 7:
+                return 'Hard - high focus and strong pace';
+            case 8:
+                return 'Very hard - near limit, brief bursts';
+            case 9:
+                return 'Maximal - only a little left in reserve';
+            case 10:
+                return 'All out - nothing left';
+            default:
+                return 'Moderate - steady training effort';
+        }
     };
 
     return (

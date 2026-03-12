@@ -57,6 +57,10 @@ export const styles = StyleSheet.create({
         marginBottom: SPACING.xl,
         ...SHADOWS.card,
     },
+    phaseCardKeyboard: {
+        padding: SPACING.md,
+        marginBottom: SPACING.md,
+    },
     phaseEyebrow: {
         fontSize: 12,
         fontFamily: FONT_FAMILY.semiBold,
@@ -79,6 +83,10 @@ export const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
+        paddingBottom: SPACING.sm,
+    },
+    scrollContentKeyboard: {
+        paddingBottom: SPACING.xs,
     },
     stepContent: {
         flex: 1,
@@ -184,6 +192,9 @@ export const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: SPACING.md,
+    },
+    navRowKeyboard: {
+        paddingTop: SPACING.xs,
     },
     backButton: {
         flexDirection: 'row',

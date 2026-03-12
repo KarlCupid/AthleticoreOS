@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
-    KeyboardAvoidingView, Platform, ScrollView, Alert,
+    KeyboardAvoidingView, Platform, ScrollView, Alert, Keyboard,
 } from 'react-native';
 import Animated, { FadeInRight, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -54,6 +54,7 @@ const STEP_META = [
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const insets = useSafeAreaInsets();
     const [step, setStep] = useState(0);
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
 
     const [name, setName] = useState('');
     const [heightFeet, setHeightFeet] = useState('');
@@ -72,6 +73,19 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [saving, setSaving] = useState(false);
 
     const currentStepMeta = STEP_META[step];
+
+    React.useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+        const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     const canProceed = () => {
         switch (step) {
@@ -426,9 +440,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="height"
         >
-            <View style={[styles.inner, { paddingTop: insets.top + SPACING.lg }]}>
+            <View style={[styles.inner, { paddingTop: insets.top + (keyboardVisible ? SPACING.sm : SPACING.lg) }]}>
                 <View style={styles.topNav}>
                     <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.signOutButtonIcon}>
                         <IconChevronLeft size={24} color={COLORS.text.tertiary} />
@@ -443,23 +457,30 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     <Text style={styles.stepIndicator}>{step + 1} of {TOTAL_STEPS}</Text>
                 </View>
 
-                <View style={styles.phaseCard}>
+                <View style={[styles.phaseCard, keyboardVisible && styles.phaseCardKeyboard]}>
                     <Text style={styles.phaseEyebrow}>{currentStepMeta.eyebrow}</Text>
                     <Text style={styles.phaseTitle}>{currentStepMeta.title}</Text>
                     <Text style={styles.phaseDescription}>{currentStepMeta.description}</Text>
                 </View>
 
                 <ScrollView
-                    contentContainerStyle={styles.scrollContent}
+                    contentContainerStyle={[styles.scrollContent, keyboardVisible && styles.scrollContentKeyboard]}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
                 >
                     <Animated.View key={step} entering={FadeInRight.duration(ANIMATION.normal).springify()} style={{ flex: 1 }}>
                         {renderStep()}
                     </Animated.View>
                 </ScrollView>
 
-                <View style={[styles.navRow, { paddingBottom: insets.bottom + SPACING.md }]}>
+                <View
+                    style={[
+                        styles.navRow,
+                        keyboardVisible && styles.navRowKeyboard,
+                        { paddingBottom: keyboardVisible ? SPACING.xs : insets.bottom + SPACING.md },
+                    ]}
+                >
                     {step > 0 ? (
                         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                             <IconChevronLeft size={20} color={COLORS.text.secondary} />

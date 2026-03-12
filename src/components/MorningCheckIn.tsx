@@ -23,9 +23,20 @@ export function MorningCheckIn({ weight, setWeight, sleep, setSleep, readiness, 
     };
 
     const getReadinessLabel = (val: number) => {
-        if (val <= 2) return 'Running on empty';
-        if (val <= 3) return 'Normal soreness';
-        return 'Fresh and ready';
+        switch (val) {
+            case 1:
+                return 'Exhausted - recovery first';
+            case 2:
+                return 'Low energy - keep load lighter';
+            case 3:
+                return 'Steady - train as planned';
+            case 4:
+                return 'Strong - good day to push quality';
+            case 5:
+                return 'Peak - ready for hard work';
+            default:
+                return 'Steady - train as planned';
+        }
     };
 
     return (

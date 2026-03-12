@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Alert, KeyboardAv
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { MorningCheckIn } from '../components/MorningCheckIn';
 import { SessionLogger } from '../components/SessionLogger';
 import { Card } from '../components/Card';
@@ -14,6 +15,7 @@ import { todayLocalDate } from '../../lib/utils/date';
 
 export function LogScreen() {
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation<any>();
     const { themeColor } = useReadinessTheme();
 
     // Morning Check-In State
@@ -27,6 +29,7 @@ export function LogScreen() {
 
     const [isSaving, setIsSaving] = useState(false);
 
+    const logDate = todayLocalDate();
     const todayFormatted = new Date().toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
@@ -48,35 +51,47 @@ export function LogScreen() {
                 sleep_quality: sleep,
                 readiness: readiness,
                 macro_adherence: null,
-                date: todayLocalDate(),
+                date: logDate,
             };
 
             const { error: dailyError } = await supabase
                 .from('daily_checkins')
-                .insert(dailyCheckinData);
+                .upsert(dailyCheckinData, { onConflict: 'user_id,date' });
 
             if (dailyError) {
-                console.error("Error inserting daily checkin:", dailyError);
+                console.error("Error saving daily checkin:", dailyError);
             }
+
+            let hasSaveError = Boolean(dailyError);
 
             if (minutes && parseInt(minutes) > 0) {
                 const trainingData = {
                     user_id: userId,
                     duration_minutes: parseInt(minutes),
                     intensity_srpe: intensity,
-                    date: todayLocalDate(),
+                    date: logDate,
                 };
 
                 const { error: trainingError } = await supabase
                     .from('training_sessions')
-                    .insert(trainingData);
+                    .upsert(trainingData, { onConflict: 'user_id,date' });
 
                 if (trainingError) {
-                    console.error("Error inserting training session:", trainingError);
+                    console.error("Error saving training session:", trainingError);
+                    hasSaveError = true;
                 }
             }
 
-            Alert.alert("Saved", "Your daily log has been recorded.");
+            if (hasSaveError) {
+                Alert.alert("Error", "Could not save log.");
+                return;
+            }
+
+            if (navigation.canGoBack()) {
+                navigation.goBack();
+            } else {
+                navigation.navigate('HomeMain');
+            }
         } catch (err) {
             console.error(err);
             Alert.alert("Error", "Could not save log.");
@@ -94,6 +109,9 @@ export function LogScreen() {
             <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
                 <Text style={styles.headerTitle}>Log Entry</Text>
                 <Text style={styles.headerDate}>{todayFormatted}</Text>
+            </View>
+            <View style={styles.dateNotice}>
+                <Text style={styles.dateNoticeText}>Saving entries for {todayFormatted} ({logDate})</Text>
             </View>
 
             <ScrollView
@@ -176,6 +194,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.secondary,
+    },
+    dateNotice: {
+        marginHorizontal: SPACING.lg,
+        marginBottom: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        borderRadius: RADIUS.md,
+        backgroundColor: COLORS.accentLight,
+    },
+    dateNoticeText: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.accent,
+        textAlign: 'center',
     },
     scroll: {
         flex: 1,
