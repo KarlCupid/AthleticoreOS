@@ -19,10 +19,10 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { searchExercises, getExerciseLibrary } from '../../lib/api/scService';
 import { ExerciseLibraryRow, ExerciseType, MuscleGroup } from '../../lib/engine/types';
 import { IconChevronLeft, IconPlus } from '../components/icons';
-import { SCStackParamList } from '../navigation/SCStack';
+import { PlanStackParamList } from '../navigation/types';
 
-type NavProp = NativeStackNavigationProp<SCStackParamList>;
-type RouteParams = { ExerciseSearch: { workoutLogId?: string } };
+type NavProp = NativeStackNavigationProp<PlanStackParamList>;
+type RouteParams = Pick<PlanStackParamList, 'ExerciseSearch'>;
 
 const TYPE_FILTERS: { value: ExerciseType; label: string }[] = [
     { value: 'heavy_lift', label: 'Lifts' },

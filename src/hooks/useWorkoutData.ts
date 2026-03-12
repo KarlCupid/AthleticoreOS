@@ -6,15 +6,16 @@ import {
   getExerciseLibrary,
   getWorkoutHistory,
   getRecentExerciseIds,
-  startWorkout,
 } from '../../lib/api/scService';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getAthleteContext, getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
+import { addManualActivity, getScheduledActivities } from '../../lib/api/scheduleService';
+import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type {
   WorkoutPrescription,
   WorkoutLogRow,
-  DailyTimelineRow,
+  ScheduledActivityRow,
   ExerciseLibraryRow,
   MuscleGroup,
   ReadinessState,
@@ -57,7 +58,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
   const [refreshing, setRefreshing] = useState(false);
 
   const [prescription, setPrescription] = useState<WorkoutPrescription | null>(null);
-  const [timelineBlocks, setTimelineBlocks] = useState<DailyTimelineRow[]>([]);
+  const [todayActivities, setTodayActivities] = useState<ScheduledActivityRow[]>([]);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutLogRow[]>([]);
   const [exerciseLibrary, setExerciseLibrary] = useState<ExerciseLibraryRow[]>([]);
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
@@ -84,18 +85,13 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       const [
         athleteContext,
         library,
-        { data: blocks },
+        scheduledActivities,
         { data: checkinsRes },
         { data: sessionsRes },
       ] = await Promise.all([
         getAthleteContext(currentUserId),
         getExerciseLibrary(),
-        supabase
-          .from('daily_timeline')
-          .select('*')
-          .eq('user_id', currentUserId)
-          .eq('date', todayStr)
-          .order('id', { ascending: true }),
+        getScheduledActivities(currentUserId, todayStr, todayStr),
         supabase
           .from('daily_checkins')
           .select('date, morning_weight, sleep_quality, readiness')
@@ -111,7 +107,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       ]);
 
       setExerciseLibrary(library);
-      if (blocks) setTimelineBlocks(blocks as DailyTimelineRow[]);
+      setTodayActivities(scheduledActivities);
       if (checkinsRes) setCheckins(checkinsRes as DailyCheckin[]);
       if (sessionsRes) setSessions(sessionsRes as TrainingSession[]);
 
@@ -180,14 +176,27 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     if (!currentUserId) return;
 
     try {
-      const workoutLog = await startWorkout(currentUserId, {
-        workoutType: prescription.workoutType,
-        focus: prescription.focus,
+      const activity = await addManualActivity(currentUserId, {
+        date: todayLocalDate(),
+        activity_type: 'sc',
+        custom_label: prescription.focus ? prescription.focus.replace(/_/g, ' ') : 'Open training',
+        estimated_duration_min: 60,
+        expected_intensity: Math.max(
+          ...prescription.exercises.map((exercise) => exercise.targetRPE),
+          5,
+        ),
       });
-      navigation.navigate('ActiveWorkout', {
-        workoutLogId: workoutLog.id,
+
+      const context = await getGuidedWorkoutContext(currentUserId, activity.date);
+
+      navigation.navigate('GuidedWorkout', {
+        scheduledActivityId: activity.id,
         focus: prescription.focus,
-        workoutType: prescription.workoutType,
+        availableMinutes: activity.estimated_duration_min,
+        readinessState: currentLevel ?? 'Prime',
+        phase: context.phase,
+        fitnessLevel: context.fitnessLevel,
+        trainingDate: activity.date,
       });
     } catch (error) {
       logError('useWorkoutData.handleStartWorkout', error, { userId: currentUserId });
@@ -200,7 +209,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     loadData,
     onRefresh,
     prescription,
-    timelineBlocks,
+    todayActivities,
     workoutHistory,
     exerciseLibrary,
     checkins,

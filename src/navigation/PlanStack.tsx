@@ -25,8 +25,9 @@ import { CutPlanSetupScreen } from '../screens/CutPlanSetupScreen';
 import { FightWeekProtocolScreen } from '../screens/FightWeekProtocolScreen';
 import { RehydrationProtocolScreen } from '../screens/RehydrationProtocolScreen';
 import { CutHistoryScreen } from '../screens/CutHistoryScreen';
+import type { PlanStackParamList } from './types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<PlanStackParamList>();
 
 export function PlanStackNavigator() {
   return (

@@ -4,7 +4,6 @@ import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
 import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
-import { handleTimelineShift, autoRegulateSC } from '../../lib/engine/adaptive';
 import { calculateNutritionTargets, resolveDailyNutritionTargets } from '../../lib/engine/calculateNutrition';
 import {
   calculateWeightTrend,
@@ -30,7 +29,6 @@ import type {
   HydrationResult,
   NutritionTargets,
   WeightTrendResult,
-  DailyTimelineRow,
   ScheduledActivityRow,
   MacroLedgerRow,
   ExerciseLibraryRow,
@@ -93,10 +91,8 @@ export function useDashboardData() {
   const [morningWeight, setMorningWeight] = useState<string | null>(null);
   const [readinessSubjective, setReadinessSubjective] = useState<number | null>(null);
 
-  const [timelineBlocks, setTimelineBlocks] = useState<DailyTimelineRow[]>([]);
   const [todayActivities, setTodayActivities] = useState<ScheduledActivityRow[]>([]);
   const [currentLedger, setCurrentLedger] = useState<MacroLedgerRow | null>(null);
-  const [exerciseLibrary, setExerciseLibrary] = useState<ExerciseLibraryRow[]>([]);
   const [prescriptionMessage, setPrescriptionMessage] = useState<string | null>(null);
   const [workoutPrescription, setWorkoutPrescription] = useState<WorkoutPrescription | null>(null);
   const [weightTrend, setWeightTrend] = useState<WeightTrendResult | null>(null);
@@ -142,7 +138,6 @@ export function useDashboardData() {
       const [
         { data: checkinData },
         { data: trainingSessions },
-        { data: blocks },
         { data: ledger },
         { data: library },
         scheduledActivities,
@@ -158,12 +153,6 @@ export function useDashboardData() {
           .select('*')
           .eq('user_id', userId)
           .eq('date', todayStr),
-        supabase
-          .from('daily_timeline')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', todayStr)
-          .order('id', { ascending: true }),
         supabase
           .from('macro_ledger')
           .select('*')
@@ -189,9 +178,7 @@ export function useDashboardData() {
       }
 
       setSessionDone(Boolean(trainingSessions && trainingSessions.length > 0));
-      setTimelineBlocks((blocks as DailyTimelineRow[] | null) ?? []);
       setCurrentLedger((ledger as MacroLedgerRow | null) ?? null);
-      setExerciseLibrary(exerciseRows);
       setTodayActivities(scheduledActivities);
 
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
@@ -445,85 +432,6 @@ export function useDashboardData() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  const handleBlockAction = async (
-    actionType: 'hard_sparring' | 'light_flow' | 'skipped',
-    selectedBlock: DailyTimelineRow | null,
-  ) => {
-    if (!selectedBlock) return;
-
-    const userId = await getActiveUserId();
-    if (!userId) return;
-
-    try {
-      if (actionType === 'skipped') {
-        if (!currentLedger) return;
-
-        const result = handleTimelineShift({
-          skippedBlock: { ...selectedBlock, status: 'Skipped' },
-          currentLedger,
-          cutPhase: activeCutProtocol?.cut_phase ?? undefined,
-        });
-
-        await supabase.from('daily_timeline').update({ status: 'Skipped' }).eq('id', selectedBlock.id);
-
-        await supabase
-          .from('macro_ledger')
-          .update({ prescribed_carbs: result.updatedCarbs })
-          .eq('id', currentLedger.id);
-
-        setPrescriptionMessage(result.message);
-        setTimelineBlocks((prev) =>
-          prev.map((block) => (block.id === selectedBlock.id ? { ...block, status: 'Skipped' } : block)),
-        );
-        setCurrentLedger({ ...currentLedger, prescribed_carbs: result.updatedCarbs });
-      } else if (actionType === 'hard_sparring') {
-        const updatedBlock = { ...selectedBlock, actual_intensity: 8, status: 'Completed' as const };
-
-        const result = autoRegulateSC({
-          boxingBlock: updatedBlock,
-          next24hBlocks: timelineBlocks,
-          exerciseLibrary,
-        });
-
-        await supabase
-          .from('daily_timeline')
-          .update({ actual_intensity: 8, status: 'Completed' })
-          .eq('id', selectedBlock.id);
-
-        if (result.swapped && result.originalBlockId) {
-          const replacement = exerciseLibrary.find((exercise) => exercise.type === result.replacementType);
-          const newLoad = replacement ? replacement.cns_load : 3;
-
-          await supabase
-            .from('daily_timeline')
-            .update({
-              block_type: 'Recovery',
-              status: 'Audible',
-              planned_intensity: newLoad,
-            })
-            .eq('id', result.originalBlockId);
-        }
-
-        setPrescriptionMessage(result.message);
-        loadDashboardData();
-      } else if (actionType === 'light_flow') {
-        await supabase
-          .from('daily_timeline')
-          .update({ actual_intensity: 3, status: 'Completed' })
-          .eq('id', selectedBlock.id);
-
-        setPrescriptionMessage('Active recovery logged. Stay fresh.');
-        setTimelineBlocks((prev) =>
-          prev.map((block) =>
-            block.id === selectedBlock.id ? { ...block, actual_intensity: 3, status: 'Completed' } : block,
-          ),
-        );
-      }
-    } catch (error) {
-      logError('useDashboardData.handleBlockAction', error, { actionType, userId });
-    }
-  };
-
   return {
     loading,
     refreshing,
@@ -536,10 +444,8 @@ export function useDashboardData() {
     sleepQuality,
     morningWeight,
     readinessSubjective,
-    timelineBlocks,
     todayActivities,
     currentLedger,
-    exerciseLibrary,
     currentLevel,
     prescriptionMessage,
     workoutPrescription,
@@ -549,8 +455,6 @@ export function useDashboardData() {
     activeCutProtocol,
     campStatusLabel,
     campRisk,
-    handleBlockAction,
-    setTimelineBlocks,
   };
 }
 

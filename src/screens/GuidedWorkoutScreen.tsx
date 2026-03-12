@@ -46,6 +46,7 @@ import PRCelebration from '../components/PRCelebration';
 
 type GuidedWorkoutParams = {
     weeklyPlanEntryId?: string;
+    scheduledActivityId?: string;
     focus?: string;
     availableMinutes?: number;
     readinessState: 'Prime' | 'Caution' | 'Depleted';
@@ -117,7 +118,7 @@ export function GuidedWorkoutScreen() {
         finishWorkout,
         skipRest,
         extendRest,
-    } = useGuidedWorkout(params?.weeklyPlanEntryId);
+    } = useGuidedWorkout(params?.weeklyPlanEntryId, params?.scheduledActivityId);
 
     // Elapsed timer
     const [elapsedSeconds, setElapsedSeconds] = useState(0);

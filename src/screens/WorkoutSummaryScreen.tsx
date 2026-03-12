@@ -12,10 +12,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { SCStackParamList } from '../navigation/SCStack';
+import { PlanStackParamList } from '../navigation/types';
 
-type NavProp = NativeStackNavigationProp<SCStackParamList>;
-type RoutePropType = RouteProp<SCStackParamList, 'WorkoutSummary'>;
+type NavProp = NativeStackNavigationProp<PlanStackParamList>;
+type RoutePropType = RouteProp<PlanStackParamList, 'WorkoutSummary'>;
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ export function WorkoutSummaryScreen() {
     const fatigueMessage = getFatigueMessage(avgRPE);
 
     function handleBackToPlan() {
-        navigation.navigate('WeeklyPlan');
+        navigation.navigate('PlanHome');
     }
 
     function handleViewHistory() {
@@ -206,7 +206,7 @@ export function WorkoutSummaryScreen() {
                 <Animated.View entering={FadeInDown.delay(280).duration(400)} style={styles.statsRow}>
                     <StatPill label="Sets" value={totalSets} delay={280} />
                     <View style={styles.statsGap} />
-                    <StatPill label="Exercises" value={exercisesCompleted} delay={340} />
+                    <StatPill label="Exercises" value={exercisesCompleted ?? 0} delay={340} />
                     <View style={styles.statsGap} />
                     <StatPill label="Volume (lbs)" value={formatVolume(totalVolume)} delay={400} />
                 </Animated.View>

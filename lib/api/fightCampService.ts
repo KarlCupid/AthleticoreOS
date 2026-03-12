@@ -3,7 +3,6 @@ import { generateCampPlan, determineCampPhase, toCampEnginePhase } from '../engi
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getAthleteContext } from './athleteContextService';
 import { getEffectiveWeight } from './weightService';
-import { getMissingSchemaCacheColumn } from './schemaFallback';
 import type {
   CampConfig,
   CampPlanInput,
@@ -36,48 +35,6 @@ function normalizeStatus(rawStatus: string | null | undefined): 'active' | 'comp
     return 'abandoned';
   }
   return 'active';
-}
-
-const OPTIONAL_FIGHT_CAMP_COLUMNS = new Set<string>([
-  'weigh_in_timing',
-  'target_weight',
-  'round_count',
-  'round_duration_sec',
-  'rest_duration_sec',
-  'travel_start_date',
-  'travel_end_date',
-  'weight_cut_state',
-]);
-
-function getMissingFightCampColumnFromError(error: { code?: string; message?: string }): string | null {
-  if (error.code !== 'PGRST204' || !error.message) return null;
-  const match = error.message.match(/Could not find the '([^']+)' column of 'fight_camps'/i);
-  return match?.[1] ?? null;
-}
-
-async function upsertFightCampWithSchemaFallback(initialPayload: Record<string, unknown>): Promise<CampPlanRow> {
-  const payload: Record<string, unknown> = { ...initialPayload };
-  let remainingFallbacks = OPTIONAL_FIGHT_CAMP_COLUMNS.size;
-
-  while (remainingFallbacks >= 0) {
-    const { data, error } = await supabase
-      .from('fight_camps')
-      .upsert(payload)
-      .select('*')
-      .single();
-
-    if (!error) return data as CampPlanRow;
-
-    const missingColumn = getMissingFightCampColumnFromError(error);
-    if (!missingColumn || !OPTIONAL_FIGHT_CAMP_COLUMNS.has(missingColumn) || !(missingColumn in payload)) {
-      throw error;
-    }
-
-    delete payload[missingColumn];
-    remainingFallbacks -= 1;
-  }
-
-  throw new Error('Failed to upsert fight camp due to incompatible schema columns.');
 }
 
 export function normalizeCampConfig(raw: CampPlanRow | CampConfig | null): CampConfig | null {
@@ -293,7 +250,13 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
 
   const upsertPayload = activeCamp?.id ? { ...payload, id: activeCamp.id } : payload;
 
-  const data = await upsertFightCampWithSchemaFallback(upsertPayload as Record<string, unknown>);
+  const { data, error } = await supabase
+    .from('fight_camps')
+    .upsert(upsertPayload as Record<string, unknown>)
+    .select('*')
+    .single();
+
+  if (error) throw error;
 
   const camp = normalizeCampConfig(data as CampPlanRow);
   const phaseForToday = camp ? determineCampPhase(camp, today) : null;
@@ -325,16 +288,9 @@ export async function getFightCampStatus(userId: string, date: string = todayLoc
       .eq('id', camp.id)
       .maybeSingle();
 
-    if (
-      campRowResponse.error
-      && getMissingSchemaCacheColumn(campRowResponse.error, 'fight_camps') !== 'weight_cut_state'
-    ) {
-      throw campRowResponse.error;
-    }
+    if (campRowResponse.error) throw campRowResponse.error;
 
-    const campRow = (campRowResponse.error
-      ? null
-      : campRowResponse.data) as { weight_cut_state?: WeightCutInfluenceState } | null;
+    const campRow = campRowResponse.data as { weight_cut_state?: WeightCutInfluenceState } | null;
 
     const weightCutState = campRow?.weight_cut_state ?? camp.weightCutState ?? 'none';
     const labelPhase = campPhase ? campPhase.charAt(0).toUpperCase() + campPhase.slice(1) : 'Camp';

@@ -17,6 +17,7 @@ import { suggestAlternative, validateDayLoad, adjustNutritionForDay } from '../.
 import { calculateNutritionTargets } from '../../lib/engine/calculateNutrition';
 import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
 import { calculateACWR } from '../../lib/engine/calculateACWR';
+import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { ScheduledActivityRow, ReadinessState, NutritionDayAdjustment } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 
@@ -137,12 +138,28 @@ export function DayDetailScreen() {
             setGateActivity(activity);
             return;
         }
-        navigateToLogger(activity);
+        void navigateToLogger(activity);
     };
 
-    const navigateToLogger = (activity: ScheduledActivityRow) => {
+    const navigateToLogger = async (activity: ScheduledActivityRow) => {
         if (activity.activity_type === 'sc') {
-            navigation.navigate('Plan', { screen: 'WorkoutHome' });
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) return;
+
+            const context = await getGuidedWorkoutContext(session.user.id, activity.date);
+            navigation.navigate('Plan', {
+                screen: 'GuidedWorkout',
+                params: {
+                    weeklyPlanEntryId: activity.weekly_plan_entry_id ?? undefined,
+                    scheduledActivityId: activity.id,
+                    focus: activity.custom_label ?? undefined,
+                    availableMinutes: activity.estimated_duration_min,
+                    readinessState,
+                    phase: context.phase,
+                    fitnessLevel: context.fitnessLevel,
+                    trainingDate: activity.date,
+                },
+            });
         } else {
             navigation.navigate('ActivityLog', { activityId: activity.id, date: dateParam });
         }
@@ -343,7 +360,7 @@ export function DayDetailScreen() {
                 <ReadinessGate
                     activity={gateActivity}
                     readinessState={readinessState}
-                    onProceed={() => { navigateToLogger(gateActivity); setGateActivity(null); }}
+                    onProceed={() => { void navigateToLogger(gateActivity); setGateActivity(null); }}
                     onSwitch={() => { setGateActivity(null); loadData(); }}
                     onDismiss={() => setGateActivity(null)}
                 />

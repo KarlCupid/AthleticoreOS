@@ -21,7 +21,6 @@ import { getRecentExerciseIds, getExerciseLibrary } from './scService';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getGlobalReadinessState } from '../engine/getGlobalReadinessState';
 import { getActiveFightCamp, resolvePhaseForDate } from './fightCampService';
-import { withOptionalColumnsMutationFallback } from './schemaFallback';
 import { getAthleteContext } from './athleteContextService';
 import { getDefaultGymProfile } from './gymProfileService';
 import { getWeeksSinceLastDeload } from './overloadService';
@@ -46,32 +45,6 @@ const DEFAULT_WEEKLY_TARGETS: Omit<WeeklyTargetsRow, 'id' | 'user_id'> = {
     recovery_sessions: 1,
     total_weekly_load_cap: 4000,
 };
-
-const OPTIONAL_RECURRING_ACTIVITY_COLUMNS = new Set<string>([
-    'session_kind',
-    'rounds',
-    'round_duration_sec',
-    'rest_duration_sec',
-    'athlete_locked',
-    'intended_intensity',
-    'constraint_tier',
-]);
-
-const OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS = new Set<string>([
-    'session_kind',
-    'rounds',
-    'round_duration_sec',
-    'rest_duration_sec',
-    'athlete_locked',
-    'intended_intensity',
-    'constraint_tier',
-    'recommendation_reason',
-    'recommendation_severity',
-    'recommendation_affected_subsystem',
-    'recommendation_change',
-    'recommendation_education',
-    'recommendation_status',
-]);
 
 const EMPTY_VOLUME: Record<MuscleGroup, number> = {
     chest: 0,
@@ -119,15 +92,10 @@ type RecurringActivityInput = {
 async function insertScheduledActivities(
     rows: Record<string, unknown>[],
 ): Promise<ScheduledActivityRow[]> {
-    const { data, error } = await withOptionalColumnsMutationFallback(
-        'scheduled_activities',
-        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
-        { rows },
-        ({ rows: nextRows }) => supabase
-            .from('scheduled_activities')
-            .insert(nextRows as Record<string, unknown>[])
-            .select(),
-    );
+    const { data, error } = await supabase
+        .from('scheduled_activities')
+        .insert(rows)
+        .select();
 
     if (error) throw error;
     return (data ?? []) as ScheduledActivityRow[];
@@ -136,16 +104,11 @@ async function insertScheduledActivities(
 async function insertScheduledActivity(
     row: Record<string, unknown>,
 ): Promise<ScheduledActivityRow> {
-    const { data, error } = await withOptionalColumnsMutationFallback(
-        'scheduled_activities',
-        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
-        row,
-        (nextRow) => supabase
-            .from('scheduled_activities')
-            .insert(nextRow)
-            .select()
-            .single(),
-    );
+    const { data, error } = await supabase
+        .from('scheduled_activities')
+        .insert(row)
+        .select()
+        .single();
 
     if (error) throw error;
     if (!data) {
@@ -158,12 +121,7 @@ async function updateScheduledActivities(
     payload: Record<string, unknown>,
     execute: (nextPayload: Record<string, unknown>) => PromiseLike<{ error?: unknown }>,
 ): Promise<void> {
-    const { error } = await withOptionalColumnsMutationFallback(
-        'scheduled_activities',
-        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
-        payload,
-        execute,
-    );
+    const { error } = await execute(payload);
 
     if (error) throw error;
 }
@@ -207,16 +165,11 @@ export async function upsertRecurringActivity(
         ...(entry.id ? { id: entry.id } : {}),
     };
 
-    const { data, error } = await withOptionalColumnsMutationFallback(
-        'recurring_activities',
-        OPTIONAL_RECURRING_ACTIVITY_COLUMNS,
-        row,
-        (nextRow) => supabase
-            .from('recurring_activities')
-            .upsert(nextRow)
-            .select()
-            .single(),
-    );
+    const { data, error } = await supabase
+        .from('recurring_activities')
+        .upsert(row)
+        .select()
+        .single();
 
     if (error) throw error;
     if (!data) {

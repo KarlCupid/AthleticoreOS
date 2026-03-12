@@ -205,7 +205,9 @@ export interface WorkoutLogRow {
   id: string;
   user_id: string;
   date: string;
-  timeline_block_id: string | null;
+  weekly_plan_entry_id?: string | null;
+  scheduled_activity_id?: string | null;
+  gym_profile_id?: string | null;
   workout_type: WorkoutType;
   focus: WorkoutFocus | null;
   total_volume: number;
@@ -413,6 +415,7 @@ export interface RecurringActivityRow {
 export interface ScheduledActivityRow {
   id: string;
   recurring_activity_id: string | null;
+  weekly_plan_entry_id?: string | null;
   user_id: string;
   date: string;
   activity_type: ActivityType;
@@ -1283,6 +1286,7 @@ export interface WeeklyPlanEntryRow {
   status: PlanEntryStatus;
   rescheduled_to: string | null;
   workout_log_id: string | null;
+  scheduled_activity_id?: string | null;
   prescription_snapshot: WorkoutPrescriptionV2 | null;
   engine_notes: string | null;
   is_deload: boolean;

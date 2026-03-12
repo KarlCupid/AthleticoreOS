@@ -12,13 +12,13 @@ import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
 import { suggestWeightClass } from '../../lib/engine/weightClassData';
 import { createWeightCutPlan } from '../../lib/api/weightCutService';
 import { getEffectiveWeight } from '../../lib/api/weightService';
-import { WeightCutStackParamList } from '../navigation/WeightCutStack';
+import { PlanStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { CutPlanResult, WeightClassSuggestion, CutSport } from '../../lib/engine/types';
 import { IconAlertTriangle, IconCheckCircle, IconChevronLeft } from '../components/icons';
 import { CutPlanPreviewStep } from '../components/CutPlanPreviewStep';
 
-type NavProp = NativeStackNavigationProp<WeightCutStackParamList, 'CutPlanSetup'>;
+type NavProp = NativeStackNavigationProp<PlanStackParamList, 'CutPlanSetup'>;
 
 // Step 1 = How It Works intro
 // Step 2 = Target Weight

@@ -32,10 +32,10 @@ import {
     getExerciseLibrary,
 } from '../../lib/api/scService';
 import { ExerciseLibraryRow, WorkoutSetLogRow } from '../../lib/engine/types';
-import { SCStackParamList } from '../navigation/SCStack';
+import { PlanStackParamList } from '../navigation/types';
 
-type NavProp = NativeStackNavigationProp<SCStackParamList>;
-type RouteParams = { ActiveWorkout: SCStackParamList['ActiveWorkout'] };
+type NavProp = NativeStackNavigationProp<PlanStackParamList>;
+type RouteParams = { ActiveWorkout: PlanStackParamList['ActiveWorkout'] };
 
 interface ExerciseGroup {
     exercise: ExerciseLibraryRow;

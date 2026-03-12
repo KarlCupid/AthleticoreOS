@@ -3,18 +3,20 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, TextInput,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { computeRehydrationProtocol } from '../../lib/engine/calculateWeightCut';
 import { useWeightCutData } from '../hooks/useWeightCutData';
-import { WeightCutStackParamList } from '../navigation/WeightCutStack';
+import { PlanStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { IconChevronLeft, IconDroplets, IconCheckCircle } from '../components/icons';
 
-type RouteProps = RouteProp<WeightCutStackParamList, 'RehydrationProtocol'>;
+type NavProp = NativeStackNavigationProp<PlanStackParamList>;
+type RouteProps = RouteProp<PlanStackParamList, 'RehydrationProtocol'>;
 
 export function RehydrationProtocolScreen() {
-  const nav = useNavigation();
+  const nav = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
   const { weighInWeightLbs, hoursToFight } = route.params;
 

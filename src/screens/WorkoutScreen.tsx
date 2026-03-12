@@ -18,13 +18,13 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { Card } from '../components/Card';
 import { SectionHeader } from '../components/SectionHeader';
-import { VerticalTimeline } from '../components/VerticalTimeline';
 import { PrescriptionCard } from '../components/PrescriptionCard';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
+import { ActivityCard } from '../components/ActivityCard';
 
-import { SCStackParamList } from '../navigation/SCStack';
+import { PlanStackParamList } from '../navigation/types';
 import { IconActivity, IconFire } from '../components/icons';
 
 import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
@@ -34,7 +34,7 @@ import { supabase } from '../../lib/supabase';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
 
-type NavProp = NativeStackNavigationProp<SCStackParamList>;
+type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 type TabKey = 'today' | 'plan' | 'history' | 'analytics';
 
 const FOCUS_LABELS: Record<string, string> = {
@@ -57,7 +57,7 @@ export function WorkoutScreen() {
     // Workout data hook
     const {
         loading, refreshing, loadData, onRefresh,
-        prescription, timelineBlocks, workoutHistory,
+        prescription, todayActivities, workoutHistory,
         checkins, sessions, userId,
         cutProtocol,
         handleStartWorkout
@@ -80,7 +80,8 @@ export function WorkoutScreen() {
         const context = await getGuidedWorkoutContext(session.user.id, entry.date);
         navigation.navigate('GuidedWorkout', {
             weeklyPlanEntryId: entry.id,
-            focus: entry.focus as any,
+            scheduledActivityId: entry.scheduled_activity_id ?? undefined,
+            focus: entry.focus ?? undefined,
             availableMinutes: entry.estimated_duration_min,
             readinessState: currentLevel ?? 'Prime',
             phase: context.phase,
@@ -129,7 +130,7 @@ export function WorkoutScreen() {
                     <View style={styles.headerActions}>
                         <Pressable
                             style={styles.headerBtn}
-                            onPress={() => navigation.navigate('WeeklyPlan')}
+                            onPress={() => navigation.navigate('PlanHome')}
                         >
                             <Text style={styles.headerBtnText}>📅 Plan</Text>
                         </Pressable>
@@ -249,11 +250,26 @@ export function WorkoutScreen() {
                             }}
                         />
 
-                        {/* Timeline */}
-                        {timelineBlocks.length > 0 && (
+                        {/* Today's schedule */}
+                        {todayActivities.length > 0 && (
                             <View style={{ marginTop: SPACING.lg }}>
-                                <SectionHeader title="Today's Timeline" />
-                                <VerticalTimeline blocks={timelineBlocks} />
+                                <SectionHeader title="Today's Schedule" />
+                                {todayActivities.map((activity) => (
+                                    <ActivityCard
+                                        key={activity.id}
+                                        activity={activity}
+                                        onPress={() => {
+                                            if (activity.activity_type === 'sc' && todayEntry) {
+                                                void openGuidedWorkout(todayEntry);
+                                            }
+                                        }}
+                                        onLog={() => {
+                                            if (activity.activity_type === 'sc' && todayEntry) {
+                                                void openGuidedWorkout(todayEntry);
+                                            }
+                                        }}
+                                    />
+                                ))}
                             </View>
                         )}
                     </>

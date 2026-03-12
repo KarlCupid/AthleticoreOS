@@ -103,7 +103,7 @@ export async function startWorkout(
     params: {
         workoutType: WorkoutType;
         focus: WorkoutFocus | null;
-        timelineBlockId?: string;
+        scheduledActivityId?: string | null;
         date?: string;
     },
 ): Promise<WorkoutLogRow> {
@@ -114,7 +114,7 @@ export async function startWorkout(
             date: params.date ?? today(),
             workout_type: params.workoutType,
             focus: params.focus,
-            timeline_block_id: params.timelineBlockId ?? null,
+            scheduled_activity_id: params.scheduledActivityId ?? null,
             total_volume: 0,
             total_sets: 0,
             session_rpe: null,
@@ -197,7 +197,7 @@ export async function removeWorkoutSet(setId: string): Promise<void> {
 
 /**
  * Complete a workout. Calculates totals, updates workout_log,
- * updates daily_timeline to 'Completed', and inserts a training_sessions row.
+ * syncs linked schedule/plan rows, and inserts a training_sessions row.
  */
 export async function completeWorkout(
     userId: string,
@@ -237,17 +237,32 @@ export async function completeWorkout(
     if (updateErr) throw updateErr;
     const log = workoutLog as WorkoutLogRow;
 
-    // 4. Update daily_timeline if linked
-    if (log.timeline_block_id) {
-        await supabase
-            .from('daily_timeline')
+    if (log.weekly_plan_entry_id) {
+        const { error: weeklyPlanError } = await supabase
+            .from('weekly_plan_entries')
             .update({
-                status: 'Completed',
-                actual_intensity: sessionRPE,
+                status: 'completed',
+                workout_log_id: workoutLogId,
             })
-            .eq('id', log.timeline_block_id);
+            .eq('id', log.weekly_plan_entry_id);
+        if (weeklyPlanError) throw weeklyPlanError;
     }
-    // 5. Insert into training_sessions for ACWR calculation
+
+    if (log.scheduled_activity_id) {
+        const { error: scheduledError } = await supabase
+            .from('scheduled_activities')
+            .update({
+                status: 'completed',
+                actual_duration_min: durationMinutes,
+                actual_rpe: sessionRPE,
+                notes: notes ?? null,
+                recommendation_status: 'completed',
+            })
+            .eq('id', log.scheduled_activity_id);
+        if (scheduledError) throw scheduledError;
+    }
+
+    // 4. Insert into training_sessions for ACWR calculation
     await supabase
         .from('training_sessions')
         .upsert({
@@ -680,8 +695,8 @@ export async function startWorkoutV2(
     params: {
         workoutType: WorkoutType;
         focus: WorkoutFocus | null;
-        timelineBlockId?: string;
         weeklyPlanEntryId?: string;
+        scheduledActivityId?: string | null;
         gymProfileId?: string;
         date?: string;
     },
@@ -693,8 +708,8 @@ export async function startWorkoutV2(
             date: params.date ?? today(),
             workout_type: params.workoutType,
             focus: params.focus,
-            timeline_block_id: params.timelineBlockId ?? null,
             weekly_plan_entry_id: params.weeklyPlanEntryId ?? null,
+            scheduled_activity_id: params.scheduledActivityId ?? null,
             gym_profile_id: params.gymProfileId ?? null,
             total_volume: 0,
             total_sets: 0,

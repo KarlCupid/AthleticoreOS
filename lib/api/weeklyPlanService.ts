@@ -1,52 +1,8 @@
 import { supabase } from '../supabase';
 import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow } from '../engine/types';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
-import { withOptionalColumnsMutationFallback } from './schemaFallback';
 
 const today = todayLocalDate;
-
-const OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS = new Set<string>([
-    'athlete_locked',
-    'session_kind',
-    'intended_intensity',
-    'recommendation_reason',
-    'recommendation_severity',
-    'recommendation_affected_subsystem',
-    'recommendation_change',
-    'recommendation_education',
-    'recommendation_status',
-    'constraint_tier',
-    'rounds',
-    'round_duration_sec',
-    'rest_duration_sec',
-]);
-
-async function insertScheduledActivitiesWithFallback(rows: Record<string, unknown>[]): Promise<void> {
-    const { error } = await withOptionalColumnsMutationFallback(
-        'scheduled_activities',
-        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
-        { rows },
-        ({ rows: nextRows }) => supabase
-            .from('scheduled_activities')
-            .insert(nextRows as Record<string, unknown>[]),
-    );
-
-    if (error) throw error;
-}
-
-async function updateScheduledActivitiesWithFallback(
-    payload: Record<string, unknown>,
-    execute: (nextPayload: Record<string, unknown>) => PromiseLike<{ error?: unknown }>,
-): Promise<void> {
-    const { error } = await withOptionalColumnsMutationFallback(
-        'scheduled_activities',
-        OPTIONAL_SCHEDULED_ACTIVITY_COLUMNS,
-        payload,
-        execute,
-    );
-
-    if (error) throw error;
-}
 
 function normalizeDay(day: number): number | null {
     if (day === 7) return 0;
@@ -79,6 +35,43 @@ function normalizeAvailabilityWindows(windows: AvailabilityWindow[] | null | und
         }))
         .filter((window) => typeof window.startTime === 'string' && typeof window.endTime === 'string')
         .sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
+}
+
+function toScheduledActivityPayload(
+    userId: string,
+    entry: Pick<
+        WeeklyPlanEntryRow,
+        | 'id'
+        | 'date'
+        | 'session_type'
+        | 'focus'
+        | 'estimated_duration_min'
+        | 'target_intensity'
+        | 'engine_notes'
+        | 'status'
+    >,
+): Record<string, unknown> {
+    return {
+        user_id: userId,
+        weekly_plan_entry_id: entry.id ?? null,
+        date: entry.date,
+        activity_type: entry.session_type,
+        expected_intensity: entry.target_intensity ?? 5,
+        estimated_duration_min: entry.estimated_duration_min,
+        engine_recommendation: entry.engine_notes,
+        custom_label: entry.focus ? entry.focus.replace(/_/g, ' ') : null,
+        source: 'engine',
+        athlete_locked: false,
+        session_kind: entry.session_type,
+        intended_intensity: entry.target_intensity ?? null,
+        recommendation_reason: entry.engine_notes,
+        recommendation_severity: 'recommended',
+        recommendation_affected_subsystem: 'schedule',
+        recommendation_change: entry.focus ? `Focus on ${entry.focus.replace(/_/g, ' ')}` : 'Follow planned session',
+        recommendation_education: 'This session is recommended based on your weekly context, readiness, and camp goals.',
+        recommendation_status: 'pending',
+        status: entry.status === 'planned' ? 'scheduled' : entry.status === 'rescheduled' ? 'scheduled' : entry.status,
+    };
 }
 // --- Weekly Plan Config -------------------------------------
 
@@ -267,6 +260,7 @@ export async function saveWeekPlan(
                 status: e.status,
                 rescheduled_to: e.rescheduled_to,
                 workout_log_id: e.workout_log_id,
+                scheduled_activity_id: e.scheduled_activity_id ?? null,
                 prescription_snapshot: e.prescription_snapshot,
                 engine_notes: e.engine_notes,
                 is_deload: e.is_deload,
@@ -276,34 +270,40 @@ export async function saveWeekPlan(
 
     if (weeklyPlanError) throw weeklyPlanError;
 
-    const scheduledActivitiesToInsert = entries.map((e) => ({
-        user_id: userId,
-        date: e.date,
-        activity_type: e.session_type,
-        expected_intensity: e.target_intensity ?? 5,
-        estimated_duration_min: e.estimated_duration_min,
-        engine_recommendation: e.engine_notes,
-        custom_label: e.focus ? e.focus.replace(/_/g, ' ') : null,
-        source: 'engine',
-        athlete_locked: false,
-        session_kind: e.session_type,
-        intended_intensity: e.target_intensity ?? null,
-        recommendation_reason: e.engine_notes,
-        recommendation_severity: 'recommended',
-        recommendation_affected_subsystem: 'schedule',
-        recommendation_change: e.focus ? `Focus on ${e.focus.replace(/_/g, ' ')}` : 'Follow planned session',
-        recommendation_education: 'This session is recommended based on your weekly context, readiness, and camp goals.',
-        recommendation_status: 'pending',
-        status: e.status === 'planned' ? 'scheduled' : e.status === 'rescheduled' ? 'scheduled' : e.status,
-    }));
+    const insertedEntries = (generatedEntries ?? []) as WeeklyPlanEntryRow[];
 
-    try {
-        await insertScheduledActivitiesWithFallback(scheduledActivitiesToInsert);
-    } catch (scheduledError) {
-        console.error('Failed to sync scheduled_activities:', scheduledError);
-    }
+    const { data: scheduledActivities, error: scheduledError } = await supabase
+        .from('scheduled_activities')
+        .insert(insertedEntries.map((entry) => toScheduledActivityPayload(userId, entry)))
+        .select('id, weekly_plan_entry_id');
 
-    return (generatedEntries ?? []) as WeeklyPlanEntryRow[];
+    if (scheduledError) throw scheduledError;
+
+    const scheduledByEntryId = new Map(
+        ((scheduledActivities ?? []) as Array<{ id: string; weekly_plan_entry_id: string | null }>).
+            filter((activity) => Boolean(activity.weekly_plan_entry_id)).
+            map((activity) => [activity.weekly_plan_entry_id as string, activity.id]),
+    );
+
+    await Promise.all(
+        insertedEntries
+            .filter((entry) => scheduledByEntryId.has(entry.id))
+            .map((entry) => supabase
+                .from('weekly_plan_entries')
+                .update({ scheduled_activity_id: scheduledByEntryId.get(entry.id) })
+                .eq('id', entry.id)),
+    );
+
+    const { data: finalEntries, error: finalEntriesError } = await supabase
+        .from('weekly_plan_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('week_start_date', weekStart)
+        .order('date')
+        .order('slot');
+
+    if (finalEntriesError) throw finalEntriesError;
+    return (finalEntries ?? []) as WeeklyPlanEntryRow[];
 }
 
 /**
@@ -315,7 +315,7 @@ export async function markDayCompleted(
 ): Promise<void> {
     const { data: entry } = await supabase
         .from('weekly_plan_entries')
-        .select('user_id, date, session_type')
+        .select('scheduled_activity_id')
         .eq('id', entryId)
         .single();
 
@@ -326,17 +326,12 @@ export async function markDayCompleted(
 
     if (error) throw error;
 
-    if (entry) {
-        await updateScheduledActivitiesWithFallback(
-            { status: 'completed', recommendation_status: 'completed' },
-            (nextPayload) => supabase
-                .from('scheduled_activities')
-                .update(nextPayload)
-                .eq('user_id', entry.user_id)
-                .eq('date', entry.date)
-                .eq('activity_type', entry.session_type)
-                .eq('source', 'engine'),
-        );
+    if (entry?.scheduled_activity_id) {
+        const { error: scheduledError } = await supabase
+            .from('scheduled_activities')
+            .update({ status: 'completed', recommendation_status: 'completed' })
+            .eq('id', entry.scheduled_activity_id);
+        if (scheduledError) throw scheduledError;
     }
 }
 
@@ -346,7 +341,7 @@ export async function markDayCompleted(
 export async function markDaySkipped(entryId: string): Promise<void> {
     const { data: entry } = await supabase
         .from('weekly_plan_entries')
-        .select('user_id, date, session_type')
+        .select('scheduled_activity_id')
         .eq('id', entryId)
         .single();
 
@@ -357,17 +352,12 @@ export async function markDaySkipped(entryId: string): Promise<void> {
 
     if (error) throw error;
 
-    if (entry) {
-        await updateScheduledActivitiesWithFallback(
-            { status: 'skipped', recommendation_status: 'declined' },
-            (nextPayload) => supabase
-                .from('scheduled_activities')
-                .update(nextPayload)
-                .eq('user_id', entry.user_id)
-                .eq('date', entry.date)
-                .eq('activity_type', entry.session_type)
-                .eq('source', 'engine'),
-        );
+    if (entry?.scheduled_activity_id) {
+        const { error: scheduledError } = await supabase
+            .from('scheduled_activities')
+            .update({ status: 'skipped', recommendation_status: 'declined' })
+            .eq('id', entry.scheduled_activity_id);
+        if (scheduledError) throw scheduledError;
     }
 }
 
@@ -380,7 +370,7 @@ export async function rescheduleMissedDay(
 ): Promise<void> {
     const { data: entry } = await supabase
         .from('weekly_plan_entries')
-        .select('user_id, date, session_type')
+        .select('scheduled_activity_id')
         .eq('id', entryId)
         .single();
 
@@ -394,17 +384,12 @@ export async function rescheduleMissedDay(
 
     if (error) throw error;
 
-    if (entry) {
-        await updateScheduledActivitiesWithFallback(
-            { date: newDate, status: 'scheduled', recommendation_status: 'declined' },
-            (nextPayload) => supabase
-                .from('scheduled_activities')
-                .update(nextPayload)
-                .eq('user_id', entry.user_id)
-                .eq('date', entry.date)
-                .eq('activity_type', entry.session_type)
-                .eq('source', 'engine'),
-        );
+    if (entry?.scheduled_activity_id) {
+        const { error: scheduledError } = await supabase
+            .from('scheduled_activities')
+            .update({ date: newDate, status: 'scheduled', recommendation_status: 'declined' })
+            .eq('id', entry.scheduled_activity_id);
+        if (scheduledError) throw scheduledError;
     }
 }
 
@@ -476,23 +461,19 @@ export async function getWeeklyPlanEntryById(entryId: string): Promise<WeeklyPla
 export async function markRecommendationAccepted(entryId: string): Promise<void> {
     const { data: entry } = await supabase
         .from('weekly_plan_entries')
-        .select('user_id, date, session_type')
+        .select('scheduled_activity_id')
         .eq('id', entryId)
         .single();
 
-    if (!entry) return;
+    if (!entry?.scheduled_activity_id) return;
 
-    await updateScheduledActivitiesWithFallback(
-        { recommendation_status: 'accepted' },
-        (nextPayload) => supabase
-            .from('scheduled_activities')
-            .update(nextPayload)
-            .eq('user_id', entry.user_id)
-            .eq('date', entry.date)
-            .eq('activity_type', entry.session_type)
-            .eq('source', 'engine')
-            .eq('recommendation_status', 'pending'),
-    );
+    const { error } = await supabase
+        .from('scheduled_activities')
+        .update({ recommendation_status: 'accepted' })
+        .eq('id', entry.scheduled_activity_id)
+        .eq('recommendation_status', 'pending');
+
+    if (error) throw error;
 }
 
 

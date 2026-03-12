@@ -15,7 +15,6 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 
 import { getWeeklyReview } from '../../lib/api/scheduleService';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
-import { withOptionalColumnsSelectFallback } from '../../lib/api/schemaFallback';
 import type { WeeklyComplianceReport } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { calculateCampRisk, type CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
@@ -80,18 +79,13 @@ export function WeeklyReviewScreen() {
           .gte('date', weekStart)
           .lte('date', weekEnd)
           .order('date', { ascending: true }),
-        withOptionalColumnsSelectFallback(
-          'scheduled_activities',
-          ['status'],
-          ['recommendation_severity', 'recommendation_status'],
-          (selectClause) => supabase
-            .from('scheduled_activities')
-            .select(selectClause)
-            .eq('user_id', session.user.id)
-            .gte('date', weekStart)
-            .lte('date', weekEnd)
-            .not('recommendation_severity', 'is', null),
-        ),
+        supabase
+          .from('scheduled_activities')
+          .select('status, recommendation_severity, recommendation_status')
+          .eq('user_id', session.user.id)
+          .gte('date', weekStart)
+          .lte('date', weekEnd)
+          .not('recommendation_severity', 'is', null),
       ]);
 
       setReport(review);

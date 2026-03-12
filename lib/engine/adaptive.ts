@@ -102,7 +102,7 @@ export function handleTimelineShift({
  *
  * The caller is responsible for:
  *   1. Querying the boxing block, next 24h blocks, and exercise library from Supabase.
- *   2. If swapped === true, updating the target daily_timeline row:
+ *   2. If swapped === true, updating the target scheduled activity row:
  *      - block_type → 'Recovery'
  *      - status → 'Audible'
  *      - planned_intensity → replacement exercise's cns_load

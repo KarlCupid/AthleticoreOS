@@ -9,6 +9,7 @@ import {
 import { detectPR, suggestOverload, selectProgressionModel } from '../../lib/engine/calculateOverload';
 import { generateWarmupSets } from '../../lib/engine/calculateWarmup';
 import {
+    completeWorkout,
     getExerciseLibrary,
     logWorkoutSetV2,
     startWorkoutV2,
@@ -19,7 +20,7 @@ import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
 import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { todayLocalDate } from '../../lib/utils/date';
-import { getWeeklyPlanEntryById, markDayCompleted, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
+import { getWeeklyPlanEntryById, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
 import type {
     WorkoutPrescriptionV2,
     PrescribedExerciseV2,
@@ -59,7 +60,7 @@ const EMPTY_VOLUME: Record<MuscleGroup, number> = {
     glutes: 0, arms: 0, core: 0, full_body: 0, neck: 0, calves: 0,
 };
 
-export function useGuidedWorkout(weeklyPlanEntryId?: string) {
+export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId?: string) {
     // Workout state
     const [loading, setLoading] = useState(false);
     const [prescription, setPrescription] = useState<WorkoutPrescriptionV2 | null>(null);
@@ -234,6 +235,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string) {
                 workoutType: prescription.workoutType,
                 focus: prescription.focus,
                 weeklyPlanEntryId,
+                scheduledActivityId,
                 gymProfileId: gym?.id,
             });
 
@@ -248,7 +250,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string) {
         } catch (e) {
             console.error('Start workout error:', e);
         }
-    }, [prescription, weeklyPlanEntryId, gymProfile]);
+    }, [prescription, weeklyPlanEntryId, scheduledActivityId, gymProfile]);
 
     // ── Log a Set ─────────────────────────────────────────────────
 
@@ -452,13 +454,6 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string) {
         const totalVolume = workingSets.reduce((s, e) => s + e.reps * e.weight, 0);
         const totalSets = workingSets.length;
 
-        await supabase.from('workout_log').update({
-            duration_minutes: durationMin,
-            session_rpe: avgRPE ? Math.round(avgRPE * 10) / 10 : null,
-            total_volume: totalVolume,
-            total_sets: totalSets,
-        }).eq('id', workoutLog.id);
-
         // Save overload history for each exercise
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
@@ -476,14 +471,12 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string) {
                     progressionModel: null,
                 });
             }
-        }
-
-        if (weeklyPlanEntryId) {
-            try {
-                await markDayCompleted(weeklyPlanEntryId, workoutLog.id);
-            } catch (e) {
-                console.error('Failed to mark weekly plan day completed:', e);
-            }
+            await completeWorkout(
+                session.user.id,
+                workoutLog.id,
+                avgRPE ? Math.round(avgRPE * 10) / 10 : 6,
+                durationMin,
+            );
         }
 
         setIsComplete(true);

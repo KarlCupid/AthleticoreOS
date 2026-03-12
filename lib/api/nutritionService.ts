@@ -342,19 +342,21 @@ export async function ensureDailyLedger(
     targetSource?: DailyNutritionTargetSource;
   }
 ) {
+  const payload = {
+    user_id: userId,
+    date,
+    base_tdee: targets.tdee,
+    prescribed_calories: targets.calories,
+    prescribed_protein: targets.protein,
+    prescribed_fats: targets.fat,
+    prescribed_carbs: targets.carbs,
+    weight_correction_deficit: targets.weightCorrectionDeficit ?? 0,
+    target_source: targets.targetSource ?? 'base',
+  };
+
   const { data, error } = await supabase
     .from('macro_ledger')
-    .upsert({
-      user_id: userId,
-      date,
-      base_tdee: targets.tdee,
-      prescribed_calories: targets.calories,
-      prescribed_protein: targets.protein,
-      prescribed_fats: targets.fat,
-      prescribed_carbs: targets.carbs,
-      weight_correction_deficit: targets.weightCorrectionDeficit ?? 0,
-      target_source: targets.targetSource ?? 'base',
-    }, { onConflict: 'user_id,date' })
+    .upsert(payload, { onConflict: 'user_id,date' })
     .select()
     .single();
 

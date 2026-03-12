@@ -104,7 +104,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
             ]);
 
             const summaries: DailyNutritionData[] = summaryRes.data || [];
-            const ledgers: LedgerData[] = ledgerRes.data || [];
+            const ledgers = ((ledgerRes.data ?? []) as unknown) as LedgerData[];
 
             // Build lookup maps
             const summaryMap = new Map<string, DailyNutritionData>();

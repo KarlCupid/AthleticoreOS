@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { useWeightCutData } from '../hooks/useWeightCutData';
-import { WeightCutStackParamList } from '../navigation/WeightCutStack';
+import { PlanStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../theme/theme';
 import {
   IconTarget, IconChevronRight, IconAlertTriangle, IconTrendDown,
@@ -20,7 +20,7 @@ import { DailyProtocolCard } from '../components/DailyProtocolCard';
 import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
 import { CutPhase, WeightCutPlanRow } from '../../lib/engine/types';
 
-type NavProp = NativeStackNavigationProp<WeightCutStackParamList, 'WeightCutHome'>;
+type NavProp = NativeStackNavigationProp<PlanStackParamList, 'WeightCutHome'>;
 
 const PHASE_LABELS: Record<CutPhase, string> = {
   chronic: 'Chronic Cut',

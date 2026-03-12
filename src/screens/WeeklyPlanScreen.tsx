@@ -25,8 +25,8 @@ import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 
-import { SCStackParamList } from '../navigation/SCStack';
-type NavProp = NativeStackNavigationProp<SCStackParamList>;
+import { PlanStackParamList } from '../navigation/types';
+type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -99,7 +99,8 @@ export function WeeklyPlanScreen() {
             const context = await getGuidedWorkoutContext(session.user.id, entry.date);
             navigation.navigate('GuidedWorkout', {
                 weeklyPlanEntryId: entry.id,
-                focus: (entry.focus as any) ?? undefined,
+                scheduledActivityId: entry.scheduled_activity_id ?? undefined,
+                focus: entry.focus ?? undefined,
                 availableMinutes: entry.estimated_duration_min,
                 readinessState: currentLevel ?? 'Prime',
                 phase: context.phase,

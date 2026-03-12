@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+ï»¿import React from 'react';
 import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
@@ -10,8 +10,6 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { COLORS, RADIUS, SPACING, ANIMATION } from '../theme/theme';
 import { IconRestaurant, IconActivity, IconFire, IconCalendar } from '../components/icons';
-import { VerticalTimeline } from '../components/VerticalTimeline';
-import { QuickSwapModal } from '../components/QuickSwapModal';
 import { DashboardNutritionCard } from '../components/DashboardNutritionCard';
 import { TrainingLoadChartCard } from '../components/TrainingLoadChartCard';
 import { ActionGridItem } from '../components/ActionGridItem';
@@ -21,7 +19,7 @@ import { WeightTrendCard } from '../components/WeightTrendCard';
 import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
 import { ActivityCard } from '../components/ActivityCard';
 
-import type { DailyTimelineRow, DailyCutProtocolRow, ScheduledActivityRow, WeightCutPlanRow } from '../../lib/engine/types';
+import type { DailyCutProtocolRow, ScheduledActivityRow, WeightCutPlanRow } from '../../lib/engine/types';
 import { applySameDayOverride } from '../../lib/api/scheduleService';
 import { supabase } from '../../lib/supabase';
 import { todayLocalDate } from '../../lib/utils/date';
@@ -30,9 +28,6 @@ import { styles } from './DashboardScreen.styles';
 
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedBlock, setSelectedBlock] = useState<DailyTimelineRow | null>(null);
 
   const [activeCutPlan, setActiveCutPlan] = React.useState<WeightCutPlanRow | null>(null);
   const [todayCutProtocol, setTodayCutProtocol] = React.useState<DailyCutProtocolRow | null>(null);
@@ -78,7 +73,6 @@ export function DashboardScreen() {
     sessionDone,
     sleepQuality,
     morningWeight,
-    timelineBlocks,
     todayActivities,
     currentLevel,
     prescriptionMessage,
@@ -89,7 +83,6 @@ export function DashboardScreen() {
     currentLedger,
     campStatusLabel,
     campRisk,
-    handleBlockAction,
   } = useDashboardData();
 
   const targetCalories = todayCutProtocol ? todayCutProtocol.prescribed_calories : (nutritionTargets?.adjustedCalories ?? 0);
@@ -159,12 +152,6 @@ export function DashboardScreen() {
     navigation.navigate('ActivityLog', { activityId: activity.id, date: activity.date });
   };
 
-  const onActionModal = async (actionType: 'hard_sparring' | 'light_flow' | 'skipped') => {
-    await handleBlockAction(actionType, selectedBlock);
-    setModalVisible(false);
-    setSelectedBlock(null);
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -175,7 +162,7 @@ export function DashboardScreen() {
           greeting={getGreeting()}
           phase={
             activeCutPlan && todayCutProtocol
-              ? `${todayCutProtocol.cut_phase === 'fight_week_cut' ? 'Water Cut' : todayCutProtocol.cut_phase.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} · ${todayCutProtocol.days_to_weigh_in === 0 ? 'Weigh-in Today!' : `${todayCutProtocol.days_to_weigh_in} days out`}`
+              ? `${todayCutProtocol.cut_phase === 'fight_week_cut' ? 'Water Cut' : todayCutProtocol.cut_phase.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} Â· ${todayCutProtocol.days_to_weigh_in === 0 ? 'Weigh-in Today!' : `${todayCutProtocol.days_to_weigh_in} days out`}`
               : campStatusLabel
           }
           readinessScore={readinessScore}
@@ -201,7 +188,7 @@ export function DashboardScreen() {
             <Animated.View entering={FadeInDown.delay(D * 1.2).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
               <Card>
                 <Text style={[styles.biologyTitle, { color: getCampRiskColor(campRisk.level) }]}>
-                  Camp Risk {campRisk.score}/100 · {formatCampRiskLevel(campRisk.level)}
+                  Camp Risk {campRisk.score}/100 Â· {formatCampRiskLevel(campRisk.level)}
                 </Text>
                 <Text style={[styles.biologyDesc, { marginTop: SPACING.xs }]}>
                   {campRisk.projectedMakeWeightStatus}
@@ -243,17 +230,6 @@ export function DashboardScreen() {
               prescription={workoutPrescription}
               isCompleted={sessionDone}
               onPress={() => openPlanScreen('WorkoutHome')}
-            />
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(D * 3).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.lg }}>
-            <SectionHeader title="Today's Timeline" />
-            <VerticalTimeline
-              blocks={timelineBlocks}
-              onBlockPress={(block) => {
-                setSelectedBlock(block);
-                setModalVisible(true);
-              }}
             />
           </Animated.View>
 
@@ -345,16 +321,6 @@ export function DashboardScreen() {
           <View style={{ height: SPACING.xxl }} />
         </View>
       </ScrollView>
-
-      <QuickSwapModal
-        visible={modalVisible}
-        block={selectedBlock}
-        onClose={() => {
-          setModalVisible(false);
-          setSelectedBlock(null);
-        }}
-        onAction={onActionModal}
-      />
     </View>
   );
 }
@@ -379,3 +345,5 @@ function getGreeting(): string {
   if (hour < 17) return 'Good Afternoon';
   return 'Good Evening';
 }
+
+

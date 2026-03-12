@@ -16,9 +16,9 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { IconChevronLeft, IconActivity } from '../components/icons';
 import { ExerciseLibraryRow } from '../../lib/engine/types';
-import { SCStackParamList } from '../navigation/SCStack';
+import { PlanStackParamList } from '../navigation/types';
 
-type NavProp = NativeStackNavigationProp<SCStackParamList>;
+type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 type RouteParams = {
     ExerciseDetail: { exercise: ExerciseLibraryRow; workoutLogId?: string };
 };
