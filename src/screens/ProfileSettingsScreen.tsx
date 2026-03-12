@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
 
 interface AthleteProfile {
   biological_sex: string;
@@ -23,6 +24,7 @@ interface AthleteProfile {
   activity_level: string | null;
   nutrition_goal: string | null;
   fight_date: string | null;
+  first_run_guidance_status: 'pending' | 'completed' | null;
 }
 
 export function ProfileSettingsScreen() {
@@ -34,6 +36,7 @@ export function ProfileSettingsScreen() {
   const [totalSessions, setTotalSessions] = useState(0);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [guidanceStatus, setGuidanceStatus] = useState<'pending' | 'completed'>('pending');
 
   useEffect(() => {
     loadProfile();
@@ -59,7 +62,11 @@ export function ProfileSettingsScreen() {
         .eq('user_id', session.user.id),
     ]);
 
-    if (profileRes.data) setProfile(profileRes.data);
+    if (profileRes.data) {
+      const nextProfile = profileRes.data as AthleteProfile;
+      setProfile(nextProfile);
+      setGuidanceStatus(nextProfile.first_run_guidance_status === 'completed' ? 'completed' : 'pending');
+    }
     setTotalSessions(sessionsRes.count || 0);
   }
 
@@ -92,6 +99,25 @@ export function ProfileSettingsScreen() {
     if (error) {
       Alert.alert('Error', 'Failed to update field');
       throw error;
+    }
+  }
+
+  async function handleReplaySetupGuide() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    try {
+      await resetFirstRunGuidance(session.user.id);
+      setGuidanceStatus('pending');
+      setProfile((prev) => (
+        prev
+          ? { ...prev, first_run_guidance_status: 'pending' }
+          : prev
+      ));
+      Alert.alert('Setup guide reset', 'Your first-run guide will appear again on Dashboard.');
+    } catch (error) {
+      console.error('Replay setup guide error:', error);
+      Alert.alert('Error', 'Could not reset setup guide right now.');
     }
   }
 
@@ -239,6 +265,18 @@ export function ProfileSettingsScreen() {
         </Animated.View>
 
         {/* Sign Out */}
+        <Animated.View entering={FadeInDown.delay(290).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+          <Card title="Setup Guide">
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Status</Text>
+              <Text style={styles.settingValue}>{guidanceStatus === 'completed' ? 'Completed' : 'In progress'}</Text>
+            </View>
+            <AnimatedPressable style={styles.replayGuideButton} onPress={handleReplaySetupGuide}>
+              <Text style={styles.replayGuideButtonText}>Replay setup guide</Text>
+            </AnimatedPressable>
+          </Card>
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.delay(300).duration(ANIMATION.normal).springify()}>
           <AnimatedPressable
             style={styles.signOutButton}
@@ -465,6 +503,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.primary,
+  },
+  settingValue: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  replayGuideButton: {
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.accentLight,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    paddingVertical: SPACING.sm + 2,
+  },
+  replayGuideButtonText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
   },
   signOutButton: {
     marginTop: SPACING.xl,

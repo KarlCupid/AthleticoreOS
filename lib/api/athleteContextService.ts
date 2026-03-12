@@ -32,6 +32,8 @@ export interface AthleteProfileRow {
   athlete_goal_mode: string | null;
   performance_goal_type: PerformanceGoalType | null;
   planning_setup_version: number | null;
+  first_run_guidance_status: 'pending' | 'completed' | null;
+  first_run_guidance_intro_seen_at: string | null;
 }
 
 const VALID_PHASES: readonly Phase[] = [

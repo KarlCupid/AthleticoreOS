@@ -1,7 +1,7 @@
-﻿import React from 'react';
-import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
+import React from 'react';
+import { Alert, Modal, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import { HeroHeader } from '../components/HeroHeader';
 import { Card } from '../components/Card';
@@ -20,6 +20,12 @@ import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
 import { ActivityCard } from '../components/ActivityCard';
 
 import type { DailyCutProtocolRow, ScheduledActivityRow, WeightCutPlanRow } from '../../lib/engine/types';
+import { getActiveUserId } from '../../lib/api/athleteContextService';
+import {
+  getAndSyncFirstRunGuidanceState,
+  markFirstRunGuidanceIntroSeen,
+  type FirstRunGuidanceState,
+} from '../../lib/api/firstRunGuidanceService';
 import { applySameDayOverride } from '../../lib/api/scheduleService';
 import { supabase } from '../../lib/supabase';
 import { todayLocalDate } from '../../lib/utils/date';
@@ -31,6 +37,8 @@ export function DashboardScreen() {
 
   const [activeCutPlan, setActiveCutPlan] = React.useState<WeightCutPlanRow | null>(null);
   const [todayCutProtocol, setTodayCutProtocol] = React.useState<DailyCutProtocolRow | null>(null);
+  const [firstRunGuidance, setFirstRunGuidance] = React.useState<FirstRunGuidanceState | null>(null);
+  const [showFirstRunModal, setShowFirstRunModal] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -62,6 +70,33 @@ export function DashboardScreen() {
     })();
   }, []);
 
+  const loadFirstRunGuidance = React.useCallback(async () => {
+    try {
+      const userId = await getActiveUserId();
+      if (!userId) {
+        setFirstRunGuidance(null);
+        setShowFirstRunModal(false);
+        return;
+      }
+
+      const next = await getAndSyncFirstRunGuidanceState(userId);
+      setFirstRunGuidance(next);
+      setShowFirstRunModal(next.status === 'pending' && !next.introSeenAt);
+    } catch (error) {
+      console.error('Dashboard first-run guidance error:', error);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void loadFirstRunGuidance();
+  }, [loadFirstRunGuidance]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void loadFirstRunGuidance();
+    }, [loadFirstRunGuidance]),
+  );
+
   const {
     loading,
     refreshing,
@@ -91,6 +126,115 @@ export function DashboardScreen() {
   const targetFat = todayCutProtocol ? todayCutProtocol.prescribed_fat : (nutritionTargets?.fat ?? (currentLedger?.prescribed_fats ?? 60));
   const targetWater = todayCutProtocol ? todayCutProtocol.water_target_oz : (hydration?.dailyWaterOz ?? 100);
 
+  const readinessScore = currentLevel === 'Prime' ? 92 : currentLevel === 'Caution' ? 58 : 25;
+  const isDemoMode = (acwr?.chronic || 0) === 0 && (acwr?.acute || 0) === 0;
+  const chronic = isDemoMode ? 450 : (acwr?.chronic || 0);
+  const acute = isDemoMode ? 380 : (acwr?.acute || 0);
+  const readinessBar = checkinDone ? (currentLevel === 'Prime' ? 100 : currentLevel === 'Caution' ? 65 : 30) : 0;
+  const trainingLoadData = [
+    { x: 0, fitness: chronic, fatigue: 0, readiness: 0 },
+    { x: 1, fitness: 0, fatigue: acute, readiness: 0 },
+    { x: 2, fitness: 0, fatigue: 0, readiness: readinessBar },
+  ];
+  const D = 50;
+
+  const openPlanScreen = React.useCallback((screen: string, params?: Record<string, unknown>) => {
+    navigation.navigate('Plan', { screen, params });
+  }, [navigation]);
+
+  const handleRefresh = React.useCallback(() => {
+    onRefresh();
+    void loadFirstRunGuidance();
+  }, [onRefresh, loadFirstRunGuidance]);
+
+  const handleScheduleOverride = async (activity: ScheduledActivityRow, type: 'lighter' | 'harder' | 'skipped') => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      return;
+    }
+
+    try {
+      await applySameDayOverride(session.user.id, activity, { type });
+      handleRefresh();
+    } catch (error) {
+      console.error('Dashboard override error:', error);
+      Alert.alert('Update failed', 'Could not update this session. Please try again.');
+    }
+  };
+
+  const handleLogActivity = (activity: ScheduledActivityRow) => {
+    if (activity.activity_type === 'sc') {
+      openPlanScreen('WorkoutHome');
+      return;
+    }
+
+    navigation.navigate('ActivityLog', { activityId: activity.id, date: activity.date });
+  };
+
+  const dismissFirstRunModal = React.useCallback(async () => {
+    setShowFirstRunModal(false);
+
+    if (firstRunGuidance?.status !== 'pending' || firstRunGuidance.introSeenAt) {
+      return;
+    }
+
+    try {
+      const userId = await getActiveUserId();
+      if (!userId) return;
+      await markFirstRunGuidanceIntroSeen(userId);
+      setFirstRunGuidance((prev) => (
+        prev
+          ? {
+            ...prev,
+            introSeenAt: new Date().toISOString(),
+          }
+          : prev
+      ));
+    } catch (error) {
+      console.error('Dashboard first-run intro save error:', error);
+    }
+  }, [firstRunGuidance?.introSeenAt, firstRunGuidance?.status]);
+
+  const openFirstRunStep = React.useCallback((step: 'checkin' | 'workout' | 'nutrition') => {
+    if (step === 'checkin') {
+      navigation.navigate('Log');
+      return;
+    }
+
+    if (step === 'workout') {
+      openPlanScreen('WorkoutHome');
+      return;
+    }
+
+    openPlanScreen('NutritionHome');
+  }, [navigation, openPlanScreen]);
+
+  const checklistSteps = firstRunGuidance ? [
+    {
+      id: 'checkin' as const,
+      title: 'Log your first check-in',
+      subtitle: 'Set today\'s readiness baseline so recommendations make sense.',
+      done: firstRunGuidance.progress.checkinDone,
+    },
+    {
+      id: 'workout' as const,
+      title: 'Complete your first training session',
+      subtitle: 'Run your guided S&C flow once to unlock training history.',
+      done: firstRunGuidance.progress.workoutDone,
+    },
+    {
+      id: 'nutrition' as const,
+      title: 'Log your first meal',
+      subtitle: 'Track one meal to activate nutrition feedback loops.',
+      done: firstRunGuidance.progress.nutritionDone,
+    },
+  ] : [];
+
+  const shouldShowFirstRunChecklist = firstRunGuidance?.status === 'pending';
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -109,54 +253,45 @@ export function DashboardScreen() {
     );
   }
 
-  const readinessScore = currentLevel === 'Prime' ? 92 : currentLevel === 'Caution' ? 58 : 25;
-  const isDemoMode = (acwr?.chronic || 0) === 0 && (acwr?.acute || 0) === 0;
-  const chronic = isDemoMode ? 450 : (acwr?.chronic || 0);
-  const acute = isDemoMode ? 380 : (acwr?.acute || 0);
-  const readinessBar = checkinDone ? (currentLevel === 'Prime' ? 100 : currentLevel === 'Caution' ? 65 : 30) : 0;
-  const trainingLoadData = [
-    { x: 0, fitness: chronic, fatigue: 0, readiness: 0 },
-    { x: 1, fitness: 0, fatigue: acute, readiness: 0 },
-    { x: 2, fitness: 0, fatigue: 0, readiness: readinessBar },
-  ];
-  const D = 50;
-
-  const openPlanScreen = (screen: string, params?: Record<string, unknown>) => {
-    navigation.navigate('Plan', { screen, params });
-  };
-
-  const handleScheduleOverride = async (activity: ScheduledActivityRow, type: 'lighter' | 'harder' | 'skipped') => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user) {
-      return;
-    }
-
-    try {
-      await applySameDayOverride(session.user.id, activity, { type });
-      onRefresh();
-    } catch (error) {
-      console.error('Dashboard override error:', error);
-      Alert.alert('Update failed', 'Could not update this session. Please try again.');
-    }
-  };
-
-  const handleLogActivity = (activity: ScheduledActivityRow) => {
-    if (activity.activity_type === 'sc') {
-      openPlanScreen('WorkoutHome');
-      return;
-    }
-
-    navigation.navigate('ActivityLog', { activityId: activity.id, date: activity.date });
-  };
-
   return (
     <View style={styles.container}>
+      <Modal
+        visible={showFirstRunModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { void dismissFirstRunModal(); }}
+      >
+        <View style={styles.firstRunModalOverlay}>
+          <View style={styles.firstRunModalCard}>
+            <Text style={styles.firstRunModalKicker}>WELCOME</Text>
+            <Text style={styles.firstRunModalTitle}>Start Here in 3 Quick Wins</Text>
+            <Text style={styles.firstRunModalBody}>
+              We will keep this simple. Complete your first check-in, first session, and first meal log.
+            </Text>
+
+            <AnimatedPressable
+              style={styles.firstRunModalPrimaryButton}
+              onPress={() => {
+                void dismissFirstRunModal();
+                openFirstRunStep('checkin');
+              }}
+            >
+              <Text style={styles.firstRunModalPrimaryText}>Start Step 1</Text>
+            </AnimatedPressable>
+
+            <AnimatedPressable
+              style={styles.firstRunModalSecondaryButton}
+              onPress={() => { void dismissFirstRunModal(); }}
+            >
+              <Text style={styles.firstRunModalSecondaryText}>Not now</Text>
+            </AnimatedPressable>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
         <HeroHeader
           greeting={getGreeting()}
@@ -183,6 +318,44 @@ export function DashboardScreen() {
 
         <View style={styles.content}>
           <PrescriptionCard message={prescriptionMessage} entering enteringDelay={D} />
+
+          {shouldShowFirstRunChecklist && firstRunGuidance ? (
+            <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
+              <Card>
+                <View style={styles.firstRunHeaderRow}>
+                  <Text style={styles.firstRunKicker}>START HERE</Text>
+                  <Text style={styles.firstRunProgress}>
+                    {firstRunGuidance.progress.completedCount}/{firstRunGuidance.progress.totalCount} complete
+                  </Text>
+                </View>
+                <Text style={styles.firstRunTitle}>Your first 3 wins</Text>
+                <Text style={styles.firstRunSubtitle}>
+                  Follow these in order once, then Athleticore runs on autopilot.
+                </Text>
+
+                <View style={styles.firstRunStepList}>
+                  {checklistSteps.map((step, idx) => (
+                    <AnimatedPressable
+                      key={step.id}
+                      style={styles.firstRunStepRow}
+                      onPress={() => openFirstRunStep(step.id)}
+                    >
+                      <View style={[styles.firstRunStepBadge, step.done && styles.firstRunStepBadgeDone]}>
+                        <Text style={[styles.firstRunStepBadgeText, step.done && styles.firstRunStepBadgeTextDone]}>
+                          {step.done ? '✓' : `${idx + 1}`}
+                        </Text>
+                      </View>
+                      <View style={styles.firstRunStepCopy}>
+                        <Text style={styles.firstRunStepTitle}>{step.title}</Text>
+                        <Text style={styles.firstRunStepSubtitle}>{step.subtitle}</Text>
+                      </View>
+                      <Text style={styles.firstRunStepCta}>{step.done ? 'Done' : 'Open'}</Text>
+                    </AnimatedPressable>
+                  ))}
+                </View>
+              </Card>
+            </Animated.View>
+          ) : null}
 
           {campRisk ? (
             <Animated.View entering={FadeInDown.delay(D * 1.2).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
@@ -345,5 +518,3 @@ function getGreeting(): string {
   if (hour < 17) return 'Good Afternoon';
   return 'Good Evening';
 }
-
-
