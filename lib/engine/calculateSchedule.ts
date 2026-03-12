@@ -36,6 +36,7 @@ import { getWeeklyConditioningPlan } from './calculateConditioning';
 import { determineCampPhase, getCampTrainingModifiers, toCampEnginePhase } from './calculateCamp';
 import { getDailyCutIntensityCap } from './calculateWeightCut';
 import { shouldDeload } from './calculateOverload';
+import { generateWorkoutV2 } from './calculateSC';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getPersonalizedACWRThresholds } from './calculateACWR';
 
@@ -710,8 +711,12 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         phase,
         acwr,
         fitnessLevel,
+        exerciseLibrary,
+        recentExerciseIds,
+        recentMuscleVolume,
         campConfig,
         activeCutPlan,
+        gymProfile,
         weeksSinceLastDeload,
         weekStartDate,
     } = input;
@@ -829,6 +834,32 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         if (readinessState !== 'Prime') notes.push(`Readiness: ${readinessState}.`);
 
         const sessionType = isSparringDay ? 'activation' : (isDeloadWeek ? 'deload' : 'sc');
+        const trainingIntensityCap = activeCutPlan
+            ? getDailyCutIntensityCap(activeCutPlan, entryDate)
+            : null;
+        const shouldCreateSnapshot = Boolean(
+            focus && ['sc', 'activation', 'deload'].includes(sessionType) && exerciseLibrary.length > 0,
+        );
+        const prescriptionSnapshot = shouldCreateSnapshot
+            ? generateWorkoutV2({
+                readinessState,
+                phase,
+                acwr,
+                exerciseLibrary,
+                recentExerciseIds: recentExerciseIds ?? [],
+                recentMuscleVolume,
+                focus,
+                trainingIntensityCap,
+                trainingDate: entryDate,
+                fitnessLevel,
+                availableMinutes: duration,
+                gymEquipment: gymProfile?.equipment ?? [],
+                exerciseHistory: new Map(),
+                isDeloadWeek,
+                weeklyPlanFocus: focus,
+                isSparringDay,
+            })
+            : null;
 
         // Primary session entry
         entries.push({
@@ -847,7 +878,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             status: 'planned',
             rescheduled_to: null,
             workout_log_id: null,
-            prescription_snapshot: null,
+            prescription_snapshot: prescriptionSnapshot,
             engine_notes: notes.join(' ') || null,
             is_deload: isDeloadWeek,
             created_at: new Date().toISOString(),

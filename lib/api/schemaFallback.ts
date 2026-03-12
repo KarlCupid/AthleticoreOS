@@ -36,15 +36,40 @@ export async function withOptionalColumnsMutationFallback<T>(
     if (!response.error) return response;
 
     const missingColumn = getMissingSchemaCacheColumn(response.error, table);
-    if (!missingColumn || !optionalColumns.has(missingColumn) || !(missingColumn in payload)) {
+    if (!missingColumn || !optionalColumns.has(missingColumn)) {
       return response;
     }
 
-    delete payload[missingColumn];
+    const removedTopLevelColumn = deleteOptionalColumn(payload, missingColumn);
+    if (!removedTopLevelColumn) {
+      return response;
+    }
+
     remainingFallbacks -= 1;
   }
 
   return execute(payload);
+}
+
+function deleteOptionalColumn(payload: Record<string, unknown>, column: string): boolean {
+  let removed = false;
+
+  if (column in payload) {
+    delete payload[column];
+    removed = true;
+  }
+
+  const rows = payload.rows;
+  if (Array.isArray(rows)) {
+    rows.forEach((row) => {
+      if (row && typeof row === 'object' && !Array.isArray(row) && column in row) {
+        delete (row as Record<string, unknown>)[column];
+        removed = true;
+      }
+    });
+  }
+
+  return removed;
 }
 
 export async function withOptionalColumnsSelectFallback<T>(

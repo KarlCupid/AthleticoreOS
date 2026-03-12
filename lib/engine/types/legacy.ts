@@ -144,10 +144,16 @@ export interface MacroLedgerRow {
   user_id: string;
   date: string;
   base_tdee: number;
+  prescribed_calories?: number | null;
   prescribed_protein: number;
   prescribed_fats: number;
   prescribed_carbs: number;
   weight_correction_deficit: number;
+  target_source?: DailyNutritionTargetSource | null;
+  actual_calories?: number;
+  actual_protein?: number;
+  actual_carbs?: number;
+  actual_fat?: number;
 }
 
 // ─── Workout Generation Types ──────────────────────────────────
@@ -288,6 +294,15 @@ export interface NutritionTargets {
   phaseMultiplier: number;
   weightCorrectionDeficit: number;
   message: string;
+}
+
+export type DailyNutritionTargetSource =
+  | 'base'
+  | 'daily_activity_adjusted'
+  | 'weight_cut_protocol';
+
+export interface ResolvedNutritionTargets extends NutritionTargets {
+  source: DailyNutritionTargetSource;
 }
 
 export interface MacroAdherenceResult {
@@ -1268,7 +1283,7 @@ export interface WeeklyPlanEntryRow {
   status: PlanEntryStatus;
   rescheduled_to: string | null;
   workout_log_id: string | null;
-  prescription_snapshot: WorkoutPrescription | null;
+  prescription_snapshot: WorkoutPrescriptionV2 | null;
   engine_notes: string | null;
   is_deload: boolean;
   created_at: string;
@@ -1281,6 +1296,7 @@ export interface SmartWeekPlanInput {
   acwr: number;
   fitnessLevel: FitnessLevel;
   exerciseLibrary: ExerciseLibraryRow[];
+  recentExerciseIds?: string[];
   recentMuscleVolume: Record<MuscleGroup, number>;
   campConfig: CampConfig | null;
   activeCutPlan: WeightCutPlanRow | null;

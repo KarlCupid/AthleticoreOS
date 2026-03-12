@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { FoodItemRow, FoodLogRow, MealType } from '../engine/types';
+import { DailyNutritionTargetSource, FoodItemRow, FoodLogRow, MealType } from '../engine/types';
 import { todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
@@ -334,32 +334,27 @@ export async function ensureDailyLedger(
   date: string,
   targets: {
     tdee: number;
+    calories: number;
     protein: number;
     carbs: number;
     fat: number;
     weightCorrectionDeficit?: number;
+    targetSource?: DailyNutritionTargetSource;
   }
 ) {
-  const { data: existing } = await supabase
-    .from('macro_ledger')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('date', date)
-    .maybeSingle();
-
-  if (existing) return existing;
-
   const { data, error } = await supabase
     .from('macro_ledger')
-    .insert({
+    .upsert({
       user_id: userId,
       date,
       base_tdee: targets.tdee,
+      prescribed_calories: targets.calories,
       prescribed_protein: targets.protein,
       prescribed_fats: targets.fat,
       prescribed_carbs: targets.carbs,
       weight_correction_deficit: targets.weightCorrectionDeficit ?? 0,
-    })
+      target_source: targets.targetSource ?? 'base',
+    }, { onConflict: 'user_id,date' })
     .select()
     .single();
 

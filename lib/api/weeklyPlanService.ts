@@ -462,6 +462,17 @@ export async function getTodayPlanEntry(
     return data as WeeklyPlanEntryRow | null;
 }
 
+export async function getWeeklyPlanEntryById(entryId: string): Promise<WeeklyPlanEntryRow | null> {
+    const { data, error } = await supabase
+        .from('weekly_plan_entries')
+        .select('*')
+        .eq('id', entryId)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data as WeeklyPlanEntryRow | null;
+}
+
 export async function markRecommendationAccepted(entryId: string): Promise<void> {
     const { data: entry } = await supabase
         .from('weekly_plan_entries')

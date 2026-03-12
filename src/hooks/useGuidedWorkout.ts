@@ -19,7 +19,7 @@ import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
 import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { todayLocalDate } from '../../lib/utils/date';
-import { markDayCompleted, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
+import { getWeeklyPlanEntryById, markDayCompleted, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
 import type {
     WorkoutPrescriptionV2,
     PrescribedExerciseV2,
@@ -89,6 +89,22 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string) {
         ? (exerciseProgress[currentExercise.exercise.id] ?? null)
         : null;
 
+    const initializeProgress = useCallback((nextPrescription: WorkoutPrescriptionV2) => {
+        const progress: Record<string, ExerciseProgress> = {};
+        for (const ex of nextPrescription.exercises) {
+            progress[ex.exercise.id] = {
+                exerciseId: ex.exercise.id,
+                setsLogged: [],
+                warmupChecked: [],
+                isComplete: false,
+                prResult: null,
+            };
+        }
+        setExerciseProgress(progress);
+        setCurrentExerciseIndex(0);
+        setAdaptationResult(null);
+    }, []);
+
     // ── Load + Generate Prescription ──────────────────────────────
 
     const loadAndGenerate = useCallback(async (
@@ -110,6 +126,17 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string) {
             // Load gym profile
             const gym = await getDefaultGymProfile(userId);
             setGymProfile(gym);
+
+            if (weeklyPlanEntryId) {
+                const planEntry = await getWeeklyPlanEntryById(weeklyPlanEntryId);
+                if (planEntry?.prescription_snapshot?.exercises?.length) {
+                    const snapshot = planEntry.prescription_snapshot as WorkoutPrescriptionV2;
+                    setPrescription(snapshot);
+                    initializeProgress(snapshot);
+                    setLoading(false);
+                    return;
+                }
+            }
 
             // Load exercise library
             const library = await getExerciseLibrary();
@@ -187,24 +214,12 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string) {
             };
 
             setPrescription(finalPrescription);
-
-            // Initialize progress map
-            const progress: Record<string, ExerciseProgress> = {};
-            for (const ex of finalPrescription.exercises) {
-                progress[ex.exercise.id] = {
-                    exerciseId: ex.exercise.id,
-                    setsLogged: [],
-                    warmupChecked: [],
-                    isComplete: false,
-                    prResult: null,
-                };
-            }
-            setExerciseProgress(progress);
+            initializeProgress(finalPrescription);
         } catch (e) {
             console.error('useGuidedWorkout load error:', e);
         }
         setLoading(false);
-    }, []);
+    }, [initializeProgress, weeklyPlanEntryId]);
 
     // ── Start Workout ─────────────────────────────────────────────
 

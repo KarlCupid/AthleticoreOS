@@ -65,6 +65,7 @@ export function WorkoutScreen() {
 
     // Weekly plan hook
     const { todayEntry, entries, isDeloadWeek, loadPlan } = useWeeklyPlan();
+    const displayedPrescription = todayEntry?.prescription_snapshot ?? prescription;
 
     useFocusEffect(
         useCallback(() => {
@@ -203,10 +204,10 @@ export function WorkoutScreen() {
                                 style={[
                                     styles.cutBanner,
                                     {
-                                        borderColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 0.5
+                                        borderColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
                                             ? '#F59E0B'
                                             : '#6366F1',
-                                        backgroundColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 0.5
+                                        backgroundColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
                                             ? '#FFFBEB'
                                             : '#EEF2FF',
                                     }
@@ -215,13 +216,13 @@ export function WorkoutScreen() {
                                 <Text style={[
                                     styles.cutBannerTitle,
                                     {
-                                        color: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 0.5
+                                        color: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
                                             ? '#D97706'
                                             : '#4F46E5'
                                     }
                                 ]}>
                                     ⚔️ WEIGHT CUT — Intensity Cap: {cutProtocol.training_intensity_cap !== null
-                                        ? `${Math.round(cutProtocol.training_intensity_cap * 10)}/10 RPE`
+                                        ? `${cutProtocol.training_intensity_cap}/10 RPE`
                                         : 'No cap'}
                                 </Text>
                                 {cutProtocol.training_recommendation && (
@@ -231,15 +232,21 @@ export function WorkoutScreen() {
                         )}
 
                         {/* Prescription Card */}
-                        {prescription && (
-                            <PrescriptionCard message={prescription.message} />
+                        {displayedPrescription && (
+                            <PrescriptionCard message={displayedPrescription.message} />
                         )}
 
                         {/* Workout Prescription */}
                         <WorkoutPrescriptionSection
-                            prescription={prescription}
+                            prescription={displayedPrescription}
                             themeColor={themeColor}
-                            onStart={() => handleStartWorkout(navigation)}
+                            onStart={() => {
+                                if (todayEntry) {
+                                    void openGuidedWorkout(todayEntry);
+                                    return;
+                                }
+                                void handleStartWorkout(navigation);
+                            }}
                         />
 
                         {/* Timeline */}

@@ -1,5 +1,6 @@
-﻿export type {
+export type {
   DailyNutritionSummaryRow,
+  DailyNutritionTargetSource,
   FoodItemRow,
   FoodLogRow,
   MacroAdherenceResult,
@@ -7,6 +8,6 @@
   MealType,
   NutritionDayAdjustment,
   NutritionGoal,
-  NutritionProfileInput
+  NutritionProfileInput,
+  ResolvedNutritionTargets,
 } from './legacy';
-

@@ -18,6 +18,7 @@ import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getWeeksSinceLastDeload } from '../../lib/api/overloadService';
 import { getAthleteContext, getActiveUserId } from '../../lib/api/athleteContextService';
 import { getRecurringActivities } from '../../lib/api/scheduleService';
+import { getExerciseLibrary, getRecentExerciseIds } from '../../lib/api/scService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate } from '../../lib/utils/date';
 import type {
@@ -152,9 +153,11 @@ export async function generateAndSaveWeeklyPlan(
     activeCutPlan = (cutPlan as WeightCutPlanRow | null) ?? null;
   }
 
-  const [weeksSinceDeload, recurringActivities] = await Promise.all([
+  const [weeksSinceDeload, recurringActivities, exerciseLibrary, recentExerciseIds] = await Promise.all([
     getWeeksSinceLastDeload(userId),
     getRecurringActivities(userId),
+    getExerciseLibrary(),
+    getRecentExerciseIds(userId),
   ]);
 
   const result = generateSmartWeekPlan({
@@ -163,7 +166,8 @@ export async function generateAndSaveWeeklyPlan(
     phase: athleteContext.phase,
     acwr: readinessContext.acwr,
     fitnessLevel: athleteContext.fitnessLevel,
-    exerciseLibrary: [],
+    exerciseLibrary,
+    recentExerciseIds,
     recentMuscleVolume: { ...EMPTY_VOLUME },
     campConfig,
     activeCutPlan,

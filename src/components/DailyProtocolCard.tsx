@@ -80,7 +80,7 @@ export function DailyProtocolCard({ protocol }: Props) {
         <Text style={styles.trainingIcon}>🥊</Text>
         <View style={styles.trainingContent}>
           <Text style={styles.trainingCap}>
-            Intensity cap: {Math.round((protocol.training_intensity_cap ?? 1) * 10)} / 10 RPE
+            Intensity cap: {protocol.training_intensity_cap ?? 'No cap'}{protocol.training_intensity_cap != null ? ' / 10 RPE' : ''}
           </Text>
           {protocol.training_recommendation && (
             <Text style={styles.trainingRec}>{protocol.training_recommendation}</Text>

@@ -113,10 +113,12 @@ CREATE TABLE public.macro_ledger (
     user_id UUID REFERENCES public.Users(id) NOT NULL,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     base_tdee INTEGER NOT NULL,
+    prescribed_calories INTEGER,
     prescribed_protein INTEGER NOT NULL,
     prescribed_fats INTEGER NOT NULL,
     prescribed_carbs INTEGER NOT NULL,
     weight_correction_deficit INTEGER NOT NULL DEFAULT 0,
+    target_source TEXT CHECK (target_source IN ('base', 'daily_activity_adjusted', 'weight_cut_protocol')),
     UNIQUE(user_id, date)
 );
 

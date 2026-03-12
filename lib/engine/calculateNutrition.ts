@@ -7,6 +7,7 @@ import {
   NutritionGoal,
   DailyCutProtocolRow,
   ActivityType,
+  ResolvedNutritionTargets,
 } from './types';
 import { adjustForBiology } from './adjustForBiology';
 import { adjustNutritionForDay } from './calculateSchedule';
@@ -247,21 +248,24 @@ export function computeMacroAdherence(
  * @ANTI-WIRING:
  * To be called by the dashboard loader after computing both base targets and the cut protocol.
  */
-export function resolveDailyMacros(
+export function resolveDailyNutritionTargets(
   baseTargets: NutritionTargets,
   cutProtocol: DailyCutProtocolRow | null,
   dayActivities: { activity_type: ActivityType; expected_intensity: number; estimated_duration_min: number }[],
-) {
+): ResolvedNutritionTargets {
   // 1. If active cut, cut protocol is the ultimate truth. 
   // It already factors in baseline, biology, and activity adjustments.
   if (cutProtocol) {
     return {
-      calories: cutProtocol.prescribed_calories,
+      ...baseTargets,
+      adjustedCalories: cutProtocol.prescribed_calories,
       protein: cutProtocol.prescribed_protein,
       carbs: cutProtocol.prescribed_carbs,
       fat: cutProtocol.prescribed_fat,
       source: 'weight_cut_protocol' as const,
-      message: 'Following active weight cut macro targets.',
+      message: cutProtocol.cut_phase
+        ? `Weight cut protocol (${cutProtocol.cut_phase.replace(/_/g, ' ')})`
+        : 'Following active weight cut macro targets.',
     };
   }
 
@@ -277,11 +281,29 @@ export function resolveDailyMacros(
   const modifiedFat = Math.round(fatCalories / 9);
 
   return {
-    calories: modifiedCalories,
+    ...baseTargets,
+    adjustedCalories: modifiedCalories,
     protein: modifiedProtein,
     carbs: modifiedCarbs,
     fat: modifiedFat,
-    source: 'daily_activity_adjusted' as const,
-    message: dayAdj.message,
+    source: dayActivities.length > 0 ? 'daily_activity_adjusted' as const : 'base' as const,
+    message: dayActivities.length > 0 ? dayAdj.message : baseTargets.message,
+  };
+}
+
+export function resolveDailyMacros(
+  baseTargets: NutritionTargets,
+  cutProtocol: DailyCutProtocolRow | null,
+  dayActivities: { activity_type: ActivityType; expected_intensity: number; estimated_duration_min: number }[],
+) {
+  const resolved = resolveDailyNutritionTargets(baseTargets, cutProtocol, dayActivities);
+
+  return {
+    calories: resolved.adjustedCalories,
+    protein: resolved.protein,
+    carbs: resolved.carbs,
+    fat: resolved.fat,
+    source: resolved.source,
+    message: resolved.message,
   };
 }

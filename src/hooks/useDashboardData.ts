@@ -5,7 +5,7 @@ import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
 import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
 import { handleTimelineShift, autoRegulateSC } from '../../lib/engine/adaptive';
-import { calculateNutritionTargets } from '../../lib/engine/calculateNutrition';
+import { calculateNutritionTargets, resolveDailyNutritionTargets } from '../../lib/engine/calculateNutrition';
 import {
   calculateWeightTrend,
   calculateWeightCorrection,
@@ -42,6 +42,7 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { todayLocalDate } from '../../lib/utils/date';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
 import { calculateCampRisk, type CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
+import { getTodayPlanEntry } from '../../lib/api/weeklyPlanService';
 import {
   computeActualNutrition,
   composePrescriptionMessage,
@@ -144,6 +145,7 @@ export function useDashboardData() {
         { data: blocks },
         { data: ledger },
         { data: library },
+        scheduledActivities,
       ] = await Promise.all([
         supabase
           .from('daily_checkins')
@@ -169,6 +171,7 @@ export function useDashboardData() {
           .eq('date', todayStr)
           .maybeSingle(),
         supabase.from('exercise_library').select('*'),
+        getScheduledActivities(userId, todayStr, todayStr),
       ]);
 
       const checkin = (checkinData as DailyCheckinRow | null) ?? null;
@@ -189,6 +192,7 @@ export function useDashboardData() {
       setTimelineBlocks((blocks as DailyTimelineRow[] | null) ?? []);
       setCurrentLedger((ledger as MacroLedgerRow | null) ?? null);
       setExerciseLibrary(exerciseRows);
+      setTodayActivities(scheduledActivities);
 
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
 
@@ -274,7 +278,11 @@ export function useDashboardData() {
         });
         setReadiness(readinessState);
 
-        if (exerciseRows.length > 0) {
+        const todayPlanEntry = await getTodayPlanEntry(userId);
+
+        if (todayPlanEntry?.prescription_snapshot?.exercises?.length) {
+          setWorkoutPrescription(todayPlanEntry.prescription_snapshot);
+        } else if (exerciseRows.length > 0) {
           const recentIds = await getRecentExerciseIds(userId);
           const workoutRaw = generateWorkout({
             readinessState,
@@ -351,26 +359,27 @@ export function useDashboardData() {
             coachCaloriesOverride: profile.coach_calories_override ?? null,
             weightCorrectionDeficit: correctionDeficit,
           });
-
-          const finalTargets: NutritionTargets = cutProtocol
-            ? {
-                ...targets,
-                adjustedCalories: cutProtocol.prescribed_calories,
-                protein: cutProtocol.prescribed_protein,
-                carbs: cutProtocol.prescribed_carbs,
-                fat: cutProtocol.prescribed_fat,
-                message: `Weight cut protocol (${cutProtocol.cut_phase.replace(/_/g, ' ')})`,
-              }
-            : targets;
+          const activeActivities = scheduledActivities.filter((activity) => activity.status !== 'skipped');
+          const finalTargets = resolveDailyNutritionTargets(
+            targets,
+            cutProtocol,
+            activeActivities.map((activity) => ({
+              activity_type: activity.activity_type,
+              expected_intensity: activity.expected_intensity,
+              estimated_duration_min: activity.estimated_duration_min,
+            })),
+          );
 
           setNutritionTargets(finalTargets);
 
           await ensureDailyLedger(userId, todayStr, {
             tdee: finalTargets.tdee,
+            calories: finalTargets.adjustedCalories,
             protein: finalTargets.protein,
             carbs: finalTargets.carbs,
             fat: finalTargets.fat,
             weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
+            targetSource: finalTargets.source,
           });
         } catch (error) {
           logError('useDashboardData.calculateNutritionTargets', error, { userId });

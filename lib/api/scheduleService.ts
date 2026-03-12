@@ -866,13 +866,15 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
 }
 
 export async function syncEngineSchedule(userId: string, weekStartDate: string): Promise<void> {
-    const [config, athleteContext, campConfig, weeksSinceLastDeload, recurringActivities, gymProfile] = await Promise.all([
+    const [config, athleteContext, campConfig, weeksSinceLastDeload, recurringActivities, gymProfile, exerciseLibrary, recentExerciseIds] = await Promise.all([
         getWeeklyPlanConfig(userId),
         getAthleteContext(userId),
         getActiveFightCamp(userId),
         getWeeksSinceLastDeload(userId),
         getRecurringActivities(userId),
         getDefaultGymProfile(userId),
+        getExerciseLibrary(),
+        getRecentExerciseIds(userId),
     ]);
 
     if (!config) return;
@@ -923,7 +925,8 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         phase: athleteContext.phase,
         acwr,
         fitnessLevel: athleteContext.fitnessLevel,
-        exerciseLibrary: [],
+        exerciseLibrary,
+        recentExerciseIds,
         recentMuscleVolume: { ...EMPTY_VOLUME },
         campConfig,
         activeCutPlan,

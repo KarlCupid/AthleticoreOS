@@ -24,13 +24,14 @@ import { HydrationTracker } from '../components/HydrationTracker';
 import { IconBarcode } from '../components/icons';
 import { styles } from './NutritionScreen.styles';
 import { supabase } from '../../lib/supabase';
-import { calculateNutritionTargets } from '../../lib/engine/calculateNutrition';
+import { calculateNutritionTargets, resolveDailyNutritionTargets } from '../../lib/engine/calculateNutrition';
 import {
   getDailyNutrition,
   removeFoodEntry,
   logWater,
   ensureDailyLedger,
 } from '../../lib/api/nutritionService';
+import { getScheduledActivities } from '../../lib/api/scheduleService';
 import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
 import { calculateWeightTrend, calculateWeightCorrection } from '../../lib/engine/calculateWeight';
 import { getWeightHistory, getEffectiveWeight } from '../../lib/api/weightService';
@@ -82,6 +83,7 @@ export function NutritionScreen() {
         .single();
 
       if (!profile) return;
+      const scheduledActivities = await getScheduledActivities(userId, today, today);
 
       // ── Active cut protocol (overrides standard targets when active) ──
       let todayCutProtocol: DailyCutProtocolRow | null = null;
@@ -157,26 +159,27 @@ export function NutritionScreen() {
         coachCaloriesOverride: profile.coach_calories_override ?? null,
         weightCorrectionDeficit: correctionDeficit,
       });
-      // Cut protocol overrides standard targets when active
-      const finalTargets: NutritionTargets = todayCutProtocol
-        ? {
-          ...nutritionTargets,
-          adjustedCalories: todayCutProtocol.prescribed_calories,
-          protein: todayCutProtocol.prescribed_protein,
-          carbs: todayCutProtocol.prescribed_carbs,
-          fat: todayCutProtocol.prescribed_fat,
-          message: `Weight cut protocol (${todayCutProtocol.cut_phase.replace(/_/g, ' ')})`,
-        }
-        : nutritionTargets;
+      const activeActivities = scheduledActivities.filter((activity) => activity.status !== 'skipped');
+      const finalTargets = resolveDailyNutritionTargets(
+        nutritionTargets,
+        todayCutProtocol,
+        activeActivities.map((activity) => ({
+          activity_type: activity.activity_type,
+          expected_intensity: activity.expected_intensity,
+          estimated_duration_min: activity.estimated_duration_min,
+        })),
+      );
       setTargets(finalTargets);
 
       // Ensure ledger row exists for today
       await ensureDailyLedger(userId, today, {
         tdee: finalTargets.tdee,
+        calories: finalTargets.adjustedCalories,
         protein: finalTargets.protein,
         carbs: finalTargets.carbs,
         fat: finalTargets.fat,
         weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
+        targetSource: finalTargets.source,
       });
 
       // Calculate hydration target — cut protocol overrides standard
