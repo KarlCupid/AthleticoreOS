@@ -33,98 +33,98 @@ const EDUCATION_LIBRARY: Record<PrimaryLimiter, EducationEntry[]> = {
     {
       id: 'sleep_debt_reset',
       title: 'Sleep Debt Reset',
-      teaching: 'One short sleep night reduces motor control and makes hard sessions feel harder.',
-      application: 'Keep today at controlled intensity and add a 25-minute earlier shutdown tonight.',
+      teaching: 'Bad sleep can hurt coordination and make training feel harder.',
+      application: 'Keep intensity moderate today and go to bed 25 minutes earlier tonight.',
     },
     {
       id: 'sleep_anchor',
       title: 'Sleep Anchor Habit',
-      teaching: 'Consistent wake time stabilizes recovery signals more than occasional long sleep-ins.',
-      application: 'Lock wake time within a 30-minute window and cut caffeine 8 hours before bed.',
+      teaching: 'A steady wake time helps recovery more than sleeping in.',
+      application: 'Keep wake time within 30 minutes and stop caffeine 8 hours before bed.',
     },
   ],
   stress: [
     {
       id: 'stress_load_split',
       title: 'Stress Load Split',
-      teaching: 'Life stress and training stress stack on the same recovery system.',
-      application: 'Keep quality in main sets, then trim optional volume by 15-20 percent.',
+      teaching: 'Life stress and training stress add up.',
+      application: 'Do your main work, then cut optional volume by 15-20%.',
     },
     {
       id: 'stress_breathing_bracket',
       title: 'Breathing Bracket',
-      teaching: 'Lowering arousal before and after training improves session quality under pressure.',
-      application: 'Use 4 slow breaths before top sets and 2 minutes of nasal breathing post-session.',
+      teaching: 'Calming down before and after training can improve session quality.',
+      application: 'Take 4 slow breaths before top sets and 2 minutes of easy nose breathing after.',
     },
   ],
   soreness: [
     {
       id: 'soreness_range_quality',
       title: 'Range Before Load',
-      teaching: 'Soreness limits force output most when you skip movement prep through full range.',
-      application: 'Add 8-10 minutes of prep on stiff areas before your first working set.',
+      teaching: 'If you are sore, skipping warm-up can lower your output.',
+      application: 'Spend 8-10 minutes warming up stiff areas before your first work set.',
     },
     {
       id: 'soreness_volume_gate',
       title: 'Volume Gate',
-      teaching: 'When soreness is high, keep exposure but lower total volume to protect adaptation.',
-      application: 'Do planned warmups and top work, then cut last accessory set if form degrades.',
+      teaching: 'When soreness is high, keep key work and lower extra volume.',
+      application: 'Do warmups and main work, then skip the last accessory set if form drops.',
     },
   ],
   nutrition: [
     {
       id: 'nutrition_timing_window',
       title: 'Fuel Timing Window',
-      teaching: 'Training quality drops when carbs and fluids are delayed too long around sessions.',
-      application: 'Take a quick carb source 60-90 minutes pre-session and hydrate before warmup.',
+      teaching: 'Training feels harder when carbs and fluids are delayed.',
+      application: 'Have a quick carb snack 60-90 minutes before training and drink before warmup.',
     },
     {
       id: 'nutrition_floor_strategy',
       title: 'Minimum Fuel Floor',
-      teaching: 'A consistent fuel floor protects output better than perfect macros a few days per week.',
-      application: 'Hit protein target and one structured carb feeding before your hardest work today.',
+      teaching: 'Hitting a consistent minimum intake beats occasional perfect days.',
+      application: 'Hit your protein goal and include one planned carb feeding before your hardest work.',
     },
   ],
   hydration: [
     {
       id: 'hydration_performance_drop',
       title: 'Hydration and Output',
-      teaching: 'Small hydration deficits reduce repeat sprint output and increase perceived effort.',
-      application: 'Front-load fluid early day and include sodium with one bottle before training.',
+      teaching: 'Even mild dehydration can lower repeat effort and make work feel harder.',
+      application: 'Drink early in the day and add sodium to one bottle before training.',
     },
     {
       id: 'hydration_schedule_lock',
       title: 'Hydration Schedule Lock',
-      teaching: 'Planned fluid timing beats relying on thirst during busy days.',
-      application: 'Set 3 drink checkpoints before afternoon to protect session quality.',
+      teaching: 'Planned drink times work better than waiting for thirst.',
+      application: 'Set 3 water checkpoints before the afternoon.',
     },
   ],
   time: [
     {
       id: 'time_priority_filter',
       title: 'Priority Filter',
-      teaching: 'When time is limited, preserving high-return work keeps progression on track.',
-      application: 'Complete main lift and first accessory first; optional volume only if time remains.',
+      teaching: 'When time is short, do the highest-value work first.',
+      application: 'Finish your main lift and first accessory, then do extras only if time remains.',
     },
     {
       id: 'time_density_upgrade',
       title: 'Density Upgrade',
-      teaching: 'Tighter rest management can keep quality while shortening total session length.',
-      application: 'Use a visible timer and trim easy-set rest by 15-20 seconds today.',
+      teaching: 'Shorter rest on easier sets can save time and keep quality.',
+      application: 'Use a timer and cut easy-set rest by 15-20 seconds today.',
     },
   ],
   none: [
     {
       id: 'consistency_compound',
       title: 'Consistency Compound',
-      teaching: 'Daily execution quality compounds faster than occasional perfect hero days.',
-      application: 'Keep planned intent, sharp technique, and finish your key recovery actions.',
+      teaching: 'Good days in a row beat one perfect hero day.',
+      application: 'Stick to the plan, keep form sharp, and finish your key recovery actions.',
     },
     {
       id: 'load_progression_rule',
       title: 'Load Progression Rule',
-      teaching: 'Progression is strongest when effort and recovery stay aligned over consecutive days.',
-      application: 'Push only the highest-value sets and leave one rep in reserve on supporting work.',
+      teaching: 'Progress comes fastest when hard work and recovery stay in balance.',
+      application: 'Push key sets and keep one rep in reserve on support work.',
     },
   ],
 };
@@ -212,24 +212,28 @@ function buildRiskFlags(input: DailyCoachDebriefInput, limiter: PrimaryLimiter):
 }
 
 function buildHeadline(readinessBand: DailyReadinessBand): string {
-  if (readinessBand === 'push') return 'High-readiness day. You can drive quality progression.';
-  if (readinessBand === 'build') return 'Moderate-readiness day. Build quality without overspending recovery.';
-  return 'Recovery-priority day. Protect long-term adaptation before adding load.';
+  if (readinessBand === 'push') return 'You are in a good spot today. Train hard with good form.';
+  if (readinessBand === 'build') return 'Solid day. Train with control and keep quality high.';
+  return 'Recovery day. Lower stress now so you can train better tomorrow.';
 }
 
 function buildReasoning(input: DailyCoachDebriefInput, band: DailyReadinessBand, limiter: PrimaryLimiter): string {
   const phaseLabel = input.context.phase.replace(/-/g, ' ');
-  const loadText = `ACWR ${input.trainingLoadSummary.acwrRatio.toFixed(2)} (${input.trainingLoadSummary.acwrStatus})`;
-  const limiterText = limiter === 'none' ? 'no dominant limiter reported' : `primary limiter: ${limiter}`;
+  const loadText = input.trainingLoadSummary.acwrStatus === 'safe'
+    ? 'training load looks normal'
+    : input.trainingLoadSummary.acwrStatus === 'caution'
+      ? 'training load is a bit high'
+      : 'training load is very high';
+  const limiterText = limiter === 'none' ? 'no clear main limiter' : `main limiter: ${limiter}`;
   const confidenceText = input.confidenceLevel != null ? `confidence ${input.confidenceLevel}/5` : 'confidence not logged';
 
   if (band === 'recover') {
-    return `Signals are compressed for performance today (${loadText}, sleep ${input.sleepQuality}/5, readiness ${input.readiness}/5). In ${phaseLabel}, recovery control matters most right now (${limiterText}; ${confidenceText}).`;
+    return `Today is a lower-readiness day: ${loadText}, sleep ${input.sleepQuality}/5, readiness ${input.readiness}/5. In ${phaseLabel}, recover first (${limiterText}; ${confidenceText}).`;
   }
   if (band === 'build') {
-    return `You have enough capacity to train with control (${loadText}) but not ideal margin for reckless intensity. In ${phaseLabel}, execute clean reps and protect recovery drivers (${limiterText}; ${confidenceText}).`;
+    return `You can train today, but keep it controlled: ${loadText}. In ${phaseLabel}, keep form clean and protect recovery (${limiterText}; ${confidenceText}).`;
   }
-  return `Readiness markers support progression (${loadText}, sleep ${input.sleepQuality}/5, readiness ${input.readiness}/5). In ${phaseLabel}, this is a strong window to push high-value work while keeping technical quality high.`;
+  return `You look ready to push: ${loadText}, sleep ${input.sleepQuality}/5, readiness ${input.readiness}/5. In ${phaseLabel}, push key work and keep form sharp.`;
 }
 
 function buildTrainingAction(input: DailyCoachDebriefInput, band: DailyReadinessBand): DailyCoachActionStep {
@@ -237,8 +241,8 @@ function buildTrainingAction(input: DailyCoachDebriefInput, band: DailyReadiness
     return {
       pillar: 'training',
       priority: 2,
-      action: 'Cap session intensity around RPE 5-6 and trim optional volume by 20%.',
-      why: 'Lowering intensity today protects adaptation when readiness and load stress are unfavorable.',
+      action: 'Keep session intensity around RPE 5-6 and cut optional volume by 20%.',
+      why: 'This lowers stress and helps you recover.',
     };
   }
 
@@ -246,54 +250,54 @@ function buildTrainingAction(input: DailyCoachDebriefInput, band: DailyReadiness
     return {
       pillar: 'training',
       priority: 2,
-      action: 'Complete planned work but keep top sets at technical quality, not grind.',
-      why: 'Moderate readiness supports execution work; quality reps beat forced intensity.',
+      action: 'Do planned work, but stop sets when form starts to drop.',
+      why: 'Good reps help you improve without digging a deep fatigue hole.',
     };
   }
 
   return {
     pillar: 'training',
     priority: 1,
-    action: 'Push your highest-value sets to planned intensity and keep support work disciplined.',
-    why: 'This is a favorable readiness window for progression without unnecessary extra fatigue.',
+    action: 'Push your key sets to plan and keep support work clean.',
+    why: 'You have good readiness today, so hard quality work makes sense.',
   };
 }
 
 function buildRecoveryAction(limiter: PrimaryLimiter, band: DailyReadinessBand): DailyCoachActionStep {
   const recoveryByLimiter: Record<PrimaryLimiter, string> = {
-    sleep: 'Protect tonight with an earlier shutdown and strict caffeine cutoff.',
-    stress: 'Use a short downshift block (2-5 minutes breathing) before and after training.',
-    soreness: 'Add targeted prep on stiff tissues before your first working set.',
-    nutrition: 'Pair post-session protein and carbs within 60 minutes to speed recovery.',
-    hydration: 'Front-load fluids and include sodium before the hardest effort.',
-    time: 'Lock your session start time and remove low-value extras to preserve recovery bandwidth.',
-    none: 'Keep your normal recovery anchors: sleep window, hydration, and cooldown.',
+    sleep: 'Go to bed earlier tonight and stop caffeine 8 hours before bed.',
+    stress: 'Do a short reset (2-5 minutes breathing) before and after training.',
+    soreness: 'Warm up stiff areas before your first work set.',
+    nutrition: 'Have protein and carbs within 60 minutes after training.',
+    hydration: 'Drink fluids early and add sodium before your hardest work.',
+    time: 'Set a start time and cut low-value extras.',
+    none: 'Keep your basics: sleep window, hydration, and cooldown.',
   };
 
   return {
     pillar: 'recovery',
     priority: band === 'recover' ? 1 : 2,
     action: recoveryByLimiter[limiter],
-    why: 'Recovery consistency determines whether today creates adaptation or just fatigue.',
+    why: 'Recovery habits keep performance steady from day to day.',
   };
 }
 
 function buildNutritionAction(input: DailyCoachDebriefInput): DailyCoachActionStep {
   if (input.nutritionAdherence === 'Missed It') {
     const barrierMap: Record<string, string> = {
-      appetite: 'Use liquid calories/protein to hit minimum intake without large meals.',
-      timing: 'Pre-plan two fixed fueling windows around training.',
-      cravings: 'Anchor each meal with protein first, then add carbs by plan.',
-      prep: 'Pick two repeatable meals and prep them once today.',
-      social: 'Set a simple plate rule before events: protein first, carbs second.',
-      none: 'Rebuild with one structured meal and one planned snack today.',
+      appetite: 'Use shakes or easy foods to hit minimum calories and protein.',
+      timing: 'Plan two set fueling times around training.',
+      cravings: 'Start meals with protein, then add carbs.',
+      prep: 'Prep two simple meals today.',
+      social: 'Use a simple plate rule at events: protein first, carbs second.',
+      none: 'Reset with one solid meal and one planned snack today.',
     };
 
     return {
       pillar: 'nutrition',
       priority: input.trainingLoadSummary.acwrStatus !== 'safe' ? 1 : 2,
       action: barrierMap[input.nutritionBarrier ?? 'none'],
-      why: 'Fuel misses under load increase recovery debt and reduce training quality.',
+      why: 'Missing fuel can hurt both recovery and training quality.',
     };
   }
 
@@ -301,16 +305,16 @@ function buildNutritionAction(input: DailyCoachDebriefInput): DailyCoachActionSt
     return {
       pillar: 'nutrition',
       priority: 3,
-      action: 'Tighten one gap today: hit protein floor and hydrate early in the day.',
-      why: 'Small consistency gains compound quickly when training volume is stable.',
+      action: 'Fix one small gap: hit protein and hydrate early.',
+      why: 'Small daily wins add up fast.',
     };
   }
 
   return {
     pillar: 'nutrition',
     priority: 3,
-    action: 'Maintain current fueling execution and keep meal timing consistent around training.',
-    why: 'Stable fueling supports predictable session output and next-day readiness.',
+    action: 'Keep the same fueling plan and consistent meal timing around training.',
+    why: 'Consistent fueling keeps energy and recovery steady.',
   };
 }
 

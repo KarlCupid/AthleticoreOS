@@ -145,6 +145,15 @@ function parseNonNegativeNumber(value: string): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+function simplifyDebriefCopy(text: string): string {
+  return text
+    .replace(/\bACWR\b/gi, 'training load')
+    .replace(/load ratio/gi, 'training load trend')
+    .replace(/\badaptation\b/gi, 'progress')
+    .replace(/\bexecution\b/gi, 'performance')
+    .replace(/\bCNS\b/gi, 'nervous system');
+}
+
 function assessTrackedNutrition(
   targets: NutritionTrackerState['targets'],
   actual: NutritionTrackerState['actual'],
@@ -787,27 +796,27 @@ export function LogScreen() {
   );
 
   const renderDebrief = () => (
-    <Card title="Coach Debrief" subtitle="What your data means today and what to do next.">
+    <Card title="Coach Debrief" subtitle="Simple breakdown: what this means, what to do, and one thing to learn.">
       {savedDebrief ? (
         <>
-          <Text style={styles.debriefHeadline}>{savedDebrief.headline}</Text>
-          <Text style={styles.hint}>{savedDebrief.reasoning}</Text>
-          <Text style={styles.subhead}>Next 24 Hours</Text>
+          <View style={styles.debriefSummaryBox}>
+            <Text style={styles.summaryLabel}>Today</Text>
+            <Text style={styles.debriefHeadline}>{simplifyDebriefCopy(savedDebrief.headline)}</Text>
+            <Text style={styles.summaryBody}>{simplifyDebriefCopy(savedDebrief.reasoning)}</Text>
+          </View>
+          <Text style={styles.subhead}>Do This Next</Text>
           {savedDebrief.action_steps.map((stepItem) => (
-            <View key={`${stepItem.pillar}-${stepItem.priority}`} style={styles.actionRow}>
-              <Text style={styles.priority}>{stepItem.priority}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.actionTitle}>{stepItem.pillar.toUpperCase()}: {stepItem.action}</Text>
-                <Text style={styles.hint}>{stepItem.why}</Text>
-              </View>
+            <View key={`${stepItem.pillar}-${stepItem.priority}`} style={styles.actionItem}>
+              <Text style={styles.actionStep}>Step {stepItem.priority}: {simplifyDebriefCopy(stepItem.action)}</Text>
+              <Text style={styles.actionWhy}>Why: {simplifyDebriefCopy(stepItem.why)}</Text>
             </View>
           ))}
-          <Text style={styles.subhead}>Skill of the day</Text>
+          <Text style={styles.subhead}>Learn One Thing</Text>
           <View style={styles.skillBox}>
             <Text style={styles.skillTitle}>{savedDebrief.education_title}</Text>
-            <Text style={styles.hint}>{savedDebrief.teaching_snippet}</Text>
-            <Text style={[styles.label, { marginTop: SPACING.sm }]}>Today application</Text>
-            <Text style={styles.hint}>{savedDebrief.today_application}</Text>
+            <Text style={styles.summaryBody}>{simplifyDebriefCopy(savedDebrief.teaching_snippet)}</Text>
+            <Text style={[styles.summaryLabel, { marginTop: SPACING.sm }]}>Try this today</Text>
+            <Text style={styles.summaryBody}>{simplifyDebriefCopy(savedDebrief.today_application)}</Text>
           </View>
         </>
       ) : <Text style={styles.hint}>Save your entry to generate a coaching debrief.</Text>}
@@ -930,10 +939,13 @@ const styles = StyleSheet.create({
   pillWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
   pill: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2, backgroundColor: COLORS.surface },
   pillText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  debriefHeadline: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 21, marginBottom: SPACING.sm },
-  actionRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
-  priority: { width: 22, height: 22, borderRadius: 11, textAlign: 'center', textAlignVertical: 'center', backgroundColor: COLORS.readiness.primeLight, color: COLORS.readiness.prime, fontFamily: FONT_FAMILY.semiBold, fontSize: 12 },
-  actionTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 19 },
+  debriefSummaryBox: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm, marginBottom: SPACING.sm },
+  summaryLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
+  debriefHeadline: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 22, marginBottom: SPACING.xs },
+  summaryBody: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
+  actionItem: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surface, padding: SPACING.sm, marginBottom: SPACING.xs },
+  actionStep: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 19, marginBottom: 2 },
+  actionWhy: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 17 },
   skillBox: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
   skillTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
   loadingText: { marginTop: SPACING.md, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary },
