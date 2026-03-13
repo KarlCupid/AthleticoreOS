@@ -44,6 +44,26 @@ export const styles = StyleSheet.create({
         color: '#A5B4FC',
         lineHeight: 18,
     },
+    cardTitle: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+        marginBottom: SPACING.xs,
+    },
+    cardSubtitle: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+        lineHeight: 20,
+    },
+    cardMeta: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        lineHeight: 18,
+        marginTop: SPACING.xs,
+    },
     header: {
         paddingHorizontal: SPACING.lg,
         paddingBottom: SPACING.md,

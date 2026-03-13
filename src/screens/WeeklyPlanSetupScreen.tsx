@@ -33,6 +33,7 @@ import type {
   BuildPhaseGoalRow,
   BuildPhaseGoalType,
   ConstraintTier,
+  ObjectiveSecondaryConstraint,
   PerformanceGoalType,
   WeighInTiming,
 } from '../../lib/engine/types';
@@ -74,6 +75,7 @@ type BuildPhaseRecommendation = {
   targetHorizonWeeks: number;
   reason: string;
   goalStatement: string;
+  secondaryConstraint: ObjectiveSecondaryConstraint;
 };
 
 const DAY_OPTIONS = [
@@ -104,6 +106,13 @@ const COMMITMENT_OPTIONS: { value: CommitmentType; label: string }[] = [
   { value: 'sparring', label: 'Sparring' },
   { value: 'conditioning', label: 'Conditioning' },
   { value: 'sc', label: 'S&C' },
+];
+const SECONDARY_CONSTRAINT_OPTIONS: { value: ObjectiveSecondaryConstraint; label: string; description: string }[] = [
+  { value: 'protect_recovery', label: 'Protect Recovery', description: 'Keep progression high without burying recovery.' },
+  { value: 'weight_trajectory', label: 'Weight Trajectory', description: 'Keep bodyweight moving in the intended direction.' },
+  { value: 'skill_frequency', label: 'Skill Frequency', description: 'Protect boxing and sparring exposure while building.' },
+  { value: 'schedule_reliability', label: 'Schedule Reliability', description: 'Bias toward plans that are easier to actually complete.' },
+  { value: 'injury_risk', label: 'Injury Risk', description: 'Limit spike risk and protect return-to-train consistency.' },
 ];
 const BUILD_METRIC_OPTIONS: Record<BuildPhaseGoalType, BuildMetricOption[]> = {
   strength: [
@@ -250,6 +259,7 @@ function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, profileTar
         targetHorizonWeeks,
         reason: 'We start with repeatable weekly strength exposure because most athletes need consistency before chasing load-specific numbers.',
         goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
+        secondaryConstraint: 'protect_recovery',
       };
     }
     case 'boxing_skill': {
@@ -262,6 +272,7 @@ function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, profileTar
         targetHorizonWeeks,
         reason: 'We bias toward repeatable technical reps first so the engine can build cleaner skill exposure before it guesses sparring volume.',
         goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
+        secondaryConstraint: 'skill_frequency',
       };
     }
     case 'weight_class_prep': {
@@ -275,6 +286,7 @@ function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, profileTar
           targetHorizonWeeks,
           reason: 'You already have a target weight on file, so the engine can anchor this block to a clear bodyweight objective.',
           goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
+          secondaryConstraint: 'weight_trajectory',
         };
       }
 
@@ -287,6 +299,7 @@ function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, profileTar
         targetHorizonWeeks,
         reason: 'Without a target weight on file, the engine starts with nutrition consistency instead of guessing a bodyweight deadline.',
         goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
+        secondaryConstraint: 'weight_trajectory',
       };
     }
     case 'conditioning':
@@ -300,6 +313,7 @@ function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, profileTar
         targetHorizonWeeks,
         reason: 'We default to a sustainable conditioning dose first so the engine can progress workload without overcommitting the week.',
         goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
+        secondaryConstraint: 'protect_recovery',
       };
     }
   }
@@ -308,6 +322,8 @@ function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, profileTar
 function isGuidedBuildGoal(buildGoal: BuildPhaseGoalRow, recommendation: BuildPhaseRecommendation): boolean {
   return buildGoal.goal_label == null
     && buildGoal.goal_statement === recommendation.goalStatement
+    && (buildGoal.primary_outcome ?? buildGoal.goal_statement) === recommendation.goalStatement
+    && (buildGoal.secondary_constraint ?? 'protect_recovery') === recommendation.secondaryConstraint
     && buildGoal.target_metric === recommendation.metric.value
     && buildGoal.target_value === recommendation.targetValue
     && buildGoal.target_unit === recommendation.metric.unit
@@ -400,6 +416,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
   const [buildGoalType, setBuildGoalType] = useState<BuildPhaseGoalType>('conditioning');
   const [goalLabel, setGoalLabel] = useState('');
   const [goalStatement, setGoalStatement] = useState('');
+  const [primaryOutcome, setPrimaryOutcome] = useState('');
+  const [secondaryConstraint, setSecondaryConstraint] = useState<ObjectiveSecondaryConstraint>('protect_recovery');
   const [targetMetric, setTargetMetric] = useState(() => getDefaultBuildMetricOption('conditioning').value);
   const [targetValue, setTargetValue] = useState('');
   const [targetDate, setTargetDate] = useState('');
@@ -436,6 +454,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
 
     setGoalLabel('');
     setGoalStatement(buildRecommendation.goalStatement);
+    setPrimaryOutcome(buildRecommendation.goalStatement);
+    setSecondaryConstraint(buildRecommendation.secondaryConstraint);
     setTargetMetric(buildRecommendation.metric.value);
     setTargetValue(String(buildRecommendation.targetValue));
     setTargetDate('');
@@ -509,6 +529,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           setBuildGoalType(buildGoal.goal_type);
           setGoalLabel(buildGoal.goal_label ?? '');
           setGoalStatement(buildGoal.goal_statement);
+          setPrimaryOutcome(buildGoal.primary_outcome ?? buildGoal.goal_statement);
+          setSecondaryConstraint(buildGoal.secondary_constraint ?? recommendedBuild.secondaryConstraint);
           setTargetMetric(resolveBuildMetricValue(buildGoal.goal_type, buildGoal.target_metric));
           setTargetValue(buildGoal.target_value != null ? String(buildGoal.target_value) : '');
           setTargetDate(buildGoal.target_date ?? '');
@@ -640,6 +662,13 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     if (!goalStatement.trim() || !targetMetric.trim()) {
       if (showAlerts) {
         Alert.alert('Build Phase incomplete', 'Advanced override needs a clear objective and a measurable success metric.');
+      }
+      return false;
+    }
+
+    if (!primaryOutcome.trim()) {
+      if (showAlerts) {
+        Alert.alert('Build Phase incomplete', 'Add a clear primary objective so the daily mission knows what this block is trying to achieve.');
       }
       return false;
     }
@@ -776,6 +805,9 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           goalType: buildGoalType,
           goalLabel: showAdvancedOverride ? goalLabel.trim() || null : null,
           goalStatement: showAdvancedOverride ? goalStatement.trim() : buildRecommendation.goalStatement,
+          primaryOutcome: showAdvancedOverride ? primaryOutcome.trim() : buildRecommendation.goalStatement,
+          secondaryConstraint,
+          successWindow: showAdvancedOverride ? targetDate.trim() || null : null,
           targetMetric: showAdvancedOverride ? selectedBuildMetric.value : buildRecommendation.metric.value,
           targetValue: showAdvancedOverride ? parsedTargetValue : buildRecommendation.targetValue,
           targetUnit: showAdvancedOverride ? selectedBuildMetric.unit : buildRecommendation.metric.unit,
@@ -850,11 +882,26 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                 <Text style={styles.previewLine}>The engine will optimize for {buildRecommendation.metric.label.toLowerCase()}.</Text>
                 <Text style={styles.previewLine}>Recommended target: {String(buildRecommendation.targetValue)} {buildRecommendation.metric.unit}.</Text>
                 <Text style={styles.previewLine}>Recommended time frame: {buildRecommendation.targetHorizonWeeks} weeks.</Text>
+                <Text style={styles.previewLine}>
+                  Secondary constraint: {SECONDARY_CONSTRAINT_OPTIONS.find((option) => option.value === buildRecommendation.secondaryConstraint)?.label ?? 'Protect Recovery'}.
+                </Text>
                 <Text style={styles.previewLine}>{buildRecommendation.reason}</Text>
               </View>
               <View style={styles.previewCard}>
                 <Text style={styles.previewTitle}>Planned Objective</Text>
                 <Text style={styles.previewLine}>{buildRecommendation.goalStatement}</Text>
+              </View>
+              <Text style={styles.subLabel}>Secondary Constraint</Text>
+              <FieldNote>Tell the engine what it should protect while driving this block forward.</FieldNote>
+              <View style={styles.optionList}>
+                {SECONDARY_CONSTRAINT_OPTIONS.map((option) => (
+                  <OptionPill
+                    key={option.value}
+                    selected={secondaryConstraint === option.value}
+                    label={option.label}
+                    onPress={() => setSecondaryConstraint(option.value)}
+                  />
+                ))}
               </View>
               <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvancedOverride((current) => !current)} activeOpacity={0.8}>
                 <View style={styles.advancedToggleTextWrap}>
@@ -871,6 +918,9 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                   <Text style={styles.subLabel}>Specific Outcome</Text>
                   <FieldNote>Describe the outcome you want if the coach recommendation is not specific enough.</FieldNote>
                   <TextInput style={[styles.input, styles.multilineInput]} value={goalStatement} onChangeText={setGoalStatement} placeholder={BUILD_GOAL_OBJECTIVE_PLACEHOLDERS[buildGoalType]} placeholderTextColor={COLORS.text.tertiary} multiline />
+                  <Text style={styles.subLabel}>Primary Objective</Text>
+                  <FieldNote>This becomes the north-star sentence shown in the daily mission.</FieldNote>
+                  <TextInput style={[styles.input, styles.multilineInput]} value={primaryOutcome} onChangeText={setPrimaryOutcome} placeholder={BUILD_GOAL_OBJECTIVE_PLACEHOLDERS[buildGoalType]} placeholderTextColor={COLORS.text.tertiary} multiline />
                   <Text style={styles.subLabel}>Success Metric</Text>
                   <FieldNote>Choose the exact scoreboard the engine should optimize if you want to override the default.</FieldNote>
                   <View style={styles.optionList}>
@@ -895,12 +945,15 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                   <View style={styles.previewCard}>
                     <Text style={styles.previewTitle}>Override Preview</Text>
                     <Text style={styles.previewLine}>
-                      {goalStatement.trim() || 'Add a specific outcome if you want the override to replace the guided objective.'}
+                      {primaryOutcome.trim() || goalStatement.trim() || 'Add a specific outcome if you want the override to replace the guided objective.'}
                     </Text>
                     <Text style={styles.previewLine}>
                       {targetValue.trim()
                         ? `Manual target: ${targetValue.trim()} ${selectedBuildMetric.unit} for ${selectedBuildMetric.label.toLowerCase()}.`
                         : `Set the manual target for ${selectedBuildMetric.label.toLowerCase()}.`}
+                    </Text>
+                    <Text style={styles.previewLine}>
+                      Constraint: {SECONDARY_CONSTRAINT_OPTIONS.find((option) => option.value === secondaryConstraint)?.label ?? 'Protect Recovery'}.
                     </Text>
                     <Text style={styles.previewLine}>
                       {targetDate.trim()

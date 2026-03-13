@@ -3,13 +3,15 @@ export { getHydrationProtocol } from './getHydrationProtocol';
 export { adjustForBiology } from './adjustForBiology';
 export { getGlobalReadinessState } from './getGlobalReadinessState';
 export { handleTimelineShift, autoRegulateSC } from './adaptive';
-export { calculateNutritionTargets, computeMacroAdherence } from './calculateNutrition';
+export { calculateNutritionTargets, computeMacroAdherence, resolveDailyNutritionTargets } from './calculateNutrition';
 export { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight';
 export { calculateCampRisk } from './calculateCampRisk';
+export { buildDailyMission, buildMicrocyclePlan } from './calculateMission';
 export {
   determineFocus,
   scoreExerciseForUser,
   generateWorkout,
+  generateWorkoutV2,
   calculateVolumeLoad,
   calculateWeeklyVolume,
   getWorkoutCompliance,
@@ -64,6 +66,7 @@ export type {
   MealType,
   NutritionProfileInput,
   NutritionTargets,
+  ResolvedNutritionTargets,
   MacroAdherenceResult,
   FoodItemRow,
   FoodLogRow,
@@ -83,6 +86,7 @@ export type {
   WeeklyComplianceReport,
   ScheduleGenerationInput,
   NutritionDayAdjustment,
+  WeeklyPlanEntryRow,
   WeightCutStatus,
   WeightDataPoint,
   WeightTrendInput,
@@ -91,6 +95,17 @@ export type {
   WeightCorrectionResult,
   WeightReadinessPenalty,
   RecurrencePattern,
+  PerformanceObjective,
+  MacrocycleContext,
+  DailyMission,
+  TrainingDirective,
+  FuelDirective,
+  HydrationDirective,
+  RecoveryDirective,
+  MissionRiskState,
+  DecisionTraceItem,
+  MissionOverride,
+  WeeklyMissionPlan,
 } from './types';
 
 export type { CampRiskInput, CampRiskAssessment, CampRiskLevel } from './calculateCampRisk';

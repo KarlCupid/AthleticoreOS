@@ -11,6 +11,7 @@ import {
   calculateWeightReadinessPenalty,
 } from '../../lib/engine/calculateWeight';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
+import { getDailyMission } from '../../lib/api/dailyMissionService';
 import { generateRollingSchedule, getDailyAdaptationForToday, getScheduledActivities } from '../../lib/api/scheduleService';
 import { getWeightHistory, getEffectiveWeight } from '../../lib/api/weightService';
 import { getRecentExerciseIds } from '../../lib/api/scService';
@@ -26,8 +27,9 @@ import { logError } from '../../lib/utils/logger';
 import type {
   ACWRResult,
   BiologyResult,
+  DailyMission,
   HydrationResult,
-  NutritionTargets,
+  ResolvedNutritionTargets,
   WeightTrendResult,
   ScheduledActivityRow,
   MacroLedgerRow,
@@ -96,10 +98,11 @@ export function useDashboardData() {
   const [prescriptionMessage, setPrescriptionMessage] = useState<string | null>(null);
   const [workoutPrescription, setWorkoutPrescription] = useState<WorkoutPrescription | null>(null);
   const [weightTrend, setWeightTrend] = useState<WeightTrendResult | null>(null);
+  const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
 
   const { setReadiness, currentLevel } = useReadinessTheme();
 
-  const [nutritionTargets, setNutritionTargets] = useState<NutritionTargets | null>(null);
+  const [nutritionTargets, setNutritionTargets] = useState<ResolvedNutritionTargets | null>(null);
   const [actualNutrition, setActualNutrition] = useState<DashboardNutritionTotals>(EMPTY_NUTRITION);
   const [activeCutProtocol, setActiveCutProtocol] = useState<DailyCutProtocolRow | null>(null);
   const [campStatusLabel, setCampStatusLabel] = useState<string>('Build Phase');
@@ -414,6 +417,52 @@ export function useDashboardData() {
         isTravelWindow,
       });
       setCampRisk(nextCampRisk);
+
+      try {
+        const mission = await getDailyMission(userId, todayStr);
+        setDailyMission(mission);
+        setWorkoutPrescription(mission.trainingDirective.prescription);
+        setPrescriptionMessage(mission.summary);
+        setNutritionTargets({
+          tdee: currentLedger?.base_tdee ?? 0,
+          adjustedCalories: mission.fuelDirective.calories,
+          protein: mission.fuelDirective.protein,
+          carbs: mission.fuelDirective.carbs,
+          fat: mission.fuelDirective.fat,
+          proteinModifier: 1,
+          phaseMultiplier: 0,
+          weightCorrectionDeficit: 0,
+          message: mission.fuelDirective.message,
+          source: mission.fuelDirective.source === 'weight_cut_protocol'
+            ? 'weight_cut_protocol'
+            : mission.fuelDirective.source === 'daily_engine'
+              ? 'daily_activity_adjusted'
+              : 'base',
+        });
+        await ensureDailyLedger(userId, todayStr, {
+          tdee: currentLedger?.base_tdee ?? 0,
+          calories: mission.fuelDirective.calories,
+          protein: mission.fuelDirective.protein,
+          carbs: mission.fuelDirective.carbs,
+          fat: mission.fuelDirective.fat,
+          weightCorrectionDeficit: 0,
+          targetSource: mission.fuelDirective.source === 'weight_cut_protocol'
+            ? 'weight_cut_protocol'
+            : mission.fuelDirective.source === 'daily_engine'
+              ? 'daily_activity_adjusted'
+              : 'base',
+        });
+        setHydration((prev) => ({
+          dailyWaterOz: mission.hydrationDirective.waterTargetOz,
+          waterLoadOz: prev?.waterLoadOz ?? null,
+          shedCapPercent: prev?.shedCapPercent ?? 0,
+          shedCapLbs: prev?.shedCapLbs ?? 0,
+          message: mission.hydrationDirective.message,
+        }));
+      } catch (error) {
+        logError('useDashboardData.getDailyMission', error, { userId });
+        setDailyMission(null);
+      }
     } catch (error) {
       logError('useDashboardData.loadDashboardData', error, { userId });
       setCampRisk(null);
@@ -455,6 +504,7 @@ export function useDashboardData() {
     activeCutProtocol,
     campStatusLabel,
     campRisk,
+    dailyMission,
   };
 }
 

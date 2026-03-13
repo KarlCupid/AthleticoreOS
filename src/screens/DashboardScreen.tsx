@@ -11,6 +11,7 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { COLORS, RADIUS, SPACING, ANIMATION } from '../theme/theme';
 import { IconRestaurant, IconActivity, IconFire, IconCalendar } from '../components/icons';
 import { DashboardNutritionCard } from '../components/DashboardNutritionCard';
+import { DailyMissionCard } from '../components/DailyMissionCard';
 import { TrainingLoadChartCard } from '../components/TrainingLoadChartCard';
 import { ActionGridItem } from '../components/ActionGridItem';
 import { PrescriptionCard } from '../components/PrescriptionCard';
@@ -118,6 +119,7 @@ export function DashboardScreen() {
     currentLedger,
     campStatusLabel,
     campRisk,
+    dailyMission,
   } = useDashboardData();
 
   const targetCalories = todayCutProtocol ? todayCutProtocol.prescribed_calories : (nutritionTargets?.adjustedCalories ?? 0);
@@ -317,6 +319,12 @@ export function DashboardScreen() {
         />
 
         <View style={styles.content}>
+          {dailyMission ? (
+            <Animated.View entering={FadeInDown.delay(D * 0.6).duration(ANIMATION.slow).springify()}>
+              <DailyMissionCard mission={dailyMission} />
+            </Animated.View>
+          ) : null}
+
           <PrescriptionCard message={prescriptionMessage} entering enteringDelay={D} />
 
           {shouldShowFirstRunChecklist && firstRunGuidance ? (

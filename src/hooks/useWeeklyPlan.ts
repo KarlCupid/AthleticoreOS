@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { generateSmartWeekPlan, handleMissedDay } from '../../lib/engine/calculateSchedule';
 import { calculateACWR } from '../../lib/engine/calculateACWR';
+import { buildMicrocyclePlan } from '../../lib/engine/calculateMission';
+import { calculateNutritionTargets } from '../../lib/engine/calculateNutrition';
+import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
 import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
 import {
   getWeeklyPlanConfig,
@@ -16,21 +19,24 @@ import {
 } from '../../lib/api/weeklyPlanService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getWeeksSinceLastDeload } from '../../lib/api/overloadService';
-import { getAthleteContext, getActiveUserId } from '../../lib/api/athleteContextService';
+import { getAthleteContext, getActiveUserId, normalizeActivityLevel, normalizeNutritionGoal } from '../../lib/api/athleteContextService';
 import { getRecurringActivities } from '../../lib/api/scheduleService';
 import { getExerciseLibrary, getRecentExerciseIds } from '../../lib/api/scService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate } from '../../lib/utils/date';
+import { resolveObjectiveContext } from '../../lib/api/dailyMissionService';
 import type {
   WeeklyPlanConfigRow,
   WeeklyPlanEntryRow,
   SmartWeekPlanResult,
   ReadinessState,
   CampConfig,
+  HydrationResult,
   GymProfileRow,
   MuscleGroup,
   CampPlanRow,
   WeightCutPlanRow,
+  ResolvedNutritionTargets,
 } from '../../lib/engine/types';
 
 const EMPTY_VOLUME: Record<MuscleGroup, number> = {
@@ -177,8 +183,91 @@ export async function generateAndSaveWeeklyPlan(
     recurringActivities,
   });
 
-  await saveWeekPlan(userId, result.entries);
-  return result;
+  const objectiveContext = await resolveObjectiveContext(userId, weekStart);
+
+  let baseNutritionTargets: ResolvedNutritionTargets = {
+    tdee: 0,
+    adjustedCalories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+    proteinModifier: 1,
+    phaseMultiplier: 0,
+    weightCorrectionDeficit: 0,
+    message: '',
+    source: 'base',
+  };
+  let hydration: HydrationResult = {
+    dailyWaterOz: 100,
+    waterLoadOz: null,
+    shedCapPercent: 3,
+    shedCapLbs: 0,
+    message: 'Stay consistent with hydration this week.',
+  };
+
+  if (athleteContext.profile && objectiveContext.currentWeightLbs != null) {
+    const baseTargets = calculateNutritionTargets({
+      weightLbs: objectiveContext.currentWeightLbs,
+      heightInches: athleteContext.profile.height_inches ?? null,
+      age: athleteContext.profile.age ?? null,
+      biologicalSex: athleteContext.profile.biological_sex ?? 'male',
+      activityLevel: normalizeActivityLevel(athleteContext.profile.activity_level),
+      phase: objectiveContext.phase,
+      nutritionGoal: normalizeNutritionGoal(athleteContext.profile.nutrition_goal),
+      cycleDay: null,
+      coachProteinOverride: athleteContext.profile.coach_protein_override ?? null,
+      coachCarbsOverride: athleteContext.profile.coach_carbs_override ?? null,
+      coachFatOverride: athleteContext.profile.coach_fat_override ?? null,
+      coachCaloriesOverride: athleteContext.profile.coach_calories_override ?? null,
+    });
+    baseNutritionTargets = {
+      ...baseTargets,
+      source: 'base',
+    };
+    hydration = getHydrationProtocol({
+      phase: objectiveContext.phase,
+      fightStatus: athleteContext.profile.fight_status ?? 'amateur',
+      currentWeightLbs: objectiveContext.currentWeightLbs,
+      targetWeightLbs: objectiveContext.targetWeightLbs ?? objectiveContext.currentWeightLbs,
+      weeklyVelocityLbs: objectiveContext.weightTrend?.weeklyVelocityLbs,
+    });
+  }
+
+  const weeklyMission = buildMicrocyclePlan({
+    entries: result.entries,
+    macrocycleContext: objectiveContext,
+    readinessState: readinessContext.readinessState,
+    acwr: {
+      ratio: readinessContext.acwr,
+      acute: 0,
+      chronic: 0,
+      status: readinessContext.acwr >= 1.5 ? 'redline' : readinessContext.acwr >= 1.3 ? 'caution' : 'safe',
+      message: '',
+      daysOfData: 0,
+      thresholds: {
+        caution: 1.3,
+        redline: 1.5,
+        confidence: 'low',
+        personalizationFactors: [],
+      },
+      loadMetrics: {
+        weeklyLoad: 0,
+        monotony: 0,
+        strain: 0,
+        rollingFatigueRatio: 0,
+        rollingFatigueScore: 0,
+        fatigueBand: 'low',
+      },
+    },
+    baseNutritionTargets,
+    hydration,
+  });
+
+  await saveWeekPlan(userId, weeklyMission.entries);
+  return {
+    ...result,
+    entries: weeklyMission.entries,
+  };
 }
 
 export function useWeeklyPlan() {

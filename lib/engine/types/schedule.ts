@@ -24,6 +24,7 @@ import type {
   WorkoutPrescriptionV2,
 } from './training';
 import type { CutPhase, WeightCutPlanRow } from './weight_cut';
+import type { DailyMission } from './mission';
 
 export interface DailyTimelineRow {
   id: string;
@@ -249,6 +250,7 @@ export interface WeeklyPlanEntryRow {
   workout_log_id: string | null;
   scheduled_activity_id?: string | null;
   prescription_snapshot: WorkoutPrescriptionV2 | null;
+  daily_mission_snapshot?: DailyMission | null;
   engine_notes: string | null;
   is_deload: boolean;
   created_at: string;

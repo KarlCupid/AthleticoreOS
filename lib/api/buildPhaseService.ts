@@ -1,5 +1,10 @@
 import { supabase } from '../supabase';
-import type { BuildPhaseGoalRow, BuildPhaseSetupInput, BuildPhaseGoalType } from '../engine/types';
+import type {
+  BuildPhaseGoalRow,
+  BuildPhaseSetupInput,
+  BuildPhaseGoalType,
+  ObjectiveSecondaryConstraint,
+} from '../engine/types';
 
 function normalizeGoalType(value: unknown): BuildPhaseGoalType {
   switch (value) {
@@ -13,11 +18,26 @@ function normalizeGoalType(value: unknown): BuildPhaseGoalType {
   }
 }
 
+function normalizeSecondaryConstraint(value: unknown): ObjectiveSecondaryConstraint | null {
+  switch (value) {
+    case 'protect_recovery':
+    case 'weight_trajectory':
+    case 'skill_frequency':
+    case 'schedule_reliability':
+    case 'injury_risk':
+    case 'none':
+      return value;
+    default:
+      return null;
+  }
+}
+
 export function normalizeBuildPhaseGoal(row: BuildPhaseGoalRow | null): BuildPhaseGoalRow | null {
   if (!row) return null;
   return {
     ...row,
     goal_type: normalizeGoalType(row.goal_type),
+    secondary_constraint: normalizeSecondaryConstraint(row.secondary_constraint),
   };
 }
 
@@ -57,6 +77,9 @@ export async function setupBuildPhaseGoal(userId: string, input: BuildPhaseSetup
     goal_type: input.goalType,
     goal_label: input.goalLabel ?? null,
     goal_statement: input.goalStatement,
+    primary_outcome: input.primaryOutcome ?? input.goalStatement,
+    secondary_constraint: input.secondaryConstraint ?? 'protect_recovery',
+    success_window: input.successWindow ?? null,
     target_metric: input.targetMetric,
     target_value: input.targetValue ?? null,
     target_unit: input.targetUnit ?? null,

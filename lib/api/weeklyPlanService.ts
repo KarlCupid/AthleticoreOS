@@ -5,6 +5,7 @@ import { formatLocalDate, todayLocalDate } from '../utils/date';
 const today = todayLocalDate;
 let hasScheduledActivityIdColumn: boolean | null = null;
 let hasScheduledActivitiesWeeklyPlanEntryIdColumn: boolean | null = null;
+let hasDailyMissionSnapshotColumn: boolean | null = null;
 
 function isMissingScheduledActivityIdColumnError(error: unknown): boolean {
     if (!error || typeof error !== 'object') return false;
@@ -22,6 +23,15 @@ function isMissingScheduledActivitiesWeeklyPlanEntryIdColumnError(error: unknown
         && typeof maybe.message === 'string'
         && maybe.message.includes('weekly_plan_entry_id')
         && maybe.message.includes('scheduled_activities');
+}
+
+function isMissingDailyMissionSnapshotColumnError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const maybe = error as { code?: string; message?: string };
+    return maybe.code === 'PGRST204'
+        && typeof maybe.message === 'string'
+        && maybe.message.includes('daily_mission_snapshot')
+        && maybe.message.includes('weekly_plan_entries');
 }
 
 function normalizeDay(day: number): number | null {
@@ -309,12 +319,15 @@ export async function saveWeekPlan(
         rescheduled_to: e.rescheduled_to,
         workout_log_id: e.workout_log_id,
         prescription_snapshot: e.prescription_snapshot,
+        daily_mission_snapshot: e.daily_mission_snapshot ?? null,
         engine_notes: e.engine_notes,
         is_deload: e.is_deload,
     }));
 
+    const insertPayloadWithoutMission = baseInsertPayload.map(({ daily_mission_snapshot, ...payload }) => payload);
+
     const withScheduledActivityPayload = entries.map((e, index) => ({
-        ...baseInsertPayload[index],
+        ...(hasDailyMissionSnapshotColumn === false ? insertPayloadWithoutMission[index] : baseInsertPayload[index]),
         scheduled_activity_id: e.scheduled_activity_id ?? null,
     }));
 
@@ -327,25 +340,49 @@ export async function saveWeekPlan(
             .select();
 
         if (error) {
-            if (isMissingScheduledActivityIdColumnError(error)) {
-                hasScheduledActivityIdColumn = false;
+            const missingScheduledActivityId = isMissingScheduledActivityIdColumnError(error);
+            const missingDailyMissionSnapshot = isMissingDailyMissionSnapshotColumnError(error);
+
+            if (missingScheduledActivityId || missingDailyMissionSnapshot) {
+                if (missingScheduledActivityId) {
+                    hasScheduledActivityIdColumn = false;
+                }
+                if (missingDailyMissionSnapshot) {
+                    hasDailyMissionSnapshotColumn = false;
+                }
             } else {
                 throw error;
             }
         } else {
             generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
             hasScheduledActivityIdColumn = true;
+            hasDailyMissionSnapshotColumn = true;
         }
     }
 
     if (!generatedEntries) {
+        const payload = hasDailyMissionSnapshotColumn === false ? insertPayloadWithoutMission : baseInsertPayload;
         const { data, error } = await supabase
             .from('weekly_plan_entries')
-            .insert(baseInsertPayload)
+            .insert(payload)
             .select();
 
-        if (error) throw error;
-        generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
+        if (error) {
+            if (isMissingDailyMissionSnapshotColumnError(error)) {
+                hasDailyMissionSnapshotColumn = false;
+                const retry = await supabase
+                    .from('weekly_plan_entries')
+                    .insert(insertPayloadWithoutMission)
+                    .select();
+                if (retry.error) throw retry.error;
+                generatedEntries = (retry.data ?? []) as WeeklyPlanEntryRow[];
+            } else {
+                throw error;
+            }
+        } else {
+            hasDailyMissionSnapshotColumn = true;
+            generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
+        }
     }
 
     const insertedEntries = generatedEntries;

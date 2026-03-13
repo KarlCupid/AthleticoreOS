@@ -39,6 +39,7 @@ import WarmupSetsCard from '../components/WarmupSetsCard';
 import RestTimerOverlay from '../components/RestTimerOverlay';
 import FormCueCard from '../components/FormCueCard';
 import PRCelebration from '../components/PRCelebration';
+import { Card } from '../components/Card';
 
 // ---------------------------------------------------------------------------
 // Navigation types
@@ -94,6 +95,7 @@ export function GuidedWorkoutScreen() {
     // Hook
     const {
         loading,
+        dailyMission,
         prescription,
         gymProfile,
         isStarted,
@@ -151,7 +153,7 @@ export function GuidedWorkoutScreen() {
                 params?.focus,
                 params?.availableMinutes,
                 params?.trainingDate,
-                params?.isDeloadWeek,
+                    params?.isDeloadWeek,
             );
         }, [
             loadAndGenerate,
@@ -258,6 +260,9 @@ export function GuidedWorkoutScreen() {
 
     const overloadSuggestion = currentExercise?.overloadSuggestion ?? null;
     const showWeightBanner = overloadSuggestion !== null && workingSetsLogged === 0;
+
+    const missionReason = dailyMission?.trainingDirective.reason ?? null;
+    const missionIntent = dailyMission?.trainingDirective.intent ?? null;
 
     // ── Handlers ──────────────────────────────────────────────────
 
@@ -370,6 +375,13 @@ export function GuidedWorkoutScreen() {
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
                 >
+                    {missionIntent || missionReason ? (
+                        <Card style={styles.missionCard}>
+                            <Text style={styles.missionKicker}>SESSION ROLE</Text>
+                            {missionIntent ? <Text style={styles.missionIntent}>{missionIntent}</Text> : null}
+                            {missionReason ? <Text style={styles.missionReason}>{missionReason}</Text> : null}
+                        </Card>
+                    ) : null}
                     <PrescriptionPreview
                         prescription={prescription}
                         gymProfile={gymProfile}
@@ -422,6 +434,13 @@ export function GuidedWorkoutScreen() {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
+                        {missionIntent || missionReason ? (
+                            <Card style={styles.missionCard}>
+                                <Text style={styles.missionKicker}>WHY THIS SESSION</Text>
+                                {missionIntent ? <Text style={styles.missionIntent}>{missionIntent}</Text> : null}
+                                {missionReason ? <Text style={styles.missionReason}>{missionReason}</Text> : null}
+                            </Card>
+                        ) : null}
 
                         {/* Exercise name + muscle badge */}
                         <Animated.View
@@ -717,6 +736,29 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: SPACING.md,
         paddingTop: SPACING.lg,
+    },
+    missionCard: {
+        marginBottom: SPACING.md,
+    },
+    missionKicker: {
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 11,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+        marginBottom: SPACING.xs,
+    },
+    missionIntent: {
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 15,
+        color: COLORS.text.primary,
+        lineHeight: 22,
+    },
+    missionReason: {
+        fontFamily: FONT_FAMILY.regular,
+        fontSize: 13,
+        color: COLORS.text.secondary,
+        lineHeight: 20,
+        marginTop: SPACING.xs,
     },
 
     // ── Exercise header ───────────────────────────────────────────

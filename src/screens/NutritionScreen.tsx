@@ -25,6 +25,7 @@ import { IconBarcode } from '../components/icons';
 import { styles } from './NutritionScreen.styles';
 import { supabase } from '../../lib/supabase';
 import { calculateNutritionTargets, resolveDailyNutritionTargets } from '../../lib/engine/calculateNutrition';
+import { getDailyMission } from '../../lib/api/dailyMissionService';
 import {
   getDailyNutrition,
   removeFoodEntry,
@@ -35,7 +36,7 @@ import { getScheduledActivities } from '../../lib/api/scheduleService';
 import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
 import { calculateWeightTrend, calculateWeightCorrection } from '../../lib/engine/calculateWeight';
 import { getWeightHistory, getEffectiveWeight } from '../../lib/api/weightService';
-import { MealType, NutritionTargets, DailyCutProtocolRow } from '../../lib/engine/types';
+import { DailyMission, MealType, NutritionTargets, DailyCutProtocolRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
 
@@ -52,6 +53,7 @@ export function NutritionScreen() {
   const [waterTarget, setWaterTarget] = useState(100);
   const [cutProtocol, setCutProtocol] = useState<DailyCutProtocolRow | null>(null);
   const [waterCurrent, setWaterCurrent] = useState(0);
+  const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
   const [meals, setMeals] = useState<Record<MealType, any[]>>({
     breakfast: [],
     lunch: [],
@@ -170,6 +172,41 @@ export function NutritionScreen() {
         })),
       );
       setTargets(finalTargets);
+
+      try {
+        const mission = await getDailyMission(userId, today);
+        setDailyMission(mission);
+        setTargets((prev) => ({
+          ...(prev ?? finalTargets),
+          adjustedCalories: mission.fuelDirective.calories,
+          protein: mission.fuelDirective.protein,
+          carbs: mission.fuelDirective.carbs,
+          fat: mission.fuelDirective.fat,
+          message: mission.fuelDirective.message,
+          source: mission.fuelDirective.source === 'weight_cut_protocol'
+            ? 'weight_cut_protocol'
+            : mission.fuelDirective.source === 'daily_engine'
+              ? 'daily_activity_adjusted'
+              : 'base',
+        }));
+        setWaterTarget(mission.hydrationDirective.waterTargetOz);
+        await ensureDailyLedger(userId, today, {
+          tdee: finalTargets.tdee,
+          calories: mission.fuelDirective.calories,
+          protein: mission.fuelDirective.protein,
+          carbs: mission.fuelDirective.carbs,
+          fat: mission.fuelDirective.fat,
+          weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
+          targetSource: mission.fuelDirective.source === 'weight_cut_protocol'
+            ? 'weight_cut_protocol'
+            : mission.fuelDirective.source === 'daily_engine'
+              ? 'daily_activity_adjusted'
+              : 'base',
+        });
+      } catch (error) {
+        logError('NutritionScreen.getDailyMission', error, { userId });
+        setDailyMission(null);
+      }
 
       // Ensure ledger row exists for today
       await ensureDailyLedger(userId, today, {
@@ -348,6 +385,19 @@ export function NutritionScreen() {
         ) : (
           <>
             {/* Cut Protocol Context Banner */}
+            {dailyMission && (
+              <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}>
+                <Card style={{ marginBottom: SPACING.sm + 4 }}>
+                  <Text style={styles.cardTitle}>Fuel Directive</Text>
+                  <Text style={styles.cardSubtitle}>{dailyMission.fuelDirective.message}</Text>
+                  <Text style={styles.cardMeta}>
+                    Pre {dailyMission.fuelDirective.preSessionCarbsG}g carbs · Post {dailyMission.fuelDirective.postSessionProteinG}g protein · Intra {dailyMission.fuelDirective.intraSessionHydrationOz} oz
+                  </Text>
+                  <Text style={styles.cardMeta}>{dailyMission.overrideState.note}</Text>
+                </Card>
+              </Animated.View>
+            )}
+
             {cutProtocol && (
               <Animated.View
                 entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}

@@ -8,6 +8,13 @@ export type WeighInTiming = 'same_day' | 'next_day';
 export type WeightCutInfluenceState = 'none' | 'monitoring' | 'driving';
 export type CampRecommendationSeverity = 'info' | 'recommended' | 'strongly_recommended';
 export type RecommendationLifecycleStatus = 'pending' | 'accepted' | 'declined' | 'completed';
+export type ObjectiveSecondaryConstraint =
+  | 'protect_recovery'
+  | 'weight_trajectory'
+  | 'skill_frequency'
+  | 'schedule_reliability'
+  | 'injury_risk'
+  | 'none';
 
 export interface AvailabilityWindow {
   dayOfWeek: number;
@@ -21,6 +28,9 @@ export interface BuildPhaseGoalRow {
   goal_type: BuildPhaseGoalType;
   goal_label: string | null;
   goal_statement: string;
+  primary_outcome: string | null;
+  secondary_constraint: ObjectiveSecondaryConstraint | null;
+  success_window: string | null;
   target_metric: string;
   target_value: number | null;
   target_unit: string | null;
@@ -57,6 +67,9 @@ export interface BuildPhaseSetupInput {
   goalType: BuildPhaseGoalType;
   goalLabel?: string | null;
   goalStatement: string;
+  primaryOutcome?: string | null;
+  secondaryConstraint?: ObjectiveSecondaryConstraint | null;
+  successWindow?: string | null;
   targetMetric: string;
   targetValue?: number | null;
   targetUnit?: string | null;

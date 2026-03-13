@@ -22,6 +22,7 @@ import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { todayLocalDate } from '../../lib/utils/date';
 import { getWeeklyPlanEntryById, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
 import type {
+    DailyMission,
     WorkoutPrescriptionV2,
     PrescribedExerciseV2,
     SessionFatigueState,
@@ -64,6 +65,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     // Workout state
     const [loading, setLoading] = useState(false);
     const [prescription, setPrescription] = useState<WorkoutPrescriptionV2 | null>(null);
+    const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
     const [workoutLog, setWorkoutLog] = useState<WorkoutLogRow | null>(null);
     const [gymProfile, setGymProfile] = useState<GymProfileRow | null>(null);
     const [isStarted, setIsStarted] = useState(false);
@@ -130,8 +132,13 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
             if (weeklyPlanEntryId) {
                 const planEntry = await getWeeklyPlanEntryById(weeklyPlanEntryId);
+                if (planEntry?.daily_mission_snapshot) {
+                    setDailyMission(planEntry.daily_mission_snapshot);
+                } else {
+                    setDailyMission(null);
+                }
                 if (planEntry?.prescription_snapshot?.exercises?.length) {
-                    const snapshot = planEntry.prescription_snapshot as WorkoutPrescriptionV2;
+                    const snapshot = (planEntry.daily_mission_snapshot?.trainingDirective.prescription ?? planEntry.prescription_snapshot) as WorkoutPrescriptionV2;
                     setPrescription(snapshot);
                     initializeProgress(snapshot);
                     setLoading(false);
@@ -215,6 +222,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             };
 
             setPrescription(finalPrescription);
+            setDailyMission(null);
             initializeProgress(finalPrescription);
         } catch (e) {
             console.error('useGuidedWorkout load error:', e);
@@ -488,6 +496,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     return {
         // State
         loading,
+        dailyMission,
         prescription,
         workoutLog,
         gymProfile,

@@ -65,7 +65,9 @@ export function WorkoutScreen() {
 
     // Weekly plan hook
     const { todayEntry, entries, isDeloadWeek, loadPlan } = useWeeklyPlan();
-    const displayedPrescription = todayEntry?.prescription_snapshot ?? prescription;
+    const displayedPrescription = todayEntry?.daily_mission_snapshot?.trainingDirective.prescription
+        ?? todayEntry?.prescription_snapshot
+        ?? prescription;
 
     useFocusEffect(
         useCallback(() => {
