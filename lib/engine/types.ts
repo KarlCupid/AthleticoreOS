@@ -7,4 +7,5 @@ export * from './types/weight_cut';
 export * from './types/camp';
 export * from './types/misc';
 export * from './types/fightCampV1';
+export * from './types/checkin';
 
