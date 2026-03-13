@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -62,6 +62,12 @@ const COACHING_FOCUS_OPTIONS: Array<{ value: CoachingFocus; label: string }> = [
   { value: 'consistency', label: 'Consistency' },
   { value: 'nutrition', label: 'Nutrition' },
 ];
+const NUTRITION_METRICS: Array<{ key: keyof NutritionTrackerState['actual']; label: string; unit: string }> = [
+  { key: 'calories', label: 'Calories', unit: '' },
+  { key: 'protein', label: 'Protein', unit: 'g' },
+  { key: 'carbs', label: 'Carbs', unit: 'g' },
+  { key: 'fat', label: 'Fat', unit: 'g' },
+];
 
 interface DailyCheckinRow {
   morning_weight: number | null;
@@ -107,8 +113,6 @@ interface NutritionTrackerState {
   actual: { calories: number; protein: number; carbs: number; fat: number };
   waterOz: number;
   mealCount: number;
-  suggestedStatus: NutritionStatus;
-  suggestedReason: string;
 }
 
 const EMPTY_TRACKER_STATE: NutritionTrackerState = {
@@ -116,9 +120,9 @@ const EMPTY_TRACKER_STATE: NutritionTrackerState = {
   actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
   waterOz: 0,
   mealCount: 0,
-  suggestedStatus: null,
-  suggestedReason: '',
 };
+
+type NutritionActualDraft = Record<keyof NutritionTrackerState['actual'], string>;
 
 function roundPercent(actual: number, target: number): number {
   if (!Number.isFinite(target) || target <= 0) return 0;
@@ -128,6 +132,17 @@ function roundPercent(actual: number, target: number): number {
 function pctDelta(actual: number, target: number): number {
   if (!Number.isFinite(target) || target <= 0) return 1;
   return Math.abs(actual - target) / target;
+}
+
+function sanitizeNumericInput(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  const [whole, ...rest] = cleaned.split('.');
+  return rest.length > 0 ? `${whole}.${rest.join('')}` : whole;
+}
+
+function parseNonNegativeNumber(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function assessTrackedNutrition(
@@ -245,6 +260,14 @@ export function LogScreen() {
     sessionCount: 0,
   });
   const [nutritionTracker, setNutritionTracker] = useState<NutritionTrackerState>(EMPTY_TRACKER_STATE);
+  const [nutritionActualDraft, setNutritionActualDraft] = useState<NutritionActualDraft>({
+    calories: '0',
+    protein: '0',
+    carbs: '0',
+    fat: '0',
+  });
+  const [nutritionWaterDraft, setNutritionWaterDraft] = useState('0');
+  const [hasManualNutritionEdits, setHasManualNutritionEdits] = useState(false);
   const [acwrContext, setAcwrContext] = useState<{ ratio: number; status: 'safe' | 'caution' | 'redline'; acute: number; chronic: number; phase: Phase; isOnActiveCut: boolean }>({
     ratio: 0,
     status: 'safe',
@@ -256,8 +279,35 @@ export function LogScreen() {
 
   const logDate = todayLocalDate();
   const todayFormatted = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const nutritionDateObj = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, [logDate]);
+  const nutritionLogDate = useMemo(() => formatLocalDate(nutritionDateObj), [nutritionDateObj]);
+  const nutritionFormatted = useMemo(
+    () => nutritionDateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+    [nutritionDateObj],
+  );
   const stepIndex = STEPS.indexOf(step);
   const hasRecoveryCoreInput = weight.trim().length > 0 || sleep !== 3 || readiness !== 3;
+  const effectiveNutritionActual = useMemo(
+    () => ({
+      calories: parseNonNegativeNumber(nutritionActualDraft.calories),
+      protein: parseNonNegativeNumber(nutritionActualDraft.protein),
+      carbs: parseNonNegativeNumber(nutritionActualDraft.carbs),
+      fat: parseNonNegativeNumber(nutritionActualDraft.fat),
+    }),
+    [nutritionActualDraft],
+  );
+  const nutritionAssessment = useMemo(
+    () => assessTrackedNutrition(nutritionTracker.targets, effectiveNutritionActual),
+    [nutritionTracker.targets, effectiveNutritionActual],
+  );
+  const effectiveNutritionWater = useMemo(
+    () => parseNonNegativeNumber(nutritionWaterDraft),
+    [nutritionWaterDraft],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -266,25 +316,22 @@ export function LogScreen() {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData?.user) return;
         const userId = userData.user.id;
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = formatLocalDate(yesterday);
 
         const [todayRes, yesterdayRes, activityRes, ledgerRes, nutritionSummaryRes] = await Promise.all([
           supabase.from('daily_checkins').select('*').eq('user_id', userId).eq('date', logDate).maybeSingle(),
-          supabase.from('daily_checkins').select('coach_debrief,primary_limiter').eq('user_id', userId).eq('date', yesterdayStr).maybeSingle(),
+          supabase.from('daily_checkins').select('coach_debrief,primary_limiter').eq('user_id', userId).eq('date', nutritionLogDate).maybeSingle(),
           supabase.from('activity_log').select('duration_min,intensity').eq('user_id', userId).eq('date', logDate),
           supabase
             .from('macro_ledger')
             .select('prescribed_calories,prescribed_protein,prescribed_carbs,prescribed_fats,actual_calories,actual_protein,actual_carbs,actual_fat')
             .eq('user_id', userId)
-            .eq('date', logDate)
+            .eq('date', nutritionLogDate)
             .maybeSingle(),
           supabase
             .from('daily_nutrition_summary')
             .select('total_calories,total_protein,total_carbs,total_fat,total_water_oz,meal_count')
             .eq('user_id', userId)
-            .eq('date', logDate)
+            .eq('date', nutritionLogDate)
             .maybeSingle(),
         ]);
 
@@ -377,15 +424,21 @@ export function LogScreen() {
           carbs: nutritionSummary?.total_carbs ?? ledger?.actual_carbs ?? 0,
           fat: nutritionSummary?.total_fat ?? ledger?.actual_fat ?? 0,
         };
-        const assessment = assessTrackedNutrition(targets, actual);
         setNutritionTracker({
           targets,
           actual,
           waterOz: nutritionSummary?.total_water_oz ?? 0,
           mealCount: nutritionSummary?.meal_count ?? 0,
-          suggestedStatus: assessment?.status ?? null,
-          suggestedReason: assessment?.reason ?? '',
         });
+        setNutritionActualDraft({
+          calories: String(Math.round(actual.calories)),
+          protein: String(Math.round(actual.protein)),
+          carbs: String(Math.round(actual.carbs)),
+          fat: String(Math.round(actual.fat)),
+        });
+        setNutritionWaterDraft(String(Math.round(nutritionSummary?.total_water_oz ?? 0)));
+        setHasManualNutritionEdits(false);
+        const assessment = assessTrackedNutrition(targets, actual);
         if (!todayCheckin?.macro_adherence && assessment?.status) {
           setMacroAdherence(assessment.status);
         }
@@ -407,7 +460,7 @@ export function LogScreen() {
 
     void load();
     return () => { mounted = false; };
-  }, [logDate]);
+  }, [logDate, nutritionLogDate]);
 
   useEffect(() => {
     if (macroAdherence === 'Target Met' && nutritionBarrier !== 'none') {
@@ -415,14 +468,43 @@ export function LogScreen() {
     }
   }, [macroAdherence, nutritionBarrier]);
 
+  useEffect(() => {
+    if (!macroAdherence && nutritionAssessment?.status) {
+      setMacroAdherence(nutritionAssessment.status);
+    }
+  }, [macroAdherence, nutritionAssessment]);
+
   const handleSlider = (setter: (value: number) => void) => (value: number) => {
     setter(value);
     Haptics.selectionAsync();
   };
 
+  const handleNutritionActualChange = (field: keyof NutritionTrackerState['actual'], rawValue: string) => {
+    setHasManualNutritionEdits(true);
+    const sanitized = sanitizeNumericInput(rawValue);
+    setNutritionActualDraft((prev) => ({ ...prev, [field]: sanitized }));
+  };
+
+  const handleNutritionWaterChange = (rawValue: string) => {
+    setHasManualNutritionEdits(true);
+    const sanitized = sanitizeNumericInput(rawValue);
+    setNutritionWaterDraft(sanitized);
+  };
+
+  const resetNutritionToTracked = () => {
+    setNutritionActualDraft({
+      calories: String(Math.round(nutritionTracker.actual.calories)),
+      protein: String(Math.round(nutritionTracker.actual.protein)),
+      carbs: String(Math.round(nutritionTracker.actual.carbs)),
+      fat: String(Math.round(nutritionTracker.actual.fat)),
+    });
+    setNutritionWaterDraft(String(Math.round(nutritionTracker.waterOz)));
+    setHasManualNutritionEdits(false);
+  };
+
   const saveAndGenerateDebrief = async () => {
     if (!macroAdherence) {
-      Alert.alert('Nutrition check required', 'Select nutrition adherence to generate your coaching debrief.');
+      Alert.alert('Nutrition check required', `Select adherence for ${nutritionFormatted} to generate your coaching debrief.`);
       return;
     }
 
@@ -477,6 +559,30 @@ export function LogScreen() {
         coach_debrief: debrief,
       }, { onConflict: 'user_id,date' });
       if (dailyError) throw dailyError;
+
+      const { error: nutritionSummaryUpsertError } = await supabase.from('daily_nutrition_summary').upsert({
+        user_id: userId,
+        date: nutritionLogDate,
+        total_calories: Math.round(effectiveNutritionActual.calories),
+        total_protein: Math.round(effectiveNutritionActual.protein * 10) / 10,
+        total_carbs: Math.round(effectiveNutritionActual.carbs * 10) / 10,
+        total_fat: Math.round(effectiveNutritionActual.fat * 10) / 10,
+        total_water_oz: Math.round(effectiveNutritionWater),
+        meal_count: nutritionTracker.mealCount,
+      }, { onConflict: 'user_id,date' });
+      if (nutritionSummaryUpsertError) throw nutritionSummaryUpsertError;
+
+      const { error: ledgerActualUpdateError } = await supabase
+        .from('macro_ledger')
+        .update({
+          actual_calories: Math.round(effectiveNutritionActual.calories),
+          actual_protein: Math.round(effectiveNutritionActual.protein),
+          actual_carbs: Math.round(effectiveNutritionActual.carbs),
+          actual_fat: Math.round(effectiveNutritionActual.fat),
+        })
+        .eq('user_id', userId)
+        .eq('date', nutritionLogDate);
+      if (ledgerActualUpdateError) throw ledgerActualUpdateError;
 
       setSavedDebrief(debrief);
       setStep('debrief');
@@ -558,70 +664,110 @@ export function LogScreen() {
   );
 
   const renderNutrition = () => (
-    <Card title="Nutrition Reflection" subtitle="Food is tracked in Nutrition. This step confirms how it should impact coaching.">
+    <Card title="Nutrition Reflection" subtitle="Use yesterday's intake so today's coaching reflects what actually happened.">
       <Text style={styles.hint}>
         Training load is pulled from Workout Log: {todayTrainingLoad.sessionCount} session{todayTrainingLoad.sessionCount === 1 ? '' : 's'}
         {todayTrainingLoad.totalMinutes > 0 ? `, ${todayTrainingLoad.totalMinutes} min at avg RPE ${todayTrainingLoad.weightedIntensity} (${todayTrainingLoad.totalLoad} load).` : ', no load logged yet.'}
       </Text>
       <View style={styles.trackerBox}>
         <View style={styles.trackerHeader}>
-          <Text style={styles.subhead}>Nutrition tracker snapshot</Text>
+          <Text style={styles.subhead}>Nutrition snapshot ({nutritionFormatted})</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Plan', { screen: 'NutritionHome' })}>
             <Text style={[styles.linkText, { color: themeColor }]}>Open tracker</Text>
           </TouchableOpacity>
         </View>
         {nutritionTracker.targets ? (
           <View style={styles.metricGrid}>
-            {[
-              { key: 'calories', label: 'Calories', actual: nutritionTracker.actual.calories, target: nutritionTracker.targets.calories, unit: '' },
-              { key: 'protein', label: 'Protein', actual: nutritionTracker.actual.protein, target: nutritionTracker.targets.protein, unit: 'g' },
-              { key: 'carbs', label: 'Carbs', actual: nutritionTracker.actual.carbs, target: nutritionTracker.targets.carbs, unit: 'g' },
-              { key: 'fat', label: 'Fat', actual: nutritionTracker.actual.fat, target: nutritionTracker.targets.fat, unit: 'g' },
-            ].map((metric) => (
-              <View key={metric.key} style={styles.metricTile}>
-                <Text style={styles.metricLabel}>{metric.label}</Text>
-                <Text style={styles.metricValue}>
-                  {Math.round(metric.actual)} / {Math.round(metric.target)}{metric.unit}
-                </Text>
-                <Text style={styles.metricPct}>{roundPercent(metric.actual, metric.target)}%</Text>
-              </View>
-            ))}
+            {NUTRITION_METRICS.map((metric) => {
+              const target = nutritionTracker.targets?.[metric.key] ?? 0;
+              const trackedActual = nutritionTracker.actual[metric.key];
+              return (
+                <View key={metric.key} style={styles.metricTile}>
+                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                  <Text style={styles.metricTargetValue}>Target: {Math.round(target)}{metric.unit}</Text>
+                  <Text style={styles.metricTrackedValue}>Tracked: {Math.round(trackedActual)}{metric.unit}</Text>
+                  <Text style={styles.metricPct}>Tracked hit: {roundPercent(trackedActual, target)}%</Text>
+                </View>
+              );
+            })}
           </View>
         ) : (
-          <Text style={styles.hint}>No nutrition targets found for today yet. You can still rate adherence manually below.</Text>
+          <Text style={styles.hint}>No nutrition targets found for {nutritionFormatted} yet. You can still rate adherence manually below.</Text>
         )}
+        <View style={styles.manualEntryBox}>
+          <View style={styles.trackerHeader}>
+            <Text style={styles.subhead}>Quick manual entry</Text>
+            <TouchableOpacity onPress={resetNutritionToTracked}>
+              <Text style={[styles.linkText, { color: themeColor }]}>Reset to tracked</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.hint}>If meals were missed in tracker, enter your total intake for {nutritionFormatted}.</Text>
+          <View style={styles.manualGrid}>
+            {NUTRITION_METRICS.map((metric) => (
+              <View key={`manual-${metric.key}`} style={styles.manualField}>
+                <Text style={styles.manualFieldLabel}>{metric.label}</Text>
+                <View style={styles.manualInputRow}>
+                  <TextInput
+                    style={styles.manualInput}
+                    value={nutritionActualDraft[metric.key]}
+                    onChangeText={(value) => handleNutritionActualChange(metric.key, value)}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={COLORS.text.tertiary}
+                  />
+                  <Text style={styles.manualInputUnit}>{metric.unit}</Text>
+                </View>
+              </View>
+            ))}
+            <View style={styles.manualFieldFull}>
+              <Text style={styles.manualFieldLabel}>Water</Text>
+              <View style={styles.manualInputRow}>
+                <TextInput
+                  style={styles.manualInput}
+                  value={nutritionWaterDraft}
+                  onChangeText={handleNutritionWaterChange}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={COLORS.text.tertiary}
+                />
+                <Text style={styles.manualInputUnit}>oz</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        {hasManualNutritionEdits ? <Text style={styles.hint}>Manual edits detected. These values will be used as yesterday's intake for coaching.</Text> : null}
         <Text style={[styles.hint, { marginBottom: 0 }]}>
-          Meals logged: {nutritionTracker.mealCount} | Water: {Math.round(nutritionTracker.waterOz)} oz
+          Meals logged: {nutritionTracker.mealCount} | Water: {Math.round(effectiveNutritionWater)} oz
         </Text>
       </View>
-      {nutritionTracker.suggestedStatus ? (
+      {nutritionAssessment ? (
         <View style={styles.group}>
           <Text style={styles.label}>Tracker assessment</Text>
           <View
             style={[
               styles.assessmentBox,
               {
-                borderColor: nutritionTracker.suggestedStatus === 'Target Met'
+                borderColor: nutritionAssessment.status === 'Target Met'
                   ? COLORS.readiness.prime
-                  : nutritionTracker.suggestedStatus === 'Close Enough'
+                  : nutritionAssessment.status === 'Close Enough'
                     ? COLORS.readiness.caution
                     : COLORS.readiness.depleted,
               },
             ]}
           >
-            <Text style={styles.assessmentTitle}>{nutritionTracker.suggestedStatus}</Text>
-            <Text style={[styles.hint, { marginBottom: SPACING.sm }]}>{nutritionTracker.suggestedReason}</Text>
+            <Text style={styles.assessmentTitle}>{nutritionAssessment.status}</Text>
+            <Text style={[styles.hint, { marginBottom: SPACING.sm }]}>{nutritionAssessment.reason}</Text>
             <AnimatedPressable
               style={[styles.useTrackedButton, { borderColor: themeColor, backgroundColor: lightTint }]}
-              onPress={() => setMacroAdherence(nutritionTracker.suggestedStatus)}
+              onPress={() => setMacroAdherence(nutritionAssessment.status)}
             >
-              <Text style={[styles.useTrackedButtonText, { color: themeColor }]}>Use tracked result</Text>
+              <Text style={[styles.useTrackedButtonText, { color: themeColor }]}>Use this assessment</Text>
             </AnimatedPressable>
           </View>
         </View>
       ) : null}
       <Text style={styles.label}>Final nutrition call for coaching</Text>
-      <Text style={styles.hint}>Only adjust this if today's tracking is incomplete or late entries are missing.</Text>
+      <Text style={styles.hint}>Only adjust this if yesterday's tracking is incomplete or late entries are missing.</Text>
       <NutritionCheckIn status={macroAdherence} setStatus={setMacroAdherence} />
       {macroAdherence ? (
         <View style={styles.reveal}>
@@ -701,7 +847,7 @@ export function LogScreen() {
         <Text style={styles.headerDate}>{todayFormatted}</Text>
       </View>
       <View style={styles.notice}>
-        <Text style={[styles.noticeText, { color: themeColor }]}>Saving entries for {todayFormatted} ({logDate})</Text>
+        <Text style={[styles.noticeText, { color: themeColor }]}>Check-in date: {todayFormatted} ({logDate}) | Nutrition date: {nutritionFormatted} ({nutritionLogDate})</Text>
       </View>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: bottomActionClearance }]}
@@ -764,8 +910,17 @@ const styles = StyleSheet.create({
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginBottom: SPACING.xs },
   metricTile: { width: '48%', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, backgroundColor: COLORS.surface, paddingVertical: SPACING.xs + 2, paddingHorizontal: SPACING.sm },
   metricLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
-  metricValue: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  metricTargetValue: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
+  metricTrackedValue: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
   metricPct: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, marginTop: 2 },
+  manualEntryBox: { borderTopWidth: 1, borderTopColor: COLORS.borderLight, paddingTop: SPACING.sm, marginTop: SPACING.xs },
+  manualGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
+  manualField: { width: '48%' },
+  manualFieldFull: { width: '100%' },
+  manualFieldLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
+  manualInputRow: { flexDirection: 'row', alignItems: 'center' },
+  manualInput: { flex: 1, borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.sm, backgroundColor: COLORS.background, color: COLORS.text.primary, paddingVertical: 6, paddingHorizontal: 8, fontSize: 13, fontFamily: FONT_FAMILY.semiBold },
+  manualInputUnit: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, marginLeft: SPACING.xs, minWidth: 10 },
   assessmentBox: { borderWidth: 1, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
   assessmentTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: 2 },
   useTrackedButton: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
