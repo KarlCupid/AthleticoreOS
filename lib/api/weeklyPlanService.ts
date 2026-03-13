@@ -4,6 +4,7 @@ import { formatLocalDate, todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
 let hasScheduledActivityIdColumn: boolean | null = null;
+let hasScheduledActivitiesWeeklyPlanEntryIdColumn: boolean | null = null;
 
 function isMissingScheduledActivityIdColumnError(error: unknown): boolean {
     if (!error || typeof error !== 'object') return false;
@@ -12,6 +13,15 @@ function isMissingScheduledActivityIdColumnError(error: unknown): boolean {
         && typeof maybe.message === 'string'
         && maybe.message.includes('scheduled_activity_id')
         && maybe.message.includes('weekly_plan_entries');
+}
+
+function isMissingScheduledActivitiesWeeklyPlanEntryIdColumnError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const maybe = error as { code?: string; message?: string };
+    return maybe.code === 'PGRST204'
+        && typeof maybe.message === 'string'
+        && maybe.message.includes('weekly_plan_entry_id')
+        && maybe.message.includes('scheduled_activities');
 }
 
 function normalizeDay(day: number): number | null {
@@ -60,10 +70,12 @@ function toScheduledActivityPayload(
         | 'engine_notes'
         | 'status'
     >,
+    options?: {
+        includeWeeklyPlanEntryId?: boolean;
+    },
 ): Record<string, unknown> {
-    return {
+    const payload: Record<string, unknown> = {
         user_id: userId,
-        weekly_plan_entry_id: entry.id ?? null,
         date: entry.date,
         activity_type: entry.session_type,
         expected_intensity: entry.target_intensity ?? 5,
@@ -82,6 +94,12 @@ function toScheduledActivityPayload(
         recommendation_status: 'pending',
         status: entry.status === 'planned' ? 'scheduled' : entry.status === 'rescheduled' ? 'scheduled' : entry.status,
     };
+
+    if (options?.includeWeeklyPlanEntryId ?? true) {
+        payload.weekly_plan_entry_id = entry.id ?? null;
+    }
+
+    return payload;
 }
 
 async function getScheduledActivityIdForEntry(entryId: string): Promise<string | null> {
@@ -332,18 +350,42 @@ export async function saveWeekPlan(
 
     const insertedEntries = generatedEntries;
 
-    const { data: scheduledActivities, error: scheduledError } = await supabase
-        .from('scheduled_activities')
-        .insert(insertedEntries.map((entry) => toScheduledActivityPayload(userId, entry)))
-        .select('id, weekly_plan_entry_id');
+    let scheduledByEntryId = new Map<string, string>();
 
-    if (scheduledError) throw scheduledError;
+    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn !== false) {
+        const { data: scheduledActivities, error: scheduledError } = await supabase
+            .from('scheduled_activities')
+            .insert(insertedEntries.map((entry) => toScheduledActivityPayload(userId, entry)))
+            .select('id, weekly_plan_entry_id');
 
-    const scheduledByEntryId = new Map(
-        ((scheduledActivities ?? []) as Array<{ id: string; weekly_plan_entry_id: string | null }>).
-            filter((activity) => Boolean(activity.weekly_plan_entry_id)).
-            map((activity) => [activity.weekly_plan_entry_id as string, activity.id]),
-    );
+        if (scheduledError) {
+            if (isMissingScheduledActivitiesWeeklyPlanEntryIdColumnError(scheduledError)) {
+                hasScheduledActivitiesWeeklyPlanEntryIdColumn = false;
+            } else {
+                throw scheduledError;
+            }
+        } else {
+            hasScheduledActivitiesWeeklyPlanEntryIdColumn = true;
+            scheduledByEntryId = new Map(
+                ((scheduledActivities ?? []) as Array<{ id: string; weekly_plan_entry_id: string | null }>).
+                    filter((activity) => Boolean(activity.weekly_plan_entry_id)).
+                    map((activity) => [activity.weekly_plan_entry_id as string, activity.id]),
+            );
+        }
+    }
+
+    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn === false) {
+        const { error: scheduledFallbackError } = await supabase
+            .from('scheduled_activities')
+            .insert(
+                insertedEntries.map((entry) =>
+                    toScheduledActivityPayload(userId, entry, { includeWeeklyPlanEntryId: false }),
+                ),
+            )
+            .select('id');
+
+        if (scheduledFallbackError) throw scheduledFallbackError;
+    }
 
     if (hasScheduledActivityIdColumn !== false) {
         try {
