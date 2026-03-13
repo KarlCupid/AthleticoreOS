@@ -9,8 +9,8 @@ export const COLORS = {
     borderLight: '#F1F3F5',
 
     // Accent palette
-    accent: '#6366F1',
-    accentLight: '#EEF2FF',
+    accent: '#16A34A',
+    accentLight: '#DCFCE7',
 
     // Semantic colors
     success: '#22C55E',
@@ -38,7 +38,7 @@ export const COLORS = {
 
     chart: {
         fitness: '#3B82F6',
-        fatigue: '#8B5CF6',
+        fatigue: '#15803D',
         readiness: '#10B981',
         accent: '#F59E0B',
         protein: '#60A5FA',
@@ -60,7 +60,7 @@ export const GRADIENTS = {
     caution: ['#D97706', '#B45309', '#92400E'] as const,
     depleted: ['#DC2626', '#B91C1C', '#991B1B'] as const,
     card: ['#FFFFFF', '#F8F9FA'] as const,
-    accent: ['#6366F1', '#8B5CF6'] as const,
+    accent: ['#16A34A', '#15803D'] as const,
 };
 
 export const FONT_FAMILY = {

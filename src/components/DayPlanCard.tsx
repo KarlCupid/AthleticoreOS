@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   View,
   Text,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   deloadText: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 11,
-    color: '#7C3AED',
+    color: '#166534',
   },
   sessionsList: {
     gap: SPACING.xs,
@@ -371,4 +371,5 @@ const styles = StyleSheet.create({
     color: COLORS.warning,
   },
 });
+
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from 'react-native';
 import { WheelColumn } from './WheelColumn';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING, SHADOWS } from '../theme/theme';
@@ -66,7 +66,7 @@ export function DatePickerField({ label, value, onChange }: {
                 <Text style={[styles.dateFieldText, !value && { color: COLORS.text.tertiary }]}>
                     {displayDate}
                 </Text>
-                <Text style={styles.dateFieldCal}>📅</Text>
+                <Text style={styles.dateFieldCal}>ðŸ“…</Text>
             </TouchableOpacity>
 
             <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     },
     pickerCancel: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
     pickerTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-    pickerDone: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#6366F1' },
+    pickerDone: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#16A34A' },
     pickerHighlight: {
         position: 'absolute',
         left: 0,
@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
         height: ITEM_H,
         borderTopWidth: 1.5,
         borderBottomWidth: 1.5,
-        borderColor: '#6366F1',
+        borderColor: '#16A34A',
     },
 });
+

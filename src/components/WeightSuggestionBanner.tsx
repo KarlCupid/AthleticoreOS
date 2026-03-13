@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   View,
   Text,
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   },
   deloadBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
@@ -150,3 +150,4 @@ const styles = StyleSheet.create({
 });
 
 export default WeightSuggestionBanner;
+

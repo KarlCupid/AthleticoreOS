@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+﻿import { StyleSheet, Platform } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 
 export const styles = StyleSheet.create({
@@ -20,10 +20,10 @@ export const styles = StyleSheet.create({
     subtitle: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
     label: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginTop: SPACING.sm },
 
-    // ── Step 1: Intro ─────────────────────────────────────────────
+    // â”€â”€ Step 1: Intro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     introHero: {
         alignItems: 'center',
-        backgroundColor: '#EEF2FF',
+        backgroundColor: '#DCFCE7',
         borderRadius: RADIUS.xl,
         padding: SPACING.xl,
         gap: SPACING.sm,
@@ -148,7 +148,7 @@ export const styles = StyleSheet.create({
         lineHeight: 20,
     },
 
-    // ── Form elements ─────────────────────────────────────────────
+    // â”€â”€ Form elements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     input: {
         backgroundColor: COLORS.surface,
         borderRadius: RADIUS.md,
@@ -166,15 +166,15 @@ export const styles = StyleSheet.create({
         flex: 1, padding: SPACING.md, backgroundColor: COLORS.surface,
         borderRadius: RADIUS.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,
     },
-    toggleOptionActive: { backgroundColor: '#EEF2FF', borderColor: '#6366F1' },
+    toggleOptionActive: { backgroundColor: '#DCFCE7', borderColor: '#16A34A' },
     toggleText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: COLORS.text.secondary },
-    toggleTextActive: { color: '#6366F1' },
+    toggleTextActive: { color: '#16A34A' },
     suggestionRow: {
         flexDirection: 'row', alignItems: 'center', padding: SPACING.md,
         backgroundColor: COLORS.surface, borderRadius: RADIUS.md, gap: SPACING.sm,
         borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.sm,
     },
-    suggestionRowActive: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
+    suggestionRowActive: { borderColor: '#16A34A', backgroundColor: '#DCFCE7' },
     suggestionRowDisabled: { opacity: 0.5 },
     suggestionName: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
     suggestionSub: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
@@ -183,7 +183,7 @@ export const styles = StyleSheet.create({
     infoBox: { backgroundColor: COLORS.accentLight, borderRadius: RADIUS.md, padding: SPACING.md },
     infoText: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 20 },
 
-    // ── Plan preview ──────────────────────────────────────────────
+    // â”€â”€ Plan preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     errorBox: { backgroundColor: '#FEE2E2', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
     errorText: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.error, lineHeight: 20 },
     warningBox: { backgroundColor: '#FEF3C7', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
@@ -201,25 +201,25 @@ export const styles = StyleSheet.create({
     phaseName: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
     phaseDates: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
 
-    // ── Confirmation ──────────────────────────────────────────────
+    // â”€â”€ Confirmation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     confirmBox: {
         flexDirection: 'row', backgroundColor: '#DCFCE7', borderRadius: RADIUS.md,
         padding: SPACING.md, gap: SPACING.sm, alignItems: 'flex-start',
     },
     confirmText: { flex: 1, fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary, lineHeight: 22 },
 
-    // ── Footer ────────────────────────────────────────────────────
+    // â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     footer: {
         padding: SPACING.lg,
         paddingBottom: Platform.OS === 'ios' ? 110 : 80,
         backgroundColor: COLORS.background,
     },
-    nextButton: { backgroundColor: '#6366F1', borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
+    nextButton: { backgroundColor: '#16A34A', borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
     nextButtonDisabled: { backgroundColor: COLORS.text.tertiary },
     activateButton: { backgroundColor: COLORS.readiness.prime, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
     nextButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#fff' },
 
-    // ── Extreme cut disclaimer ────────────────────────────────────
+    // â”€â”€ Extreme cut disclaimer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     extremeWarningBox: {
         backgroundColor: '#1C0A0A', borderRadius: RADIUS.xl,
         borderWidth: 2, borderColor: '#DC2626',
@@ -249,3 +249,4 @@ export const styles = StyleSheet.create({
     },
     extremeReminderText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#DC2626', textAlign: 'center' },
 });
+

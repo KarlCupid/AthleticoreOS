@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { IconAlertTriangle } from './icons';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
@@ -51,7 +51,7 @@ export function CutPlanPreviewStep({ planResult, extremeAcknowledged, setExtreme
                             name="Intensified Cut"
                             start={planResult.intensifiedPhaseDates.start}
                             end={planResult.intensifiedPhaseDates.end}
-                            color="#8B5CF6"
+                            color="#15803D"
                             weeks={planResult.intensifiedPhaseWeeks}
                         />
                         <PhaseRow
@@ -66,8 +66,8 @@ export function CutPlanPreviewStep({ planResult, extremeAcknowledged, setExtreme
                     {planResult.extremeCutWarning && (
                         <View style={styles.extremeWarningBox}>
                             <View style={styles.extremeWarningHeader}>
-                                <Text style={styles.extremeWarningIcon}>☠️</Text>
-                                <Text style={styles.extremeWarningTitle}>EXTREME CUT — SERIOUS HEALTH RISK</Text>
+                                <Text style={styles.extremeWarningIcon}>â˜ ï¸</Text>
+                                <Text style={styles.extremeWarningTitle}>EXTREME CUT â€” SERIOUS HEALTH RISK</Text>
                             </View>
                             <Text style={styles.extremeWarningBody}>
                                 A {planResult.totalCutPct.toFixed(1)}% body weight cut ({planResult.totalCutLbs.toFixed(1)} lbs) significantly
@@ -79,9 +79,9 @@ export function CutPlanPreviewStep({ planResult, extremeAcknowledged, setExtreme
                                 'Cardiac arrhythmia and sudden cardiac events',
                                 'Severe cognitive and neuromuscular impairment',
                                 'Rhabdomyolysis (muscle breakdown)',
-                                'In rare cases — death',
+                                'In rare cases â€” death',
                             ].map((risk, i) => (
-                                <Text key={i} style={styles.extremeRiskItem}>• {risk}</Text>
+                                <Text key={i} style={styles.extremeRiskItem}>â€¢ {risk}</Text>
                             ))}
                             <Text style={styles.extremeWarningBody}>
                                 We strongly recommend choosing a higher weight class. If you insist on proceeding, this
@@ -95,7 +95,7 @@ export function CutPlanPreviewStep({ planResult, extremeAcknowledged, setExtreme
                                 activeOpacity={0.8}
                             >
                                 <View style={[styles.ackCheckbox, extremeAcknowledged && styles.ackCheckboxChecked]}>
-                                    {extremeAcknowledged && <Text style={styles.ackCheckmark}>✓</Text>}
+                                    {extremeAcknowledged && <Text style={styles.ackCheckmark}>âœ“</Text>}
                                 </View>
                                 <Text style={styles.ackText}>
                                     I understand these risks are real and potentially life-threatening. I accept full
@@ -136,7 +136,7 @@ function PhaseRow({ name, start, end, color, weeks }: {
             <View style={[styles.phaseColor, { backgroundColor: color }]} />
             <View style={{ flex: 1 }}>
                 <Text style={styles.phaseName}>{name}</Text>
-                <Text style={styles.phaseDates}>{start} → {end} ({Math.round(weeks)}w)</Text>
+                <Text style={styles.phaseDates}>{start} â†’ {end} ({Math.round(weeks)}w)</Text>
             </View>
         </View>
     );
@@ -191,3 +191,4 @@ const styles = StyleSheet.create({
     ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#FFFFFF' },
     ackText: { flex: 1, fontFamily: FONT_FAMILY.regular, fontSize: 12, color: '#FEE2E2', lineHeight: 18 },
 });
+

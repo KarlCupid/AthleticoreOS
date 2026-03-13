@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { COLORS, FONT_FAMILY } from '../theme/theme';
 
@@ -40,7 +40,7 @@ export function WheelColumn({ items, selected, onSelect, flex, format }: {
                         <Text style={{
                             fontSize: selected === item ? 19 : 15,
                             fontFamily: selected === item ? FONT_FAMILY.semiBold : FONT_FAMILY.regular,
-                            color: selected === item ? '#6366F1' : COLORS.text.tertiary,
+                            color: selected === item ? '#16A34A' : COLORS.text.tertiary,
                         }}>
                             {format(item)}
                         </Text>
@@ -50,3 +50,4 @@ export function WheelColumn({ items, selected, onSelect, flex, format }: {
         </View>
     );
 }
+

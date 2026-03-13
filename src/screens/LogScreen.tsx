@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,12 +16,12 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 import { Card } from '../components/Card';
-import { SessionLogger } from '../components/SessionLogger';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { NutritionCheckIn, type NutritionStatus } from '../components/NutritionCheckIn';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { supabase } from '../../lib/supabase';
 import { calculateACWR } from '../../lib/engine/calculateACWR';
@@ -36,10 +36,9 @@ import type {
 import { getAthleteContext } from '../../lib/api/athleteContextService';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 
-type WorkoutDraft = { id: string; label: string; intensity: number; minutes: string };
-type Step = 'recovery' | 'training' | 'nutrition' | 'debrief';
+type Step = 'recovery' | 'nutrition' | 'debrief';
 
-const STEPS: Step[] = ['recovery', 'training', 'nutrition', 'debrief'];
+const STEPS: Step[] = ['recovery', 'nutrition', 'debrief'];
 const PRIMARY_LIMITER_OPTIONS: Array<{ value: PrimaryLimiter; label: string }> = [
   { value: 'sleep', label: 'Sleep' },
   { value: 'stress', label: 'Stress' },
@@ -78,8 +77,85 @@ interface DailyCheckinRow {
   coach_debrief?: unknown;
 }
 
-function createWorkoutDraft(): WorkoutDraft {
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, label: '', intensity: 5, minutes: '' };
+interface ActivityLoadRow {
+  duration_min: number | null;
+  intensity: number | null;
+}
+
+interface MacroLedgerRow {
+  prescribed_calories: number | null;
+  prescribed_protein: number | null;
+  prescribed_carbs: number | null;
+  prescribed_fats: number | null;
+  actual_calories: number | null;
+  actual_protein: number | null;
+  actual_carbs: number | null;
+  actual_fat: number | null;
+}
+
+interface DailyNutritionSummaryRow {
+  total_calories: number | null;
+  total_protein: number | null;
+  total_carbs: number | null;
+  total_fat: number | null;
+  total_water_oz: number | null;
+  meal_count: number | null;
+}
+
+interface NutritionTrackerState {
+  targets: { calories: number; protein: number; carbs: number; fat: number } | null;
+  actual: { calories: number; protein: number; carbs: number; fat: number };
+  waterOz: number;
+  mealCount: number;
+  suggestedStatus: NutritionStatus;
+  suggestedReason: string;
+}
+
+const EMPTY_TRACKER_STATE: NutritionTrackerState = {
+  targets: null,
+  actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  waterOz: 0,
+  mealCount: 0,
+  suggestedStatus: null,
+  suggestedReason: '',
+};
+
+function roundPercent(actual: number, target: number): number {
+  if (!Number.isFinite(target) || target <= 0) return 0;
+  return Math.round((actual / target) * 100);
+}
+
+function pctDelta(actual: number, target: number): number {
+  if (!Number.isFinite(target) || target <= 0) return 1;
+  return Math.abs(actual - target) / target;
+}
+
+function assessTrackedNutrition(
+  targets: NutritionTrackerState['targets'],
+  actual: NutritionTrackerState['actual'],
+): { status: NutritionStatus; reason: string } | null {
+  if (!targets) return null;
+
+  const hasAnyActual = actual.calories > 0 || actual.protein > 0 || actual.carbs > 0 || actual.fat > 0;
+  if (!hasAnyActual) return null;
+
+  const calDelta = pctDelta(actual.calories, targets.calories);
+  const macroDeltas = [
+    pctDelta(actual.protein, targets.protein),
+    pctDelta(actual.carbs, targets.carbs),
+    pctDelta(actual.fat, targets.fat),
+  ];
+  const macroTight = macroDeltas.filter((delta) => delta <= 0.15).length;
+  const macroLoose = macroDeltas.filter((delta) => delta <= 0.25).length;
+
+  const status: NutritionStatus = calDelta <= 0.1 && macroTight >= 2
+    ? 'Target Met'
+    : calDelta <= 0.2 && macroLoose >= 2
+      ? 'Close Enough'
+      : 'Missed It';
+
+  const reason = `Tracked vs target: ${roundPercent(actual.calories, targets.calories)}% kcal, ${roundPercent(actual.protein, targets.protein)}% protein, ${roundPercent(actual.carbs, targets.carbs)}% carbs, ${roundPercent(actual.fat, targets.fat)}% fat.`;
+  return { status, reason };
 }
 
 function isDailyCoachDebrief(value: unknown): value is DailyCoachDebrief {
@@ -99,17 +175,53 @@ function isCoachingFocus(value: unknown): value is CoachingFocus {
 }
 
 function sliderHint(field: 'sleep' | 'readiness' | 'stress' | 'soreness' | 'confidence', value: number): string {
-  if (field === 'sleep') return value <= 2 ? 'Low sleep raises recovery cost.' : value === 3 ? 'Average sleep supports maintenance.' : 'Strong sleep supports output.';
-  if (field === 'readiness') return value <= 2 ? 'Low readiness: protect quality.' : value === 3 ? 'Moderate readiness: train with control.' : 'High readiness: good progression window.';
-  if (field === 'stress') return value >= 4 ? 'High life stress adds to training load.' : 'Manage stress to preserve adaptation.';
-  if (field === 'soreness') return value >= 4 ? 'High soreness: prep more, trim optional volume.' : 'Use full-range warmup before hard work.';
-  return value <= 2 ? 'Low confidence: simplify and execute clean reps.' : 'Confidence supports sharper execution.';
+  const hintsByField: Record<'sleep' | 'readiness' | 'stress' | 'soreness' | 'confidence', string[]> = {
+    sleep: [
+      '1/5 sleep: severe recovery debt, keep effort minimal.',
+      '2/5 sleep: below target, reduce intensity and extend warmup.',
+      '3/5 sleep: adequate baseline, train at planned control.',
+      '4/5 sleep: good recovery, support normal progression.',
+      '5/5 sleep: excellent recovery, highest quality output window.',
+    ],
+    readiness: [
+      '1/5 readiness: prioritize movement quality over load.',
+      '2/5 readiness: conservative session with strict technique.',
+      '3/5 readiness: steady baseline, execute the planned work.',
+      '4/5 readiness: strong state, progress with intent.',
+      '5/5 readiness: peak state, ideal for your top session.',
+    ],
+    stress: [
+      '1/5 stress: very low strain, capacity is well preserved.',
+      '2/5 stress: manageable strain, stay consistent with routine.',
+      '3/5 stress: moderate strain, pace hard efforts carefully.',
+      '4/5 stress: high strain, trim optional volume today.',
+      '5/5 stress: extreme strain, protect recovery and simplify work.',
+    ],
+    soreness: [
+      '1/5 soreness: fully fresh, no restriction from soreness.',
+      '2/5 soreness: mild tightness, prep tissue before loading.',
+      '3/5 soreness: moderate soreness, monitor range and speed.',
+      '4/5 soreness: high soreness, cut nonessential intensity.',
+      '5/5 soreness: severe soreness, recovery-first day is advised.',
+    ],
+    confidence: [
+      '1/5 confidence: simplify goals and stack small wins.',
+      '2/5 confidence: keep cues simple and repeat clean reps.',
+      '3/5 confidence: neutral confidence, trust your normal process.',
+      '4/5 confidence: strong confidence, execute assertively.',
+      '5/5 confidence: elite confidence, attack key priorities.',
+    ],
+  };
+
+  const clamped = Math.min(5, Math.max(1, Math.round(value)));
+  return hintsByField[field][clamped - 1];
 }
 
 export function LogScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<any>();
-  const { themeColor } = useReadinessTheme();
+  const { themeColor, lightTint, gradient } = useReadinessTheme();
 
   const [step, setStep] = useState<Step>('recovery');
   const [weight, setWeight] = useState('');
@@ -119,7 +231,6 @@ export function LogScreen() {
   const [sorenessLevel, setSorenessLevel] = useState(3);
   const [confidenceLevel, setConfidenceLevel] = useState(3);
   const [primaryLimiter, setPrimaryLimiter] = useState<PrimaryLimiter>('none');
-  const [workouts, setWorkouts] = useState<WorkoutDraft[]>([createWorkoutDraft()]);
   const [macroAdherence, setMacroAdherence] = useState<NutritionStatus>(null);
   const [nutritionBarrier, setNutritionBarrier] = useState<NutritionBarrier>('none');
   const [coachingFocus, setCoachingFocus] = useState<CoachingFocus>('recovery');
@@ -127,6 +238,13 @@ export function LogScreen() {
   const [previousDebrief, setPreviousDebrief] = useState<{ education_topic?: string | null; risk_flags?: string[] | null; primary_limiter?: PrimaryLimiter | null } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingContext, setLoadingContext] = useState(true);
+  const [todayTrainingLoad, setTodayTrainingLoad] = useState<{ totalMinutes: number; weightedIntensity: number; totalLoad: number; sessionCount: number }>({
+    totalMinutes: 0,
+    weightedIntensity: 0,
+    totalLoad: 0,
+    sessionCount: 0,
+  });
+  const [nutritionTracker, setNutritionTracker] = useState<NutritionTrackerState>(EMPTY_TRACKER_STATE);
   const [acwrContext, setAcwrContext] = useState<{ ratio: number; status: 'safe' | 'caution' | 'redline'; acute: number; chronic: number; phase: Phase; isOnActiveCut: boolean }>({
     ratio: 0,
     status: 'safe',
@@ -141,20 +259,6 @@ export function LogScreen() {
   const stepIndex = STEPS.indexOf(step);
   const hasRecoveryCoreInput = weight.trim().length > 0 || sleep !== 3 || readiness !== 3;
 
-  const validWorkouts = useMemo(
-    () => workouts
-      .map((workout) => ({ ...workout, parsedMinutes: Number.parseInt(workout.minutes, 10) }))
-      .filter((workout) => Number.isFinite(workout.parsedMinutes) && workout.parsedMinutes > 0),
-    [workouts],
-  );
-
-  const trainingSummary = useMemo(() => {
-    if (validWorkouts.length === 0) return { totalMinutes: 0, weightedIntensity: 0, totalLoad: 0 };
-    const totalMinutes = validWorkouts.reduce((sum, workout) => sum + workout.parsedMinutes, 0);
-    const weightedIntensity = Math.round(validWorkouts.reduce((sum, workout) => sum + (workout.intensity * workout.parsedMinutes), 0) / totalMinutes);
-    return { totalMinutes, weightedIntensity, totalLoad: totalMinutes * weightedIntensity };
-  }, [validWorkouts]);
-
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -166,9 +270,22 @@ export function LogScreen() {
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = formatLocalDate(yesterday);
 
-        const [todayRes, yesterdayRes] = await Promise.all([
+        const [todayRes, yesterdayRes, activityRes, ledgerRes, nutritionSummaryRes] = await Promise.all([
           supabase.from('daily_checkins').select('*').eq('user_id', userId).eq('date', logDate).maybeSingle(),
           supabase.from('daily_checkins').select('coach_debrief,primary_limiter').eq('user_id', userId).eq('date', yesterdayStr).maybeSingle(),
+          supabase.from('activity_log').select('duration_min,intensity').eq('user_id', userId).eq('date', logDate),
+          supabase
+            .from('macro_ledger')
+            .select('prescribed_calories,prescribed_protein,prescribed_carbs,prescribed_fats,actual_calories,actual_protein,actual_carbs,actual_fat')
+            .eq('user_id', userId)
+            .eq('date', logDate)
+            .maybeSingle(),
+          supabase
+            .from('daily_nutrition_summary')
+            .select('total_calories,total_protein,total_carbs,total_fat,total_water_oz,meal_count')
+            .eq('user_id', userId)
+            .eq('date', logDate)
+            .maybeSingle(),
         ]);
 
         const athleteContext = await getAthleteContext(userId);
@@ -218,6 +335,61 @@ export function LogScreen() {
           });
         }
 
+        if (activityRes.error) {
+          console.warn('Could not load activity log for coaching summary:', activityRes.error);
+        }
+        const activityRows = (activityRes.data as ActivityLoadRow[] | null) ?? [];
+        const validLoadRows = activityRows.filter((row) =>
+          Number.isFinite(row.duration_min) && row.duration_min != null && row.duration_min > 0 &&
+          Number.isFinite(row.intensity) && row.intensity != null && row.intensity > 0,
+        );
+        const totalMinutes = validLoadRows.reduce((sum, row) => sum + (row.duration_min as number), 0);
+        const weightedIntensity = totalMinutes > 0
+          ? Math.round(validLoadRows.reduce((sum, row) => sum + ((row.duration_min as number) * (row.intensity as number)), 0) / totalMinutes)
+          : 0;
+        setTodayTrainingLoad({
+          totalMinutes,
+          weightedIntensity,
+          totalLoad: totalMinutes * weightedIntensity,
+          sessionCount: validLoadRows.length,
+        });
+
+        if (ledgerRes.error) {
+          console.warn('Could not load macro ledger for daily log:', ledgerRes.error);
+        }
+        if (nutritionSummaryRes.error) {
+          console.warn('Could not load nutrition summary for daily log:', nutritionSummaryRes.error);
+        }
+
+        const ledger = (ledgerRes.data as MacroLedgerRow | null) ?? null;
+        const nutritionSummary = (nutritionSummaryRes.data as DailyNutritionSummaryRow | null) ?? null;
+        const targets = ledger
+          ? {
+            calories: ledger.prescribed_calories ?? 0,
+            protein: ledger.prescribed_protein ?? 0,
+            carbs: ledger.prescribed_carbs ?? 0,
+            fat: ledger.prescribed_fats ?? 0,
+          }
+          : null;
+        const actual = {
+          calories: nutritionSummary?.total_calories ?? ledger?.actual_calories ?? 0,
+          protein: nutritionSummary?.total_protein ?? ledger?.actual_protein ?? 0,
+          carbs: nutritionSummary?.total_carbs ?? ledger?.actual_carbs ?? 0,
+          fat: nutritionSummary?.total_fat ?? ledger?.actual_fat ?? 0,
+        };
+        const assessment = assessTrackedNutrition(targets, actual);
+        setNutritionTracker({
+          targets,
+          actual,
+          waterOz: nutritionSummary?.total_water_oz ?? 0,
+          mealCount: nutritionSummary?.meal_count ?? 0,
+          suggestedStatus: assessment?.status ?? null,
+          suggestedReason: assessment?.reason ?? '',
+        });
+        if (!todayCheckin?.macro_adherence && assessment?.status) {
+          setMacroAdherence(assessment.status);
+        }
+
         setAcwrContext({
           ratio: acwr.ratio,
           status: acwr.status,
@@ -236,6 +408,12 @@ export function LogScreen() {
     void load();
     return () => { mounted = false; };
   }, [logDate]);
+
+  useEffect(() => {
+    if (macroAdherence === 'Target Met' && nutritionBarrier !== 'none') {
+      setNutritionBarrier('none');
+    }
+  }, [macroAdherence, nutritionBarrier]);
 
   const handleSlider = (setter: (value: number) => void) => (value: number) => {
     setter(value);
@@ -268,9 +446,9 @@ export function LogScreen() {
         nutritionBarrier,
         coachingFocus,
         trainingLoadSummary: {
-          plannedMinutes: trainingSummary.totalMinutes,
-          plannedIntensity: trainingSummary.weightedIntensity,
-          totalLoad: trainingSummary.totalLoad,
+          plannedMinutes: todayTrainingLoad.totalMinutes,
+          plannedIntensity: todayTrainingLoad.weightedIntensity,
+          totalLoad: todayTrainingLoad.totalLoad,
           acuteLoad: acwrContext.acute,
           chronicLoad: acwrContext.chronic,
           acwrRatio: acwrContext.ratio,
@@ -300,34 +478,6 @@ export function LogScreen() {
       }, { onConflict: 'user_id,date' });
       if (dailyError) throw dailyError;
 
-      if (validWorkouts.length > 0) {
-        const { error: trainingError } = await supabase.from('training_sessions').upsert({
-          user_id: userId,
-          date: logDate,
-          duration_minutes: trainingSummary.totalMinutes,
-          intensity_srpe: trainingSummary.weightedIntensity,
-        }, { onConflict: 'user_id,date' });
-        if (trainingError) throw trainingError;
-
-        const { error: clearError } = await supabase.from('activity_log').delete().eq('user_id', userId).eq('date', logDate);
-        if (clearError) throw clearError;
-
-        const { error: insertActivityError } = await supabase.from('activity_log').insert(
-          validWorkouts.map((workout) => ({
-            user_id: userId,
-            date: logDate,
-            component_type: workout.label.trim() ? workout.label.trim().toLowerCase().replace(/\s+/g, '_') : 'training',
-            duration_min: workout.parsedMinutes,
-            intensity: workout.intensity,
-            notes: workout.label.trim() || null,
-          })),
-        );
-        if (insertActivityError) throw insertActivityError;
-      } else {
-        await supabase.from('training_sessions').delete().eq('user_id', userId).eq('date', logDate);
-        await supabase.from('activity_log').delete().eq('user_id', userId).eq('date', logDate);
-      }
-
       setSavedDebrief(debrief);
       setStep('debrief');
     } catch (error) {
@@ -349,7 +499,7 @@ export function LogScreen() {
         return (
           <TouchableOpacity
             key={option.value}
-            style={[styles.pill, active && { borderColor: themeColor, backgroundColor: COLORS.accentLight }]}
+            style={[styles.pill, active && { borderColor: themeColor, backgroundColor: lightTint }]}
             onPress={() => setter(option.value)}
           >
             <Text style={[styles.pillText, active && { color: themeColor }]}>{option.label}</Text>
@@ -407,51 +557,82 @@ export function LogScreen() {
     </Card>
   );
 
-  const renderTraining = () => (
-    <Card title="Training Reflection" subtitle="Why this matters: load accuracy drives better adaptation decisions.">
-      {workouts.map((workout, index) => (
-        <View key={workout.id} style={[styles.workoutBlock, index > 0 && { marginTop: SPACING.md }]}>
-          <View style={styles.workoutHeader}>
-            <Text style={styles.workoutTitle}>Workout {index + 1}</Text>
-            {workouts.length > 1 ? (
-              <TouchableOpacity onPress={() => setWorkouts((prev) => prev.filter((entry) => entry.id !== workout.id))}>
-                <Text style={styles.removeText}>Remove</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-          <TextInput
-            style={styles.secondaryInput}
-            value={workout.label}
-            onChangeText={(value) => setWorkouts((prev) => prev.map((entry) => entry.id === workout.id ? { ...entry, label: value } : entry))}
-            placeholder="Type (optional): S&C, Boxing, Roadwork..."
-            placeholderTextColor={COLORS.text.tertiary}
-          />
-          <SessionLogger
-            intensity={workout.intensity}
-            setIntensity={(value) => setWorkouts((prev) => prev.map((entry) => entry.id === workout.id ? { ...entry, intensity: value } : entry))}
-            minutes={workout.minutes}
-            setMinutes={(value) => setWorkouts((prev) => prev.map((entry) => entry.id === workout.id ? { ...entry, minutes: value } : entry))}
-          />
-        </View>
-      ))}
-      <AnimatedPressable style={styles.addButton} onPress={() => setWorkouts((prev) => [...prev, createWorkoutDraft()])}>
-        <Text style={styles.addButtonText}>+ Add Another Workout</Text>
-      </AnimatedPressable>
-      <Text style={styles.summaryText}>
-        Today load: {trainingSummary.totalMinutes} min
-        {trainingSummary.totalMinutes > 0 ? ` - RPE ${trainingSummary.weightedIntensity} - ${trainingSummary.totalLoad} load` : ''}
-      </Text>
-    </Card>
-  );
-
   const renderNutrition = () => (
-    <Card title="Nutrition Reflection" subtitle="Why this matters: poor fuel execution under load slows recovery.">
-      <Text style={styles.label}>How close were you to your targets?</Text>
+    <Card title="Nutrition Reflection" subtitle="Food is tracked in Nutrition. This step confirms how it should impact coaching.">
+      <Text style={styles.hint}>
+        Training load is pulled from Workout Log: {todayTrainingLoad.sessionCount} session{todayTrainingLoad.sessionCount === 1 ? '' : 's'}
+        {todayTrainingLoad.totalMinutes > 0 ? `, ${todayTrainingLoad.totalMinutes} min at avg RPE ${todayTrainingLoad.weightedIntensity} (${todayTrainingLoad.totalLoad} load).` : ', no load logged yet.'}
+      </Text>
+      <View style={styles.trackerBox}>
+        <View style={styles.trackerHeader}>
+          <Text style={styles.subhead}>Nutrition tracker snapshot</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Plan', { screen: 'NutritionHome' })}>
+            <Text style={[styles.linkText, { color: themeColor }]}>Open tracker</Text>
+          </TouchableOpacity>
+        </View>
+        {nutritionTracker.targets ? (
+          <View style={styles.metricGrid}>
+            {[
+              { key: 'calories', label: 'Calories', actual: nutritionTracker.actual.calories, target: nutritionTracker.targets.calories, unit: '' },
+              { key: 'protein', label: 'Protein', actual: nutritionTracker.actual.protein, target: nutritionTracker.targets.protein, unit: 'g' },
+              { key: 'carbs', label: 'Carbs', actual: nutritionTracker.actual.carbs, target: nutritionTracker.targets.carbs, unit: 'g' },
+              { key: 'fat', label: 'Fat', actual: nutritionTracker.actual.fat, target: nutritionTracker.targets.fat, unit: 'g' },
+            ].map((metric) => (
+              <View key={metric.key} style={styles.metricTile}>
+                <Text style={styles.metricLabel}>{metric.label}</Text>
+                <Text style={styles.metricValue}>
+                  {Math.round(metric.actual)} / {Math.round(metric.target)}{metric.unit}
+                </Text>
+                <Text style={styles.metricPct}>{roundPercent(metric.actual, metric.target)}%</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.hint}>No nutrition targets found for today yet. You can still rate adherence manually below.</Text>
+        )}
+        <Text style={[styles.hint, { marginBottom: 0 }]}>
+          Meals logged: {nutritionTracker.mealCount} | Water: {Math.round(nutritionTracker.waterOz)} oz
+        </Text>
+      </View>
+      {nutritionTracker.suggestedStatus ? (
+        <View style={styles.group}>
+          <Text style={styles.label}>Tracker assessment</Text>
+          <View
+            style={[
+              styles.assessmentBox,
+              {
+                borderColor: nutritionTracker.suggestedStatus === 'Target Met'
+                  ? COLORS.readiness.prime
+                  : nutritionTracker.suggestedStatus === 'Close Enough'
+                    ? COLORS.readiness.caution
+                    : COLORS.readiness.depleted,
+              },
+            ]}
+          >
+            <Text style={styles.assessmentTitle}>{nutritionTracker.suggestedStatus}</Text>
+            <Text style={[styles.hint, { marginBottom: SPACING.sm }]}>{nutritionTracker.suggestedReason}</Text>
+            <AnimatedPressable
+              style={[styles.useTrackedButton, { borderColor: themeColor, backgroundColor: lightTint }]}
+              onPress={() => setMacroAdherence(nutritionTracker.suggestedStatus)}
+            >
+              <Text style={[styles.useTrackedButtonText, { color: themeColor }]}>Use tracked result</Text>
+            </AnimatedPressable>
+          </View>
+        </View>
+      ) : null}
+      <Text style={styles.label}>Final nutrition call for coaching</Text>
+      <Text style={styles.hint}>Only adjust this if today's tracking is incomplete or late entries are missing.</Text>
       <NutritionCheckIn status={macroAdherence} setStatus={setMacroAdherence} />
       {macroAdherence ? (
         <View style={styles.reveal}>
-          <Text style={styles.label}>Main barrier</Text>
-          {renderOptionPills(NUTRITION_BARRIER_OPTIONS, nutritionBarrier, setNutritionBarrier)}
+          {macroAdherence !== 'Target Met' ? (
+            <>
+              <Text style={styles.label}>Main barrier</Text>
+              {renderOptionPills(NUTRITION_BARRIER_OPTIONS, nutritionBarrier, setNutritionBarrier)}
+            </>
+          ) : (
+            <Text style={styles.hint}>Barrier skipped because you marked targets as met.</Text>
+          )}
           <Text style={[styles.label, { marginTop: SPACING.md }]}>Coaching focus for tomorrow</Text>
           {renderOptionPills(COACHING_FOCUS_OPTIONS, coachingFocus, setCoachingFocus)}
         </View>
@@ -488,12 +669,10 @@ export function LogScreen() {
   );
 
   const nextStep = () => {
-    if (step === 'recovery') setStep('training');
-    else if (step === 'training') setStep('nutrition');
+    if (step === 'recovery') setStep('nutrition');
   };
   const prevStep = () => {
-    if (step === 'training') setStep('recovery');
-    else if (step === 'nutrition') setStep('training');
+    if (step === 'nutrition') setStep('recovery');
   };
 
   const finish = () => {
@@ -502,18 +681,18 @@ export function LogScreen() {
   };
 
   const buttonLabel = step === 'recovery'
-    ? 'Next: Training'
-    : step === 'training'
-      ? 'Next: Nutrition'
-      : step === 'nutrition'
-        ? (isSaving ? 'Saving...' : 'Save + Generate Debrief')
-        : 'Done';
+    ? 'Next: Nutrition'
+    : step === 'nutrition'
+      ? (isSaving ? 'Saving...' : 'Save + Generate Debrief')
+      : 'Done';
 
-  const primaryAction = step === 'recovery' || step === 'training'
+  const primaryAction = step === 'recovery'
     ? nextStep
     : step === 'nutrition'
       ? saveAndGenerateDebrief
       : finish;
+  const showBackButton = step === 'nutrition';
+  const bottomActionClearance = Math.max(tabBarHeight, insets.bottom) + SPACING.lg;
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -522,13 +701,17 @@ export function LogScreen() {
         <Text style={styles.headerDate}>{todayFormatted}</Text>
       </View>
       <View style={styles.notice}>
-        <Text style={styles.noticeText}>Saving entries for {todayFormatted} ({logDate})</Text>
+        <Text style={[styles.noticeText, { color: themeColor }]}>Saving entries for {todayFormatted} ({logDate})</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <Text style={styles.stepKicker}>Step {stepIndex + 1} of 4</Text>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: bottomActionClearance }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.stepKicker}>Step {stepIndex + 1} of {STEPS.length}</Text>
         <View style={styles.stepRow}>
           {STEPS.map((entry, index) => (
-            <View key={entry} style={[styles.stepChip, index <= stepIndex && { backgroundColor: COLORS.accentLight, borderColor: themeColor }]}>
+            <View key={entry} style={[styles.stepChip, index <= stepIndex && { backgroundColor: lightTint, borderColor: themeColor }]}>
               <Text style={[styles.stepChipText, index <= stepIndex && { color: themeColor }]}>{index + 1}</Text>
             </View>
           ))}
@@ -536,7 +719,6 @@ export function LogScreen() {
 
         <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()}>
           {step === 'recovery' && renderRecovery()}
-          {step === 'training' && renderTraining()}
           {step === 'nutrition' && renderNutrition()}
           {step === 'debrief' && renderDebrief()}
         </Animated.View>
@@ -544,13 +726,13 @@ export function LogScreen() {
         {loadingContext ? <Text style={styles.loadingText}>Loading ACWR and prior coaching context...</Text> : null}
 
         <View style={styles.footer}>
-          {step === 'training' || step === 'nutrition' ? (
+          {showBackButton ? (
             <AnimatedPressable style={styles.backButton} onPress={prevStep} disabled={isSaving}>
               <Text style={styles.backButtonText}>Back</Text>
             </AnimatedPressable>
-          ) : <View style={styles.backSpacer} />}
-          <AnimatedPressable style={[styles.primaryWrap, isSaving && styles.disabled]} onPress={primaryAction} disabled={isSaving}>
-            <LinearGradient colors={[...GRADIENTS.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryButton}>
+          ) : null}
+          <AnimatedPressable style={[styles.primaryWrap, !showBackButton && styles.primaryWrapFull, isSaving && styles.disabled]} onPress={primaryAction} disabled={isSaving}>
+            <LinearGradient colors={gradient as [string, string, ...string[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{buttonLabel}</Text>
             </LinearGradient>
           </AnimatedPressable>
@@ -565,8 +747,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
   headerTitle: { fontSize: 27, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
   headerDate: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  notice: { marginHorizontal: SPACING.lg, backgroundColor: COLORS.accentLight, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
-  noticeText: { textAlign: 'center', fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
+  notice: { marginHorizontal: SPACING.lg, backgroundColor: COLORS.readiness.primeLight, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+  noticeText: { textAlign: 'center', fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.prime },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
   stepKicker: { marginTop: SPACING.sm, fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   stepRow: { flexDirection: 'row', gap: SPACING.xs, marginTop: SPACING.sm, marginBottom: SPACING.md },
@@ -575,33 +757,37 @@ const styles = StyleSheet.create({
   group: { marginBottom: SPACING.md },
   label: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
   input: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, padding: SPACING.md, backgroundColor: COLORS.background, color: COLORS.text.primary, textAlign: 'center', fontSize: 17, fontFamily: FONT_FAMILY.extraBold },
-  secondaryInput: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md, backgroundColor: COLORS.surfaceSecondary, color: COLORS.text.primary, marginBottom: SPACING.sm },
   hint: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 17, marginBottom: SPACING.xs },
+  trackerBox: { marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
+  trackerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
+  linkText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold },
+  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginBottom: SPACING.xs },
+  metricTile: { width: '48%', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, backgroundColor: COLORS.surface, paddingVertical: SPACING.xs + 2, paddingHorizontal: SPACING.sm },
+  metricLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
+  metricValue: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  metricPct: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, marginTop: 2 },
+  assessmentBox: { borderWidth: 1, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
+  assessmentTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: 2 },
+  useTrackedButton: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
+  useTrackedButtonText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold },
   reveal: { borderTopWidth: 1, borderTopColor: COLORS.borderLight, marginTop: SPACING.sm, paddingTop: SPACING.sm },
   subhead: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
   pillWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
   pill: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2, backgroundColor: COLORS.surface },
   pillText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  workoutBlock: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, padding: SPACING.sm },
-  workoutHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
-  workoutTitle: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-  removeText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.depleted },
-  addButton: { marginTop: SPACING.md, borderWidth: 1, borderColor: COLORS.accent, borderRadius: RADIUS.md, backgroundColor: COLORS.accentLight, paddingVertical: SPACING.sm, alignItems: 'center' },
-  addButtonText: { color: COLORS.accent, fontFamily: FONT_FAMILY.semiBold, fontSize: 13 },
-  summaryText: { marginTop: SPACING.sm, fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   debriefHeadline: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 21, marginBottom: SPACING.sm },
   actionRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
-  priority: { width: 22, height: 22, borderRadius: 11, textAlign: 'center', textAlignVertical: 'center', backgroundColor: COLORS.accentLight, color: COLORS.accent, fontFamily: FONT_FAMILY.semiBold, fontSize: 12 },
+  priority: { width: 22, height: 22, borderRadius: 11, textAlign: 'center', textAlignVertical: 'center', backgroundColor: COLORS.readiness.primeLight, color: COLORS.readiness.prime, fontFamily: FONT_FAMILY.semiBold, fontSize: 12 },
   actionTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 19 },
   skillBox: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
   skillTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
   loadingText: { marginTop: SPACING.md, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary },
   footer: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.lg, alignItems: 'center' },
-  backButton: { flex: 0.4, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, paddingVertical: SPACING.md, alignItems: 'center', backgroundColor: COLORS.surface },
+  backButton: { flex: 0.4, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, paddingVertical: SPACING.md, minHeight: 52, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.surface },
   backButtonText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  backSpacer: { flex: 0.4 },
-  primaryWrap: { flex: 1, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOWS.colored.accent },
-  primaryButton: { paddingVertical: SPACING.md + 1, alignItems: 'center' },
+  primaryWrap: { flex: 1, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOWS.colored.prime },
+  primaryWrapFull: { flex: 1 },
+  primaryButton: { minHeight: 52, paddingVertical: SPACING.md + 1, justifyContent: 'center', alignItems: 'center' },
   primaryButtonText: { color: '#FFF', fontSize: 15, fontFamily: FONT_FAMILY.semiBold },
   disabled: { opacity: 0.5 },
 });

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+﻿import React, { useCallback } from 'react';
 import {
     View,
     Text,
@@ -28,11 +28,11 @@ import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import { PlanStackParamList } from '../navigation/types';
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
-// ─── Helpers ──────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-/** Return ISO date string -> short day name (Mon, Tue …) */
+/** Return ISO date string -> short day name (Mon, Tue â€¦) */
 function dayNameFromDate(dateStr: string): string {
     const d = new Date(dateStr + 'T00:00:00');
     return DAY_NAMES[d.getDay()];
@@ -64,7 +64,7 @@ function groupByDate(entries: WeeklyPlanEntryRow[]): Array<{
         }));
 }
 
-// ─── Screen ───────────────────────────────────────────────────
+// â”€â”€â”€ Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function WeeklyPlanScreen() {
     const insets = useSafeAreaInsets();
@@ -89,7 +89,7 @@ export function WeeklyPlanScreen() {
         }, [loadPlan]),
     );
 
-    // ── Navigation handlers ──
+    // â”€â”€ Navigation handlers â”€â”€
 
     function handleDayPress(entry: WeeklyPlanEntryRow) {
         (async () => {
@@ -150,22 +150,22 @@ export function WeeklyPlanScreen() {
         );
     }
 
-    // ── Grouped display data ──
+    // â”€â”€ Grouped display data â”€â”€
 
     const grouped = groupByDate(entries);
 
-    // ── Loading state ──
+    // â”€â”€ Loading state â”€â”€
 
     if (loading) {
         return (
             <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
                 <ActivityIndicator color={COLORS.accent} size="large" />
-                <Text style={styles.loadingText}>Building your week…</Text>
+                <Text style={styles.loadingText}>Building your weekâ€¦</Text>
             </View>
         );
     }
 
-    // ── Empty state (no config yet) ──
+    // â”€â”€ Empty state (no config yet) â”€â”€
 
     if (!loading && entries.length === 0) {
         return (
@@ -187,18 +187,18 @@ export function WeeklyPlanScreen() {
         );
     }
 
-    // ── Main render ──
+    // â”€â”€ Main render â”€â”€
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
-            {/* ── Page Header ── */}
+            {/* â”€â”€ Page Header â”€â”€ */}
             <View style={styles.header}>
                 {!loading && entries.length > 0 && (
                     <TouchableOpacity
                         onPress={handleOptionsPress}
                         style={[styles.headerOptionsBtn, { position: 'absolute', top: SPACING.md, right: SPACING.md, zIndex: 10 }]}
                     >
-                        <Text style={styles.headerOptionsIcon}>⋮</Text>
+                        <Text style={styles.headerOptionsIcon}>â‹®</Text>
                     </TouchableOpacity>
                 )}
                 <View style={styles.headerRow}>
@@ -227,17 +227,17 @@ export function WeeklyPlanScreen() {
                     />
                 }
             >
-                {/* ── Plan Summary Card ── */}
+                {/* â”€â”€ Plan Summary Card â”€â”€ */}
                 {weekPlan?.message ? (
                     <Animated.View entering={FadeInDown.delay(50).duration(400)}>
                         <View style={styles.summaryCard}>
-                            <Text style={styles.summaryIcon}>📋</Text>
+                            <Text style={styles.summaryIcon}>ðŸ“‹</Text>
                             <Text style={styles.summaryText}>{weekPlan.message}</Text>
                         </View>
                     </Animated.View>
                 ) : null}
 
-                {/* ── Missed Sessions Banner ── */}
+                {/* â”€â”€ Missed Sessions Banner â”€â”€ */}
                 {missedEntries.length > 0 && (
                     <Animated.View entering={FadeInDown.delay(100).duration(400)}>
                         <TouchableOpacity
@@ -251,15 +251,15 @@ export function WeeklyPlanScreen() {
                                 </View>
                                 <Text style={styles.cautionBannerText}>
                                     {missedEntries.length} missed session
-                                    {missedEntries.length > 1 ? 's' : ''} — tap to reschedule
+                                    {missedEntries.length > 1 ? 's' : ''} â€” tap to reschedule
                                 </Text>
-                                <Text style={styles.cautionChevron}>›</Text>
+                                <Text style={styles.cautionChevron}>â€º</Text>
                             </View>
                         </TouchableOpacity>
                     </Animated.View>
                 )}
 
-                {/* ── Day Cards ── */}
+                {/* â”€â”€ Day Cards â”€â”€ */}
                 <SectionHeader title="Sessions" />
 
                 {grouped.map((group, groupIdx) => {
@@ -267,7 +267,7 @@ export function WeeklyPlanScreen() {
                         (s) => s.status === 'skipped' || s.status === 'rescheduled',
                     );
 
-                    // Map WeeklyPlanEntryRow[] → DayPlanCard session props
+                    // Map WeeklyPlanEntryRow[] â†’ DayPlanCard session props
                     const sessionProps = group.sessions.map((entry) => ({
                         slot: entry.slot,
                         sessionType: entry.session_type,
@@ -315,7 +315,7 @@ export function WeeklyPlanScreen() {
     );
 }
 
-// ─── Styles ───────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const styles = StyleSheet.create({
     container: {
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     deloadBadgeText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 12,
-        color: '#7C3AED',
+        color: '#166534',
         letterSpacing: 0.2,
     },
 
@@ -484,5 +484,6 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 });
+
 
 

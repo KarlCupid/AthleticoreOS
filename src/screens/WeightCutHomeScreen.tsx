@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+﻿import React, { useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator, RefreshControl, Platform, Alert,
@@ -33,7 +33,7 @@ const PHASE_LABELS: Record<CutPhase, string> = {
 
 const PHASE_COLORS: Record<CutPhase, string[]> = {
   chronic:         ['#3B82F6', '#2563EB'],
-  intensified:     ['#8B5CF6', '#7C3AED'],
+  intensified:     ['#15803D', '#166534'],
   fight_week_load: ['#06B6D4', '#0891B2'],
   fight_week_cut:  ['#F59E0B', '#D97706'],
   weigh_in:        ['#EF4444', '#DC2626'],
@@ -73,7 +73,7 @@ export function WeightCutHomeScreen() {
           },
         },
         {
-          text: 'Made weight ✓',
+          text: 'Made weight âœ“',
           onPress: () => {
             Alert.alert(
               'Mark Complete',
@@ -106,7 +106,7 @@ export function WeightCutHomeScreen() {
 
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
-  // ── Loading (auth not resolved yet, or data fetching) ─────────
+  // â”€â”€ Loading (auth not resolved yet, or data fetching) â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (userId === null || loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -115,7 +115,7 @@ export function WeightCutHomeScreen() {
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────
+  // â”€â”€ Error state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (error) {
     return (
       <View style={styles.loadingContainer}>
@@ -129,11 +129,11 @@ export function WeightCutHomeScreen() {
     );
   }
 
-  // ── No active cut ─────────────────────────────────────────────
+  // â”€â”€ No active cut â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (!activePlan) {
     return (
       <View style={styles.noCutContainer}>
-        <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.noCutGradient}>
+        <LinearGradient colors={['#16A34A', '#15803D']} style={styles.noCutGradient}>
           <IconScale size={64} color="#fff" />
           <Text style={styles.noCutTitle}>No Active Weight Cut</Text>
           <Text style={styles.noCutSubtitle}>
@@ -173,7 +173,7 @@ export function WeightCutHomeScreen() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Hero ─────────────────────────────────── */}
+      {/* â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <LinearGradient colors={phaseColors} style={styles.hero}>
         <View style={styles.heroTop}>
           <View>
@@ -212,23 +212,23 @@ export function WeightCutHomeScreen() {
           <View style={styles.projectionBanner}>
             <Text style={styles.projectionText}>
               Projected weigh-in: {projectedWeightByWeighIn.toFixed(1)} lbs
-              {projectedWeightByWeighIn <= activePlan.target_weight ? '  ✓ ON TRACK' : '  ⚠ BEHIND'}
+              {projectedWeightByWeighIn <= activePlan.target_weight ? '  âœ“ ON TRACK' : '  âš  BEHIND'}
             </Text>
           </View>
         )}
       </LinearGradient>
 
-      {/* ── Safety flags ─────────────────────────── */}
+      {/* â”€â”€ Safety flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {dangerFlags.length > 0 && (
         <SafetyStatusIndicator flags={todayProtocol?.safety_flags ?? []} />
       )}
 
-      {/* ── Today's protocol ─────────────────────── */}
+      {/* â”€â”€ Today's protocol â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {todayProtocol && (
         <DailyProtocolCard protocol={todayProtocol} />
       )}
 
-      {/* ── Weight chart ─────────────────────────── */}
+      {/* â”€â”€ Weight chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Weight Trend</Text>
         <WeightCutChart
@@ -239,13 +239,13 @@ export function WeightCutHomeScreen() {
         />
       </View>
 
-      {/* ── Phase timeline ────────────────────────── */}
+      {/* â”€â”€ Phase timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Cut Timeline</Text>
         <CutPhaseTimeline plan={activePlan} currentPhase={phase} />
       </View>
 
-      {/* ── Quick actions ────────────────────────── */}
+      {/* â”€â”€ Quick actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <View style={styles.quickActions}>
         {phase === 'fight_week_load' || phase === 'fight_week_cut' || phase === 'weigh_in' ? (
           <TouchableOpacity
@@ -286,12 +286,12 @@ export function WeightCutHomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Weight class info ────────────────────── */}
+      {/* â”€â”€ Weight class info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activePlan.weight_class_name && (
         <View style={[styles.card, styles.weightClassCard]}>
           <IconTarget size={16} color={COLORS.text.secondary} />
           <Text style={styles.weightClassText}>
-            {activePlan.weight_class_name} · {activePlan.sport?.toUpperCase()} · {activePlan.fight_status}
+            {activePlan.weight_class_name} Â· {activePlan.sport?.toUpperCase()} Â· {activePlan.fight_status}
           </Text>
         </View>
       )}
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   noCutTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: '#fff', textAlign: 'center' },
   noCutSubtitle: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 24 },
   startButton: { backgroundColor: '#fff', borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.md },
-  startButtonText: { fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: '#6366F1' },
+  startButtonText: { fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: '#16A34A' },
   historyLink: { marginTop: SPACING.sm },
   historyLinkText: { color: 'rgba(255,255,255,0.8)', fontFamily: FONT_FAMILY.semiBold, fontSize: 14 },
   hero: {
@@ -367,3 +367,4 @@ const styles = StyleSheet.create({
     color: COLORS.error,
   },
 });
+

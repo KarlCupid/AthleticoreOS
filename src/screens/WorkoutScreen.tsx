@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -132,13 +132,13 @@ export function WorkoutScreen() {
                             style={styles.headerBtn}
                             onPress={() => navigation.navigate('PlanHome')}
                         >
-                            <Text style={styles.headerBtnText}>📅 Plan</Text>
+                            <Text style={styles.headerBtnText}>ðŸ“… Plan</Text>
                         </Pressable>
                         <Pressable
                             style={styles.headerBtn}
                             onPress={() => navigation.navigate('GymProfiles')}
                         >
-                            <Text style={styles.headerBtnText}>🏋️ Gym</Text>
+                            <Text style={styles.headerBtnText}>ðŸ‹ï¸ Gym</Text>
                         </Pressable>
                     </View>
                 </View>
@@ -176,7 +176,7 @@ export function WorkoutScreen() {
                                     <View style={styles.planEntryHeader}>
                                         <View>
                                             <Text style={styles.planEntryLabel}>
-                                                {isDeloadWeek ? '🔄 Recovery Day' : '📋 Today\'s Plan'}
+                                                {isDeloadWeek ? 'ðŸ”„ Recovery Day' : 'ðŸ“‹ Today\'s Plan'}
                                             </Text>
                                             <Text style={styles.planEntryFocus}>
                                                 {todayEntry.focus
@@ -192,7 +192,7 @@ export function WorkoutScreen() {
                                         </View>
                                     </View>
                                     <Text style={styles.planEntryAction}>
-                                        {todayEntry.status === 'completed' ? '✅ Completed' : '▶ Start Guided Workout →'}
+                                        {todayEntry.status === 'completed' ? 'âœ… Completed' : 'â–¶ Start Guided Workout â†’'}
                                     </Text>
                                 </Pressable>
                             </Animated.View>
@@ -207,10 +207,10 @@ export function WorkoutScreen() {
                                     {
                                         borderColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
                                             ? '#F59E0B'
-                                            : '#6366F1',
+                                            : '#16A34A',
                                         backgroundColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
                                             ? '#FFFBEB'
-                                            : '#EEF2FF',
+                                            : '#DCFCE7',
                                     }
                                 ]}
                             >
@@ -222,7 +222,7 @@ export function WorkoutScreen() {
                                             : '#4F46E5'
                                     }
                                 ]}>
-                                    ⚔️ WEIGHT CUT — Intensity Cap: {cutProtocol.training_intensity_cap !== null
+                                    âš”ï¸ WEIGHT CUT â€” Intensity Cap: {cutProtocol.training_intensity_cap !== null
                                         ? `${cutProtocol.training_intensity_cap}/10 RPE`
                                         : 'No cap'}
                                 </Text>
@@ -280,7 +280,7 @@ export function WorkoutScreen() {
                         {/* Week overview cards */}
                         {isDeloadWeek && (
                             <View style={styles.deloadBanner}>
-                                <Text style={styles.deloadBannerText}>🔄 Recovery Week — Reduced volume to rebuild</Text>
+                                <Text style={styles.deloadBannerText}>ðŸ”„ Recovery Week â€” Reduced volume to rebuild</Text>
                             </View>
                         )}
                         {entries.length === 0 ? (
@@ -324,22 +324,22 @@ export function WorkoutScreen() {
                                                 </View>
                                                 <View style={styles.weekCardCenter}>
                                                     <Text style={styles.weekCardFocus}>
-                                                        {entry.is_deload ? '🔄 Recovery' : (FOCUS_LABELS[entry.focus ?? ''] ?? entry.session_type)}
+                                                        {entry.is_deload ? 'ðŸ”„ Recovery' : (FOCUS_LABELS[entry.focus ?? ''] ?? entry.session_type)}
                                                     </Text>
                                                     <Text style={styles.weekCardMeta}>
                                                         {entry.estimated_duration_min} min
-                                                        {entry.target_intensity ? ` · RPE ${entry.target_intensity}` : ''}
+                                                        {entry.target_intensity ? ` Â· RPE ${entry.target_intensity}` : ''}
                                                         {pmEntry ? ' + PM' : ''}
                                                     </Text>
                                                 </View>
                                                 <View style={styles.weekCardRight}>
-                                                    {entry.status === 'completed' && <Text style={styles.weekCardDoneIcon}>✅</Text>}
-                                                    {entry.status === 'skipped' && <Text style={styles.weekCardSkipIcon}>⏭</Text>}
+                                                    {entry.status === 'completed' && <Text style={styles.weekCardDoneIcon}>âœ…</Text>}
+                                                    {entry.status === 'skipped' && <Text style={styles.weekCardSkipIcon}>â­</Text>}
                                                     {entry.status === 'planned' && entry.date === today && (
                                                         <Text style={styles.weekCardTodayBadge}>Today</Text>
                                                     )}
                                                     {entry.status === 'planned' && entry.date > today && (
-                                                        <Text style={styles.weekCardChevron}>›</Text>
+                                                        <Text style={styles.weekCardChevron}>â€º</Text>
                                                     )}
                                                 </View>
                                             </Pressable>
@@ -351,7 +351,7 @@ export function WorkoutScreen() {
                             style={styles.planSettingsBtn}
                             onPress={() => navigation.navigate('WeeklyPlanSetup')}
                         >
-                            <Text style={styles.planSettingsBtnText}>⚙ Adjust Weekly Plan</Text>
+                            <Text style={styles.planSettingsBtnText}>âš™ Adjust Weekly Plan</Text>
                         </Pressable>
                     </Animated.View>
                 )}
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     },
     planEntryDeload: {
         backgroundColor: '#F5F3FF',
-        borderColor: '#8B5CF6' + '30',
+        borderColor: '#15803D' + '30',
     },
     planEntryHeader: {
         flexDirection: 'row',
@@ -462,12 +462,12 @@ const styles = StyleSheet.create({
         padding: SPACING.md,
         marginBottom: SPACING.md,
         borderWidth: 1,
-        borderColor: '#8B5CF6' + '40',
+        borderColor: '#15803D' + '40',
     },
     deloadBannerText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 14,
-        color: '#7C3AED',
+        color: '#166534',
         textAlign: 'center',
     },
     emptyPlan: {
@@ -775,4 +775,5 @@ const styles = StyleSheet.create({
         color: COLORS.text.tertiary,
     },
 });
+
 

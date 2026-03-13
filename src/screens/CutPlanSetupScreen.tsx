@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
@@ -41,7 +41,7 @@ import { DatePickerField } from '../components/DatePickerField';
 import { APP_IMPACTS, CUT_PHASES } from '../constants/cutPlanSetup';
 import { styles } from './CutPlanSetupScreen.styles';
 import { formatLocalDate } from '../../lib/utils/date';
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function CutPlanSetupScreen() {
   const nav = useNavigation<NavProp>();
@@ -160,16 +160,16 @@ export function CutPlanSetupScreen() {
     }
   };
 
-  // ── Step 1: How It Works ──────────────────────────────────────────────────
+  // â”€â”€ Step 1: How It Works â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const renderStep1 = () => (
     <View style={styles.stepContainer}>
       {/* Hero */}
       <View style={styles.introHero}>
-        <Text style={styles.introHeroEmoji}>⚖️</Text>
+        <Text style={styles.introHeroEmoji}>âš–ï¸</Text>
         <Text style={styles.introHeroTitle}>How the Weight Cut Works</Text>
         <Text style={styles.introHeroSub}>
-          Once activated, the weight cut becomes the central engine of your camp — every part of the app adapts to your timeline and cut phase.
+          Once activated, the weight cut becomes the central engine of your camp â€” every part of the app adapts to your timeline and cut phase.
         </Text>
       </View>
 
@@ -213,15 +213,15 @@ export function CutPlanSetupScreen() {
 
       {/* Important note */}
       <View style={styles.introNote}>
-        <Text style={styles.introNoteIcon}>💡</Text>
+        <Text style={styles.introNoteIcon}>ðŸ’¡</Text>
         <Text style={styles.introNoteText}>
-          Protocols are recalculated every day based on where you are in the timeline. Changes to nutrition, hydration, and training intensity happen automatically — you don't need to do anything.
+          Protocols are recalculated every day based on where you are in the timeline. Changes to nutrition, hydration, and training intensity happen automatically â€” you don't need to do anything.
         </Text>
       </View>
     </View>
   );
 
-  // ── Step 2: Target Weight ─────────────────────────────────────────────────
+  // â”€â”€ Step 2: Target Weight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const renderStep2 = () => (
     <View style={styles.stepContainer}>
@@ -271,7 +271,7 @@ export function CutPlanSetupScreen() {
     </View>
   );
 
-  // ── Step 3: Fight Details ─────────────────────────────────────────────────
+  // â”€â”€ Step 3: Fight Details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const renderStep3 = () => (
     <View style={styles.stepContainer}>
@@ -308,11 +308,11 @@ export function CutPlanSetupScreen() {
     </View>
   );
 
-  // ── Step 4: Plan Preview ──────────────────────────────────────────────────
+  // â”€â”€ Step 4: Plan Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 
-  // ── Step 5: Final Notes ───────────────────────────────────────────────────
+  // â”€â”€ Step 5: Final Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const renderStep5 = () => (
     <View style={styles.stepContainer}>
@@ -322,7 +322,7 @@ export function CutPlanSetupScreen() {
       {planResult?.extremeCutWarning && (
         <View style={styles.extremeReminderBanner}>
           <Text style={styles.extremeReminderText}>
-            ☠️ Extreme cut active ({planResult.totalCutPct.toFixed(1)}% BW). Medical supervision required.
+            â˜ ï¸ Extreme cut active ({planResult.totalCutPct.toFixed(1)}% BW). Medical supervision required.
           </Text>
         </View>
       )}
@@ -340,13 +340,13 @@ export function CutPlanSetupScreen() {
       <View style={styles.confirmBox}>
         <IconCheckCircle size={20} color={COLORS.readiness.prime} />
         <Text style={styles.confirmText}>
-          Your cut plan is ready. The app will calculate your daily nutrition, hydration, and training protocols automatically — you just have to check in each day.
+          Your cut plan is ready. The app will calculate your daily nutrition, hydration, and training protocols automatically â€” you just have to check in each day.
         </Text>
       </View>
     </View>
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const isNextDisabled =
     (step === 4 && !planResult?.valid) ||
@@ -358,7 +358,7 @@ export function CutPlanSetupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
-      <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.header}>
+      <LinearGradient colors={['#16A34A', '#15803D']} style={styles.header}>
         <TouchableOpacity
           onPress={() => step === 1 ? nav.goBack() : setStep(s => (s - 1) as Step)}
           style={styles.backButton}
@@ -427,7 +427,7 @@ export function CutPlanSetupScreen() {
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 
@@ -438,6 +438,7 @@ const RISK_COLORS: Record<string, string> = {
   unsafe: '#E5E7EB',
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 
 
