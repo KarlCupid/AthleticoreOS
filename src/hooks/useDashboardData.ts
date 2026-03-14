@@ -14,8 +14,8 @@ import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionSer
 import { getDailyMission } from '../../lib/api/dailyMissionService';
 import { generateRollingSchedule, getDailyAdaptationForToday, getScheduledActivities } from '../../lib/api/scheduleService';
 import { getWeightHistory, getEffectiveWeight } from '../../lib/api/weightService';
-import { getRecentExerciseIds } from '../../lib/api/scService';
-import { generateWorkout } from '../../lib/engine/calculateSC';
+import { getExerciseHistoryBatch, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
+import { generateWorkoutV2 } from '../../lib/engine/calculateSC';
 import {
   getAthleteContext,
   getActiveUserId,
@@ -183,6 +183,7 @@ export function useDashboardData() {
       setSessionDone(Boolean(trainingSessions && trainingSessions.length > 0));
       setCurrentLedger((ledger as MacroLedgerRow | null) ?? null);
       setTodayActivities(scheduledActivities);
+      let resolvedBaseTdee = ((ledger as MacroLedgerRow | null)?.base_tdee ?? 0);
 
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
 
@@ -273,17 +274,26 @@ export function useDashboardData() {
         if (todayPlanEntry?.prescription_snapshot?.exercises?.length) {
           setWorkoutPrescription(todayPlanEntry.prescription_snapshot);
         } else if (exerciseRows.length > 0) {
-          const recentIds = await getRecentExerciseIds(userId);
-          const workoutRaw = generateWorkout({
+          const [recentIds, recentMuscleVolume] = await Promise.all([
+            getRecentExerciseIds(userId),
+            getRecentMuscleVolume(userId),
+          ]);
+          const historyMap = await getExerciseHistoryBatch(
+            userId,
+            exerciseRows.map((exercise) => exercise.id),
+          );
+          const workoutRaw = generateWorkoutV2({
             readinessState,
             phase: athleteContext.phase,
             acwr: acwrResult.ratio,
             exerciseLibrary: exerciseRows,
             recentExerciseIds: recentIds,
-            recentMuscleVolume: { ...EMPTY_VOLUME },
+            recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
             trainingIntensityCap: cutProtocol?.training_intensity_cap ?? undefined,
             trainingDate: todayStr,
             fitnessLevel: athleteContext.fitnessLevel,
+            exerciseHistory: historyMap,
+            gymEquipment: [],
           });
           setWorkoutPrescription(workoutRaw);
         }
@@ -361,6 +371,7 @@ export function useDashboardData() {
           );
 
           setNutritionTargets(finalTargets);
+          resolvedBaseTdee = finalTargets.tdee;
 
           await ensureDailyLedger(userId, todayStr, {
             tdee: finalTargets.tdee,
@@ -424,7 +435,7 @@ export function useDashboardData() {
         setWorkoutPrescription(mission.trainingDirective.prescription);
         setPrescriptionMessage(mission.summary);
         setNutritionTargets({
-          tdee: currentLedger?.base_tdee ?? 0,
+          tdee: resolvedBaseTdee,
           adjustedCalories: mission.fuelDirective.calories,
           protein: mission.fuelDirective.protein,
           carbs: mission.fuelDirective.carbs,
@@ -438,9 +449,13 @@ export function useDashboardData() {
             : mission.fuelDirective.source === 'daily_engine'
               ? 'daily_activity_adjusted'
               : 'base',
+          fuelState: mission.fuelDirective.state,
+          sessionDemandScore: mission.fuelDirective.sessionDemandScore,
+          hydrationBoostOz: mission.fuelDirective.hydrationBoostOz,
+          reasonLines: mission.fuelDirective.reasons,
         });
         await ensureDailyLedger(userId, todayStr, {
-          tdee: currentLedger?.base_tdee ?? 0,
+          tdee: resolvedBaseTdee,
           calories: mission.fuelDirective.calories,
           protein: mission.fuelDirective.protein,
           carbs: mission.fuelDirective.carbs,

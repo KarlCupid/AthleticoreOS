@@ -14,6 +14,7 @@ import {
     startWorkoutV2,
     getExerciseHistoryBatch,
     getRecentExerciseIds,
+    getRecentMuscleVolume,
 } from '../../lib/api/scService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
@@ -161,7 +162,11 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             } catch { /* default */ }
 
             // Get recent exercise IDs
-            const recentIds = await getRecentExerciseIds(userId);
+            const [recentIds, recentMuscleVolume, historyMap] = await Promise.all([
+                getRecentExerciseIds(userId),
+                getRecentMuscleVolume(userId),
+                getExerciseHistoryBatch(userId, library.map((exercise) => exercise.id)),
+            ]);
 
             // Generate V2 prescription
             const baseInput = {
@@ -170,7 +175,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 acwr,
                 exerciseLibrary: library,
                 recentExerciseIds: recentIds,
-                recentMuscleVolume: { ...EMPTY_VOLUME },
+                recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
                 focus,
                 fitnessLevel,
             };
@@ -179,18 +184,20 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 ...baseInput,
                 availableMinutes,
                 gymEquipment: gym?.equipment ?? [],
-                exerciseHistory: new Map(),
+                exerciseHistory: historyMap,
                 isDeloadWeek,
                 trainingDate: sessionDate,
             });
 
             // Batch-load exercise history for overload suggestions
             const exerciseIds = v2Prescription.exercises.map(e => e.exercise.id);
-            const historyMap = await getExerciseHistoryBatch(userId, exerciseIds);
+            const filteredHistoryMap = new Map(
+                exerciseIds.map((exerciseId) => [exerciseId, historyMap.get(exerciseId) ?? []] as const),
+            );
 
             // Augment exercises with overload suggestions
             const augmented = v2Prescription.exercises.map(ex => {
-                const history = historyMap.get(ex.exercise.id) ?? [];
+                const history = filteredHistoryMap.get(ex.exercise.id) ?? [];
                 if (history.length === 0) return ex;
 
                 const suggestion = suggestOverload({

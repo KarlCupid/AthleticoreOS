@@ -7,7 +7,7 @@ import type {
   TimelineStatus,
   WorkoutFocus,
 } from './foundational';
-import type { MacroLedgerRow } from './nutrition';
+import type { FuelState, MacroLedgerRow } from './nutrition';
 import type {
   AvailabilityWindow,
   ConstraintTier,
@@ -210,6 +210,9 @@ export interface NutritionDayAdjustment {
   calorieModifier: number;
   proteinModifier: number;
   hydrationBoostOz: number;
+  fuelState: FuelState;
+  sessionDemandScore: number;
+  reasons: string[];
   message: string;
 }
 

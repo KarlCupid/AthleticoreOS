@@ -215,12 +215,39 @@ function buildFuelDirective(
   const trainingCount = getActiveTrainingCount(input.scheduledActivities);
   const durationMin = trainingDirective.durationMin ?? 0;
   const intensity = trainingDirective.intensityCap ?? input.weeklyPlanEntry?.target_intensity ?? 5;
-  const highDemand = intensity >= 7 || durationMin >= 70 || trainingDirective.sessionRole === 'express';
-  const cutProtected = input.cutProtocol?.training_intensity_cap != null && input.cutProtocol.training_intensity_cap <= 4;
+  const fuelState = input.nutritionTargets.fuelState;
+  const demandScore = input.nutritionTargets.sessionDemandScore;
+  const highDemand = intensity >= 7 || durationMin >= 70 || trainingDirective.sessionRole === 'express' || demandScore >= 60;
+  const cutProtected = fuelState === 'cut_protect'
+    || (input.cutProtocol?.training_intensity_cap != null && input.cutProtocol.training_intensity_cap <= 4);
 
-  const preSessionCarbsG = cutProtected ? 20 : highDemand ? 55 : trainingDirective.sessionRole === 'recover' ? 20 : 35;
-  const postSessionProteinG = durationMin >= 60 ? 40 : 30;
-  const intraSessionHydrationOz = Math.max(12, Math.round(durationMin / 3) + (trainingCount > 1 ? 8 : 0));
+  const preSessionCarbsG = cutProtected
+    ? 20
+    : fuelState === 'double_day'
+      ? 60
+      : fuelState === 'spar_support'
+        ? 55
+        : fuelState === 'strength_power'
+          ? 45
+          : fuelState === 'aerobic'
+            ? 35
+            : 20;
+  const intraSessionCarbsG = cutProtected
+    ? 0
+    : fuelState === 'double_day'
+      ? 25
+      : fuelState === 'spar_support'
+        ? 20
+        : fuelState === 'aerobic' && durationMin >= 60
+          ? 10
+          : highDemand
+            ? 15
+            : 0;
+  const postSessionProteinG = durationMin >= 60 || fuelState === 'double_day' ? 40 : 30;
+  const intraSessionHydrationOz = Math.max(
+    12,
+    Math.round(durationMin / 3) + input.nutritionTargets.hydrationBoostOz + (trainingCount > 1 ? 8 : 0),
+  );
 
   let compliancePriority: FuelDirective['compliancePriority'] = 'consistency';
   if (input.cutProtocol || input.macrocycleContext.weightCutState === 'driving') compliancePriority = 'weight';
@@ -235,28 +262,34 @@ function buildFuelDirective(
   const message = input.cutProtocol
     ? `Cut protocol is leading intake today. Hit the exact macro and hydration targets to keep weight on line.`
     : compliancePriority === 'performance'
-      ? `Fuel the key work first. Front-load carbs before training and get protein in quickly after.`
+      ? `Fuel the key work first. Front-load carbs before training and keep recovery intake tight after the session.`
       : compliancePriority === 'recovery'
         ? `Keep intake steady to support recovery and avoid digging fatigue deeper.`
         : `Stay on plan and treat nutrition consistency as part of the block.`;
 
   return {
+    state: fuelState,
+    sessionDemandScore: demandScore,
     calories: input.nutritionTargets.adjustedCalories,
     protein: input.nutritionTargets.protein,
     carbs: input.nutritionTargets.carbs,
     fat: input.nutritionTargets.fat,
     preSessionCarbsG,
+    intraSessionCarbsG,
     postSessionProteinG,
     intraSessionHydrationOz,
+    hydrationBoostOz: input.nutritionTargets.hydrationBoostOz,
     sodiumTargetMg: input.cutProtocol?.sodium_target_mg ?? null,
     compliancePriority,
     source,
     message,
+    reasons: input.nutritionTargets.reasonLines,
   };
 }
 
 function buildHydrationDirective(input: BuildDailyMissionInput): HydrationDirective {
-  const waterTargetOz = input.cutProtocol?.water_target_oz ?? input.hydration.dailyWaterOz;
+  const waterTargetOz = input.cutProtocol?.water_target_oz
+    ?? (input.hydration.dailyWaterOz + input.nutritionTargets.hydrationBoostOz);
   const sodiumTargetMg = input.cutProtocol?.sodium_target_mg ?? null;
   const protocol = input.cutProtocol?.morning_protocol
     ?? input.cutProtocol?.training_recommendation

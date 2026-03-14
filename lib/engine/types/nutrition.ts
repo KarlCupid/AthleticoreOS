@@ -56,6 +56,16 @@ export interface NutritionTargets {
   message: string;
 }
 
+export type FuelState =
+  | 'rest'
+  | 'active_recovery'
+  | 'aerobic'
+  | 'strength_power'
+  | 'spar_support'
+  | 'double_day'
+  | 'taper'
+  | 'cut_protect';
+
 export type DailyNutritionTargetSource =
   | 'base'
   | 'daily_activity_adjusted'
@@ -63,6 +73,10 @@ export type DailyNutritionTargetSource =
 
 export interface ResolvedNutritionTargets extends NutritionTargets {
   source: DailyNutritionTargetSource;
+  fuelState: FuelState;
+  sessionDemandScore: number;
+  hydrationBoostOz: number;
+  reasonLines: string[];
 }
 
 export interface MacroAdherenceResult {

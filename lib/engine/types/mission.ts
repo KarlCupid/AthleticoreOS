@@ -11,7 +11,7 @@ import type {
 import type { Phase, ReadinessState, WorkoutFocus, WorkoutType } from './foundational';
 import type { ACWRResult, HydrationResult } from './readiness';
 import type { ScheduledActivityRow, WeeklyPlanEntryRow } from './schedule';
-import type { ResolvedNutritionTargets } from './nutrition';
+import type { FuelState, ResolvedNutritionTargets } from './nutrition';
 import type { WorkoutPrescriptionV2 } from './training';
 import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut';
 
@@ -84,17 +84,22 @@ export interface TrainingDirective {
 }
 
 export interface FuelDirective {
+  state: FuelState;
+  sessionDemandScore: number;
   calories: number;
   protein: number;
   carbs: number;
   fat: number;
   preSessionCarbsG: number;
+  intraSessionCarbsG: number;
   postSessionProteinG: number;
   intraSessionHydrationOz: number;
+  hydrationBoostOz: number;
   sodiumTargetMg: number | null;
   compliancePriority: 'performance' | 'weight' | 'recovery' | 'consistency';
   source: DirectiveSource;
   message: string;
+  reasons: string[];
 }
 
 export interface HydrationDirective {

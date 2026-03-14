@@ -16,7 +16,7 @@ import {
 } from '../engine/types';
 import { calculateWeeklyCompliance, getTrainingStreak, generateSmartWeekPlan, adaptDailySchedule } from '../engine/calculateSchedule';
 import { calculateACWR } from '../engine/calculateACWR';
-import { getRecentExerciseIds, getExerciseLibrary } from './scService';
+import { getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getGlobalReadinessState } from '../engine/getGlobalReadinessState';
 import { getActiveFightCamp, resolvePhaseForDate } from './fightCampService';
@@ -819,7 +819,7 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
 }
 
 export async function syncEngineSchedule(userId: string, weekStartDate: string): Promise<void> {
-    const [config, athleteContext, campConfig, weeksSinceLastDeload, recurringActivities, gymProfile, exerciseLibrary, recentExerciseIds] = await Promise.all([
+    const [config, athleteContext, campConfig, weeksSinceLastDeload, recurringActivities, gymProfile, exerciseLibrary, recentExerciseIds, recentMuscleVolume] = await Promise.all([
         getWeeklyPlanConfig(userId),
         getAthleteContext(userId),
         getActiveFightCamp(userId),
@@ -828,6 +828,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         getDefaultGymProfile(userId),
         getExerciseLibrary(),
         getRecentExerciseIds(userId),
+        getRecentMuscleVolume(userId),
     ]);
 
     if (!config) return;
@@ -880,7 +881,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         fitnessLevel: athleteContext.fitnessLevel,
         exerciseLibrary,
         recentExerciseIds,
-        recentMuscleVolume: { ...EMPTY_VOLUME },
+        recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
         campConfig,
         activeCutPlan,
         weeksSinceLastDeload,

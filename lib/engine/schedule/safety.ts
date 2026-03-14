@@ -5,6 +5,7 @@
   OvertrainingWarning,
   FitnessLevel,
   Phase,
+  FuelState,
 } from '../types';
 import {
   MAX_HIGH_CNS_PER_72H,
@@ -19,95 +20,178 @@ export function adjustNutritionForDay(
     dayActivities: Pick<ScheduledActivityRow, 'activity_type' | 'expected_intensity' | 'estimated_duration_min'>[],
     trainingIntensityCap?: number | null,
 ): NutritionDayAdjustment {
-    if (dayActivities.length === 0 || dayActivities.every(a => a.activity_type === 'rest')) {
+    const activeSessions = dayActivities.filter(
+        (activity) => activity.activity_type !== 'rest' && activity.activity_type !== 'active_recovery',
+    );
+    const recoveryOnly = dayActivities.length > 0 && activeSessions.length === 0;
+
+    if (dayActivities.length === 0 || dayActivities.every((activity) => activity.activity_type === 'rest')) {
+        const reasons = [
+            'Rest day detected. Pull carbohydrates and calories down slightly to match the lower workload without under-fueling recovery.',
+        ];
         return {
-            carbModifierPct: -10,
-            calorieModifier: Math.round(baseTargets.adjustedCalories * -0.08),
+            carbModifierPct: -15,
+            calorieModifier: Math.round(baseTargets.adjustedCalories * -0.10),
             proteinModifier: 0,
             hydrationBoostOz: 0,
-            message: 'Rest day detected. Carbs reduced by 10% and calories slightly lowered. Your body uses fewer carbohydrates when not training, so excess carbs on rest days can slow body composition goals.',
+            fuelState: 'rest',
+            sessionDemandScore: 0,
+            reasons,
+            message: reasons.join(' '),
         };
     }
 
-    let hasSparring = false;
-    let hasHeavySC = false;
-    let hasRunning = false;
-
-    for (const a of dayActivities) {
-        if (a.activity_type === 'sparring') hasSparring = true;
-        if (a.activity_type === 'sc' && a.expected_intensity >= 7) hasHeavySC = true;
-        if (a.activity_type === 'running') hasRunning = true;
+    if (recoveryOnly) {
+        const reasons = [
+            'Only active recovery is scheduled. Keep protein steady, trim carbs slightly, and avoid turning a light day into a full training-feed day.',
+        ];
+        return {
+            carbModifierPct: -5,
+            calorieModifier: Math.round(baseTargets.adjustedCalories * -0.04),
+            proteinModifier: 0,
+            hydrationBoostOz: 4,
+            fuelState: 'active_recovery',
+            sessionDemandScore: 12,
+            reasons,
+            message: reasons.join(' '),
+        };
     }
 
-    const isDoubleSession = dayActivities.filter(a => a.activity_type !== 'rest' && a.activity_type !== 'active_recovery').length >= 2;
-
-    // Build modifiers
     let carbMod = 0;
     let calMod = 0;
     let proteinMod = 0;
     let waterBoost = 0;
+    let demandScore = 0;
+    let hasSparring = false;
+    let hasHeavySC = false;
+    let hasAerobic = false;
     const reasons: string[] = [];
 
-    if (hasSparring) {
-        carbMod += 15;
-        calMod += 200;
-        waterBoost += 16;
-        reasons.push('Sparring day â€” carbs increased by 15% to fuel explosive output and replenish glycogen. Extra 200 calories to cover the high metabolic demand. +16oz water for sweat losses.');
-    }
+    for (const activity of activeSessions) {
+        const durationFactor = Math.max(0.75, activity.estimated_duration_min / 60);
+        const intensityFactor = Math.max(0.75, activity.expected_intensity / 6);
+        const sessionLoad = activity.estimated_duration_min * activity.expected_intensity;
 
-    if (hasHeavySC) {
-        carbMod += 10;
-        calMod += 150;
-        proteinMod += 10;
-        reasons.push('Heavy S&C â€” carbs up 10% to fuel strength work, extra protein for muscle protein synthesis.');
-    }
-
-    if (hasRunning) {
-        carbMod += 5;
-        calMod += 100;
-        waterBoost += 12;
-        reasons.push('Running session â€” moderate carb and calorie increase for sustained energy. Extra hydration for cardiovascular work.');
-    }
-
-    if (isDoubleSession) {
-        carbMod += 10;
-        calMod += 200;
-        waterBoost += 8;
-        reasons.push('Double session day â€” significant additional fuel needed. Your body burns substantially more glycogen across multiple training bouts.');
-    }
-
-    // Cap modifiers at reasonable limits
-    carbMod = Math.min(carbMod, 35);
-    calMod = Math.min(calMod, 600);
-
-    // Weight cut intensity cap: clamp positive nutrition boosts
-    if (trainingIntensityCap != null && trainingIntensityCap > 0) {
-        if (trainingIntensityCap <= 4) {
-            // Fight week: zero out all positive calorie/carb boosts
-            if (carbMod > 0 || calMod > 0) {
-                carbMod = 0;
-                calMod = 0;
-                proteinMod = 0;
-                reasons.length = 0;
-                reasons.push('Weight cut fight week â€” all calorie and carb boosts suppressed. Your cut protocol macros take priority over activity-based adjustments.');
+        switch (activity.activity_type) {
+            case 'sparring': {
+                hasSparring = true;
+                demandScore += Math.round((sessionLoad * 1.25) / 8);
+                carbMod += Math.round(12 + durationFactor * 5 + intensityFactor * 3);
+                calMod += Math.round(180 + durationFactor * 70);
+                proteinMod += 8;
+                waterBoost += Math.round(14 + durationFactor * 6);
+                reasons.push('Sparring anchors the day. Carbs and hydration are pushed up to protect speed, repeat efforts, and glycogen recovery.');
+                break;
             }
-        } else if (trainingIntensityCap <= 8) {
-            // Intensified phase: halve positive modifiers
-            if (carbMod > 0 || calMod > 0) {
-                carbMod = Math.round(carbMod * 0.5);
-                calMod = Math.round(calMod * 0.5);
-                proteinMod = Math.round(proteinMod * 0.5);
-                reasons.push('Active weight cut â€” activity-based calorie and carb boosts halved to stay within your deficit.');
+            case 'boxing_practice': {
+                demandScore += Math.round((sessionLoad * 1.05) / 8);
+                carbMod += Math.round(7 + durationFactor * 4);
+                calMod += Math.round(100 + durationFactor * 50);
+                waterBoost += Math.round(10 + durationFactor * 4);
+                reasons.push('Boxing practice adds moderate glycolytic demand, so carbs and fluids are bumped to support skill quality.');
+                break;
+            }
+            case 'sc': {
+                const heavy = activity.expected_intensity >= 7;
+                hasHeavySC ||= heavy;
+                demandScore += Math.round((sessionLoad * (heavy ? 1.15 : 0.95)) / 8);
+                carbMod += heavy ? Math.round(9 + intensityFactor * 3) : Math.round(5 + intensityFactor * 2);
+                calMod += heavy ? Math.round(140 + durationFactor * 40) : Math.round(80 + durationFactor * 30);
+                proteinMod += heavy ? 12 : 6;
+                waterBoost += heavy ? 10 : 6;
+                reasons.push(
+                    heavy
+                        ? 'Heavy S&C increases neural and glycogen demand, so both carbs and protein are raised.'
+                        : 'Moderate S&C still needs a small carb and protein lift to keep training quality up.',
+                );
+                break;
+            }
+            case 'road_work':
+            case 'running': {
+                hasAerobic = true;
+                demandScore += Math.round((sessionLoad * 0.95) / 8);
+                carbMod += Math.round(6 + durationFactor * 4 + Math.max(0, intensityFactor - 1) * 2);
+                calMod += Math.round(90 + durationFactor * 50);
+                waterBoost += Math.round(12 + durationFactor * 5);
+                reasons.push('Aerobic work raises fluid and carbohydrate demand, especially as duration climbs.');
+                break;
+            }
+            case 'conditioning': {
+                demandScore += Math.round((sessionLoad * 1.1) / 8);
+                carbMod += Math.round(9 + durationFactor * 4 + intensityFactor * 2);
+                calMod += Math.round(120 + durationFactor * 55);
+                proteinMod += 5;
+                waterBoost += Math.round(12 + durationFactor * 4);
+                reasons.push('Conditioning adds repeated high-output work, so the engine lifts carbs, total calories, and hydration.');
+                break;
+            }
+            default: {
+                demandScore += Math.round(sessionLoad / 10);
+                carbMod += 4;
+                calMod += 60;
+                waterBoost += 6;
+                reasons.push('A mixed training session is scheduled, so the engine adds a conservative fuel bump.');
+                break;
             }
         }
     }
+
+    if (activeSessions.length >= 2) {
+        demandScore += 18;
+        carbMod += 8;
+        calMod += 160;
+        proteinMod += 4;
+        waterBoost += 10;
+        reasons.push('Multiple sessions stack demand across the day, so the fuel plan adds extra carbs, calories, and hydration.');
+    }
+
+    let fuelState: FuelState = 'aerobic';
+    if (hasSparring) {
+        fuelState = activeSessions.length >= 2 ? 'double_day' : 'spar_support';
+    } else if (activeSessions.length >= 2) {
+        fuelState = 'double_day';
+    } else if (hasHeavySC) {
+        fuelState = 'strength_power';
+    } else if (hasAerobic) {
+        fuelState = 'aerobic';
+    }
+
+    carbMod = Math.min(carbMod, 32);
+    calMod = Math.min(calMod, 650);
+    proteinMod = Math.min(proteinMod, 18);
+
+    if (trainingIntensityCap != null && trainingIntensityCap > 0) {
+        if (trainingIntensityCap <= 4) {
+            carbMod = Math.min(carbMod, 0);
+            calMod = Math.min(calMod, 0);
+            proteinMod = Math.min(proteinMod, 4);
+            fuelState = 'cut_protect';
+            reasons.length = 0;
+            reasons.push('Weight cut fight week is active, so performance boosts are suppressed and the cut-protection fuel state takes priority.');
+        } else if (trainingIntensityCap <= 6) {
+            carbMod = Math.round(carbMod * 0.4);
+            calMod = Math.round(calMod * 0.4);
+            proteinMod = Math.round(proteinMod * 0.6);
+            reasons.push('Training is capped by the cut protocol, so performance fuel is reduced to stay inside the deficit.');
+        } else if (trainingIntensityCap <= 8) {
+            carbMod = Math.round(carbMod * 0.6);
+            calMod = Math.round(calMod * 0.6);
+            proteinMod = Math.round(proteinMod * 0.75);
+            reasons.push('An active cut is in play, so the extra fuel is trimmed rather than fully removed.');
+        }
+    }
+
+    demandScore = Math.max(0, Math.min(100, demandScore));
 
     return {
         carbModifierPct: carbMod,
         calorieModifier: calMod,
         proteinModifier: proteinMod,
         hydrationBoostOz: waterBoost,
-        message: reasons.join(' ') || 'Standard training day â€” no special adjustments needed.',
+        fuelState,
+        sessionDemandScore: demandScore,
+        reasons,
+        message: reasons.join(' ') || 'Standard training day — no special adjustments needed.',
     };
 }
 

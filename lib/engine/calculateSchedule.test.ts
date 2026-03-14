@@ -148,7 +148,7 @@ test('Rest day → negative carb modifier', () => {
     const result = adjustNutritionForDay(baseTargets, [
         { activity_type: 'rest', expected_intensity: 1, estimated_duration_min: 0 },
     ]);
-    expect(result.carbModifierPct).toBe(-10);
+    expect(result.carbModifierPct).toBe(-15);
     expect(result.message).toContain('Rest day');
 });
 
@@ -171,7 +171,7 @@ test('Double session → extra fuel', () => {
 
 test('Empty day → rest adjustment', () => {
     const result = adjustNutritionForDay(baseTargets, []);
-    expect(result.carbModifierPct).toBe(-10);
+    expect(result.carbModifierPct).toBe(-15);
 });
 
 // ─── detectOvertrainingRisk ────────────────────────────────────
@@ -406,7 +406,7 @@ test('Intensified cap (8) → halves positive modifiers', () => {
         { activity_type: 'sparring', expected_intensity: 8, estimated_duration_min: 90 },
     ]);
     expect(resultWithCap.carbModifierPct).toBeLessThan(resultWithout.carbModifierPct);
-    expect(resultWithCap.message).toContain('weight cut');
+    expect(resultWithCap.message).toContain('active cut');
 });
 
 test('No cap → full sparring boosts preserved', () => {

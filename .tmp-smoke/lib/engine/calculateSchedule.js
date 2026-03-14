@@ -1,51 +1,30 @@
-import {
-    ActivityType,
-    ScheduledActivityRow,
-    WeeklyComplianceReport,
-    ScheduleGenerationInput,
-    Phase,
-    DailyAdaptationInput,
-    DailyAdaptationResult,
-    DailyAdaptationSwap,
-    WeekPlanEntry,
-    SmartWeekPlanInput,
-    SmartWeekPlanResult,
-    WeeklyPlanEntryRow,
-    MissedDayRescheduleInput,
-    MissedDayRescheduleResult,
-    WorkoutFocus,
-    PrescribedExercise,
-    PlanSlot,
-    CampPhase,
-} from './types';
-import { getFitnessModifiers } from './calculateFitness';
-import { getWeeklyRoadWorkPlan } from './calculateRoadWork';
-import { getWeeklyConditioningPlan } from './calculateConditioning';
-import { determineCampPhase, getCampTrainingModifiers, toCampEnginePhase } from './calculateCamp';
-import { getDailyCutIntensityCap } from './calculateWeightCut';
-import { shouldDeload } from './calculateOverload';
-import { generateWorkoutV2 } from './calculateSC';
-import { todayLocalDate } from '../utils/date';
-
-import {
-  ACWR_DANGER,
-  addDays,
-  buildDayLoadMap,
-  dateFromISO,
-  daysBetween,
-  findCandidateDays,
-  getAcwrPlanningThresholds,
-  getSessionLoad,
-  suggestAlternative,
-  validateDayLoad,
-} from './schedule/loadAndValidation';
-import { detectOvertrainingRisk } from './schedule/safety';
-
-export { getRecoveryWindow, suggestAlternative, validateDayLoad } from './schedule/loadAndValidation';
-export { adjustNutritionForDay, detectOvertrainingRisk } from './schedule/safety';
-
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.detectOvertrainingRisk = exports.adjustNutritionForDay = exports.validateDayLoad = exports.suggestAlternative = exports.getRecoveryWindow = void 0;
+exports.generateWeekPlan = generateWeekPlan;
+exports.adaptDailySchedule = adaptDailySchedule;
+exports.calculateWeeklyCompliance = calculateWeeklyCompliance;
+exports.getTrainingStreak = getTrainingStreak;
+exports.generateSmartWeekPlan = generateSmartWeekPlan;
+exports.handleMissedDay = handleMissedDay;
+const calculateFitness_1 = require("./calculateFitness");
+const calculateRoadWork_1 = require("./calculateRoadWork");
+const calculateConditioning_1 = require("./calculateConditioning");
+const calculateCamp_1 = require("./calculateCamp");
+const calculateWeightCut_1 = require("./calculateWeightCut");
+const calculateOverload_1 = require("./calculateOverload");
+const calculateSC_1 = require("./calculateSC");
+const date_1 = require("../utils/date");
+const loadAndValidation_1 = require("./schedule/loadAndValidation");
+const safety_1 = require("./schedule/safety");
+var loadAndValidation_2 = require("./schedule/loadAndValidation");
+Object.defineProperty(exports, "getRecoveryWindow", { enumerable: true, get: function () { return loadAndValidation_2.getRecoveryWindow; } });
+Object.defineProperty(exports, "suggestAlternative", { enumerable: true, get: function () { return loadAndValidation_2.suggestAlternative; } });
+Object.defineProperty(exports, "validateDayLoad", { enumerable: true, get: function () { return loadAndValidation_2.validateDayLoad; } });
+var safety_2 = require("./schedule/safety");
+Object.defineProperty(exports, "adjustNutritionForDay", { enumerable: true, get: function () { return safety_2.adjustNutritionForDay; } });
+Object.defineProperty(exports, "detectOvertrainingRisk", { enumerable: true, get: function () { return safety_2.detectOvertrainingRisk; } });
 // generateWeekPlan ----------------------------------------------------------
-
 /**
  * Given the user's recurring template, readiness, ACWR, phase, fitness level,
  * camp config, and weekly targets - produces a full weekly schedule including
@@ -58,51 +37,27 @@ export { adjustNutritionForDay, detectOvertrainingRisk } from './schedule/safety
  * @ANTI-WIRING:
  * Pure synchronous function. No database queries. No LLM generation.
  */
-export function generateWeekPlan(
-    input: ScheduleGenerationInput,
-): WeekPlanEntry[] {
-    const {
-        readinessState,
-        phase,
-        acwr,
-        recurringActivities,
-        existingActivities,
-        weeklyTargets,
-        sleepTrendAvg,
-        weekStartDate,
-        fitnessLevel = 'intermediate',
-        campConfig = null,
-        age = null,
-    } = input;
-
-    const result: WeekPlanEntry[] = [];
-
+function generateWeekPlan(input) {
+    const { readinessState, phase, acwr, recurringActivities, existingActivities, weeklyTargets, sleepTrendAvg, weekStartDate, fitnessLevel = 'intermediate', campConfig = null, age = null, } = input;
+    const result = [];
     // ── Step 1: Populate template activities as hard constraints ──
     for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-        const date = addDays(weekStartDate, dayOffset);
-        const localDayOfWeek = dateFromISO(date).getDay();
-        const dayTemplates = recurringActivities.filter(t =>
-            t.is_active &&
+        const date = (0, loadAndValidation_1.addDays)(weekStartDate, dayOffset);
+        const localDayOfWeek = (0, loadAndValidation_1.dateFromISO)(date).getDay();
+        const dayTemplates = recurringActivities.filter(t => t.is_active &&
             t.recurrence.frequency === 'weekly' &&
-            t.recurrence.days_of_week?.includes(localDayOfWeek)
-        );
-
-        const cutCap = getDailyCutIntensityCap(input.activeCutPlan, date);
-
+            t.recurrence.days_of_week?.includes(localDayOfWeek));
+        const cutCap = (0, calculateWeightCut_1.getDailyCutIntensityCap)(input.activeCutPlan, date);
         for (const tmpl of dayTemplates) {
-            const exists = existingActivities.some(
-                a => a.date === date && a.activity_type === tmpl.activity_type &&
-                    a.start_time === tmpl.start_time
-            );
+            const exists = existingActivities.some(a => a.date === date && a.activity_type === tmpl.activity_type &&
+                a.start_time === tmpl.start_time);
             if (!exists) {
                 let finalIntensity = tmpl.expected_intensity;
                 let engRec = 'Template activity';
-
                 if (cutCap != null && finalIntensity > cutCap) {
                     finalIntensity = cutCap;
                     engRec = `⚠️ Intensity capped at ${cutCap} due to strict weight cut protocol limits.`;
                 }
-
                 result.push({
                     date,
                     activity_type: tmpl.activity_type,
@@ -115,45 +70,39 @@ export function generateWeekPlan(
             }
         }
     }
-
     // Combined view of all committed activities (template + already-saved)
     const allCommitted = [...existingActivities, ...result];
-
     // ── Resolve effective phase (camp-aware) ──
-    const effectivePhase: Phase = (() => {
+    const effectivePhase = (() => {
         if (campConfig) {
-            const campPhase = determineCampPhase(campConfig, weekStartDate);
-            if (campPhase) return toCampEnginePhase(campPhase);
+            const campPhase = (0, calculateCamp_1.determineCampPhase)(campConfig, weekStartDate);
+            if (campPhase)
+                return (0, calculateCamp_1.toCampEnginePhase)(campPhase);
         }
         return phase;
     })();
-
     // ── Camp modifiers (if in camp) ──
     const campModifiers = (() => {
         if (campConfig) {
-            const campPhase = determineCampPhase(campConfig, weekStartDate);
+            const campPhase = (0, calculateCamp_1.determineCampPhase)(campConfig, weekStartDate);
             if (campPhase) {
-                return getCampTrainingModifiers(campPhase, fitnessLevel, campConfig.hasConcurrentCut);
+                return (0, calculateCamp_1.getCampTrainingModifiers)(campPhase, fitnessLevel, campConfig.hasConcurrentCut);
             }
         }
         return null;
     })();
-
     // ── Fitness modifiers ──
-    const fitnessModifiers = getFitnessModifiers(fitnessLevel, effectivePhase);
-    const acwrThresholds = getAcwrPlanningThresholds(
-    fitnessLevel,
-    effectivePhase,
-    input.activeCutPlan != null,
-);
-
+    const fitnessModifiers = (0, calculateFitness_1.getFitnessModifiers)(fitnessLevel, effectivePhase);
+    const acwrThresholds = (0, loadAndValidation_1.getAcwrPlanningThresholds)(fitnessLevel, effectivePhase, input.activeCutPlan != null);
     // Determine base S&C intensity
     let baseScIntensity = 7;
     if (readinessState === 'Depleted' || acwr > acwrThresholds.redline) {
         baseScIntensity = 4;
-    } else if (readinessState === 'Caution' || acwr > acwrThresholds.caution) {
+    }
+    else if (readinessState === 'Caution' || acwr > acwrThresholds.caution) {
         baseScIntensity = 5;
-    } else if (sleepTrendAvg > 0 && sleepTrendAvg < 3.0) {
+    }
+    else if (sleepTrendAvg > 0 && sleepTrendAvg < 3.0) {
         baseScIntensity = 5;
     }
     // Apply camp intensity cap
@@ -162,47 +111,38 @@ export function generateWeekPlan(
     }
     // Apply fitness level intensity cap
     baseScIntensity = Math.min(baseScIntensity, fitnessModifiers.intensityCap);
-
     // ── Step 2: Fill S&C sessions ──
     const scTarget = campModifiers
         ? campModifiers.scSessionsPerWeek
         : weeklyTargets.sc_sessions;
     const scCount = allCommitted.filter(a => a.activity_type === 'sc').length;
     const scNeeded = Math.max(0, Math.round(scTarget * fitnessModifiers.volumeMultiplier) - scCount);
-
     if (scNeeded > 0) {
-        const dayLoads = buildDayLoadMap(allCommitted);
-        const scCandidates = findCandidateDays(
-            weekStartDate, allCommitted, dayLoads,
-            (dayActs) => !dayActs.some(a => a.activity_type === 'sparring') &&
-                !dayActs.some(a => a.activity_type === 'sc') &&
-                (dayLoads.get(dayActs[0]?.date ?? '') ?? 0) < 600,
-            600,
-        );
-
+        const dayLoads = (0, loadAndValidation_1.buildDayLoadMap)(allCommitted);
+        const scCandidates = (0, loadAndValidation_1.findCandidateDays)(weekStartDate, allCommitted, dayLoads, (dayActs) => !dayActs.some(a => a.activity_type === 'sparring') &&
+            !dayActs.some(a => a.activity_type === 'sc') &&
+            (dayLoads.get(dayActs[0]?.date ?? '') ?? 0) < 600, 600);
         for (let i = 0; i < Math.min(scNeeded, scCandidates.length); i++) {
             const date = scCandidates[i];
-            const prevDate = addDays(date, -1);
-
+            const prevDate = (0, loadAndValidation_1.addDays)(date, -1);
             // Apply weight cut intensity cap derived from date
-            const cutCap = getDailyCutIntensityCap(input.activeCutPlan, date);
+            const cutCap = (0, calculateWeightCut_1.getDailyCutIntensityCap)(input.activeCutPlan, date);
             const scIntensity = cutCap != null ? Math.min(baseScIntensity, cutCap) : baseScIntensity;
-
-            const hadSparringYesterday = allCommitted.some(
-                a => a.date === prevDate && a.activity_type === 'sparring' && a.expected_intensity >= 7
-            );
-            if (hadSparringYesterday) continue;
-
-            const reasons: string[] = [];
-            if (readinessState !== 'Prime') reasons.push(`readiness is ${readinessState}`);
-            if (acwr > acwrThresholds.caution) reasons.push(`ACWR at ${acwr.toFixed(2)}`);
-            if (sleepTrendAvg > 0 && sleepTrendAvg < 3.0) reasons.push(`sleep low`);
-            if (cutCap != null && cutCap < baseScIntensity) reasons.push(`weight cut phase limits intensity`);
-
+            const hadSparringYesterday = allCommitted.some(a => a.date === prevDate && a.activity_type === 'sparring' && a.expected_intensity >= 7);
+            if (hadSparringYesterday)
+                continue;
+            const reasons = [];
+            if (readinessState !== 'Prime')
+                reasons.push(`readiness is ${readinessState}`);
+            if (acwr > acwrThresholds.caution)
+                reasons.push(`ACWR at ${acwr.toFixed(2)}`);
+            if (sleepTrendAvg > 0 && sleepTrendAvg < 3.0)
+                reasons.push(`sleep low`);
+            if (cutCap != null && cutCap < baseScIntensity)
+                reasons.push(`weight cut phase limits intensity`);
             const recommendation = reasons.length > 0
                 ? `S&C at RPE ${scIntensity} (reduced — ${reasons.join(', ')}). Adaptation improves when load matches recovery.`
                 : `S&C placed here — lowest existing load, adequate recovery from surrounding sessions.`;
-
             result.push({
                 date,
                 activity_type: 'sc',
@@ -215,24 +155,19 @@ export function generateWeekPlan(
             });
         }
     }
-
     // ── Step 3: Fill road work sessions ──
     const allAfterSC = [...allCommitted, ...result.filter(r => r.source === 'engine')];
     const roadWorkTarget = campModifiers
         ? campModifiers.roadWorkSessionsPerWeek
         : weeklyTargets.road_work_sessions;
     const roadWorkCount = allAfterSC.filter(a => a.activity_type === 'road_work' || a.activity_type === 'running').length;
-    const roadWorkNeeded = Math.max(
-        0,
-        Math.round(roadWorkTarget * fitnessModifiers.roadWorkDistanceMultiplier) - roadWorkCount
-    );
-
+    const roadWorkNeeded = Math.max(0, Math.round(roadWorkTarget * fitnessModifiers.roadWorkDistanceMultiplier) - roadWorkCount);
     if (roadWorkNeeded > 0) {
-        const roadWorkPlan = getWeeklyRoadWorkPlan({
+        const roadWorkPlan = (0, calculateRoadWork_1.getWeeklyRoadWorkPlan)({
             weekStartDate,
             prescriptionsNeeded: roadWorkNeeded,
             recurringActivities,
-            existingActivities: allAfterSC as ScheduledActivityRow[],
+            existingActivities: allAfterSC,
             fitnessLevel,
             phase: effectivePhase,
             readinessState,
@@ -241,7 +176,6 @@ export function generateWeekPlan(
             campConfig,
             activeCutPlan: input.activeCutPlan ?? null,
         });
-
         for (const { date, prescription } of roadWorkPlan) {
             result.push({
                 date,
@@ -256,24 +190,19 @@ export function generateWeekPlan(
             });
         }
     }
-
     // ── Step 4: Fill conditioning sessions ──
     const allAfterRW = [...allAfterSC, ...result.filter(r => r.activity_type === 'road_work')];
     const condTarget = campModifiers
         ? campModifiers.conditioningSessionsPerWeek
         : weeklyTargets.conditioning_sessions;
     const condCount = allAfterRW.filter(a => a.activity_type === 'conditioning').length;
-    const condNeeded = Math.max(
-        0,
-        Math.round(condTarget * fitnessModifiers.conditioningRoundsMultiplier) - condCount
-    );
-
+    const condNeeded = Math.max(0, Math.round(condTarget * fitnessModifiers.conditioningRoundsMultiplier) - condCount);
     if (condNeeded > 0) {
-        const condPlan = getWeeklyConditioningPlan({
+        const condPlan = (0, calculateConditioning_1.getWeeklyConditioningPlan)({
             weekStartDate,
             prescriptionsNeeded: condNeeded,
             recurringActivities,
-            existingActivities: allAfterRW as ScheduledActivityRow[],
+            existingActivities: allAfterRW,
             fitnessLevel,
             phase: effectivePhase,
             readinessState,
@@ -281,7 +210,6 @@ export function generateWeekPlan(
             campConfig,
             activeCutPlan: input.activeCutPlan ?? null,
         });
-
         for (const { date, prescription } of condPlan) {
             result.push({
                 date,
@@ -296,7 +224,6 @@ export function generateWeekPlan(
             });
         }
     }
-
     // ── Step 5: Ensure minimum recovery days ──
     const allAfterCond = [
         ...allAfterRW,
@@ -305,21 +232,17 @@ export function generateWeekPlan(
     const recoveryTarget = campModifiers
         ? campModifiers.mandatoryRestDaysPerWeek
         : Math.max(weeklyTargets.recovery_sessions, fitnessModifiers.recoveryDayFrequency);
-
-    const recoveryCount = allAfterCond.filter(
-        a => a.activity_type === 'active_recovery' || a.activity_type === 'rest'
-    ).length;
+    const recoveryCount = allAfterCond.filter(a => a.activity_type === 'active_recovery' || a.activity_type === 'rest').length;
     const recoveryNeeded = Math.max(0, recoveryTarget - recoveryCount);
-
     if (recoveryNeeded > 0) {
         // Find completely empty days
-        const emptyDays: string[] = [];
+        const emptyDays = [];
         for (let offset = 0; offset < 7; offset++) {
-            const date = addDays(weekStartDate, offset);
+            const date = (0, loadAndValidation_1.addDays)(weekStartDate, offset);
             const hasAnything = allAfterCond.some(a => a.date === date);
-            if (!hasAnything) emptyDays.push(date);
+            if (!hasAnything)
+                emptyDays.push(date);
         }
-
         for (let i = 0; i < Math.min(recoveryNeeded, emptyDays.length); i++) {
             const date = emptyDays[i];
             result.push({
@@ -334,53 +257,50 @@ export function generateWeekPlan(
             });
         }
     }
-
     // ── Step 6: Validate Day Loads (Bug 6 Auto-Correction) ──
     for (let offset = 0; offset < 7; offset++) {
-        const date = addDays(weekStartDate, offset);
+        const date = (0, loadAndValidation_1.addDays)(weekStartDate, offset);
         const dayActivities = [
             ...allCommitted.filter(a => a.date === date),
             ...result.filter(a => a.date === date)
         ];
-
-        if (dayActivities.length === 0) continue;
-
-        let validation = validateDayLoad(dayActivities as any);
+        if (dayActivities.length === 0)
+            continue;
+        let validation = (0, loadAndValidation_1.validateDayLoad)(dayActivities);
         let passes = 0;
-
         while (!validation.safe && passes < 3) {
             passes++;
             // Find a heavy session to downgrade (prioritize engine S&C/Cond, then template)
             const candidates = result.filter(a => a.date === date && ['engine', 'template'].includes(a.source || ''));
-            if (candidates.length === 0) break;
-
+            if (candidates.length === 0)
+                break;
             candidates.sort((a, b) => {
-                if (a.source === 'engine' && b.source !== 'engine') return -1;
-                if (b.source === 'engine' && a.source !== 'engine') return 1;
+                if (a.source === 'engine' && b.source !== 'engine')
+                    return -1;
+                if (b.source === 'engine' && a.source !== 'engine')
+                    return 1;
                 return b.expected_intensity - a.expected_intensity;
             });
-
             const toDowngrade = candidates[0];
-
             if (toDowngrade.expected_intensity <= 4) {
                 // Too low to downgrade further, try to completely swap to recovery if not already
                 if (toDowngrade.activity_type !== 'active_recovery') {
                     toDowngrade.activity_type = 'active_recovery';
                     toDowngrade.expected_intensity = 2;
                     toDowngrade.engine_recommendation = `⚠️ Auto-corrected from original schedule to 'recovery' to protect CNS.`;
-                } else {
+                }
+                else {
                     break; // Nothing more we can do
                 }
-            } else {
+            }
+            else {
                 toDowngrade.expected_intensity -= 2;
                 toDowngrade.engine_recommendation = `⚠️ Intensity artificially reduced by 2 RPE to protect your day load from exceeding safe thresholds. ` + (toDowngrade.engine_recommendation || '');
             }
-
             // Re-validate
-            validation = validateDayLoad(dayActivities as any);
+            validation = (0, loadAndValidation_1.validateDayLoad)(dayActivities);
         }
     }
-
     // ── Step 7: Final overtraining check (Bug 5 Auto-Correction) ──
     const finalWeek = [
         ...allCommitted,
@@ -391,43 +311,35 @@ export function generateWeekPlan(
         expected_intensity: a.expected_intensity,
         estimated_duration_min: a.estimated_duration_min,
     }));
-
-    const warnings = detectOvertrainingRisk(
-        finalWeek,
-        acwr,
-        sleepTrendAvg,
-        input.activeCutPlan != null, // Has an active weight cut
-        { fitnessLevel, phase: effectivePhase },
-    );
-
+    const warnings = (0, safety_1.detectOvertrainingRisk)(finalWeek, acwr, sleepTrendAvg, input.activeCutPlan != null, // Has an active weight cut
+    { fitnessLevel, phase: effectivePhase });
     if (warnings.length > 0) {
         // Auto-correct: downgrade 1-2 engine sessions later in the week
         // Find the hardest engine sessions
         const hardEngineSessions = result
             .filter(a => a.source === 'engine' && a.expected_intensity >= 6)
             .sort((a, b) => b.expected_intensity - a.expected_intensity);
-
         const downgradesCount = warnings.some(w => w.severity === 'danger') ? 2 : 1;
-
         for (let i = 0; i < Math.min(downgradesCount, hardEngineSessions.length); i++) {
             const entry = hardEngineSessions[i];
             entry.expected_intensity -= 2;
             entry.engine_recommendation = `⚠️ Overtraining risk detected across the week. Intensity reduced by 2 RPE to protect CNS recovery. ` + (entry.engine_recommendation ?? '');
-            if (entry.expected_intensity < 2) entry.expected_intensity = 2;
+            if (entry.expected_intensity < 2)
+                entry.expected_intensity = 2;
         }
     }
-
     // ── Step 8: Final strict weight cut cap enforcement ──
-    const finalCleaned: WeekPlanEntry[] = [];
+    const finalCleaned = [];
     for (const act of result) {
-        const cutCap = getDailyCutIntensityCap(input.activeCutPlan, act.date);
+        const cutCap = (0, calculateWeightCut_1.getDailyCutIntensityCap)(input.activeCutPlan, act.date);
         if (cutCap != null && act.expected_intensity > cutCap) {
             if (act.source === 'engine') {
                 if (cutCap <= 2 && act.activity_type !== 'active_recovery') {
                     act.activity_type = 'active_recovery';
                     act.expected_intensity = 2;
                     act.engine_recommendation = `⚠️ Swapped to active recovery to comply with strict weight cut limits. ` + (act.engine_recommendation || '');
-                } else {
+                }
+                else {
                     act.expected_intensity = cutCap;
                     act.engine_recommendation = `⚠️ Intensity reduced to ${cutCap} due to active weight cut protocols. ` + (act.engine_recommendation || '');
                 }
@@ -435,12 +347,9 @@ export function generateWeekPlan(
         }
         finalCleaned.push(act);
     }
-
     return finalCleaned;
 }
-
 // ─── adaptDailySchedule ────────────────────────────────────────
-
 /**
  * Re-evaluates today's schedule based on what actually happened yesterday,
  * current readiness, and ACWR. Called when the dashboard mounts.
@@ -451,90 +360,60 @@ export function generateWeekPlan(
  * @ANTI-WIRING:
  * Pure synchronous function. No database queries. No LLM generation.
  */
-export function adaptDailySchedule(
-    input: DailyAdaptationInput,
-): DailyAdaptationResult {
-    const {
-        todayActivities,
-        yesterdayActivities,
-        readinessState,
-        acwr,
-        sleepLastNight,
-        fitnessLevel,
-        phase,
-        trainingIntensityCap,
-    } = input;
-
-    const swaps: DailyAdaptationSwap[] = [];
-    const adjustedActivities: ScheduledActivityRow[] = [...todayActivities] as ScheduledActivityRow[];
-
+function adaptDailySchedule(input) {
+    const { todayActivities, yesterdayActivities, readinessState, acwr, sleepLastNight, fitnessLevel, phase, trainingIntensityCap, } = input;
+    const swaps = [];
+    const adjustedActivities = [...todayActivities];
     // ACWR status
-    const acwrThresholds = getAcwrPlanningThresholds(
-        fitnessLevel,
-        phase,
-        trainingIntensityCap != null,
-    );
-    const acwrStatus: DailyAdaptationResult['acwrStatus'] =
-        acwr >= acwrThresholds.redline ? 'redline' :
-            acwr >= acwrThresholds.caution ? 'caution' :
-                'safe';
-
+    const acwrThresholds = (0, loadAndValidation_1.getAcwrPlanningThresholds)(fitnessLevel, phase, trainingIntensityCap != null);
+    const acwrStatus = acwr >= acwrThresholds.redline ? 'redline' :
+        acwr >= acwrThresholds.caution ? 'caution' :
+            'safe';
     // ── Overarching coaching message ──
     let overarchingMessage = '';
     if (readinessState === 'Prime' && acwrStatus === 'safe' && sleepLastNight >= 4) {
         overarchingMessage = 'You are fully recovered and ready to perform. Push your intensity today.';
-    } else if (readinessState === 'Depleted' || acwrStatus === 'redline') {
+    }
+    else if (readinessState === 'Depleted' || acwrStatus === 'redline') {
         overarchingMessage = 'Your body is under significant stress. Today is about damage control — protect your long-term capacity.';
-    } else if (readinessState === 'Caution' || acwrStatus === 'caution') {
+    }
+    else if (readinessState === 'Caution' || acwrStatus === 'caution') {
         overarchingMessage = 'Readiness is moderate. Complete your sessions but listen to your body and pull back on intensity if needed.';
-    } else if (sleepLastNight < 3) {
+    }
+    else if (sleepLastNight < 3) {
         overarchingMessage = 'Poor sleep last night. Reduce intensity by 1-2 RPE across all sessions to protect recovery.';
-    } else {
+    }
+    else {
         overarchingMessage = 'Good day to train. Stay present and dial in your form.';
     }
-
     // ── Readiness message ──
-    const readinessMessage =
-        readinessState === 'Prime' ? 'Peak readiness. All systems go.' :
-            readinessState === 'Caution' ? 'Moderate readiness. Adjust intensity as needed.' :
-                'Low readiness. Protect recovery today.';
-
+    const readinessMessage = readinessState === 'Prime' ? 'Peak readiness. All systems go.' :
+        readinessState === 'Caution' ? 'Moderate readiness. Adjust intensity as needed.' :
+            'Low readiness. Protect recovery today.';
     // ── Check if yesterday had a skipped high-intensity session ──
-    const skippedHigh = yesterdayActivities.filter(
-        a => a.status === 'skipped' && a.expected_intensity >= 7
-    );
-
+    const skippedHigh = yesterdayActivities.filter(a => a.status === 'skipped' && a.expected_intensity >= 7);
     // If yesterday had a skipped high-intensity session AND today has something lighter,
     // suggest moving yesterday's session to today (only if load permits)
     if (skippedHigh.length > 0) {
-        const todayLoad = todayActivities.reduce(
-            (sum, a) => sum + (a.estimated_duration_min * a.expected_intensity), 0
-        );
+        const todayLoad = todayActivities.reduce((sum, a) => sum + (a.estimated_duration_min * a.expected_intensity), 0);
         if (todayLoad < 400 && readinessState !== 'Depleted') {
             overarchingMessage = `You missed ${skippedHigh.length} high-intensity session(s) yesterday. ` +
                 `Today has capacity — consider making it up if you feel recovered.`;
         }
     }
-
     // ── Evaluate each of today's activities ──
     for (const activity of todayActivities) {
-        const suggestion = suggestAlternative(
-            activity,
-            readinessState,
-            trainingIntensityCap,
-        );
-
+        const suggestion = (0, loadAndValidation_1.suggestAlternative)(activity, readinessState, trainingIntensityCap);
         if (suggestion.shouldSwap) {
             swaps.push({
                 originalActivityId: activity.id ?? null,
-                originalType: activity.activity_type as ActivityType,
+                originalType: activity.activity_type,
                 newType: suggestion.alternative,
                 newIntensity: trainingIntensityCap ?? (readinessState === 'Depleted' ? 3 : 5),
                 reason: suggestion.message,
             });
         }
     }
-
     return {
         swaps,
         overarchingMessage,
@@ -543,123 +422,95 @@ export function adaptDailySchedule(
         readinessMessage,
     };
 }
-
-
 // ─── calculateWeeklyCompliance ─────────────────────────────────
-
 /**
  * Compare planned vs. actual activities for the week.
  *
  * @ANTI-WIRING:
  * Pure synchronous function. No database queries. No LLM generation.
  */
-export function calculateWeeklyCompliance(
-    planned: Pick<ScheduledActivityRow, 'activity_type' | 'expected_intensity' | 'estimated_duration_min'>[],
-    actual: Pick<ScheduledActivityRow, 'activity_type' | 'status' | 'actual_rpe' | 'actual_duration_min' | 'expected_intensity' | 'estimated_duration_min'>[],
-    streak: number,
-): WeeklyComplianceReport {
-    const count = (arr: typeof planned, type: string) =>
-        arr.filter(a => a.activity_type === type || (type === 'boxing' && (a.activity_type === 'boxing_practice' || a.activity_type === 'sparring'))).length;
-
+function calculateWeeklyCompliance(planned, actual, streak) {
+    const count = (arr, type) => arr.filter(a => a.activity_type === type || (type === 'boxing' && (a.activity_type === 'boxing_practice' || a.activity_type === 'sparring'))).length;
     const actualCompleted = actual.filter(a => a.status === 'completed');
-
-    const buildStat = (type: string) => {
+    const buildStat = (type) => {
         const p = count(planned, type);
         const a = count(actualCompleted, type);
         return { planned: p, actual: a, pct: p > 0 ? Math.round((a / p) * 100) : a > 0 ? 100 : 0 };
     };
-
     const sc = buildStat('sc');
     const boxing = buildStat('boxing');
     const running = buildStat('running');
     const conditioning = buildStat('conditioning');
     const recovery = buildStat('active_recovery');
-
-    const totalLoadPlanned = planned.reduce(
-        (s, a) => s + getSessionLoad(a.estimated_duration_min, a.expected_intensity), 0,
-    );
-    const totalLoadActual = actualCompleted.reduce(
-        (s, a) => s + getSessionLoad(a.actual_duration_min ?? a.estimated_duration_min, a.actual_rpe ?? a.expected_intensity), 0,
-    );
-
+    const totalLoadPlanned = planned.reduce((s, a) => s + (0, loadAndValidation_1.getSessionLoad)(a.estimated_duration_min, a.expected_intensity), 0);
+    const totalLoadActual = actualCompleted.reduce((s, a) => s + (0, loadAndValidation_1.getSessionLoad)(a.actual_duration_min ?? a.estimated_duration_min, a.actual_rpe ?? a.expected_intensity), 0);
     const totalPlanned = planned.length;
     const totalDone = actualCompleted.length;
     const overallPct = totalPlanned > 0
         ? Math.round((totalDone / totalPlanned) * 100)
         : totalDone > 0 ? 100 : 0;
-
-    let message: string;
+    let message;
     if (overallPct >= 90) {
         message = 'Outstanding week. You hit nearly every session — consistency like this compounds into serious long-term adaptation.';
-    } else if (overallPct >= 70) {
+    }
+    else if (overallPct >= 70) {
         message = 'Solid week. Most sessions completed. A few misses won\'t derail progress — consistency over perfection.';
-    } else if (overallPct >= 50) {
+    }
+    else if (overallPct >= 50) {
         message = 'Moderate compliance. Life happens — try to prioritize the highest-impact sessions (S&C and sport-specific) when time is limited.';
-    } else {
+    }
+    else {
         message = 'Tough week. Low compliance can stall adaptation if repeated. Review your template — it may be too ambitious for your current schedule.';
     }
-
     return {
         sc, boxing, running, conditioning, recovery,
         totalLoadPlanned, totalLoadActual, overallPct, streak, message,
     };
 }
-
 // ─── getTrainingStreak ─────────────────────────────────────────
-
 /**
  * Calculate consecutive days with at least one logged activity.
  *
  * @ANTI-WIRING:
  * Pure synchronous function. No database queries. No LLM generation.
  */
-export function getTrainingStreak(
-    activityDates: string[],
-): number {
-    if (activityDates.length === 0) return 0;
-
+function getTrainingStreak(activityDates) {
+    if (activityDates.length === 0)
+        return 0;
     // Deduplicate and sort descending
     const unique = [...new Set(activityDates)].sort((a, b) => b.localeCompare(a));
-
     // Today's date
-    const today = todayLocalDate();
-
+    const today = (0, date_1.todayLocalDate)();
     // Streak must include today or yesterday to be "active"
-    if (unique[0] !== today && unique[0] !== addDays(today, -1)) {
+    if (unique[0] !== today && unique[0] !== (0, loadAndValidation_1.addDays)(today, -1)) {
         return 0;
     }
-
     let streak = 1;
     for (let i = 0; i < unique.length - 1; i++) {
-        const diff = daysBetween(unique[i], unique[i + 1]);
+        const diff = (0, loadAndValidation_1.daysBetween)(unique[i], unique[i + 1]);
         if (diff === 1) {
             streak++;
-        } else {
+        }
+        else {
             break;
         }
     }
-
     return streak;
 }
-
 // ─── Smart Week Plan Focus Rotations ────────────────────────────
-
 /**
  * Focus split templates keyed by available training days per week.
  * Each array represents the focus for each training day in order.
  */
-const FOCUS_SPLITS: Record<number, WorkoutFocus[]> = {
+const FOCUS_SPLITS = {
     3: ['full_body', 'upper_push', 'lower'],
     4: ['upper_push', 'lower', 'upper_pull', 'full_body'],
     5: ['upper_push', 'lower', 'upper_pull', 'full_body', 'sport_specific'],
     6: ['upper_push', 'lower', 'upper_pull', 'lower', 'full_body', 'sport_specific'],
 };
-
 /** Deload focus: recovery-oriented, lighter sessions. */
-const DELOAD_FOCUSES: WorkoutFocus[] = ['full_body', 'recovery', 'full_body'];
-
+const DELOAD_FOCUSES = ['full_body', 'recovery', 'full_body'];
 // ─── generateSmartWeekPlan ──────────────────────────────────────
-
 /**
  * Generates an intelligent weekly S&C plan based on available days,
  * time constraints, camp phase, readiness, and deload needs.
@@ -688,26 +539,10 @@ const DELOAD_FOCUSES: WorkoutFocus[] = ['full_body', 'recovery', 'full_body'];
  *
  * Pure synchronous function. No database queries. No LLM generation.
  */
-export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanResult {
-    const {
-        config,
-        readinessState,
-        phase,
-        acwr,
-        fitnessLevel,
-        exerciseLibrary,
-        recentExerciseIds,
-        recentMuscleVolume,
-        campConfig,
-        activeCutPlan,
-        gymProfile,
-        weeksSinceLastDeload,
-        weekStartDate,
-        recurringActivities = [],
-    } = input;
-
+function generateSmartWeekPlan(input) {
+    const { config, readinessState, phase, acwr, fitnessLevel, exerciseLibrary, recentExerciseIds, recentMuscleVolume, campConfig, activeCutPlan, gymProfile, weeksSinceLastDeload, weekStartDate, } = input;
     // ── 1. Determine if this is a deload week ──
-    const deloadCheck = shouldDeload({
+    const deloadCheck = (0, calculateOverload_1.shouldDeload)({
         weeksSinceLastDeload,
         autoDeloadIntervalWeeks: config.auto_deload_interval_weeks,
         acwr,
@@ -715,150 +550,111 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         readinessState,
         consecutiveCautionDays: 0, // Not tracked at the weekly planning level, safely default to 0
     });
-
     // Camp taper forces deload regardless
     let isDeloadWeek = deloadCheck.shouldDeload;
     let deloadReason = deloadCheck.reason;
-
     if (campConfig) {
-        const campPhase = determineCampPhase(campConfig, weekStartDate);
+        const campPhase = (0, calculateCamp_1.determineCampPhase)(campConfig, weekStartDate);
         if (campPhase === 'taper') {
             isDeloadWeek = true;
             deloadReason = 'Camp taper phase — forced deload to sharpen for fight.';
         }
     }
-
     // ── 2. Resolve camp context ──
-    let campPhase: CampPhase | null = null;
+    let campPhase = null;
     let sparringDaysThisWeek = 0;
     if (campConfig) {
-        campPhase = determineCampPhase(campConfig, weekStartDate);
+        campPhase = (0, calculateCamp_1.determineCampPhase)(campConfig, weekStartDate);
         if (campPhase) {
-            const mods = getCampTrainingModifiers(campPhase, fitnessLevel, campConfig.hasConcurrentCut);
+            const mods = (0, calculateCamp_1.getCampTrainingModifiers)(campPhase, fitnessLevel, campConfig.hasConcurrentCut);
             sparringDaysThisWeek = mods.sparringDaysPerWeek;
         }
     }
-
     // ── 3. Determine available S&C days ──
     const availableDays = config.available_days; // 0=Sun..6=Sat
     const scDayCount = isDeloadWeek
         ? Math.min(availableDays.length, 3) // deload: max 3 sessions
         : availableDays.length;
-
     // ── 4. Build focus rotation ──
     const baseFocuses = isDeloadWeek
         ? DELOAD_FOCUSES
         : (FOCUS_SPLITS[scDayCount] ?? FOCUS_SPLITS[4]);
-
     // ── 5. Map days to entries ──
-    const entries: WeeklyPlanEntryRow[] = [];
-    const weeklyFocusSplit: Partial<Record<WorkoutFocus, number>> = {};
+    const entries = [];
+    const weeklyFocusSplit = {};
     let entryIndex = 0;
-
     // Sort available days to place them chronologically starting from weekStartDate
-    const weekStartDay = dateFromISO(weekStartDate).getDay();
-
+    const weekStartDay = (0, loadAndValidation_1.dateFromISO)(weekStartDate).getDay();
     const sortedDays = [...availableDays].sort((a, b) => {
         let aOffset = a - weekStartDay;
-        if (aOffset < 0) aOffset += 7;
+        if (aOffset < 0)
+            aOffset += 7;
         let bOffset = b - weekStartDay;
-        if (bOffset < 0) bOffset += 7;
+        if (bOffset < 0)
+            bOffset += 7;
         return aOffset - bOffset;
     });
-
     for (let i = 0; i < sortedDays.length; i++) {
-        if (entryIndex >= scDayCount) break;
-
+        if (entryIndex >= scDayCount)
+            break;
         const dayOfWeek = sortedDays[i];
         // Calculate offset from week start
         let offset = dayOfWeek - weekStartDay;
-        if (offset < 0) offset += 7;
-        const entryDate = addDays(weekStartDate, offset);
-
-        const recurringAnchors = recurringActivities.filter((activity) => {
-            if (!activity.is_active) return false;
-            if (activity.recurrence.frequency === 'daily') return true;
-            if (activity.recurrence.frequency === 'weekly') {
-                return activity.recurrence.days_of_week?.includes(dayOfWeek) ?? false;
-            }
-            return activity.recurrence.day_of_month === dateFromISO(entryDate).getDate();
-        });
-        const hasSparringAnchor = recurringAnchors.some((activity) => activity.activity_type === 'sparring');
-        const hasCombatAnchor = recurringAnchors.some((activity) =>
-            activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice',
-        );
-        const hasHighAnchor = recurringAnchors.some((activity) => activity.expected_intensity >= 7);
-
-        // Check if this is a sparring day in camp or the athlete's recurring template
-        const isSparringDay = hasSparringAnchor || (campPhase != null && sparringDaysThisWeek > 0 && i < sparringDaysThisWeek);
-
+        if (offset < 0)
+            offset += 7;
+        const entryDate = (0, loadAndValidation_1.addDays)(weekStartDate, offset);
+        // Check if this is a sparring day in camp
+        const isSparringDay = campPhase != null && sparringDaysThisWeek > 0 && i < sparringDaysThisWeek;
         const focus = isSparringDay
-            ? 'sport_specific' as WorkoutFocus
-            : hasCombatAnchor
-                ? 'full_body' as WorkoutFocus
-                : baseFocuses[entryIndex % baseFocuses.length];
-
+            ? 'sport_specific'
+            : baseFocuses[entryIndex % baseFocuses.length];
         // Determine intensity
-        let targetIntensity: number;
+        let targetIntensity;
         if (isDeloadWeek) {
             targetIntensity = 5; // deload cap
-        } else if (isSparringDay) {
+        }
+        else if (isSparringDay) {
             targetIntensity = 4; // activation only on sparring days
-        } else if (readinessState === 'Depleted') {
+        }
+        else if (readinessState === 'Depleted') {
             targetIntensity = 5;
-        } else if (readinessState === 'Caution') {
+        }
+        else if (readinessState === 'Caution') {
             targetIntensity = 6;
-        } else {
+        }
+        else {
             targetIntensity = 7;
         }
-        if (hasCombatAnchor) {
-            targetIntensity = Math.min(targetIntensity, hasHighAnchor ? 5 : 6);
-        }
-
         // Apply weight cut cap
         if (activeCutPlan) {
-            const cutCap = getDailyCutIntensityCap(activeCutPlan, entryDate);
+            const cutCap = (0, calculateWeightCut_1.getDailyCutIntensityCap)(activeCutPlan, entryDate);
             if (cutCap != null && targetIntensity > cutCap) {
                 targetIntensity = cutCap;
             }
         }
-
         // Determine session duration
         let duration = config.session_duration_min;
-        const dayWindows = config.availability_windows.filter((window) => window.dayOfWeek === dayOfWeek);
-        if (dayWindows.length > 0) {
-            const maxWindowMinutes = Math.max(...dayWindows.map((window) => {
-                const [startHour, startMinute] = window.startTime.split(':').map(Number);
-                const [endHour, endMinute] = window.endTime.split(':').map(Number);
-                return Math.max(0, ((endHour * 60) + endMinute) - ((startHour * 60) + startMinute));
-            }));
-            if (maxWindowMinutes > 0) {
-                duration = Math.min(duration, maxWindowMinutes);
-            }
-        }
         if (isDeloadWeek) {
             duration = Math.min(duration, 45);
-        } else if (isSparringDay) {
-            duration = Math.min(duration, 30); // activation only
-        } else if (hasCombatAnchor) {
-            duration = Math.min(duration, 45);
         }
-
+        else if (isSparringDay) {
+            duration = Math.min(duration, 30); // activation only
+        }
         // Build engine notes
-        const notes: string[] = [];
-        if (isDeloadWeek) notes.push('Deload week — reduced volume and intensity.');
-        if (isSparringDay) notes.push('Sparring day — activation-only S&C.');
-        if (readinessState !== 'Prime') notes.push(`Readiness: ${readinessState}.`);
-
+        const notes = [];
+        if (isDeloadWeek)
+            notes.push('Deload week — reduced volume and intensity.');
+        if (isSparringDay)
+            notes.push('Sparring day — activation-only S&C.');
+        if (readinessState !== 'Prime')
+            notes.push(`Readiness: ${readinessState}.`);
         const sessionType = isSparringDay ? 'activation' : (isDeloadWeek ? 'deload' : 'sc');
         const trainingIntensityCap = activeCutPlan
-            ? getDailyCutIntensityCap(activeCutPlan, entryDate)
+            ? (0, calculateWeightCut_1.getDailyCutIntensityCap)(activeCutPlan, entryDate)
             : null;
-        const shouldCreateSnapshot = Boolean(
-            focus && ['sc', 'activation', 'deload'].includes(sessionType) && exerciseLibrary.length > 0,
-        );
+        const shouldCreateSnapshot = Boolean(focus && ['sc', 'activation', 'deload'].includes(sessionType) && exerciseLibrary.length > 0);
         const prescriptionSnapshot = shouldCreateSnapshot
-            ? generateWorkoutV2({
+            ? (0, calculateSC_1.generateWorkoutV2)({
                 readinessState,
                 phase,
                 acwr,
@@ -877,7 +673,6 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 isSparringDay,
             })
             : null;
-
         // Primary session entry
         entries.push({
             id: `${weekStartDate}-${dayOfWeek}-${entryIndex}`,
@@ -886,8 +681,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             day_of_week: dayOfWeek,
             date: entryDate,
             slot: config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek)
-                ? 'am' as PlanSlot
-                : 'single' as PlanSlot,
+                ? 'am'
+                : 'single',
             session_type: sessionType,
             focus,
             estimated_duration_min: duration,
@@ -900,9 +695,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             is_deload: isDeloadWeek,
             created_at: new Date().toISOString(),
         });
-
         weeklyFocusSplit[focus] = (weeklyFocusSplit[focus] ?? 0) + 1;
-
         // Two-a-day PM session (boxing/conditioning)
         if (config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek)) {
             entries.push({
@@ -911,7 +704,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 week_start_date: weekStartDate,
                 day_of_week: dayOfWeek,
                 date: entryDate,
-                slot: 'pm' as PlanSlot,
+                slot: 'pm',
                 session_type: config.pm_session_type,
                 focus: null,
                 estimated_duration_min: 60,
@@ -925,29 +718,27 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 created_at: new Date().toISOString(),
             });
         }
-
         entryIndex++;
     }
-
     // ── 6. Build summary message ──
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const scheduledDayNames = entries
         .filter(e => e.slot !== 'pm')
         .map(e => dayNames[e.day_of_week])
         .join(', ');
-
-    let message: string;
+    let message;
     if (isDeloadWeek) {
         message = `Recovery week: ${entries.filter(e => e.slot !== 'pm').length} sessions (${scheduledDayNames}). ${deloadReason}`;
-    } else if (campPhase) {
+    }
+    else if (campPhase) {
         message = `Camp ${campPhase} phase: ${entries.filter(e => e.slot !== 'pm').length} S&C sessions (${scheduledDayNames}).`;
         if (sparringDaysThisWeek > 0) {
             message += ` ${sparringDaysThisWeek} sparring day(s) with activation-only S&C.`;
         }
-    } else {
+    }
+    else {
         message = `${entries.filter(e => e.slot !== 'pm').length}-day split (${scheduledDayNames}).`;
     }
-
     return {
         entries,
         isDeloadWeek,
@@ -956,9 +747,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         message,
     };
 }
-
 // ─── handleMissedDay ────────────────────────────────────────────
-
 /**
  * When a planned training day is missed, redistributes the top-priority
  * exercises from that day to remaining days in the week, respecting
@@ -978,9 +767,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
  *
  * Pure synchronous function. No database queries. No LLM generation.
  */
-export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayRescheduleResult {
+function handleMissedDay(input) {
     const { missedEntry, remainingEntries, readinessState, acwr } = input;
-
     // If no prescription snapshot, nothing to redistribute
     if (!missedEntry.prescription_snapshot || !missedEntry.prescription_snapshot.exercises) {
         return {
@@ -989,12 +777,10 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
             message: 'No exercises to redistribute — missed day had no prescription.',
         };
     }
-
     // Sort exercises by score (highest priority first), take top 2
     const missedExercises = [...missedEntry.prescription_snapshot.exercises]
         .sort((a, b) => b.score - a.score)
         .slice(0, 2);
-
     if (missedExercises.length === 0) {
         return {
             updatedEntries: remainingEntries,
@@ -1002,21 +788,17 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
             message: 'No exercises to redistribute.',
         };
     }
-
     // Find candidate days: still planned, not today, with capacity
     const candidates = remainingEntries
-        .filter(e =>
-            e.status === 'planned' &&
-            e.date > missedEntry.date &&
-            !e.is_deload,
-        )
+        .filter(e => e.status === 'planned' &&
+        e.date > missedEntry.date &&
+        !e.is_deload)
         .sort((a, b) => {
-            // Prefer days with lower existing load (estimated by duration * intensity)
-            const loadA = a.estimated_duration_min * (a.target_intensity ?? 5);
-            const loadB = b.estimated_duration_min * (b.target_intensity ?? 5);
-            return loadA - loadB;
-        });
-
+        // Prefer days with lower existing load (estimated by duration * intensity)
+        const loadA = a.estimated_duration_min * (a.target_intensity ?? 5);
+        const loadB = b.estimated_duration_min * (b.target_intensity ?? 5);
+        return loadA - loadB;
+    });
     if (candidates.length === 0) {
         return {
             updatedEntries: remainingEntries,
@@ -1024,24 +806,20 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
             message: 'No remaining days available to reschedule missed exercises.',
         };
     }
-
     // Check if readiness/ACWR allows redistribution
-    if (readinessState === 'Depleted' || acwr > ACWR_DANGER) {
+    if (readinessState === 'Depleted' || acwr > loadAndValidation_1.ACWR_DANGER) {
         return {
             updatedEntries: remainingEntries,
             redistributedExercises: [],
             message: 'Readiness too low or ACWR too high to redistribute missed exercises. Focus on recovery.',
         };
     }
-
     const updatedEntries = remainingEntries.map(e => ({ ...e }));
-    const redistributed: PrescribedExercise[] = [];
-
+    const redistributed = [];
     // Distribute exercises across the lightest available days
     for (let i = 0; i < missedExercises.length; i++) {
         const exercise = missedExercises[i];
         const targetEntry = candidates[i % candidates.length];
-
         // Find the entry in updatedEntries and extend its duration
         const entryToUpdate = updatedEntries.find(e => e.id === targetEntry.id);
         if (entryToUpdate) {
@@ -1051,7 +829,6 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
                 entryToUpdate.engine_notes ?? '',
                 `Added ${exercise.exercise.name} from missed ${missedEntry.focus ?? 'workout'} day.`,
             ].filter(Boolean).join(' ');
-
             // If the entry has a prescription snapshot, add the exercise
             if (entryToUpdate.prescription_snapshot) {
                 entryToUpdate.prescription_snapshot = {
@@ -1062,38 +839,16 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
                     ],
                 };
             }
-
             redistributed.push(exercise);
         }
     }
-
     const exerciseNames = redistributed.map(e => e.exercise.name).join(', ');
     const message = redistributed.length > 0
         ? `Redistributed ${redistributed.length} exercise(s) (${exerciseNames}) from missed ${missedEntry.focus ?? 'workout'} day to remaining sessions.`
         : 'Could not redistribute any exercises.';
-
     return {
         updatedEntries,
         redistributedExercises: redistributed,
         message,
     };
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

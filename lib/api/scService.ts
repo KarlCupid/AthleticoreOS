@@ -513,6 +513,47 @@ export async function getRecentExerciseIds(userId: string): Promise<string[]> {
     return Array.from(ids);
 }
 
+export async function getRecentMuscleVolume(
+    userId: string,
+    days: number = 21,
+): Promise<Record<MuscleGroup, number>> {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceStr = formatLocalDate(since);
+
+    const emptyVolume: Record<MuscleGroup, number> = {
+        chest: 0,
+        back: 0,
+        shoulders: 0,
+        quads: 0,
+        hamstrings: 0,
+        glutes: 0,
+        arms: 0,
+        core: 0,
+        full_body: 0,
+        neck: 0,
+        calves: 0,
+    };
+
+    const { data, error } = await supabase
+        .from('workout_set_log')
+        .select('reps, weight_lbs, is_warmup, exercise_library!inner(muscle_group), workout_log!inner(user_id, date)')
+        .eq('workout_log.user_id', userId)
+        .gte('workout_log.date', sinceStr)
+        .eq('is_warmup', false);
+
+    if (error) throw error;
+
+    return (data ?? []).reduce<Record<MuscleGroup, number>>((volume, row: any) => {
+        const group = row.exercise_library?.muscle_group as MuscleGroup | undefined;
+        if (!group) return volume;
+
+        const liftedLoad = Math.max(1, Number(row.weight_lbs) || 0);
+        volume[group] += Number(row.reps ?? 0) * liftedLoad;
+        return volume;
+    }, { ...emptyVolume });
+}
+
 // ─── V2 Extensions ──────────────────────────────────────────────
 
 /**

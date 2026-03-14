@@ -35,7 +35,7 @@ import { getScheduledActivities } from '../../lib/api/scheduleService';
 import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
 import { calculateWeightTrend, calculateWeightCorrection } from '../../lib/engine/calculateWeight';
 import { getWeightHistory, getEffectiveWeight } from '../../lib/api/weightService';
-import { DailyMission, MealType, NutritionTargets, DailyCutProtocolRow } from '../../lib/engine/types';
+import { DailyMission, MealType, ResolvedNutritionTargets, DailyCutProtocolRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
 
@@ -48,7 +48,7 @@ export function NutritionScreen() {
   const { themeColor } = useReadinessTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [targets, setTargets] = useState<NutritionTargets | null>(null);
+  const [targets, setTargets] = useState<ResolvedNutritionTargets | null>(null);
   const [waterTarget, setWaterTarget] = useState(100);
   const [cutProtocol, setCutProtocol] = useState<DailyCutProtocolRow | null>(null);
   const [waterCurrent, setWaterCurrent] = useState(0);
@@ -172,6 +172,7 @@ export function NutritionScreen() {
       );
       setTargets(finalTargets);
 
+      let missionApplied = false;
       try {
         const mission = await getDailyMission(userId, today);
         setDailyMission(mission);
@@ -187,6 +188,10 @@ export function NutritionScreen() {
             : mission.fuelDirective.source === 'daily_engine'
               ? 'daily_activity_adjusted'
               : 'base',
+          fuelState: mission.fuelDirective.state,
+          sessionDemandScore: mission.fuelDirective.sessionDemandScore,
+          hydrationBoostOz: mission.fuelDirective.hydrationBoostOz,
+          reasonLines: mission.fuelDirective.reasons,
         }));
         setWaterTarget(mission.hydrationDirective.waterTargetOz);
         await ensureDailyLedger(userId, today, {
@@ -202,21 +207,24 @@ export function NutritionScreen() {
               ? 'daily_activity_adjusted'
               : 'base',
         });
+        missionApplied = true;
       } catch (error) {
         logError('NutritionScreen.getDailyMission', error, { userId });
         setDailyMission(null);
       }
 
       // Ensure ledger row exists for today
-      await ensureDailyLedger(userId, today, {
-        tdee: finalTargets.tdee,
-        calories: finalTargets.adjustedCalories,
-        protein: finalTargets.protein,
-        carbs: finalTargets.carbs,
-        fat: finalTargets.fat,
-        weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
-        targetSource: finalTargets.source,
-      });
+      if (!missionApplied) {
+        await ensureDailyLedger(userId, today, {
+          tdee: finalTargets.tdee,
+          calories: finalTargets.adjustedCalories,
+          protein: finalTargets.protein,
+          carbs: finalTargets.carbs,
+          fat: finalTargets.fat,
+          weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
+          targetSource: finalTargets.source,
+        });
+      }
 
       // Calculate hydration target — cut protocol overrides standard
       if (todayCutProtocol) {

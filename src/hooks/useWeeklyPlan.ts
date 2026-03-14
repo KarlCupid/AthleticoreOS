@@ -21,7 +21,7 @@ import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getWeeksSinceLastDeload } from '../../lib/api/overloadService';
 import { getAthleteContext, getActiveUserId, normalizeActivityLevel, normalizeNutritionGoal } from '../../lib/api/athleteContextService';
 import { getRecurringActivities } from '../../lib/api/scheduleService';
-import { getExerciseLibrary, getRecentExerciseIds } from '../../lib/api/scService';
+import { getExerciseLibrary, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate } from '../../lib/utils/date';
 import { resolveObjectiveContext } from '../../lib/api/dailyMissionService';
@@ -159,11 +159,12 @@ export async function generateAndSaveWeeklyPlan(
     activeCutPlan = (cutPlan as WeightCutPlanRow | null) ?? null;
   }
 
-  const [weeksSinceDeload, recurringActivities, exerciseLibrary, recentExerciseIds] = await Promise.all([
+  const [weeksSinceDeload, recurringActivities, exerciseLibrary, recentExerciseIds, recentMuscleVolume] = await Promise.all([
     getWeeksSinceLastDeload(userId),
     getRecurringActivities(userId),
     getExerciseLibrary(),
     getRecentExerciseIds(userId),
+    getRecentMuscleVolume(userId),
   ]);
 
   const result = generateSmartWeekPlan({
@@ -174,7 +175,7 @@ export async function generateAndSaveWeeklyPlan(
     fitnessLevel: athleteContext.fitnessLevel,
     exerciseLibrary,
     recentExerciseIds,
-    recentMuscleVolume: { ...EMPTY_VOLUME },
+    recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
     campConfig,
     activeCutPlan,
     weeksSinceLastDeload: weeksSinceDeload,
@@ -196,6 +197,10 @@ export async function generateAndSaveWeeklyPlan(
     weightCorrectionDeficit: 0,
     message: '',
     source: 'base',
+    fuelState: 'rest',
+    sessionDemandScore: 0,
+    hydrationBoostOz: 0,
+    reasonLines: [],
   };
   let hydration: HydrationResult = {
     dailyWaterOz: 100,
@@ -223,6 +228,10 @@ export async function generateAndSaveWeeklyPlan(
     baseNutritionTargets = {
       ...baseTargets,
       source: 'base',
+      fuelState: 'rest',
+      sessionDemandScore: 0,
+      hydrationBoostOz: 0,
+      reasonLines: [],
     };
     hydration = getHydrationProtocol({
       phase: objectiveContext.phase,

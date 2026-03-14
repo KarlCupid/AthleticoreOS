@@ -1,17 +1,20 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { calculateACWR } from '../../lib/engine/calculateACWR';
-import { generateWorkout } from '../../lib/engine/calculateSC';
+import { generateWorkoutV2 } from '../../lib/engine/calculateSC';
 import {
   getExerciseLibrary,
   getWorkoutHistory,
   getRecentExerciseIds,
+  getRecentMuscleVolume,
+  getExerciseHistoryBatch,
 } from '../../lib/api/scService';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getAthleteContext, getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
 import { addManualActivity, getScheduledActivities } from '../../lib/api/scheduleService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
+import { getDailyMission } from '../../lib/api/dailyMissionService';
 import type {
   WorkoutPrescription,
   WorkoutLogRow,
@@ -140,18 +143,38 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
         logError('useWorkoutData.calculateACWR', error, { userId: currentUserId });
       }
 
-      const recentIds = await getRecentExerciseIds(currentUserId);
+      let workout = null as WorkoutPrescription | null;
+      try {
+        const mission = await getDailyMission(currentUserId, todayStr);
+        workout = mission.trainingDirective.prescription;
+      } catch (error) {
+        logError('useWorkoutData.getDailyMission', error, { userId: currentUserId });
+      }
 
-      const workout = generateWorkout({
-        readinessState,
-        phase: athleteContext.phase,
-        acwr,
-        exerciseLibrary: library,
-        recentExerciseIds: recentIds,
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        trainingDate: todayStr,
-        fitnessLevel: athleteContext.fitnessLevel,
-      });
+      if (!workout) {
+        const [recentIds, recentMuscleVolume] = await Promise.all([
+          getRecentExerciseIds(currentUserId),
+          getRecentMuscleVolume(currentUserId),
+        ]);
+        const historyMap = await getExerciseHistoryBatch(
+          currentUserId,
+          library.map((exercise) => exercise.id),
+        );
+
+        workout = generateWorkoutV2({
+          readinessState,
+          phase: athleteContext.phase,
+          acwr,
+          exerciseLibrary: library,
+          recentExerciseIds: recentIds,
+          recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
+          trainingDate: todayStr,
+          trainingIntensityCap: todayCutProtocol?.training_intensity_cap ?? undefined,
+          fitnessLevel: athleteContext.fitnessLevel,
+          gymEquipment: [],
+          exerciseHistory: historyMap,
+        });
+      }
       setPrescription(workout);
 
       const history = await getWorkoutHistory(currentUserId, 20);

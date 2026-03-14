@@ -263,6 +263,10 @@ export function resolveDailyNutritionTargets(
       carbs: cutProtocol.prescribed_carbs,
       fat: cutProtocol.prescribed_fat,
       source: 'weight_cut_protocol' as const,
+      fuelState: 'cut_protect',
+      sessionDemandScore: 0,
+      hydrationBoostOz: 0,
+      reasonLines: ['Active weight cut protocol overrides the normal day engine.'],
       message: cutProtocol.cut_phase
         ? `Weight cut protocol (${cutProtocol.cut_phase.replace(/_/g, ' ')})`
         : 'Following active weight cut macro targets.',
@@ -274,11 +278,12 @@ export function resolveDailyNutritionTargets(
 
   const modifiedCalories = baseTargets.adjustedCalories + dayAdj.calorieModifier;
   const modifiedProtein = baseTargets.protein + dayAdj.proteinModifier;
-  const modifiedCarbs = Math.round(baseTargets.carbs * (1 + dayAdj.carbModifierPct / 100));
-
-  // Fat soaks up remaining calories
-  const fatCalories = Math.max(0, modifiedCalories - (modifiedProtein * 4) - (modifiedCarbs * 4));
-  const modifiedFat = Math.round(fatCalories / 9);
+  const targetCarbs = Math.max(0, Math.round(baseTargets.carbs * (1 + dayAdj.carbModifierPct / 100)));
+  const minFat = Math.max(40, Math.round((modifiedCalories * 0.20) / 9));
+  const maxCarbCalories = Math.max(0, modifiedCalories - (modifiedProtein * 4) - (minFat * 9));
+  const modifiedCarbs = Math.min(targetCarbs, Math.floor(maxCarbCalories / 4));
+  const feasibleFatCalories = Math.max(0, modifiedCalories - (modifiedProtein * 4) - (modifiedCarbs * 4));
+  const modifiedFat = Math.round(feasibleFatCalories / 9);
 
   return {
     ...baseTargets,
@@ -287,6 +292,10 @@ export function resolveDailyNutritionTargets(
     carbs: modifiedCarbs,
     fat: modifiedFat,
     source: dayActivities.length > 0 ? 'daily_activity_adjusted' as const : 'base' as const,
+    fuelState: dayAdj.fuelState,
+    sessionDemandScore: dayAdj.sessionDemandScore,
+    hydrationBoostOz: dayAdj.hydrationBoostOz,
+    reasonLines: dayAdj.reasons,
     message: dayActivities.length > 0 ? dayAdj.message : baseTargets.message,
   };
 }

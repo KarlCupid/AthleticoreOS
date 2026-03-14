@@ -26,7 +26,7 @@ import { getAthleteContext, normalizeActivityLevel, normalizeNutritionGoal } fro
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
 import { getActiveFightCamp } from './fightCampService';
 import { getDefaultGymProfile } from './gymProfileService';
-import { getRecentExerciseIds, getExerciseLibrary } from './scService';
+import { getExerciseHistoryBatch, getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
 import { getScheduledActivities } from './scheduleService';
 import { getEffectiveWeight, getWeightHistory } from './weightService';
 
@@ -287,11 +287,17 @@ async function resolveWorkoutPrescription(input: {
     return input.weeklyPlanEntry.prescription_snapshot;
   }
 
-  const [gym, library, recentIds] = await Promise.all([
+  const [gym, library, recentIds, recentMuscleVolume] = await Promise.all([
     getDefaultGymProfile(input.userId),
     getExerciseLibrary(),
     getRecentExerciseIds(input.userId),
+    getRecentMuscleVolume(input.userId),
   ]);
+
+  const exerciseHistory = await getExerciseHistoryBatch(
+    input.userId,
+    library.map((exercise) => exercise.id),
+  );
 
   return generateWorkoutV2({
     readinessState: input.readinessState,
@@ -299,26 +305,14 @@ async function resolveWorkoutPrescription(input: {
     acwr: input.acwr.ratio,
     exerciseLibrary: library,
     recentExerciseIds: recentIds,
-    recentMuscleVolume: {
-      chest: 0,
-      back: 0,
-      shoulders: 0,
-      quads: 0,
-      hamstrings: 0,
-      glutes: 0,
-      arms: 0,
-      core: 0,
-      full_body: 0,
-      neck: 0,
-      calves: 0,
-    },
+    recentMuscleVolume,
     trainingDate: input.date,
     focus: input.weeklyPlanEntry?.focus ?? undefined,
     trainingIntensityCap: input.cutProtocol?.training_intensity_cap ?? undefined,
     fitnessLevel: input.fitnessLevel as any,
     availableMinutes: input.weeklyPlanEntry?.estimated_duration_min,
     gymEquipment: gym?.equipment ?? [],
-    exerciseHistory: new Map(),
+    exerciseHistory,
     isDeloadWeek: input.weeklyPlanEntry?.is_deload ?? false,
     weeklyPlanFocus: input.weeklyPlanEntry?.focus ?? undefined,
   });
@@ -359,6 +353,10 @@ export async function getDailyMission(userId: string, date: string): Promise<Dai
       weightCorrectionDeficit: 0,
       message: '',
       source: 'base',
+      fuelState: 'rest',
+      sessionDemandScore: 0,
+      hydrationBoostOz: 0,
+      reasonLines: [],
     } as ResolvedNutritionTargets);
 
   const hydration = getHydrationProtocol({
@@ -470,6 +468,10 @@ export async function getWeeklyMission(userId: string, weekStart: string): Promi
       weightCorrectionDeficit: 0,
       message: '',
       source: 'base',
+      fuelState: 'rest',
+      sessionDemandScore: 0,
+      hydrationBoostOz: 0,
+      reasonLines: [],
     } as ResolvedNutritionTargets);
   const hydration = getHydrationProtocol({
     phase: objectiveContext.phase,
