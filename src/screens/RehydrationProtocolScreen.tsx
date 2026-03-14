@@ -10,7 +10,7 @@ import { computeRehydrationProtocol } from '../../lib/engine/calculateWeightCut'
 import { useWeightCutData } from '../hooks/useWeightCutData';
 import { PlanStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { IconChevronLeft, IconDroplets, IconCheckCircle } from '../components/icons';
+import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 type RouteProps = RouteProp<PlanStackParamList, 'RehydrationProtocol'>;

@@ -262,7 +262,6 @@ export async function calculateACWR({
 
   const asOfDateStr = formatLocalISO(asOf);
   const twentyEightDaysStartStr = formatLocalISO(addDaysLocal(asOf, -27));
-  const sevenDaysStartStr = formatLocalISO(addDaysLocal(asOf, -6));
 
   const { data, error } = await supabaseClient
     .from('training_sessions')

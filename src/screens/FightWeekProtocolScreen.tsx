@@ -8,10 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { useWeightCutData } from '../hooks/useWeightCutData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { IconChevronLeft, IconDroplets, IconAlertTriangle, IconCheckCircle } from '../components/icons';
+import { IconChevronLeft, IconDroplets } from '../components/icons';
 import { UrineColorPicker } from '../components/UrineColorPicker';
 import { CognitiveTestCard } from '../components/CognitiveTestCard';
-import { CutPhase } from '../../lib/engine/types';
 
 const DAY_LABELS: Record<number, string> = {
   7: 'Day 7', 6: 'Day 6', 5: 'Day 5', 4: 'Day 4',

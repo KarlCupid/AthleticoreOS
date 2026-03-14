@@ -10,13 +10,13 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, ANIMATION } from '../theme/theme';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { IconChevronLeft, IconFlash, IconFlashOff } from '../components/icons';
 import { lookupBarcode } from '../../lib/api/openFoodFacts';
 import { MealType } from '../../lib/engine/types';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.72;
 const SCAN_AREA_HEIGHT = SCAN_AREA_SIZE * 0.55;
 

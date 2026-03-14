@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useWeightCutData } from '../hooks/useWeightCutData';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { WeightCutHistoryRow } from '../../lib/engine/types';
 
 export function CutHistoryScreen() {

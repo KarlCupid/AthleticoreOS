@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -7,9 +7,10 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import {
     getRecurringActivities, upsertRecurringActivity, removeRecurringActivity,
-    generateRollingSchedule, getWeeklyTargets, updateWeeklyTargets,
+    generateRollingSchedule,
 } from '../../lib/api/scheduleService';
 import type { RecurringActivityRow, ActivityType } from '../../lib/engine/types';
+import { logError } from '../../lib/utils/logger';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -32,16 +33,13 @@ export function WeeklyTemplateScreen() {
     const [template, setTemplate] = useState<RecurringActivityRow[]>([]);
     const [selectedDay, setSelectedDay] = useState<number>(1); // Monday
     const [showAddPicker, setShowAddPicker] = useState(false);
-    const [loading, setLoading] = useState(true);
-
     const loadData = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) { setLoading(false); return; }
+        if (!session?.user) { return; }
         try {
             const tmpl = await getRecurringActivities(session.user.id);
             setTemplate(tmpl);
-        } catch (e) { console.error('WeeklyTemplate load error:', e); }
-        setLoading(false);
+        } catch (e) { logError('WeeklyTemplateScreen.loadData', e); }
     }, []);
 
     useEffect(() => { loadData(); }, [loadData]);
@@ -58,14 +56,14 @@ export function WeeklyTemplateScreen() {
             });
             setShowAddPicker(false);
             loadData();
-        } catch (e) { console.error('Add template error:', e); }
+        } catch (e) { logError('WeeklyTemplateScreen.addTemplate', e, { dayOfWeek: selectedDay, activityType: type }); }
     };
 
     const handleRemove = async (entryId: string) => {
         try {
             await removeRecurringActivity(entryId, true);
             loadData();
-        } catch (e) { console.error('Remove template error:', e); }
+        } catch (e) { logError('WeeklyTemplateScreen.removeTemplate', e, { entryId }); }
     };
 
     const handleApply = async () => {

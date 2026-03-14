@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Switch, Alert } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { Card } from '../components/Card';
@@ -11,6 +10,7 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
+import { logError } from '../../lib/utils/logger';
 
 interface AthleteProfile {
   biological_sex: string;
@@ -28,7 +28,6 @@ interface AthleteProfile {
 }
 
 export function ProfileSettingsScreen() {
-  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { themeColor, currentLevel } = useReadinessTheme();
   const [email, setEmail] = useState('');
@@ -116,7 +115,7 @@ export function ProfileSettingsScreen() {
       ));
       Alert.alert('Setup guide reset', 'Your first-run guide will appear again on Dashboard.');
     } catch (error) {
-      console.error('Replay setup guide error:', error);
+      logError('ProfileSettingsScreen.replaySetupGuide', error);
       Alert.alert('Error', 'Could not reset setup guide right now.');
     }
   }

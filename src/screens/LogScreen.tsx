@@ -35,6 +35,7 @@ import type {
 } from '../../lib/engine/types';
 import { getAthleteContext } from '../../lib/api/athleteContextService';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
+import { logError, logWarn } from '../../lib/utils/logger';
 
 type Step = 'recovery' | 'nutrition' | 'debrief';
 
@@ -362,7 +363,7 @@ export function LogScreen() {
           });
           acwr = { ratio: acwrResult.ratio, status: acwrResult.status, acute: acwrResult.acute, chronic: acwrResult.chronic };
         } catch (error) {
-          console.warn('ACWR context unavailable for coaching debrief:', error);
+          logWarn('LogScreen.loadContext.acwr', error, { targetDate: logDate });
         }
 
         if (!mounted) return;
@@ -392,7 +393,7 @@ export function LogScreen() {
         }
 
         if (activityRes.error) {
-          console.warn('Could not load activity log for coaching summary:', activityRes.error);
+          logWarn('LogScreen.loadContext.activityLog', activityRes.error, { targetDate: logDate });
         }
         const activityRows = (activityRes.data as ActivityLoadRow[] | null) ?? [];
         const validLoadRows = activityRows.filter((row) =>
@@ -411,10 +412,10 @@ export function LogScreen() {
         });
 
         if (ledgerRes.error) {
-          console.warn('Could not load macro ledger for daily log:', ledgerRes.error);
+          logWarn('LogScreen.loadContext.macroLedger', ledgerRes.error, { targetDate: nutritionLogDate });
         }
         if (nutritionSummaryRes.error) {
-          console.warn('Could not load nutrition summary for daily log:', nutritionSummaryRes.error);
+          logWarn('LogScreen.loadContext.nutritionSummary', nutritionSummaryRes.error, { targetDate: nutritionLogDate });
         }
 
         const ledger = (ledgerRes.data as MacroLedgerRow | null) ?? null;
@@ -461,7 +462,7 @@ export function LogScreen() {
           isOnActiveCut: athleteContext.isOnActiveCut,
         });
       } catch (error) {
-        console.error('Failed to load daily log context:', error);
+        logError('LogScreen.loadContext', error, { targetDate: logDate });
       } finally {
         if (mounted) setLoadingContext(false);
       }
@@ -596,7 +597,7 @@ export function LogScreen() {
       setSavedDebrief(debrief);
       setStep('debrief');
     } catch (error) {
-      console.error('Save log failed:', error);
+      logError('LogScreen.saveLog', error, { targetDate: logDate });
       Alert.alert('Error', 'Could not save log.');
     } finally {
       setIsSaving(false);

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { COLORS, SPACING, RADIUS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { ActivityCard } from '../components/ActivityCard';
 import { ReadinessGate } from '../components/ReadinessGate';
@@ -13,13 +13,14 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { styles } from './DayDetailScreen.styles';
 import { getScheduledActivities, addManualActivity, applySameDayOverride, skipActivity, updateScheduledActivity } from '../../lib/api/scheduleService';
-import { suggestAlternative, validateDayLoad, adjustNutritionForDay } from '../../lib/engine/calculateSchedule';
+import { validateDayLoad, adjustNutritionForDay } from '../../lib/engine/calculateSchedule';
 import { calculateNutritionTargets } from '../../lib/engine/calculateNutrition';
 import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
 import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { ScheduledActivityRow, ReadinessState, NutritionDayAdjustment } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
+import { logError } from '../../lib/utils/logger';
 
 const ACTIVITY_OPTIONS: { type: string; label: string; icon: string }[] = [
     { type: 'boxing_practice', label: 'Boxing Practice', icon: '🥊' },
@@ -104,8 +105,8 @@ export function DayDetailScreen() {
                 const adjustment = adjustNutritionForDay(baseTargets, dayActivities);
                 setNutritionAdjustment(adjustment);
             }
-        } catch (e) {
-            console.error('DayDetail load error:', e);
+        } catch (error) {
+            logError('DayDetailScreen.loadData', error, { date: dateParam });
         }
 
         setLoading(false);
@@ -127,8 +128,8 @@ export function DayDetailScreen() {
             });
             setShowAddPicker(false);
             loadData();
-        } catch (e) {
-            console.error('Add activity error:', e);
+        } catch (error) {
+            logError('DayDetailScreen.handleAddActivity', error, { date: dateParam, type });
         }
     };
 
@@ -179,8 +180,8 @@ export function DayDetailScreen() {
         try {
             await applySameDayOverride(session.user.id, activity, { type });
             loadData();
-        } catch (e) {
-            console.error('DayDetail override error:', e);
+        } catch (error) {
+            logError('DayDetailScreen.handleIntensityOverride', error, { date: dateParam, activityId: activity.id, type });
         }
     };
 
@@ -210,8 +211,8 @@ export function DayDetailScreen() {
             );
             setEditingActivity(null);
             loadData();
-        } catch (e) {
-            console.error('Save edit error:', e);
+        } catch (error) {
+            logError('DayDetailScreen.handleSaveEdit', error, { date: dateParam, activityId: editingActivity.id, updateType });
         }
     };
 

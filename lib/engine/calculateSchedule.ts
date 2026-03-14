@@ -1,19 +1,9 @@
 import {
     ActivityType,
     ScheduledActivityRow,
-    RecurringActivityRow,
-    WeeklyTargetsRow,
-    DayLoadValidation,
-    OvertrainingWarning,
-    OvertrainingSeverity,
-    NutritionDayAdjustment,
-    NutritionTargets,
     WeeklyComplianceReport,
     ScheduleGenerationInput,
-    ReadinessState,
     Phase,
-    FitnessLevel,
-    CampConfig,
     DailyAdaptationInput,
     DailyAdaptationResult,
     DailyAdaptationSwap,
@@ -21,24 +11,21 @@ import {
     SmartWeekPlanInput,
     SmartWeekPlanResult,
     WeeklyPlanEntryRow,
-    WeeklyPlanConfigRow,
     MissedDayRescheduleInput,
     MissedDayRescheduleResult,
     WorkoutFocus,
     PrescribedExercise,
     PlanSlot,
     CampPhase,
-    MuscleGroup,
 } from './types';
 import { getFitnessModifiers } from './calculateFitness';
-import { getWeeklyRoadWorkPlan, prescribeRoadWork } from './calculateRoadWork';
+import { getWeeklyRoadWorkPlan } from './calculateRoadWork';
 import { getWeeklyConditioningPlan } from './calculateConditioning';
 import { determineCampPhase, getCampTrainingModifiers, toCampEnginePhase } from './calculateCamp';
 import { getDailyCutIntensityCap } from './calculateWeightCut';
 import { shouldDeload } from './calculateOverload';
 import { generateWorkoutV2 } from './calculateSC';
-import { formatLocalDate, todayLocalDate } from '../utils/date';
-import { getPersonalizedACWRThresholds } from './calculateACWR';
+import { todayLocalDate } from '../utils/date';
 
 import {
   ACWR_DANGER,
@@ -48,12 +35,11 @@ import {
   daysBetween,
   findCandidateDays,
   getAcwrPlanningThresholds,
-  getDefaultChronicLoad,
   getSessionLoad,
   suggestAlternative,
   validateDayLoad,
 } from './schedule/loadAndValidation';
-import { adjustNutritionForDay, detectOvertrainingRisk } from './schedule/safety';
+import { detectOvertrainingRisk } from './schedule/safety';
 
 export { getRecoveryWindow, suggestAlternative, validateDayLoad } from './schedule/loadAndValidation';
 export { adjustNutritionForDay, detectOvertrainingRisk } from './schedule/safety';
@@ -469,7 +455,6 @@ export function adaptDailySchedule(
     input: DailyAdaptationInput,
 ): DailyAdaptationResult {
     const {
-        today,
         todayActivities,
         yesterdayActivities,
         readinessState,
@@ -477,7 +462,6 @@ export function adaptDailySchedule(
         sleepLastNight,
         fitnessLevel,
         phase,
-        campConfig,
         trainingIntensityCap,
     } = input;
 

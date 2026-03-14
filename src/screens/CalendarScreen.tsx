@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Image } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,11 +13,11 @@ import { MonthlyCalendar } from '../components/MonthlyCalendar';
 import { ActivityCard } from '../components/ActivityCard';
 import { StreakBadge } from '../components/StreakBadge';
 import { OvertrainingAlert } from '../components/OvertrainingAlert';
-import { WeeklyComplianceBar } from '../components/WeeklyComplianceBar';
 import { getScheduledActivities, getTrainingStreakDays, syncEngineSchedule } from '../../lib/api/scheduleService';
 import { detectOvertrainingRisk } from '../../lib/engine/calculateSchedule';
-import type { ScheduledActivityRow, OvertrainingWarning, WeeklyComplianceReport } from '../../lib/engine/types';
+import type { ScheduledActivityRow, OvertrainingWarning } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
+import { logError, logWarn } from '../../lib/utils/logger';
 
 export function CalendarScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -77,13 +77,13 @@ export function CalendarScreen() {
                     weekActivities = newMonthActivities.filter(a => {
                         return a.date >= weekStartStr && a.date <= weekEndStr;
                     });
-                } catch (err) {
-                    console.warn('Auto-schedule generation failed:', err);
+                } catch (error) {
+                    logWarn('CalendarScreen.syncEngineSchedule', error, { userId, weekStartStr });
                 }
             }
 
             // Check for ACWR from checkins
-            const { data: sessions } = await supabase
+            await supabase
                 .from('training_sessions')
                 .select('*')
                 .eq('user_id', userId)
@@ -104,8 +104,8 @@ export function CalendarScreen() {
             const acwrRatio = 1.0; // default, could calculate from sessions
             const detectedWarnings = detectOvertrainingRisk(weekActivities, acwrRatio, sleepAvg);
             setWarnings(detectedWarnings);
-        } catch (e) {
-            console.error('CalendarScreen load error:', e);
+        } catch (error) {
+            logError('CalendarScreen.loadData', error, { currentMonth: currentMonth.toISOString() });
         }
 
         setLoading(false);

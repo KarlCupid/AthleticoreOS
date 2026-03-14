@@ -30,26 +30,10 @@ import { getRecentExerciseIds, getExerciseLibrary } from './scService';
 import { getScheduledActivities } from './scheduleService';
 import { getEffectiveWeight, getWeightHistory } from './weightService';
 
-function todayFallback(value: string | null | undefined, fallback: string): string {
-  return value && value.trim().length > 0 ? value : fallback;
-}
-
 function daysBetween(start: string, end: string): number {
   const a = new Date(`${start}T00:00:00`).getTime();
   const b = new Date(`${end}T00:00:00`).getTime();
   return Math.round((b - a) / 86400000);
-}
-
-function resolveBuildGoalType(profileGoalType: string | null | undefined): PerformanceObjective['goalType'] {
-  switch (profileGoalType) {
-    case 'strength':
-    case 'conditioning':
-    case 'boxing_skill':
-    case 'weight_class_prep':
-      return profileGoalType;
-    default:
-      return 'conditioning';
-  }
 }
 
 function buildPerformanceObjective(input: {
@@ -211,11 +195,10 @@ async function resolveNutritionTargets(input: {
   date: string;
   phase: Phase;
   currentWeight: number;
-  targetWeight: number;
   profile: NonNullable<Awaited<ReturnType<typeof getAthleteContext>>['profile']>;
   weightTrend: MacrocycleContext['weightTrend'];
 }): Promise<ResolvedNutritionTargets> {
-  const { userId, date, phase, currentWeight, targetWeight, profile, weightTrend } = input;
+  const { userId, date, phase, currentWeight, profile, weightTrend } = input;
   const scheduledActivities = await getScheduledActivities(userId, date, date);
 
   let cutProtocol = null as Awaited<ReturnType<typeof getCutProtocolForDate>>;
@@ -362,7 +345,6 @@ export async function getDailyMission(userId: string, date: string): Promise<Dai
       date,
       phase: objectiveContext.phase,
       currentWeight,
-      targetWeight,
       profile,
       weightTrend: objectiveContext.weightTrend,
     })
@@ -474,7 +456,6 @@ export async function getWeeklyMission(userId: string, weekStart: string): Promi
       date: weekStart,
       phase: objectiveContext.phase,
       currentWeight,
-      targetWeight,
       profile: athleteContext.profile,
       weightTrend: objectiveContext.weightTrend,
     })

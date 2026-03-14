@@ -13,7 +13,6 @@ import {
     Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { Card } from '../components/Card';
 import EquipmentSelector from '../components/EquipmentSelector';
@@ -26,6 +25,7 @@ import {
 } from '../../lib/api/gymProfileService';
 import { supabase } from '../../lib/supabase';
 import { GymProfileRow, EquipmentItem } from '../../lib/engine/types';
+import { logError } from '../../lib/utils/logger';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -35,7 +35,6 @@ type FormMode = 'idle' | 'adding' | 'editing';
 
 export function GymProfileScreen() {
     const insets = useSafeAreaInsets();
-    const navigation = useNavigation();
 
     const [userId, setUserId] = useState<string | null>(null);
     const [profiles, setProfiles] = useState<GymProfileRow[]>([]);
@@ -65,7 +64,7 @@ export function GymProfileScreen() {
             const data = await getGymProfiles(uid);
             setProfiles(data);
         } catch (err) {
-            console.error('[GymProfileScreen] loadProfiles error:', err);
+            logError('GymProfileScreen.loadProfiles', err, { userId: uid });
         }
     }, []);
 
@@ -119,7 +118,7 @@ export function GymProfileScreen() {
             await loadProfiles(userId);
             closeForm();
         } catch (err) {
-            console.error('[GymProfileScreen] save error:', err);
+            logError('GymProfileScreen.saveProfile', err, { mode: formMode });
             Alert.alert('Save failed', 'Could not save the profile. Please try again.');
         } finally {
             setSaving(false);
@@ -132,7 +131,7 @@ export function GymProfileScreen() {
             await setDefaultGymProfile(userId, profile.id);
             await loadProfiles(userId);
         } catch (err) {
-            console.error('[GymProfileScreen] setDefault error:', err);
+            logError('GymProfileScreen.setDefaultProfile', err, { profileId: profile.id });
             Alert.alert('Error', 'Could not set default profile.');
         }
     }
@@ -151,7 +150,7 @@ export function GymProfileScreen() {
                             await deleteGymProfile(profile.id);
                             if (userId) await loadProfiles(userId);
                         } catch (err) {
-                            console.error('[GymProfileScreen] delete error:', err);
+                            logError('GymProfileScreen.deleteProfile', err, { profileId: profile.id });
                             Alert.alert('Error', 'Could not delete the profile.');
                         }
                     },

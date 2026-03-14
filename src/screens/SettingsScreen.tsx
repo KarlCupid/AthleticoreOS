@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { Card } from '../components/Card';
-import { IconChevronRight, IconPerson, IconSettings as IconSettingsIcon } from '../components/icons';
+import { IconChevronRight, IconPerson } from '../components/icons';
 import { supabase } from '../../lib/supabase';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 

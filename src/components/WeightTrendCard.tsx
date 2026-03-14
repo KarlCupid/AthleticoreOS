@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { AnimatedPressable } from './AnimatedPressable';
 import { Card } from './Card';
 import type { WeightTrendResult, WeightCutStatus } from '../../lib/engine/types';

@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { FitnessLevel, FitnessAssessmentInput, FitnessAssessmentResult } from '../engine/types';
 import { assessFitnessFromQuestionnaire } from '../engine/calculateFitness';
+import { logError } from '../utils/logger';
 
 export interface FitnessProfileRow {
     user_id: string;
@@ -58,7 +59,7 @@ export async function submitFitnessQuestionnaire(
         .eq('user_id', userId);
 
     if (profileError) {
-        console.error('Failed to update fitness level:', profileError);
+        logError('fitnessService.updateFitnessLevel', profileError);
         throw profileError;
     }
 

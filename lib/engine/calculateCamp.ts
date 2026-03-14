@@ -19,7 +19,6 @@
 import {
     CampConfig,
     CampPhase,
-    CampPhaseDates,
     CampWeekProfile,
     CampPlanInput,
     CampTrainingModifiers,
@@ -131,7 +130,7 @@ function weeksBetween(startStr: string, endStr: string): number {
  * Pure synchronous function. No database queries. No LLM generation.
  */
 export function generateCampPlan(input: CampPlanInput): CampConfig {
-    const { fightDate, campStartDate, fitnessLevel, hasConcurrentCut, userId } = input;
+    const { fightDate, campStartDate, hasConcurrentCut, userId } = input;
 
     const totalDays = daysBetween(campStartDate, fightDate);
     const totalWeeks = Math.max(4, Math.round(totalDays / 7)); // minimum 4-week camp
@@ -339,7 +338,6 @@ export function getAutoTaperMultiplier(sparringDaysPerWeek: number): number {
  */
 export function getCampSCModifier(
     campPhase: CampPhase,
-    fitnessLevel: FitnessLevel,
     sparringDaysThisWeek: number,
 ): CampSCModifier {
     const taperMult = getAutoTaperMultiplier(sparringDaysThisWeek);
@@ -399,7 +397,6 @@ export function getCampSCModifier(
  */
 export function getSparringDayGuidance(
     campPhase: CampPhase,
-    fitnessLevel: FitnessLevel,
     library: ExerciseLibraryRow[],
 ): SparringDayGuidance {
     // Find activation exercises: mobility + band work

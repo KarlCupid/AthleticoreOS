@@ -22,10 +22,7 @@ import {
     FitnessLevel,
     Phase,
     ReadinessState,
-    CampPhase,
     CampConfig,
-    RecurringActivityRow,
-    ScheduledActivityRow,
     WeightCutPlanRow,
 } from './types';
 import { getDailyCutIntensityCap } from './calculateWeightCut';
@@ -126,7 +123,7 @@ function getEstimatedMaxHR(age: number | null): number | null {
     return age !== null ? Math.round(220 - age) : null;
 }
 
-function buildPaceGuidance(type: RoadWorkType, fitnessLevel: FitnessLevel, maxHR: number | null): string {
+function buildPaceGuidance(type: RoadWorkType, maxHR: number | null): string {
     const zone = PRIMARY_ZONE[type];
 
     if (maxHR !== null) {
@@ -155,7 +152,7 @@ function buildPaceGuidance(type: RoadWorkType, fitnessLevel: FitnessLevel, maxHR
     return rpeGuide[type];
 }
 
-function buildProgressionNote(type: RoadWorkType, phase: Phase, weekNum?: number): string {
+function buildProgressionNote(type: RoadWorkType, weekNum?: number): string {
     const weekStr = weekNum ? ` (Week ${weekNum})` : '';
     switch (type) {
         case 'easy_run':
@@ -235,7 +232,6 @@ export function getRoadWorkType(
     readinessState: ReadinessState,
     acwr: number,
     sessionIndex: number = 0,  // 0 = first session this week, 1 = second, etc.
-    campPhase?: CampPhase | null,
 ): RoadWorkType {
     // Override state: Depleted or ACWR danger → always recovery jog
     if (readinessState === 'Depleted' || acwr >= 1.5) {
@@ -369,10 +365,10 @@ export function prescribeRoadWork(input: {
         hrZone: PRIMARY_ZONE[type],
         hrZoneRange: ZONE_RANGE[type],
         estimatedMaxHR: maxHR,
-        paceGuidance: buildPaceGuidance(type, fitnessLevel, maxHR),
+        paceGuidance: buildPaceGuidance(type, maxHR),
         warmupCooldownMin,
         intervals,
-        progressionNote: buildProgressionNote(type, phase),
+        progressionNote: buildProgressionNote(type),
         message: buildMessage(type, fitnessLevel, phase),
         cnsBudget,
         estimatedLoad,

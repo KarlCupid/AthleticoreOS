@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
+import { FONT_FAMILY, SPACING } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 
 interface StreakBadgeProps { streak: number; }

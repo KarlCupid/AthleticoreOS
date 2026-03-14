@@ -8,15 +8,13 @@ import {
     Pressable,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { Card } from '../components/Card';
 import { SectionHeader } from '../components/SectionHeader';
 import { PrescriptionCard } from '../components/PrescriptionCard';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
@@ -25,34 +23,29 @@ import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSec
 import { ActivityCard } from '../components/ActivityCard';
 
 import { PlanStackParamList } from '../navigation/types';
-import { IconActivity, IconFire } from '../components/icons';
-
 import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
 import { useWeeklyPlan } from '../hooks/useWeeklyPlan';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
+import {
+    buildSleepData,
+    buildTrainingLoadData,
+    buildWeightData,
+    getWorkoutFocusLabel,
+    WORKOUT_TABS,
+    type WorkoutTabKey,
+} from './workout/utils';
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
-type TabKey = 'today' | 'plan' | 'history' | 'analytics';
-
-const FOCUS_LABELS: Record<string, string> = {
-    upper_push: 'Upper Push',
-    upper_pull: 'Upper Pull',
-    lower: 'Lower Body',
-    full_body: 'Full Body',
-    sport_specific: 'Sport Specific',
-    recovery: 'Recovery',
-    conditioning: 'Conditioning',
-};
 
 export function WorkoutScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
     const { themeColor, currentLevel } = useReadinessTheme();
 
-    const [activeTab, setActiveTab] = useState<TabKey>('today');
+    const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
 
     // Workout data hook
     const {
@@ -72,7 +65,8 @@ export function WorkoutScreen() {
     useFocusEffect(
         useCallback(() => {
             loadData();
-        }, [loadData])
+            loadPlan();
+        }, [loadData, loadPlan])
     );
 
     const openGuidedWorkout = useCallback(async (entry: WeeklyPlanEntryRow) => {
@@ -108,17 +102,9 @@ export function WorkoutScreen() {
         );
     }
 
-    const weightData = checkins
-        .filter(c => c.morning_weight !== null)
-        .map((c, i) => ({ x: i, y: Number(c.morning_weight), label: c.date.slice(5) }));
-
-    const sleepData = checkins.map((c, i) => ({
-        x: i, y: c.sleep_quality, label: c.date.slice(5),
-    }));
-
-    const trainingLoadData = sessions.map((s, i) => ({
-        x: i, y: s.total_load || 0, label: s.date.slice(5),
-    }));
+    const weightData = buildWeightData(checkins);
+    const sleepData = buildSleepData(checkins);
+    const trainingLoadData = buildTrainingLoadData(sessions);
 
     const acwrData = computeACWRTimeSeries(sessions);
     const checkinDates = new Set(checkins.map(c => c.date));
@@ -145,7 +131,7 @@ export function WorkoutScreen() {
                     </View>
                 </View>
                 <View style={styles.tabBar}>
-                    {(['today', 'plan', 'history', 'analytics'] as TabKey[]).map(tab => (
+                    {WORKOUT_TABS.map(tab => (
                         <AnimatedPressable
                             key={tab}
                             style={[styles.tab, activeTab === tab && { backgroundColor: themeColor }]}
@@ -182,7 +168,7 @@ export function WorkoutScreen() {
                                             </Text>
                                             <Text style={styles.planEntryFocus}>
                                                 {todayEntry.focus
-                                                    ? FOCUS_LABELS[todayEntry.focus] ?? todayEntry.focus
+                                                    ? getWorkoutFocusLabel(todayEntry.focus, todayEntry.session_type)
                                                     : todayEntry.session_type}
                                             </Text>
                                         </View>
@@ -326,7 +312,7 @@ export function WorkoutScreen() {
                                                 </View>
                                                 <View style={styles.weekCardCenter}>
                                                     <Text style={styles.weekCardFocus}>
-                                                        {entry.is_deload ? 'ðŸ”„ Recovery' : (FOCUS_LABELS[entry.focus ?? ''] ?? entry.session_type)}
+                                                        {entry.is_deload ? 'ðŸ”„ Recovery' : getWorkoutFocusLabel(entry.focus, entry.session_type)}
                                                     </Text>
                                                     <Text style={styles.weekCardMeta}>
                                                         {entry.estimated_duration_min} min

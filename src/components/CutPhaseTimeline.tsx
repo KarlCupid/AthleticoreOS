@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, RADIUS } from '../theme/theme';
 import { CutPhase, WeightCutPlanRow } from '../../lib/engine/types';
 
 interface Props {
@@ -40,9 +40,8 @@ export function CutPhaseTimeline({ plan, currentPhase }: Props) {
       contentContainerStyle={styles.track}
     >
       {PHASES.map((phase, idx) => {
-        const isPast    = idx < currentIndex;
+        const isPast = idx < currentIndex;
         const isCurrent = idx === currentIndex;
-        const isFuture  = idx > currentIndex;
 
         const chipBg = isCurrent
           ? phase.color

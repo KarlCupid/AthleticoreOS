@@ -324,7 +324,7 @@ export async function saveWeekPlan(
         is_deload: e.is_deload,
     }));
 
-    const insertPayloadWithoutMission = baseInsertPayload.map(({ daily_mission_snapshot, ...payload }) => payload);
+    const insertPayloadWithoutMission = baseInsertPayload.map(({ daily_mission_snapshot: _daily_mission_snapshot, ...payload }) => payload);
 
     const withScheduledActivityPayload = entries.map((e, index) => ({
         ...(hasDailyMissionSnapshotColumn === false ? insertPayloadWithoutMission[index] : baseInsertPayload[index]),

@@ -9,8 +9,9 @@
     "web": "expo start --web",
     "lint": "eslint . --ext .js,.ts,.tsx --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "typecheck:clean": "tsc --noEmit -p tsconfig.clean.json",
     "test:engine": "node scripts/run-engine-tests.js",
-    "quality": "npm run lint && npm run typecheck && npm run test:engine",
+    "quality": "npm run lint && npm run typecheck && npm run typecheck:clean && npm run test:engine",
     "optimize:images": "node scripts/optimize-images.js"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Canvas, Path, Skia, useFont } from '@shopify/react-native-skia';
+import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 
 interface MacroPieChartProps {
@@ -30,21 +30,13 @@ function createArcPath(
 ): ReturnType<typeof Skia.Path.Make> {
     const path = Skia.Path.Make();
     const startRad = (startAngle - 90) * (Math.PI / 180);
-    const endRad = (endAngle - 90) * (Math.PI / 180);
-
     const startX = cx + r * Math.cos(startRad);
     const startY = cy + r * Math.sin(startRad);
 
     path.moveTo(startX, startY);
 
     const sweep = endAngle - startAngle;
-    const largeArc = sweep > 180 ? 1 : 0;
-
-    const endX = cx + r * Math.cos(endRad);
-    const endY = cy + r * Math.sin(endRad);
-
     // Use conic to approximate arc
-    const midAngleRad = ((startAngle + endAngle) / 2 - 90) * (Math.PI / 180);
     const segments = Math.ceil(Math.abs(sweep) / 90);
 
     let currentAngle = startAngle;
@@ -52,7 +44,6 @@ function createArcPath(
 
     for (let i = 0; i < segments; i++) {
         const segEnd = currentAngle + step;
-        const segStartRad = (currentAngle - 90) * (Math.PI / 180);
         const segEndRad = (segEnd - 90) * (Math.PI / 180);
 
         const segEndX = cx + r * Math.cos(segEndRad);

@@ -48,7 +48,6 @@ const CNS_COEFFICIENTS: Record<string, number> = {
 const MAX_HIGH_CNS_PER_72H = 2;
 
 /** ACWR thresholds. */
-const ACWR_CAUTION = 1.3;
 const ACWR_DANGER = 1.5;
 
 /** Weekly intensity caps by phase (max high-intensity sessions). */

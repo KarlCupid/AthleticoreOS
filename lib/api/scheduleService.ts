@@ -24,6 +24,7 @@ import { getAthleteContext } from './athleteContextService';
 import { getDefaultGymProfile } from './gymProfileService';
 import { getWeeksSinceLastDeload } from './overloadService';
 import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
+import { logWarn } from '../utils/logger';
 
 function today(): string {
     return todayLocalDate();
@@ -202,7 +203,7 @@ export async function removeRecurringActivity(
             .eq('status', 'scheduled'); // Only delete if not already completed/skipped
 
         if (delError) {
-            console.warn('Failed to delete future scheduled instances', delError);
+            logWarn('scheduleService.deleteFutureScheduledInstances', delError);
         }
     }
 }
@@ -582,11 +583,11 @@ export async function completeActivity(
             notes: c.notes ?? null,
         }));
 
-        const { error: logError } = await supabase
+        const { error: activityLogError } = await supabase
             .from('activity_log')
             .insert(componentRows);
 
-        if (logError) throw logError;
+        if (activityLogError) throw activityLogError;
     }
     // 4. Also insert into training_sessions for ACWR calculation
     const { error: sessionError } = await supabase
@@ -599,7 +600,7 @@ export async function completeActivity(
         });
 
     if (sessionError) {
-        console.warn('Could not insert training_sessions row:', sessionError.message);
+        logWarn('scheduleService.insertTrainingSession', sessionError);
     }
 }
 
@@ -792,7 +793,7 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
         });
         acwr = acwrResult.ratio;
     } catch (error) {
-        console.warn('Could not calculate ACWR for daily adaptation:', error);
+        logWarn('scheduleService.dailyAdaptationACWR', error);
     }
 
     const readinessState = getGlobalReadinessState({
@@ -855,7 +856,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         });
         acwr = acwrResult.ratio;
     } catch (error) {
-        console.warn('Could not calculate ACWR for engine sync:', error);
+        logWarn('scheduleService.engineSyncACWR', error);
     }
 
     const { data: checkin } = await supabase

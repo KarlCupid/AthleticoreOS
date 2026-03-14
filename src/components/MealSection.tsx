@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { IconPlus, IconChevronRight, IconChevronLeft } from './icons';
+import { IconPlus, IconChevronRight } from './icons';
 import { MealType } from '../../lib/engine/types';
 
 interface FoodEntry {

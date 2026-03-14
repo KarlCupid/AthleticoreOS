@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { Card } from '../components/Card';
-import { IconPerson, IconTarget, IconActivity } from '../components/icons';
+import { IconPerson } from '../components/icons';
 import { supabase } from '../../lib/supabase';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 

@@ -2,17 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   WeightCutDashboardData,
-  WeightCutPlanRow,
-  DailyCutProtocolRow,
-  CutSafetyCheckRow,
-  WeightCutHistoryRow,
-  WeightDataPoint,
   DailyCutProtocolInput,
 } from '../../lib/engine/types';
 import {
   getWeightCutDashboardData,
-  getActiveWeightCutPlan,
-  getDailyCutProtocol,
   upsertDailyCutProtocol,
   getLastRefeedDate,
   getConsecutiveDepletedDays,
@@ -27,6 +20,7 @@ import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { calculateNutritionTargets } from '../../lib/engine/calculateNutrition';
 import { getEffectiveWeight, getWeightHistory } from '../../lib/api/weightService';
 import { todayLocalDate } from '../../lib/utils/date';
+import { logWarn } from '../../lib/utils/logger';
 
 // ─── State Shape ───────────────────────────────────────────────
 
@@ -160,7 +154,7 @@ export function useWeightCutData(userId: string | null) {
           return;
         } catch (protocolErr: any) {
           // Protocol computation failed — show the plan anyway without today's protocol
-          console.warn('[useWeightCutData] Daily protocol computation failed:', protocolErr?.message);
+          logWarn('useWeightCutData.computeDailyProtocol', protocolErr, { userId, date: todayStr });
           setState({ loading: false, error: null, data: dashboardData });
           return;
         }

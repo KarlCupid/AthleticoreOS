@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Text, TextStyle, StyleProp } from 'react-native';
 import {
     useSharedValue,
-    useDerivedValue,
     withTiming,
     Easing,
     useAnimatedReaction,
@@ -45,7 +44,7 @@ export function AnimatedNumber({
         () => animatedValue.value,
         (current) => {
             runOnJS(updateDisplay)(current);
-        }
+        },
     );
 
     const formatted = decimals > 0

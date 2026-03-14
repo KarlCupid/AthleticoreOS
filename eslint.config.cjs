@@ -36,5 +36,20 @@ module.exports = [
       'no-constant-condition': ['error', { checkLoops: false }],
       'react-hooks/rules-of-hooks': 'error'
     }
+  },
+  {
+    files: ['App.tsx', 'index.ts', 'src/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}'],
+    ignores: ['lib/**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+          varsIgnorePattern: '^_'
+        }
+      ]
+    }
   }
 ];

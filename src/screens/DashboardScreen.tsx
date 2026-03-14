@@ -30,6 +30,7 @@ import {
 import { applySameDayOverride } from '../../lib/api/scheduleService';
 import { supabase } from '../../lib/supabase';
 import { todayLocalDate } from '../../lib/utils/date';
+import { logError } from '../../lib/utils/logger';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { styles } from './DashboardScreen.styles';
 
@@ -84,7 +85,7 @@ export function DashboardScreen() {
       setFirstRunGuidance(next);
       setShowFirstRunModal(next.status === 'pending' && !next.introSeenAt);
     } catch (error) {
-      console.error('Dashboard first-run guidance error:', error);
+      logError('DashboardScreen.loadFirstRunGuidance', error);
     }
   }, []);
 
@@ -162,7 +163,7 @@ export function DashboardScreen() {
       await applySameDayOverride(session.user.id, activity, { type });
       handleRefresh();
     } catch (error) {
-      console.error('Dashboard override error:', error);
+      logError('DashboardScreen.applyOverride', error);
       Alert.alert('Update failed', 'Could not update this session. Please try again.');
     }
   };
@@ -196,7 +197,7 @@ export function DashboardScreen() {
           : prev
       ));
     } catch (error) {
-      console.error('Dashboard first-run intro save error:', error);
+      logError('DashboardScreen.markIntroSeen', error);
     }
   }, [firstRunGuidance?.introSeenAt, firstRunGuidance?.status]);
 

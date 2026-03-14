@@ -18,9 +18,7 @@
 import {
   FitnessLevel,
   MuscleGroup,
-  ReadinessState,
   ProgressionModel,
-  ExerciseHistoryEntry,
   OverloadInput,
   OverloadSuggestion,
   PRRecord,
@@ -33,9 +31,6 @@ import {
 
 /** Upper-body muscle groups receive smaller weight jumps. */
 const UPPER_BODY_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'arms'];
-
-/** Lower-body muscle groups receive larger weight jumps. */
-const LOWER_BODY_GROUPS: MuscleGroup[] = ['quads', 'hamstrings', 'glutes', 'calves'];
 
 /** Default RPE when the athlete does not report one. */
 const DEFAULT_RPE = 8.5;
@@ -54,13 +49,6 @@ function roundToHalf(n: number): number {
  */
 function roundTo5(n: number): number {
   return Math.round(n / 5) * 5;
-}
-
-/**
- * Clamp a value between min and max.
- */
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
 }
 
 /**
@@ -122,7 +110,6 @@ export function suggestOverload(input: OverloadInput): OverloadSuggestion {
     exerciseId,
     exerciseName,
     history,
-    fitnessLevel,
     progressionModel,
     isDeloadWeek,
     readinessState,
@@ -293,7 +280,7 @@ export function suggestOverload(input: OverloadInput): OverloadSuggestion {
  * Pure synchronous function. No database queries. No LLM generation.
  */
 export function detectPR(
-  exerciseId: string,
+  _exerciseId: string,
   exerciseName: string,
   weight: number,
   reps: number,
@@ -391,7 +378,6 @@ export function shouldDeload(input: DeloadDecisionInput): DeloadDecisionResult {
     weeksSinceLastDeload,
     autoDeloadIntervalWeeks,
     acwr,
-    readinessState,
     recentSessionRPEs,
     consecutiveCautionDays,
   } = input;

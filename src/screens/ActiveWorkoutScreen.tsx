@@ -5,7 +5,6 @@ import {
     ScrollView,
     TextInput,
     TouchableOpacity,
-    StyleSheet,
     Alert,
     Vibration,
     KeyboardAvoidingView,
@@ -16,16 +15,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
+import { COLORS, SPACING, ANIMATION, GRADIENTS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
-import { IconPlus, IconCheckCircle, IconActivity } from '../components/icons';
+import { IconPlus, IconCheckCircle } from '../components/icons';
 import { styles } from './ActiveWorkoutScreen.styles';
 import {
     logWorkoutSet,
     updateWorkoutSet,
-    removeWorkoutSet,
     completeWorkout,
     cancelWorkout,
     getWorkoutSetsForLog,
@@ -33,6 +31,7 @@ import {
 } from '../../lib/api/scService';
 import { ExerciseLibraryRow, WorkoutSetLogRow } from '../../lib/engine/types';
 import { PlanStackParamList } from '../navigation/types';
+import { logError } from '../../lib/utils/logger';
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 type RouteParams = { ActiveWorkout: PlanStackParamList['ActiveWorkout'] };
@@ -57,7 +56,7 @@ export function ActiveWorkoutScreen() {
     // Rest timer state
     const [restSeconds, setRestSeconds] = useState(0);
     const [restActive, setRestActive] = useState(false);
-    const [restDuration, setRestDuration] = useState(90);
+    const [restDuration] = useState(90);
     const restRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
     // Workout state
@@ -102,8 +101,8 @@ export function ActiveWorkoutScreen() {
         try {
             const lib = await getExerciseLibrary();
             setAllExercises(lib);
-        } catch (e) {
-            console.error('Load exercises error:', e);
+        } catch (error) {
+            logError('ActiveWorkoutScreen.loadExercises', error, { workoutLogId });
         }
     };
 
@@ -130,8 +129,8 @@ export function ActiveWorkoutScreen() {
                     sets: group.sets.sort((a, b) => a.set_number - b.set_number),
                 }))
             );
-        } catch (e) {
-            console.error('Load sets error:', e);
+        } catch (error) {
+            logError('ActiveWorkoutScreen.loadSets', error, { workoutLogId });
         }
     };
 
@@ -169,8 +168,8 @@ export function ActiveWorkoutScreen() {
                 }
                 return [...prev, { exercise, sets: [newSet] }];
             });
-        } catch (e) {
-            console.error('Log set error:', e);
+        } catch (error) {
+            logError('ActiveWorkoutScreen.handleLogSet', error, { workoutLogId, exerciseId: exercise.id });
         }
     };
 
@@ -218,23 +217,8 @@ export function ActiveWorkoutScreen() {
             if (field === 'reps' && value > 0) {
                 startRestTimer();
             }
-        } catch (e) {
-            console.error('Update set error:', e);
-        }
-    };
-
-    const handleRemoveSet = async (setId: string, exerciseId: string) => {
-        try {
-            await removeWorkoutSet(setId);
-            setExerciseGroups(prev =>
-                prev.map(g =>
-                    g.exercise.id === exerciseId
-                        ? { ...g, sets: g.sets.filter(s => s.id !== setId) }
-                        : g
-                ).filter(g => g.sets.length > 0)
-            );
-        } catch (e) {
-            console.error('Remove set error:', e);
+        } catch (error) {
+            logError('ActiveWorkoutScreen.handleUpdateSet', error, { setId, exerciseId });
         }
     };
 

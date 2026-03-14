@@ -14,9 +14,7 @@ import {
     Phase,
     MuscleGroup,
     EquipmentItem,
-    ExerciseType,
     CampPhase,
-    SparringDayGuidance,
 } from './types';
 import { suggestOverload, selectProgressionModel } from './calculateOverload';
 import { generateWarmupSets } from './calculateWarmup';
@@ -595,8 +593,6 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
 
     // Track which muscle groups we've added for warmup logic
     const muscleGroupsSeen = new Set<MuscleGroup>();
-    const progressionModel = inputProgressionModel ?? selectProgressionModel(fitnessLevel, 0);
-
     const selectedExercises: PrescribedExerciseV2[] = [];
     let usedCNS = 0;
     const restDefaults = getRestTimerDefaults();
@@ -750,7 +746,7 @@ function buildSparringDayWorkout(
     );
     exercises = filterByEquipment(exercises, gymEquipment);
 
-    const activation: PrescribedExerciseV2[] = exercises.slice(0, 5).map((exercise, i) => ({
+    const activation: PrescribedExerciseV2[] = exercises.slice(0, 5).map((exercise) => ({
         exercise,
         targetSets: 2,
         targetReps: exercise.type === 'sport_specific' ? 1 : 10,

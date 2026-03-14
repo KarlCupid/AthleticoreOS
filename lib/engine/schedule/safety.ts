@@ -12,7 +12,6 @@ import {
   computeWeekLoadMetrics,
   dateFromISO,
   getAcwrPlanningThresholds,
-  getSessionLoad,
   isHighIntensity,
 } from './loadAndValidation';
 export function adjustNutritionForDay(
@@ -30,15 +29,11 @@ export function adjustNutritionForDay(
         };
     }
 
-    let totalLoad = 0;
     let hasSparring = false;
     let hasHeavySC = false;
     let hasRunning = false;
-    let totalDuration = 0;
 
     for (const a of dayActivities) {
-        totalLoad += getSessionLoad(a.estimated_duration_min, a.expected_intensity);
-        totalDuration += a.estimated_duration_min;
         if (a.activity_type === 'sparring') hasSparring = true;
         if (a.activity_type === 'sc' && a.expected_intensity >= 7) hasHeavySC = true;
         if (a.activity_type === 'running') hasRunning = true;

@@ -7,8 +7,7 @@ import type {
   TimelineStatus,
   WorkoutFocus,
 } from './foundational';
-import type { OvertrainingWarning } from './misc';
-import type { MacroLedgerRow, NutritionTargets } from './nutrition';
+import type { MacroLedgerRow } from './nutrition';
 import type {
   AvailabilityWindow,
   ConstraintTier,
@@ -20,7 +19,6 @@ import type {
   ExerciseLibraryRow,
   PrescribedExercise,
   RoadWorkPrescription,
-  WorkoutComplianceResult,
   WorkoutPrescriptionV2,
 } from './training';
 import type { CutPhase, WeightCutPlanRow } from './weight_cut';

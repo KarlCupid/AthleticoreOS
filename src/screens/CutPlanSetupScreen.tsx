@@ -1,21 +1,20 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
-  Modal, TouchableWithoutFeedback, Keyboard
+  TouchableWithoutFeedback, Keyboard
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
-import { suggestWeightClass } from '../../lib/engine/weightClassData';
 import { createWeightCutPlan } from '../../lib/api/weightCutService';
 import { getEffectiveWeight } from '../../lib/api/weightService';
 import { PlanStackParamList } from '../navigation/types';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { CutPlanResult, WeightClassSuggestion, CutSport } from '../../lib/engine/types';
-import { IconAlertTriangle, IconCheckCircle, IconChevronLeft } from '../components/icons';
+import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
+import { CutPlanResult, CutSport } from '../../lib/engine/types';
+import { IconCheckCircle, IconChevronLeft } from '../components/icons';
 import { CutPlanPreviewStep } from '../components/CutPlanPreviewStep';
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList, 'CutPlanSetup'>;
@@ -430,13 +429,6 @@ export function CutPlanSetupScreen() {
 // â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-
-const RISK_COLORS: Record<string, string> = {
-  low: '#DCFCE7',
-  moderate: '#FEF3C7',
-  high: '#FEE2E2',
-  unsafe: '#E5E7EB',
-};
 
 // â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

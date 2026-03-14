@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { WeightDataPoint } from '../engine/types';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
+import { logError } from '../utils/logger';
 
 /**
  * Fetch weight history from daily_checkins (non-null morning_weight entries).
@@ -23,7 +24,7 @@ export async function getWeightHistory(
         .order('date', { ascending: true });
 
     if (error) {
-        console.error('Failed to fetch weight history:', error);
+        logError('weightService.getWeightHistory', error);
         return [];
     }
 

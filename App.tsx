@@ -20,6 +20,7 @@ import { TabNavigator } from './src/navigation/TabNavigator';
 import { PlanningSetupStackNavigator } from './src/navigation/PlanningSetupStack';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { COLORS } from './src/theme/theme';
+import { logError } from './lib/utils/logger';
 
 const myTheme = {
   ...DefaultTheme,
@@ -93,7 +94,7 @@ export default function App() {
       }
 
       if (error) {
-        console.error('Profile lookup error:', error);
+        logError('App.profileLookup', error);
         setHasProfile(false);
         setHasPlanningSetup(false);
         setCheckingProfile(false);
@@ -116,7 +117,7 @@ export default function App() {
         }
         setHasPlanningSetup(planningStatus.isComplete);
       } catch (planningError) {
-        console.error('Planning setup lookup error:', planningError);
+        logError('App.planningSetupLookup', planningError);
         setHasPlanningSetup(false);
       }
 

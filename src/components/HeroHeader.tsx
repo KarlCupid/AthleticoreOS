@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     useSharedValue,
@@ -10,7 +9,7 @@ import Animated, {
     Easing,
     FadeInUp,
 } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedNumber } from './AnimatedNumber';
 
@@ -129,7 +128,7 @@ export function HeroHeader({
     weightTrend,
 }: HeroHeaderProps) {
     const insets = useSafeAreaInsets();
-    const { gradient, currentLevel } = useReadinessTheme();
+    const { gradient } = useReadinessTheme();
 
     const dots = 10;
     const filledDots = Math.round((readinessScore / 100) * dots);

@@ -7,7 +7,7 @@ import Animated, {
   interpolate,
   Easing,
 } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 
 interface FormCueCardProps {
   exerciseName: string;

@@ -16,7 +16,6 @@ import {
   RehydrationPhase,
   WeightCutPlanRow,
   FightStatus,
-  WeightDataPoint,
 } from './types';
 import { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
@@ -69,7 +68,7 @@ function today(): string {
  *   - sport: CutSport
  */
 export function generateCutPlan(input: CutPlanInput): CutPlanResult {
-  const { startWeight, targetWeight, fightDate, weighInDate, fightStatus, biologicalSex, sport } = input;
+  const { startWeight, targetWeight, fightDate, weighInDate, fightStatus, biologicalSex } = input;
   const todayStr = today();
 
   const validationErrors: string[] = [];
@@ -399,7 +398,6 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
     weeklyVelocityLbs,
     prescribedCalories,
     calorieFloor,
-    readinessState,
     consecutiveDepletedDays,
     acwr,
     urineColor,
@@ -409,7 +407,6 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
     waterCutAllocationLbs,
     remainingLbsToTarget,
     daysToWeighIn,
-    fightStatus,
   } = input;
 
   const flags: CutSafetyFlag[] = [];
@@ -572,7 +569,6 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     dayActivities,
     readinessState,
     acwr,
-    biologicalSex,
     cycleDay,
     weeklyVelocityLbs,
     lastRefeedDate,

@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, Polyline, Rect, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Polyline, Line } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 export interface IconProps {

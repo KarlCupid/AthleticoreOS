@@ -21,6 +21,7 @@ import {
 } from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
 import { FoodItemRow, MealType } from '../../lib/engine/types';
+import { logError } from '../../lib/utils/logger';
 import { IconChevronLeft, IconBarcode } from '../components/icons';
 
 type RouteParams = {
@@ -60,7 +61,7 @@ export function FoodSearchScreen() {
       const foods = await getRecentFoods(session.user.id, 10);
       setRecentFoods(foods);
     } catch (err) {
-      console.error('Failed to load recent foods:', err);
+      logError('FoodSearchScreen.loadRecentFoods', err);
     }
   }
 
@@ -105,7 +106,7 @@ export function FoodSearchScreen() {
 
         setResults(merged);
       } catch (err) {
-        console.error('Search failed:', err);
+        logError('FoodSearchScreen.search', err, { query: text.trim() });
       } finally {
         setLoading(false);
       }

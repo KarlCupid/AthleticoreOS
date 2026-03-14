@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { formatLocalDate } from '../../lib/utils/date';
 
@@ -10,7 +10,7 @@ interface ConsistencyCalendarProps {
 }
 
 export function ConsistencyCalendar({ checkinDates, weeks = 4 }: ConsistencyCalendarProps) {
-    const { themeColor, lightTint } = useReadinessTheme();
+    const { themeColor } = useReadinessTheme();
 
     // Generate grid of dates going back `weeks` weeks from today
     const today = new Date();

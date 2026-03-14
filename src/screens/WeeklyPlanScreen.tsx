@@ -18,7 +18,6 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useWeeklyPlan } from '../hooks/useWeeklyPlan';
 import DayPlanCard from '../components/DayPlanCard';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { Card } from '../components/Card';
 import { SectionHeader } from '../components/SectionHeader';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';

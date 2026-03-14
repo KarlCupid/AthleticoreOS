@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { CartesianChart, Line, Bar } from 'victory-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS } from '../theme/theme';
 import { Card } from './Card';
 import { SectionHeader } from './SectionHeader';
 import { styles } from './NutritionAnalyticsSection.styles';
 import { supabase } from '../../lib/supabase';
 import { computeMacroAdherence } from '../../lib/engine/calculateNutrition';
-import type { MacroAdherenceResult } from '../../lib/engine/types';
+import { logError } from '../../lib/utils/logger';
 import { formatLocalDate } from '../../lib/utils/date';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface NutritionAnalyticsSectionProps {
     userId: string;
@@ -84,7 +82,6 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
             const days30Ago = new Date(now);
             days30Ago.setDate(days30Ago.getDate() - 30);
 
-            const dateStr14 = formatLocalDate(days14Ago);
             const dateStr30 = formatLocalDate(days30Ago);
 
             // Fetch nutrition summary + ledger in parallel
@@ -185,8 +182,8 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                 }
             }
             setAdherenceDays(adherence30);
-        } catch (err) {
-            console.error('Failed to fetch analytics data:', err);
+        } catch (error) {
+            logError('NutritionAnalyticsSection.fetchAnalyticsData', error, { userId });
         } finally {
             setLoading(false);
         }
@@ -295,7 +292,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                 <Text style={styles.chartSubtitle}>Past 30 days</Text>
 
                 <View style={styles.calendarGrid}>
-                    {adherenceDays.map((day, i) => (
+                    {adherenceDays.map((day) => (
                         <TouchableOpacity
                             key={day.date}
                             style={[

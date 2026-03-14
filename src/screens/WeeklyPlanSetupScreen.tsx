@@ -26,6 +26,7 @@ import { generateAndSaveWeeklyPlan } from '../hooks/useWeeklyPlan';
 import { getActiveFightCamp, setupFightCamp } from '../../lib/api/fightCampService';
 import { getActiveBuildPhaseGoal, setupBuildPhaseGoal } from '../../lib/api/buildPhaseService';
 import { getRecurringActivities, replaceRecurringActivities } from '../../lib/api/scheduleService';
+import { logError } from '../../lib/utils/logger';
 import type {
   ActivityType,
   AthleteGoalMode,
@@ -557,7 +558,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             })),
         );
       } catch (error) {
-        console.error('[WeeklyPlanSetup] load error:', error);
+        logError('WeeklyPlanSetupScreen.loadSetup', error);
       } finally {
         setLoading(false);
       }
@@ -824,7 +825,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         navigation.goBack();
       }
     } catch (error) {
-      console.error('[WeeklyPlanSetup] save error:', error);
+      logError('WeeklyPlanSetupScreen.saveSetup', error);
       Alert.alert('Save failed', 'Could not save setup. Please try again.');
     } finally {
       setSaving(false);

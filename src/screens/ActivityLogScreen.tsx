@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, SPACING } from '../theme/theme';
 import { styles } from './ActivityLogScreen.styles';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { completeActivity } from '../../lib/api/scheduleService';
 import type { ComponentType } from '../../lib/engine/types';
-import { todayLocalDate } from '../../lib/utils/date';
 
 const COMPONENT_OPTIONS: { type: ComponentType; label: string; icon: string }[] = [
     { type: 'sparring', label: 'Sparring', icon: '🥊' },
@@ -42,8 +41,6 @@ export function ActivityLogScreen() {
     const { themeColor } = useReadinessTheme();
 
     const activityId = route.params?.activityId;
-    const dateParam = route.params?.date ?? todayLocalDate();
-
     const [components, setComponents] = useState<LoggedComponent[]>([]);
     const [sessionRPE, setSessionRPE] = useState(5);
     const [sessionDuration, setSessionDuration] = useState('60');

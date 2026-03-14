@@ -18,6 +18,7 @@ import { getFightCampStatus } from '../../lib/api/fightCampService';
 import type { WeeklyComplianceReport } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { calculateCampRisk, type CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
+import { logError } from '../../lib/utils/logger';
 
 interface WeekInsights {
   campLabel: string;
@@ -176,7 +177,7 @@ export function WeeklyReviewScreen() {
         campRisk,
       });
     } catch (error) {
-      console.error('WeeklyReview load error:', error);
+      logError('WeeklyReviewScreen.loadReview', error, { weekStart, weekEnd });
     }
 
     setLoading(false);

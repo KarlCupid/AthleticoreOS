@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  StyleSheet,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -11,7 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS, TYPOGRAPHY } from '../theme/theme';
+import { COLORS, SPACING, RADIUS, ANIMATION, GRADIENTS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { Card } from '../components/Card';
 import { AnimatedNumber } from '../components/AnimatedNumber';
@@ -310,7 +309,7 @@ export function NutritionScreen() {
             if (!session?.user) return;
             await removeFoodEntry(session.user.id, foodLogId, today);
             await loadData();
-          } catch (err) {
+          } catch (_error) {
             Alert.alert('Error', 'Failed to remove food entry');
           }
         },
@@ -326,7 +325,7 @@ export function NutritionScreen() {
       if (!session?.user) return;
       await logWater(session.user.id, oz, today);
       setWaterCurrent((prev) => prev + oz);
-    } catch (err) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to log water');
     }
   };

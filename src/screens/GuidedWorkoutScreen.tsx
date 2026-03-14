@@ -9,17 +9,12 @@ import {
     Vibration,
 } from 'react-native';
 import Animated, {
-    FadeIn,
     FadeInDown,
     FadeOut,
     SlideInRight,
-    useSharedValue,
-    useAnimatedStyle,
-    withTiming,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
@@ -28,7 +23,6 @@ import {
     SPACING,
     RADIUS,
     SHADOWS,
-    GRADIENTS,
     ANIMATION,
 } from '../theme/theme';
 import { useGuidedWorkout } from '../hooks/useGuidedWorkout';
@@ -40,36 +34,12 @@ import RestTimerOverlay from '../components/RestTimerOverlay';
 import FormCueCard from '../components/FormCueCard';
 import PRCelebration from '../components/PRCelebration';
 import { Card } from '../components/Card';
-
-// ---------------------------------------------------------------------------
-// Navigation types
-// ---------------------------------------------------------------------------
-
-type GuidedWorkoutParams = {
-    weeklyPlanEntryId?: string;
-    scheduledActivityId?: string;
-    focus?: string;
-    availableMinutes?: number;
-    readinessState: 'Prime' | 'Caution' | 'Depleted';
-    phase: string;
-    fitnessLevel: string;
-    trainingDate?: string;
-    isDeloadWeek?: boolean;
-};
-
-type RootStackParamList = {
-    GuidedWorkout: GuidedWorkoutParams;
-    WorkoutSummary: {
-        workoutLogId?: string;
-        durationMin?: number;
-        totalSets?: number;
-        totalVolume?: number;
-        avgRPE?: number | null;
-    };
-};
-
-type NavProp = NativeStackNavigationProp<RootStackParamList>;
-type RoutePropType = RouteProp<RootStackParamList, 'GuidedWorkout'>;
+import {
+    buildWarmupSetsWithState,
+    resolveGuidedWorkoutParams,
+    type GuidedWorkoutRoute,
+    type GuidedWorkoutStackParamList,
+} from './guidedWorkout/utils';
 
 // ---------------------------------------------------------------------------
 import {
@@ -86,11 +56,14 @@ import {
 // Main screen
 // ---------------------------------------------------------------------------
 
+type NavProp = NativeStackNavigationProp<GuidedWorkoutStackParamList>;
+
 export function GuidedWorkoutScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
-    const route = useRoute<RoutePropType>();
+    const route = useRoute<GuidedWorkoutRoute>();
     const params = route.params;
+    const resolvedParams = resolveGuidedWorkoutParams(params);
 
     // Hook
     const {
@@ -104,7 +77,6 @@ export function GuidedWorkoutScreen() {
         currentExerciseIndex,
         currentExercise,
         currentProgress,
-        fatigueState,
         adaptationResult,
         prResult,
         showPRCelebration,
@@ -142,28 +114,24 @@ export function GuidedWorkoutScreen() {
     // ── Load on focus ────────────────────────────────────────────
     useFocusEffect(
         useCallback(() => {
-            const safeReadiness = params?.readinessState ?? 'Prime';
-            const safePhase = params?.phase ?? 'off-season';
-            const safeFitness = params?.fitnessLevel ?? 'intermediate';
-
             loadAndGenerate(
-                safeReadiness,
-                safePhase,
-                safeFitness,
-                params?.focus,
-                params?.availableMinutes,
-                params?.trainingDate,
-                    params?.isDeloadWeek,
+                resolvedParams.readinessState,
+                resolvedParams.phase,
+                resolvedParams.fitnessLevel,
+                resolvedParams.focus,
+                resolvedParams.availableMinutes,
+                resolvedParams.trainingDate,
+                resolvedParams.isDeloadWeek,
             );
         }, [
             loadAndGenerate,
-            params?.readinessState,
-            params?.phase,
-            params?.fitnessLevel,
-            params?.focus,
-            params?.availableMinutes,
-            params?.trainingDate,
-            params?.isDeloadWeek,
+            resolvedParams.readinessState,
+            resolvedParams.phase,
+            resolvedParams.fitnessLevel,
+            resolvedParams.focus,
+            resolvedParams.availableMinutes,
+            resolvedParams.trainingDate,
+            resolvedParams.isDeloadWeek,
         ]),
     );
 
@@ -247,10 +215,7 @@ export function GuidedWorkoutScreen() {
 
     const warmupSets = currentExercise?.warmupSets ?? [];
     const warmupChecked = currentProgress?.warmupChecked ?? [];
-    const warmupSetsWithState = warmupSets.map(ws => ({
-        ...ws,
-        isCompleted: warmupChecked.includes(ws.setNumber),
-    }));
+    const warmupSetsWithState = buildWarmupSetsWithState(warmupSets, warmupChecked);
     const allWarmupsDone = warmupSets.length === 0 || warmupChecked.length >= warmupSets.length;
 
     const nextExercise = prescription?.exercises[currentExerciseIndex + 1] ?? null;
@@ -282,7 +247,7 @@ export function GuidedWorkoutScreen() {
                 false,
             );
             setSelectedRPE(null);
-        } catch (e) {
+        } catch (_error) {
             Alert.alert('Error', 'Failed to log set. Please try again.');
         } finally {
             setIsLoggingSet(false);

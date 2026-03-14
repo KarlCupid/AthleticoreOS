@@ -9,16 +9,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { useWeightCutData } from '../hooks/useWeightCutData';
 import { PlanStackParamList } from '../navigation/types';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import {
-  IconTarget, IconChevronRight, IconAlertTriangle, IconTrendDown,
-  IconDroplets, IconCheckCircle, IconScale,
+  IconTarget, IconChevronRight, IconTrendDown, IconScale,
 } from '../components/icons';
 import { CutPhaseTimeline } from '../components/CutPhaseTimeline';
 import { WeightCutChart } from '../components/WeightCutChart';
 import { DailyProtocolCard } from '../components/DailyProtocolCard';
 import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
-import { CutPhase, WeightCutPlanRow } from '../../lib/engine/types';
+import { CutPhase } from '../../lib/engine/types';
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList, 'WeightCutHome'>;
 
@@ -51,7 +50,7 @@ export function WeightCutHomeScreen() {
   const {
     loading, error, activePlan, todayProtocol, weightHistory,
     cutHistory, projectedWeightByWeighIn, adherenceLast7Days,
-    safetyChecks, refresh, abandon,
+    refresh, abandon,
   } = useWeightCutData(userId);
 
   const handleEndCut = useCallback(() => {
@@ -161,7 +160,6 @@ export function WeightCutHomeScreen() {
   const phase = todayProtocol?.cut_phase ?? 'chronic';
   const daysOut = todayProtocol?.days_to_weigh_in ?? 0;
   const dangerFlags = todayProtocol?.safety_flags?.filter((f: any) => f.severity === 'danger') ?? [];
-  const warningFlags = todayProtocol?.safety_flags?.filter((f: any) => f.severity === 'warning') ?? [];
   const currentWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : activePlan.start_weight;
   const remaining = Math.max(0, currentWeight - activePlan.target_weight).toFixed(1);
   const phaseColors = PHASE_COLORS[phase] as [string, string];

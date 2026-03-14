@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { Card } from './Card';
 import { SectionHeader } from './SectionHeader';
-import { CartesianChart, Bar, Line } from 'victory-native';
-import { getWeeklyVolumeStats, getExercisePRs } from '../../lib/api/scService';
+import { CartesianChart, Bar } from 'victory-native';
+import { getWeeklyVolumeStats } from '../../lib/api/scService';
 import { supabase } from '../../lib/supabase';
+import { logError } from '../../lib/utils/logger';
 
 interface SCAnalyticsSectionProps {
     userId: string;
@@ -67,8 +68,8 @@ export function SCAnalyticsSection({ userId }: SCAnalyticsSectionProps) {
             }
             setPrs(uniquePrs);
 
-        } catch (e) {
-            console.error('Analytics load error:', e);
+        } catch (error) {
+            logError('SCAnalyticsSection.loadData', error, { userId });
         } finally {
             setLoading(false);
         }

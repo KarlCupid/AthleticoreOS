@@ -7,7 +7,6 @@ import {
     FeedbackSeverity,
     ExerciseLibraryRow,
     EquipmentItem,
-    PrescribedExerciseV2,
     RestTimerConfig,
     ExerciseType,
 } from './types';
@@ -132,9 +131,6 @@ export function initFatigueState(): SessionFatigueState {
 export function processSetCompletion(input: SetCompletionInput): SetAdaptationResult {
     const {
         exerciseId,
-        exerciseName,
-        actualWeight,
-        actualReps,
         actualRPE,
         targetWeight,
         targetReps,

@@ -7,7 +7,6 @@ import {
     getRestDuration,
 } from '../../lib/engine/adaptiveWorkout';
 import { detectPR, suggestOverload, selectProgressionModel } from '../../lib/engine/calculateOverload';
-import { generateWarmupSets } from '../../lib/engine/calculateWarmup';
 import {
     completeWorkout,
     getExerciseLibrary,
@@ -27,14 +26,13 @@ import type {
     PrescribedExerciseV2,
     SessionFatigueState,
     SetAdaptationResult,
-    WarmupSet,
     PRDetectionResult,
-    OverloadSuggestion,
     ReadinessState,
     MuscleGroup,
     WorkoutLogRow,
     GymProfileRow,
 } from '../../lib/engine/types';
+import { logError } from '../../lib/utils/logger';
 
 export interface SetEntry {
     exerciseId: string;
@@ -224,8 +222,8 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             setPrescription(finalPrescription);
             setDailyMission(null);
             initializeProgress(finalPrescription);
-        } catch (e) {
-            console.error('useGuidedWorkout load error:', e);
+        } catch (error) {
+            logError('useGuidedWorkout.loadAndGenerate', error, { weeklyPlanEntryId });
         }
         setLoading(false);
     }, [initializeProgress, weeklyPlanEntryId]);
@@ -255,8 +253,8 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             setIsStarted(true);
             setStartTime(new Date());
             setFatigueState(initFatigueState());
-        } catch (e) {
-            console.error('Start workout error:', e);
+        } catch (error) {
+            logError('useGuidedWorkout.startWorkout', error, { weeklyPlanEntryId, scheduledActivityId });
         }
     }, [prescription, weeklyPlanEntryId, scheduledActivityId, gymProfile]);
 

@@ -22,3 +22,13 @@ export function logError(scope: string, error: unknown, context?: Record<string,
 
   console.error(`[${scope}] ${message}`);
 }
+
+export function logWarn(scope: string, warning: unknown, context?: Record<string, unknown>): void {
+  const message = getErrorMessage(warning);
+  if (context) {
+    console.warn(`[${scope}] ${message}`, context);
+    return;
+  }
+
+  console.warn(`[${scope}] ${message}`);
+}

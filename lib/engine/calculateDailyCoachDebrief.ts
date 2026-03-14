@@ -236,7 +236,7 @@ function buildReasoning(input: DailyCoachDebriefInput, band: DailyReadinessBand,
   return `You look ready to push: ${loadText}, sleep ${input.sleepQuality}/5, readiness ${input.readiness}/5. In ${phaseLabel}, push key work and keep form sharp.`;
 }
 
-function buildTrainingAction(input: DailyCoachDebriefInput, band: DailyReadinessBand): DailyCoachActionStep {
+function buildTrainingAction(_input: DailyCoachDebriefInput, band: DailyReadinessBand): DailyCoachActionStep {
   if (band === 'recover') {
     return {
       pillar: 'training',

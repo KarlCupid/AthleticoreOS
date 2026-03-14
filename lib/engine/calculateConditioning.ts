@@ -134,7 +134,6 @@ function getConditioningType(
     phase: Phase,
     readinessState: ReadinessState,
     sessionIndex: number,
-    campConfig: CampConfig | null,
 ): ConditioningType {
     // Depleted = light active recovery only
     if (readinessState === 'Depleted') return 'jump_rope';
@@ -179,11 +178,10 @@ export function prescribeConditioning(input: {
         activeCutPlan,
         trainingIntensityCap,
         trainingIntensityCapOverride,
-        campConfig,
     } = input;
 
     // Determine conditioning type
-    let type = getConditioningType(phase, readinessState, sessionIndex, campConfig ?? null);
+    let type = getConditioningType(phase, readinessState, sessionIndex);
 
     const resolvedIntensityCap = trainingIntensityCapOverride ?? trainingIntensityCap;
     const effectiveDate = todayLocalDate();

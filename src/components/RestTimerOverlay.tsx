@@ -6,8 +6,6 @@ import Animated, {
   useSharedValue,
   withSpring,
   withSequence,
-  Easing,
-  useDerivedValue,
 } from 'react-native-reanimated';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 
@@ -66,18 +64,6 @@ export default function RestTimerOverlay({
   const extendAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: extendScale.value }],
   }));
-
-  const ringProgress = useDerivedValue(() => progress);
-
-  const progressRingStyle = useAnimatedStyle(() => {
-    const rotation = withTiming(-90 + 360 * (1 - ringProgress.value), {
-      duration: 300,
-      easing: Easing.linear,
-    });
-    return {
-      transform: [{ rotate: `${rotation}deg` }],
-    };
-  });
 
   const pulseStyle = useAnimatedStyle(() => {
     if (isLow) {

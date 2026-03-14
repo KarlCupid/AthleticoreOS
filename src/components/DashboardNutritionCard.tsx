@@ -32,7 +32,6 @@ const SECTION_ICONS: Record<string, string> = {
 };
 
 export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }: DashboardNutritionCardProps) {
-    const [expanded, setExpanded] = React.useState(false);
     const proteinProgress = targets.protein > 0 ? actualNutrition.protein / targets.protein : 0;
     const carbsProgress = targets.carbs > 0 ? actualNutrition.carbs / targets.carbs : 0;
     const fatProgress = targets.fat > 0 ? actualNutrition.fat / targets.fat : 0;
@@ -132,13 +131,6 @@ export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }
                     {cutProtocol.sodium_instruction && (
                         <Text style={styles.sodiumInstruction}>{cutProtocol.sodium_instruction}</Text>
                     )}
-
-                    {/* Expandable Schedule */}
-                    <View style={styles.expandTriggerWrapper}>
-                        <Text style={styles.expandText}>
-                            {expanded ? 'Hide daily cut schedule' : 'View daily cut schedule'}
-                        </Text>
-                    </View>
 
                     {/* Schedule is always rendered if we just rely on parent AnimatedPressable for clicks,
                         but DashboardNutritionCard is wrapped in AnimatedPressable which catches the click and navigates! 

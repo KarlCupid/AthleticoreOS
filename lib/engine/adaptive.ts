@@ -4,7 +4,6 @@ import {
     AutoRegulateSCInput,
     AutoRegulateSCResult,
     ExerciseLibraryRow,
-    CutPhase,
 } from './types';
 
 // ─── Constants ─────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } f
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
-import { IconChevronLeft, IconActivity } from '../components/icons';
+import { IconChevronLeft } from '../components/icons';
 import { ExerciseLibraryRow } from '../../lib/engine/types';
 import { PlanStackParamList } from '../navigation/types';
 

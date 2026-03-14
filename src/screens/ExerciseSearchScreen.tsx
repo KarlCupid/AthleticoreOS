@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,7 +6,6 @@ import {
     FlatList,
     StyleSheet,
     TouchableOpacity,
-    Keyboard,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SkeletonLoader } from '../components/SkeletonLoader';
@@ -16,8 +15,9 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { searchExercises, getExerciseLibrary } from '../../lib/api/scService';
+import { searchExercises } from '../../lib/api/scService';
 import { ExerciseLibraryRow, ExerciseType, MuscleGroup } from '../../lib/engine/types';
+import { logError } from '../../lib/utils/logger';
 import { IconChevronLeft, IconPlus } from '../components/icons';
 import { PlanStackParamList } from '../navigation/types';
 
@@ -79,7 +79,7 @@ export function ExerciseSearchScreen() {
             const data = await searchExercises(query, filters, 50);
             setResults(data);
         } catch (e) {
-            console.error('Search error:', e);
+            logError('ExerciseSearchScreen.search', e, { query });
         }
         setLoading(false);
     };
