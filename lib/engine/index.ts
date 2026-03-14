@@ -6,7 +6,7 @@ export { handleTimelineShift, autoRegulateSC } from './adaptive';
 export { calculateNutritionTargets, computeMacroAdherence, resolveDailyNutritionTargets } from './calculateNutrition';
 export { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight';
 export { calculateCampRisk } from './calculateCampRisk';
-export { buildDailyMission, buildMicrocyclePlan } from './calculateMission';
+export { DAILY_ENGINE_VERSION, buildDailyMission, buildMicrocyclePlan } from './calculateMission';
 export {
   determineFocus,
   scoreExerciseForUser,
@@ -98,6 +98,7 @@ export type {
   PerformanceObjective,
   MacrocycleContext,
   DailyMission,
+  DailyEngineSnapshotRow,
   TrainingDirective,
   FuelDirective,
   HydrationDirective,

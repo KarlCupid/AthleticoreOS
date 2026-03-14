@@ -137,6 +137,8 @@ export interface MissionOverride {
 
 export interface DailyMission {
   date: string;
+  engineVersion: string;
+  generatedAt: string;
   headline: string;
   summary: string;
   objective: PerformanceObjective;
@@ -148,6 +150,19 @@ export interface DailyMission {
   riskState: MissionRiskState;
   decisionTrace: DecisionTraceItem[];
   overrideState: MissionOverride;
+}
+
+export interface DailyEngineSnapshotRow {
+  id: string;
+  user_id: string;
+  date: string;
+  engine_version: string;
+  objective_context_snapshot: MacrocycleContext;
+  nutrition_targets_snapshot: ResolvedNutritionTargets;
+  workout_prescription_snapshot: WorkoutPrescriptionV2 | null;
+  mission_snapshot: DailyMission;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MissionScheduledActivity {

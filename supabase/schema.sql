@@ -250,3 +250,24 @@ CREATE POLICY "Athletes can manage their own favorites"
 CREATE POLICY "Athletes can manage their own hydration log"
     ON public.hydration_log FOR ALL
     USING (auth.uid() = user_id);
+
+-- Daily Engine Snapshots: canonical mission/fuel/workout output per user/day
+CREATE TABLE IF NOT EXISTS public.daily_engine_snapshots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.Users(id) NOT NULL,
+    date DATE NOT NULL,
+    engine_version TEXT NOT NULL DEFAULT 'daily-engine-v2',
+    objective_context_snapshot JSONB NOT NULL,
+    nutrition_targets_snapshot JSONB NOT NULL,
+    workout_prescription_snapshot JSONB,
+    mission_snapshot JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, date)
+);
+
+ALTER TABLE public.daily_engine_snapshots ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own daily engine snapshots"
+    ON public.daily_engine_snapshots FOR ALL
+    USING (auth.uid() = user_id);

@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import {
+  DAILY_ENGINE_VERSION,
   buildDailyMission,
-  buildMicrocyclePlan,
   calculateCampRisk,
   calculateNutritionTargets,
   calculateWeightCorrection,
@@ -23,12 +23,18 @@ import {
 import { calculateACWR } from '../engine/calculateACWR';
 import { determineCampPhase, toCampEnginePhase } from '../engine/calculateCamp';
 import { getAthleteContext, normalizeActivityLevel, normalizeNutritionGoal } from './athleteContextService';
+import { getDailyEngineSnapshot, getDailyEngineSnapshotsForDates, upsertDailyEngineSnapshot } from './dailyEngineSnapshotService';
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
 import { getActiveFightCamp } from './fightCampService';
 import { getDefaultGymProfile } from './gymProfileService';
 import { getExerciseHistoryBatch, getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
 import { getScheduledActivities } from './scheduleService';
 import { getEffectiveWeight, getWeightHistory } from './weightService';
+import { updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
+
+interface DailyMissionOptions {
+  forceRefresh?: boolean;
+}
 
 function daysBetween(start: string, end: string): number {
   const a = new Date(`${start}T00:00:00`).getTime();
@@ -149,18 +155,50 @@ export async function resolveObjectiveContext(userId: string, date: string): Pro
   };
 }
 
-async function getPlanEntryForDate(userId: string, date: string): Promise<WeeklyPlanEntryRow | null> {
+async function getPlanEntriesForDate(userId: string, date: string): Promise<WeeklyPlanEntryRow[]> {
   const { data, error } = await supabase
     .from('weekly_plan_entries')
     .select('*')
     .eq('user_id', userId)
     .eq('date', date)
-    .order('slot')
-    .limit(1)
-    .maybeSingle();
+    .order('slot');
 
   if (error) throw error;
-  return (data as WeeklyPlanEntryRow | null) ?? null;
+  return (data ?? []) as WeeklyPlanEntryRow[];
+}
+
+function pickPrimaryPlanEntry(entries: WeeklyPlanEntryRow[]): WeeklyPlanEntryRow | null {
+  if (entries.length === 0) return null;
+
+  const slotRank: Record<WeeklyPlanEntryRow['slot'], number> = {
+    single: 0,
+    pm: 1,
+    am: 2,
+  };
+
+  return [...entries].sort((a, b) => {
+    const intensityDelta = (b.target_intensity ?? 0) - (a.target_intensity ?? 0);
+    if (intensityDelta !== 0) return intensityDelta;
+
+    const durationDelta = b.estimated_duration_min - a.estimated_duration_min;
+    if (durationDelta !== 0) return durationDelta;
+
+    return slotRank[a.slot] - slotRank[b.slot];
+  })[0] ?? null;
+}
+
+function toMissionActivityStatus(status: WeeklyPlanEntryRow['status']): 'scheduled' | 'modified' | 'completed' | 'skipped' {
+  switch (status) {
+    case 'rescheduled':
+      return 'modified';
+    case 'completed':
+      return 'completed';
+    case 'skipped':
+      return 'skipped';
+    case 'planned':
+    default:
+      return 'scheduled';
+  }
 }
 
 async function resolveACWR(userId: string, date: string, phase: Phase, fitnessLevel: string, isOnActiveCut: boolean): Promise<ACWRResult> {
@@ -197,8 +235,9 @@ async function resolveNutritionTargets(input: {
   currentWeight: number;
   profile: NonNullable<Awaited<ReturnType<typeof getAthleteContext>>['profile']>;
   weightTrend: MacrocycleContext['weightTrend'];
+  weeklyPlanEntries?: WeeklyPlanEntryRow[];
 }): Promise<ResolvedNutritionTargets> {
-  const { userId, date, phase, currentWeight, profile, weightTrend } = input;
+  const { userId, date, phase, currentWeight, profile, weightTrend, weeklyPlanEntries = [] } = input;
   const scheduledActivities = await getScheduledActivities(userId, date, date);
 
   let cutProtocol = null as Awaited<ReturnType<typeof getCutProtocolForDate>>;
@@ -249,13 +288,21 @@ async function resolveNutritionTargets(input: {
   return resolveDailyNutritionTargets(
     tempTargets,
     cutProtocol,
-    scheduledActivities
-      .filter((activity) => activity.status !== 'skipped')
-      .map((activity) => ({
-        activity_type: activity.activity_type,
-        expected_intensity: activity.expected_intensity,
-        estimated_duration_min: activity.estimated_duration_min,
-      })),
+    (scheduledActivities.length > 0
+      ? scheduledActivities
+          .filter((activity) => activity.status !== 'skipped')
+          .map((activity) => ({
+            activity_type: activity.activity_type,
+            expected_intensity: activity.expected_intensity,
+            estimated_duration_min: activity.estimated_duration_min,
+          }))
+      : weeklyPlanEntries
+          .filter((entry) => entry.status !== 'skipped')
+          .map((entry) => ({
+            activity_type: entry.session_type as any,
+            expected_intensity: entry.target_intensity ?? 5,
+            estimated_duration_min: entry.estimated_duration_min,
+          }))),
   );
 }
 
@@ -318,12 +365,23 @@ async function resolveWorkoutPrescription(input: {
   });
 }
 
-export async function getDailyMission(userId: string, date: string): Promise<DailyMission> {
-  const [objectiveContext, athleteContext, weeklyPlanEntry] = await Promise.all([
+export async function getDailyMission(
+  userId: string,
+  date: string,
+  options: DailyMissionOptions = {},
+): Promise<DailyMission> {
+  const snapshot = options.forceRefresh ? null : await getDailyEngineSnapshot(userId, date);
+  if (!options.forceRefresh && snapshot?.mission_snapshot?.engineVersion === DAILY_ENGINE_VERSION) {
+    return snapshot.mission_snapshot;
+  }
+
+  const [objectiveContext, athleteContext, weeklyPlanEntries] = await Promise.all([
     resolveObjectiveContext(userId, date),
     getAthleteContext(userId),
-    getPlanEntryForDate(userId, date),
+    getPlanEntriesForDate(userId, date),
   ]);
+
+  const primaryPlanEntry = pickPrimaryPlanEntry(weeklyPlanEntries);
 
   const profile = athleteContext.profile;
   const currentWeight = objectiveContext.currentWeightLbs ?? profile?.base_weight ?? 150;
@@ -341,6 +399,7 @@ export async function getDailyMission(userId: string, date: string): Promise<Dai
       currentWeight,
       profile,
       weightTrend: objectiveContext.weightTrend,
+      weeklyPlanEntries,
     })
     : ({
       tdee: 0,
@@ -375,7 +434,7 @@ export async function getDailyMission(userId: string, date: string): Promise<Dai
     readinessState,
     acwr,
     fitnessLevel: athleteContext.fitnessLevel,
-    weeklyPlanEntry,
+    weeklyPlanEntry: primaryPlanEntry,
     cutProtocol,
   });
 
@@ -389,29 +448,54 @@ export async function getDailyMission(userId: string, date: string): Promise<Dai
     isTravelWindow: objectiveContext.isTravelWindow,
   });
 
-  return buildDailyMission({
+  const mission = buildDailyMission({
     date,
     macrocycleContext: objectiveContext,
     readinessState,
     acwr,
     nutritionTargets,
     hydration,
-    scheduledActivities: scheduledActivities.map((activity) => ({
-      date: activity.date,
-      activity_type: activity.activity_type,
-      estimated_duration_min: activity.estimated_duration_min,
-      expected_intensity: activity.expected_intensity,
-      status: activity.status,
-    })),
+    scheduledActivities: (scheduledActivities.length > 0
+      ? scheduledActivities.map((activity) => ({
+          date: activity.date,
+          activity_type: activity.activity_type,
+          estimated_duration_min: activity.estimated_duration_min,
+          expected_intensity: activity.expected_intensity,
+          status: activity.status,
+        }))
+      : weeklyPlanEntries.map((entry) => ({
+          date: entry.date,
+          activity_type: entry.session_type as any,
+          estimated_duration_min: entry.estimated_duration_min,
+          expected_intensity: entry.target_intensity ?? 5,
+          status: toMissionActivityStatus(entry.status),
+        }))),
     cutProtocol,
     workoutPrescription: workoutPrescription ?? null,
-    weeklyPlanEntry,
+    weeklyPlanEntry: primaryPlanEntry,
     riskScore: riskAssessment?.score ?? null,
     riskDrivers: riskAssessment?.drivers ?? [],
   });
+
+  await upsertDailyEngineSnapshot({
+    userId,
+    date,
+    engineVersion: mission.engineVersion ?? DAILY_ENGINE_VERSION,
+    objectiveContext,
+    nutritionTargets,
+    workoutPrescription: workoutPrescription ?? null,
+    mission,
+  });
+  await updateDailyMissionSnapshotsByDate(userId, [{ date, mission }]);
+
+  return mission;
 }
 
-export async function getWeeklyMission(userId: string, weekStart: string): Promise<WeeklyMissionPlan> {
+export async function getWeeklyMission(
+  userId: string,
+  weekStart: string,
+  options: DailyMissionOptions = {},
+): Promise<WeeklyMissionPlan> {
   const { data, error } = await supabase
     .from('weekly_plan_entries')
     .select('*')
@@ -431,7 +515,10 @@ export async function getWeeklyMission(userId: string, weekStart: string): Promi
     };
   }
 
-  if (entries.every((entry) => entry.daily_mission_snapshot)) {
+  if (
+    !options.forceRefresh
+    && entries.every((entry) => entry.daily_mission_snapshot?.engineVersion === DAILY_ENGINE_VERSION)
+  ) {
     return {
       entries: entries.map((entry) => ({
         ...entry,
@@ -441,52 +528,41 @@ export async function getWeeklyMission(userId: string, weekStart: string): Promi
       summary: `${entries.length} sessions loaded from saved mission snapshots.`,
     };
   }
+  const uniqueDates = Array.from(new Set(entries.map((entry) => entry.date)));
+  const storedSnapshots = options.forceRefresh
+    ? new Map()
+    : await getDailyEngineSnapshotsForDates(userId, uniqueDates);
+  const snapshotsToWrite: Array<{ date: string; mission: DailyMission }> = [];
+  const missionsByDate = new Map<string, DailyMission>();
 
-  const objectiveContext = await resolveObjectiveContext(userId, weekStart);
-  const athleteContext = await getAthleteContext(userId);
-  const acwr = await resolveACWR(userId, weekStart, objectiveContext.phase, athleteContext.fitnessLevel, athleteContext.isOnActiveCut);
-  const readinessState = await resolveReadinessState(userId, weekStart, acwr, 0);
-  const currentWeight = objectiveContext.currentWeightLbs ?? athleteContext.profile?.base_weight ?? 150;
-  const targetWeight = objectiveContext.targetWeightLbs ?? currentWeight;
-  const nutritionTargets = athleteContext.profile
-    ? await resolveNutritionTargets({
-      userId,
-      date: weekStart,
-      phase: objectiveContext.phase,
-      currentWeight,
-      profile: athleteContext.profile,
-      weightTrend: objectiveContext.weightTrend,
-    })
-    : ({
-      tdee: 0,
-      adjustedCalories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      proteinModifier: 1,
-      phaseMultiplier: 0,
-      weightCorrectionDeficit: 0,
-      message: '',
-      source: 'base',
-      fuelState: 'rest',
-      sessionDemandScore: 0,
-      hydrationBoostOz: 0,
-      reasonLines: [],
-    } as ResolvedNutritionTargets);
-  const hydration = getHydrationProtocol({
-    phase: objectiveContext.phase,
-    fightStatus: athleteContext.profile?.fight_status ?? 'amateur',
-    currentWeightLbs: currentWeight,
-    targetWeightLbs: targetWeight,
-    weeklyVelocityLbs: objectiveContext.weightTrend?.weeklyVelocityLbs,
-  });
+  for (const date of uniqueDates) {
+    const storedMission = storedSnapshots.get(date)?.mission_snapshot;
+    if (storedMission?.engineVersion === DAILY_ENGINE_VERSION) {
+      missionsByDate.set(date, storedMission);
+      continue;
+    }
 
-  return buildMicrocyclePlan({
-    entries,
-    macrocycleContext: objectiveContext,
-    readinessState,
-    acwr,
-    baseNutritionTargets: nutritionTargets,
-    hydration,
-  });
+    const entryMission = entries.find((entry) => entry.date === date)?.daily_mission_snapshot;
+    if (entryMission?.engineVersion === DAILY_ENGINE_VERSION) {
+      missionsByDate.set(date, entryMission);
+      continue;
+    }
+
+    const mission = await getDailyMission(userId, date, { forceRefresh: options.forceRefresh });
+    missionsByDate.set(date, mission);
+    snapshotsToWrite.push({ date, mission });
+  }
+
+  if (snapshotsToWrite.length > 0) {
+    await updateDailyMissionSnapshotsByDate(userId, snapshotsToWrite);
+  }
+
+  return {
+    entries: entries.map((entry) => ({
+      ...entry,
+      daily_mission_snapshot: missionsByDate.get(entry.date) ?? entry.daily_mission_snapshot ?? null,
+    })),
+    headline: 'Weekly mission',
+    summary: `${uniqueDates.length} daily missions aligned to the current block and saved for reuse.`,
+  };
 }

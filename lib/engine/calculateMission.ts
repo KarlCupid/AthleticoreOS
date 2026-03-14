@@ -18,6 +18,8 @@ import type {
   WorkoutType,
 } from './types';
 
+export const DAILY_ENGINE_VERSION = 'daily-engine-v2';
+
 function titleize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -435,6 +437,8 @@ export function buildDailyMission(input: BuildDailyMissionInput): DailyMission {
 
   return {
     date: input.date,
+    engineVersion: DAILY_ENGINE_VERSION,
+    generatedAt: new Date().toISOString(),
     headline: buildHeadline(trainingDirective, riskState),
     summary: `${trainingDirective.intent} ${fuelDirective.message}`,
     objective: input.macrocycleContext.performanceObjective,

@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow } from '../engine/types';
+import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow, DailyMission } from '../engine/types';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
@@ -594,6 +594,34 @@ export async function getWeeklyPlanEntryById(entryId: string): Promise<WeeklyPla
 
     if (error) throw error;
     return data as WeeklyPlanEntryRow | null;
+}
+
+export async function updateDailyMissionSnapshotsByDate(
+    userId: string,
+    snapshots: Array<{ date: string; mission: DailyMission }>,
+): Promise<void> {
+    if (hasDailyMissionSnapshotColumn === false || snapshots.length === 0) {
+        return;
+    }
+
+    try {
+        await Promise.all(
+            snapshots.map(({ date, mission }) =>
+                supabase
+                    .from('weekly_plan_entries')
+                    .update({ daily_mission_snapshot: mission })
+                    .eq('user_id', userId)
+                    .eq('date', date),
+            ),
+        );
+        hasDailyMissionSnapshotColumn = true;
+    } catch (error) {
+        if (isMissingDailyMissionSnapshotColumnError(error)) {
+            hasDailyMissionSnapshotColumn = false;
+            return;
+        }
+        throw error;
+    }
 }
 
 export async function markRecommendationAccepted(entryId: string): Promise<void> {
