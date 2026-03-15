@@ -65,10 +65,10 @@ export function TrainingLoadChartCard({ trainingLoadData, acute, chronic, acwr }
             {acwr && (
                 <Text style={styles.chartCaption}>
                     {acwr.status === 'redline'
-                        ? 'Training load is high. Focus on recovery.'
+                        ? `ACWR ${acwr.ratio?.toFixed(2) ?? '—'} — above 1.5. High injury risk. Prioritize recovery today.`
                         : acwr.status === 'caution'
-                            ? 'Training load is increasing. Monitor fatigue.'
-                            : 'Training load is balanced.'}
+                            ? `ACWR ${acwr.ratio?.toFixed(2) ?? '—'} — load rising. Monitor fatigue closely this week.`
+                            : `ACWR ${acwr.ratio?.toFixed(2) ?? '—'} — in the optimal 0.8–1.3 zone. You can push hard today.`}
                 </Text>
             )}
         </Card>

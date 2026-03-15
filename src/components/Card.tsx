@@ -6,7 +6,7 @@ import Animated, {
     useAnimatedStyle,
     withSpring,
 } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS, ANIMATION } from '../theme/theme';
 
 type CardVariant = 'default' | 'elevated' | 'outlined' | 'filled';
 
@@ -110,10 +110,12 @@ const variantMap: Record<CardVariant, ViewStyle> = {
     default: {
         backgroundColor: COLORS.surface,
         ...SHADOWS.card,
+        ...BORDERS.card,
     },
     elevated: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS.surfaceElevated,
         ...SHADOWS.cardElevated,
+        ...BORDERS.elevated,
     },
     outlined: {
         backgroundColor: COLORS.surface,

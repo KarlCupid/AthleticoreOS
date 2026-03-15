@@ -289,11 +289,26 @@ export async function saveWeekPlan(
     endDate.setDate(endDate.getDate() + 6);
     const weekEnd = formatLocalDate(endDate);
 
+    const { data: preservedCompletedEntries, error: preservedCompletedError } = await supabase
+        .from('weekly_plan_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
+        .eq('status', 'completed');
+
+    if (preservedCompletedError) throw preservedCompletedError;
+
+    const preservedKeys = new Set(
+        ((preservedCompletedEntries ?? []) as WeeklyPlanEntryRow[]).map((entry) => `${entry.date}::${entry.slot}`),
+    );
+
     await supabase
         .from('weekly_plan_entries')
         .delete()
         .eq('user_id', userId)
-        .eq('week_start_date', weekStart)
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
         .neq('status', 'completed');
 
     await supabase
@@ -305,7 +320,22 @@ export async function saveWeekPlan(
         .lte('date', weekEnd)
         .eq('status', 'scheduled');
 
-    const baseInsertPayload = entries.map((e) => ({
+    const entriesToInsert = entries.filter((entry) => !preservedKeys.has(`${entry.date}::${entry.slot}`));
+    if (entriesToInsert.length === 0) {
+        const { data: finalCompletedOnly, error: finalCompletedOnlyError } = await supabase
+            .from('weekly_plan_entries')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('date', weekStart)
+            .lte('date', weekEnd)
+            .order('date')
+            .order('slot');
+
+        if (finalCompletedOnlyError) throw finalCompletedOnlyError;
+        return (finalCompletedOnly ?? []) as WeeklyPlanEntryRow[];
+    }
+
+    const baseInsertPayload = entriesToInsert.map((e) => ({
         user_id: userId,
         week_start_date: e.week_start_date,
         day_of_week: e.day_of_week,
@@ -326,7 +356,7 @@ export async function saveWeekPlan(
 
     const insertPayloadWithoutMission = baseInsertPayload.map(({ daily_mission_snapshot: _daily_mission_snapshot, ...payload }) => payload);
 
-    const withScheduledActivityPayload = entries.map((e, index) => ({
+    const withScheduledActivityPayload = entriesToInsert.map((e, index) => ({
         ...(hasDailyMissionSnapshotColumn === false ? insertPayloadWithoutMission[index] : baseInsertPayload[index]),
         scheduled_activity_id: e.scheduled_activity_id ?? null,
     }));
@@ -388,11 +418,44 @@ export async function saveWeekPlan(
     const insertedEntries = generatedEntries;
 
     let scheduledByEntryId = new Map<string, string>();
+    const { data: existingScheduledActivities, error: existingScheduledActivitiesError } = await supabase
+        .from('scheduled_activities')
+        .select('id, date, activity_type')
+        .eq('user_id', userId)
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
+        .neq('source', 'engine')
+        .eq('status', 'scheduled');
 
-    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn !== false) {
+    if (existingScheduledActivitiesError) throw existingScheduledActivitiesError;
+
+    const anchorActivityQueues = new Map<string, string[]>();
+    for (const activity of (existingScheduledActivities ?? []) as Array<{
+        id: string;
+        date: string;
+        activity_type: string;
+    }>) {
+        const key = `${activity.date}::${activity.activity_type}`;
+        const current = anchorActivityQueues.get(key) ?? [];
+        current.push(activity.id);
+        anchorActivityQueues.set(key, current);
+    }
+
+    const entriesNeedingScheduledInsert: WeeklyPlanEntryRow[] = [];
+    for (const entry of insertedEntries) {
+        const anchorKey = `${entry.date}::${entry.session_type}`;
+        const matchingAnchorId = anchorActivityQueues.get(anchorKey)?.shift();
+        if (matchingAnchorId) {
+            scheduledByEntryId.set(entry.id, matchingAnchorId);
+            continue;
+        }
+        entriesNeedingScheduledInsert.push(entry);
+    }
+
+    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn !== false && entriesNeedingScheduledInsert.length > 0) {
         const { data: scheduledActivities, error: scheduledError } = await supabase
             .from('scheduled_activities')
-            .insert(insertedEntries.map((entry) => toScheduledActivityPayload(userId, entry)))
+            .insert(entriesNeedingScheduledInsert.map((entry) => toScheduledActivityPayload(userId, entry)))
             .select('id, weekly_plan_entry_id');
 
         if (scheduledError) {
@@ -411,11 +474,11 @@ export async function saveWeekPlan(
         }
     }
 
-    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn === false) {
+    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn === false && entriesNeedingScheduledInsert.length > 0) {
         const { error: scheduledFallbackError } = await supabase
             .from('scheduled_activities')
             .insert(
-                insertedEntries.map((entry) =>
+                entriesNeedingScheduledInsert.map((entry) =>
                     toScheduledActivityPayload(userId, entry, { includeWeeklyPlanEntryId: false }),
                 ),
             )
@@ -448,7 +511,8 @@ export async function saveWeekPlan(
         .from('weekly_plan_entries')
         .select('*')
         .eq('user_id', userId)
-        .eq('week_start_date', weekStart)
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
         .order('date')
         .order('slot');
 

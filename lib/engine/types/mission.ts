@@ -14,6 +14,7 @@ import type { ScheduledActivityRow, WeeklyPlanEntryRow } from './schedule';
 import type { FuelState, ResolvedNutritionTargets } from './nutrition';
 import type { WorkoutPrescriptionV2 } from './training';
 import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut';
+import type { CampRiskAssessment } from '../calculateCampRisk';
 
 export type TrainingSessionRole =
   | 'develop'
@@ -201,4 +202,22 @@ export interface WeeklyMissionPlan {
   entries: Array<WeeklyPlanEntryRow & { daily_mission_snapshot: DailyMission | null }>;
   headline: string;
   summary: string;
+}
+
+export interface DailyEngineState {
+  date: string;
+  engineVersion: string;
+  objectiveContext: MacrocycleContext;
+  acwr: ACWRResult;
+  readinessState: ReadinessState;
+  cutProtocol: DailyCutProtocolRow | null;
+  nutritionTargets: ResolvedNutritionTargets;
+  hydration: HydrationResult;
+  scheduledActivities: ScheduledActivityRow[];
+  weeklyPlanEntries: WeeklyPlanEntryRow[];
+  primaryScheduledActivity: ScheduledActivityRow | null;
+  primaryPlanEntry: WeeklyPlanEntryRow | null;
+  workoutPrescription: WorkoutPrescriptionV2 | null;
+  mission: DailyMission;
+  campRisk: CampRiskAssessment | null;
 }

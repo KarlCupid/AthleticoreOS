@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS, ANIMATION } from '../theme/theme';
 import { IconActivity } from './icons';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 
@@ -23,7 +23,7 @@ export function PrescriptionCard({ message, entering = false, enteringDelay = 0 
                 <IconActivity size={20} color={themeColor} />
             </View>
             <View style={styles.content}>
-                <Text style={styles.title}>Engine Prescription</Text>
+                <Text style={styles.title}>Today's Insight</Text>
                 <Text style={styles.message}>{message}</Text>
             </View>
         </View>
@@ -51,6 +51,7 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.lg,
         overflow: 'hidden',
         ...SHADOWS.card,
+        ...BORDERS.card,
     },
     accentBorder: {
         position: 'absolute',
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: RADIUS.md,
-        backgroundColor: COLORS.borderLight,
+        backgroundColor: COLORS.surfaceSecondary,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: SPACING.md,

@@ -122,8 +122,8 @@ export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }
                             </View>
                         )}
                         {cutProtocol.is_carb_cycle_high && !cutProtocol.is_refeed_day && (
-                            <View style={[styles.refeedBadge, { backgroundColor: '#EFF6FF' }]}>
-                                <Text style={[styles.refeedText, { color: '#2563EB' }]}>HIGH CARB</Text>
+                            <View style={[styles.refeedBadge, { backgroundColor: 'rgba(96,165,250,0.12)' }]}>
+                                <Text style={[styles.refeedText, { color: '#60A5FA' }]}>HIGH CARB</Text>
                             </View>
                         )}
                     </View>
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
         gap: SPACING.sm,
         paddingTop: SPACING.sm,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: COLORS.borderLight,
+        borderTopColor: COLORS.border,
     },
     hydrationBarWrap: {
         flex: 1,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
         marginTop: SPACING.lg,
         paddingTop: SPACING.md,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: COLORS.borderLight,
+        borderTopColor: COLORS.border,
         gap: SPACING.sm,
     },
     cutTagsRow: {
@@ -252,12 +252,12 @@ const styles = StyleSheet.create({
     sodiumValue: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.text.primary },
     sodiumLabel: { fontFamily: FONT_FAMILY.regular, fontSize: 9, color: COLORS.text.secondary },
     refeedBadge: {
-        backgroundColor: '#FEF9C3',
+        backgroundColor: 'rgba(251,191,36,0.15)',
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: RADIUS.sm,
     },
-    refeedText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 10, color: '#CA8A04', letterSpacing: 0.5 },
+    refeedText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 10, color: COLORS.warning, letterSpacing: 0.5 },
     sodiumInstruction: {
         fontFamily: FONT_FAMILY.regular,
         fontSize: 12,

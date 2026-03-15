@@ -1,27 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
-import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
-import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
-import { calculateNutritionTargets, resolveDailyNutritionTargets } from '../../lib/engine/calculateNutrition';
-import {
-  calculateWeightTrend,
-  calculateWeightCorrection,
-  calculateWeightReadinessPenalty,
-} from '../../lib/engine/calculateWeight';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
-import { getDailyMission } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import { generateRollingSchedule, getDailyAdaptationForToday, getScheduledActivities } from '../../lib/api/scheduleService';
-import { getWeightHistory, getEffectiveWeight } from '../../lib/api/weightService';
-import { getExerciseHistoryBatch, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
-import { generateWorkoutV2 } from '../../lib/engine/calculateSC';
 import {
   getAthleteContext,
   getActiveUserId,
-  normalizeActivityLevel,
   normalizeCycleDay,
-  normalizeNutritionGoal,
 } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
 import type {
@@ -33,20 +19,16 @@ import type {
   WeightTrendResult,
   ScheduledActivityRow,
   MacroLedgerRow,
-  ExerciseLibraryRow,
   WorkoutPrescription,
   DailyCutProtocolRow,
-  MuscleGroup,
 } from '../../lib/engine/types';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { todayLocalDate } from '../../lib/utils/date';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
-import { calculateCampRisk, type CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
-import { getTodayPlanEntry } from '../../lib/api/weeklyPlanService';
+import type { CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
 import {
   computeActualNutrition,
   composePrescriptionMessage,
-  toFightPrepPhase,
   type DashboardNutritionTotals,
 } from './dashboard/utils';
 
@@ -56,20 +38,6 @@ interface DailyCheckinRow {
   morning_weight: number | null;
   readiness: number;
 }
-
-const EMPTY_VOLUME: Record<MuscleGroup, number> = {
-  chest: 0,
-  back: 0,
-  shoulders: 0,
-  quads: 0,
-  hamstrings: 0,
-  glutes: 0,
-  arms: 0,
-  core: 0,
-  full_body: 0,
-  neck: 0,
-  calves: 0,
-};
 
 const EMPTY_NUTRITION: DashboardNutritionTotals = {
   calories: 0,
@@ -94,6 +62,7 @@ export function useDashboardData() {
   const [readinessSubjective, setReadinessSubjective] = useState<number | null>(null);
 
   const [todayActivities, setTodayActivities] = useState<ScheduledActivityRow[]>([]);
+  const [primaryActivity, setPrimaryActivity] = useState<ScheduledActivityRow | null>(null);
   const [currentLedger, setCurrentLedger] = useState<MacroLedgerRow | null>(null);
   const [prescriptionMessage, setPrescriptionMessage] = useState<string | null>(null);
   const [workoutPrescription, setWorkoutPrescription] = useState<WorkoutPrescription | null>(null);
@@ -107,11 +76,15 @@ export function useDashboardData() {
   const [activeCutProtocol, setActiveCutProtocol] = useState<DailyCutProtocolRow | null>(null);
   const [campStatusLabel, setCampStatusLabel] = useState<string>('Build Phase');
   const [campRisk, setCampRisk] = useState<CampRiskAssessment | null>(null);
+  const [goalMode, setGoalMode] = useState<'fight_camp' | 'build_phase'>('build_phase');
+  const [hasActiveFightCamp, setHasActiveFightCamp] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     const userId = await getActiveUserId();
     if (!userId) {
       setCampRisk(null);
+      setGoalMode('build_phase');
+      setHasActiveFightCamp(false);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -128,13 +101,16 @@ export function useDashboardData() {
 
       const athleteContext = await getAthleteContext(userId);
       const profile = athleteContext.profile;
+      setGoalMode(athleteContext.goalMode);
 
       let campStatus: Awaited<ReturnType<typeof getFightCampStatus>> | null = null;
       try {
         campStatus = await getFightCampStatus(userId, todayStr);
+        setHasActiveFightCamp(Boolean(campStatus.camp));
         setCampStatusLabel(campStatus.label);
       } catch (error) {
         logError('useDashboardData.getFightCampStatus', error, { userId });
+        setHasActiveFightCamp(false);
         setCampStatusLabel('Build Phase');
       }
 
@@ -142,7 +118,6 @@ export function useDashboardData() {
         { data: checkinData },
         { data: trainingSessions },
         { data: ledger },
-        { data: library },
         scheduledActivities,
       ] = await Promise.all([
         supabase
@@ -162,12 +137,10 @@ export function useDashboardData() {
           .eq('user_id', userId)
           .eq('date', todayStr)
           .maybeSingle(),
-        supabase.from('exercise_library').select('*'),
         getScheduledActivities(userId, todayStr, todayStr),
       ]);
 
       const checkin = (checkinData as DailyCheckinRow | null) ?? null;
-      const exerciseRows = (library as ExerciseLibraryRow[] | null) ?? [];
 
       setCheckinDone(Boolean(checkin));
       if (checkin) {
@@ -183,133 +156,27 @@ export function useDashboardData() {
       setSessionDone(Boolean(trainingSessions && trainingSessions.length > 0));
       setCurrentLedger((ledger as MacroLedgerRow | null) ?? null);
       setTodayActivities(scheduledActivities);
-      let resolvedBaseTdee = ((ledger as MacroLedgerRow | null)?.base_tdee ?? 0);
-
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
-
-      const acwrResult = await calculateACWR({
-        userId,
-        supabaseClient: supabase,
-        asOfDate: todayStr,
-        fitnessLevel: athleteContext.fitnessLevel,
-        phase: athleteContext.phase,
-        isOnActiveCut: athleteContext.isOnActiveCut,
-      });
-      setAcwr(acwrResult);
-
-      let cutProtocol: DailyCutProtocolRow | null = null;
-      if (athleteContext.isOnActiveCut) {
-        const { data: proto } = await supabase
-          .from('daily_cut_protocols')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', todayStr)
-          .maybeSingle();
-        cutProtocol = (proto as DailyCutProtocolRow | null) ?? null;
-      }
-      setActiveCutProtocol(cutProtocol);
-
-      let currentWeightTrend: WeightTrendResult | null = null;
-      let weightPenaltyPoints = 0;
-      let correctionDeficit = 0;
-      const profilePhase = toFightPrepPhase(profile?.phase);
-
-      if (profile) {
-        try {
-          const effectiveWeight = await getEffectiveWeight(userId, profile.base_weight ?? 150);
-          const weightHistory = await getWeightHistory(userId, 30);
-
-          currentWeightTrend = calculateWeightTrend({
-            weightHistory,
-            targetWeightLbs: profile.target_weight ?? null,
-            baseWeightLbs: profile.base_weight ?? effectiveWeight,
-            phase: profilePhase,
-            deadlineDate: profile.fight_date ?? null,
-          });
-          setWeightTrend(currentWeightTrend);
-
-          const tempTargets = calculateNutritionTargets({
-            weightLbs: effectiveWeight,
-            heightInches: profile.height_inches ?? null,
-            age: profile.age ?? null,
-            biologicalSex: profile.biological_sex ?? 'male',
-            activityLevel: normalizeActivityLevel(profile.activity_level),
-            phase: profilePhase,
-            nutritionGoal: normalizeNutritionGoal(profile.nutrition_goal),
-            cycleDay,
-            coachProteinOverride: null,
-            coachCarbsOverride: null,
-            coachFatOverride: null,
-            coachCaloriesOverride: null,
-          });
-
-          const weightCorrection = calculateWeightCorrection({
-            weightTrend: currentWeightTrend,
-            phase: profilePhase,
-            currentTDEE: tempTargets.tdee,
-            deadlineDate: profile.fight_date ?? null,
-          });
-          correctionDeficit = weightCorrection.correctionDeficitCal;
-
-          const penalty = calculateWeightReadinessPenalty(currentWeightTrend, profilePhase);
-          weightPenaltyPoints = penalty.penaltyPoints;
-        } catch (error) {
-          logError('useDashboardData.weightEngine', error, { userId });
-        }
-      } else {
-        setWeightTrend(null);
-      }
-
-      if (checkin) {
-        const readinessState = getGlobalReadinessState({
-          sleep: checkin.sleep_quality,
-          readiness: checkin.readiness,
-          acwr: acwrResult.ratio,
-          weightPenalty: weightPenaltyPoints,
-        });
-        setReadiness(readinessState);
-
-        const todayPlanEntry = await getTodayPlanEntry(userId);
-
-        if (todayPlanEntry?.prescription_snapshot?.exercises?.length) {
-          setWorkoutPrescription(todayPlanEntry.prescription_snapshot);
-        } else if (exerciseRows.length > 0) {
-          const [recentIds, recentMuscleVolume] = await Promise.all([
-            getRecentExerciseIds(userId),
-            getRecentMuscleVolume(userId),
-          ]);
-          const historyMap = await getExerciseHistoryBatch(
-            userId,
-            exerciseRows.map((exercise) => exercise.id),
-          );
-          const workoutRaw = generateWorkoutV2({
-            readinessState,
-            phase: athleteContext.phase,
-            acwr: acwrResult.ratio,
-            exerciseLibrary: exerciseRows,
-            recentExerciseIds: recentIds,
-            recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
-            trainingIntensityCap: cutProtocol?.training_intensity_cap ?? undefined,
-            trainingDate: todayStr,
-            fitnessLevel: athleteContext.fitnessLevel,
-            exerciseHistory: historyMap,
-            gymEquipment: [],
-          });
-          setWorkoutPrescription(workoutRaw);
-        }
-
-        try {
-          const adaptation = await getDailyAdaptationForToday(userId);
-          setPrescriptionMessage(
-            composePrescriptionMessage(adaptation?.overarchingMessage, cutProtocol?.training_recommendation),
-          );
-        } catch (error) {
-          logError('useDashboardData.getDailyAdaptationForToday', error, { userId });
-          setPrescriptionMessage(cutProtocol?.training_recommendation ?? null);
-        }
-      } else {
-        setWorkoutPrescription(null);
-        setPrescriptionMessage(cutProtocol?.training_recommendation ?? null);
+      const engineState = await getDailyEngineState(userId, todayStr);
+      setPrimaryActivity(engineState.primaryScheduledActivity);
+      const currentWeightTrend = engineState.objectiveContext.weightTrend ?? null;
+      setWeightTrend(currentWeightTrend);
+      setAcwr(engineState.acwr);
+      setActiveCutProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
+      setReadiness(engineState.readinessState);
+      setWorkoutPrescription((engineState.workoutPrescription as WorkoutPrescription | null) ?? null);
+      setDailyMission(engineState.mission);
+      setCampRisk(engineState.campRisk);
+      setNutritionTargets(engineState.nutritionTargets);
+      setHydration(engineState.hydration);
+      try {
+        const adaptation = await getDailyAdaptationForToday(userId);
+        setPrescriptionMessage(
+          composePrescriptionMessage(adaptation?.overarchingMessage, engineState.cutProtocol?.training_recommendation),
+        );
+      } catch (error) {
+        logError('useDashboardData.getDailyAdaptationForToday', error, { userId });
+        setPrescriptionMessage(engineState.mission.summary);
       }
 
       if (profile) {
@@ -328,63 +195,21 @@ export function useDashboardData() {
         }
 
         try {
-          const hydResult = getHydrationProtocol({
-            phase: profilePhase,
-            fightStatus: profile.fight_status ?? 'amateur',
-            currentWeightLbs: effectiveWeight,
-            targetWeightLbs: profile.target_weight ?? effectiveWeight,
-            weeklyVelocityLbs: currentWeightTrend?.weeklyVelocityLbs,
-          });
-          setHydration(
-            cutProtocol ? { ...hydResult, dailyWaterOz: cutProtocol.water_target_oz } : hydResult,
-          );
-        } catch (error) {
-          logError('useDashboardData.getHydrationProtocol', error, { userId });
-          setHydration(null);
-        }
-
-        try {
-          const targets = calculateNutritionTargets({
-            weightLbs: effectiveWeight,
-            heightInches: profile.height_inches ?? null,
-            age: profile.age ?? null,
-            biologicalSex: profile.biological_sex ?? 'male',
-            activityLevel: normalizeActivityLevel(profile.activity_level),
-            phase: profilePhase,
-            nutritionGoal: normalizeNutritionGoal(profile.nutrition_goal),
-            cycleDay,
-            coachProteinOverride: profile.coach_protein_override ?? null,
-            coachCarbsOverride: profile.coach_carbs_override ?? null,
-            coachFatOverride: profile.coach_fat_override ?? null,
-            coachCaloriesOverride: profile.coach_calories_override ?? null,
-            weightCorrectionDeficit: correctionDeficit,
-          });
-          const activeActivities = scheduledActivities.filter((activity) => activity.status !== 'skipped');
-          const finalTargets = resolveDailyNutritionTargets(
-            targets,
-            cutProtocol,
-            activeActivities.map((activity) => ({
-              activity_type: activity.activity_type,
-              expected_intensity: activity.expected_intensity,
-              estimated_duration_min: activity.estimated_duration_min,
-            })),
-          );
-
-          setNutritionTargets(finalTargets);
-          resolvedBaseTdee = finalTargets.tdee;
-
           await ensureDailyLedger(userId, todayStr, {
-            tdee: finalTargets.tdee,
-            calories: finalTargets.adjustedCalories,
-            protein: finalTargets.protein,
-            carbs: finalTargets.carbs,
-            fat: finalTargets.fat,
-            weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
-            targetSource: finalTargets.source,
+            tdee: engineState.nutritionTargets.tdee,
+            calories: engineState.mission.fuelDirective.calories,
+            protein: engineState.mission.fuelDirective.protein,
+            carbs: engineState.mission.fuelDirective.carbs,
+            fat: engineState.mission.fuelDirective.fat,
+            weightCorrectionDeficit: engineState.nutritionTargets.weightCorrectionDeficit,
+            targetSource: engineState.mission.fuelDirective.source === 'weight_cut_protocol'
+              ? 'weight_cut_protocol'
+              : engineState.mission.fuelDirective.source === 'daily_engine'
+                ? 'daily_activity_adjusted'
+                : 'base',
           });
         } catch (error) {
-          logError('useDashboardData.calculateNutritionTargets', error, { userId });
-          setNutritionTargets(null);
+          logError('useDashboardData.ensureDailyLedger', error, { userId });
         }
 
         try {
@@ -410,74 +235,7 @@ export function useDashboardData() {
         setActualNutrition(EMPTY_NUTRITION);
       }
 
-      const isTravelWindow = Boolean(
-        campStatus?.camp?.travelStartDate
-        && campStatus.camp.travelStartDate <= todayStr
-        && (!campStatus.camp.travelEndDate || todayStr <= campStatus.camp.travelEndDate),
-      );
-
-      const remainingWeightLbs = currentWeightTrend ? Math.max(0, currentWeightTrend.remainingLbs) : null;
-      const nextCampRisk = calculateCampRisk({
-        goalMode: athleteContext.goalMode,
-        weightCutState: campStatus?.weightCutState ?? 'none',
-        daysOut: campStatus?.daysOut ?? null,
-        remainingWeightLbs,
-        weighInTiming: campStatus?.camp?.weighInTiming ?? null,
-        readinessAvg: checkin?.readiness ?? null,
-        acwrRatio: acwrResult.ratio,
-        isTravelWindow,
-      });
-      setCampRisk(nextCampRisk);
-
-      try {
-        const mission = await getDailyMission(userId, todayStr);
-        setDailyMission(mission);
-        setWorkoutPrescription(mission.trainingDirective.prescription);
-        setPrescriptionMessage(mission.summary);
-        setNutritionTargets({
-          tdee: resolvedBaseTdee,
-          adjustedCalories: mission.fuelDirective.calories,
-          protein: mission.fuelDirective.protein,
-          carbs: mission.fuelDirective.carbs,
-          fat: mission.fuelDirective.fat,
-          proteinModifier: 1,
-          phaseMultiplier: 0,
-          weightCorrectionDeficit: 0,
-          message: mission.fuelDirective.message,
-          source: mission.fuelDirective.source === 'weight_cut_protocol'
-            ? 'weight_cut_protocol'
-            : mission.fuelDirective.source === 'daily_engine'
-              ? 'daily_activity_adjusted'
-              : 'base',
-          fuelState: mission.fuelDirective.state,
-          sessionDemandScore: mission.fuelDirective.sessionDemandScore,
-          hydrationBoostOz: mission.fuelDirective.hydrationBoostOz,
-          reasonLines: mission.fuelDirective.reasons,
-        });
-        await ensureDailyLedger(userId, todayStr, {
-          tdee: resolvedBaseTdee,
-          calories: mission.fuelDirective.calories,
-          protein: mission.fuelDirective.protein,
-          carbs: mission.fuelDirective.carbs,
-          fat: mission.fuelDirective.fat,
-          weightCorrectionDeficit: 0,
-          targetSource: mission.fuelDirective.source === 'weight_cut_protocol'
-            ? 'weight_cut_protocol'
-            : mission.fuelDirective.source === 'daily_engine'
-              ? 'daily_activity_adjusted'
-              : 'base',
-        });
-        setHydration((prev) => ({
-          dailyWaterOz: mission.hydrationDirective.waterTargetOz,
-          waterLoadOz: prev?.waterLoadOz ?? null,
-          shedCapPercent: prev?.shedCapPercent ?? 0,
-          shedCapLbs: prev?.shedCapLbs ?? 0,
-          message: mission.hydrationDirective.message,
-        }));
-      } catch (error) {
-        logError('useDashboardData.getDailyMission', error, { userId });
-        setDailyMission(null);
-      }
+      setPrescriptionMessage(engineState.mission.summary);
     } catch (error) {
       logError('useDashboardData.loadDashboardData', error, { userId });
       setCampRisk(null);
@@ -509,6 +267,7 @@ export function useDashboardData() {
     morningWeight,
     readinessSubjective,
     todayActivities,
+    primaryActivity,
     currentLedger,
     currentLevel,
     prescriptionMessage,
@@ -520,6 +279,8 @@ export function useDashboardData() {
     campStatusLabel,
     campRisk,
     dailyMission,
+    goalMode,
+    hasActiveFightCamp,
   };
 }
 

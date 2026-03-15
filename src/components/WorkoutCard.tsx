@@ -7,17 +7,18 @@ import { AnimatedPressable } from './AnimatedPressable';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, GRADIENTS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { IconFire, IconCheckCircle } from '../components/icons';
-import { WorkoutPrescription } from '../../lib/engine/types';
+import { ScheduledActivityRow, WorkoutPrescription } from '../../lib/engine/types';
 
 interface WorkoutCardProps {
     prescription: WorkoutPrescription | null;
+    primaryActivity?: ScheduledActivityRow | null;
     isCompleted?: boolean;
     onPress: () => void;
     entering?: boolean;
     enteringDelay?: number;
 }
 
-export function WorkoutCard({ prescription, isCompleted, onPress, entering = false, enteringDelay = 0 }: WorkoutCardProps) {
+export function WorkoutCard({ prescription, primaryActivity = null, isCompleted, onPress, entering = false, enteringDelay = 0 }: WorkoutCardProps) {
     const { themeColor } = useReadinessTheme();
 
     const wrapWithEntering = (content: React.ReactNode) => {
@@ -32,9 +33,26 @@ export function WorkoutCard({ prescription, isCompleted, onPress, entering = fal
     };
 
     if (!prescription) {
+        if (primaryActivity) {
+            const label = primaryActivity.custom_label ?? primaryActivity.activity_type.replace(/_/g, ' ');
+            return wrapWithEntering(
+                <Card style={styles.card}>
+                    <View style={[styles.iconContainer, { backgroundColor: themeColor + '20' }]}>
+                        <IconFire size={24} color={themeColor} />
+                    </View>
+                    <View style={styles.content}>
+                        <Text style={styles.title}>Today's Session</Text>
+                        <Text style={styles.subtitle}>
+                            {label.charAt(0).toUpperCase() + label.slice(1)} · {primaryActivity.estimated_duration_min} min · RPE {primaryActivity.expected_intensity}
+                        </Text>
+                    </View>
+                </Card>
+            );
+        }
+
         return wrapWithEntering(
             <Card style={styles.card}>
-                <View style={[styles.iconContainer, { backgroundColor: COLORS.borderLight }]}>
+                <View style={[styles.iconContainer, { backgroundColor: COLORS.surfaceSecondary }]}>
                     <IconFire size={24} color={COLORS.text.tertiary} />
                 </View>
                 <View style={styles.content}>

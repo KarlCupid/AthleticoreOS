@@ -5,7 +5,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import type { FeedbackSeverity } from '../../lib/engine/types';
 
 interface AdaptationBannerProps {
@@ -18,10 +18,10 @@ const SEVERITY_CONFIG: Record<
   FeedbackSeverity,
   { bg: string; text: string; icon: string }
 > = {
-  positive: { bg: '#DCFCE7', text: '#15803D', icon: '\u2B06' },
-  neutral: { bg: '#F3F4F6', text: '#374151', icon: '\u2714' },
-  caution: { bg: '#FEF9C3', text: '#92400E', icon: '\u26A0' },
-  warning: { bg: '#FEE2E2', text: '#991B1B', icon: '\u26A0' },
+  positive: { bg: COLORS.readiness.primeLight, text: COLORS.readiness.prime, icon: '\u2B06' },
+  neutral: { bg: COLORS.surfaceSecondary, text: COLORS.text.secondary, icon: '\u2714' },
+  caution: { bg: COLORS.readiness.cautionLight, text: COLORS.readiness.caution, icon: '\u26A0' },
+  warning: { bg: COLORS.readiness.depletedLight, text: COLORS.readiness.depleted, icon: '\u26A0' },
 };
 
 const AdaptationBanner: React.FC<AdaptationBannerProps> = ({

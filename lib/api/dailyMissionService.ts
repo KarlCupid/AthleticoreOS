@@ -17,11 +17,15 @@ import {
   type Phase,
   type ReadinessState,
   type ResolvedNutritionTargets,
+  type ScheduledActivityRow,
+  type DailyEngineState,
   type WeeklyMissionPlan,
   type WeeklyPlanEntryRow,
 } from '../engine';
+import type { WeightCutPlanRow } from '../engine/types';
 import { calculateACWR } from '../engine/calculateACWR';
 import { determineCampPhase, toCampEnginePhase } from '../engine/calculateCamp';
+import { computeDailyCutProtocol } from '../engine/calculateWeightCut';
 import { getAthleteContext, normalizeActivityLevel, normalizeNutritionGoal } from './athleteContextService';
 import { getDailyEngineSnapshot, getDailyEngineSnapshotsForDates, upsertDailyEngineSnapshot } from './dailyEngineSnapshotService';
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
@@ -30,7 +34,8 @@ import { getDefaultGymProfile } from './gymProfileService';
 import { getExerciseHistoryBatch, getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
 import { getScheduledActivities } from './scheduleService';
 import { getEffectiveWeight, getWeightHistory } from './weightService';
-import { updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
+import { getWeeklyPlanConfig, updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
+import { getConsecutiveDepletedDays, getLastRefeedDate, upsertDailyCutProtocol } from './weightCutService';
 
 interface DailyMissionOptions {
   forceRefresh?: boolean;
@@ -187,6 +192,39 @@ function pickPrimaryPlanEntry(entries: WeeklyPlanEntryRow[]): WeeklyPlanEntryRow
   })[0] ?? null;
 }
 
+function pickPrimaryScheduledActivity(activities: ScheduledActivityRow[]): ScheduledActivityRow | null {
+  const activeActivities = activities.filter((activity) => activity.status !== 'skipped');
+  if (activeActivities.length === 0) return null;
+
+  const activityRank = (activity: ScheduledActivityRow): number => {
+    switch (activity.activity_type) {
+      case 'sparring':
+        return 0;
+      case 'boxing_practice':
+        return 1;
+      case 'sc':
+        return 2;
+      case 'conditioning':
+        return 3;
+      case 'road_work':
+      case 'running':
+        return 4;
+      default:
+        return 5;
+    }
+  };
+
+  return [...activeActivities].sort((a, b) => {
+    const rankDelta = activityRank(a) - activityRank(b);
+    if (rankDelta !== 0) return rankDelta;
+
+    const intensityDelta = (b.expected_intensity ?? 0) - (a.expected_intensity ?? 0);
+    if (intensityDelta !== 0) return intensityDelta;
+
+    return (b.estimated_duration_min ?? 0) - (a.estimated_duration_min ?? 0);
+  })[0] ?? null;
+}
+
 function toMissionActivityStatus(status: WeeklyPlanEntryRow['status']): 'scheduled' | 'modified' | 'completed' | 'skipped' {
   switch (status) {
     case 'rescheduled':
@@ -317,6 +355,130 @@ async function getCutProtocolForDate(userId: string, date: string) {
   return data as any;
 }
 
+async function ensureCutProtocolForDate(input: {
+  userId: string;
+  date: string;
+  profile: NonNullable<Awaited<ReturnType<typeof getAthleteContext>>['profile']>;
+  phase: Phase;
+  currentWeight: number;
+  readinessState: ReadinessState;
+  acwr: ACWRResult;
+}): Promise<Awaited<ReturnType<typeof getCutProtocolForDate>>> {
+  const { userId, date, profile, phase, currentWeight, readinessState, acwr } = input;
+
+  if (!profile.active_cut_plan_id) {
+    return null;
+  }
+
+  const existingProtocol = await getCutProtocolForDate(userId, date);
+  if (existingProtocol) {
+    return existingProtocol;
+  }
+
+  const [planResult, weightHistory, lastRefeedDate, consecutiveDepletedDays, todayActivitiesResult, todayCheckinResult] = await Promise.all([
+    supabase
+      .from('weight_cut_plans')
+      .select('*')
+      .eq('id', profile.active_cut_plan_id)
+      .maybeSingle(),
+    getWeightHistory(userId, 14),
+    getLastRefeedDate(userId, profile.active_cut_plan_id),
+    getConsecutiveDepletedDays(userId),
+    supabase
+      .from('scheduled_activities')
+      .select('activity_type, expected_intensity, estimated_duration_min')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .eq('status', 'scheduled'),
+    supabase
+      .from('daily_checkins')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .maybeSingle(),
+  ]);
+
+  const plan = (planResult.data as WeightCutPlanRow | null) ?? null;
+  if (!plan) {
+    return null;
+  }
+
+  const profileCycleDayRaw = (profile as { cycle_day?: number | null }).cycle_day;
+  const profileCycleDay = typeof profileCycleDayRaw === 'number' && Number.isInteger(profileCycleDayRaw) && profileCycleDayRaw >= 1 && profileCycleDayRaw <= 28
+    ? profileCycleDayRaw
+    : null;
+  const todayCheckin = todayCheckinResult.data as {
+    readiness?: number | null;
+    cognitive_score?: number | null;
+    urine_color?: number | null;
+    body_temp_f?: number | null;
+    cycle_day?: number | null;
+  } | null;
+  const rawCycleDay = todayCheckin?.cycle_day ?? profileCycleDay;
+  const cycleDay = typeof rawCycleDay === 'number' && Number.isInteger(rawCycleDay) && rawCycleDay >= 1 && rawCycleDay <= 28
+    ? rawCycleDay
+    : null;
+
+  const baseNutritionTargets = calculateNutritionTargets({
+    weightLbs: currentWeight,
+    heightInches: profile.height_inches ?? null,
+    age: profile.age ?? null,
+    biologicalSex: profile.biological_sex ?? 'male',
+    activityLevel: normalizeActivityLevel(profile.activity_level),
+    phase,
+    nutritionGoal: normalizeNutritionGoal(profile.nutrition_goal),
+    cycleDay: profileCycleDay,
+    coachProteinOverride: profile.coach_protein_override ?? null,
+    coachCarbsOverride: profile.coach_carbs_override ?? null,
+    coachFatOverride: profile.coach_fat_override ?? null,
+    coachCaloriesOverride: profile.coach_calories_override ?? null,
+  });
+
+  let weeklyVelocityLbs = 0;
+  if (weightHistory.length >= 7) {
+    const recent7 = weightHistory.slice(-7).reduce((sum, point) => sum + point.weight, 0) / 7;
+    const previous7Slice = weightHistory.length >= 14
+      ? weightHistory.slice(-14, -7)
+      : weightHistory.slice(0, Math.max(1, weightHistory.length - 7));
+    const previous7 = previous7Slice.reduce((sum, point) => sum + point.weight, 0) / previous7Slice.length;
+    weeklyVelocityLbs = Math.round((recent7 - previous7) * 10) / 10;
+  }
+
+  const protocol = computeDailyCutProtocol({
+    plan,
+    date,
+    currentWeight,
+    weightHistory,
+    baseNutritionTargets,
+    dayActivities: (todayActivitiesResult.data ?? []) as Array<{
+      activity_type: ScheduledActivityRow['activity_type'];
+      expected_intensity: number;
+      estimated_duration_min: number;
+    }>,
+    readinessState: todayCheckin?.readiness != null
+      ? todayCheckin.readiness >= 4
+        ? 'Prime'
+        : todayCheckin.readiness >= 3
+          ? 'Caution'
+          : 'Depleted'
+      : readinessState,
+    acwr: acwr.ratio,
+    biologicalSex: profile.biological_sex ?? 'male',
+    cycleDay,
+    weeklyVelocityLbs,
+    lastRefeedDate,
+    lastDietBreakDate: null,
+    baselineCognitiveScore: plan.baseline_cognitive_score,
+    latestCognitiveScore: todayCheckin?.cognitive_score ?? null,
+    urineColor: todayCheckin?.urine_color ?? null,
+    bodyTempF: todayCheckin?.body_temp_f ?? null,
+    consecutiveDepletedDays,
+  });
+
+  await upsertDailyCutProtocol(userId, plan.id, date, protocol);
+  return getCutProtocolForDate(userId, date);
+}
+
 async function resolveWorkoutPrescription(input: {
   userId: string;
   date: string;
@@ -327,6 +489,22 @@ async function resolveWorkoutPrescription(input: {
   weeklyPlanEntry: WeeklyPlanEntryRow | null;
   cutProtocol: Awaited<ReturnType<typeof getCutProtocolForDate>>;
 }): Promise<WeeklyPlanEntryRow['prescription_snapshot']> {
+  const scheduledActivities = await getScheduledActivities(input.userId, input.date, input.date);
+  const activeScheduledActivities = scheduledActivities.filter((activity) => activity.status !== 'skipped');
+  const hasCombatAnchor = activeScheduledActivities.some((activity) =>
+    activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice',
+  );
+
+  if (hasCombatAnchor) {
+    const config = await getWeeklyPlanConfig(input.userId);
+    const dayOfWeek = new Date(`${input.date}T00:00:00`).getDay();
+    const canDouble = Boolean(config?.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek));
+
+    if (!canDouble) {
+      return null;
+    }
+  }
+
   if (input.weeklyPlanEntry?.daily_mission_snapshot?.trainingDirective?.prescription) {
     return input.weeklyPlanEntry.daily_mission_snapshot.trainingDirective.prescription;
   }
@@ -370,10 +548,16 @@ export async function getDailyMission(
   date: string,
   options: DailyMissionOptions = {},
 ): Promise<DailyMission> {
+  const state = await getDailyEngineState(userId, date, options);
+  return state.mission;
+}
+
+export async function getDailyEngineState(
+  userId: string,
+  date: string,
+  options: DailyMissionOptions = {},
+): Promise<DailyEngineState> {
   const snapshot = options.forceRefresh ? null : await getDailyEngineSnapshot(userId, date);
-  if (!options.forceRefresh && snapshot?.mission_snapshot?.engineVersion === DAILY_ENGINE_VERSION) {
-    return snapshot.mission_snapshot;
-  }
 
   const [objectiveContext, athleteContext, weeklyPlanEntries] = await Promise.all([
     resolveObjectiveContext(userId, date),
@@ -389,7 +573,17 @@ export async function getDailyMission(
   const acwr = await resolveACWR(userId, date, objectiveContext.phase, athleteContext.fitnessLevel, athleteContext.isOnActiveCut);
   const weightPenalty = 0;
   const readinessState = await resolveReadinessState(userId, date, acwr, weightPenalty);
-  const cutProtocol = athleteContext.isOnActiveCut ? await getCutProtocolForDate(userId, date) : null;
+  const cutProtocol = athleteContext.isOnActiveCut && profile
+    ? await ensureCutProtocolForDate({
+      userId,
+      date,
+      profile,
+      phase: objectiveContext.phase,
+      currentWeight,
+      readinessState,
+      acwr,
+    })
+    : null;
 
   const nutritionTargets = profile
     ? await resolveNutritionTargets({
@@ -488,7 +682,23 @@ export async function getDailyMission(
   });
   await updateDailyMissionSnapshotsByDate(userId, [{ date, mission }]);
 
-  return mission;
+  return {
+    date,
+    engineVersion: mission.engineVersion ?? DAILY_ENGINE_VERSION,
+    objectiveContext,
+    acwr,
+    readinessState,
+    cutProtocol,
+    nutritionTargets: snapshot?.nutrition_targets_snapshot ?? nutritionTargets,
+    hydration,
+    scheduledActivities,
+    weeklyPlanEntries,
+    primaryScheduledActivity: pickPrimaryScheduledActivity(scheduledActivities),
+    primaryPlanEntry,
+    workoutPrescription: workoutPrescription ?? null,
+    mission,
+    campRisk: riskAssessment ?? null,
+  };
 }
 
 export async function getWeeklyMission(

@@ -10,25 +10,25 @@ interface Props {
 
 const SEVERITY_CONFIG = {
   danger: {
-    bg: '#FEE2E2',
-    border: '#FECACA',
-    text: '#DC2626',
+    bg: COLORS.readiness.depletedLight,
+    border: 'rgba(248,113,113,0.25)',
+    text: COLORS.readiness.depleted,
     icon: '⛔',
     badgeBg: COLORS.readiness.depleted,
     label: 'DANGER',
   },
   warning: {
-    bg: '#FEF3C7',
-    border: '#FDE68A',
-    text: '#D97706',
+    bg: COLORS.readiness.cautionLight,
+    border: 'rgba(251,191,36,0.25)',
+    text: COLORS.readiness.caution,
     icon: '⚠️',
     badgeBg: COLORS.readiness.caution,
     label: 'WARNING',
   },
   info: {
-    bg: '#EFF6FF',
-    border: '#BFDBFE',
-    text: '#2563EB',
+    bg: 'rgba(96,165,250,0.10)',
+    border: 'rgba(96,165,250,0.25)',
+    text: COLORS.chart.fitness,
     icon: 'ℹ️',
     badgeBg: COLORS.chart.fitness,
     label: 'INFO',
@@ -47,7 +47,7 @@ export function SafetyStatusIndicator({ flags, compact = false }: Props) {
     'clear';
 
   const statusConfig = overallStatus === 'clear'
-    ? { bg: '#DCFCE7', border: '#BBF7D0', text: '#16A34A', icon: '✅', label: 'ALL CLEAR' }
+    ? { bg: COLORS.readiness.primeLight, border: 'rgba(52,211,153,0.25)', text: COLORS.readiness.prime, icon: '✅', label: 'ALL CLEAR' }
     : SEVERITY_CONFIG[overallStatus];
 
   if (compact) {

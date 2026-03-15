@@ -787,10 +787,43 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         const hasCombatAnchor = recurringAnchors.some((activity) =>
             activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice',
         );
+        const primaryCombatAnchor = recurringAnchors
+            .filter((activity) => activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice')
+            .sort((a, b) => {
+                const rank = (activityType: string) => activityType === 'sparring' ? 0 : 1;
+                const rankDelta = rank(a.activity_type) - rank(b.activity_type);
+                if (rankDelta !== 0) return rankDelta;
+                return (b.expected_intensity ?? 0) - (a.expected_intensity ?? 0);
+            })[0] ?? null;
         const hasHighAnchor = recurringAnchors.some((activity) => activity.expected_intensity >= 7);
+        const allowDoubleOnDay = config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek);
 
         // Check if this is a sparring day in camp or the athlete's recurring template
         const isSparringDay = hasSparringAnchor || (campPhase != null && sparringDaysThisWeek > 0 && i < sparringDaysThisWeek);
+
+        if (primaryCombatAnchor && !allowDoubleOnDay) {
+            entries.push({
+                id: `${weekStartDate}-${dayOfWeek}-${entryIndex}`,
+                user_id: config.user_id,
+                week_start_date: weekStartDate,
+                day_of_week: dayOfWeek,
+                date: entryDate,
+                slot: 'single' as PlanSlot,
+                session_type: primaryCombatAnchor.activity_type,
+                focus: null,
+                estimated_duration_min: primaryCombatAnchor.estimated_duration_min,
+                target_intensity: primaryCombatAnchor.expected_intensity,
+                status: 'planned',
+                rescheduled_to: null,
+                workout_log_id: null,
+                prescription_snapshot: null,
+                engine_notes: 'Fixed combat session. No supplemental S&C because this day is not enabled for two-a-days.',
+                is_deload: isDeloadWeek,
+                created_at: new Date().toISOString(),
+            });
+            entryIndex++;
+            continue;
+        }
 
         const focus = isSparringDay
             ? 'sport_specific' as WorkoutFocus
@@ -885,7 +918,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             week_start_date: weekStartDate,
             day_of_week: dayOfWeek,
             date: entryDate,
-            slot: config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek)
+            slot: allowDoubleOnDay
                 ? 'am' as PlanSlot
                 : 'single' as PlanSlot,
             session_type: sessionType,
@@ -904,7 +937,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         weeklyFocusSplit[focus] = (weeklyFocusSplit[focus] ?? 0) + 1;
 
         // Two-a-day PM session (boxing/conditioning)
-        if (config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek)) {
+        if (allowDoubleOnDay) {
             entries.push({
                 id: `${weekStartDate}-${dayOfWeek}-pm`,
                 user_id: config.user_id,

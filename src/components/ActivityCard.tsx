@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS } from '../theme/theme';
 import type { ScheduledActivityRow } from '../../lib/engine/types';
 
 const ACTIVITY_ICONS: Record<string, string> = {
@@ -65,11 +65,11 @@ export function ActivityCard({ activity, onPress, onSkip, onEdit, onLighter, onH
 
         <View style={styles.statsRow}>
           <Text style={styles.statText}>{activity.estimated_duration_min}min</Text>
-          <Text style={styles.statDot}>·</Text>
+          <Text style={styles.statDot}>ï¿½</Text>
           <Text style={styles.statText}>RPE {activity.actual_rpe ?? activity.expected_intensity}</Text>
           {activity.session_components && (activity.session_components as any[]).length > 0 && (
             <>
-              <Text style={styles.statDot}>·</Text>
+              <Text style={styles.statDot}>ï¿½</Text>
               <Text style={styles.statText}>{(activity.session_components as any[]).length} components</Text>
             </>
           )}
@@ -136,6 +136,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     ...SHADOWS.card,
+    ...BORDERS.card,
   },
   timeColumn: { width: 50, justifyContent: 'center' },
   timeText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
@@ -168,10 +169,10 @@ const styles = StyleSheet.create({
   secondaryButton: {
     paddingHorizontal: SPACING.md,
     paddingVertical: 6,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceSecondary,
     borderRadius: RADIUS.sm,
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: COLORS.border,
   },
   secondaryButtonText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
 });

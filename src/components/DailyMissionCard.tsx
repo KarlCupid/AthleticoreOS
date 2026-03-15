@@ -7,6 +7,7 @@ import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
 interface DailyMissionCardProps {
   mission: DailyMission;
+  compact?: boolean;
 }
 
 function getRiskColor(level: DailyMission['riskState']['level']): string {
@@ -22,7 +23,7 @@ function getRiskColor(level: DailyMission['riskState']['level']): string {
   }
 }
 
-export function DailyMissionCard({ mission }: DailyMissionCardProps) {
+export function DailyMissionCard({ mission, compact = false }: DailyMissionCardProps) {
   const riskColor = getRiskColor(mission.riskState.level);
 
   return (
@@ -30,7 +31,7 @@ export function DailyMissionCard({ mission }: DailyMissionCardProps) {
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={styles.kicker}>DAILY MISSION</Text>
-          <Text style={styles.headline}>{mission.headline}</Text>
+          <Text style={compact ? styles.headlineCompact : styles.headline}>{mission.headline}</Text>
           <Text style={styles.summary}>{mission.summary}</Text>
         </View>
         <View style={[styles.riskChip, { backgroundColor: `${riskColor}1A` }]}>
@@ -40,37 +41,41 @@ export function DailyMissionCard({ mission }: DailyMissionCardProps) {
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Training</Text>
-        <Text style={styles.sectionLine}>{mission.trainingDirective.intent}</Text>
-        <Text style={styles.metaLine}>
-          {mission.trainingDirective.sessionRole.replace(/_/g, ' ')} · {mission.trainingDirective.volumeTarget}
-        </Text>
-      </View>
+      {!compact && (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Training</Text>
+            <Text style={styles.sectionLine}>{mission.trainingDirective.intent}</Text>
+            <Text style={styles.metaLine}>
+              {mission.trainingDirective.sessionRole.replace(/_/g, ' ')} · {mission.trainingDirective.volumeTarget}
+            </Text>
+          </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Fuel</Text>
-        <Text style={styles.sectionLine}>
-          {mission.fuelDirective.calories} kcal · P {mission.fuelDirective.protein} · C {mission.fuelDirective.carbs} · F {mission.fuelDirective.fat}
-        </Text>
-        <Text style={styles.metaLine}>
-          Pre {mission.fuelDirective.preSessionCarbsG}g carbs · Post {mission.fuelDirective.postSessionProteinG}g protein · Water {mission.hydrationDirective.waterTargetOz} oz
-        </Text>
-      </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Fuel</Text>
+            <Text style={styles.sectionLine}>
+              {mission.fuelDirective.calories} kcal · P {mission.fuelDirective.protein} · C {mission.fuelDirective.carbs} · F {mission.fuelDirective.fat}
+            </Text>
+            <Text style={styles.metaLine}>
+              Pre {mission.fuelDirective.preSessionCarbsG}g carbs · Post {mission.fuelDirective.postSessionProteinG}g protein · Water {mission.hydrationDirective.waterTargetOz} oz
+            </Text>
+          </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Why it changed</Text>
-        {mission.decisionTrace.slice(0, 3).map((item) => (
-          <Text key={`${item.subsystem}-${item.title}`} style={styles.traceLine}>
-            {item.title}: {item.detail}
-          </Text>
-        ))}
-      </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Why it changed</Text>
+            {mission.decisionTrace.slice(0, 3).map((item) => (
+              <Text key={`${item.subsystem}-${item.title}`} style={styles.traceLine}>
+                {item.title}: {item.detail}
+              </Text>
+            ))}
+          </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerLabel}>Override</Text>
-        <Text style={styles.footerValue}>{mission.overrideState.note}</Text>
-      </View>
+          <View style={styles.footer}>
+            <Text style={styles.footerLabel}>Override</Text>
+            <Text style={styles.footerValue}>{mission.overrideState.note}</Text>
+          </View>
+        </>
+      )}
     </Card>
   );
 }
@@ -97,6 +102,12 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.black,
     fontSize: 20,
     color: COLORS.text.primary,
+  },
+  headlineCompact: {
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 16,
+    color: COLORS.text.primary,
+    lineHeight: 22,
   },
   summary: {
     fontFamily: FONT_FAMILY.regular,

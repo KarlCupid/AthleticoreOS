@@ -24,7 +24,7 @@ import { NutritionCheckIn, type NutritionStatus } from '../components/NutritionC
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { supabase } from '../../lib/supabase';
-import { calculateACWR } from '../../lib/engine/calculateACWR';
+import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import { generateDailyCoachDebrief } from '../../lib/engine/calculateDailyCoachDebrief';
 import type {
   CoachingFocus,
@@ -33,7 +33,6 @@ import type {
   Phase,
   PrimaryLimiter,
 } from '../../lib/engine/types';
-import { getAthleteContext } from '../../lib/api/athleteContextService';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { logError, logWarn } from '../../lib/utils/logger';
 
@@ -345,26 +344,13 @@ export function LogScreen() {
             .maybeSingle(),
         ]);
 
-        const athleteContext = await getAthleteContext(userId);
-        let acwr: { ratio: number; status: 'safe' | 'caution' | 'redline'; acute: number; chronic: number } = {
-          ratio: 0,
-          status: 'safe',
-          acute: 0,
-          chronic: 0,
+        const engineState = await getDailyEngineState(userId, logDate, { forceRefresh: true });
+        const acwr = {
+          ratio: engineState.acwr.ratio,
+          status: engineState.acwr.status,
+          acute: engineState.acwr.acute,
+          chronic: engineState.acwr.chronic,
         };
-        try {
-          const acwrResult = await calculateACWR({
-            userId,
-            supabaseClient: supabase,
-            asOfDate: logDate,
-            fitnessLevel: athleteContext.fitnessLevel,
-            phase: athleteContext.phase,
-            isOnActiveCut: athleteContext.isOnActiveCut,
-          });
-          acwr = { ratio: acwrResult.ratio, status: acwrResult.status, acute: acwrResult.acute, chronic: acwrResult.chronic };
-        } catch (error) {
-          logWarn('LogScreen.loadContext.acwr', error, { targetDate: logDate });
-        }
 
         if (!mounted) return;
         const todayCheckin = (todayRes.data as DailyCheckinRow | null) ?? null;
@@ -458,8 +444,8 @@ export function LogScreen() {
           status: acwr.status,
           acute: acwr.acute,
           chronic: acwr.chronic,
-          phase: athleteContext.phase,
-          isOnActiveCut: athleteContext.isOnActiveCut,
+          phase: engineState.objectiveContext.phase,
+          isOnActiveCut: engineState.objectiveContext.isOnActiveCut,
         });
       } catch (error) {
         logError('LogScreen.loadContext', error, { targetDate: logDate });

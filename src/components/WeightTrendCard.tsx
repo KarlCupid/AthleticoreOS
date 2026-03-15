@@ -14,11 +14,11 @@ interface WeightTrendCardProps {
 
 const STATUS_CONFIG: Record<WeightCutStatus, { label: string; color: string; bg: string }> = {
     on_track: { label: 'On Track', color: COLORS.readiness.prime, bg: COLORS.readiness.primeLight },
-    ahead: { label: 'Ahead', color: '#2563EB', bg: '#DBEAFE' },
+    ahead: { label: 'Ahead', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
     behind: { label: 'Behind', color: COLORS.readiness.caution, bg: COLORS.readiness.cautionLight },
-    stalled: { label: 'Stalled', color: COLORS.text.tertiary, bg: COLORS.borderLight },
+    stalled: { label: 'Stalled', color: COLORS.text.tertiary, bg: COLORS.surfaceSecondary },
     gaining: { label: 'Gaining', color: COLORS.readiness.depleted, bg: COLORS.readiness.depletedLight },
-    no_target: { label: 'No Target', color: COLORS.text.tertiary, bg: COLORS.borderLight },
+    no_target: { label: 'No Target', color: COLORS.text.tertiary, bg: COLORS.surfaceSecondary },
 };
 
 export function WeightTrendCard({ trend, baseWeight, targetWeight, onPress }: WeightTrendCardProps) {
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     divider: {
         width: 1,
         height: 28,
-        backgroundColor: COLORS.borderLight,
+        backgroundColor: COLORS.border,
     },
     velocityRow: {
         flexDirection: 'row',

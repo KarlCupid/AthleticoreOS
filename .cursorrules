@@ -1,0 +1,18 @@
+# AI Agent Instructions for Athleticore OS
+
+To preserve AI quota and ensure high-quality, efficient responses across Antigravity, Claude, Codex, and Cursor, **ALL AI agents must adhere to the following rules**:
+
+## 1. Information Retrieval
+- **Rule 1:** Always read `STATE.md` to understand current priorities and recent milestones before modifying code.
+- **Rule 2:** Always read `CONTEXT.md` to understand project architecture and file boundaries.
+- **Rule 3:** Do not perform broad, recursive directory searches unless absolutely necessary. Use `grep_search` or read specific known paths.
+
+## 2. Quota & Context Management
+- **Rule 4:** Do not read `package-lock.json`, `yarn.lock`, large `.sql` dumps in `archive/`, `.sqlite` databases, or compiled artifacts.
+- **Rule 5:** When reading large files like `lib/engine/calculateSchedule.ts`, read targeted line blocks rather than loading the whole 1,500+ lines unless a full refactor is requested.
+- **Rule 6:** Keep responses concise. Only explain the "why" if the change is complex or specifically asked for.
+
+## 3. Architecture & Code Modularity
+- **Rule 7:** Import all domain logic types from `lib/engine/types.ts`. Do not redefine types locally in components.
+- **Rule 8:** When modifying large React Native screens (e.g., `WorkoutScreen.tsx`, `DashboardScreen.tsx`), consider extracting pure UI elements into `/src/components` to keep screen files thin.
+- **Rule 9:** Deterministic logic belongs in `/lib/engine/`. React components should primarily handle state, navigation, and rendering.

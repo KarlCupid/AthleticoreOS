@@ -1,8 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { generateSmartWeekPlan, handleMissedDay } from '../../lib/engine/calculateSchedule';
-import { calculateACWR } from '../../lib/engine/calculateACWR';
-import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
 import {
   getWeeklyPlanConfig,
   getActiveWeekPlan,
@@ -21,7 +19,7 @@ import { getRecurringActivities } from '../../lib/api/scheduleService';
 import { getExerciseLibrary, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate } from '../../lib/utils/date';
-import { getWeeklyMission } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
 import type {
   WeeklyPlanConfigRow,
   WeeklyPlanEntryRow,
@@ -89,37 +87,13 @@ async function getCurrentReadinessContext(
   userId: string,
   date: string = todayStr(),
 ): Promise<{ readinessState: ReadinessState; acwr: number }> {
-  const athleteContext = await getAthleteContext(userId);
-
-  let acwr = 1.0;
   try {
-    const acwrResult = await calculateACWR({
-      userId,
-      supabaseClient: supabase,
-      asOfDate: date,
-      fitnessLevel: athleteContext.fitnessLevel,
-      phase: athleteContext.phase,
-      isOnActiveCut: athleteContext.isOnActiveCut,
-    });
-    acwr = acwrResult.ratio;
+    const engineState = await getDailyEngineState(userId, date);
+    return { readinessState: engineState.readinessState, acwr: engineState.acwr.ratio };
   } catch (error) {
-    logError('useWeeklyPlan.getCurrentReadinessContext.calculateACWR', error, { userId, date });
+    logError('useWeeklyPlan.getCurrentReadinessContext', error, { userId, date });
+    return { readinessState: 'Prime', acwr: 1.0 };
   }
-
-  const { data: checkin } = await supabase
-    .from('daily_checkins')
-    .select('sleep_quality, readiness')
-    .eq('user_id', userId)
-    .eq('date', date)
-    .maybeSingle();
-
-  const readinessState = getGlobalReadinessState({
-    sleep: checkin?.sleep_quality ?? 4,
-    readiness: checkin?.readiness ?? 4,
-    acwr,
-  });
-
-  return { readinessState, acwr };
 }
 
 export async function generateAndSaveWeeklyPlan(

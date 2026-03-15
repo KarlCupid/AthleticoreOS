@@ -98,6 +98,7 @@ export type {
   PerformanceObjective,
   MacrocycleContext,
   DailyMission,
+  DailyEngineState,
   DailyEngineSnapshotRow,
   TrainingDirective,
   FuelDirective,

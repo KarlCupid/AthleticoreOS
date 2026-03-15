@@ -21,6 +21,7 @@ import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadServi
 import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { todayLocalDate } from '../../lib/utils/date';
 import { getWeeklyPlanEntryById, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
+import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import type {
     DailyMission,
     WorkoutPrescriptionV2,
@@ -140,6 +141,17 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     const snapshot = (planEntry.daily_mission_snapshot?.trainingDirective.prescription ?? planEntry.prescription_snapshot) as WorkoutPrescriptionV2;
                     setPrescription(snapshot);
                     initializeProgress(snapshot);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            if (scheduledActivityId) {
+                const engineState = await getDailyEngineState(userId, sessionDate);
+                if (engineState.workoutPrescription?.exercises?.length) {
+                    setPrescription(engineState.workoutPrescription);
+                    setDailyMission(engineState.mission);
+                    initializeProgress(engineState.workoutPrescription);
                     setLoading(false);
                     return;
                 }

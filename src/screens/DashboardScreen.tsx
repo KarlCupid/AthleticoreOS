@@ -13,7 +13,6 @@ import { IconRestaurant, IconActivity, IconFire, IconCalendar } from '../compone
 import { DashboardNutritionCard } from '../components/DashboardNutritionCard';
 import { DailyMissionCard } from '../components/DailyMissionCard';
 import { TrainingLoadChartCard } from '../components/TrainingLoadChartCard';
-import { ActionGridItem } from '../components/ActionGridItem';
 import { PrescriptionCard } from '../components/PrescriptionCard';
 import { WorkoutCard } from '../components/WorkoutCard';
 import { WeightTrendCard } from '../components/WeightTrendCard';
@@ -33,6 +32,14 @@ import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { styles } from './DashboardScreen.styles';
+
+type DashboardPhaseControlState = {
+  currentModeLabel: string;
+  title: string;
+  description: string;
+  primaryLabel: string;
+  secondaryLabel?: string;
+};
 
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -104,13 +111,13 @@ export function DashboardScreen() {
     refreshing,
     onRefresh,
     acwr,
-    biology,
     hydration,
     checkinDone,
     sessionDone,
     sleepQuality,
     morningWeight,
     todayActivities,
+    primaryActivity,
     currentLevel,
     prescriptionMessage,
     workoutPrescription,
@@ -121,6 +128,8 @@ export function DashboardScreen() {
     campStatusLabel,
     campRisk,
     dailyMission,
+    goalMode,
+    hasActiveFightCamp,
   } = useDashboardData();
 
   const targetCalories = todayCutProtocol ? todayCutProtocol.prescribed_calories : (nutritionTargets?.adjustedCalories ?? 0);
@@ -144,6 +153,33 @@ export function DashboardScreen() {
   const openPlanScreen = React.useCallback((screen: string, params?: Record<string, unknown>) => {
     navigation.navigate('Plan', { screen, params });
   }, [navigation]);
+
+  const openFightCampSetup = React.useCallback(() => {
+    openPlanScreen('WeeklyPlanSetup', {
+      initialGoalMode: 'fight_camp',
+      initialPhaseKey: 'objective',
+      source: 'dashboard',
+    });
+  }, [openPlanScreen]);
+
+  const openBuildPhaseSetup = React.useCallback(() => {
+    openPlanScreen('WeeklyPlanSetup', {
+      initialGoalMode: 'build_phase',
+      initialPhaseKey: 'objective',
+      source: 'dashboard',
+    });
+  }, [openPlanScreen]);
+
+  const handleSwitchToBuildPhase = React.useCallback(() => {
+    Alert.alert(
+      'Switch to Build Phase?',
+      'This opens build-phase setup so you can confirm the next goal before ending the current camp.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', onPress: openBuildPhaseSetup },
+      ],
+    );
+  }, [openBuildPhaseSetup]);
 
   const handleRefresh = React.useCallback(() => {
     onRefresh();
@@ -237,6 +273,10 @@ export function DashboardScreen() {
   ] : [];
 
   const shouldShowFirstRunChecklist = firstRunGuidance?.status === 'pending';
+  const phaseControl = React.useMemo(
+    () => getDashboardPhaseControlState({ goalMode, hasActiveFightCamp }),
+    [goalMode, hasActiveFightCamp],
+  );
 
   if (loading) {
     return (
@@ -322,11 +362,50 @@ export function DashboardScreen() {
         <View style={styles.content}>
           {dailyMission ? (
             <Animated.View entering={FadeInDown.delay(D * 0.6).duration(ANIMATION.slow).springify()}>
-              <DailyMissionCard mission={dailyMission} />
+              <DailyMissionCard mission={dailyMission} compact />
             </Animated.View>
-          ) : null}
+          ) : (
+            <PrescriptionCard message={prescriptionMessage} entering enteringDelay={D} />
+          )}
 
-          <PrescriptionCard message={prescriptionMessage} entering enteringDelay={D} />
+          <Animated.View entering={FadeInDown.delay(D * 0.8).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
+            <Card>
+              <View style={styles.phaseControlHeader}>
+                <Text style={styles.phaseControlEyebrow}>PHASE CONTROL</Text>
+                <Text style={styles.phaseControlCurrentMode}>{phaseControl.currentModeLabel}</Text>
+              </View>
+              <Text style={styles.phaseControlTitle}>{phaseControl.title}</Text>
+              <Text style={styles.phaseControlDescription}>{phaseControl.description}</Text>
+
+              <View style={styles.phaseControlSummaryRow}>
+                <View style={styles.phaseControlSummaryBlock}>
+                  <Text style={styles.phaseControlSummaryLabel}>Current Mode</Text>
+                  <Text style={styles.phaseControlSummaryValue}>{phaseControl.currentModeLabel}</Text>
+                </View>
+                <View style={styles.phaseControlSummaryDivider} />
+                <View style={styles.phaseControlSummaryBlock}>
+                  <Text style={styles.phaseControlSummaryLabel}>Current Phase</Text>
+                  <Text style={styles.phaseControlSummaryValue}>{campStatusLabel}</Text>
+                </View>
+              </View>
+
+              <AnimatedPressable
+                style={styles.phaseControlPrimaryButton}
+                onPress={openFightCampSetup}
+              >
+                <Text style={styles.phaseControlPrimaryText}>{phaseControl.primaryLabel}</Text>
+              </AnimatedPressable>
+
+              {phaseControl.secondaryLabel ? (
+                <AnimatedPressable
+                  style={styles.phaseControlSecondaryButton}
+                  onPress={handleSwitchToBuildPhase}
+                >
+                  <Text style={styles.phaseControlSecondaryText}>{phaseControl.secondaryLabel}</Text>
+                </AnimatedPressable>
+              ) : null}
+            </Card>
+          </Animated.View>
 
           {shouldShowFirstRunChecklist && firstRunGuidance ? (
             <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
@@ -390,7 +469,7 @@ export function DashboardScreen() {
 
           {todayActivities.length > 0 && (
             <Animated.View entering={FadeInDown.delay(D * 1.8).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
-              <SectionHeader title="Today's Commitments" actionLabel="Day View" onAction={() => navigation.navigate('DayDetail', { date: todayLocalDate() })} />
+              <SectionHeader title="Today's Schedule" actionLabel="Day View" onAction={() => navigation.navigate('DayDetail', { date: todayLocalDate() })} />
               {todayActivities.map((activity) => (
                 <ActivityCard
                   key={activity.id}
@@ -410,19 +489,20 @@ export function DashboardScreen() {
           <Animated.View entering={FadeInDown.delay(D * 2).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <WorkoutCard
               prescription={workoutPrescription}
+              primaryActivity={primaryActivity}
               isCompleted={sessionDone}
               onPress={() => openPlanScreen('WorkoutHome')}
             />
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(D * 4).duration(ANIMATION.slow).springify()}>
+          <Animated.View entering={FadeInDown.delay(D * 4).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <SectionHeader title="Training Load" />
             <TrainingLoadChartCard trainingLoadData={trainingLoadData} acute={acute} chronic={chronic} acwr={acwr} />
           </Animated.View>
 
           {weightTrend && (
-            <Animated.View entering={FadeInDown.delay(D * 4.5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.lg }}>
-              <SectionHeader title="Weight" />
+            <Animated.View entering={FadeInDown.delay(D * 4.5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
+              <SectionHeader title="Body Intelligence" />
               <WeightTrendCard
                 trend={weightTrend}
                 baseWeight={weightTrend.currentWeight - weightTrend.totalChangeLbs}
@@ -431,7 +511,7 @@ export function DashboardScreen() {
             </Animated.View>
           )}
 
-          <Animated.View entering={FadeInDown.delay(D * 5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.lg }}>
+          <Animated.View entering={FadeInDown.delay(D * 5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <SectionHeader title="Nutrition" actionLabel="Details" onAction={() => openPlanScreen('NutritionHome')} />
             <AnimatedPressable onPress={() => openPlanScreen('NutritionHome')}>
               <DashboardNutritionCard
@@ -448,55 +528,37 @@ export function DashboardScreen() {
             </AnimatedPressable>
           </Animated.View>
 
-          {biology && (
-            <Animated.View entering={FadeInDown.delay(D * 6).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.lg }}>
-              <Card>
-                <View style={styles.biologyRow}>
-                  <View style={styles.biologyIcon}>
-                    <IconFire size={22} color={COLORS.chart.accent} />
-                  </View>
-                  <View style={styles.biologyInfo}>
-                    <Text style={styles.biologyTitle}>Biology Adaptation</Text>
-                    <Text style={styles.biologyDesc}>{biology.message}</Text>
-                  </View>
-                </View>
-              </Card>
-            </Animated.View>
-          )}
-
-          <Animated.View entering={FadeInDown.delay(D * 7).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.lg }}>
+          <Animated.View entering={FadeInDown.delay(D * 7).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <SectionHeader title="Quick Actions" />
-            <View style={styles.actionGrid}>
-              <ActionGridItem
-                icon={<IconActivity size={20} color={checkinDone ? COLORS.success : COLORS.accent} />}
-                iconBg={checkinDone ? COLORS.success + '15' : COLORS.accentLight}
-                label="Check-in"
-                sub="Morning readiness"
-                done={checkinDone}
-                onPress={() => navigation.navigate('Log')}
-              />
-              <ActionGridItem
-                icon={<IconFire size={20} color={sessionDone ? COLORS.success : COLORS.chart.accent} />}
-                iconBg={sessionDone ? COLORS.success + '15' : COLORS.readiness.cautionLight}
-                label="Train"
-                sub="Start guided work"
-                done={sessionDone}
-                onPress={() => openPlanScreen('WorkoutHome')}
-              />
-              <ActionGridItem
-                icon={<IconRestaurant size={20} color={COLORS.chart.protein} />}
-                iconBg={COLORS.chart.protein + '15'}
-                label="Eat"
-                sub="Track meals"
-                onPress={() => openPlanScreen('NutritionHome')}
-              />
-              <ActionGridItem
-                icon={<IconCalendar size={20} color={COLORS.chart.readiness} />}
-                iconBg={COLORS.chart.readiness + '15'}
-                label="Plan"
-                sub="Review your week"
-                onPress={() => navigation.navigate('Plan')}
-              />
+            <View style={styles.quickActionStrip}>
+              <AnimatedPressable style={styles.quickActionPill} onPress={() => navigation.navigate('Log')}>
+                <View style={[styles.quickActionIconWrap, { backgroundColor: checkinDone ? COLORS.success + '18' : COLORS.accentLight }]}>
+                  {checkinDone
+                    ? <IconActivity size={14} color={COLORS.success} />
+                    : <IconActivity size={14} color={COLORS.accent} />}
+                </View>
+                <Text style={[styles.quickActionLabel, checkinDone && styles.quickActionLabelDone]}>Check-in</Text>
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.quickActionPill} onPress={() => openPlanScreen('WorkoutHome')}>
+                <View style={[styles.quickActionIconWrap, { backgroundColor: sessionDone ? COLORS.success + '18' : COLORS.readiness.cautionLight }]}>
+                  {sessionDone
+                    ? <IconFire size={14} color={COLORS.success} />
+                    : <IconFire size={14} color={COLORS.chart.accent} />}
+                </View>
+                <Text style={[styles.quickActionLabel, sessionDone && styles.quickActionLabelDone]}>Train</Text>
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.quickActionPill} onPress={() => openPlanScreen('NutritionHome')}>
+                <View style={[styles.quickActionIconWrap, { backgroundColor: COLORS.chart.protein + '18' }]}>
+                  <IconRestaurant size={14} color={COLORS.chart.protein} />
+                </View>
+                <Text style={styles.quickActionLabel}>Eat</Text>
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.quickActionPill} onPress={() => navigation.navigate('Plan')}>
+                <View style={[styles.quickActionIconWrap, { backgroundColor: COLORS.chart.readiness + '18' }]}>
+                  <IconCalendar size={14} color={COLORS.chart.readiness} />
+                </View>
+                <Text style={styles.quickActionLabel}>Plan</Text>
+              </AnimatedPressable>
             </View>
           </Animated.View>
 
@@ -519,6 +581,37 @@ function getCampRiskColor(level: 'low' | 'moderate' | 'high' | 'critical'): stri
   if (level === 'high') return COLORS.readiness.depleted;
   if (level === 'moderate') return COLORS.warning;
   return COLORS.success;
+}
+
+function getDashboardPhaseControlState(input: {
+  goalMode: 'fight_camp' | 'build_phase';
+  hasActiveFightCamp: boolean;
+}): DashboardPhaseControlState {
+  if (input.hasActiveFightCamp) {
+    return {
+      currentModeLabel: 'Fight Camp',
+      title: 'Fight camp is active',
+      description: 'Update camp timing, travel, or target weight from here without rebuilding your setup from scratch.',
+      primaryLabel: 'Update Camp Setup',
+      secondaryLabel: 'Switch to Build Phase',
+    };
+  }
+
+  if (input.goalMode === 'fight_camp') {
+    return {
+      currentModeLabel: 'Build Phase',
+      title: 'Fight camp is not active yet',
+      description: 'Enter fight camp to lock the fight date and target weight, then rebuild the weekly plan around camp timing.',
+      primaryLabel: 'Enter Fight Camp',
+    };
+  }
+
+  return {
+    currentModeLabel: 'Build Phase',
+    title: 'Build phase is active',
+    description: 'When a fight is booked, move into fight camp from the dashboard and reuse your current planning setup.',
+    primaryLabel: 'Enter Fight Camp',
+  };
 }
 
 function getGreeting(): string {

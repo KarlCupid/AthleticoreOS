@@ -4,6 +4,7 @@ import type {
   FitnessLevel,
   FoodItemRow,
   MealType,
+  AthleteGoalMode,
   Phase,
   ReadinessState,
   WorkoutFocus,
@@ -12,7 +13,13 @@ import type {
 
 export type PlanStackParamList = {
   PlanHome: undefined;
-  WeeklyPlanSetup: undefined;
+  WeeklyPlanSetup:
+    | {
+      initialGoalMode?: AthleteGoalMode;
+      initialPhaseKey?: 'objective' | 'availability' | 'commitments' | 'planner';
+      source?: 'dashboard' | 'plan';
+    }
+    | undefined;
   WorkoutHome: undefined;
   ExerciseSearch: { workoutLogId?: string };
   ExerciseDetail: { exercise: ExerciseLibraryRow; workoutLogId?: string };

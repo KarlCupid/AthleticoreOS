@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 
 import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../theme/theme';
 import { DatePickerField } from '../components/DatePickerField';
@@ -27,6 +27,7 @@ import { getActiveFightCamp, setupFightCamp } from '../../lib/api/fightCampServi
 import { getActiveBuildPhaseGoal, setupBuildPhaseGoal } from '../../lib/api/buildPhaseService';
 import { getRecurringActivities, replaceRecurringActivities } from '../../lib/api/scheduleService';
 import { logError } from '../../lib/utils/logger';
+import type { PlanStackParamList } from '../navigation/types';
 import type {
   ActivityType,
   AthleteGoalMode,
@@ -214,6 +215,12 @@ function createCommitment(dayOfWeek: number = 1): EditableCommitment {
   };
 }
 
+function getSetupPhaseIndex(phaseKey: SetupPhaseKey | undefined): number {
+  if (!phaseKey) return 0;
+  const matchedIndex = SETUP_PHASES.findIndex((phase) => phase.key === phaseKey);
+  return matchedIndex >= 0 ? matchedIndex : 0;
+}
+
 function getBuildMetricOptions(goalType: BuildPhaseGoalType): BuildMetricOption[] {
   return BUILD_METRIC_OPTIONS[goalType];
 }
@@ -391,6 +398,12 @@ interface WeeklyPlanSetupScreenProps {
 export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps = {}) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<PlanStackParamList, 'WeeklyPlanSetup'>>();
+  const initialGoalMode = route.params?.initialGoalMode;
+  const initialPhaseIndex = useMemo(
+    () => getSetupPhaseIndex(route.params?.initialPhaseKey),
+    [route.params?.initialPhaseKey],
+  );
 
   const [userId, setUserId] = useState<string | null>(null);
   const [profileTargetWeight, setProfileTargetWeight] = useState<number | null>(null);
@@ -507,12 +520,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         setProfileTargetWeight(profile?.target_weight ?? null);
         if (profile?.target_weight != null) setTargetWeight(String(profile.target_weight));
         if (profile?.fight_date) setFightDate(profile.fight_date);
-        if (profile?.athlete_goal_mode === 'fight_camp') {
-          setGoalMode('fight_camp');
-        }
 
         if (camp) {
-          setGoalMode('fight_camp');
           setFightDate(camp.fightDate);
           setTravelStartDate(camp.travelStartDate ?? '');
           setTravelEndDate(camp.travelEndDate ?? '');
@@ -521,11 +530,12 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           setRoundCount(camp.roundCount ?? 3);
           setRoundDurationSec(camp.roundDurationSec ?? 180);
           setRestDurationSec(camp.restDurationSec ?? 60);
-        } else if (buildGoal) {
+        }
+
+        if (buildGoal) {
           const recommendedBuild = createBuildPhaseRecommendation(buildGoal.goal_type, profile?.target_weight ?? null);
           const useAdvancedOverride = !isGuidedBuildGoal(buildGoal, recommendedBuild);
 
-          setGoalMode('build_phase');
           setShowAdvancedOverride(useAdvancedOverride);
           setBuildGoalType(buildGoal.goal_type);
           setGoalLabel(buildGoal.goal_label ?? '');
@@ -542,6 +552,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             setBuildGoalType(profile.performance_goal_type as BuildPhaseGoalType);
           }
         }
+
+        setGoalMode(profile?.athlete_goal_mode === 'fight_camp' || camp ? 'fight_camp' : 'build_phase');
 
         setCommitments(
           recurring
@@ -564,6 +576,14 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    if (initialGoalMode) {
+      setGoalMode(initialGoalMode);
+    }
+    setPhaseIndex(initialPhaseIndex);
+  }, [initialGoalMode, initialPhaseIndex, loading]);
 
   function toggleAvailabilityDay(dayOfWeek: number) {
     setAvailabilityWindows((prev) => {

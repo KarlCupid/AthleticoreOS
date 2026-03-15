@@ -15,15 +15,14 @@ import {
     WeightCutPlanRow,
 } from '../engine/types';
 import { calculateWeeklyCompliance, getTrainingStreak, generateSmartWeekPlan, adaptDailySchedule } from '../engine/calculateSchedule';
-import { calculateACWR } from '../engine/calculateACWR';
 import { getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
-import { getGlobalReadinessState } from '../engine/getGlobalReadinessState';
-import { getActiveFightCamp, resolvePhaseForDate } from './fightCampService';
+import { getActiveFightCamp } from './fightCampService';
 import { getAthleteContext } from './athleteContextService';
 import { getDefaultGymProfile } from './gymProfileService';
 import { getWeeksSinceLastDeload } from './overloadService';
 import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
+import { getDailyEngineState } from './dailyMissionService';
 import { logWarn } from '../utils/logger';
 
 function today(): string {
@@ -755,7 +754,7 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
     const todayStr = today();
     const yesterdayStr = addDays(todayStr, -1);
     const athleteContext = await getAthleteContext(userId);
-    const [todayActivities, yesterdayActivities, checkinResult, campConfig, exerciseLibrary] = await Promise.all([
+    const [todayActivities, yesterdayActivities, checkinResult, campConfig, exerciseLibrary, engineState] = await Promise.all([
         getScheduledActivities(userId, todayStr, todayStr),
         getScheduledActivities(userId, yesterdayStr, yesterdayStr),
         supabase
@@ -766,54 +765,20 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
             .maybeSingle(),
         getActiveFightCamp(userId),
         getExerciseLibrary(),
+        getDailyEngineState(userId, todayStr),
     ]);
-
-    let trainingIntensityCap: number | null = null;
-    if (athleteContext.profile?.active_cut_plan_id) {
-        const { data: cutProtocol, error: cutProtocolError } = await supabase
-            .from('daily_cut_protocols')
-            .select('training_intensity_cap')
-            .eq('user_id', userId)
-            .eq('date', todayStr)
-            .maybeSingle();
-
-        if (cutProtocolError) throw cutProtocolError;
-        trainingIntensityCap = cutProtocol?.training_intensity_cap ?? null;
-    }
-
-    let acwr = 1.0;
-    try {
-        const acwrResult = await calculateACWR({
-            userId,
-            supabaseClient: supabase,
-            asOfDate: todayStr,
-            fitnessLevel: athleteContext.fitnessLevel,
-            phase: athleteContext.phase,
-            isOnActiveCut: athleteContext.isOnActiveCut,
-        });
-        acwr = acwrResult.ratio;
-    } catch (error) {
-        logWarn('scheduleService.dailyAdaptationACWR', error);
-    }
-
-    const readinessState = getGlobalReadinessState({
-        sleep: checkinResult.data?.sleep_quality ?? 4,
-        readiness: checkinResult.data?.readiness ?? 4,
-        acwr,
-    });
-    const phase = await resolvePhaseForDate(userId, todayStr, athleteContext.phase);
 
     return adaptDailySchedule({
         today: todayStr,
         todayActivities,
         yesterdayActivities,
-        readinessState,
-        acwr,
+        readinessState: engineState.readinessState,
+        acwr: engineState.acwr.ratio,
         sleepLastNight: checkinResult.data?.sleep_quality ?? 4,
         fitnessLevel: athleteContext.fitnessLevel,
-        phase,
+        phase: engineState.objectiveContext.phase,
         campConfig,
-        trainingIntensityCap,
+        trainingIntensityCap: engineState.cutProtocol?.training_intensity_cap ?? null,
         exerciseLibrary,
     });
 }
@@ -845,39 +810,13 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         activeCutPlan = (cutPlan as WeightCutPlanRow | null) ?? null;
     }
 
-    let acwr = 1.0;
-    try {
-        const acwrResult = await calculateACWR({
-            userId,
-            supabaseClient: supabase,
-            asOfDate: weekStartDate,
-            fitnessLevel: athleteContext.fitnessLevel,
-            phase: athleteContext.phase,
-            isOnActiveCut: athleteContext.isOnActiveCut,
-        });
-        acwr = acwrResult.ratio;
-    } catch (error) {
-        logWarn('scheduleService.engineSyncACWR', error);
-    }
-
-    const { data: checkin } = await supabase
-        .from('daily_checkins')
-        .select('sleep_quality, readiness')
-        .eq('user_id', userId)
-        .eq('date', today())
-        .maybeSingle();
-
-    const readinessState = getGlobalReadinessState({
-        sleep: checkin?.sleep_quality ?? 4,
-        readiness: checkin?.readiness ?? 4,
-        acwr,
-    });
+    const engineState = await getDailyEngineState(userId, today());
 
     const result = generateSmartWeekPlan({
         config,
-        readinessState,
+        readinessState: engineState.readinessState,
         phase: athleteContext.phase,
-        acwr,
+        acwr: engineState.acwr.ratio,
         fitnessLevel: athleteContext.fitnessLevel,
         exerciseLibrary,
         recentExerciseIds,

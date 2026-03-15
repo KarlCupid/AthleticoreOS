@@ -39,9 +39,9 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: SPACING.lg,
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: 'rgba(255,255,255,0.7)',
     },
     androidFallback: {
-        backgroundColor: 'rgba(255,255,255,0.85)',
+        backgroundColor: 'rgba(255,255,255,0.92)',
     },
 });

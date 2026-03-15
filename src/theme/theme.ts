@@ -1,33 +1,33 @@
 export const COLORS = {
-    background: '#F8F9FA',
+    background: '#F0F4F5',
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
-    surfaceSecondary: '#F1F3F5',
-    border: '#E8ECF0',
-    borderLight: '#F1F3F5',
+    surfaceSecondary: '#E8EEF1',
+    border: '#D0DAE0',
+    borderLight: '#E4ECEF',
 
-    // Accent palette
-    accent: '#16A34A',
-    accentLight: '#DCFCE7',
+    // Accent palette — premium mint
+    accent: '#0FA888',
+    accentLight: '#E0F5F1',
 
     // Semantic colors
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
+    success: '#16A34A',
+    warning: '#D97706',
+    error: '#DC2626',
 
     // Overlay
-    overlay: 'rgba(0,0,0,0.5)',
+    overlay: 'rgba(0,0,0,0.4)',
 
     text: {
-        primary: '#1A1A2E',
-        secondary: '#6B7280',
-        tertiary: '#9CA3AF',
+        primary: '#1C2B3A',
+        secondary: '#5A7080',
+        tertiary: '#90A4AE',
         inverse: '#FFFFFF',
     },
 
     readiness: {
-        prime: '#16A34A',
-        primeLight: '#DCFCE7',
+        prime: '#0FA888',
+        primeLight: '#E0F5F1',
         caution: '#D97706',
         cautionLight: '#FEF3C7',
         depleted: '#DC2626',
@@ -36,30 +36,36 @@ export const COLORS = {
 
     chart: {
         fitness: '#3B82F6',
-        fatigue: '#15803D',
-        readiness: '#10B981',
-        accent: '#F59E0B',
-        protein: '#60A5FA',
-        carbs: '#FBBF24',
-        fat: '#F87171',
-        water: '#34D399',
+        fatigue: '#0FA888',
+        readiness: '#14B8A6',
+        accent: '#D97706',
+        protein: '#6366F1',
+        carbs: '#F59E0B',
+        fat: '#EF4444',
+        water: '#06B6D4',
     },
 
-    // Keep status colors stable across the current daily flow
     status: {
-        optimal: '#22C55E',
-        caution: '#EAB308',
-        actionRequired: '#EF4444',
+        optimal: '#16A34A',
+        caution: '#D97706',
+        actionRequired: '#DC2626',
     },
 };
 
 export const GRADIENTS = {
-    prime: ['#16A34A', '#15803D', '#166534'] as const,
+    prime: ['#0FA888', '#0D8A70', '#0B7860'] as const,
     caution: ['#D97706', '#B45309', '#92400E'] as const,
     depleted: ['#DC2626', '#B91C1C', '#991B1B'] as const,
-    card: ['#FFFFFF', '#F8F9FA'] as const,
-    accent: ['#16A34A', '#15803D'] as const,
+    card: ['#FFFFFF', '#F5F8FA'] as const,
+    accent: ['#0FA888', '#0D8A70'] as const,
 };
+
+export const BORDERS = {
+    card: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)' },
+    elevated: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.10)' },
+    accent: { borderWidth: 1, borderColor: 'rgba(15,168,136,0.25)' },
+    glow: { borderWidth: 1, borderColor: 'rgba(15,168,136,0.40)' },
+} as const;
 
 export const FONT_FAMILY = {
     regular: 'Inter_400Regular',
@@ -148,65 +154,65 @@ export const RADIUS = {
 export const SHADOWS = {
     sm: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 1,
     },
     card: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
+        shadowColor: '#1C2B3A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
         shadowRadius: 12,
         elevation: 2,
     },
     md: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
+        shadowColor: '#1C2B3A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
         shadowRadius: 12,
         elevation: 2,
     },
     cardElevated: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
+        shadowColor: '#1C2B3A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.10,
         shadowRadius: 20,
         elevation: 4,
     },
     lg: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
+        shadowColor: '#1C2B3A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.10,
         shadowRadius: 20,
         elevation: 4,
     },
     xl: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 16 },
-        shadowOpacity: 0.12,
-        shadowRadius: 32,
+        shadowColor: '#1C2B3A',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.14,
+        shadowRadius: 28,
         elevation: 6,
     },
     header: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.15,
-        shadowRadius: 24,
+        shadowColor: '#1C2B3A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
         elevation: 8,
     },
     colored: {
         prime: {
             shadowColor: COLORS.readiness.prime,
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.25,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.30,
             shadowRadius: 12,
             elevation: 4,
         },
         accent: {
             shadowColor: COLORS.accent,
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.25,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.30,
             shadowRadius: 12,
             elevation: 4,
         },

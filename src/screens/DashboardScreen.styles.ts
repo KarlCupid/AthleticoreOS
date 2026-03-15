@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
 
     // Skeleton loading
     skeletonHero: {
-        backgroundColor: COLORS.borderLight,
+        backgroundColor: COLORS.surfaceSecondary,
         padding: SPACING.xl,
         paddingTop: SPACING.xxxl,
     },
@@ -149,49 +149,130 @@ export const styles = StyleSheet.create({
         marginTop: 2,
     },
 
-    // Action Grid
-    actionGrid: {
+    // Quick Action Strip (compact pill row replacing 2×2 grid)
+    quickActionStrip: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: SPACING.md,
+        gap: SPACING.sm,
     },
-    actionGridItem: {
-        width: '47%',
-    },
-    actionGridCard: {
+    quickActionPill: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.xs,
         backgroundColor: COLORS.surface,
-        borderRadius: RADIUS.xl,
-        padding: SPACING.md,
-        ...SHADOWS.card,
-        minHeight: 120,
+        borderRadius: RADIUS.full,
+        paddingVertical: SPACING.sm + 2,
+        paddingHorizontal: SPACING.sm + 2,
+        ...SHADOWS.sm,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
     },
-    actionGridIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: RADIUS.md,
+    quickActionIconWrap: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: SPACING.sm,
     },
-    actionGridLabel: {
-        fontSize: 15,
+    quickActionLabel: {
+        fontSize: 12,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.primary,
-        marginBottom: 2,
+        flexShrink: 1,
     },
-    actionGridSub: {
+    quickActionLabelDone: {
+        color: COLORS.text.tertiary,
+    },
+
+    // Phase control
+    phaseControlHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    phaseControlEyebrow: {
         fontSize: 11,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.accent,
+        letterSpacing: 1,
+    },
+    phaseControlCurrentMode: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+    },
+    phaseControlTitle: {
+        marginTop: SPACING.xs,
+        fontSize: 22,
+        fontFamily: FONT_FAMILY.black,
+        color: COLORS.text.primary,
+        letterSpacing: -0.3,
+    },
+    phaseControlDescription: {
+        marginTop: SPACING.xs,
+        fontSize: 13,
         fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
+        color: COLORS.text.secondary,
+        lineHeight: 20,
     },
-    actionGridDone: {
-        color: COLORS.text.tertiary,
-        textDecorationLine: 'line-through',
+    phaseControlSummaryRow: {
+        marginTop: SPACING.md,
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
+        borderRadius: RADIUS.lg,
+        overflow: 'hidden',
+        backgroundColor: COLORS.surfaceSecondary,
     },
-    actionGridArrow: {
-        position: 'absolute',
-        top: SPACING.md,
-        right: SPACING.md,
+    phaseControlSummaryBlock: {
+        flex: 1,
+        paddingVertical: SPACING.sm + 2,
+        paddingHorizontal: SPACING.md,
+    },
+    phaseControlSummaryDivider: {
+        width: StyleSheet.hairlineWidth,
+        backgroundColor: COLORS.borderLight,
+    },
+    phaseControlSummaryLabel: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+    },
+    phaseControlSummaryValue: {
+        marginTop: 4,
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+    },
+    phaseControlPrimaryButton: {
+        marginTop: SPACING.md,
+        backgroundColor: COLORS.accent,
+        borderRadius: RADIUS.full,
+        alignItems: 'center',
+        paddingVertical: SPACING.md,
+    },
+    phaseControlPrimaryText: {
+        fontSize: 15,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.inverse,
+    },
+    phaseControlSecondaryButton: {
+        marginTop: SPACING.sm,
+        borderRadius: RADIUS.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: SPACING.md - 2,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surface,
+    },
+    phaseControlSecondaryText: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
     },
 
     // First-run guidance

@@ -61,3 +61,12 @@ archive/generated/test.js
 ehthumbs.db
 Thumbs.db
 
+# Additional AI & Data to Ignore
+.claude/
+.gemini/
+.tmp-smoke/
+archive/
+*.sqlite
+*.sqlite-journal
+*.db
+.codex_runtime_*

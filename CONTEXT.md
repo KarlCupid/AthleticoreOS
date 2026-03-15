@@ -1,5 +1,7 @@
 # Athleticore OS - Architecture & Context
 
+**CRITICAL:** Always read `STATE.md` first to understand current project priorities before making any targeted code changes.
+
 This file serves as a high-level map for AI agents to understand the repository structure and domain logic without having to crawl the entire codebase. Please use this as a reference to keep context windows small and focused.
 
 ## Tech Stack

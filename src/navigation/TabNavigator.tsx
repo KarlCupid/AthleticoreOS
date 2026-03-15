@@ -74,7 +74,7 @@ export function TabNavigator() {
           Platform.OS === 'ios' ? (
             <View style={{ ...StyleSheet.absoluteFillObject, overflow: 'hidden', borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl }}>
               <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFill} />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.7)' }]} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.75)' }]} />
             </View>
           ) : null
         ),

@@ -23,18 +23,13 @@ import { HydrationTracker } from '../components/HydrationTracker';
 import { IconBarcode } from '../components/icons';
 import { styles } from './NutritionScreen.styles';
 import { supabase } from '../../lib/supabase';
-import { calculateNutritionTargets, resolveDailyNutritionTargets } from '../../lib/engine/calculateNutrition';
-import { getDailyMission } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import {
   getDailyNutrition,
   removeFoodEntry,
   logWater,
   ensureDailyLedger,
 } from '../../lib/api/nutritionService';
-import { getScheduledActivities } from '../../lib/api/scheduleService';
-import { getHydrationProtocol } from '../../lib/engine/getHydrationProtocol';
-import { calculateWeightTrend, calculateWeightCorrection } from '../../lib/engine/calculateWeight';
-import { getWeightHistory, getEffectiveWeight } from '../../lib/api/weightService';
 import { DailyMission, MealType, ResolvedNutritionTargets, DailyCutProtocolRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
@@ -76,174 +71,35 @@ export function NutritionScreen() {
       if (!session?.user) return;
       const userId = session.user.id;
 
-      // Load profile
-      const { data: profile } = await supabase
-        .from('athlete_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (!profile) return;
-      const scheduledActivities = await getScheduledActivities(userId, today, today);
-
-      // ── Active cut protocol (overrides standard targets when active) ──
-      let todayCutProtocol: DailyCutProtocolRow | null = null;
-      if (profile.active_cut_plan_id) {
-        const { data: proto } = await supabase
-          .from('daily_cut_protocols')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', today)
-          .maybeSingle();
-        todayCutProtocol = proto as DailyCutProtocolRow | null;
-      }
-      setCutProtocol(todayCutProtocol);
-
-      // Get effective weight (today's checkin > latest > base_weight)
-      const effectiveWeight = await getEffectiveWeight(userId, profile.base_weight ?? 150);
-      const profilePhase = (profile.phase as 'off-season' | 'pre-camp' | 'fight-camp') ?? 'off-season';
-
-      // Weight trend + correction
-      let correctionDeficit = 0;
-      let weeklyVelocity: number | undefined;
-      try {
-        const weightHistory = await getWeightHistory(userId, 30);
-        const trend = calculateWeightTrend({
-          weightHistory,
-          targetWeightLbs: profile.target_weight ?? null,
-          baseWeightLbs: profile.base_weight ?? effectiveWeight,
-          phase: profilePhase,
-          deadlineDate: profile.fight_date ?? null,
-        });
-        weeklyVelocity = trend.weeklyVelocityLbs;
-
-        // Get TDEE for correction calculation
-        const baseTDEE = calculateNutritionTargets({
-          weightLbs: effectiveWeight,
-          heightInches: profile.height_inches ?? null,
-          age: profile.age ?? null,
-          biologicalSex: profile.biological_sex ?? 'male',
-          activityLevel: profile.activity_level ?? 'moderate',
-          phase: profilePhase,
-          nutritionGoal: profile.nutrition_goal ?? 'maintain',
-          cycleDay: null,
-          coachProteinOverride: null,
-          coachCarbsOverride: null,
-          coachFatOverride: null,
-          coachCaloriesOverride: null,
-        }).tdee;
-
-        const correction = calculateWeightCorrection({
-          weightTrend: trend,
-          phase: profilePhase,
-          currentTDEE: baseTDEE,
-          deadlineDate: profile.fight_date ?? null,
-        });
-        correctionDeficit = correction.correctionDeficitCal;
-      } catch (error) {
-        logError('NutritionScreen.weightTrendAndCorrection', error, { userId });
-      }
-
-      // Calculate targets with effective weight + correction
-      const nutritionTargets = calculateNutritionTargets({
-        weightLbs: effectiveWeight,
-        heightInches: profile.height_inches ?? null,
-        age: profile.age ?? null,
-        biologicalSex: profile.biological_sex ?? 'male',
-        activityLevel: profile.activity_level ?? 'moderate',
-        phase: profilePhase,
-        nutritionGoal: profile.nutrition_goal ?? 'maintain',
-        cycleDay: null,
-        coachProteinOverride: profile.coach_protein_override ?? null,
-        coachCarbsOverride: profile.coach_carbs_override ?? null,
-        coachFatOverride: profile.coach_fat_override ?? null,
-        coachCaloriesOverride: profile.coach_calories_override ?? null,
-        weightCorrectionDeficit: correctionDeficit,
+      const engineState = await getDailyEngineState(userId, today);
+      setCutProtocol(engineState.cutProtocol as DailyCutProtocolRow | null);
+      setDailyMission(engineState.mission);
+      setTargets({
+        ...engineState.nutritionTargets,
+        adjustedCalories: engineState.mission.fuelDirective.calories,
+        protein: engineState.mission.fuelDirective.protein,
+        carbs: engineState.mission.fuelDirective.carbs,
+        fat: engineState.mission.fuelDirective.fat,
+        message: engineState.mission.fuelDirective.message,
       });
-      const activeActivities = scheduledActivities.filter((activity) => activity.status !== 'skipped');
-      const finalTargets = resolveDailyNutritionTargets(
-        nutritionTargets,
-        todayCutProtocol,
-        activeActivities.map((activity) => ({
-          activity_type: activity.activity_type,
-          expected_intensity: activity.expected_intensity,
-          estimated_duration_min: activity.estimated_duration_min,
-        })),
-      );
-      setTargets(finalTargets);
+      setWaterTarget(engineState.mission.hydrationDirective.waterTargetOz);
 
-      let missionApplied = false;
-      try {
-        const mission = await getDailyMission(userId, today);
-        setDailyMission(mission);
-        setTargets((prev) => ({
-          ...(prev ?? finalTargets),
-          adjustedCalories: mission.fuelDirective.calories,
-          protein: mission.fuelDirective.protein,
-          carbs: mission.fuelDirective.carbs,
-          fat: mission.fuelDirective.fat,
-          message: mission.fuelDirective.message,
-          source: mission.fuelDirective.source === 'weight_cut_protocol'
-            ? 'weight_cut_protocol'
-            : mission.fuelDirective.source === 'daily_engine'
-              ? 'daily_activity_adjusted'
-              : 'base',
-          fuelState: mission.fuelDirective.state,
-          sessionDemandScore: mission.fuelDirective.sessionDemandScore,
-          hydrationBoostOz: mission.fuelDirective.hydrationBoostOz,
-          reasonLines: mission.fuelDirective.reasons,
-        }));
-        setWaterTarget(mission.hydrationDirective.waterTargetOz);
-        await ensureDailyLedger(userId, today, {
-          tdee: finalTargets.tdee,
-          calories: mission.fuelDirective.calories,
-          protein: mission.fuelDirective.protein,
-          carbs: mission.fuelDirective.carbs,
-          fat: mission.fuelDirective.fat,
-          weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
-          targetSource: mission.fuelDirective.source === 'weight_cut_protocol'
-            ? 'weight_cut_protocol'
-            : mission.fuelDirective.source === 'daily_engine'
-              ? 'daily_activity_adjusted'
-              : 'base',
-        });
-        missionApplied = true;
-      } catch (error) {
-        logError('NutritionScreen.getDailyMission', error, { userId });
-        setDailyMission(null);
-      }
+      await ensureDailyLedger(userId, today, {
+        tdee: engineState.nutritionTargets.tdee,
+        calories: engineState.mission.fuelDirective.calories,
+        protein: engineState.mission.fuelDirective.protein,
+        carbs: engineState.mission.fuelDirective.carbs,
+        fat: engineState.mission.fuelDirective.fat,
+        weightCorrectionDeficit: engineState.nutritionTargets.weightCorrectionDeficit,
+        targetSource: engineState.mission.fuelDirective.source === 'weight_cut_protocol'
+          ? 'weight_cut_protocol'
+          : engineState.mission.fuelDirective.source === 'daily_engine'
+            ? 'daily_activity_adjusted'
+            : 'base',
+      });
 
-      // Ensure ledger row exists for today
-      if (!missionApplied) {
-        await ensureDailyLedger(userId, today, {
-          tdee: finalTargets.tdee,
-          calories: finalTargets.adjustedCalories,
-          protein: finalTargets.protein,
-          carbs: finalTargets.carbs,
-          fat: finalTargets.fat,
-          weightCorrectionDeficit: finalTargets.weightCorrectionDeficit,
-          targetSource: finalTargets.source,
-        });
-      }
-
-      // Calculate hydration target — cut protocol overrides standard
-      if (todayCutProtocol) {
-        setWaterTarget(Math.round(todayCutProtocol.water_target_oz));
-      } else {
-        const hydration = getHydrationProtocol({
-          phase: profilePhase,
-          fightStatus: profile.fight_status ?? 'amateur',
-          currentWeightLbs: effectiveWeight,
-          targetWeightLbs: profile.target_weight ?? effectiveWeight,
-          weeklyVelocityLbs: weeklyVelocity,
-        });
-        setWaterTarget(Math.round(hydration.dailyWaterOz));
-      }
-
-      // Load today's nutrition data
       const data = await getDailyNutrition(userId, today);
 
-      // Group food log by meal type
       const grouped: Record<MealType, any[]> = {
         breakfast: [],
         lunch: [],
@@ -266,7 +122,6 @@ export function NutritionScreen() {
       }
       setMeals(grouped);
 
-      // Calculate totals
       const t = data.foodLog.reduce(
         (acc: any, entry: any) => ({
           calories: acc.calories + (entry.logged_calories ?? 0),
@@ -278,7 +133,6 @@ export function NutritionScreen() {
       );
       setTotals(t);
 
-      // Water
       const waterTotal = data.hydrationLog.reduce(
         (sum: number, w: any) => sum + (w.amount_oz ?? 0),
         0
@@ -352,19 +206,15 @@ export function NutritionScreen() {
 
   const renderSkeleton = () => (
     <View style={styles.content}>
-      {/* Calorie hero skeleton */}
       <View style={{ alignItems: 'center', marginBottom: SPACING.lg }}>
         <SkeletonLoader width={120} height={40} shape="rect" />
         <SkeletonLoader width={80} height={14} shape="text" style={{ marginTop: SPACING.sm }} />
       </View>
-      {/* Macro bars skeleton */}
       <SkeletonLoader width="100%" height={120} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
-      {/* Pie chart skeleton */}
       <View style={{ alignItems: 'center', marginBottom: SPACING.md }}>
         <SkeletonLoader width={140} height={140} shape="circle" />
       </View>
-      {/* Meal rows skeleton */}
-      {[1, 2, 3].map(i => (
+      {[1, 2, 3].map((i) => (
         <SkeletonLoader key={i} width="100%" height={56} shape="rect" style={{ marginBottom: SPACING.sm, borderRadius: RADIUS.lg }} />
       ))}
     </View>
@@ -391,7 +241,6 @@ export function NutritionScreen() {
           renderSkeleton()
         ) : (
           <>
-            {/* Cut Protocol Context Banner */}
             {dailyMission && (
               <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}>
                 <Card style={{ marginBottom: SPACING.sm + 4 }}>
@@ -412,7 +261,7 @@ export function NutritionScreen() {
               >
                 <View style={styles.cutBannerTop}>
                   <Text style={styles.cutBannerPhase}>
-                    ⚔️ {cutProtocol.cut_phase.replace(/_/g, ' ').toUpperCase()} — Day {cutProtocol.days_to_weigh_in > 0 ? `${cutProtocol.days_to_weigh_in}d to weigh-in` : 'Weigh-in today'}
+                    {cutProtocol.cut_phase.replace(/_/g, ' ').toUpperCase()} - Day {cutProtocol.days_to_weigh_in > 0 ? `${cutProtocol.days_to_weigh_in}d to weigh-in` : 'Weigh-in today'}
                   </Text>
                   {cutProtocol.is_refeed_day && (
                     <View style={styles.cutBadge}>
@@ -426,15 +275,14 @@ export function NutritionScreen() {
                   )}
                 </View>
                 {cutProtocol.sodium_instruction && (
-                  <Text style={styles.cutBannerInstruction}>🧂 {cutProtocol.sodium_instruction}</Text>
+                  <Text style={styles.cutBannerInstruction}>{cutProtocol.sodium_instruction}</Text>
                 )}
                 {cutProtocol.fiber_instruction && (
-                  <Text style={styles.cutBannerInstruction}>🌿 {cutProtocol.fiber_instruction}</Text>
+                  <Text style={styles.cutBannerInstruction}>{cutProtocol.fiber_instruction}</Text>
                 )}
               </Animated.View>
             )}
 
-            {/* Calorie Hero */}
             <Animated.View
               entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}
               style={styles.calorieHero}
@@ -448,7 +296,6 @@ export function NutritionScreen() {
               </Text>
             </Animated.View>
 
-            {/* Daily Macro Summary */}
             <Animated.View
               entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}
             >
@@ -481,7 +328,6 @@ export function NutritionScreen() {
               </Card>
             </Animated.View>
 
-            {/* Macro Pie Chart */}
             <Animated.View
               entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}
             >
@@ -495,7 +341,6 @@ export function NutritionScreen() {
               </Card>
             </Animated.View>
 
-            {/* Hydration */}
             <Animated.View
               entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}
             >
@@ -506,7 +351,6 @@ export function NutritionScreen() {
               />
             </Animated.View>
 
-            {/* Meal Sections */}
             {MEAL_TYPES.map((mt, i) => (
               <Animated.View
                 key={mt}
@@ -524,7 +368,6 @@ export function NutritionScreen() {
               </Animated.View>
             ))}
 
-            {/* Quick Actions */}
             <Animated.View
               entering={FadeInDown.delay(STAGGER_DELAY * 9).duration(ANIMATION.slow).springify()}
               style={styles.quickActions}
@@ -572,7 +415,3 @@ export function NutritionScreen() {
     </View>
   );
 }
-
-
-
-

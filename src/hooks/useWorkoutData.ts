@@ -1,26 +1,20 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { calculateACWR } from '../../lib/engine/calculateACWR';
-import { generateWorkoutV2 } from '../../lib/engine/calculateSC';
 import {
   getExerciseLibrary,
   getWorkoutHistory,
-  getRecentExerciseIds,
-  getRecentMuscleVolume,
-  getExerciseHistoryBatch,
 } from '../../lib/api/scService';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
-import { getAthleteContext, getActiveUserId } from '../../lib/api/athleteContextService';
+import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
 import { addManualActivity, getScheduledActivities } from '../../lib/api/scheduleService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
-import { getDailyMission } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import type {
   WorkoutPrescription,
   WorkoutLogRow,
   ScheduledActivityRow,
   ExerciseLibraryRow,
-  MuscleGroup,
   ReadinessState,
   DailyCutProtocolRow,
 } from '../../lib/engine/types';
@@ -41,20 +35,6 @@ export interface TrainingSession extends ACWRTrainingSession {
 interface WorkoutNavigation {
   navigate: (screen: string, params: Record<string, unknown>) => void;
 }
-
-const EMPTY_VOLUME: Record<MuscleGroup, number> = {
-  chest: 0,
-  back: 0,
-  shoulders: 0,
-  quads: 0,
-  hamstrings: 0,
-  glutes: 0,
-  arms: 0,
-  core: 0,
-  full_body: 0,
-  neck: 0,
-  calves: 0,
-};
 
 export function useWorkoutData(currentLevel: ReadinessState | null) {
   const [loading, setLoading] = useState(true);
@@ -86,15 +66,15 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       const sinceStr = formatLocalDate(sinceDate);
 
       const [
-        athleteContext,
         library,
         scheduledActivities,
+        engineState,
         { data: checkinsRes },
         { data: sessionsRes },
       ] = await Promise.all([
-        getAthleteContext(currentUserId),
         getExerciseLibrary(),
         getScheduledActivities(currentUserId, todayStr, todayStr),
+        getDailyEngineState(currentUserId, todayStr),
         supabase
           .from('daily_checkins')
           .select('date, morning_weight, sleep_quality, readiness')
@@ -113,69 +93,8 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       setTodayActivities(scheduledActivities);
       if (checkinsRes) setCheckins(checkinsRes as DailyCheckin[]);
       if (sessionsRes) setSessions(sessionsRes as TrainingSession[]);
-
-      const readinessState: ReadinessState = currentLevel ?? 'Prime';
-
-      let todayCutProtocol: DailyCutProtocolRow | null = null;
-      if (athleteContext.isOnActiveCut) {
-        const { data: proto } = await supabase
-          .from('daily_cut_protocols')
-          .select('*')
-          .eq('user_id', currentUserId)
-          .eq('date', todayStr)
-          .maybeSingle();
-        todayCutProtocol = (proto as DailyCutProtocolRow | null) ?? null;
-      }
-      setCutProtocol(todayCutProtocol);
-
-      let acwr = 1.0;
-      try {
-        const acwrResult = await calculateACWR({
-          userId: currentUserId,
-          supabaseClient: supabase,
-          asOfDate: todayStr,
-          fitnessLevel: athleteContext.fitnessLevel,
-          phase: athleteContext.phase,
-          isOnActiveCut: athleteContext.isOnActiveCut,
-        });
-        acwr = acwrResult.ratio;
-      } catch (error) {
-        logError('useWorkoutData.calculateACWR', error, { userId: currentUserId });
-      }
-
-      let workout = null as WorkoutPrescription | null;
-      try {
-        const mission = await getDailyMission(currentUserId, todayStr);
-        workout = mission.trainingDirective.prescription;
-      } catch (error) {
-        logError('useWorkoutData.getDailyMission', error, { userId: currentUserId });
-      }
-
-      if (!workout) {
-        const [recentIds, recentMuscleVolume] = await Promise.all([
-          getRecentExerciseIds(currentUserId),
-          getRecentMuscleVolume(currentUserId),
-        ]);
-        const historyMap = await getExerciseHistoryBatch(
-          currentUserId,
-          library.map((exercise) => exercise.id),
-        );
-
-        workout = generateWorkoutV2({
-          readinessState,
-          phase: athleteContext.phase,
-          acwr,
-          exerciseLibrary: library,
-          recentExerciseIds: recentIds,
-          recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
-          trainingDate: todayStr,
-          trainingIntensityCap: todayCutProtocol?.training_intensity_cap ?? undefined,
-          fitnessLevel: athleteContext.fitnessLevel,
-          gymEquipment: [],
-          exerciseHistory: historyMap,
-        });
-      }
-      setPrescription(workout);
+      setCutProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
+      setPrescription((engineState.workoutPrescription as WorkoutPrescription | null) ?? null);
 
       const history = await getWorkoutHistory(currentUserId, 20);
       setWorkoutHistory(history);

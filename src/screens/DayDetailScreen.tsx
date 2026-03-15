@@ -12,13 +12,11 @@ import { ReadinessGate } from '../components/ReadinessGate';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { styles } from './DayDetailScreen.styles';
-import { getScheduledActivities, addManualActivity, applySameDayOverride, skipActivity, updateScheduledActivity } from '../../lib/api/scheduleService';
-import { validateDayLoad, adjustNutritionForDay } from '../../lib/engine/calculateSchedule';
-import { calculateNutritionTargets } from '../../lib/engine/calculateNutrition';
-import { getGlobalReadinessState } from '../../lib/engine/getGlobalReadinessState';
-import { calculateACWR } from '../../lib/engine/calculateACWR';
+import { addManualActivity, applySameDayOverride, skipActivity, updateScheduledActivity } from '../../lib/api/scheduleService';
+import { validateDayLoad } from '../../lib/engine/calculateSchedule';
+import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
-import type { ScheduledActivityRow, ReadinessState, NutritionDayAdjustment } from '../../lib/engine/types';
+import type { ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
 
@@ -42,7 +40,7 @@ export function DayDetailScreen() {
 
     const [activities, setActivities] = useState<ScheduledActivityRow[]>([]);
     const [readinessState, setReadinessState] = useState<ReadinessState>('Prime');
-    const [nutritionAdjustment, setNutritionAdjustment] = useState<NutritionDayAdjustment | null>(null);
+    const [fuelDirectiveMessage, setFuelDirectiveMessage] = useState<string | null>(null);
     const [showAddPicker, setShowAddPicker] = useState(false);
     const [editingActivity, setEditingActivity] = useState<ScheduledActivityRow | null>(null);
     const [editTime, setEditTime] = useState('');
@@ -58,53 +56,14 @@ export function DayDetailScreen() {
         const userId = session.user.id;
 
         try {
-            const dayActivities = await getScheduledActivities(userId, dateParam, dateParam);
-            setActivities(dayActivities);
-
-            // Get readiness
-            const { data: checkin } = await supabase
-                .from('daily_checkins')
-                .select('sleep_quality, readiness')
-                .eq('user_id', userId)
-                .eq('date', dateParam)
-                .maybeSingle();
-
-            const acwr = await calculateACWR({ userId, supabaseClient: supabase });
-
-            if (checkin) {
-                const state = getGlobalReadinessState({
-                    sleep: checkin.sleep_quality ?? 3,
-                    readiness: checkin.readiness ?? 3,
-                    acwr: acwr.ratio,
-                });
-                setReadinessState(state);
-            }
-
-            // Nutrition adjustment
-            const { data: profile } = await supabase
-                .from('athlete_profiles')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
-
-            if (profile) {
-                const baseTargets = calculateNutritionTargets({
-                    weightLbs: profile.base_weight ?? 150,
-                    heightInches: profile.height_inches ?? null,
-                    age: profile.age ?? null,
-                    biologicalSex: profile.biological_sex ?? 'male',
-                    activityLevel: profile.activity_level ?? 'moderate',
-                    phase: profile.phase ?? 'off-season',
-                    nutritionGoal: profile.nutrition_goal ?? 'maintain',
-                    cycleDay: null,
-                    coachProteinOverride: null,
-                    coachCarbsOverride: null,
-                    coachFatOverride: null,
-                    coachCaloriesOverride: null,
-                });
-                const adjustment = adjustNutritionForDay(baseTargets, dayActivities);
-                setNutritionAdjustment(adjustment);
-            }
+            const engineState = await getDailyEngineState(userId, dateParam, { forceRefresh: true });
+            setActivities(engineState.scheduledActivities);
+            setReadinessState(engineState.readinessState);
+            setFuelDirectiveMessage(
+                engineState.nutritionTargets.source !== 'base'
+                    ? engineState.mission.fuelDirective.message
+                    : null,
+            );
         } catch (error) {
             logError('DayDetailScreen.loadData', error, { date: dateParam });
         }
@@ -250,10 +209,10 @@ export function DayDetailScreen() {
                         </Animated.View>
 
                         {/* Nutrition Adjustment Info */}
-                        {nutritionAdjustment && nutritionAdjustment.carbModifierPct !== 0 && (
+                        {fuelDirectiveMessage && (
                             <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()} style={styles.nutritionBanner}>
-                                <Text style={styles.nutritionBannerTitle}>📊 Nutrition Adjusted</Text>
-                                <Text style={styles.nutritionBannerText}>{nutritionAdjustment.message}</Text>
+                                <Text style={styles.nutritionBannerTitle}>Fuel Directive</Text>
+                                <Text style={styles.nutritionBannerText}>{fuelDirectiveMessage}</Text>
                             </Animated.View>
                         )}
 

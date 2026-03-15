@@ -9,7 +9,7 @@ import Animated, {
     Easing,
     FadeInUp,
 } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, RADIUS, SPACING, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedNumber } from './AnimatedNumber';
 
@@ -27,8 +27,8 @@ const AnimatedWave = ({ size, color, duration, offset, initialRotation = 0 }: An
     React.useEffect(() => {
         progress.value = withRepeat(
             withTiming(1, { duration, easing: Easing.linear }),
-            -1, // infinite
-            false // do not reverse
+            -1,
+            false
         );
     }, [duration]);
 
@@ -73,8 +73,8 @@ const AnimatedBackgroundBlob = ({ size, color, duration, top, left, initialRotat
     React.useEffect(() => {
         progress.value = withRepeat(
             withTiming(1, { duration, easing: Easing.linear }),
-            -1, // infinite
-            false // do not reverse
+            -1,
+            false
         );
     }, [duration]);
 
@@ -133,6 +133,9 @@ export function HeroHeader({
     const dots = 10;
     const filledDots = Math.round((readinessScore / 100) * dots);
 
+    // Muted blob color — 18% opacity of the readiness accent
+    const blobColor = (gradient[0] as string) + '2E';
+
     return (
         <View style={styles.wrapper}>
             <View
@@ -140,21 +143,21 @@ export function HeroHeader({
                     styles.container,
                     {
                         paddingTop: insets.top + SPACING.md,
-                        backgroundColor: gradient[1] as string, // solid background base
+                        backgroundColor: gradient[1] as string,
                     }
                 ]}
             >
-                {/* Flowing Ambient Background Gradient Replacement */}
+                {/* Ambient background blobs — very subtle on dark */}
                 <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]}>
-                    <AnimatedBackgroundBlob size={800} color={gradient[0] as string} duration={25000} top="10%" left="20%" initialRotation={0} />
-                    <AnimatedBackgroundBlob size={900} color={gradient[0] as string} duration={32000} top="60%" left="85%" initialRotation={120} />
-                    <AnimatedBackgroundBlob size={600} color="rgba(255,255,255,0.08)" duration={18000} top="30%" left="50%" initialRotation={240} />
+                    <AnimatedBackgroundBlob size={800} color={blobColor} duration={25000} top="10%" left="20%" initialRotation={0} />
+                    <AnimatedBackgroundBlob size={900} color={blobColor} duration={32000} top="60%" left="85%" initialRotation={120} />
+                    <AnimatedBackgroundBlob size={600} color="rgba(255,255,255,0.03)" duration={18000} top="30%" left="50%" initialRotation={240} />
                 </View>
 
-                {/* Absolute Waves in relative container */}
+                {/* Flowing waves — barely visible shimmer */}
                 <View style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
-                    <AnimatedWave size={1200} color="rgba(255,255,255,0.15)" offset={60} duration={14000} initialRotation={0} />
-                    <AnimatedWave size={1250} color="rgba(255,255,255,0.25)" offset={45} duration={18000} initialRotation={45} />
+                    <AnimatedWave size={1200} color="rgba(255,255,255,0.04)" offset={60} duration={14000} initialRotation={0} />
+                    <AnimatedWave size={1250} color="rgba(255,255,255,0.06)" offset={45} duration={18000} initialRotation={45} />
                     <AnimatedWave size={1200} color={COLORS.background} offset={25} duration={22000} initialRotation={90} />
                 </View>
 
@@ -190,48 +193,50 @@ export function HeroHeader({
                         </View>
                     </Animated.View>
 
-                    {/* Mini Stats Row */}
+                    {/* Mini Stats Row — glass pill */}
                     <Animated.View
                         entering={FadeInUp.delay(600).duration(ANIMATION.slow).springify()}
                         style={styles.statsRow}
                     >
-                        {acwr !== undefined && (
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{acwr.toFixed(2)}</Text>
-                                <Text style={styles.statLabel}>ACWR</Text>
-                            </View>
-                        )}
-                        {sleep !== undefined && (
-                            <>
-                                <View style={styles.statDivider} />
+                        <View style={styles.statsPill}>
+                            {acwr !== undefined && (
                                 <View style={styles.statItem}>
-                                    <Text style={styles.statValue}>{sleep}/5</Text>
-                                    <Text style={styles.statLabel}>Sleep</Text>
+                                    <Text style={styles.statValue}>{acwr.toFixed(2)}</Text>
+                                    <Text style={styles.statLabel}>ACWR</Text>
                                 </View>
-                            </>
-                        )}
-                        {weight && (
-                            <>
-                                <View style={styles.statDivider} />
-                                <View style={styles.statItem}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                                        <Text style={styles.statValue}>{weight}</Text>
-                                        {weightTrend && (
-                                            <Text style={{
-                                                fontSize: 14,
-                                                fontFamily: FONT_FAMILY.extraBold,
-                                                color: weightTrend === 'down' ? '#4ADE80'
-                                                    : weightTrend === 'up' ? '#F87171'
-                                                        : 'rgba(255,255,255,0.5)',
-                                            }}>
-                                                {weightTrend === 'down' ? '↓' : weightTrend === 'up' ? '↑' : '→'}
-                                            </Text>
-                                        )}
+                            )}
+                            {sleep !== undefined && (
+                                <>
+                                    <View style={styles.statDivider} />
+                                    <View style={styles.statItem}>
+                                        <Text style={styles.statValue}>{sleep}/5</Text>
+                                        <Text style={styles.statLabel}>Sleep</Text>
                                     </View>
-                                    <Text style={styles.statLabel}>Weight</Text>
-                                </View>
-                            </>
-                        )}
+                                </>
+                            )}
+                            {weight && (
+                                <>
+                                    <View style={styles.statDivider} />
+                                    <View style={styles.statItem}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                                            <Text style={styles.statValue}>{weight}</Text>
+                                            {weightTrend && (
+                                                <Text style={{
+                                                    fontSize: 14,
+                                                    fontFamily: FONT_FAMILY.extraBold,
+                                                    color: weightTrend === 'down' ? COLORS.success
+                                                        : weightTrend === 'up' ? COLORS.error
+                                                            : 'rgba(255,255,255,0.5)',
+                                                }}>
+                                                    {weightTrend === 'down' ? '↓' : weightTrend === 'up' ? '↑' : '→'}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <Text style={styles.statLabel}>Weight</Text>
+                                    </View>
+                                </>
+                            )}
+                        </View>
                     </Animated.View>
                 </View>
 
@@ -311,9 +316,18 @@ const styles = StyleSheet.create({
         marginLeft: SPACING.sm,
     },
     statsRow: {
+        alignItems: 'center',
+    },
+    statsPill: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
     },
     statItem: {
         alignItems: 'center',

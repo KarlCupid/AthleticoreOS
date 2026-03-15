@@ -1,6 +1,7 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from 'react-native';
 import { WheelColumn } from './WheelColumn';
+import { IconCalendar } from './icons';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING, SHADOWS } from '../theme/theme';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -66,7 +67,7 @@ export function DatePickerField({ label, value, onChange }: {
                 <Text style={[styles.dateFieldText, !value && { color: COLORS.text.tertiary }]}>
                     {displayDate}
                 </Text>
-                <Text style={styles.dateFieldCal}>ðŸ“…</Text>
+                <IconCalendar size={18} color={COLORS.text.secondary} />
             </TouchableOpacity>
 
             <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
@@ -109,7 +110,6 @@ const styles = StyleSheet.create({
         ...SHADOWS.sm,
     },
     dateFieldText: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary },
-    dateFieldCal: { fontSize: 18 },
 
     pickerOverlay: {
         flex: 1,
@@ -146,4 +146,5 @@ const styles = StyleSheet.create({
         borderColor: '#16A34A',
     },
 });
+
 
