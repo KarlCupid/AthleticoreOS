@@ -4,14 +4,14 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS } from '../theme
 import type { ScheduledActivityRow } from '../../lib/engine/types';
 
 const ACTIVITY_ICONS: Record<string, string> = {
-  boxing_practice: '??',
-  sparring: '??',
-  sc: '???',
-  running: '??',
-  conditioning: '??',
-  active_recovery: '??',
-  rest: '??',
-  other: '??',
+  boxing_practice: 'BOX',
+  sparring: 'SPR',
+  sc: 'S&C',
+  running: 'RUN',
+  conditioning: 'CON',
+  active_recovery: 'REC',
+  rest: 'RST',
+  other: 'GEN',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -33,7 +33,7 @@ interface ActivityCardProps {
 }
 
 export function ActivityCard({ activity, onPress, onSkip, onEdit, onLighter, onHarder, onLog, showActions }: ActivityCardProps) {
-  const icon = ACTIVITY_ICONS[activity.activity_type] ?? '??';
+  const icon = ACTIVITY_ICONS[activity.activity_type] ?? 'GEN';
   const label = activity.custom_label ?? activity.activity_type.replace(/_/g, ' ');
   const statusColor = STATUS_COLORS[activity.status] ?? COLORS.text.tertiary;
   const timeStr = activity.start_time ? formatTime(activity.start_time) : '';
@@ -65,11 +65,11 @@ export function ActivityCard({ activity, onPress, onSkip, onEdit, onLighter, onH
 
         <View style={styles.statsRow}>
           <Text style={styles.statText}>{activity.estimated_duration_min}min</Text>
-          <Text style={styles.statDot}>�</Text>
+          <Text style={styles.statDot}>|</Text>
           <Text style={styles.statText}>RPE {activity.actual_rpe ?? activity.expected_intensity}</Text>
           {activity.session_components && (activity.session_components as any[]).length > 0 && (
             <>
-              <Text style={styles.statDot}>�</Text>
+              <Text style={styles.statDot}>|</Text>
               <Text style={styles.statText}>{(activity.session_components as any[]).length} components</Text>
             </>
           )}

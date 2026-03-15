@@ -24,7 +24,6 @@ import { ActivityCard } from '../components/ActivityCard';
 
 import { PlanStackParamList } from '../navigation/types';
 import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
-import { useWeeklyPlan } from '../hooks/useWeeklyPlan';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
@@ -40,6 +39,35 @@ import {
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
+function groupWeekEntries(entries: WeeklyPlanEntryRow[]): Array<{
+    date: string;
+    dayOfWeek: number;
+    sessions: WeeklyPlanEntryRow[];
+}> {
+    const groups = new Map<string, { date: string; dayOfWeek: number; sessions: WeeklyPlanEntryRow[] }>();
+
+    for (const entry of entries) {
+        const existing = groups.get(entry.date);
+        if (existing) {
+            existing.sessions.push(entry);
+            continue;
+        }
+
+        groups.set(entry.date, {
+            date: entry.date,
+            dayOfWeek: entry.day_of_week,
+            sessions: [entry],
+        });
+    }
+
+    return Array.from(groups.values())
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((group) => ({
+            ...group,
+            sessions: [...group.sessions].sort((a, b) => a.slot.localeCompare(b.slot)),
+        }));
+}
+
 export function WorkoutScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
@@ -53,20 +81,17 @@ export function WorkoutScreen() {
         prescription, todayActivities, workoutHistory,
         checkins, sessions, userId,
         cutProtocol,
+        todayPlanEntry,
+        weeklyEntries,
+        isDeloadWeek,
         handleStartWorkout
     } = useWorkoutData(currentLevel);
-
-    // Weekly plan hook
-    const { todayEntry, entries, isDeloadWeek, loadPlan } = useWeeklyPlan();
-    const displayedPrescription = todayEntry?.daily_mission_snapshot?.trainingDirective.prescription
-        ?? todayEntry?.prescription_snapshot
-        ?? prescription;
+    const displayedPrescription = prescription;
 
     useFocusEffect(
         useCallback(() => {
             loadData();
-            loadPlan();
-        }, [loadData, loadPlan])
+        }, [loadData])
     );
 
     const openGuidedWorkout = useCallback(async (entry: WeeklyPlanEntryRow) => {
@@ -105,6 +130,8 @@ export function WorkoutScreen() {
     const weightData = buildWeightData(checkins);
     const sleepData = buildSleepData(checkins);
     const trainingLoadData = buildTrainingLoadData(sessions);
+    const contextualTodayActivities = todayActivities.filter((activity) => activity.activity_type !== 'sc');
+    const groupedWeeklyEntries = groupWeekEntries(weeklyEntries);
 
     const acwrData = computeACWRTimeSeries(sessions);
     const checkinDates = new Set(checkins.map(c => c.date));
@@ -120,13 +147,13 @@ export function WorkoutScreen() {
                             style={styles.headerBtn}
                             onPress={() => navigation.navigate('PlanHome')}
                         >
-                            <Text style={styles.headerBtnText}>ðŸ“… Plan</Text>
+                            <Text style={styles.headerBtnText}>Plan</Text>
                         </Pressable>
                         <Pressable
                             style={styles.headerBtn}
                             onPress={() => navigation.navigate('GymProfiles')}
                         >
-                            <Text style={styles.headerBtnText}>ðŸ‹ï¸ Gym</Text>
+                            <Text style={styles.headerBtnText}>Gym</Text>
                         </Pressable>
                     </View>
                 </View>
@@ -155,32 +182,32 @@ export function WorkoutScreen() {
                 {activeTab === 'today' && (
                     <>
                         {/* Today's Weekly Plan Entry */}
-                        {todayEntry && (
+                        {todayPlanEntry && (
                             <Animated.View entering={FadeInDown.delay(0).duration(300).springify()}>
                                 <Pressable
                                     style={[styles.planEntryCard, isDeloadWeek && styles.planEntryDeload]}
-                                    onPress={() => { void openGuidedWorkout(todayEntry); }}
+                                    onPress={() => { void openGuidedWorkout(todayPlanEntry); }}
                                 >
                                     <View style={styles.planEntryHeader}>
                                         <View>
                                             <Text style={styles.planEntryLabel}>
-                                                {isDeloadWeek ? 'ðŸ”„ Recovery Day' : 'ðŸ“‹ Today\'s Plan'}
+                                                {isDeloadWeek ? 'Recovery Day' : 'Today\'s Plan'}
                                             </Text>
                                             <Text style={styles.planEntryFocus}>
-                                                {todayEntry.focus
-                                                    ? getWorkoutFocusLabel(todayEntry.focus, todayEntry.session_type)
-                                                    : todayEntry.session_type}
+                                                {todayPlanEntry.focus
+                                                    ? getWorkoutFocusLabel(todayPlanEntry.focus, todayPlanEntry.session_type)
+                                                    : todayPlanEntry.session_type}
                                             </Text>
                                         </View>
                                         <View style={styles.planEntryMeta}>
-                                            <Text style={styles.planEntryDuration}>{todayEntry.estimated_duration_min} min</Text>
-                                            {todayEntry.target_intensity && (
-                                                <Text style={styles.planEntryRPE}>RPE {todayEntry.target_intensity}</Text>
+                                            <Text style={styles.planEntryDuration}>{todayPlanEntry.estimated_duration_min} min</Text>
+                                            {todayPlanEntry.target_intensity && (
+                                                <Text style={styles.planEntryRPE}>RPE {todayPlanEntry.target_intensity}</Text>
                                             )}
                                         </View>
                                     </View>
                                     <Text style={styles.planEntryAction}>
-                                        {todayEntry.status === 'completed' ? 'âœ… Completed' : 'â–¶ Start Guided Workout â†’'}
+                                        {todayPlanEntry.status === 'completed' ? 'Completed' : 'Start Guided Workout ->'}
                                     </Text>
                                 </Pressable>
                             </Animated.View>
@@ -210,7 +237,7 @@ export function WorkoutScreen() {
                                             : '#4F46E5'
                                     }
                                 ]}>
-                                    âš”ï¸ WEIGHT CUT â€” Intensity Cap: {cutProtocol.training_intensity_cap !== null
+                                    WEIGHT CUT - Intensity Cap: {cutProtocol.training_intensity_cap !== null
                                         ? `${cutProtocol.training_intensity_cap}/10 RPE`
                                         : 'No cap'}
                                 </Text>
@@ -230,8 +257,8 @@ export function WorkoutScreen() {
                             prescription={displayedPrescription}
                             themeColor={themeColor}
                             onStart={() => {
-                                if (todayEntry) {
-                                    void openGuidedWorkout(todayEntry);
+                                if (todayPlanEntry) {
+                                    void openGuidedWorkout(todayPlanEntry);
                                     return;
                                 }
                                 void handleStartWorkout(navigation);
@@ -239,21 +266,26 @@ export function WorkoutScreen() {
                         />
 
                         {/* Today's schedule */}
-                        {todayActivities.length > 0 && (
+                        {contextualTodayActivities.length > 0 && (
                             <View style={{ marginTop: SPACING.lg }}>
-                                <SectionHeader title="Today's Schedule" />
-                                {todayActivities.map((activity) => (
+                                <SectionHeader title={todayPlanEntry ? "Also On Today's Schedule" : "Today's Schedule"} />
+                                {todayPlanEntry && (
+                                    <Text style={styles.contextScheduleNote}>
+                                        Your guided workout above is the S&C prescription. These items are the rest of today's training schedule.
+                                    </Text>
+                                )}
+                                {contextualTodayActivities.map((activity) => (
                                     <ActivityCard
                                         key={activity.id}
                                         activity={activity}
                                         onPress={() => {
-                                            if (activity.activity_type === 'sc' && todayEntry) {
-                                                void openGuidedWorkout(todayEntry);
+                                            if (activity.activity_type === 'sc' && todayPlanEntry) {
+                                                void openGuidedWorkout(todayPlanEntry);
                                             }
                                         }}
                                         onLog={() => {
-                                            if (activity.activity_type === 'sc' && todayEntry) {
-                                                void openGuidedWorkout(todayEntry);
+                                            if (activity.activity_type === 'sc' && todayPlanEntry) {
+                                                void openGuidedWorkout(todayPlanEntry);
                                             }
                                         }}
                                     />
@@ -268,10 +300,10 @@ export function WorkoutScreen() {
                         {/* Week overview cards */}
                         {isDeloadWeek && (
                             <View style={styles.deloadBanner}>
-                                <Text style={styles.deloadBannerText}>ðŸ”„ Recovery Week â€” Reduced volume to rebuild</Text>
+                                <Text style={styles.deloadBannerText}>Recovery Week - Reduced volume to rebuild</Text>
                             </View>
                         )}
-                        {entries.length === 0 ? (
+                        {groupedWeeklyEntries.length === 0 ? (
                             <View style={styles.emptyPlan}>
                                 <Text style={styles.emptyPlanTitle}>No weekly plan yet</Text>
                                 <Text style={styles.emptyPlanSub}>Set up your training days, session length, and preferences to get a smart weekly plan.</Text>
@@ -283,51 +315,59 @@ export function WorkoutScreen() {
                                 </Pressable>
                             </View>
                         ) : (
-                            entries
-                                .filter(e => e.slot !== 'pm')
-                                .map((entry, idx) => {
+                            groupedWeeklyEntries.map((group, idx) => {
                                     const today = todayLocalDate();
                                     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                                    const pmEntry = entries.find(e => e.date === entry.date && e.slot === 'pm');
+                                    const primaryEntry = group.sessions.find((session) => session.status !== 'completed') ?? group.sessions[0];
+                                    const isGroupCompleted = group.sessions.every((session) => session.status === 'completed');
+                                    const isGroupSkipped = group.sessions.every((session) => session.status === 'skipped');
                                     return (
                                         <Animated.View
-                                            key={entry.id}
+                                            key={group.date}
                                             entering={FadeInDown.delay(idx * 60).duration(280).springify()}
                                         >
                                             <Pressable
                                                 style={[
                                                     styles.weekCard,
-                                                    entry.date === today && styles.weekCardToday,
-                                                    entry.status === 'completed' && styles.weekCardDone,
+                                                    group.date === today && styles.weekCardToday,
+                                                    isGroupCompleted && styles.weekCardDone,
                                                 ]}
                                                 onPress={() => {
-                                                    if (entry.status !== 'completed') {
-                                                        void openGuidedWorkout(entry);
+                                                    if (primaryEntry && !isGroupCompleted) {
+                                                        void openGuidedWorkout(primaryEntry);
                                                     }
                                                 }}
                                             >
                                                 <View style={styles.weekCardLeft}>
-                                                    <Text style={styles.weekCardDay}>{dayNames[entry.day_of_week]}</Text>
-                                                    <Text style={styles.weekCardDate}>{entry.date.slice(5).replace('-', '/')}</Text>
+                                                    <Text style={styles.weekCardDay}>{dayNames[group.dayOfWeek]}</Text>
+                                                    <Text style={styles.weekCardDate}>{group.date.slice(5).replace('-', '/')}</Text>
                                                 </View>
                                                 <View style={styles.weekCardCenter}>
-                                                    <Text style={styles.weekCardFocus}>
-                                                        {entry.is_deload ? 'ðŸ”„ Recovery' : getWorkoutFocusLabel(entry.focus, entry.session_type)}
-                                                    </Text>
-                                                    <Text style={styles.weekCardMeta}>
-                                                        {entry.estimated_duration_min} min
-                                                        {entry.target_intensity ? ` Â· RPE ${entry.target_intensity}` : ''}
-                                                        {pmEntry ? ' + PM' : ''}
-                                                    </Text>
+                                                    {group.sessions.map((session) => (
+                                                        <View key={session.id} style={styles.weekSessionRow}>
+                                                            <Text style={styles.weekSessionSlot}>
+                                                                {session.slot === 'single' ? 'DAY' : session.slot.toUpperCase()}
+                                                            </Text>
+                                                            <View style={styles.weekSessionCopy}>
+                                                                <Text style={styles.weekCardFocus}>
+                                                                    {session.is_deload ? 'Recovery' : getWorkoutFocusLabel(session.focus, session.session_type)}
+                                                                </Text>
+                                                                <Text style={styles.weekCardMeta}>
+                                                                    {session.estimated_duration_min} min
+                                                                    {session.target_intensity ? ` | RPE ${session.target_intensity}` : ''}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    ))}
                                                 </View>
                                                 <View style={styles.weekCardRight}>
-                                                    {entry.status === 'completed' && <Text style={styles.weekCardDoneIcon}>âœ…</Text>}
-                                                    {entry.status === 'skipped' && <Text style={styles.weekCardSkipIcon}>â­</Text>}
-                                                    {entry.status === 'planned' && entry.date === today && (
+                                                    {isGroupCompleted && <Text style={styles.weekCardDoneIcon}>Done</Text>}
+                                                    {isGroupSkipped && <Text style={styles.weekCardSkipIcon}>Skip</Text>}
+                                                    {!isGroupCompleted && group.date === today && (
                                                         <Text style={styles.weekCardTodayBadge}>Today</Text>
                                                     )}
-                                                    {entry.status === 'planned' && entry.date > today && (
-                                                        <Text style={styles.weekCardChevron}>â€º</Text>
+                                                    {!isGroupCompleted && group.date > today && (
+                                                        <Text style={styles.weekCardChevron}>{'>'}</Text>
                                                     )}
                                                 </View>
                                             </Pressable>
@@ -339,7 +379,7 @@ export function WorkoutScreen() {
                             style={styles.planSettingsBtn}
                             onPress={() => navigation.navigate('WeeklyPlanSetup')}
                         >
-                            <Text style={styles.planSettingsBtnText}>âš™ Adjust Weekly Plan</Text>
+                            <Text style={styles.planSettingsBtnText}>Adjust Weekly Plan</Text>
                         </Pressable>
                     </Animated.View>
                 )}
@@ -536,6 +576,21 @@ const styles = StyleSheet.create({
     weekCardRight: {
         alignItems: 'flex-end',
     },
+    weekSessionRow: {
+        flexDirection: 'row',
+        gap: SPACING.sm,
+        marginBottom: SPACING.xs,
+    },
+    weekSessionSlot: {
+        width: 28,
+        fontSize: 10,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+    },
+    weekSessionCopy: {
+        flex: 1,
+    },
     weekCardDoneIcon: {
         fontSize: 18,
     },
@@ -614,6 +669,13 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: SPACING.lg,
+    },
+    contextScheduleNote: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        marginBottom: SPACING.sm,
+        lineHeight: 18,
     },
     prescriptionHeader: {
         flexDirection: 'row',

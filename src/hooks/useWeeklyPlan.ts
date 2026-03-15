@@ -3,13 +3,10 @@ import { supabase } from '../../lib/supabase';
 import { generateSmartWeekPlan, handleMissedDay } from '../../lib/engine/calculateSchedule';
 import {
   getWeeklyPlanConfig,
-  getActiveWeekPlan,
   saveWeekPlan,
   markDayCompleted,
   markDaySkipped,
   rescheduleMissedDay,
-  getMissedEntries,
-  getTodayPlanEntry,
   cancelActivePlan,
 } from '../../lib/api/weeklyPlanService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
@@ -173,6 +170,27 @@ export function useWeeklyPlan() {
   const [gymProfile, setGymProfile] = useState<GymProfileRow | null>(null);
   const [isDeloadWeek, setIsDeloadWeek] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeWeekStart, setActiveWeekStart] = useState<string | null>(null);
+
+  const applyWeeklyMission = useCallback((weeklyMission: Awaited<ReturnType<typeof getWeeklyMission>>) => {
+    const nextEntries = weeklyMission.entries;
+    const nextIsDeload = nextEntries.some((entry) => entry.is_deload);
+    const nextTodayEntry = nextEntries.find((entry) => entry.date === todayStr()) ?? null;
+    const nextMissedEntries = nextEntries.filter((entry) => entry.status === 'planned' && entry.date < todayStr());
+
+    setEntries(nextEntries);
+    setTodayEntry(nextTodayEntry);
+    setMissedEntries(nextMissedEntries);
+    setIsDeloadWeek(nextIsDeload);
+    setActiveWeekStart(nextEntries[0]?.week_start_date ?? null);
+    setWeekPlan({
+      entries: nextEntries,
+      isDeloadWeek: nextIsDeload,
+      deloadReason: null,
+      weeklyFocusSplit: {},
+      message: weeklyMission.summary,
+    });
+  }, []);
 
   const loadPlan = useCallback(async (forceStartDate?: string) => {
     const userId = await getActiveUserId();
@@ -181,11 +199,19 @@ export function useWeeklyPlan() {
       return;
     }
 
+    setLoading(true);
+
     try {
       const planConfig = await getWeeklyPlanConfig(userId);
       setConfig(planConfig);
 
       if (!planConfig) {
+        setWeekPlan(null);
+        setEntries([]);
+        setTodayEntry(null);
+        setMissedEntries([]);
+        setIsDeloadWeek(false);
+        setActiveWeekStart(null);
         setLoading(false);
         return;
       }
@@ -193,25 +219,23 @@ export function useWeeklyPlan() {
       const gym = await getDefaultGymProfile(userId);
       setGymProfile(gym);
 
-      let existingPlan: WeeklyPlanEntryRow[] = [];
-      if (!forceStartDate) {
-        existingPlan = await getActiveWeekPlan(userId);
-      }
+      const engineState = await getDailyEngineState(userId, todayStr(), { forceRefresh: Boolean(forceStartDate) });
+      const weekStart = forceStartDate
+        ?? activeWeekStart
+        ?? engineState.primaryPlanEntry?.week_start_date
+        ?? engineState.weeklyPlanEntries[0]?.week_start_date
+        ?? null;
 
-      if (!forceStartDate && existingPlan.length > 0) {
-        const weeklyMission = await getWeeklyMission(userId, existingPlan[0].week_start_date);
-        setEntries(weeklyMission.entries);
-        setIsDeloadWeek(weeklyMission.entries.some((entry) => entry.is_deload));
-
-        const today = weeklyMission.entries.find((entry) => entry.date === todayStr())
-          ?? await getTodayPlanEntry(userId);
-        setTodayEntry(today);
-
-        const missed = await getMissedEntries(userId);
-        setMissedEntries(missed);
+      if (!weekStart) {
+        setWeekPlan(null);
+        setEntries([]);
+        setTodayEntry(null);
+        setMissedEntries([]);
+        setIsDeloadWeek(false);
+        setActiveWeekStart(null);
       } else {
-        const weekStart = forceStartDate ?? todayStr();
-        await generatePlan(userId, planConfig, gym, weekStart);
+        const weeklyMission = await getWeeklyMission(userId, weekStart, { forceRefresh: Boolean(forceStartDate) });
+        applyWeeklyMission(weeklyMission);
       }
     } catch (err: unknown) {
       logError('useWeeklyPlan.loadPlan', err);
@@ -219,54 +243,25 @@ export function useWeeklyPlan() {
     }
 
     setLoading(false);
-  }, []);
-
-  const generatePlan = useCallback(
-    async (
-      userId: string,
-      planConfig: WeeklyPlanConfigRow,
-      gym: GymProfileRow | null,
-      weekStart: string,
-    ) => {
-      try {
-        const result = await generateAndSaveWeeklyPlan(userId, planConfig, gym, weekStart);
-        setWeekPlan(result);
-        setEntries(result.entries);
-        setIsDeloadWeek(result.isDeloadWeek);
-        setTodayEntry(result.entries.find((entry) => entry.date === todayStr()) ?? null);
-      } catch (err: unknown) {
-        logError('useWeeklyPlan.generatePlan', err, { userId, weekStart });
-        setError(getErrorMessage(err));
-      }
-    },
-    [],
-  );
+  }, [activeWeekStart, applyWeeklyMission]);
 
   const completeDay = useCallback(async (entryId: string, workoutLogId: string) => {
     try {
       await markDayCompleted(entryId, workoutLogId);
-      setEntries((prev) =>
-        prev.map((entry) =>
-          entry.id === entryId
-            ? { ...entry, status: 'completed' as const, workout_log_id: workoutLogId }
-            : entry,
-        ),
-      );
+      await loadPlan(activeWeekStart ?? undefined);
     } catch (err: unknown) {
       logError('useWeeklyPlan.completeDay', err, { entryId, workoutLogId });
     }
-  }, []);
+  }, [activeWeekStart, loadPlan]);
 
   const skipDay = useCallback(async (entryId: string) => {
     try {
       await markDaySkipped(entryId);
-      setEntries((prev) =>
-        prev.map((entry) => (entry.id === entryId ? { ...entry, status: 'skipped' as const } : entry)),
-      );
+      await loadPlan(activeWeekStart ?? undefined);
     } catch (err: unknown) {
       logError('useWeeklyPlan.skipDay', err, { entryId });
     }
-  }, []);
+  }, [activeWeekStart, loadPlan]);
 
   const rescheduleDay = useCallback(
     async (missedEntry: WeeklyPlanEntryRow) => {
@@ -283,20 +278,17 @@ export function useWeeklyPlan() {
         acwr: readinessContext.acwr,
       });
 
-      if (result.redistributedExercises.length > 0) {
-        setEntries(result.updatedEntries);
-
-        if (userId) {
-          const rescheduledDate = result.updatedEntries[0]?.date;
-          if (rescheduledDate) {
-            await rescheduleMissedDay(missedEntry.id, rescheduledDate);
-          }
+      if (result.redistributedExercises.length > 0 && userId) {
+        const rescheduledDate = result.updatedEntries[0]?.date;
+        if (rescheduledDate) {
+          await rescheduleMissedDay(missedEntry.id, rescheduledDate);
+          await loadPlan(activeWeekStart ?? undefined);
         }
       }
 
       return result;
     },
-    [entries],
+    [activeWeekStart, entries, loadPlan],
   );
 
   const cancelPlan = useCallback(async () => {
@@ -311,6 +303,8 @@ export function useWeeklyPlan() {
       setEntries([]);
       setTodayEntry(null);
       setMissedEntries([]);
+      setIsDeloadWeek(false);
+      setActiveWeekStart(null);
     } catch (err: unknown) {
       logError('useWeeklyPlan.cancelPlan', err);
       setError(getErrorMessage(err));
@@ -340,4 +334,3 @@ export function useWeeklyPlan() {
     cancelPlan,
   };
 }
-

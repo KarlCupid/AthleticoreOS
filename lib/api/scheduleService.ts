@@ -22,7 +22,6 @@ import { getAthleteContext } from './athleteContextService';
 import { getDefaultGymProfile } from './gymProfileService';
 import { getWeeksSinceLastDeload } from './overloadService';
 import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
-import { getDailyEngineState } from './dailyMissionService';
 import { logWarn } from '../utils/logger';
 
 function today(): string {
@@ -33,6 +32,11 @@ function addDays(dateStr: string, days: number): string {
     const date = new Date(`${dateStr}T00:00:00`);
     date.setDate(date.getDate() + days);
     return formatLocalDate(date);
+}
+
+async function loadDailyEngineState(userId: string, date: string) {
+    const { getDailyEngineState } = await import('./dailyMissionService');
+    return getDailyEngineState(userId, date);
 }
 
 const DEFAULT_WEEKLY_TARGETS: Omit<WeeklyTargetsRow, 'id' | 'user_id'> = {
@@ -814,7 +818,7 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
             .maybeSingle(),
         getActiveFightCamp(userId),
         getExerciseLibrary(),
-        getDailyEngineState(userId, todayStr),
+        loadDailyEngineState(userId, todayStr),
     ]);
 
     return adaptDailySchedule({
@@ -859,7 +863,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         activeCutPlan = (cutPlan as WeightCutPlanRow | null) ?? null;
     }
 
-    const engineState = await getDailyEngineState(userId, today());
+    const engineState = await loadDailyEngineState(userId, today());
 
     const result = generateSmartWeekPlan({
         config,

@@ -33,6 +33,7 @@ import { logError } from '../../lib/utils/logger';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { styles } from './DashboardScreen.styles';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
+import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 
 type DashboardPhaseControlState = {
   currentModeLabel: string;
@@ -122,6 +123,7 @@ export function DashboardScreen() {
     currentLevel,
     prescriptionMessage,
     workoutPrescription,
+    todayPlanEntry,
     weightTrend,
     nutritionTargets,
     actualNutrition,
@@ -144,6 +146,9 @@ export function DashboardScreen() {
   const targetCarbs = todayCutProtocol ? todayCutProtocol.prescribed_carbs : (nutritionTargets?.carbs ?? (currentLedger?.prescribed_carbs ?? 200));
   const targetFat = todayCutProtocol ? todayCutProtocol.prescribed_fat : (nutritionTargets?.fat ?? (currentLedger?.prescribed_fats ?? 60));
   const targetWater = todayCutProtocol ? todayCutProtocol.water_target_oz : (hydration?.dailyWaterOz ?? 100);
+  const contextualTodayActivities = (workoutPrescription || primaryActivity?.activity_type === 'sc')
+    ? todayActivities.filter((activity) => activity.activity_type !== 'sc')
+    : todayActivities;
 
   const readinessScore = currentLevel === 'Prime' ? 92 : currentLevel === 'Caution' ? 58 : 25;
   const isDemoMode = (acwr?.chronic || 0) === 0 && (acwr?.acute || 0) === 0;
@@ -160,6 +165,46 @@ export function DashboardScreen() {
   const openPlanScreen = React.useCallback((screen: string, params?: Record<string, unknown>) => {
     navigation.navigate('Plan', { screen, params });
   }, [navigation]);
+
+  const openTodayTraining = React.useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) return;
+
+    if (todayPlanEntry) {
+      const context = await getGuidedWorkoutContext(session.user.id, todayPlanEntry.date);
+      openPlanScreen('GuidedWorkout', {
+        weeklyPlanEntryId: todayPlanEntry.id,
+        scheduledActivityId: todayPlanEntry.scheduled_activity_id ?? undefined,
+        focus: todayPlanEntry.focus ?? undefined,
+        availableMinutes: todayPlanEntry.estimated_duration_min,
+        readinessState: currentLevel ?? 'Prime',
+        phase: context.phase,
+        fitnessLevel: context.fitnessLevel,
+        trainingDate: todayPlanEntry.date,
+        isDeloadWeek: todayPlanEntry.is_deload,
+      });
+      return;
+    }
+
+    if (primaryActivity?.activity_type === 'sc') {
+      const context = await getGuidedWorkoutContext(session.user.id, primaryActivity.date);
+      openPlanScreen('GuidedWorkout', {
+        scheduledActivityId: primaryActivity.id,
+        focus: primaryActivity.custom_label ?? undefined,
+        availableMinutes: primaryActivity.estimated_duration_min,
+        readinessState: currentLevel ?? 'Prime',
+        phase: context.phase,
+        fitnessLevel: context.fitnessLevel,
+        trainingDate: primaryActivity.date,
+      });
+      return;
+    }
+
+    openPlanScreen('DayDetail', { date: todayLocalDate() });
+  }, [currentLevel, openPlanScreen, primaryActivity, todayPlanEntry]);
 
   const openFightCampSetup = React.useCallback(() => {
     openPlanScreen('WeeklyPlanSetup', {
@@ -213,7 +258,7 @@ export function DashboardScreen() {
 
   const handleLogActivity = (activity: ScheduledActivityRow) => {
     if (activity.activity_type === 'sc') {
-      openPlanScreen('WorkoutHome');
+      void openTodayTraining();
       return;
     }
 
@@ -251,12 +296,12 @@ export function DashboardScreen() {
     }
 
     if (step === 'workout') {
-      openPlanScreen('WorkoutHome');
+      void openTodayTraining();
       return;
     }
 
     openPlanScreen('NutritionHome');
-  }, [navigation, openPlanScreen]);
+  }, [navigation, openPlanScreen, openTodayTraining]);
 
   const checklistSteps = firstRunGuidance ? [
     {
@@ -474,10 +519,19 @@ export function DashboardScreen() {
             </Animated.View>
           )}
 
-          {todayActivities.length > 0 && (
+          {contextualTodayActivities.length > 0 && (
             <Animated.View entering={FadeInDown.delay(D * 1.8).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
-              <SectionHeader title="Today's Schedule" actionLabel="Day View" onAction={() => navigation.navigate('DayDetail', { date: todayLocalDate() })} />
-              {todayActivities.map((activity) => (
+              <SectionHeader
+                title={todayPlanEntry ? "Also On Today's Schedule" : "Today's Schedule"}
+                actionLabel="Day View"
+                onAction={() => navigation.navigate('DayDetail', { date: todayLocalDate() })}
+              />
+              {todayPlanEntry && (
+                <Text style={styles.contextScheduleNote}>
+                  The engine-driven training recommendation is shown above. These items are the rest of today's schedule.
+                </Text>
+              )}
+              {contextualTodayActivities.map((activity) => (
                 <ActivityCard
                   key={activity.id}
                   activity={activity}
@@ -498,7 +552,7 @@ export function DashboardScreen() {
               prescription={workoutPrescription}
               primaryActivity={primaryActivity}
               isCompleted={sessionDone}
-              onPress={() => openPlanScreen('WorkoutHome')}
+              onPress={() => { void openTodayTraining(); }}
             />
           </Animated.View>
 
@@ -546,7 +600,7 @@ export function DashboardScreen() {
                 </View>
                 <Text style={[styles.quickActionLabel, checkinDone && styles.quickActionLabelDone]}>Check-in</Text>
               </AnimatedPressable>
-              <AnimatedPressable style={styles.quickActionPill} onPress={() => openPlanScreen('WorkoutHome')}>
+              <AnimatedPressable style={styles.quickActionPill} onPress={() => { void openTodayTraining(); }}>
                 <View style={[styles.quickActionIconWrap, { backgroundColor: sessionDone ? COLORS.success + '18' : COLORS.readiness.cautionLight }]}>
                   {sessionDone
                     ? <IconFire size={14} color={COLORS.success} />

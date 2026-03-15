@@ -118,7 +118,7 @@ const skStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// SetDot â€” filled/empty indicator for current set progress
+// SetDot - filled/empty indicator for current set progress
 // ---------------------------------------------------------------------------
 
 export function SetDots({ total, completed }: { total: number; completed: number }) {
@@ -218,7 +218,7 @@ export function NumberStepper({ value, onDecrement, onIncrement, label, formatVa
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                    <Text style={stepStyles.btnText}>âˆ’</Text>
+                    <Text style={stepStyles.btnText}>-</Text>
                 </TouchableOpacity>
                 <View style={stepStyles.display}>
                     <Text style={stepStyles.value}>{display}</Text>
@@ -303,7 +303,7 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
 
             {gymProfile && (
                 <View style={ppStyles.gymRow}>
-                    <Text style={ppStyles.gymIcon}>ðŸ‹</Text>
+                    <Text style={ppStyles.gymIcon}>GYM</Text>
                     <Text style={ppStyles.gymName}>{gymProfile.name}</Text>
                 </View>
             )}
@@ -345,9 +345,9 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
                         <View style={ppStyles.exerciseInfo}>
                             <Text style={ppStyles.exerciseName}>{ex.exercise.name}</Text>
                             <Text style={ppStyles.exerciseMeta}>
-                                {ex.targetSets} Ã— {ex.targetReps} reps
-                                {ex.suggestedWeight ? ` Â· ${ex.suggestedWeight} lbs` : ''}
-                                {' Â· RPE '}{ex.targetRPE}
+                                {ex.targetSets} x {ex.targetReps} reps
+                                {ex.suggestedWeight ? ` | ${ex.suggestedWeight} lbs` : ''}
+                                {' | RPE '}{ex.targetRPE}
                             </Text>
                         </View>
                         <View style={[ppStyles.muscleBadge]}>

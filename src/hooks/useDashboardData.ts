@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
-import { generateRollingSchedule, getDailyAdaptationForToday, getScheduledActivities } from '../../lib/api/scheduleService';
+import { generateRollingSchedule } from '../../lib/api/scheduleService';
 import {
   getAthleteContext,
   getActiveUserId,
@@ -21,6 +21,7 @@ import type {
   MacroLedgerRow,
   WorkoutPrescription,
   DailyCutProtocolRow,
+  WeeklyPlanEntryRow,
 } from '../../lib/engine/types';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { todayLocalDate } from '../../lib/utils/date';
@@ -28,7 +29,6 @@ import { getFightCampStatus } from '../../lib/api/fightCampService';
 import type { CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
 import {
   computeActualNutrition,
-  composePrescriptionMessage,
   type DashboardNutritionTotals,
 } from './dashboard/utils';
 
@@ -68,6 +68,7 @@ export function useDashboardData() {
   const [workoutPrescription, setWorkoutPrescription] = useState<WorkoutPrescription | null>(null);
   const [weightTrend, setWeightTrend] = useState<WeightTrendResult | null>(null);
   const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
+  const [todayPlanEntry, setTodayPlanEntry] = useState<WeeklyPlanEntryRow | null>(null);
 
   const { setReadiness, currentLevel } = useReadinessTheme();
 
@@ -79,7 +80,7 @@ export function useDashboardData() {
   const [goalMode, setGoalMode] = useState<'fight_camp' | 'build_phase'>('build_phase');
   const [hasActiveFightCamp, setHasActiveFightCamp] = useState(false);
 
-  const loadDashboardData = useCallback(async () => {
+  const loadDashboardData = useCallback(async (forceRefresh: boolean = false) => {
     const userId = await getActiveUserId();
     if (!userId) {
       setCampRisk(null);
@@ -118,7 +119,7 @@ export function useDashboardData() {
         { data: checkinData },
         { data: trainingSessions },
         { data: ledger },
-        scheduledActivities,
+        engineState,
       ] = await Promise.all([
         supabase
           .from('daily_checkins')
@@ -137,7 +138,7 @@ export function useDashboardData() {
           .eq('user_id', userId)
           .eq('date', todayStr)
           .maybeSingle(),
-        getScheduledActivities(userId, todayStr, todayStr),
+        getDailyEngineState(userId, todayStr, { forceRefresh }),
       ]);
 
       const checkin = (checkinData as DailyCheckinRow | null) ?? null;
@@ -155,10 +156,10 @@ export function useDashboardData() {
 
       setSessionDone(Boolean(trainingSessions && trainingSessions.length > 0));
       setCurrentLedger((ledger as MacroLedgerRow | null) ?? null);
-      setTodayActivities(scheduledActivities);
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
-      const engineState = await getDailyEngineState(userId, todayStr);
+      setTodayActivities(engineState.scheduledActivities ?? []);
       setPrimaryActivity(engineState.primaryScheduledActivity);
+      setTodayPlanEntry((engineState.primaryPlanEntry as WeeklyPlanEntryRow | null) ?? null);
       const currentWeightTrend = engineState.objectiveContext.weightTrend ?? null;
       setWeightTrend(currentWeightTrend);
       setAcwr(engineState.acwr);
@@ -169,19 +170,9 @@ export function useDashboardData() {
       setCampRisk(engineState.campRisk);
       setNutritionTargets(engineState.nutritionTargets);
       setHydration(engineState.hydration);
-      try {
-        const adaptation = await getDailyAdaptationForToday(userId);
-        setPrescriptionMessage(
-          composePrescriptionMessage(adaptation?.overarchingMessage, engineState.cutProtocol?.training_recommendation),
-        );
-      } catch (error) {
-        logError('useDashboardData.getDailyAdaptationForToday', error, { userId });
-        setPrescriptionMessage(engineState.mission.summary);
-      }
+      setPrescriptionMessage(engineState.mission.summary);
 
       if (profile) {
-        const effectiveWeight = currentWeightTrend?.currentWeight ?? profile.base_weight ?? 150;
-
         if (profile.biological_sex === 'female' && profile.cycle_tracking && cycleDay != null) {
           try {
             const bioResult = adjustForBiology({ cycleDay });
@@ -234,8 +225,6 @@ export function useDashboardData() {
         setNutritionTargets(null);
         setActualNutrition(EMPTY_NUTRITION);
       }
-
-      setPrescriptionMessage(engineState.mission.summary);
     } catch (error) {
       logError('useDashboardData.loadDashboardData', error, { userId });
       setCampRisk(null);
@@ -251,7 +240,7 @@ export function useDashboardData() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadDashboardData();
+    loadDashboardData(true);
   }, [loadDashboardData]);
 
   return {
@@ -272,6 +261,7 @@ export function useDashboardData() {
     currentLevel,
     prescriptionMessage,
     workoutPrescription,
+    todayPlanEntry,
     weightTrend,
     nutritionTargets,
     actualNutrition,

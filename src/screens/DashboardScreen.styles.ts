@@ -9,6 +9,13 @@ export const styles = StyleSheet.create({
     content: {
         padding: SPACING.lg,
     },
+    contextScheduleNote: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        marginBottom: SPACING.sm,
+        lineHeight: 18,
+    },
 
     // Skeleton loading
     skeletonHero: {

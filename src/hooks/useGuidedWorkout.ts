@@ -1,36 +1,28 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { generateWorkoutV2 } from '../../lib/engine/calculateSC';
 import {
     initFatigueState,
     processSetCompletion,
     getRestDuration,
 } from '../../lib/engine/adaptiveWorkout';
-import { detectPR, suggestOverload, selectProgressionModel } from '../../lib/engine/calculateOverload';
+import { detectPR } from '../../lib/engine/calculateOverload';
 import {
     completeWorkout,
-    getExerciseLibrary,
     logWorkoutSetV2,
     startWorkoutV2,
-    getExerciseHistoryBatch,
-    getRecentExerciseIds,
-    getRecentMuscleVolume,
 } from '../../lib/api/scService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
-import { calculateACWR } from '../../lib/engine/calculateACWR';
 import { todayLocalDate } from '../../lib/utils/date';
-import { getWeeklyPlanEntryById, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
+import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
 import type {
     DailyMission,
     WorkoutPrescriptionV2,
-    PrescribedExerciseV2,
     SessionFatigueState,
     SetAdaptationResult,
     PRDetectionResult,
     ReadinessState,
-    MuscleGroup,
     WorkoutLogRow,
     GymProfileRow,
 } from '../../lib/engine/types';
@@ -56,11 +48,6 @@ export interface ExerciseProgress {
     prResult: PRDetectionResult | null;
 }
 
-const EMPTY_VOLUME: Record<MuscleGroup, number> = {
-    chest: 0, back: 0, shoulders: 0, quads: 0, hamstrings: 0,
-    glutes: 0, arms: 0, core: 0, full_body: 0, neck: 0, calves: 0,
-};
-
 export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId?: string) {
     // Workout state
     const [loading, setLoading] = useState(false);
@@ -71,6 +58,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     const [isStarted, setIsStarted] = useState(false);
     const [isComplete, setIsComplete] = useState(false);
     const [startTime, setStartTime] = useState<Date | null>(null);
+    const [emptyStateMessage, setEmptyStateMessage] = useState<string | null>(null);
 
     // Exercise state
     const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -108,16 +96,25 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         setAdaptationResult(null);
     }, []);
 
+    const resetPrescriptionState = useCallback((mission: DailyMission | null, message: string | null) => {
+        setDailyMission(mission);
+        setPrescription(null);
+        setExerciseProgress({});
+        setCurrentExerciseIndex(0);
+        setAdaptationResult(null);
+        setEmptyStateMessage(message);
+    }, []);
+
     // ── Load + Generate Prescription ──────────────────────────────
 
     const loadAndGenerate = useCallback(async (
-        readinessState: ReadinessState,
-        phase: any,
-        fitnessLevel: any,
-        focus?: any,
-        availableMinutes?: number,
+        _readinessState: ReadinessState,
+        _phase: any,
+        _fitnessLevel: any,
+        _focus?: any,
+        _availableMinutes?: number,
         trainingDate?: string,
-        isDeloadWeek: boolean = false,
+        _isDeloadWeek: boolean = false,
     ) => {
         setLoading(true);
         try {
@@ -129,123 +126,79 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             // Load gym profile
             const gym = await getDefaultGymProfile(userId);
             setGymProfile(gym);
+            setEmptyStateMessage(null);
+
+            const engineState = await getDailyEngineState(userId, sessionDate, { forceRefresh: true });
+            let mission = engineState.mission;
 
             if (weeklyPlanEntryId) {
-                const planEntry = await getWeeklyPlanEntryById(weeklyPlanEntryId);
-                if (planEntry?.daily_mission_snapshot) {
-                    setDailyMission(planEntry.daily_mission_snapshot);
-                } else {
-                    setDailyMission(null);
-                }
-                if (planEntry?.prescription_snapshot?.exercises?.length) {
-                    const snapshot = (planEntry.daily_mission_snapshot?.trainingDirective.prescription ?? planEntry.prescription_snapshot) as WorkoutPrescriptionV2;
-                    setPrescription(snapshot);
-                    initializeProgress(snapshot);
+                const weekStart = engineState.primaryPlanEntry?.week_start_date
+                    ?? engineState.weeklyPlanEntries.find((entry) => entry.id === weeklyPlanEntryId)?.week_start_date
+                    ?? engineState.weeklyPlanEntries[0]?.week_start_date
+                    ?? null;
+                const weeklyMission = weekStart
+                    ? await getWeeklyMission(userId, weekStart, { forceRefresh: true })
+                    : null;
+                const matchingEntry = weeklyMission?.entries.find((entry) => entry.id === weeklyPlanEntryId)
+                    ?? engineState.weeklyPlanEntries.find((entry) => entry.id === weeklyPlanEntryId)
+                    ?? null;
+
+                mission = matchingEntry?.daily_mission_snapshot ?? engineState.mission;
+
+                const entryPrescription = matchingEntry?.daily_mission_snapshot?.trainingDirective.prescription
+                    ?? matchingEntry?.prescription_snapshot
+                    ?? null;
+
+                if (entryPrescription?.exercises?.length) {
+                    setDailyMission(mission);
+                    setPrescription(entryPrescription);
+                    initializeProgress(entryPrescription);
                     setLoading(false);
                     return;
                 }
+
+                resetPrescriptionState(
+                    mission,
+                    mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
+                );
+                setLoading(false);
+                return;
             }
 
             if (scheduledActivityId) {
-                const engineState = await getDailyEngineState(userId, sessionDate);
-                if (engineState.workoutPrescription?.exercises?.length) {
+                const matchingActivity = engineState.scheduledActivities.find((activity) => activity.id === scheduledActivityId) ?? null;
+                if (matchingActivity?.activity_type === 'sc' && engineState.workoutPrescription?.exercises?.length) {
+                    setDailyMission(mission);
                     setPrescription(engineState.workoutPrescription);
-                    setDailyMission(engineState.mission);
                     initializeProgress(engineState.workoutPrescription);
                     setLoading(false);
                     return;
                 }
+                resetPrescriptionState(
+                    mission,
+                    mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
+                );
+                setLoading(false);
+                return;
             }
 
-            // Load exercise library
-            const library = await getExerciseLibrary();
+            if (engineState.workoutPrescription?.exercises?.length) {
+                setDailyMission(mission);
+                setPrescription(engineState.workoutPrescription);
+                initializeProgress(engineState.workoutPrescription);
+                setLoading(false);
+                return;
+            }
 
-            // Get ACWR
-            let acwr = 1.0;
-            try {
-                const acwrResult = await calculateACWR({
-                    userId,
-                    supabaseClient: supabase,
-                    asOfDate: sessionDate,
-                    fitnessLevel: (fitnessLevel as any) ?? 'intermediate',
-                    phase: (phase as any) ?? 'off-season',
-                });
-                acwr = acwrResult.ratio;
-            } catch { /* default */ }
-
-            // Get recent exercise IDs
-            const [recentIds, recentMuscleVolume, historyMap] = await Promise.all([
-                getRecentExerciseIds(userId),
-                getRecentMuscleVolume(userId),
-                getExerciseHistoryBatch(userId, library.map((exercise) => exercise.id)),
-            ]);
-
-            // Generate V2 prescription
-            const baseInput = {
-                readinessState,
-                phase,
-                acwr,
-                exerciseLibrary: library,
-                recentExerciseIds: recentIds,
-                recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
-                focus,
-                fitnessLevel,
-            };
-
-            const v2Prescription = generateWorkoutV2({
-                ...baseInput,
-                availableMinutes,
-                gymEquipment: gym?.equipment ?? [],
-                exerciseHistory: historyMap,
-                isDeloadWeek,
-                trainingDate: sessionDate,
-            });
-
-            // Batch-load exercise history for overload suggestions
-            const exerciseIds = v2Prescription.exercises.map(e => e.exercise.id);
-            const filteredHistoryMap = new Map(
-                exerciseIds.map((exerciseId) => [exerciseId, historyMap.get(exerciseId) ?? []] as const),
+            resetPrescriptionState(
+                mission,
+                mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
             );
-
-            // Augment exercises with overload suggestions
-            const augmented = v2Prescription.exercises.map(ex => {
-                const history = filteredHistoryMap.get(ex.exercise.id) ?? [];
-                if (history.length === 0) return ex;
-
-                const suggestion = suggestOverload({
-                    exerciseId: ex.exercise.id,
-                    exerciseName: ex.exercise.name,
-                    history,
-                    fitnessLevel,
-                    progressionModel: selectProgressionModel(fitnessLevel as any, history.length),
-                    isDeloadWeek,
-                    readinessState,
-                    targetRPE: ex.targetRPE,
-                    targetReps: ex.targetReps,
-                    muscleGroup: ex.exercise.muscle_group,
-                });
-
-                return {
-                    ...ex,
-                    suggestedWeight: suggestion.suggestedWeight,
-                    weightSuggestionReasoning: suggestion.reasoning,
-                    overloadSuggestion: suggestion,
-                } as PrescribedExerciseV2;
-            });
-
-            const finalPrescription: WorkoutPrescriptionV2 = {
-                ...v2Prescription,
-                exercises: augmented,
-            };
-
-            setPrescription(finalPrescription);
-            setDailyMission(null);
-            initializeProgress(finalPrescription);
         } catch (error) {
             logError('useGuidedWorkout.loadAndGenerate', error, { weeklyPlanEntryId });
         }
         setLoading(false);
-    }, [initializeProgress, weeklyPlanEntryId]);
+    }, [initializeProgress, resetPrescriptionState, scheduledActivityId, weeklyPlanEntryId]);
 
     // ── Start Workout ─────────────────────────────────────────────
 
@@ -515,6 +468,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         loading,
         dailyMission,
         prescription,
+        emptyStateMessage,
         workoutLog,
         gymProfile,
         isStarted,

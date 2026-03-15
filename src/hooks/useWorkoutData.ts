@@ -7,9 +7,9 @@ import {
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
-import { addManualActivity, getScheduledActivities } from '../../lib/api/scheduleService';
+import { addManualActivity } from '../../lib/api/scheduleService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
 import type {
   WorkoutPrescription,
   WorkoutLogRow,
@@ -17,6 +17,8 @@ import type {
   ExerciseLibraryRow,
   ReadinessState,
   DailyCutProtocolRow,
+  DailyEngineState,
+  WeeklyPlanEntryRow,
 } from '../../lib/engine/types';
 import type { ACWRTrainingSession } from './workout/computeACWRTimeSeries';
 
@@ -48,8 +50,11 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [userId, setUserId] = useState<string>('');
   const [cutProtocol, setCutProtocol] = useState<DailyCutProtocolRow | null>(null);
+  const [engineState, setEngineState] = useState<DailyEngineState | null>(null);
+  const [weeklyEntries, setWeeklyEntries] = useState<WeeklyPlanEntryRow[]>([]);
+  const [isDeloadWeek, setIsDeloadWeek] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh: boolean = false) => {
     const currentUserId = await getActiveUserId();
     if (!currentUserId) {
       setLoading(false);
@@ -65,16 +70,9 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       sinceDate.setDate(sinceDate.getDate() - 30);
       const sinceStr = formatLocalDate(sinceDate);
 
-      const [
-        library,
-        scheduledActivities,
-        engineState,
-        { data: checkinsRes },
-        { data: sessionsRes },
-      ] = await Promise.all([
+      const [library, engineState, { data: checkinsRes }, { data: sessionsRes }] = await Promise.all([
         getExerciseLibrary(),
-        getScheduledActivities(currentUserId, todayStr, todayStr),
-        getDailyEngineState(currentUserId, todayStr),
+        getDailyEngineState(currentUserId, todayStr, { forceRefresh }),
         supabase
           .from('daily_checkins')
           .select('date, morning_weight, sleep_quality, readiness')
@@ -88,9 +86,16 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
           .gte('date', sinceStr)
           .order('date'),
       ]);
+      const weekStart = engineState.primaryPlanEntry?.week_start_date
+        ?? engineState.weeklyPlanEntries[0]?.week_start_date
+        ?? todayStr;
+      const weeklyMission = await getWeeklyMission(currentUserId, weekStart, { forceRefresh });
 
       setExerciseLibrary(library);
-      setTodayActivities(scheduledActivities);
+      setEngineState(engineState);
+      setTodayActivities(engineState.scheduledActivities ?? []);
+      setWeeklyEntries(weeklyMission.entries ?? []);
+      setIsDeloadWeek((weeklyMission.entries ?? []).some((entry) => entry.is_deload));
       if (checkinsRes) setCheckins(checkinsRes as DailyCheckin[]);
       if (sessionsRes) setSessions(sessionsRes as TrainingSession[]);
       setCutProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
@@ -108,7 +113,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadData();
+    loadData(true);
   }, [loadData]);
 
   const handleStartWorkout = async (navigation: WorkoutNavigation) => {
@@ -158,6 +163,10 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     sessions,
     userId,
     cutProtocol,
+    engineState,
+    todayPlanEntry: (engineState?.primaryPlanEntry as WeeklyPlanEntryRow | null) ?? null,
+    weeklyEntries,
+    isDeloadWeek,
     handleStartWorkout,
   };
 }

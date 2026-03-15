@@ -70,6 +70,7 @@ export function GuidedWorkoutScreen() {
         loading,
         dailyMission,
         prescription,
+        emptyStateMessage,
         gymProfile,
         isStarted,
         isComplete,
@@ -594,7 +595,7 @@ export function GuidedWorkoutScreen() {
             {!loading && !prescription && (
                 <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>
-                        Unable to generate a workout. Check your profile and try again.
+                        {emptyStateMessage ?? 'No guided S&C workout is prescribed for this session.'}
                     </Text>
                     <TouchableOpacity
                         style={styles.retryButton}
