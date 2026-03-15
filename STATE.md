@@ -1,22 +1,36 @@
 # Project State
 
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-03-15
 
-## Current Focus
-* **AI Efficiency:** Optimizing the repository for AI agents (Antigravity, Claude, Codex) to minimize context window usage and improve response accuracy.
-* **Core Engine Refinement:** Enhancing deterministic logic for dynamic workout generation, scheduling (`calculateSchedule.ts`), and strength & conditioning generation.
-* **Bug Fixing & UI Polish:** Resolving React Native UI issues (e.g., keyboard dismiss, dev server connectivity issues) and ensuring type safety across the board.
+## Current Direction
+- **Athlete OS:** the app is now centered on a daily operating system for athletes, not just isolated workout or nutrition screens.
+- **Daily mission engine:** `getDailyEngineState` is the main integration point joining objective context, readiness, ACWR, hydration, nutrition, workout prescription, camp risk, and daily mission output.
+- **Structured planning:** onboarding now leads into a required planning setup flow before the main tab app is accessible.
+- **Mode-aware coaching:** the product actively supports both `build_phase` and `fight_camp`, including active cut and fight-week related flows.
 
-## Recent Milestones
-* Extracted complex UI sections from monolithic screens (`DashboardScreen.tsx`, `WorkoutScreen.tsx`, etc.) into small, focused components (`/src/components`).
-* Resolved various TypeScript compilation errors in `calculateSchedule.ts` and `DayPlanCard.tsx`.
-* Fixed `GuidedWorkoutScreen` errors related to undefined `readinessState` parameters.
-* Implemented dynamic 4-week adaptive workout generation based on daily readiness.
+## What Is Already In Place
+- Auth -> onboarding -> planning setup -> tab navigation gate is implemented in `App.tsx`.
+- Dashboard data is driven by live engine state via `useDashboardData`.
+- Weekly planning, guided workout handoff, and mission snapshot reuse are implemented.
+- Daily engine snapshots are persisted in `daily_engine_snapshots`.
+- Weight cut, rehydration, nutrition, readiness, and camp risk features are integrated into the broader planning model.
+- Engine test coverage exists across ACWR, camp, conditioning, daily coach debrief, nutrition, overload, performance planner, road work, schedule, strength and conditioning, adaptive workout, weight, and weight cut logic.
 
-## Known Issues / Tech Debt
-* **Context Overload:** Some legacy files might still be too large; ongoing effort to refactor any screen or engine file over 500 lines.
-* **Dev Server:** Occasional issues with Expo development server connection times.
-* **Testing:** Need to ensure `lib/engine` logic is thoroughly unit tested to catch edge cases in workout generation.
+## Current Priorities
+- **Consistency across surfaces:** keep dashboard, weekly plan, guided workout, and logs using the same engine-derived truth.
+- **Snapshot reliability:** make sure mission and prescription changes stay compatible with stored snapshots and refresh paths.
+- **Planning quality:** keep rolling schedule generation and plan setup stable for both build phase and fight camp.
+- **Execution polish:** improve guided workout, logging, and daily action flows without breaking the engine contract.
+- **Testing discipline:** continue adding engine-level coverage when changing deterministic behavior.
 
-## How to use this file
-AI Agents should read this file first (alongside `CONTEXT.md`) to understand the current priority and avoid regressions, without needing to process the entire conversational history. Update this file whenever a major milestone is reached or the high-level focus shifts.
+## Active Risks / Tech Debt
+- Some large files still exist, especially in engine and screen orchestration layers.
+- Snapshot-backed flows can drift if mission schema changes are not updated everywhere.
+- The app mixes legacy data paths with newer mission-driven behavior in some places, so regressions can hide in fallback logic.
+- Weekly plan and scheduled activity flows need careful handling because both can feed today's mission and workout entry points.
+
+## Working Assumptions For Agents
+- Read this file first, then `CONTEXT.md`.
+- Assume the daily mission engine is the current product source of truth unless the task explicitly targets legacy behavior.
+- When changing user-facing recommendations, verify whether the change belongs in engine logic, API orchestration, snapshot persistence, or only the UI.
+- Keep documentation aligned with the current athlete OS direction whenever major architecture or product-state changes land.

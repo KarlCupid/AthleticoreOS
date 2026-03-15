@@ -1,55 +1,62 @@
-# Athleticore OS - Architecture & Context
+# Athleticore OS - Architecture & Product Context
 
-**CRITICAL:** Always read `STATE.md` first to understand current project priorities before making any targeted code changes.
+**Read `STATE.md` first** before making targeted changes. It captures the current product direction and active priorities.
 
-This file serves as a high-level map for AI agents to understand the repository structure and domain logic without having to crawl the entire codebase. Please use this as a reference to keep context windows small and focused.
+Athleticore OS is no longer just a workout planner. The app now behaves like an athlete operating system: it gates users through onboarding and planning setup, computes a daily engine state, and drives training, nutrition, hydration, weight-cut, and risk guidance from that shared context.
 
-## Tech Stack
-- **Framework:** React Native (Expo)
-- **Language:** TypeScript
-- **Styling/Animation:** react-native-reanimated, customized vanilla UI components
-- **Backend/Database:** Supabase
+## Product Shape
+- **Primary experience:** authenticated athlete dashboard plus a planning workspace.
+- **Goal modes:** `build_phase` and `fight_camp`.
+- **Core runtime loop:** onboarding -> planning setup -> rolling schedule + daily engine -> dashboard mission + plan execution -> logs and snapshots.
+- **Main user surfaces:**
+  - `Home` tab: dashboard, today detail, logs.
+  - `Plan` tab: weekly plan, guided workouts, calendar, nutrition, weight cut, weekly review.
+  - `Profile` tab: profile and settings.
 
-## Directory Structure
-- `/src/components` - Reusable, isolated UI components (e.g., `HeroHeader`, grids, base cards).
-- `/src/screens` - Main page views (e.g., `DashboardScreen`, `WorkoutScreen`). Contains most data fetching and local state glue. 
-- `/src/navigation` - React Navigation stacks (e.g., `TabNavigator`, `MainStack`).
-- `/src/theme` - Color palettes, themes, and design system variables (e.g., `ReadinessThemeContext`).
-- `/lib/api` - Interaction with Supabase database (e.g., `scService.ts` for strength & conditioning).
-- `/lib/engine` - Core deterministic logic (S&C/Nutrition calculation engines).
-- `/lib/supabase.ts` - Supabase client setup.
+## Current Architecture
+- **App shell:** `App.tsx` decides among `AuthScreen`, `OnboardingScreen`, `PlanningSetupStackNavigator`, and `TabNavigator`.
+- **Navigation:** bottom-tab app with separate `HomeStack` and `PlanStack` flows.
+- **Backend:** Supabase for auth, profile data, plans, sessions, nutrition, weight cut, and engine snapshots.
+- **Deterministic engine:** `lib/engine/*` owns readiness, mission construction, schedule generation, nutrition targets, risk scoring, and workout prescriptions.
+- **Service layer:** `lib/api/*` coordinates Supabase IO plus engine orchestration.
 
-## Key Files to Know
-1. **`lib/engine/types.ts`:** Central repository for most core domain interfaces (`ReadinessState`, `TrainingSession`, `WorkoutLog`, etc.). Always refer here for types before proposing new ones.
-2. **`DashboardScreen.tsx`, `WorkoutScreen.tsx`, & `CutPlanSetupScreen.tsx`:** Previously monolithic, these screens now primarily handle data fetching and state orchestration. Their complex UI sections have been successfully extracted into smaller, focused components within `/src/components` (e.g., `DashboardNutritionCard`, `WorkoutAnalyticsTab`, `CutPlanPreviewStep`) to improve maintainability and AI context efficiency.
-3. **`lib/engine/calculateSC.ts` & `calculateACWR.ts`:** Key logic hubs for computing workout prescriptions and workloads.
+## Important Runtime Concepts
+- **Planning setup is a gate.** Users are not considered ready until they have availability windows plus an active mode record, unless legacy usage data satisfies the check.
+- **Daily engine state is central.** `getDailyEngineState` resolves objective context, ACWR, readiness, nutrition targets, hydration, cut protocol, workout prescription, and the final daily mission.
+- **Snapshots are first-class.** Daily engine results are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot` for reuse.
+- **Guided engine sessions matter.** Weekly plan entries and scheduled activities can hand off into `GuidedWorkoutScreen` using engine-owned prescriptions and session ownership rules.
+- **Dashboard is operational, not decorative.** It is the "today" command center for mission summary, readiness, fuel, training load, weight trend, camp risk, and fast navigation into execution flows.
 
-## AI Instructions for Context Efficiency
-1. **Targeted Reading:** Use specific file reads rather than broad recursive directory searches. Refrain from viewing `package-lock.json` or image files.
-2. **Modular Edits:** For logic updates, check if the change belongs in `/lib/engine/` rather than a screen component to keep files small and separated by concern.
-3. **Type Re-use:** To minimize context drain, import types from `lib/engine/types.ts` rather than redefining them inside components.
+## Directory Guide
+- `/src/screens` - top-level product surfaces. Start here for user-visible behavior.
+- `/src/components` - reusable UI blocks used by dashboard, planning, nutrition, and workout flows.
+- `/src/navigation` - app shell, tab structure, and stack routing.
+- `/src/hooks` - screen-focused orchestration hooks like `useDashboardData`, `useWeeklyPlan`, and workout/planning hooks.
+- `/src/theme` - colors, spacing, readiness theme context.
+- `/lib/api` - service layer for athlete context, planning setup, daily mission state, weekly plans, nutrition, fight camp, and weight cut.
+- `/lib/engine` - deterministic business logic and tests.
+- `/supabase/migrations` - schema history for planning, camp, daily mission OS, and daily engine snapshots.
 
-## Large-File Routing (Token-Saving)
-When possible, avoid opening entire high-line files. Jump directly to the relevant section:
+## Files That Matter Most
+1. `App.tsx`
+   Controls the app gate sequence and tells you which product state the user can reach.
+2. `lib/api/dailyMissionService.ts`
+   Main orchestration layer for the daily engine. Read this before changing dashboard, mission, or daily prescription behavior.
+3. `src/hooks/useDashboardData.ts`
+   Connects the dashboard to the daily engine, schedule generation, ledgers, and current athlete context.
+4. `src/screens/WeeklyPlanScreen.tsx` and `lib/api/weeklyPlanService.ts`
+   Core weekly planning and mission snapshot integration.
+5. `lib/engine/index.ts` and `lib/engine/types.ts`
+   Source of truth for exported engine functions and shared domain types.
 
-- `lib/engine/calculateSchedule.ts` (~1,500 lines)
-  - Recovery/day validation: `getRecoveryWindow`, `validateDayLoad`, `suggestAlternative` (around lines 296-460)
-  - Nutrition/day adjustment: `adjustNutritionForDay` (around lines 470-570)
-  - Weekly planning core: `generateWeekPlan` (around lines 749-1129)
-  - Daily adaptation/compliance: `adaptDailySchedule`, `calculateWeeklyCompliance` (around lines 1142+)
-- `lib/engine/calculateSC.ts` (~835 lines)
-  - Workout generation: `generateWorkout`, `generateWorkoutV2` (around lines 238-738)
-  - Equipment/time constraints: `filterByEquipment`, `fitToTimeConstraint` (around lines 401-491)
-- `lib/engine/calculateWeightCut.ts` (~817 lines)
-  - Plan generation/safety: `generateCutPlan`, `validateCutSafety` (around lines 71-545)
-  - Daily/fight-week protocol: `computeDailyCutProtocol`, `computeRehydrationProtocol` (around lines 565+)
-- `src/screens/GuidedWorkoutScreen.tsx` (~1,200 lines)
-  - Reusable UI helper components are defined before the screen export. Prefer editing local components first, then the main `GuidedWorkoutScreen` body.
-- `lib/engine/types.ts` (~1,295 lines)
-  - Use section headers (ACWR, hydration, schedule, weight cut, camp, overload, warmup) and only load the domain-specific type block.
+## Editing Guidance
+- Prefer changing engine or service code over patching screen logic when the behavior is cross-surface.
+- Reuse types from `lib/engine/types.ts` or the typed splits under `lib/engine/types/*`.
+- Treat `daily_mission_snapshot` and `daily_engine_snapshots` as part of the contract when changing mission shape.
+- Preserve the setup gate in `App.tsx`; do not bypass onboarding or planning setup unless that is the explicit task.
+- If a flow depends on goal mode, verify both `build_phase` and `fight_camp` paths.
 
-## Excluded by Agent Ignore
-To reduce context cost across Codex/Antigravity/Claude, these are excluded by default:
-- Local compile diagnostics (`compile_errors.txt`, `*.log`)
-- Generated SQL bundles in `archive/generated/` (`supabase_migration_and_seed.sql`, `supabase_schedule_migration.sql`, `migration_recurring_activities.sql`)
-- Large local simulation/seed artifacts (`scripts/simulate_*.ts`, `lib/data/exerciseSeed.ts`, `archive/generated/test.js`)
+## High-Value Test Areas
+- `lib/engine/*.test.ts` covers the deterministic layer and is the safest place to add coverage.
+- Mission, workout, schedule, camp-risk, nutrition, and weight-cut changes should usually be verified with `npm run test:engine`.
+- Structural changes should also pass `npm run lint`, `npm run typecheck`, and `npm run typecheck:clean`.
