@@ -100,15 +100,12 @@ export function WorkoutScreen() {
         if (!session?.user) return;
 
         const context = await getGuidedWorkoutContext(session.user.id, entry.date);
-        navigation.navigate('GuidedWorkout', {
+        navigation.navigate('WorkoutDetail', {
             weeklyPlanEntryId: entry.id,
-            scheduledActivityId: entry.scheduled_activity_id ?? undefined,
-            focus: entry.focus ?? undefined,
-            availableMinutes: entry.estimated_duration_min,
+            date: entry.date,
             readinessState: currentLevel ?? 'Prime',
             phase: context.phase,
             fitnessLevel: context.fitnessLevel,
-            trainingDate: entry.date,
             isDeloadWeek: entry.is_deload,
         });
     }, [navigation, currentLevel]);

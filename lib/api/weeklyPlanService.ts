@@ -688,6 +688,65 @@ export async function updateDailyMissionSnapshotsByDate(
     }
 }
 
+export async function updatePlanEntryPrescription(
+    entryId: string,
+    prescription: import('../engine/types').WorkoutPrescriptionV2,
+): Promise<void> {
+    const { error } = await supabase
+        .from('weekly_plan_entries')
+        .update({ prescription_snapshot: prescription })
+        .eq('id', entryId);
+    if (error) throw error;
+}
+
+export async function restorePlanEntry(entryId: string): Promise<void> {
+    const { error } = await supabase
+        .from('weekly_plan_entries')
+        .update({ status: 'planned' as PlanEntryStatus })
+        .eq('id', entryId);
+    if (error) throw error;
+}
+
+export async function regenerateDayWorkout(
+    userId: string,
+    entryId: string,
+    overrideFocus?: import('../engine/types').WorkoutFocus,
+): Promise<import('../engine/types').WorkoutPrescriptionV2> {
+    const [entry, athleteCtx] = await Promise.all([
+        getWeeklyPlanEntryById(entryId),
+        import('./athleteContextService').then(m => m.getAthleteContext(userId)),
+    ]);
+    if (!entry) throw new Error('Plan entry not found');
+
+    const [engineState, gymProfile, exerciseLibrary, recentExerciseIds, recentMuscleVolume] = await Promise.all([
+        import('./dailyMissionService').then(m => m.getDailyEngineState(userId, entry.date)),
+        import('./gymProfileService').then(m => m.getDefaultGymProfile(userId)),
+        import('./scService').then(m => m.getExerciseLibrary()),
+        import('./scService').then(m => m.getRecentExerciseIds(userId)),
+        import('./scService').then(m => m.getRecentMuscleVolume(userId)),
+    ]);
+
+    const { generateWorkoutV2 } = await import('../engine/calculateSC');
+
+    const prescription = generateWorkoutV2({
+        readinessState: engineState.readinessState,
+        phase: athleteCtx.phase,
+        acwr: engineState.acwr.ratio,
+        exerciseLibrary,
+        recentExerciseIds,
+        recentMuscleVolume,
+        fitnessLevel: athleteCtx.fitnessLevel,
+        weeklyPlanFocus: overrideFocus ?? entry.focus ?? undefined,
+        availableMinutes: entry.estimated_duration_min,
+        gymEquipment: gymProfile?.equipment ?? undefined,
+        isDeloadWeek: entry.is_deload,
+        trainingDate: entry.date,
+    });
+
+    await updatePlanEntryPrescription(entryId, prescription);
+    return prescription;
+}
+
 export async function markRecommendationAccepted(entryId: string): Promise<void> {
     const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
     if (!scheduledActivityId) return;

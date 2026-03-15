@@ -31,8 +31,8 @@ import { buildSectionedWorkoutSession } from './workoutSessionBuilder';
  * Depleted → restrict to low-CNS mobility/recovery.
  */
 const CNS_BUDGET: Record<ReadinessState, number> = {
-    Prime: 50,
-    Caution: 30,
+    Prime: 65,
+    Caution: 40,
     Depleted: 15,
 };
 
@@ -40,8 +40,8 @@ const CNS_BUDGET: Record<ReadinessState, number> = {
  * Default exercise count by readiness state.
  */
 const EXERCISE_COUNT: Record<ReadinessState, number> = {
-    Prime: 6,
-    Caution: 4,
+    Prime: 8,
+    Caution: 6,
     Depleted: 3,
 };
 
@@ -604,7 +604,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     if (resolvedBlockContext) {
         baseCNSBudget = Math.round(baseCNSBudget * resolvedBlockContext.volumeMultiplier);
     }
-    const totalCNSBudget = Math.max(10, Math.round(baseCNSBudget * resolvedPerformanceRisk.cnsMultiplier));
+    const rawCNSBudget = baseCNSBudget * resolvedPerformanceRisk.cnsMultiplier;
+    const flooredBudget = Math.max(rawCNSBudget, CNS_BUDGET[readinessState] * 0.55);
+    const totalCNSBudget = Math.max(10, Math.round(flooredBudget));
 
     // Deload: reduce exercise count and intensity
     const baseExerciseCount = EXERCISE_COUNT[readinessState];

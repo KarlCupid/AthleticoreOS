@@ -78,6 +78,11 @@ export function WeeklyPlanScreen() {
         entries,
         missedEntries,
         isDeloadWeek,
+        isCurrentWeek,
+        activeWeekStart,
+        goToNextWeek,
+        goToPrevWeek,
+        generateActiveWeek,
         weekPlan,
         loadPlan,
         rescheduleDay,
@@ -99,15 +104,12 @@ export function WeeklyPlanScreen() {
             if (!session?.user) return;
 
             const context = await getGuidedWorkoutContext(session.user.id, entry.date);
-            navigation.navigate('GuidedWorkout', {
+            navigation.navigate('WorkoutDetail', {
                 weeklyPlanEntryId: entry.id,
-                scheduledActivityId: entry.scheduled_activity_id ?? undefined,
-                focus: entry.focus ?? undefined,
-                availableMinutes: entry.estimated_duration_min,
+                date: entry.date,
                 readinessState: currentLevel ?? 'Prime',
                 phase: context.phase,
                 fitnessLevel: context.fitnessLevel,
-                trainingDate: entry.date,
                 isDeloadWeek: entry.is_deload,
             });
         })();
@@ -194,14 +196,34 @@ export function WeeklyPlanScreen() {
                     <Card style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}>
                         <Text style={styles.emptyTitle}>No Plan Yet</Text>
                         <Text style={styles.emptySubtitle}>
-                            Set up your weekly training plan to get smart daily recommendations tailored to your goals.
+                            {activeWeekStart && !isCurrentWeek 
+                                ? `Generate your training plan for the week of ${new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.` 
+                                : 'Set up your weekly training plan to get smart daily recommendations tailored to your goals.'}
                         </Text>
-                        <AnimatedPressable
-                            style={styles.setupButton}
-                            onPress={handleSetupPress}
-                        >
-                            <Text style={styles.setupButtonText}>Set Up Weekly Plan</Text>
-                        </AnimatedPressable>
+                        {activeWeekStart && !isCurrentWeek ? (
+                            <AnimatedPressable style={styles.setupButton} onPress={generateActiveWeek}>
+                                <Text style={styles.setupButtonText}>Generate Plan</Text>
+                            </AnimatedPressable>
+                        ) : (
+                            <AnimatedPressable style={styles.setupButton} onPress={handleSetupPress}>
+                                <Text style={styles.setupButtonText}>Set Up Weekly Plan</Text>
+                            </AnimatedPressable>
+                        )}
+                        
+                        {/* Always allow returning to previous/current weeks even if empty */}
+                        <View style={{ flexDirection: 'row', marginTop: SPACING.xl, gap: SPACING.xl }}>
+                            <TouchableOpacity onPress={goToPrevWeek}>
+                                <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>« Prev Week</Text>
+                            </TouchableOpacity>
+                            {!isCurrentWeek && (
+                                <TouchableOpacity onPress={() => loadPlan()}>
+                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent }}>Today</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={goToNextWeek}>
+                                <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>Next Week »</Text>
+                            </TouchableOpacity>
+                        </View>
                     </Card>
                 </Animated.View>
             </View>
@@ -222,13 +244,28 @@ export function WeeklyPlanScreen() {
                         <Text style={styles.headerOptionsIcon}>⋮</Text>
                     </TouchableOpacity>
                 )}
-                <View style={styles.headerRow}>
-                    <Text style={styles.headerTitle}>This Week</Text>
-                    {isDeloadWeek && (
-                        <Animated.View entering={FadeInDown.duration(300)} style={styles.deloadBadge}>
-                            <Text style={styles.deloadBadgeText}>Recovery Week</Text>
-                        </Animated.View>
-                    )}
+                <View style={[styles.headerRow, { justifyContent: 'space-between' }]}>
+                    <TouchableOpacity onPress={goToPrevWeek} style={{ padding: SPACING.xs }}>
+                        <Text style={{ fontSize: 24, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.secondary }}>«</Text>
+                    </TouchableOpacity>
+                    
+                    <View style={{ alignItems: 'center' }}>
+                        <Text style={styles.headerTitle}>{isCurrentWeek ? 'This Week' : 'Planned Week'}</Text>
+                        {activeWeekStart && !isCurrentWeek && (
+                            <Text style={styles.headerSubtitle}>
+                                Week of {new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </Text>
+                        )}
+                        {isDeloadWeek && (
+                            <Animated.View entering={FadeInDown.duration(300)} style={styles.deloadBadge}>
+                                <Text style={styles.deloadBadgeText}>Recovery Week</Text>
+                            </Animated.View>
+                        )}
+                    </View>
+
+                    <TouchableOpacity onPress={goToNextWeek} style={{ padding: SPACING.xs }}>
+                        <Text style={{ fontSize: 24, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.secondary }}>»</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -436,6 +473,13 @@ const styles = StyleSheet.create({
         fontSize: 32,
         color: COLORS.text.primary,
         letterSpacing: -1,
+    },
+    headerSubtitle: {
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 14,
+        color: COLORS.text.secondary,
+        marginTop: -4,
+        marginBottom: 4,
     },
     headerOptionsBtn: {
         padding: SPACING.sm,

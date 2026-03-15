@@ -23,7 +23,13 @@
       "Bash(gh pr:*)",
       "Bash(where gh:*)",
       "Bash(xargs grep:*)",
-      "Bash(git filter-repo:*)"
+      "Bash(git filter-repo:*)",
+      "Bash(grep -c \"type: ''heavy_lift''\" lib/data/exerciseSeed.ts)",
+      "Bash(grep -c \"type: ''power''\" lib/data/exerciseSeed.ts)",
+      "Bash(grep -c \"type: ''conditioning''\" lib/data/exerciseSeed.ts)",
+      "Bash(grep -c \"type: ''sport_specific''\" lib/data/exerciseSeed.ts)",
+      "Bash(grep -c \"type: ''mobility''\" lib/data/exerciseSeed.ts)",
+      "Bash(grep -c \"type: ''active_recovery''\" lib/data/exerciseSeed.ts)"
     ]
   }
 }

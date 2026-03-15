@@ -68,34 +68,37 @@ const SESSION_ARCHETYPES: Record<WorkoutFocus, SectionBlueprint[]> = {
     lower: [
         { template: 'activation', title: 'Activation', intent: 'Prep ankles, hips, and trunk before force work.', restRule: 'Move with control and keep rest short.', densityRule: '2 smooth rounds', role: 'prep', loadingStrategy: 'recovery_flow', maxExercises: 2, required: true },
         { template: 'power', title: 'Power', intent: 'Express lower-body speed before fatigue accumulates.', restRule: 'Rest 75-120s between crisp efforts.', densityRule: null, role: 'explosive', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
-        { template: 'main_strength', title: 'Primary Strength', intent: 'Drive the main squat or hinge anchor with autoregulated loading.', restRule: 'Rest 2-3 min between top and backoff work.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 1, required: true },
-        { template: 'secondary_strength', title: 'Secondary Strength', intent: 'Build unilateral force or posterior chain support without stealing from the anchor.', restRule: 'Rest 90-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
-        { template: 'durability', title: 'Durability', intent: 'Reinforce trunk, neck, and positional resilience.', restRule: '45-60s between movements.', densityRule: 'Move as a controlled quality circuit', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
+        { template: 'main_strength', title: 'Primary Strength', intent: 'Drive the main squat or hinge anchor with autoregulated loading.', restRule: 'Rest 2-3 min between top and backoff work.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 2, required: true },
+        { template: 'secondary_strength', title: 'Secondary Strength', intent: 'Build unilateral force or posterior chain support without stealing from the anchor.', restRule: 'Rest 90-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
+        { template: 'accessory', title: 'Accessory', intent: 'Fill hamstring, glute, or single-leg support gaps without competing with the main lifts.', restRule: '45-75s between paired movements.', densityRule: 'Pair complementary movements', role: 'accessory', loadingStrategy: 'straight_sets', maxExercises: 2, required: false },
+        { template: 'durability', title: 'Durability', intent: 'Reinforce trunk, neck, and positional resilience.', restRule: '45-60s between movements.', densityRule: 'Move as a controlled quality circuit', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 3, required: true },
         { template: 'finisher', title: 'Finisher', intent: 'Touch repeatability only if the day still has room for it.', restRule: 'Keep work crisp and stop before form fades.', densityRule: 'Short alactic or glycolytic burst', role: 'finisher', loadingStrategy: 'intervals', maxExercises: 1, required: false },
         { template: 'cooldown', title: 'Cooldown', intent: 'Downshift breathing and restore range before leaving the session.', restRule: 'Continuous easy flow.', densityRule: '1-2 easy rounds', role: 'recovery', loadingStrategy: 'recovery_flow', maxExercises: 1, required: true },
     ],
     upper_push: [
         { template: 'activation', title: 'Activation', intent: 'Prep scapular control and trunk position for pressing.', restRule: 'Move continuously with short breaths between drills.', densityRule: '2 easy rounds', role: 'prep', loadingStrategy: 'recovery_flow', maxExercises: 2, required: true },
         { template: 'power', title: 'Power', intent: 'Prime upper-body explosiveness with low-fatigue throws or plyos.', restRule: 'Rest 75-120s between efforts.', densityRule: null, role: 'explosive', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
-        { template: 'main_strength', title: 'Primary Strength', intent: 'Attack the press anchor with top-set plus backoff work.', restRule: 'Rest 2-3 min between working sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 1, required: true },
-        { template: 'secondary_strength', title: 'Secondary Strength', intent: 'Support pressing strength with a secondary press or triceps-biased pattern.', restRule: 'Rest 75-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
+        { template: 'main_strength', title: 'Primary Strength', intent: 'Attack the press anchor with top-set plus backoff work.', restRule: 'Rest 2-3 min between working sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 2, required: true },
+        { template: 'secondary_strength', title: 'Secondary Strength', intent: 'Support pressing strength with a secondary press or triceps-biased pattern.', restRule: 'Rest 75-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
+        { template: 'accessory', title: 'Accessory', intent: 'Support pressing strength with tricep, rear delt, or rotator cuff work.', restRule: '45-75s between paired movements.', densityRule: 'Pair complementary movements', role: 'accessory', loadingStrategy: 'straight_sets', maxExercises: 2, required: false },
         { template: 'durability', title: 'Durability', intent: 'Protect the shoulder complex, scapula, and trunk for ring volume.', restRule: '45-60s between movements.', densityRule: 'Controlled quality work', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
         { template: 'cooldown', title: 'Cooldown', intent: 'Restore breathing and shoulder position before leaving.', restRule: 'Continuous easy flow.', densityRule: '1-2 easy rounds', role: 'recovery', loadingStrategy: 'recovery_flow', maxExercises: 1, required: true },
     ],
     upper_pull: [
         { template: 'activation', title: 'Activation', intent: 'Prep shoulders, thoracic position, and trunk before pulling.', restRule: 'Short controlled transitions.', densityRule: '2 easy rounds', role: 'prep', loadingStrategy: 'recovery_flow', maxExercises: 2, required: true },
         { template: 'power', title: 'Power', intent: 'Prime upper-body pull explosiveness with throws or dynamic pulls.', restRule: 'Rest 75-120s between efforts.', densityRule: null, role: 'explosive', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
-        { template: 'main_strength', title: 'Primary Strength', intent: 'Own the main pull anchor with autoregulated loading.', restRule: 'Rest 2-3 min between working sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 1, required: true },
-        { template: 'secondary_strength', title: 'Secondary Strength', intent: 'Build upper-back support without flooding fatigue.', restRule: 'Rest 75-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
+        { template: 'main_strength', title: 'Primary Strength', intent: 'Own the main pull anchor with autoregulated loading.', restRule: 'Rest 2-3 min between working sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 2, required: true },
+        { template: 'secondary_strength', title: 'Secondary Strength', intent: 'Build upper-back support without flooding fatigue.', restRule: 'Rest 75-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
+        { template: 'accessory', title: 'Accessory', intent: 'Build bicep, grip, or rear delt support without flooding back fatigue.', restRule: '45-75s between paired movements.', densityRule: 'Pair complementary movements', role: 'accessory', loadingStrategy: 'straight_sets', maxExercises: 2, required: false },
         { template: 'durability', title: 'Durability', intent: 'Layer scap, cuff, neck, and anti-rotation support.', restRule: '45-60s between movements.', densityRule: 'Controlled quality work', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
         { template: 'cooldown', title: 'Cooldown', intent: 'Restore position and downshift the nervous system.', restRule: 'Continuous easy flow.', densityRule: '1-2 easy rounds', role: 'recovery', loadingStrategy: 'recovery_flow', maxExercises: 1, required: true },
     ],
     full_body: [
         { template: 'activation', title: 'Activation', intent: 'Open with coordinated prep and footwork-ready movement.', restRule: 'Short controlled transitions.', densityRule: '2 easy rounds', role: 'prep', loadingStrategy: 'recovery_flow', maxExercises: 2, required: true },
         { template: 'power', title: 'Power', intent: 'Express speed and intent before the main lifts.', restRule: 'Rest 75-120s between efforts.', densityRule: null, role: 'explosive', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
-        { template: 'main_strength', title: 'Lower Anchor', intent: 'Drive the lower-body anchor for the day.', restRule: 'Rest 2-3 min between working sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 1, required: true },
+        { template: 'main_strength', title: 'Lower Anchor', intent: 'Drive the lower-body anchor for the day.', restRule: 'Rest 2-3 min between working sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 2, required: true },
         { template: 'secondary_strength', title: 'Upper Anchor', intent: 'Pair the day with a stable upper-body anchor.', restRule: 'Rest 2 min between working sets.', densityRule: null, role: 'secondary', loadingStrategy: 'top_set_backoff', maxExercises: 1, required: true },
-        { template: 'accessory', title: 'Accessory Pair', intent: 'Fill the biggest support gaps without diluting the session intent.', restRule: '45-75s between paired movements.', densityRule: 'Pair complementary movements', role: 'accessory', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
+        { template: 'accessory', title: 'Accessory Pair', intent: 'Fill the biggest support gaps without diluting the session intent.', restRule: '45-75s between paired movements.', densityRule: 'Pair complementary movements', role: 'accessory', loadingStrategy: 'straight_sets', maxExercises: 3, required: true },
         { template: 'durability', title: 'Durability', intent: 'Finish with trunk, scap, or neck support that carries into boxing work.', restRule: '45-60s between movements.', densityRule: 'Controlled quality work', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
         { template: 'cooldown', title: 'Cooldown', intent: 'Bring the system back down before leaving.', restRule: 'Continuous easy flow.', densityRule: '1 easy round', role: 'recovery', loadingStrategy: 'recovery_flow', maxExercises: 1, required: true },
     ],
@@ -112,8 +115,10 @@ const SESSION_ARCHETYPES: Record<WorkoutFocus, SectionBlueprint[]> = {
     sport_specific: [
         { template: 'activation', title: 'Activation', intent: 'Prep rhythm, footwork, and trunk control before fast work.', restRule: 'Keep transitions short.', densityRule: '2 prep rounds', role: 'prep', loadingStrategy: 'recovery_flow', maxExercises: 2, required: true },
         { template: 'power', title: 'Explosive Prep', intent: 'Hit restrained boxing-transfer power without turning this into skill practice.', restRule: 'Rest 75-120s between efforts.', densityRule: null, role: 'explosive', loadingStrategy: 'straight_sets', maxExercises: 1, required: true },
-        { template: 'main_strength', title: 'Main Support', intent: 'Support the ring with a low-volume, high-quality force block.', restRule: 'Rest 2 min between sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 1, required: true },
-        { template: 'durability', title: 'Durability', intent: 'Protect neck, trunk, and shoulders around boxing load.', restRule: '45-60s between movements.', densityRule: 'Controlled quality work', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
+        { template: 'main_strength', title: 'Main Support', intent: 'Support the ring with a low-volume, high-quality force block.', restRule: 'Rest 2 min between sets.', densityRule: null, role: 'anchor', loadingStrategy: 'top_set_backoff', maxExercises: 2, required: true },
+        { template: 'secondary_strength', title: 'Secondary Support', intent: 'Reinforce upper-back, hip, or anti-rotation patterns that carry directly into the ring.', restRule: 'Rest 75-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
+        { template: 'accessory', title: 'Accessory', intent: 'Target grip, neck, or rotator cuff without accumulating excess fatigue before sparring.', restRule: '45-75s between paired movements.', densityRule: 'Pair complementary movements', role: 'accessory', loadingStrategy: 'straight_sets', maxExercises: 2, required: false },
+        { template: 'durability', title: 'Durability', intent: 'Protect neck, trunk, and shoulders around boxing load.', restRule: '45-60s between movements.', densityRule: 'Controlled quality work', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 3, required: true },
         { template: 'cooldown', title: 'Cooldown', intent: 'Downshift before the next boxing demand.', restRule: 'Continuous easy flow.', densityRule: '1 easy round', role: 'recovery', loadingStrategy: 'recovery_flow', maxExercises: 1, required: true },
     ],
 };
@@ -436,7 +441,7 @@ function buildSetPrescription(
     if (template === 'main_strength' || (template === 'secondary_strength' && focus === 'full_body')) {
         const topSetReps = blockContext?.phase === 'realize' ? 3 : blockContext?.phase === 'intensify' ? 4 : 5;
         const topSetRPE = clampNumber(Math.min(rpeCap, blockContext?.phase === 'pivot' ? 6 : 8), 5, 8);
-        const backoffSets = blockContext?.phase === 'accumulate' ? 3 : 2;
+        const backoffSets = blockContext?.phase === 'accumulate' ? 4 : 3;
         const backoffReps = topSetReps + 2;
         const backoffRPE = Math.max(5, topSetRPE - 1);
         const restSeconds = clampNumber(defaultRest, 120, 210);
@@ -456,7 +461,7 @@ function buildSetPrescription(
     }
 
     if (template === 'secondary_strength') {
-        const sets = blockContext?.phase === 'pivot' ? 2 : 3;
+        const sets = blockContext?.phase === 'pivot' ? 3 : 4;
         const reps = focus === 'lower' ? 6 : 8;
         const restSeconds = clampNumber(defaultRest - 30, 75, 120);
         return {
@@ -472,7 +477,7 @@ function buildSetPrescription(
     }
 
     if (template === 'accessory' || template === 'durability') {
-        const sets = template === 'durability' ? 2 : 3;
+        const sets = template === 'durability' ? 3 : 4;
         const reps = template === 'durability' ? 10 : 8;
         const restSeconds = template === 'durability' ? 45 : 60;
         const loadingStrategy = template === 'accessory' && focus === 'conditioning' ? 'density_block' : 'straight_sets';
@@ -535,7 +540,11 @@ function estimateSectionTime(section: WorkoutSessionSection): number {
 }
 
 function estimateWorkoutDuration(sections: WorkoutSessionSection[]): number {
-    return sections.reduce((sum, section) => sum + estimateSectionTime(section), 0);
+    const raw = sections.reduce((sum, section) => sum + estimateSectionTime(section), 0);
+    // Discount for superset pairs: paired exercises share rest time, saving ~1.5 min per pair
+    const supersetPairs = sections.flatMap(s => s.exercises)
+        .filter(e => e.supersetGroup != null).length / 2;
+    return Math.max(15, Math.round(raw - supersetPairs * 1.5));
 }
 
 function resolveSessionArchetype(

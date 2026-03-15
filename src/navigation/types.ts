@@ -11,6 +11,7 @@ import type {
   WorkoutType,
 } from '../../lib/engine/types';
 
+
 export type PlanStackParamList = {
   PlanHome: undefined;
   WeeklyPlanSetup:
@@ -71,6 +72,14 @@ export type PlanStackParamList = {
     targetWeightLbs?: number;
   };
   CutHistory: undefined;
+  WorkoutDetail: {
+    weeklyPlanEntryId: string;
+    date: string;
+    readinessState: ReadinessState;
+    phase: Phase;
+    fitnessLevel: FitnessLevel;
+    isDeloadWeek?: boolean;
+  };
 };
 
 export type PlanStackScreenProps<T extends keyof PlanStackParamList> = NativeStackScreenProps<

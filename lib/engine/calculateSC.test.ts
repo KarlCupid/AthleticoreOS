@@ -304,7 +304,7 @@ console.log('\n── Cut-Aware generateWorkout ──');
     assert('Intensified cap → all RPEs ≤ 8',
         result.exercises.every(e => e.targetRPE <= 8));
     assert('Intensified cap → CNS budget scaled',
-        result.totalCNSBudget <= 50 * 0.8 + 1); // 50 * 8/10 = 40, +1 for rounding
+        result.totalCNSBudget <= 65 * 0.8 + 1); // 65 * 8/10 = 52, +1 for rounding
     assert('Intensified cap → message mentions cut',
         result.message.includes('Weight cut'));
 })();
@@ -320,7 +320,7 @@ console.log('\n── Cut-Aware generateWorkout ──');
         fitnessLevel: 'intermediate',
         trainingDate: '2026-03-09',
     });
-    assert('No cap → normal CNS budget', result.totalCNSBudget === 50);
+    assert('No cap → normal CNS budget', result.totalCNSBudget === 65);
     assert('No cap ? not recovery focus', result.focus !== 'recovery');
 })();
 

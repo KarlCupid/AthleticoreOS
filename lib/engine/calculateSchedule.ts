@@ -795,8 +795,10 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         const hasHighAnchor = recurringAnchors.some((activity) => activity.expected_intensity >= 7);
         const allowDoubleOnDay = config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek);
 
-        // Check if this is a sparring day in camp or the athlete's recurring template
-        const isSparringDay = hasSparringAnchor || (campPhase != null && sparringDaysThisWeek > 0 && i < sparringDaysThisWeek);
+        // Only treat as a sparring day if there is an actual sparring anchor on this day.
+        // The camp-estimation fallback (i < sparringDaysThisWeek) was mis-marking non-sparring
+        // S&C days as sparring days and collapsing their focus to sport_specific.
+        const isSparringDay = hasSparringAnchor;
 
         if (primaryCombatAnchor && !allowDoubleOnDay) {
             entries.push({
@@ -822,11 +824,12 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             continue;
         }
 
+        // Reserve sport_specific only for days with an actual sparring anchor.
+        // Boxing practice days follow the normal periodised rotation so athletes
+        // still get lower / upper_push / upper_pull / full_body sessions.
         const focus = isSparringDay
             ? 'sport_specific' as WorkoutFocus
-            : hasCombatAnchor
-                ? 'full_body' as WorkoutFocus
-                : baseFocuses[entryIndex % baseFocuses.length];
+            : baseFocuses[entryIndex % baseFocuses.length];
 
         // Determine intensity
         let targetIntensity: number;
@@ -841,7 +844,10 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         } else {
             targetIntensity = 7;
         }
-        if (hasCombatAnchor) {
+        // Only cap intensity when sparring is actually happening on this day.
+        // Capping on boxing_practice days was suppressing otherwise valid
+        // Prime-readiness S&C sessions to intensity 5-6.
+        if (isSparringDay) {
             targetIntensity = Math.min(targetIntensity, hasHighAnchor ? 5 : 6);
         }
         if (focus === 'conditioning' && performanceGoalType === 'conditioning' && readinessState === 'Prime' && !isDeloadWeek) {

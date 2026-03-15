@@ -12,3 +12,9 @@ export function formatLocalDate(date: Date): string {
 export function todayLocalDate(): string {
   return formatLocalDate(new Date());
 }
+
+export function addDays(dateStr: string, days: number): string {
+  const date = new Date(`${dateStr}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return formatLocalDate(date);
+}

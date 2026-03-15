@@ -15,7 +15,7 @@ import { getAthleteContext, getActiveUserId } from '../../lib/api/athleteContext
 import { getRecurringActivities } from '../../lib/api/scheduleService';
 import { getExerciseLibrary, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
-import { todayLocalDate } from '../../lib/utils/date';
+import { todayLocalDate, addDays } from '../../lib/utils/date';
 import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
 import type {
   WeeklyPlanConfigRow,
@@ -172,6 +172,9 @@ export function useWeeklyPlan() {
   const [error, setError] = useState<string | null>(null);
   const [activeWeekStart, setActiveWeekStart] = useState<string | null>(null);
 
+  // Derive if the current active week is the "current" chronological week
+  const isCurrentWeek = activeWeekStart != null && todayStr() >= activeWeekStart && todayStr() < addDays(activeWeekStart, 7);
+
   const applyWeeklyMission = useCallback((weeklyMission: Awaited<ReturnType<typeof getWeeklyMission>>) => {
     const nextEntries = weeklyMission.entries;
     const nextIsDeload = nextEntries.some((entry) => entry.is_deload);
@@ -313,6 +316,36 @@ export function useWeeklyPlan() {
     }
   }, []);
 
+  const goToNextWeek = useCallback(async () => {
+    if (!activeWeekStart) return;
+    const nextStart = addDays(activeWeekStart, 7);
+    setActiveWeekStart(nextStart);
+    await loadPlan(nextStart);
+  }, [activeWeekStart, loadPlan]);
+
+  const goToPrevWeek = useCallback(async () => {
+    if (!activeWeekStart) return;
+    const prevStart = addDays(activeWeekStart, -7);
+    setActiveWeekStart(prevStart);
+    await loadPlan(prevStart);
+  }, [activeWeekStart, loadPlan]);
+
+  const generateActiveWeek = useCallback(async () => {
+    if (!activeWeekStart || !config) return;
+    const userId = await getActiveUserId();
+    if (!userId) return;
+
+    setLoading(true);
+    try {
+      await generateAndSaveWeeklyPlan(userId, config, gymProfile, activeWeekStart);
+      await loadPlan(activeWeekStart);
+    } catch (err: unknown) {
+      logError('useWeeklyPlan.generateActiveWeek', err);
+      setError(getErrorMessage(err));
+      setLoading(false);
+    }
+  }, [activeWeekStart, config, gymProfile, loadPlan]);
+
   useEffect(() => {
     loadPlan();
   }, [loadPlan]);
@@ -327,10 +360,15 @@ export function useWeeklyPlan() {
     missedEntries,
     gymProfile,
     isDeloadWeek,
+    isCurrentWeek,
+    activeWeekStart,
     loadPlan,
     completeDay,
     skipDay,
     rescheduleDay,
     cancelPlan,
+    goToNextWeek,
+    goToPrevWeek,
+    generateActiveWeek,
   };
 }
