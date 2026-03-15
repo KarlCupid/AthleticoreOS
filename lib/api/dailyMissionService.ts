@@ -486,6 +486,7 @@ async function resolveWorkoutPrescription(input: {
   readinessState: ReadinessState;
   acwr: ACWRResult;
   fitnessLevel: string;
+  performanceGoalType: MacrocycleContext['performanceGoalType'];
   weeklyPlanEntry: WeeklyPlanEntryRow | null;
   cutProtocol: Awaited<ReturnType<typeof getCutProtocolForDate>>;
 }): Promise<WeeklyPlanEntryRow['prescription_snapshot']> {
@@ -535,6 +536,7 @@ async function resolveWorkoutPrescription(input: {
     focus: input.weeklyPlanEntry?.focus ?? undefined,
     trainingIntensityCap: input.cutProtocol?.training_intensity_cap ?? undefined,
     fitnessLevel: input.fitnessLevel as any,
+    performanceGoalType: input.performanceGoalType,
     availableMinutes: input.weeklyPlanEntry?.estimated_duration_min,
     gymEquipment: gym?.equipment ?? [],
     exerciseHistory,
@@ -628,6 +630,7 @@ export async function getDailyEngineState(
     readinessState,
     acwr,
     fitnessLevel: athleteContext.fitnessLevel,
+    performanceGoalType: athleteContext.performanceGoalType,
     weeklyPlanEntry: primaryPlanEntry,
     cutProtocol,
   });

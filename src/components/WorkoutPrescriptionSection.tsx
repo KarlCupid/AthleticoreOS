@@ -14,65 +14,187 @@ interface WorkoutPrescriptionSectionProps {
     onStart: () => void;
 }
 
+function formatExerciseLine(exercise: any) {
+    return exercise.setScheme ?? `${exercise.targetSets} x ${exercise.targetReps} @ RPE ${exercise.targetRPE}`;
+}
+
+function formatSubstitutions(exercise: any) {
+    const substitutions = exercise.substitutions ?? [];
+    if (substitutions.length === 0) return null;
+    return substitutions.slice(0, 2).map((item: any) => item.exerciseName).join(' or ');
+}
+
+function renderFlatExercise(exercise: any, index: number, total: number, themeColor: string) {
+    return (
+        <Animated.View
+            key={`${exercise.exercise.id}-${index}`}
+            entering={FadeInDown.delay(40 * index).duration(ANIMATION.normal).springify()}
+            style={[
+                styles.exerciseRow,
+                exercise.supersetGroup != null && styles.supersetRow,
+                exercise.supersetGroup != null && { borderLeftColor: themeColor },
+                index === total - 1 && { borderBottomWidth: 0 },
+            ]}
+        >
+            <View style={styles.exerciseInfo}>
+                <View style={styles.exerciseNameRow}>
+                    {exercise.supersetGroup != null && (
+                        <View style={[styles.supersetBadge, { backgroundColor: themeColor }]}>
+                            <Text style={styles.supersetBadgeText}>SS</Text>
+                        </View>
+                    )}
+                    <Text style={styles.exerciseName}>{exercise.exercise.name}</Text>
+                </View>
+                <Text style={styles.exerciseSub}>
+                    {formatExerciseLine(exercise)}  ·  {exercise.exercise.muscle_group.replace(/_/g, ' ')}
+                </Text>
+                {exercise.loadingStrategy ? (
+                    <Text style={styles.exerciseDetail}>
+                        {String(exercise.loadingStrategy).replace(/_/g, ' ')}  ·  Rest {exercise.restSeconds ?? 0}s
+                    </Text>
+                ) : null}
+                {exercise.coachingCues?.length ? (
+                    <Text style={styles.exerciseDetail}>Cue: {exercise.coachingCues[0]}</Text>
+                ) : null}
+                {formatSubstitutions(exercise) ? (
+                    <Text style={styles.exerciseDetail}>Swap with: {formatSubstitutions(exercise)}</Text>
+                ) : null}
+            </View>
+            <View style={[styles.cnsChip, { opacity: Math.max(0.3, exercise.exercise.cns_load / 10) }]}>
+                <Text style={styles.cnsChipText}>CNS {exercise.exercise.cns_load}</Text>
+            </View>
+        </Animated.View>
+    );
+}
+
 export function WorkoutPrescriptionSection({ prescription, themeColor, onStart }: WorkoutPrescriptionSectionProps) {
     if (!prescription) return null;
 
-    const renderSNC = () => (
-        <>
-            <SectionHeader title={`Today's Workout — ${prescription.focus?.replace(/_/g, ' ').toUpperCase()}`} />
-            <Card>
-                <View style={styles.prescriptionHeader}>
-                    <View style={styles.prescriptionMeta}>
-                        <Text style={styles.metaLabel}>Exercises</Text>
-                        <Text style={styles.metaValue}>{prescription.exercises?.length || 0}</Text>
-                    </View>
-                    <View style={styles.prescriptionMeta}>
-                        <Text style={styles.metaLabel}>CNS Load</Text>
-                        <Text style={styles.metaValue}>{prescription.usedCNS}/{prescription.totalCNSBudget}</Text>
-                    </View>
-                    <View style={styles.prescriptionMeta}>
-                        <Text style={styles.metaLabel}>Type</Text>
-                        <Text style={styles.metaValue}>{prescription.workoutType}</Text>
-                    </View>
-                </View>
+    const renderStrengthAndConditioning = () => {
+        const hasSections = Array.isArray(prescription.sections) && prescription.sections.length > 0;
 
-                {prescription.exercises?.map((pe: any, i: number) => (
-                    <Animated.View
-                        key={`${pe.exercise.id}-${i}`}
-                        entering={FadeInDown.delay(40 * i).duration(ANIMATION.normal).springify()}
-                        style={[
-                            styles.exerciseRow,
-                            pe.supersetGroup != null && styles.supersetRow,
-                            pe.supersetGroup != null && { borderLeftColor: themeColor },
-                            i === (prescription.exercises?.length || 0) - 1 && { borderBottomWidth: 0 },
-                        ]}
-                    >
-                        <View style={styles.exerciseInfo}>
-                            <View style={styles.exerciseNameRow}>
-                                {pe.supersetGroup != null && (
-                                    <View style={[styles.supersetBadge, { backgroundColor: themeColor }]}>
-                                        <Text style={styles.supersetBadgeText}>SS</Text>
+        return (
+            <>
+                <SectionHeader title={`Today's Workout - ${String(prescription.focus || '').replace(/_/g, ' ').toUpperCase()}`} />
+                <Card>
+                    <View style={styles.prescriptionHeader}>
+                        <View style={styles.prescriptionMeta}>
+                            <Text style={styles.metaLabel}>Exercises</Text>
+                            <Text style={styles.metaValue}>{prescription.exercises?.length || 0}</Text>
+                        </View>
+                        <View style={styles.prescriptionMeta}>
+                            <Text style={styles.metaLabel}>CNS Load</Text>
+                            <Text style={styles.metaValue}>{prescription.usedCNS}/{prescription.totalCNSBudget}</Text>
+                        </View>
+                        <View style={styles.prescriptionMeta}>
+                            <Text style={styles.metaLabel}>Type</Text>
+                            <Text style={styles.metaValue}>{prescription.workoutType}</Text>
+                        </View>
+                    </View>
+
+                    {prescription.sessionGoal ? (
+                        <View style={styles.sessionCopy}>
+                            <Text style={styles.sessionGoal}>{prescription.sessionGoal}</Text>
+                            {prescription.sessionIntent ? (
+                                <Text style={styles.sessionIntent}>{prescription.sessionIntent}</Text>
+                            ) : null}
+                        </View>
+                    ) : null}
+
+                    {hasSections ? (
+                        <View style={styles.sectionList}>
+                            {prescription.sections.map((section: any, sectionIndex: number) => (
+                                <Animated.View
+                                    key={section.id ?? `${section.template}-${sectionIndex}`}
+                                    entering={FadeInDown.delay(50 * sectionIndex).duration(ANIMATION.normal).springify()}
+                                    style={[
+                                        styles.sectionBlock,
+                                        sectionIndex === prescription.sections.length - 1 && styles.sectionBlockLast,
+                                    ]}
+                                >
+                                    <View style={styles.sectionHeadingRow}>
+                                        <View style={styles.sectionHeadingText}>
+                                            <Text style={styles.sectionTitle}>{section.title}</Text>
+                                            <Text style={styles.sectionIntentText}>{section.intent}</Text>
+                                        </View>
+                                        <View style={[styles.sectionTag, { borderColor: themeColor }]}>
+                                            <Text style={[styles.sectionTagText, { color: themeColor }]}>
+                                                {String(section.template).replace(/_/g, ' ')}
+                                            </Text>
+                                        </View>
                                     </View>
-                                )}
-                                <Text style={styles.exerciseName}>{pe.exercise.name}</Text>
-                            </View>
-                            <Text style={styles.exerciseSub}>
-                                {pe.targetSets} × {pe.targetReps} @ RPE {pe.targetRPE}
-                                {'  ·  '}{pe.exercise.muscle_group.replace(/_/g, ' ')}
-                            </Text>
+
+                                    <Text style={styles.sectionRules}>
+                                        {section.restRule}
+                                        {section.densityRule ? `  ·  ${section.densityRule}` : ''}
+                                        {section.timeCap ? `  ·  ~${section.timeCap} min` : ''}
+                                    </Text>
+
+                                    {section.exercises.map((exercise: any, exerciseIndex: number) => (
+                                        <View
+                                            key={`${exercise.exercise.id}-${exerciseIndex}`}
+                                            style={[
+                                                styles.sectionExercise,
+                                                exerciseIndex === section.exercises.length - 1 && styles.sectionExerciseLast,
+                                            ]}
+                                        >
+                                            <View style={styles.exerciseInfo}>
+                                                <View style={styles.exerciseNameRow}>
+                                                    {exercise.supersetGroup != null ? (
+                                                        <View style={[styles.supersetBadge, { backgroundColor: themeColor }]}>
+                                                            <Text style={styles.supersetBadgeText}>SS</Text>
+                                                        </View>
+                                                    ) : null}
+                                                    <Text style={styles.exerciseName}>{exercise.exercise.name}</Text>
+                                                </View>
+                                                <Text style={styles.exerciseSub}>
+                                                    {formatExerciseLine(exercise)}
+                                                </Text>
+                                                <Text style={styles.exerciseDetail}>
+                                                    {String(exercise.loadingStrategy || 'straight_sets').replace(/_/g, ' ')}  ·  Rest {exercise.restSeconds ?? 0}s
+                                                </Text>
+                                                {exercise.loadingNotes ? (
+                                                    <Text style={styles.exerciseDetail}>{exercise.loadingNotes}</Text>
+                                                ) : null}
+                                                {exercise.coachingCues?.length ? (
+                                                    <Text style={styles.exerciseDetail}>Cue: {exercise.coachingCues.join(' · ')}</Text>
+                                                ) : null}
+                                                {formatSubstitutions(exercise) ? (
+                                                    <Text style={styles.exerciseDetail}>Swap with: {formatSubstitutions(exercise)}</Text>
+                                                ) : null}
+                                                {exercise.progressionAnchor?.label ? (
+                                                    <Text style={styles.exerciseDetail}>Anchor: {exercise.progressionAnchor.label}</Text>
+                                                ) : null}
+                                            </View>
+                                            <View style={styles.exerciseAside}>
+                                                <View style={[styles.cnsChip, { opacity: Math.max(0.3, exercise.exercise.cns_load / 10) }]}>
+                                                    <Text style={styles.cnsChipText}>CNS {exercise.exercise.cns_load}</Text>
+                                                </View>
+                                                <Text style={styles.fatigueText}>{exercise.fatigueCost} fatigue</Text>
+                                            </View>
+                                        </View>
+                                    ))}
+
+                                    {section.finisherReason ? (
+                                        <Text style={styles.finisherNote}>{section.finisherReason}</Text>
+                                    ) : null}
+                                </Animated.View>
+                            ))}
                         </View>
-                        <View style={[styles.cnsChip, { opacity: Math.max(0.3, pe.exercise.cns_load / 10) }]}>
-                            <Text style={styles.cnsChipText}>CNS {pe.exercise.cns_load}</Text>
+                    ) : (
+                        <View>
+                            {prescription.exercises?.map((exercise: any, index: number) =>
+                                renderFlatExercise(exercise, index, prescription.exercises.length, themeColor))}
                         </View>
-                    </Animated.View>
-                ))}
-            </Card>
-        </>
-    );
+                    )}
+                </Card>
+            </>
+        );
+    };
 
     const renderRoadWork = () => (
         <>
-            <SectionHeader title={`Road Work — ${(prescription.type || '').replace(/_/g, ' ').toUpperCase()}`} />
+            <SectionHeader title={`Road Work - ${String(prescription.type || '').replace(/_/g, ' ').toUpperCase()}`} />
             <Card>
                 <View style={styles.prescriptionHeader}>
                     <View style={styles.prescriptionMeta}>
@@ -91,32 +213,30 @@ export function WorkoutPrescriptionSection({ prescription, themeColor, onStart }
                     </View>
                 </View>
 
-                <View style={{ paddingVertical: SPACING.md }}>
-                    <Text style={[styles.exerciseName, { marginBottom: SPACING.xs }]}>Pace Guidance</Text>
+                <View style={styles.sessionCopy}>
+                    <Text style={styles.exerciseName}>Pace Guidance</Text>
                     <Text style={styles.exerciseSub}>{prescription.paceGuidance}</Text>
                 </View>
 
-                {prescription.intervals && prescription.intervals.length > 0 && (
-                    <View style={{ paddingVertical: SPACING.md, borderTopWidth: StyleSheet.hairlineWidth, borderColor: COLORS.borderLight }}>
-                        <Text style={[styles.exerciseName, { marginBottom: SPACING.sm }]}>Intervals</Text>
-                        {prescription.intervals.map((inv: any, i: number) => (
-                            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs }}>
-                                <Text style={styles.exerciseSub}>{inv.type.toUpperCase()} ({inv.durationMin}m @ Z{inv.hrZoneTarget})</Text>
+                {prescription.intervals?.length ? (
+                    <View style={styles.sectionBlock}>
+                        <Text style={styles.sectionTitle}>Intervals</Text>
+                        {prescription.intervals.map((interval: any, index: number) => (
+                            <View key={index} style={styles.simpleRow}>
+                                <Text style={styles.exerciseSub}>{interval.type?.toUpperCase()} ({interval.durationMin}m @ Z{interval.hrZoneTarget})</Text>
                             </View>
                         ))}
                     </View>
-                )}
+                ) : null}
 
-                <View style={{ paddingTop: SPACING.md, borderTopWidth: StyleSheet.hairlineWidth, borderColor: COLORS.borderLight }}>
-                    <Text style={styles.exerciseSub}>{prescription.message}</Text>
-                </View>
+                <Text style={styles.exerciseDetail}>{prescription.message}</Text>
             </Card>
         </>
     );
 
     const renderConditioning = () => (
         <>
-            <SectionHeader title={`Conditioning — ${(prescription.type || '').replace(/_/g, ' ').toUpperCase()}`} />
+            <SectionHeader title={`Conditioning - ${String(prescription.type || '').replace(/_/g, ' ').toUpperCase()}`} />
             <Card>
                 <View style={styles.prescriptionHeader}>
                     <View style={styles.prescriptionMeta}>
@@ -133,22 +253,20 @@ export function WorkoutPrescriptionSection({ prescription, themeColor, onStart }
                     </View>
                 </View>
 
-                {prescription.exercises && prescription.exercises.map((ex: any, i: number) => (
-                    <View key={i} style={[styles.exerciseRow, i === prescription.exercises.length - 1 && { borderBottomWidth: 0 }]}>
-                        <Text style={styles.exerciseName}>{i + 1}. {ex}</Text>
+                {prescription.exercises?.map((exercise: any, index: number) => (
+                    <View key={index} style={[styles.exerciseRow, index === prescription.exercises.length - 1 && { borderBottomWidth: 0 }]}>
+                        <Text style={styles.exerciseName}>{index + 1}. {exercise}</Text>
                     </View>
                 ))}
 
-                <View style={{ paddingTop: SPACING.md, marginTop: SPACING.sm, borderTopWidth: StyleSheet.hairlineWidth, borderColor: COLORS.borderLight }}>
-                    <Text style={styles.exerciseSub}>{prescription.message}</Text>
-                </View>
+                <Text style={styles.exerciseDetail}>{prescription.message}</Text>
             </Card>
         </>
     );
 
     let content = null;
     if (prescription.exercises && prescription.workoutType) {
-        content = renderSNC();
+        content = renderStrengthAndConditioning();
     } else if (prescription.targetDistanceMiles !== undefined || prescription.paceGuidance) {
         content = renderRoadWork();
     } else if (prescription.rounds !== undefined && prescription.workIntervalSec !== undefined) {
@@ -160,11 +278,7 @@ export function WorkoutPrescriptionSection({ prescription, themeColor, onStart }
     return (
         <>
             {content}
-
-            <AnimatedPressable
-                style={styles.startButtonWrapper}
-                onPress={onStart}
-            >
+            <AnimatedPressable style={styles.startButtonWrapper} onPress={onStart}>
                 <LinearGradient
                     colors={[...GRADIENTS.accent] as any}
                     start={{ x: 0, y: 0 }}
@@ -204,6 +318,80 @@ const styles = StyleSheet.create({
         color: COLORS.text.primary,
         marginTop: 2,
     },
+    sessionCopy: {
+        marginBottom: SPACING.md,
+    },
+    sessionGoal: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+        marginBottom: 4,
+    },
+    sessionIntent: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+    },
+    sectionList: {
+        gap: SPACING.md,
+    },
+    sectionBlock: {
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: COLORS.borderLight,
+        paddingTop: SPACING.md,
+    },
+    sectionBlockLast: {
+        paddingBottom: 0,
+    },
+    sectionHeadingRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: SPACING.md,
+        marginBottom: SPACING.xs,
+    },
+    sectionHeadingText: {
+        flex: 1,
+    },
+    sectionTitle: {
+        fontSize: 15,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+    },
+    sectionIntentText: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        marginTop: 2,
+    },
+    sectionTag: {
+        borderWidth: 1,
+        borderRadius: RADIUS.full,
+        paddingHorizontal: SPACING.sm,
+        paddingVertical: 4,
+        alignSelf: 'flex-start',
+    },
+    sectionTagText: {
+        fontSize: 10,
+        fontFamily: FONT_FAMILY.semiBold,
+        textTransform: 'uppercase',
+    },
+    sectionRules: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.tertiary,
+        marginBottom: SPACING.sm,
+    },
+    sectionExercise: {
+        paddingVertical: SPACING.sm,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: COLORS.borderLight,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: SPACING.md,
+    },
+    sectionExerciseLast: {
+        borderBottomWidth: 0,
+    },
     exerciseRow: {
         paddingVertical: SPACING.sm + 2,
         borderBottomWidth: StyleSheet.hairlineWidth,
@@ -218,6 +406,10 @@ const styles = StyleSheet.create({
     },
     exerciseInfo: {
         flex: 1,
+    },
+    exerciseAside: {
+        alignItems: 'flex-end',
+        gap: 6,
     },
     exerciseNameRow: {
         flexDirection: 'row',
@@ -234,6 +426,24 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.regular,
         color: COLORS.text.secondary,
         marginTop: 2,
+    },
+    exerciseDetail: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.tertiary,
+        marginTop: 3,
+    },
+    fatigueText: {
+        fontSize: 10,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+    },
+    finisherNote: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        marginTop: SPACING.sm,
     },
     supersetBadge: {
         paddingHorizontal: 5,
@@ -255,6 +465,9 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontFamily: FONT_FAMILY.semiBold,
         color: '#FFF',
+    },
+    simpleRow: {
+        marginBottom: SPACING.xs,
     },
     startButtonWrapper: {
         marginTop: SPACING.lg,

@@ -15,10 +15,13 @@ import {
     MuscleGroup,
     EquipmentItem,
     CampPhase,
+    PerformanceGoalType,
+    PerformanceRiskState,
+    TrainingBlockContext,
 } from './types';
-import { suggestOverload, selectProgressionModel } from './calculateOverload';
-import { generateWarmupSets } from './calculateWarmup';
 import { getRestTimerDefaults } from './adaptiveWorkout';
+import { assessPerformanceRisk } from './performancePlanner';
+import { buildSectionedWorkoutSession } from './workoutSessionBuilder';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -208,6 +211,54 @@ export function scoreExerciseForUser(
     // 6. ACWR safety — if overreaching, penalize high-CNS exercises
     if (context.acwr > 1.3 && exercise.cns_load >= 7) {
         score -= 20;
+    }
+
+    // 7. Goal bias — steer exercise ranking toward the block objective
+    if (context.performanceGoalType === 'strength') {
+        if (exercise.type === 'heavy_lift') score += 15;
+        if (exercise.type === 'power') score += 8;
+        if (exercise.type === 'conditioning') score -= 6;
+    } else if (context.performanceGoalType === 'conditioning') {
+        if (exercise.type === 'conditioning') score += 18;
+        if (exercise.type === 'power') score += 8;
+        if (exercise.type === 'heavy_lift' && exercise.cns_load >= 8) score -= 10;
+    } else if (context.performanceGoalType === 'boxing_skill') {
+        if (exercise.type === 'power') score += 10;
+        if (exercise.type === 'sport_specific') score += 12;
+        if (exercise.type === 'heavy_lift' && exercise.cns_load >= 8) score -= 12;
+    } else if (context.performanceGoalType === 'weight_class_prep') {
+        if (exercise.type === 'conditioning') score += 8;
+        if (exercise.type === 'mobility' || exercise.type === 'active_recovery') score += 10;
+        if (exercise.type === 'heavy_lift' && exercise.cns_load >= 8) score -= 15;
+    }
+
+    // 8. Block phase — bias volume or sharpness based on where the athlete is in the block
+    if (context.blockPhase === 'accumulate') {
+        if (exercise.type === 'conditioning' || exercise.type === 'mobility') score += 4;
+    } else if (context.blockPhase === 'intensify') {
+        if (exercise.type === 'heavy_lift' || exercise.type === 'power') score += 8;
+    } else if (context.blockPhase === 'realize') {
+        if (exercise.type === 'power') score += 10;
+        if (exercise.type === 'mobility') score -= 6;
+    } else if (context.blockPhase === 'pivot') {
+        if (exercise.type === 'mobility' || exercise.type === 'active_recovery') score += 20;
+        if (exercise.type === 'heavy_lift') score -= 20;
+    }
+
+    // 9. Composite risk layer — aggressively remove expensive work when the week is unstable
+    if (context.performanceRiskLevel === 'yellow' && exercise.cns_load >= 9) {
+        score -= 10;
+    } else if (context.performanceRiskLevel === 'orange') {
+        if (!context.allowHighImpact && (exercise.type === 'heavy_lift' || exercise.type === 'power') && exercise.cns_load >= 7) {
+            score -= 40;
+        }
+        if (exercise.type === 'mobility' || exercise.type === 'active_recovery') score += 8;
+    } else if (context.performanceRiskLevel === 'red') {
+        if (exercise.type === 'mobility' || exercise.type === 'active_recovery') {
+            score += 20;
+        } else if (exercise.cns_load >= 4 || !context.allowHighImpact) {
+            return 0;
+        }
     }
 
     // Clamp 0-100
@@ -425,66 +476,54 @@ function estimateWorkoutTime(exercises: PrescribedExerciseV2[]): number {
     let totalMinutes = 0;
 
     for (const ex of exercises) {
-        const warmupTime = (ex.warmupSets?.length ?? 0) * 1.5;
-        const restSec = restDefaults[ex.exercise.type]?.defaultSeconds ?? 90;
-        const setTime = ex.targetSets * (1 + restSec / 60); // ~1 min per set + rest
+        const warmupTime = (ex.warmupSets?.length ?? 0) * 1.25;
+        const restSec = ex.restSeconds ?? restDefaults[ex.exercise.type]?.defaultSeconds ?? 90;
+        const setTime = ex.setPrescription && ex.setPrescription.length > 0
+            ? ex.setPrescription.reduce((sum, entry) => sum + (entry.sets * (0.75 + entry.restSeconds / 60)), 0)
+            : ex.targetSets * (1 + restSec / 60);
         totalMinutes += warmupTime + setTime;
     }
 
     return Math.round(totalMinutes);
 }
 
-/**
- * Trim exercises to fit a time budget, dropping lowest-scored exercises first.
- * For short workouts (<= 30 min), forces more supersets and reduces rest.
- *
- * @ANTI-WIRING: Pure synchronous function.
- */
-function fitToTimeConstraint(
-    exercises: PrescribedExerciseV2[],
-    availableMinutes: number,
-): PrescribedExerciseV2[] {
-    if (availableMinutes <= 0) return exercises;
+function resolvePrimaryAdaptation(
+    focus: WorkoutFocus,
+    performanceGoalType: PerformanceGoalType | undefined,
+): WorkoutPrescriptionV2['primaryAdaptation'] {
+    if (focus === 'recovery') return 'recovery';
+    if (focus === 'conditioning') return 'conditioning';
+    if (focus === 'sport_specific') return performanceGoalType === 'boxing_skill' ? 'power' : 'mixed';
+    if (performanceGoalType === 'conditioning' || performanceGoalType === 'weight_class_prep') return 'conditioning';
+    if (performanceGoalType === 'boxing_skill') return 'power';
+    return focus === 'full_body' ? 'mixed' : 'strength';
+}
 
-    // Sort by score descending (keep highest-scored)
-    const sorted = [...exercises].sort((a, b) => b.score - a.score);
-    const result: PrescribedExerciseV2[] = [];
-    let estimatedTime = 0;
+function buildSessionIntent(input: {
+    focus: WorkoutFocus;
+    primaryAdaptation: WorkoutPrescriptionV2['primaryAdaptation'];
+    performanceGoalType?: PerformanceGoalType;
+    performanceRisk: PerformanceRiskState;
+    blockContext: TrainingBlockContext | null;
+    availableMinutes?: number;
+}): string {
+    const focusLabel = input.focus.replace(/_/g, ' ');
+    const goalLabel = (input.performanceGoalType ?? 'conditioning').replace(/_/g, ' ');
+    const timeLine = input.availableMinutes ? ` Keep the work inside ${input.availableMinutes} minutes.` : '';
 
-    for (const ex of sorted) {
-        const restDefaults = getRestTimerDefaults();
-        const warmupTime = (ex.warmupSets?.length ?? 0) * 1.5;
-        const restSec = availableMinutes <= 30
-            ? Math.min(restDefaults[ex.exercise.type]?.defaultSeconds ?? 90, 60)
-            : restDefaults[ex.exercise.type]?.defaultSeconds ?? 90;
-        const setTime = ex.targetSets * (1 + restSec / 60);
-        const exerciseTime = warmupTime + setTime;
-
-        if (estimatedTime + exerciseTime <= availableMinutes) {
-            result.push({
-                ...ex,
-                restSeconds: restSec,
-            });
-            estimatedTime += exerciseTime;
-        } else if (result.length < 2) {
-            // Always include at least 2 exercises, reduce sets
-            const reducedSets = Math.max(2, ex.targetSets - 1);
-            const reducedTime = warmupTime + reducedSets * (1 + restSec / 60);
-            result.push({
-                ...ex,
-                targetSets: reducedSets,
-                restSeconds: restSec,
-            });
-            estimatedTime += reducedTime;
-        }
+    if (input.performanceRisk.level === 'red') {
+        return `Protect recovery first. This ${focusLabel} session is being reduced to preserve the block.${timeLine}`;
     }
-
-    // Short workouts: force supersets
-    if (availableMinutes <= 30) {
-        applySupersets(result);
+    if (input.performanceRisk.level === 'orange') {
+        return `Preserve quality while controlling fatigue. Bias crisp ${focusLabel} work and skip any junk volume.${timeLine}`;
     }
-
-    return result;
+    if (input.blockContext?.phase === 'realize') {
+        return `Express ${goalLabel} qualities with high-quality ${focusLabel} work, then get out before fatigue drifts up.${timeLine}`;
+    }
+    if (input.blockContext?.phase === 'pivot') {
+        return `Use this session to consolidate adaptation and stay fresh for the next build.${timeLine}`;
+    }
+    return `Build ${goalLabel} through ${focusLabel} work with a ${input.primaryAdaptation} bias.${timeLine}`;
 }
 
 // ─── V2 Workout Generation ────────────────────────────────────
@@ -523,6 +562,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         sparringDaysThisWeek,
         isSparringDay = false,
         progressionModel: inputProgressionModel,
+        performanceGoalType,
+        performanceRisk,
+        blockContext,
     } = input;
 
     // Sparring day: return activation-only workout
@@ -540,6 +582,15 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         ? 'recovery' as WorkoutFocus
         : determineFocus(dayOfWeek, readinessState, phase, focusOverride);
 
+    const resolvedPerformanceRisk = performanceRisk ?? assessPerformanceRisk({
+        readinessState,
+        acwr,
+        isDeloadWeek,
+        trainingIntensityCap,
+        isSparringDay,
+    });
+    const resolvedBlockContext = blockContext ?? null;
+
     // Scale CNS budget
     let baseCNSBudget = CNS_BUDGET[readinessState];
     if (trainingIntensityCap != null) {
@@ -550,33 +601,36 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         const taperMult = Math.max(0.5, 1.0 - (sparringDaysThisWeek - 1) * 0.175);
         baseCNSBudget = Math.round(baseCNSBudget * taperMult);
     }
-    const totalCNSBudget = baseCNSBudget;
+    if (resolvedBlockContext) {
+        baseCNSBudget = Math.round(baseCNSBudget * resolvedBlockContext.volumeMultiplier);
+    }
+    const totalCNSBudget = Math.max(10, Math.round(baseCNSBudget * resolvedPerformanceRisk.cnsMultiplier));
 
     // Deload: reduce exercise count and intensity
     const baseExerciseCount = EXERCISE_COUNT[readinessState];
-    const targetExerciseCount = isDeloadWeek
+    let targetExerciseCount = isDeloadWeek
         ? Math.max(3, baseExerciseCount - 1)
         : baseExerciseCount;
+    if (resolvedPerformanceRisk.level === 'yellow') {
+        targetExerciseCount = Math.max(3, targetExerciseCount - 1);
+    } else if (resolvedPerformanceRisk.level === 'orange') {
+        targetExerciseCount = Math.max(2, targetExerciseCount - 2);
+    } else if (resolvedPerformanceRisk.level === 'red') {
+        targetExerciseCount = Math.min(2, targetExerciseCount);
+    }
 
-    const basePrescription = SET_PRESCRIPTIONS[readinessState];
-    const prescription = isDeloadWeek
-        ? { sets: Math.max(2, basePrescription.sets - 1), reps: basePrescription.reps + 2, rpe: Math.min(basePrescription.rpe, 5) }
-        : basePrescription;
-
-    const rpeCap = trainingIntensityCap ?? (isDeloadWeek ? 5 : 10);
+    const rpeCap = Math.min(
+        trainingIntensityCap ?? (isDeloadWeek ? 5 : 10),
+        resolvedPerformanceRisk.intensityCap,
+    );
 
     const workoutType = effectiveFocus === 'recovery' ? 'recovery' as const
         : effectiveFocus === 'conditioning' ? 'conditioning' as const
             : effectiveFocus === 'sport_specific' ? 'practice' as const
                 : 'strength' as const;
 
-    // Filter by focus, then by equipment
-    let focusExercises = filterByFocus(exerciseLibrary, effectiveFocus);
-    focusExercises = filterByEquipment(focusExercises, gymEquipment);
-
-    // Score each exercise
-    let cnsBudgetRemaining = totalCNSBudget;
-    const scored = focusExercises.map(exercise => ({
+    const usableExercises = filterByEquipment(exerciseLibrary, gymEquipment);
+    const scored = usableExercises.map(exercise => ({
         exercise,
         score: scoreExerciseForUser(exercise, {
             readinessState,
@@ -586,108 +640,52 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             recentMuscleVolume,
             cnsBudgetRemaining: totalCNSBudget,
             fitnessLevel,
+            performanceGoalType,
+            performanceRiskLevel: resolvedPerformanceRisk.level,
+            allowHighImpact: resolvedPerformanceRisk.allowHighImpact,
+            blockPhase: resolvedBlockContext?.phase,
         }),
-    }));
+    }))
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score);
 
-    scored.sort((a, b) => b.score - a.score);
+    const sectionedSession = buildSectionedWorkoutSession({
+        focus: effectiveFocus,
+        scoredExercises: scored,
+        usableExerciseLibrary: usableExercises,
+        readinessState,
+        rpeCap,
+        performanceRisk: resolvedPerformanceRisk,
+        performanceGoalType,
+        blockContext: resolvedBlockContext,
+        availableMinutes,
+        fitnessLevel,
+        exerciseHistory,
+        progressionModel: inputProgressionModel,
+        isDeloadWeek,
+        targetExerciseCount,
+    });
 
-    // Track which muscle groups we've added for warmup logic
-    const muscleGroupsSeen = new Set<MuscleGroup>();
-    const selectedExercises: PrescribedExerciseV2[] = [];
-    let usedCNS = 0;
-    const restDefaults = getRestTimerDefaults();
-
-    for (const { exercise, score } of scored) {
-        if (selectedExercises.length >= targetExerciseCount) break;
-        if (score <= 0) continue;
-        if (exercise.cns_load > cnsBudgetRemaining) continue;
-
-        let sets = prescription.sets;
-        let reps = prescription.reps;
-        let rpe = Math.min(prescription.rpe, rpeCap);
-
-        if (exercise.type === 'heavy_lift') {
-            reps = Math.max(3, prescription.reps - 2);
-        } else if (exercise.type === 'mobility' || exercise.type === 'active_recovery') {
-            sets = 2;
-            reps = 12;
-            rpe = Math.min(4, rpeCap);
-        } else if (exercise.type === 'conditioning') {
-            sets = 3;
-            reps = 1;
-            rpe = Math.min(prescription.rpe, rpeCap);
-        } else if (exercise.type === 'sport_specific') {
-            sets = 3;
-            reps = 1;
-            rpe = Math.min(prescription.rpe, rpeCap);
-        }
-
-        // Generate overload suggestion if history is available
-        let overloadSuggestion = undefined;
-        let suggestedWeight = undefined;
-        let weightSuggestionReasoning = undefined;
-        const history = exerciseHistory?.get(exercise.id);
-        if (history && history.length > 0) {
-            const model = inputProgressionModel ?? selectProgressionModel(fitnessLevel, history.length);
-            overloadSuggestion = suggestOverload({
-                exerciseId: exercise.id,
-                exerciseName: exercise.name,
-                history,
-                fitnessLevel,
-                progressionModel: model,
-                isDeloadWeek,
-                readinessState,
-                targetRPE: rpe,
-                targetReps: reps,
-                muscleGroup: exercise.muscle_group,
-            });
-            suggestedWeight = overloadSuggestion.suggestedWeight;
-            weightSuggestionReasoning = overloadSuggestion.reasoning;
-        }
-
-        // Generate warmup sets
-        const isFirstForMuscle = !muscleGroupsSeen.has(exercise.muscle_group);
-        const warmupResult = generateWarmupSets({
-            workingWeight: suggestedWeight ?? 0,
-            exerciseType: exercise.type,
-            equipment: exercise.equipment,
-            isFirstExerciseForMuscle: isFirstForMuscle,
-            fitnessLevel,
-        });
-        muscleGroupsSeen.add(exercise.muscle_group);
-
-        // Rest timer default
-        const restSeconds = restDefaults[exercise.type]?.defaultSeconds ?? 90;
-
-        selectedExercises.push({
-            exercise,
-            targetSets: sets,
-            targetReps: reps,
-            targetRPE: rpe,
-            supersetGroup: null,
-            score,
-            suggestedWeight,
-            weightSuggestionReasoning,
-            warmupSets: warmupResult.sets,
-            restSeconds,
-            formCues: exercise.cues || undefined,
-            isSubstitute: false,
-            overloadSuggestion,
-        });
-
-        usedCNS += exercise.cns_load;
-        cnsBudgetRemaining -= exercise.cns_load;
-    }
-
-    // Auto-pair supersets
-    applySupersets(selectedExercises);
-
-    // Fit to time constraint if specified
-    const finalExercises = availableMinutes
-        ? fitToTimeConstraint(selectedExercises, availableMinutes)
-        : selectedExercises;
-
-    const estimatedDuration = estimateWorkoutTime(finalExercises);
+    const finalExercises = sectionedSession.exercises;
+    const estimatedDuration = sectionedSession.estimatedDuration || estimateWorkoutTime(finalExercises);
+    const primaryAdaptation = resolvePrimaryAdaptation(effectiveFocus, performanceGoalType);
+    const sessionGoal = sectionedSession.sessionGoal;
+    const sessionIntent = buildSessionIntent({
+        focus: effectiveFocus,
+        primaryAdaptation,
+        performanceGoalType,
+        performanceRisk: resolvedPerformanceRisk,
+        blockContext: resolvedBlockContext,
+        availableMinutes,
+    });
+    const decisionTrace = [
+        `focus:${effectiveFocus}`,
+        `goal:${performanceGoalType ?? 'conditioning'}`,
+        `risk:${resolvedPerformanceRisk.level}`,
+        ...(resolvedBlockContext ? [`block:${resolvedBlockContext.phase}`] : []),
+        `sections:${sectionedSession.sections.map(section => section.template).join('|')}`,
+        ...resolvedPerformanceRisk.reasons.slice(0, 3),
+    ];
 
     // Build message
     const focusLabel = effectiveFocus.replace(/_/g, ' ');
@@ -720,8 +718,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         focus: effectiveFocus,
         workoutType,
         exercises: finalExercises,
+        payloadVersion: 'v3',
         totalCNSBudget,
-        usedCNS,
+        usedCNS: sectionedSession.usedCNS,
         message,
         estimatedDurationMin: estimatedDuration,
         isDeloadWorkout: isDeloadWeek,
@@ -729,6 +728,14 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         campPhaseContext,
         weeklyPlanDay: null,
         sparringDayGuidance: null,
+        sessionTemplate: sectionedSession.sections.map(section => section.template),
+        sessionGoal,
+        sections: sectionedSession.sections,
+        sessionIntent,
+        primaryAdaptation,
+        performanceRisk: resolvedPerformanceRisk,
+        blockContext: resolvedBlockContext,
+        decisionTrace,
     };
 }
 
@@ -746,16 +753,64 @@ function buildSparringDayWorkout(
     );
     exercises = filterByEquipment(exercises, gymEquipment);
 
-    const activation: PrescribedExerciseV2[] = exercises.slice(0, 5).map((exercise) => ({
+    const activation: NonNullable<WorkoutPrescriptionV2['sections']>[number]['exercises'] = exercises.slice(0, 5).map((exercise, index) => ({
         exercise,
         targetSets: 2,
-        targetReps: exercise.type === 'sport_specific' ? 1 : 10,
+        targetReps: exercise.type === 'sport_specific' ? 1 : 8,
         targetRPE: 3,
         supersetGroup: null,
         score: 50,
         restSeconds: 30,
         formCues: exercise.cues || undefined,
+        role: index < 2 ? 'prep' : 'recovery',
+        loadingStrategy: 'recovery_flow',
+        progressionAnchor: null,
+        preferredExercise: exercise,
+        substitutions: [],
+        coachingCues: exercise.cues ? [exercise.cues] : ['Stay easy and leave the session fresh.'],
+        fatigueCost: 'low',
+        setScheme: exercise.type === 'sport_specific' ? '2 x 1 easy rounds' : '2 x 8 smooth reps',
+        loadingNotes: 'Keep the entire session low cost so sparring gets your best energy.',
+        setPrescription: [{
+            label: index < 2 ? 'Prep' : 'Recovery',
+            sets: 2,
+            reps: exercise.type === 'sport_specific' ? '1 round' : 8,
+            targetRPE: 3,
+            restSeconds: 30,
+        }],
+        sectionId: index < 2 ? 'activation-1' : 'cooldown-1',
+        sectionTemplate: index < 2 ? 'activation' : 'cooldown',
+        sectionIntent: index < 2
+            ? 'Prime rhythm and mobility without adding fatigue.'
+            : 'Downshift and recover for sparring.',
     }));
+
+    const sections: NonNullable<WorkoutPrescriptionV2['sections']> = [
+        {
+            id: 'activation-1',
+            template: 'activation' as const,
+            title: 'Activation',
+            intent: 'Prime rhythm and mobility without adding fatigue.',
+            timeCap: 6,
+            restRule: 'Keep it easy and controlled.',
+            densityRule: '2 easy rounds',
+            exercises: activation.slice(0, Math.min(2, activation.length)),
+            decisionTrace: ['template:activation', 'sparring day support'],
+            finisherReason: null,
+        },
+        {
+            id: 'cooldown-1',
+            template: 'cooldown' as const,
+            title: 'Cooldown',
+            intent: 'Downshift and recover for sparring.',
+            timeCap: 6,
+            restRule: 'Continuous easy flow.',
+            densityRule: '1 easy round',
+            exercises: activation.slice(Math.min(2, activation.length)),
+            decisionTrace: ['template:cooldown', 'sparring day support'],
+            finisherReason: null,
+        },
+    ].filter(section => section.exercises.length > 0);
 
     let campPhaseContext: CampPhase | null = null;
     if (phase?.startsWith('camp-')) {
@@ -766,15 +821,24 @@ function buildSparringDayWorkout(
         focus: 'recovery',
         workoutType: 'recovery',
         exercises: activation,
+        payloadVersion: 'v3',
         totalCNSBudget: 10,
         usedCNS: activation.reduce((sum, e) => sum + e.exercise.cns_load, 0),
         message: 'Sparring day — activation and mobility only. Save your energy for the ring.',
-        estimatedDurationMin: 15,
+        estimatedDurationMin: estimateWorkoutTime(activation),
         isDeloadWorkout: false,
         equipmentProfile: gymEquipment ? 'custom' : null,
         campPhaseContext,
         weeklyPlanDay: null,
         sparringDayGuidance: null,
+        sessionTemplate: sections.map(section => section.template),
+        sessionGoal: 'Support sparring readiness with low-cost activation and recovery work only.',
+        sections,
+        sessionIntent: 'Support sparring with low-cost activation and mobility only.',
+        primaryAdaptation: 'recovery',
+        performanceRisk: null,
+        blockContext: null,
+        decisionTrace: ['focus:recovery', 'sparring day activation'],
     };
 }
 

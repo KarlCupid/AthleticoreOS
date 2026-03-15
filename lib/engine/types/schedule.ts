@@ -11,6 +11,7 @@ import type { FuelState, MacroLedgerRow } from './nutrition';
 import type {
   AvailabilityWindow,
   ConstraintTier,
+  PerformanceGoalType,
   RecommendationLifecycleStatus,
 } from './fightCampV1';
 import type { CampConfig } from './camp';
@@ -284,6 +285,7 @@ export interface SmartWeekPlanInput {
   phase: Phase;
   acwr: number;
   fitnessLevel: FitnessLevel;
+  performanceGoalType?: PerformanceGoalType;
   exerciseLibrary: ExerciseLibraryRow[];
   recentExerciseIds?: string[];
   recentMuscleVolume: Record<MuscleGroup, number>;

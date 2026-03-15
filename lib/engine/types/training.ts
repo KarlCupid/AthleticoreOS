@@ -20,6 +20,7 @@ import type {
   RecurringActivityRow,
   ScheduledActivityRow,
 } from './schedule';
+import type { PerformanceGoalType } from './fightCampV1';
 import type { WeightCutPlanRow } from './weight_cut';
 
 export interface ExerciseLibraryRow {
@@ -60,6 +61,10 @@ export interface ExerciseScoringContext {
   recentMuscleVolume: Record<MuscleGroup, number>;
   cnsBudgetRemaining: number;
   fitnessLevel: FitnessLevel;
+  performanceGoalType?: PerformanceGoalType;
+  performanceRiskLevel?: PerformanceRiskLevel;
+  allowHighImpact?: boolean;
+  blockPhase?: TrainingBlockPhase;
 }
 
 export interface GenerateWorkoutInput {
@@ -391,6 +396,9 @@ export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
   sparringDaysThisWeek?: number;
   isSparringDay?: boolean;
   progressionModel?: ProgressionModel;
+  performanceGoalType?: PerformanceGoalType;
+  performanceRisk?: PerformanceRiskState | null;
+  blockContext?: TrainingBlockContext | null;
 }
 
 export interface PrescribedExerciseV2 extends PrescribedExercise {
@@ -403,14 +411,141 @@ export interface PrescribedExerciseV2 extends PrescribedExercise {
   originalExerciseId?: string;
   originalExerciseName?: string;
   overloadSuggestion?: OverloadSuggestion;
+  role?: ExerciseRole;
+  loadingStrategy?: LoadingStrategy;
+  progressionAnchor?: ProgressionAnchor | null;
+  preferredExercise?: ExerciseLibraryRow;
+  substitutions?: ExerciseSubstitution[];
+  coachingCues?: string[];
+  fatigueCost?: 'low' | 'moderate' | 'high';
+  setScheme?: string;
+  loadingNotes?: string;
+  setPrescription?: ExerciseSetPrescription[];
+  sectionId?: string;
+  sectionTemplate?: WorkoutSectionTemplate;
+  sectionIntent?: string;
+}
+
+export type PerformanceRiskLevel = 'green' | 'yellow' | 'orange' | 'red';
+
+export type TrainingBlockPhase = 'accumulate' | 'intensify' | 'realize' | 'pivot';
+
+export type WorkoutSectionTemplate =
+  | 'activation'
+  | 'power'
+  | 'main_strength'
+  | 'secondary_strength'
+  | 'accessory'
+  | 'durability'
+  | 'finisher'
+  | 'cooldown';
+
+export type ExerciseRole =
+  | 'prep'
+  | 'explosive'
+  | 'anchor'
+  | 'secondary'
+  | 'accessory'
+  | 'durability'
+  | 'finisher'
+  | 'recovery';
+
+export type LoadingStrategy =
+  | 'top_set_backoff'
+  | 'straight_sets'
+  | 'density_block'
+  | 'intervals'
+  | 'recovery_flow';
+
+export interface ProgressionAnchor {
+  key: string;
+  label: string;
+  stableAcrossBlock: boolean;
+  rotationCadence: 'block' | 'weekly' | 'session';
+  rationale: string;
+}
+
+export interface ExerciseSubstitution {
+  exerciseId: string;
+  exerciseName: string;
+  rationale: string;
+  rank: number;
+  preservesPattern: boolean;
+  preservesStimulus: boolean;
+  fatigueDelta: number;
+}
+
+export interface ExerciseSetPrescription {
+  label: string;
+  sets: number;
+  reps: number | string;
+  targetRPE: number;
+  restSeconds: number;
+  intensityNote?: string;
+}
+
+export interface SectionExercisePrescription extends PrescribedExerciseV2 {
+  role: ExerciseRole;
+  loadingStrategy: LoadingStrategy;
+  progressionAnchor: ProgressionAnchor | null;
+  preferredExercise: ExerciseLibraryRow;
+  substitutions: ExerciseSubstitution[];
+  coachingCues: string[];
+  fatigueCost: 'low' | 'moderate' | 'high';
+  setScheme: string;
+  loadingNotes: string;
+  setPrescription: ExerciseSetPrescription[];
+  sectionId: string;
+  sectionTemplate: WorkoutSectionTemplate;
+  sectionIntent: string;
+}
+
+export interface WorkoutSessionSection {
+  id: string;
+  template: WorkoutSectionTemplate;
+  title: string;
+  intent: string;
+  timeCap: number;
+  restRule: string;
+  densityRule: string | null;
+  exercises: SectionExercisePrescription[];
+  decisionTrace: string[];
+  finisherReason?: string | null;
+}
+
+export interface PerformanceRiskState {
+  level: PerformanceRiskLevel;
+  intensityCap: number;
+  volumeMultiplier: number;
+  cnsMultiplier: number;
+  allowHighImpact: boolean;
+  reasons: string[];
+}
+
+export interface TrainingBlockContext {
+  weekInBlock: 1 | 2 | 3 | 4;
+  phase: TrainingBlockPhase;
+  volumeMultiplier: number;
+  intensityOffset: number;
+  focusBias: WorkoutFocus | null;
+  note: string;
 }
 
 export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   exercises: PrescribedExerciseV2[];
+  payloadVersion?: 'v2' | 'v3';
   estimatedDurationMin: number;
   isDeloadWorkout: boolean;
   equipmentProfile: string | null;
   campPhaseContext: CampPhase | null;
   weeklyPlanDay: number | null;
   sparringDayGuidance: SparringDayGuidance | null;
+  sessionTemplate?: WorkoutSectionTemplate[];
+  sessionGoal?: string | null;
+  sections?: WorkoutSessionSection[];
+  sessionIntent: string | null;
+  primaryAdaptation: 'strength' | 'power' | 'conditioning' | 'recovery' | 'mixed';
+  performanceRisk: PerformanceRiskState | null;
+  blockContext: TrainingBlockContext | null;
+  decisionTrace: string[];
 }

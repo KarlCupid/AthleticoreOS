@@ -142,6 +142,7 @@ export async function generateAndSaveWeeklyPlan(
     phase: athleteContext.phase,
     acwr: readinessContext.acwr,
     fitnessLevel: athleteContext.fitnessLevel,
+    performanceGoalType: athleteContext.performanceGoalType,
     exerciseLibrary,
     recentExerciseIds,
     recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },

@@ -867,6 +867,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         phase: athleteContext.phase,
         acwr: engineState.acwr.ratio,
         fitnessLevel: athleteContext.fitnessLevel,
+        performanceGoalType: athleteContext.performanceGoalType,
         exerciseLibrary,
         recentExerciseIds,
         recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },

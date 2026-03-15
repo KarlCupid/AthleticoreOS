@@ -25,6 +25,7 @@ import { determineCampPhase, getCampTrainingModifiers, toCampEnginePhase } from 
 import { getDailyCutIntensityCap } from './calculateWeightCut';
 import { shouldDeload } from './calculateOverload';
 import { generateWorkoutV2 } from './calculateSC';
+import { assessPerformanceRisk, getGoalBasedFocusRotation, resolveTrainingBlockContext } from './performancePlanner';
 import { todayLocalDate } from '../utils/date';
 
 import {
@@ -644,20 +645,6 @@ export function getTrainingStreak(
 
 // ─── Smart Week Plan Focus Rotations ────────────────────────────
 
-/**
- * Focus split templates keyed by available training days per week.
- * Each array represents the focus for each training day in order.
- */
-const FOCUS_SPLITS: Record<number, WorkoutFocus[]> = {
-    3: ['full_body', 'upper_push', 'lower'],
-    4: ['upper_push', 'lower', 'upper_pull', 'full_body'],
-    5: ['upper_push', 'lower', 'upper_pull', 'full_body', 'sport_specific'],
-    6: ['upper_push', 'lower', 'upper_pull', 'lower', 'full_body', 'sport_specific'],
-};
-
-/** Deload focus: recovery-oriented, lighter sessions. */
-const DELOAD_FOCUSES: WorkoutFocus[] = ['full_body', 'recovery', 'full_body'];
-
 // ─── generateSmartWeekPlan ──────────────────────────────────────
 
 /**
@@ -695,6 +682,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         phase,
         acwr,
         fitnessLevel,
+        performanceGoalType = 'conditioning',
         exerciseLibrary,
         recentExerciseIds,
         recentMuscleVolume,
@@ -744,11 +732,20 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
     const scDayCount = isDeloadWeek
         ? Math.min(availableDays.length, 3) // deload: max 3 sessions
         : availableDays.length;
+    const blockContext = resolveTrainingBlockContext({
+        performanceGoalType,
+        campPhase,
+        weeksSinceLastDeload,
+        isDeloadWeek,
+    });
 
     // ── 4. Build focus rotation ──
-    const baseFocuses = isDeloadWeek
-        ? DELOAD_FOCUSES
-        : (FOCUS_SPLITS[scDayCount] ?? FOCUS_SPLITS[4]);
+    const baseFocuses = getGoalBasedFocusRotation({
+        performanceGoalType,
+        scDayCount,
+        isDeloadWeek,
+        blockContext,
+    });
 
     // ── 5. Map days to entries ──
     const entries: WeeklyPlanEntryRow[] = [];
@@ -847,6 +844,14 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         if (hasCombatAnchor) {
             targetIntensity = Math.min(targetIntensity, hasHighAnchor ? 5 : 6);
         }
+        if (focus === 'conditioning' && performanceGoalType === 'conditioning' && readinessState === 'Prime' && !isDeloadWeek) {
+            targetIntensity += 1;
+        }
+        if ((focus === 'lower' || focus === 'full_body') && performanceGoalType === 'strength' && readinessState === 'Prime' && !isDeloadWeek) {
+            targetIntensity += 1;
+        }
+        targetIntensity += blockContext.intensityOffset;
+        targetIntensity = Math.max(3, Math.min(9, targetIntensity));
 
         // Apply weight cut cap
         if (activeCutPlan) {
@@ -876,6 +881,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         } else if (hasCombatAnchor) {
             duration = Math.min(duration, 45);
         }
+        duration = Math.max(25, Math.round(duration * blockContext.volumeMultiplier));
 
         // Build engine notes
         const notes: string[] = [];
@@ -883,10 +889,25 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         if (isSparringDay) notes.push('Sparring day — activation-only S&C.');
         if (readinessState !== 'Prime') notes.push(`Readiness: ${readinessState}.`);
 
+        notes.push(`Goal bias: ${performanceGoalType.replace(/_/g, ' ')}.`);
+        notes.push(`Block: ${blockContext.phase}. ${blockContext.note}`);
+
         const sessionType = isSparringDay ? 'activation' : (isDeloadWeek ? 'deload' : 'sc');
         const trainingIntensityCap = activeCutPlan
             ? getDailyCutIntensityCap(activeCutPlan, entryDate)
             : null;
+        const performanceRisk = assessPerformanceRisk({
+            readinessState,
+            acwr,
+            isDeloadWeek,
+            trainingIntensityCap,
+            isSparringDay,
+        });
+        targetIntensity = Math.min(targetIntensity, performanceRisk.intensityCap);
+        duration = Math.max(20, Math.round(duration * performanceRisk.volumeMultiplier));
+        if (performanceRisk.level !== 'green') {
+            notes.push(`Risk: ${performanceRisk.level}. ${performanceRisk.reasons.join('; ')}.`);
+        }
         const shouldCreateSnapshot = Boolean(
             focus && ['sc', 'activation', 'deload'].includes(sessionType) && exerciseLibrary.length > 0,
         );
@@ -908,6 +929,9 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 isDeloadWeek,
                 weeklyPlanFocus: focus,
                 isSparringDay,
+                performanceGoalType,
+                performanceRisk,
+                blockContext,
             })
             : null;
 

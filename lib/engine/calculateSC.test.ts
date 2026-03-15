@@ -8,6 +8,7 @@ import {
     determineFocus,
     scoreExerciseForUser,
     generateWorkout,
+    generateWorkoutV2,
     calculateVolumeLoad,
     calculateWeeklyVolume,
     getWorkoutCompliance,
@@ -17,6 +18,8 @@ import type {
     ExerciseScoringContext,
     ReadinessState,
     MuscleGroup,
+    PerformanceRiskState,
+    TrainingBlockContext,
 } from './types';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -319,6 +322,141 @@ console.log('\n── Cut-Aware generateWorkout ──');
     });
     assert('No cap → normal CNS budget', result.totalCNSBudget === 50);
     assert('No cap ? not recovery focus', result.focus !== 'recovery');
+})();
+
+// â”€â”€â”€ generateWorkoutV2 Planning Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+console.log('\nâ”€â”€ generateWorkoutV2 planning â”€â”€');
+
+(() => {
+    const risk: PerformanceRiskState = {
+        level: 'red',
+        intensityCap: 4,
+        volumeMultiplier: 0.5,
+        cnsMultiplier: 0.45,
+        allowHighImpact: false,
+        reasons: ['acute load is redlining'],
+    };
+    const blockContext: TrainingBlockContext = {
+        weekInBlock: 4,
+        phase: 'pivot',
+        volumeMultiplier: 0.72,
+        intensityOffset: -1,
+        focusBias: 'recovery',
+        note: 'Pivot week.',
+    };
+    const result = generateWorkoutV2({
+        readinessState: 'Caution',
+        phase: 'off-season',
+        acwr: 1.48,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        focus: 'full_body',
+        performanceGoalType: 'strength',
+        performanceRisk: risk,
+        blockContext,
+    });
+    assert('Red risk preserves only low-cost work',
+        result.exercises.every((exercise) => exercise.exercise.cns_load <= 3));
+    assert('Red risk sets recovery-forward intent',
+        (result.sessionIntent ?? '').includes('Protect recovery'));
+    assert('Decision trace records risk', result.decisionTrace.includes('risk:red'));
+    assert('Red risk suppresses finisher sections',
+        !result.sections?.some((section) => section.template === 'finisher'));
+})();
+
+(() => {
+    const result = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        focus: 'conditioning',
+        performanceGoalType: 'conditioning',
+        trainingDate: '2026-03-09',
+    });
+    assert('Conditioning goal surfaces conditioning adaptation', result.primaryAdaptation === 'conditioning');
+    assert('Conditioning goal tags decision trace', result.decisionTrace.includes('goal:conditioning'));
+    assert('Conditioning day emits sections', (result.sections?.length ?? 0) > 0);
+})();
+
+(() => {
+    const result = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        focus: 'lower',
+        performanceGoalType: 'strength',
+        trainingDate: '2026-03-09',
+    });
+
+    const mainSection = result.sections?.find((section) => section.template === 'main_strength');
+    assert('Sectioned workout exposes a main strength block', Boolean(mainSection));
+    assert('Main strength block uses top-set backoff loading',
+        mainSection?.exercises.some((exercise) => exercise.loadingStrategy === 'top_set_backoff') ?? false);
+    assert('Main strength block carries substitutions',
+        mainSection?.exercises.some((exercise) => (exercise.substitutions?.length ?? 0) > 0) ?? false);
+})();
+
+(() => {
+    const first = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        focus: 'upper_push',
+        performanceGoalType: 'strength',
+        trainingDate: '2026-03-09',
+    });
+    const second = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        focus: 'upper_push',
+        performanceGoalType: 'strength',
+        trainingDate: '2026-03-16',
+    });
+
+    const firstAnchor = first.sections?.find((section) => section.template === 'main_strength')?.exercises[0]?.progressionAnchor?.key;
+    const secondAnchor = second.sections?.find((section) => section.template === 'main_strength')?.exercises[0]?.progressionAnchor?.key;
+    assert('Main lift anchor remains stable across repeated upper-push generations', firstAnchor === secondAnchor);
+})();
+
+(() => {
+    const result = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        focus: 'lower',
+        performanceGoalType: 'strength',
+        availableMinutes: 28,
+        trainingDate: '2026-03-09',
+    });
+
+    assert('Short sessions keep the main strength section',
+        result.sections?.some((section) => section.template === 'main_strength') ?? false);
+    assert('Short sessions trim optional finisher work first',
+        !result.sections?.some((section) => section.template === 'finisher'));
 })();
 
 // ─── Summary ───────────────────────────────────────────────────

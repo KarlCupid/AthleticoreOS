@@ -1,3 +1,5 @@
+console.log('\nâ”€â”€ generateSmartWeekPlan â”€â”€');
+
 import {
     getRecoveryWindow,
     validateDayLoad,
