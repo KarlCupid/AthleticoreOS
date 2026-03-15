@@ -17,6 +17,7 @@ import { validateDayLoad } from '../../lib/engine/calculateSchedule';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
+import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
 import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
 
@@ -29,6 +30,10 @@ const ACTIVITY_OPTIONS: { type: string; label: string; icon: string }[] = [
     { type: 'active_recovery', label: 'Active Recovery', icon: '🧘' },
     { type: 'other', label: 'Other', icon: '📝' },
 ];
+
+const MANUAL_ACTIVITY_OPTIONS = ACTIVITY_OPTIONS.filter(
+    (option) => option.type !== 'sc' && option.type !== 'conditioning',
+);
 
 export function DayDetailScreen() {
     const route = useRoute<any>();
@@ -102,7 +107,7 @@ export function DayDetailScreen() {
     };
 
     const navigateToLogger = async (activity: ScheduledActivityRow) => {
-        if (activity.activity_type === 'sc') {
+        if (isGuidedEngineActivityType(activity.activity_type)) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session?.user) return;
 
@@ -251,7 +256,7 @@ export function DayDetailScreen() {
                 <View style={styles.pickerOverlay}>
                     <View style={styles.pickerCard}>
                         <Text style={styles.pickerTitle}>Add Activity</Text>
-                        {ACTIVITY_OPTIONS.map(opt => (
+                        {MANUAL_ACTIVITY_OPTIONS.map(opt => (
                             <TouchableOpacity
                                 key={opt.type}
                                 style={styles.pickerOption}

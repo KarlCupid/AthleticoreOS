@@ -159,7 +159,7 @@ export function useDashboardData() {
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
       setTodayActivities(engineState.scheduledActivities ?? []);
       setPrimaryActivity(engineState.primaryScheduledActivity);
-      setTodayPlanEntry((engineState.primaryPlanEntry as WeeklyPlanEntryRow | null) ?? null);
+      setTodayPlanEntry((engineState.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null);
       const currentWeightTrend = engineState.objectiveContext.weightTrend ?? null;
       setWeightTrend(currentWeightTrend);
       setAcwr(engineState.acwr);

@@ -56,7 +56,6 @@ export type PlanStackParamList = {
   CalendarMain: undefined;
   DayDetail: { date: string };
   ActivityLog: { activityId: string; date: string };
-  WeeklyTemplate: undefined;
   WeeklyReview: undefined;
   NutritionHome: undefined;
   FoodSearch: { mealType?: MealType; date?: string };

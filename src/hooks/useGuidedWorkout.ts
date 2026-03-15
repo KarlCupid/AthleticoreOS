@@ -16,6 +16,7 @@ import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadServi
 import { todayLocalDate } from '../../lib/utils/date';
 import { markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
 import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
+import { isGuidedEngineScheduledActivity } from '../../lib/engine/sessionOwnership';
 import type {
     DailyMission,
     WorkoutPrescriptionV2,
@@ -167,10 +168,27 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
             if (scheduledActivityId) {
                 const matchingActivity = engineState.scheduledActivities.find((activity) => activity.id === scheduledActivityId) ?? null;
-                if (matchingActivity?.activity_type === 'sc' && engineState.workoutPrescription?.exercises?.length) {
-                    setDailyMission(mission);
-                    setPrescription(engineState.workoutPrescription);
-                    initializeProgress(engineState.workoutPrescription);
+                const matchingEntry = matchingActivity?.weekly_plan_entry_id
+                    ? engineState.weeklyPlanEntries.find((entry) => entry.id === matchingActivity.weekly_plan_entry_id) ?? null
+                    : null;
+                const entryMission = matchingEntry?.daily_mission_snapshot ?? mission;
+                const entryPrescription = matchingEntry?.daily_mission_snapshot?.trainingDirective.prescription
+                    ?? matchingEntry?.prescription_snapshot
+                    ?? null;
+
+                if (matchingActivity && isGuidedEngineScheduledActivity(matchingActivity) && entryPrescription?.exercises?.length) {
+                    setDailyMission(entryMission);
+                    setPrescription(entryPrescription);
+                    initializeProgress(entryPrescription);
+                    setLoading(false);
+                    return;
+                }
+
+                if (matchingActivity && isGuidedEngineScheduledActivity(matchingActivity) && !matchingActivity.weekly_plan_entry_id) {
+                    resetPrescriptionState(
+                        mission,
+                        'This engine-managed session is not linked to a canonical plan entry. Regenerate today\'s plan before starting it.',
+                    );
                     setLoading(false);
                     return;
                 }

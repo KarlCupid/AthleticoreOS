@@ -13,7 +13,6 @@ import { GymProfileScreen } from '../screens/GymProfileScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { DayDetailScreen } from '../screens/DayDetailScreen';
 import { ActivityLogScreen } from '../screens/ActivityLogScreen';
-import { WeeklyTemplateScreen } from '../screens/WeeklyTemplateScreen';
 import { WeeklyReviewScreen } from '../screens/WeeklyReviewScreen';
 import { NutritionScreen } from '../screens/NutritionScreen';
 import { FoodSearchScreen } from '../screens/FoodSearchScreen';
@@ -45,7 +44,6 @@ export function PlanStackNavigator() {
       <Stack.Screen name="CalendarMain" component={CalendarScreen} />
       <Stack.Screen name="DayDetail" component={DayDetailScreen} />
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
-      <Stack.Screen name="WeeklyTemplate" component={WeeklyTemplateScreen} />
       <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
       <Stack.Screen name="NutritionHome" component={NutritionScreen} />
       <Stack.Screen name="FoodSearch" component={FoodSearchScreen} />

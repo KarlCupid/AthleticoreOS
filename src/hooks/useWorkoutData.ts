@@ -7,8 +7,6 @@ import {
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
-import { addManualActivity } from '../../lib/api/scheduleService';
-import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
 import type {
   WorkoutPrescription,
@@ -118,35 +116,8 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
 
   const handleStartWorkout = async (navigation: WorkoutNavigation) => {
     if (!prescription) return;
-
-    const currentUserId = await getActiveUserId();
-    if (!currentUserId) return;
-
-    try {
-      const activity = await addManualActivity(currentUserId, {
-        date: todayLocalDate(),
-        activity_type: 'sc',
-        custom_label: prescription.focus ? prescription.focus.replace(/_/g, ' ') : 'Open training',
-        estimated_duration_min: 60,
-        expected_intensity: Math.max(
-          ...prescription.exercises.map((exercise) => exercise.targetRPE),
-          5,
-        ),
-      });
-
-      const context = await getGuidedWorkoutContext(currentUserId, activity.date);
-
-      navigation.navigate('GuidedWorkout', {
-        scheduledActivityId: activity.id,
-        focus: prescription.focus,
-        availableMinutes: activity.estimated_duration_min,
-        readinessState: currentLevel ?? 'Prime',
-        phase: context.phase,
-        fitnessLevel: context.fitnessLevel,
-        trainingDate: activity.date,
-      });
-    } catch (error) {
-      logError('useWorkoutData.handleStartWorkout', error, { userId: currentUserId });
+    if (!engineState?.primaryEnginePlanEntry) {
+      navigation.navigate('WeeklyPlanSetup', {});
     }
   };
 
@@ -164,7 +135,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     userId,
     cutProtocol,
     engineState,
-    todayPlanEntry: (engineState?.primaryPlanEntry as WeeklyPlanEntryRow | null) ?? null,
+    todayPlanEntry: (engineState?.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
     weeklyEntries,
     isDeloadWeek,
     handleStartWorkout,

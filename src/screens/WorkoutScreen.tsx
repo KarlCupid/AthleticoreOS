@@ -28,6 +28,7 @@ import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
+import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
 import {
     buildSleepData,
     buildTrainingLoadData,
@@ -130,7 +131,7 @@ export function WorkoutScreen() {
     const weightData = buildWeightData(checkins);
     const sleepData = buildSleepData(checkins);
     const trainingLoadData = buildTrainingLoadData(sessions);
-    const contextualTodayActivities = todayActivities.filter((activity) => activity.activity_type !== 'sc');
+    const contextualTodayActivities = todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type));
     const groupedWeeklyEntries = groupWeekEntries(weeklyEntries);
 
     const acwrData = computeACWRTimeSeries(sessions);
@@ -279,12 +280,12 @@ export function WorkoutScreen() {
                                         key={activity.id}
                                         activity={activity}
                                         onPress={() => {
-                                            if (activity.activity_type === 'sc' && todayPlanEntry) {
+                                            if (isGuidedEngineActivityType(activity.activity_type) && todayPlanEntry) {
                                                 void openGuidedWorkout(todayPlanEntry);
                                             }
                                         }}
                                         onLog={() => {
-                                            if (activity.activity_type === 'sc' && todayPlanEntry) {
+                                            if (isGuidedEngineActivityType(activity.activity_type) && todayPlanEntry) {
                                                 void openGuidedWorkout(todayPlanEntry);
                                             }
                                         }}

@@ -36,6 +36,7 @@ import { getScheduledActivities } from './scheduleService';
 import { getEffectiveWeight, getWeightHistory } from './weightService';
 import { getWeeklyPlanConfig, updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
 import { getConsecutiveDepletedDays, getLastRefeedDate, upsertDailyCutProtocol } from './weightCutService';
+import { isActiveGuidedEnginePlanEntry } from '../engine/sessionOwnership';
 
 interface DailyMissionOptions {
   forceRefresh?: boolean;
@@ -190,6 +191,10 @@ function pickPrimaryPlanEntry(entries: WeeklyPlanEntryRow[]): WeeklyPlanEntryRow
 
     return slotRank[a.slot] - slotRank[b.slot];
   })[0] ?? null;
+}
+
+function pickPrimaryEnginePlanEntry(entries: WeeklyPlanEntryRow[]): WeeklyPlanEntryRow | null {
+  return entries.find((entry) => isActiveGuidedEnginePlanEntry(entry)) ?? null;
 }
 
 function pickPrimaryScheduledActivity(activities: ScheduledActivityRow[]): ScheduledActivityRow | null {
@@ -568,6 +573,7 @@ export async function getDailyEngineState(
   ]);
 
   const primaryPlanEntry = pickPrimaryPlanEntry(weeklyPlanEntries);
+  const primaryEnginePlanEntry = pickPrimaryEnginePlanEntry(weeklyPlanEntries);
 
   const profile = athleteContext.profile;
   const currentWeight = objectiveContext.currentWeightLbs ?? profile?.base_weight ?? 150;
@@ -631,7 +637,7 @@ export async function getDailyEngineState(
     acwr,
     fitnessLevel: athleteContext.fitnessLevel,
     performanceGoalType: athleteContext.performanceGoalType,
-    weeklyPlanEntry: primaryPlanEntry,
+    weeklyPlanEntry: primaryEnginePlanEntry,
     cutProtocol,
   });
 
@@ -698,6 +704,7 @@ export async function getDailyEngineState(
     weeklyPlanEntries,
     primaryScheduledActivity: pickPrimaryScheduledActivity(scheduledActivities),
     primaryPlanEntry,
+    primaryEnginePlanEntry,
     workoutPrescription: workoutPrescription ?? null,
     mission,
     campRisk: riskAssessment ?? null,

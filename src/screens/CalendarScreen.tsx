@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -136,18 +136,6 @@ export function CalendarScreen() {
                 <StreakBadge streak={streak} />
             </Animated.View>
 
-            <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.normal).springify()} style={{ flexDirection: 'row', paddingHorizontal: SPACING.lg, marginBottom: SPACING.md }}>
-                <AnimatedPressable
-                    style={[styles.templateButton, { backgroundColor: themeColor + '15', padding: 0, overflow: 'hidden', height: 80, flex: 1, marginHorizontal: 0 }]}
-                    onPress={() => navigation.navigate('WeeklyTemplate')}
-                >
-                    <Image
-                        source={require('../../assets/images/schedule_header_light.png')}
-                        style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
-                    />
-                </AnimatedPressable>
-            </Animated.View>
-
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} />}
@@ -244,14 +232,6 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary,
     },
-    templateButton: {
-        flexDirection: 'row', alignItems: 'center', marginHorizontal: SPACING.lg,
-        padding: SPACING.md, borderRadius: RADIUS.lg, marginBottom: SPACING.md,
-    },
-    templateIcon: { fontSize: 24, marginRight: SPACING.sm },
-    templateTitle: { fontSize: 15, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
-    templateSub: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
-    templateArrow: { fontSize: 20, fontFamily: FONT_FAMILY.black },
     daySection: { paddingHorizontal: SPACING.lg, marginTop: SPACING.md },
     daySectionHeader: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

@@ -34,6 +34,7 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { styles } from './DashboardScreen.styles';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
+import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
 
 type DashboardPhaseControlState = {
   currentModeLabel: string;
@@ -146,8 +147,8 @@ export function DashboardScreen() {
   const targetCarbs = todayCutProtocol ? todayCutProtocol.prescribed_carbs : (nutritionTargets?.carbs ?? (currentLedger?.prescribed_carbs ?? 200));
   const targetFat = todayCutProtocol ? todayCutProtocol.prescribed_fat : (nutritionTargets?.fat ?? (currentLedger?.prescribed_fats ?? 60));
   const targetWater = todayCutProtocol ? todayCutProtocol.water_target_oz : (hydration?.dailyWaterOz ?? 100);
-  const contextualTodayActivities = (workoutPrescription || primaryActivity?.activity_type === 'sc')
-    ? todayActivities.filter((activity) => activity.activity_type !== 'sc')
+  const contextualTodayActivities = (workoutPrescription || isGuidedEngineActivityType(primaryActivity?.activity_type))
+    ? todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type))
     : todayActivities;
 
   const readinessScore = currentLevel === 'Prime' ? 92 : currentLevel === 'Caution' ? 58 : 25;
@@ -189,9 +190,10 @@ export function DashboardScreen() {
       return;
     }
 
-    if (primaryActivity?.activity_type === 'sc') {
+    if (primaryActivity && isGuidedEngineActivityType(primaryActivity.activity_type) && primaryActivity.weekly_plan_entry_id) {
       const context = await getGuidedWorkoutContext(session.user.id, primaryActivity.date);
       openPlanScreen('GuidedWorkout', {
+        weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
         scheduledActivityId: primaryActivity.id,
         focus: primaryActivity.custom_label ?? undefined,
         availableMinutes: primaryActivity.estimated_duration_min,
@@ -257,7 +259,7 @@ export function DashboardScreen() {
   };
 
   const handleLogActivity = (activity: ScheduledActivityRow) => {
-    if (activity.activity_type === 'sc') {
+    if (isGuidedEngineActivityType(activity.activity_type) && activity.weekly_plan_entry_id) {
       void openTodayTraining();
       return;
     }

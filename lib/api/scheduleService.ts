@@ -23,6 +23,7 @@ import { getDefaultGymProfile } from './gymProfileService';
 import { getWeeksSinceLastDeload } from './overloadService';
 import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
 import { logWarn } from '../utils/logger';
+import { isGuidedEngineActivityType } from '../engine/sessionOwnership';
 
 function today(): string {
     return todayLocalDate();
@@ -430,6 +431,10 @@ export async function addManualActivity(
         notes?: string;
     },
 ): Promise<ScheduledActivityRow> {
+    if (isGuidedEngineActivityType(activity.activity_type)) {
+        throw new Error('Engine-managed S&C and conditioning sessions must come from the centralized planner.');
+    }
+
     return insertScheduledActivity({
         user_id: userId,
         date: activity.date,

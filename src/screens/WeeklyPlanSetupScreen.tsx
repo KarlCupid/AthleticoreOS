@@ -26,6 +26,7 @@ import { generateAndSaveWeeklyPlan } from '../hooks/useWeeklyPlan';
 import { getActiveFightCamp, setupFightCamp } from '../../lib/api/fightCampService';
 import { getActiveBuildPhaseGoal, setupBuildPhaseGoal } from '../../lib/api/buildPhaseService';
 import { getRecurringActivities, replaceRecurringActivities } from '../../lib/api/scheduleService';
+import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
 import { logError } from '../../lib/utils/logger';
 import type { PlanStackParamList } from '../navigation/types';
 import type {
@@ -41,7 +42,7 @@ import type {
 } from '../../lib/engine/types';
 
 type SessionType = Extract<ActivityType, 'sc' | 'boxing_practice' | 'conditioning'>;
-type CommitmentType = Extract<ActivityType, 'boxing_practice' | 'sparring' | 'conditioning' | 'sc'>;
+type CommitmentType = Extract<ActivityType, 'boxing_practice' | 'sparring'>;
 
 type EditableCommitment = {
   id: string;
@@ -106,8 +107,6 @@ const BUILD_GOAL_OPTIONS: { value: BuildPhaseGoalType; label: string }[] = [
 const COMMITMENT_OPTIONS: { value: CommitmentType; label: string }[] = [
   { value: 'boxing_practice', label: 'Boxing' },
   { value: 'sparring', label: 'Sparring' },
-  { value: 'conditioning', label: 'Conditioning' },
-  { value: 'sc', label: 'S&C' },
 ];
 const SECONDARY_CONSTRAINT_OPTIONS: { value: ObjectiveSecondaryConstraint; label: string; description: string }[] = [
   { value: 'protect_recovery', label: 'Protect Recovery', description: 'Keep progression high without burying recovery.' },
@@ -213,6 +212,14 @@ function createCommitment(dayOfWeek: number = 1): EditableCommitment {
     expectedIntensity: 7,
     tier: 'mandatory',
   };
+}
+
+function normalizeTwoADayPair(amType: SessionType, pmType: SessionType): { amType: SessionType; pmType: SessionType } {
+  if (isGuidedEngineActivityType(amType) && isGuidedEngineActivityType(pmType)) {
+    return { amType, pmType: 'boxing_practice' };
+  }
+
+  return { amType, pmType };
 }
 
 function getSetupPhaseIndex(phaseKey: SetupPhaseKey | undefined): number {
@@ -511,8 +518,12 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           setSessionDuration(config.session_duration_min ?? 60);
           setAllowTwoADays(config.allow_two_a_days ?? false);
           setTwoADayDays(sortDays(config.two_a_day_days ?? []));
-          setAmSessionType((config.am_session_type as SessionType) ?? 'sc');
-          setPmSessionType((config.pm_session_type as SessionType) ?? 'boxing_practice');
+          const normalizedSessionPair = normalizeTwoADayPair(
+            (config.am_session_type as SessionType) ?? 'sc',
+            (config.pm_session_type as SessionType) ?? 'boxing_practice',
+          );
+          setAmSessionType(normalizedSessionPair.amType);
+          setPmSessionType(normalizedSessionPair.pmType);
           setAutoDeloadInterval(config.auto_deload_interval_weeks ?? 5);
         }
 
@@ -557,7 +568,11 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
 
         setCommitments(
           recurring
-            .filter((entry) => entry.recurrence.frequency === 'weekly' && entry.recurrence.days_of_week?.length)
+            .filter((entry) => (
+              entry.recurrence.frequency === 'weekly'
+              && entry.recurrence.days_of_week?.length
+              && !isGuidedEngineActivityType(entry.activity_type)
+            ))
             .map((entry) => ({
               id: entry.id,
               dayOfWeek: entry.recurrence.days_of_week?.[0] ?? 1,
@@ -774,6 +789,13 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     const parsedTargetValue = parseNumberInput(targetValue);
     const parsedTargetHorizonWeeks = targetHorizonWeeks.trim() === '' ? null : parseNumberInput(targetHorizonWeeks);
 
+    if (allowTwoADays && isGuidedEngineActivityType(amSessionType) && isGuidedEngineActivityType(pmSessionType)) {
+      Alert.alert('Two-a-day setup blocked', 'The centralized engine can only own one guided S&C or conditioning session per day. Pair it with boxing instead.');
+      return;
+    }
+
+    const normalizedSessionPair = normalizeTwoADayPair(amSessionType, pmSessionType);
+
     setSaving(true);
     try {
       const configPayload = {
@@ -782,8 +804,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         session_duration_min: sessionDuration,
         allow_two_a_days: allowTwoADays,
         two_a_day_days: sortDays(twoADayDays.filter((day) => availableDays.includes(day))),
-        am_session_type: amSessionType,
-        pm_session_type: pmSessionType,
+        am_session_type: normalizedSessionPair.amType,
+        pm_session_type: normalizedSessionPair.pmType,
         preferred_gym_profile_id: null,
         auto_deload_interval_weeks: autoDeloadInterval,
       };
