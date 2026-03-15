@@ -14,7 +14,6 @@ import { DashboardNutritionCard } from '../components/DashboardNutritionCard';
 import { DailyMissionCard } from '../components/DailyMissionCard';
 import { TrainingLoadChartCard } from '../components/TrainingLoadChartCard';
 import { PrescriptionCard } from '../components/PrescriptionCard';
-import { WorkoutCard } from '../components/WorkoutCard';
 import { WeightTrendCard } from '../components/WeightTrendCard';
 import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
 import { ActivityCard } from '../components/ActivityCard';
@@ -205,8 +204,8 @@ export function DashboardScreen() {
       return;
     }
 
-    openPlanScreen('DayDetail', { date: todayLocalDate() });
-  }, [currentLevel, openPlanScreen, primaryActivity, todayPlanEntry]);
+    navigation.navigate('DayDetail', { date: todayLocalDate() });
+  }, [currentLevel, navigation, openPlanScreen, primaryActivity, todayPlanEntry]);
 
   const openFightCampSetup = React.useCallback(() => {
     openPlanScreen('WeeklyPlanSetup', {
@@ -223,6 +222,17 @@ export function DashboardScreen() {
       source: 'dashboard',
     });
   }, [openPlanScreen]);
+
+  const hasLivePlanningState = Boolean(todayPlanEntry) || todayActivities.length > 0;
+
+  const openPlanningSurface = React.useCallback(() => {
+    if (hasLivePlanningState) {
+      openPlanScreen('CalendarMain');
+      return;
+    }
+
+    openBuildPhaseSetup();
+  }, [hasLivePlanningState, openBuildPhaseSetup, openPlanScreen]);
 
   const handleSwitchToBuildPhase = React.useCallback(() => {
     Alert.alert(
@@ -549,15 +559,6 @@ export function DashboardScreen() {
             </Animated.View>
           )}
 
-          <Animated.View entering={FadeInDown.delay(D * 2).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
-            <WorkoutCard
-              prescription={workoutPrescription}
-              primaryActivity={primaryActivity}
-              isCompleted={sessionDone}
-              onPress={() => { void openTodayTraining(); }}
-            />
-          </Animated.View>
-
           <Animated.View entering={FadeInDown.delay(D * 4).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <SectionHeader title="Training Load" />
             <TrainingLoadChartCard trainingLoadData={trainingLoadData} acute={acute} chronic={chronic} acwr={acwr} />
@@ -616,11 +617,11 @@ export function DashboardScreen() {
                 </View>
                 <Text style={styles.quickActionLabel}>Eat</Text>
               </AnimatedPressable>
-              <AnimatedPressable style={styles.quickActionPill} onPress={() => navigation.navigate('Plan')}>
+              <AnimatedPressable style={styles.quickActionPill} onPress={openPlanningSurface}>
                 <View style={[styles.quickActionIconWrap, { backgroundColor: COLORS.chart.readiness + '18' }]}>
                   <IconCalendar size={14} color={COLORS.chart.readiness} />
                 </View>
-                <Text style={styles.quickActionLabel}>Plan</Text>
+                <Text style={styles.quickActionLabel}>{hasLivePlanningState ? 'Calendar' : 'Setup'}</Text>
               </AnimatedPressable>
             </View>
           </Animated.View>
