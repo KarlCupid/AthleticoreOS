@@ -34,7 +34,7 @@ import { getDefaultGymProfile } from './gymProfileService';
 import { getExerciseHistoryBatch, getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
 import { getScheduledActivities } from './scheduleService';
 import { getEffectiveWeight, getWeightHistory } from './weightService';
-import { getWeeklyPlanConfig, updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
+import { updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
 import { getConsecutiveDepletedDays, getLastRefeedDate, upsertDailyCutProtocol } from './weightCutService';
 import { isActiveGuidedEnginePlanEntry } from '../engine/sessionOwnership';
 
@@ -501,21 +501,15 @@ async function resolveWorkoutPrescription(input: {
     activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice',
   );
 
-  if (hasCombatAnchor) {
-    const config = await getWeeklyPlanConfig(input.userId);
-    const dayOfWeek = new Date(`${input.date}T00:00:00`).getDay();
-    const canDouble = Boolean(config?.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek));
-
-    if (!canDouble) {
-      return null;
-    }
-  }
-
   if (input.weeklyPlanEntry?.daily_mission_snapshot?.trainingDirective?.prescription) {
     return input.weeklyPlanEntry.daily_mission_snapshot.trainingDirective.prescription;
   }
   if (input.weeklyPlanEntry?.prescription_snapshot) {
     return input.weeklyPlanEntry.prescription_snapshot;
+  }
+
+  if (hasCombatAnchor) {
+    return null;
   }
 
   const [gym, library, recentIds, recentMuscleVolume] = await Promise.all([

@@ -17,6 +17,7 @@ import {
     PrescribedExercise,
     PlanSlot,
     CampPhase,
+    RecurringActivityRow,
 } from './types';
 import { getFitnessModifiers } from './calculateFitness';
 import { getWeeklyRoadWorkPlan } from './calculateRoadWork';
@@ -26,6 +27,7 @@ import { getDailyCutIntensityCap } from './calculateWeightCut';
 import { shouldDeload } from './calculateOverload';
 import { generateWorkoutV2 } from './calculateSC';
 import { assessPerformanceRisk, getGoalBasedFocusRotation, resolveTrainingBlockContext } from './performancePlanner';
+import { classifyGuidedSessionType } from './sessionOwnership';
 import { todayLocalDate } from '../utils/date';
 
 import {
@@ -645,6 +647,145 @@ export function getTrainingStreak(
 
 // ─── Smart Week Plan Focus Rotations ────────────────────────────
 
+type TimeRange = {
+    start: number;
+    end: number;
+};
+
+type GuidedPlacement = 'before' | 'after' | null;
+
+const MIN_GUIDED_DURATION_MIN = 20;
+
+function parseTimeToMinutes(time: string | null | undefined): number | null {
+    if (!time) return null;
+    const parts = time.split(':').map(Number);
+    if (parts.length < 2 || parts.some((part) => Number.isNaN(part))) return null;
+    return (parts[0] * 60) + parts[1];
+}
+
+function mergeTimeRanges(ranges: TimeRange[]): TimeRange[] {
+    if (ranges.length === 0) return [];
+
+    const sorted = [...ranges]
+        .filter((range) => range.end > range.start)
+        .sort((a, b) => a.start - b.start);
+
+    const merged: TimeRange[] = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+        const current = sorted[i];
+        const previous = merged[merged.length - 1];
+        if (current.start <= previous.end) {
+            previous.end = Math.max(previous.end, current.end);
+            continue;
+        }
+        merged.push({ ...current });
+    }
+
+    return merged;
+}
+
+function subtractTimeRanges(windowRange: TimeRange, blockedRanges: TimeRange[]): TimeRange[] {
+    let remaining: TimeRange[] = [{ ...windowRange }];
+
+    for (const blocked of blockedRanges) {
+        const next: TimeRange[] = [];
+        for (const segment of remaining) {
+            if (blocked.end <= segment.start || blocked.start >= segment.end) {
+                next.push(segment);
+                continue;
+            }
+            if (blocked.start > segment.start) {
+                next.push({ start: segment.start, end: blocked.start });
+            }
+            if (blocked.end < segment.end) {
+                next.push({ start: blocked.end, end: segment.end });
+            }
+        }
+        remaining = next;
+        if (remaining.length === 0) break;
+    }
+
+    return remaining.filter((segment) => segment.end > segment.start);
+}
+
+function buildWindowRanges(dayWindows: SmartWeekPlanInput['config']['availability_windows'], dayOfWeek: number): TimeRange[] {
+    return dayWindows
+        .filter((window) => window.dayOfWeek === dayOfWeek)
+        .map((window) => {
+            const start = parseTimeToMinutes(window.startTime);
+            const end = parseTimeToMinutes(window.endTime);
+            if (start == null || end == null) return null;
+            return {
+                start,
+                end,
+            };
+        })
+        .filter((range): range is TimeRange => range != null && range.end > range.start);
+}
+
+function buildBlockedRanges(activities: RecurringActivityRow[]): TimeRange[] {
+    const blocked = activities
+        .map((activity) => {
+            const start = parseTimeToMinutes(activity.start_time);
+            if (start == null || activity.estimated_duration_min <= 0) return null;
+            return {
+                start,
+                end: start + activity.estimated_duration_min,
+            };
+        })
+        .filter((range): range is TimeRange => range != null && range.end > range.start);
+
+    return mergeTimeRanges(blocked);
+}
+
+function resolveGuidedAvailability(input: {
+    dayWindows: SmartWeekPlanInput['config']['availability_windows'];
+    dayOfWeek: number;
+    recurringAnchors: RecurringActivityRow[];
+    primaryCombatAnchorStart: number | null;
+    primaryCombatAnchorEnd: number | null;
+}): { maxMinutes: number; placement: GuidedPlacement } {
+    const windowRanges = buildWindowRanges(input.dayWindows, input.dayOfWeek);
+    if (windowRanges.length === 0) {
+        return { maxMinutes: 0, placement: null };
+    }
+
+    const blockedRanges = buildBlockedRanges(input.recurringAnchors);
+    const freeSegments = windowRanges.flatMap((windowRange) => subtractTimeRanges(windowRange, blockedRanges));
+
+    if (freeSegments.length === 0) {
+        return { maxMinutes: 0, placement: null };
+    }
+
+    const rankedSegments = freeSegments
+        .map((segment) => {
+            let placement: GuidedPlacement = null;
+            if (input.primaryCombatAnchorStart != null && input.primaryCombatAnchorEnd != null) {
+                if (segment.end <= input.primaryCombatAnchorStart) {
+                    placement = 'before';
+                } else if (segment.start >= input.primaryCombatAnchorEnd) {
+                    placement = 'after';
+                }
+            }
+
+            const proximityRank = placement === 'before' || placement === 'after' ? 0 : 1;
+            return {
+                minutes: segment.end - segment.start,
+                placement,
+                proximityRank,
+            };
+        })
+        .sort((a, b) => {
+            if (a.proximityRank !== b.proximityRank) return a.proximityRank - b.proximityRank;
+            return b.minutes - a.minutes;
+        });
+
+    return {
+        maxMinutes: rankedSegments[0]?.minutes ?? 0,
+        placement: rankedSegments[0]?.placement ?? null,
+    };
+}
+
 // ─── generateSmartWeekPlan ──────────────────────────────────────
 
 /**
@@ -750,7 +891,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
     // ── 5. Map days to entries ──
     const entries: WeeklyPlanEntryRow[] = [];
     const weeklyFocusSplit: Partial<Record<WorkoutFocus, number>> = {};
-    let entryIndex = 0;
+    let guidedEntryCount = 0;
 
     // Sort available days to place them chronologically starting from weekStartDate
     const weekStartDay = dateFromISO(weekStartDate).getDay();
@@ -764,7 +905,6 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
     });
 
     for (let i = 0; i < sortedDays.length; i++) {
-        if (entryIndex >= scDayCount) break;
 
         const dayOfWeek = sortedDays[i];
         // Calculate offset from week start
@@ -794,20 +934,32 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             })[0] ?? null;
         const hasHighAnchor = recurringAnchors.some((activity) => activity.expected_intensity >= 7);
         const allowDoubleOnDay = config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek);
+        const primaryCombatAnchorStart = parseTimeToMinutes(primaryCombatAnchor?.start_time ?? null);
+        const primaryCombatAnchorEnd = primaryCombatAnchorStart != null && primaryCombatAnchor
+            ? primaryCombatAnchorStart + primaryCombatAnchor.estimated_duration_min
+            : null;
+        const guidedAvailability = resolveGuidedAvailability({
+            dayWindows: config.availability_windows,
+            dayOfWeek,
+            recurringAnchors,
+            primaryCombatAnchorStart,
+            primaryCombatAnchorEnd,
+        });
 
         // Only treat as a sparring day if there is an actual sparring anchor on this day.
         // The camp-estimation fallback (i < sparringDaysThisWeek) was mis-marking non-sparring
         // S&C days as sparring days and collapsing their focus to sport_specific.
         const isSparringDay = hasSparringAnchor;
 
-        if (primaryCombatAnchor && !allowDoubleOnDay) {
+        const pushCombatEntry = (slot: PlanSlot, note: string | null) => {
+            if (!primaryCombatAnchor) return;
             entries.push({
-                id: `${weekStartDate}-${dayOfWeek}-${entryIndex}`,
+                id: `${weekStartDate}-${dayOfWeek}-combat`,
                 user_id: config.user_id,
                 week_start_date: weekStartDate,
                 day_of_week: dayOfWeek,
                 date: entryDate,
-                slot: 'single' as PlanSlot,
+                slot,
                 session_type: primaryCombatAnchor.activity_type,
                 focus: null,
                 estimated_duration_min: primaryCombatAnchor.estimated_duration_min,
@@ -816,11 +968,36 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 rescheduled_to: null,
                 workout_log_id: null,
                 prescription_snapshot: null,
-                engine_notes: 'Fixed combat session. No supplemental S&C because this day is not enabled for two-a-days.',
+                engine_notes: note,
                 is_deload: isDeloadWeek,
                 created_at: new Date().toISOString(),
             });
-            entryIndex++;
+        };
+
+        if (guidedEntryCount >= scDayCount) {
+            if (primaryCombatAnchor) {
+                pushCombatEntry('single', 'Fixed combat session.');
+            } else if (allowDoubleOnDay) {
+                entries.push({
+                    id: `${weekStartDate}-${dayOfWeek}-pm`,
+                    user_id: config.user_id,
+                    week_start_date: weekStartDate,
+                    day_of_week: dayOfWeek,
+                    date: entryDate,
+                    slot: 'pm' as PlanSlot,
+                    session_type: config.pm_session_type,
+                    focus: null,
+                    estimated_duration_min: 60,
+                    target_intensity: isDeloadWeek ? 4 : 6,
+                    status: 'planned',
+                    rescheduled_to: null,
+                    workout_log_id: null,
+                    prescription_snapshot: null,
+                    engine_notes: isDeloadWeek ? 'Deload — light PM session.' : 'PM session.',
+                    is_deload: isDeloadWeek,
+                    created_at: new Date().toISOString(),
+                });
+            }
             continue;
         }
 
@@ -829,7 +1006,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         // still get lower / upper_push / upper_pull / full_body sessions.
         const focus = isSparringDay
             ? 'sport_specific' as WorkoutFocus
-            : baseFocuses[entryIndex % baseFocuses.length];
+            : baseFocuses[guidedEntryCount % baseFocuses.length];
 
         // Determine intensity
         let targetIntensity: number;
@@ -869,16 +1046,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
 
         // Determine session duration
         let duration = config.session_duration_min;
-        const dayWindows = config.availability_windows.filter((window) => window.dayOfWeek === dayOfWeek);
-        if (dayWindows.length > 0) {
-            const maxWindowMinutes = Math.max(...dayWindows.map((window) => {
-                const [startHour, startMinute] = window.startTime.split(':').map(Number);
-                const [endHour, endMinute] = window.endTime.split(':').map(Number);
-                return Math.max(0, ((endHour * 60) + endMinute) - ((startHour * 60) + startMinute));
-            }));
-            if (maxWindowMinutes > 0) {
-                duration = Math.min(duration, maxWindowMinutes);
-            }
+        if (guidedAvailability.maxMinutes > 0) {
+            duration = Math.min(duration, guidedAvailability.maxMinutes);
         }
         if (isDeloadWeek) {
             duration = Math.min(duration, 45);
@@ -893,12 +1062,15 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         const notes: string[] = [];
         if (isDeloadWeek) notes.push('Deload week — reduced volume and intensity.');
         if (isSparringDay) notes.push('Sparring day — activation-only S&C.');
+        if (hasCombatAnchor) {
+            const placementLabel = guidedAvailability.placement === 'after' ? 'after' : 'before';
+            notes.push(`Fixed combat anchor on the day — guided work placed ${placementLabel} it inside the remaining availability window.`);
+        }
         if (readinessState !== 'Prime') notes.push(`Readiness: ${readinessState}.`);
 
         notes.push(`Goal bias: ${performanceGoalType.replace(/_/g, ' ')}.`);
         notes.push(`Block: ${blockContext.phase}. ${blockContext.note}`);
 
-        const sessionType = isSparringDay ? 'activation' : (isDeloadWeek ? 'deload' : 'sc');
         const trainingIntensityCap = activeCutPlan
             ? getDailyCutIntensityCap(activeCutPlan, entryDate)
             : null;
@@ -911,13 +1083,38 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         });
         targetIntensity = Math.min(targetIntensity, performanceRisk.intensityCap);
         duration = Math.max(20, Math.round(duration * performanceRisk.volumeMultiplier));
+        duration = Math.min(duration, guidedAvailability.maxMinutes || duration);
         if (performanceRisk.level !== 'green') {
             notes.push(`Risk: ${performanceRisk.level}. ${performanceRisk.reasons.join('; ')}.`);
         }
-        const shouldCreateSnapshot = Boolean(
-            focus && ['sc', 'activation', 'deload'].includes(sessionType) && exerciseLibrary.length > 0,
-        );
-        const prescriptionSnapshot = shouldCreateSnapshot
+        const hasWindowCapacity = guidedAvailability.maxMinutes >= MIN_GUIDED_DURATION_MIN;
+        const hypotheticalSessionType = classifyGuidedSessionType({ focus });
+        const dayLoadValidation: any = hasWindowCapacity && duration >= MIN_GUIDED_DURATION_MIN
+            ? validateDayLoad([
+                ...recurringAnchors.map((activity) => ({
+                    activity_type: activity.activity_type,
+                    expected_intensity: activity.expected_intensity,
+                    estimated_duration_min: activity.estimated_duration_min,
+                })),
+                {
+                    activity_type: hypotheticalSessionType,
+                    expected_intensity: targetIntensity,
+                    estimated_duration_min: duration,
+                },
+            ] as any)
+            : null;
+
+        if (!hasWindowCapacity || duration < MIN_GUIDED_DURATION_MIN || (dayLoadValidation && !dayLoadValidation.safe)) {
+            if (primaryCombatAnchor) {
+                const reason = !hasWindowCapacity || duration < MIN_GUIDED_DURATION_MIN
+                    ? 'Guided work skipped — no remaining contiguous availability window around the fixed combat session.'
+                    : `Guided work skipped — combined day load would be unsafe (${dayLoadValidation.message}).`;
+                pushCombatEntry('single', reason);
+            }
+            continue;
+        }
+
+        const prescriptionSnapshot = exerciseLibrary.length > 0
             ? generateWorkoutV2({
                 readinessState,
                 phase,
@@ -940,17 +1137,24 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 blockContext,
             })
             : null;
+        const sessionType = classifyGuidedSessionType({
+            focus,
+            prescription: prescriptionSnapshot,
+        });
+        const guidedSlot: PlanSlot = primaryCombatAnchor
+            ? (guidedAvailability.placement === 'after' ? 'pm' : 'am')
+            : allowDoubleOnDay
+                ? 'am' as PlanSlot
+                : 'single' as PlanSlot;
 
         // Primary session entry
         entries.push({
-            id: `${weekStartDate}-${dayOfWeek}-${entryIndex}`,
+            id: `${weekStartDate}-${dayOfWeek}-guided-${guidedEntryCount}`,
             user_id: config.user_id,
             week_start_date: weekStartDate,
             day_of_week: dayOfWeek,
             date: entryDate,
-            slot: allowDoubleOnDay
-                ? 'am' as PlanSlot
-                : 'single' as PlanSlot,
+            slot: guidedSlot,
             session_type: sessionType,
             focus,
             estimated_duration_min: duration,
@@ -965,6 +1169,12 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         });
 
         weeklyFocusSplit[focus] = (weeklyFocusSplit[focus] ?? 0) + 1;
+        guidedEntryCount++;
+
+        if (primaryCombatAnchor) {
+            pushCombatEntry(guidedSlot === 'am' ? 'pm' : 'am', 'Fixed combat session.');
+            continue;
+        }
 
         // Two-a-day PM session (boxing/conditioning)
         if (allowDoubleOnDay) {
@@ -988,27 +1198,25 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 created_at: new Date().toISOString(),
             });
         }
-
-        entryIndex++;
     }
 
     // ── 6. Build summary message ──
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const scheduledDayNames = entries
-        .filter(e => e.slot !== 'pm')
-        .map(e => dayNames[e.day_of_week])
+    const guidedEntries = entries.filter((entry) => entry.focus != null);
+    const scheduledDayNames = guidedEntries
+        .map((entry) => dayNames[entry.day_of_week])
         .join(', ');
 
     let message: string;
     if (isDeloadWeek) {
-        message = `Recovery week: ${entries.filter(e => e.slot !== 'pm').length} sessions (${scheduledDayNames}). ${deloadReason}`;
+        message = `Recovery week: ${guidedEntries.length} guided session${guidedEntries.length === 1 ? '' : 's'} (${scheduledDayNames}). ${deloadReason}`;
     } else if (campPhase) {
-        message = `Camp ${campPhase} phase: ${entries.filter(e => e.slot !== 'pm').length} S&C sessions (${scheduledDayNames}).`;
+        message = `Camp ${campPhase} phase: ${guidedEntries.length} guided session${guidedEntries.length === 1 ? '' : 's'} (${scheduledDayNames}).`;
         if (sparringDaysThisWeek > 0) {
             message += ` ${sparringDaysThisWeek} sparring day(s) with activation-only S&C.`;
         }
     } else {
-        message = `${entries.filter(e => e.slot !== 'pm').length}-day split (${scheduledDayNames}).`;
+        message = `${guidedEntries.length}-day guided split (${scheduledDayNames}).`;
     }
 
     return {

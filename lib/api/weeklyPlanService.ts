@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow, DailyMission } from '../engine/types';
+import { classifyGuidedSessionType, isGuidedEngineActivityType } from '../engine/sessionOwnership';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
@@ -77,6 +78,7 @@ function toScheduledActivityPayload(
         | 'focus'
         | 'estimated_duration_min'
         | 'target_intensity'
+        | 'prescription_snapshot'
         | 'engine_notes'
         | 'status'
     >,
@@ -84,17 +86,24 @@ function toScheduledActivityPayload(
         includeWeeklyPlanEntryId?: boolean;
     },
 ): Record<string, unknown> {
+    const activityType = isGuidedEngineActivityType(entry.session_type)
+        ? classifyGuidedSessionType({
+            sessionType: entry.session_type,
+            focus: entry.focus,
+            prescription: entry.prescription_snapshot,
+        })
+        : entry.session_type;
     const payload: Record<string, unknown> = {
         user_id: userId,
         date: entry.date,
-        activity_type: entry.session_type,
+        activity_type: activityType,
         expected_intensity: entry.target_intensity ?? 5,
         estimated_duration_min: entry.estimated_duration_min,
         engine_recommendation: entry.engine_notes,
         custom_label: entry.focus ? entry.focus.replace(/_/g, ' ') : null,
         source: 'engine',
         athlete_locked: false,
-        session_kind: entry.session_type,
+        session_kind: activityType,
         intended_intensity: entry.target_intensity ?? null,
         recommendation_reason: entry.engine_notes,
         recommendation_severity: 'recommended',
@@ -759,7 +768,6 @@ export async function markRecommendationAccepted(entryId: string): Promise<void>
 
     if (error) throw error;
 }
-
 
 
 

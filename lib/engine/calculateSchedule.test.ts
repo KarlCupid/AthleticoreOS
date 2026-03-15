@@ -7,6 +7,7 @@ import {
     adjustNutritionForDay,
     detectOvertrainingRisk,
     generateWeekPlan,
+    generateSmartWeekPlan,
     calculateWeeklyCompliance,
     getTrainingStreak,
 } from './calculateSchedule';
@@ -15,6 +16,7 @@ import type {
     RecurringActivityRow,
     WeeklyTargetsRow,
     ExerciseLibraryRow,
+    WeeklyPlanConfigRow,
 } from './types';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 
@@ -245,6 +247,37 @@ const mockTargets: WeeklyTargetsRow = {
     total_weekly_load_cap: 5000,
 };
 
+const smartPlanConfig: WeeklyPlanConfigRow = {
+    id: 'cfg-1',
+    user_id: 'u1',
+    available_days: [1, 3, 5],
+    availability_windows: [
+        { dayOfWeek: 1, startTime: '17:00', endTime: '22:00' },
+        { dayOfWeek: 3, startTime: '17:00', endTime: '22:00' },
+        { dayOfWeek: 5, startTime: '17:00', endTime: '22:00' },
+    ],
+    session_duration_min: 60,
+    allow_two_a_days: false,
+    two_a_day_days: [],
+    am_session_type: 'sc',
+    pm_session_type: 'boxing_practice',
+    preferred_gym_profile_id: null,
+    auto_deload_interval_weeks: 5,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+};
+
+const smartPlanLibrary: ExerciseLibraryRow[] = [
+    { id: 'ex-1', name: 'Back Squat', type: 'heavy_lift', cns_load: 8, muscle_group: 'quads', equipment: 'barbell', description: '', cues: '', sport_tags: ['boxing'] },
+    { id: 'ex-2', name: 'Bench Press', type: 'heavy_lift', cns_load: 7, muscle_group: 'chest', equipment: 'barbell', description: '', cues: '', sport_tags: ['boxing'] },
+    { id: 'ex-3', name: 'Row', type: 'heavy_lift', cns_load: 7, muscle_group: 'back', equipment: 'barbell', description: '', cues: '', sport_tags: ['boxing'] },
+    { id: 'ex-4', name: 'Jump Rope', type: 'conditioning', cns_load: 3, muscle_group: 'calves', equipment: 'other', description: '', cues: '', sport_tags: ['boxing'] },
+    { id: 'ex-5', name: 'Sled Push', type: 'conditioning', cns_load: 6, muscle_group: 'quads', equipment: 'sled', description: '', cues: '', sport_tags: ['boxing'] },
+    { id: 'ex-6', name: 'Hip Mobility', type: 'mobility', cns_load: 1, muscle_group: 'glutes', equipment: 'bodyweight', description: '', cues: '', sport_tags: ['boxing'] },
+    { id: 'ex-7', name: 'Pallof Press', type: 'sport_specific', cns_load: 3, muscle_group: 'core', equipment: 'cable', description: '', cues: '', sport_tags: ['boxing'] },
+    { id: 'ex-8', name: 'Box Jump', type: 'power', cns_load: 5, muscle_group: 'quads', equipment: 'bodyweight', description: '', cues: '', sport_tags: ['boxing'] },
+];
+
 test('Generates template entries + SC fills', () => {
     const plan = generateWeekPlan({
         readinessState: 'Prime',
@@ -301,6 +334,100 @@ test('Engine avoids placing SC on sparring day', () => {
     for (const sd of sparringDates) {
         expect(scDates.includes(sd)).toBeFalsy();
     }
+});
+
+test('Smart plan keeps guided slots on boxing-anchor days without two-a-day opt-in', () => {
+    const boxingAnchors: RecurringActivityRow[] = [1, 3, 5].map((day, index) => ({
+        id: `bp-${index}`,
+        user_id: 'u1',
+        activity_type: 'boxing_practice',
+        custom_label: 'Boxing',
+        start_time: '19:00:00',
+        estimated_duration_min: 60,
+        expected_intensity: 5,
+        session_components: [],
+        recurrence: { frequency: 'weekly', interval: 1, days_of_week: [day] },
+        is_active: true,
+    }));
+
+    const result = generateSmartWeekPlan({
+        config: smartPlanConfig,
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'conditioning',
+        exerciseLibrary: smartPlanLibrary,
+        recentExerciseIds: [],
+        recentMuscleVolume: {
+            chest: 0, back: 0, shoulders: 0, quads: 0, hamstrings: 0,
+            glutes: 0, arms: 0, core: 0, full_body: 0, neck: 0, calves: 0,
+        },
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-16',
+        recurringActivities: boxingAnchors,
+    });
+
+    const guided = result.entries.filter((entry) => entry.focus != null);
+    const combat = result.entries.filter((entry) => entry.session_type === 'boxing_practice');
+    expect(guided.length).toBe(3);
+    expect(combat.length).toBe(3);
+    expect(guided.some((entry) => entry.focus === 'sport_specific')).toBeFalsy();
+    expect(guided[0]?.session_type).toBe('conditioning');
+    expect(guided[0]?.prescription_snapshot?.workoutType).toBe('conditioning');
+});
+
+test('Smart plan skips guided slot when fixed combat session leaves no contiguous availability', () => {
+    const tightConfig: WeeklyPlanConfigRow = {
+        ...smartPlanConfig,
+        availability_windows: [
+            { dayOfWeek: 1, startTime: '18:00', endTime: '20:00' },
+            { dayOfWeek: 3, startTime: '18:00', endTime: '20:00' },
+            { dayOfWeek: 5, startTime: '18:00', endTime: '20:00' },
+        ],
+    };
+    const boxingAnchors: RecurringActivityRow[] = [1, 3, 5].map((day, index) => ({
+        id: `tight-${index}`,
+        user_id: 'u1',
+        activity_type: 'boxing_practice',
+        custom_label: 'Boxing',
+        start_time: '18:10:00',
+        estimated_duration_min: 100,
+        expected_intensity: 7,
+        session_components: [],
+        recurrence: { frequency: 'weekly', interval: 1, days_of_week: [day] },
+        is_active: true,
+    }));
+
+    const result = generateSmartWeekPlan({
+        config: tightConfig,
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'conditioning',
+        exerciseLibrary: smartPlanLibrary,
+        recentExerciseIds: [],
+        recentMuscleVolume: {
+            chest: 0, back: 0, shoulders: 0, quads: 0, hamstrings: 0,
+            glutes: 0, arms: 0, core: 0, full_body: 0, neck: 0, calves: 0,
+        },
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-16',
+        recurringActivities: boxingAnchors,
+    });
+
+    const guided = result.entries.filter((entry) => entry.focus != null);
+    const combat = result.entries.filter((entry) => entry.session_type === 'boxing_practice');
+    expect(guided.length).toBe(0);
+    expect(combat.length).toBe(3);
+    expect(combat.every((entry) => (entry.engine_notes ?? '').includes('no remaining contiguous availability window'))).toBeTruthy();
 });
 
 // ─── calculateWeeklyCompliance ─────────────────────────────────
