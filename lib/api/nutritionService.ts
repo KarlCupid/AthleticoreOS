@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { DailyNutritionTargetSource, FoodItemRow, MealType } from '../engine/types';
 import { todayLocalDate } from '../utils/date';
+import { calculateCaloriesFromMacros } from '../utils/nutrition';
 
 const today = todayLocalDate;
 
@@ -68,13 +69,14 @@ async function recalculateDailySummary(userId: string, date: string) {
 
   const totals = (logs ?? []).reduce(
     (acc, entry) => ({
-      calories: acc.calories + (entry.logged_calories ?? 0),
       protein: acc.protein + (entry.logged_protein ?? 0),
       carbs: acc.carbs + (entry.logged_carbs ?? 0),
       fat: acc.fat + (entry.logged_fat ?? 0),
+      calories: 0,
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
+  totals.calories = calculateCaloriesFromMacros(totals.protein, totals.carbs, totals.fat);
 
   const mealTypes = new Set((logs ?? []).map((l) => l.meal_type));
 

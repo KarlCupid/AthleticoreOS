@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   StyleProp,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { AnimatedPressable } from './AnimatedPressable';
 
 interface Session {
   slot: 'am' | 'pm' | 'single';
@@ -156,11 +157,10 @@ export default function DayPlanCard({
   ];
 
   return (
-    <Animated.View entering={FadeInDown.duration(400)}>
-      <TouchableOpacity
+    <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>
+      <AnimatedPressable
         style={cardStyle}
         onPress={onPress}
-        activeOpacity={0.7}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -197,18 +197,16 @@ export default function DayPlanCard({
 
         {/* Reschedule button */}
         {hasSkipped && onReschedule && (
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.rescheduleBtn}
-            onPress={(e) => {
-              e.stopPropagation();
+            onPress={() => {
               onReschedule();
             }}
-            activeOpacity={0.7}
           >
             <Text style={styles.rescheduleBtnText}>Reschedule</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         )}
-      </TouchableOpacity>
+      </AnimatedPressable>
     </Animated.View>
   );
 }
@@ -216,10 +214,10 @@ export default function DayPlanCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg - 4,
     marginBottom: SPACING.sm,
-    ...SHADOWS.sm,
+    ...SHADOWS.card,
     borderLeftWidth: 3,
     borderLeftColor: 'transparent',
   },

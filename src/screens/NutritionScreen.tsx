@@ -33,6 +33,7 @@ import {
 import { DailyMission, MealType, ResolvedNutritionTargets, DailyCutProtocolRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
+import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks'];
 const STAGGER_DELAY = 50;
@@ -76,7 +77,11 @@ export function NutritionScreen() {
       setDailyMission(engineState.mission);
       setTargets({
         ...engineState.nutritionTargets,
-        adjustedCalories: engineState.mission.fuelDirective.calories,
+        adjustedCalories: calculateCaloriesFromMacros(
+          engineState.mission.fuelDirective.protein,
+          engineState.mission.fuelDirective.carbs,
+          engineState.mission.fuelDirective.fat,
+        ),
         protein: engineState.mission.fuelDirective.protein,
         carbs: engineState.mission.fuelDirective.carbs,
         fat: engineState.mission.fuelDirective.fat,
@@ -124,13 +129,14 @@ export function NutritionScreen() {
 
       const t = data.foodLog.reduce(
         (acc: any, entry: any) => ({
-          calories: acc.calories + (entry.logged_calories ?? 0),
           protein: acc.protein + (entry.logged_protein ?? 0),
           carbs: acc.carbs + (entry.logged_carbs ?? 0),
           fat: acc.fat + (entry.logged_fat ?? 0),
+          calories: 0,
         }),
         { calories: 0, protein: 0, carbs: 0, fat: 0 }
       );
+      t.calories = calculateCaloriesFromMacros(t.protein, t.carbs, t.fat);
       setTotals(t);
 
       const waterTotal = data.hydrationLog.reduce(

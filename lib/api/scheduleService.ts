@@ -215,6 +215,27 @@ export async function replaceRecurringActivities(
     userId: string,
     entries: RecurringActivityInput[],
 ): Promise<RecurringActivityRow[]> {
+    const { data: existingActiveTemplates, error: existingActiveTemplatesError } = await supabase
+        .from('recurring_activities')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_active', true);
+
+    if (existingActiveTemplatesError) throw existingActiveTemplatesError;
+
+    const existingTemplateIds = ((existingActiveTemplates ?? []) as Array<{ id: string }>).map((row) => row.id);
+    if (existingTemplateIds.length > 0) {
+        const { error: deleteScheduledError } = await supabase
+            .from('scheduled_activities')
+            .delete()
+            .eq('user_id', userId)
+            .gte('date', today())
+            .eq('status', 'scheduled')
+            .in('recurring_activity_id', existingTemplateIds);
+
+        if (deleteScheduledError) throw deleteScheduledError;
+    }
+
     const { error } = await supabase
         .from('recurring_activities')
         .update({ is_active: false })
@@ -333,6 +354,34 @@ function createScheduledObj(tmpl: RecurringActivityRow, dateStr: string) {
     };
 }
 
+function dedupeScheduledActivities(rows: ScheduledActivityRow[]): ScheduledActivityRow[] {
+    const deduped = new Map<string, ScheduledActivityRow>();
+
+    for (const row of rows) {
+        const key = row.source === 'template'
+            ? [
+                row.date,
+                row.activity_type,
+                row.custom_label ?? '',
+                row.start_time ?? '',
+                row.estimated_duration_min,
+                row.expected_intensity,
+                row.session_kind ?? '',
+                row.rounds ?? '',
+                row.round_duration_sec ?? '',
+                row.rest_duration_sec ?? '',
+                row.status,
+            ].join('::')
+            : row.id;
+
+        if (!deduped.has(key)) {
+            deduped.set(key, row);
+        }
+    }
+
+    return Array.from(deduped.values());
+}
+
 /**
  * Fetch scheduled activities for a date range.
  */
@@ -351,7 +400,7 @@ export async function getScheduledActivities(
         .order('start_time', { ascending: true });
 
     if (error) throw error;
-    return (data ?? []) as ScheduledActivityRow[];
+    return dedupeScheduledActivities((data ?? []) as ScheduledActivityRow[]);
 }
 
 /**

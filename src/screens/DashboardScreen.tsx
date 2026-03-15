@@ -32,6 +32,7 @@ import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { styles } from './DashboardScreen.styles';
+import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
 type DashboardPhaseControlState = {
   currentModeLabel: string;
@@ -132,7 +133,13 @@ export function DashboardScreen() {
     hasActiveFightCamp,
   } = useDashboardData();
 
-  const targetCalories = todayCutProtocol ? todayCutProtocol.prescribed_calories : (nutritionTargets?.adjustedCalories ?? 0);
+  const targetCalories = todayCutProtocol
+    ? calculateCaloriesFromMacros(
+      todayCutProtocol.prescribed_protein,
+      todayCutProtocol.prescribed_carbs,
+      todayCutProtocol.prescribed_fat,
+    )
+    : (nutritionTargets?.adjustedCalories ?? 0);
   const targetProtein = todayCutProtocol ? todayCutProtocol.prescribed_protein : (nutritionTargets?.protein ?? (currentLedger?.prescribed_protein ?? 150));
   const targetCarbs = todayCutProtocol ? todayCutProtocol.prescribed_carbs : (nutritionTargets?.carbs ?? (currentLedger?.prescribed_carbs ?? 200));
   const targetFat = todayCutProtocol ? todayCutProtocol.prescribed_fat : (nutritionTargets?.fat ?? (currentLedger?.prescribed_fats ?? 60));

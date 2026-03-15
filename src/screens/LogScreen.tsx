@@ -35,6 +35,7 @@ import type {
 } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { logError, logWarn } from '../../lib/utils/logger';
+import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
 type Step = 'recovery' | 'nutrition' | 'debrief';
 
@@ -408,14 +409,22 @@ export function LogScreen() {
         const nutritionSummary = (nutritionSummaryRes.data as DailyNutritionSummaryRow | null) ?? null;
         const targets = ledger
           ? {
-            calories: ledger.prescribed_calories ?? 0,
+            calories: calculateCaloriesFromMacros(
+              ledger.prescribed_protein ?? 0,
+              ledger.prescribed_carbs ?? 0,
+              ledger.prescribed_fats ?? 0,
+            ),
             protein: ledger.prescribed_protein ?? 0,
             carbs: ledger.prescribed_carbs ?? 0,
             fat: ledger.prescribed_fats ?? 0,
           }
           : null;
         const actual = {
-          calories: nutritionSummary?.total_calories ?? ledger?.actual_calories ?? 0,
+          calories: calculateCaloriesFromMacros(
+            nutritionSummary?.total_protein ?? ledger?.actual_protein ?? 0,
+            nutritionSummary?.total_carbs ?? ledger?.actual_carbs ?? 0,
+            nutritionSummary?.total_fat ?? ledger?.actual_fat ?? 0,
+          ),
           protein: nutritionSummary?.total_protein ?? ledger?.actual_protein ?? 0,
           carbs: nutritionSummary?.total_carbs ?? ledger?.actual_carbs ?? 0,
           fat: nutritionSummary?.total_fat ?? ledger?.actual_fat ?? 0,
@@ -559,7 +568,11 @@ export function LogScreen() {
       const { error: nutritionSummaryUpsertError } = await supabase.from('daily_nutrition_summary').upsert({
         user_id: userId,
         date: nutritionLogDate,
-        total_calories: Math.round(effectiveNutritionActual.calories),
+        total_calories: calculateCaloriesFromMacros(
+          effectiveNutritionActual.protein,
+          effectiveNutritionActual.carbs,
+          effectiveNutritionActual.fat,
+        ),
         total_protein: Math.round(effectiveNutritionActual.protein * 10) / 10,
         total_carbs: Math.round(effectiveNutritionActual.carbs * 10) / 10,
         total_fat: Math.round(effectiveNutritionActual.fat * 10) / 10,
@@ -571,7 +584,11 @@ export function LogScreen() {
       const { error: ledgerActualUpdateError } = await supabase
         .from('macro_ledger')
         .update({
-          actual_calories: Math.round(effectiveNutritionActual.calories),
+          actual_calories: calculateCaloriesFromMacros(
+            effectiveNutritionActual.protein,
+            effectiveNutritionActual.carbs,
+            effectiveNutritionActual.fat,
+          ),
           actual_protein: Math.round(effectiveNutritionActual.protein),
           actual_carbs: Math.round(effectiveNutritionActual.carbs),
           actual_fat: Math.round(effectiveNutritionActual.fat),

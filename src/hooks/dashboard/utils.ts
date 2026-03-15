@@ -1,3 +1,5 @@
+import { calculateCaloriesFromMacros } from '../../../lib/utils/nutrition';
+
 export interface DashboardNutritionTotals {
   calories: number;
   protein: number;
@@ -31,22 +33,26 @@ export function computeActualNutrition(
   foodLog: LoggedMacroEntry[],
   totalWaterOz: number | null | undefined,
 ): DashboardNutritionTotals {
-  return foodLog.reduce<DashboardNutritionTotals>(
+  const totals = foodLog.reduce<Omit<DashboardNutritionTotals, 'water'>>(
     (acc, entry) => ({
-      ...acc,
-      calories: acc.calories + (entry.logged_calories ?? 0),
       protein: acc.protein + (entry.logged_protein ?? 0),
       carbs: acc.carbs + (entry.logged_carbs ?? 0),
       fat: acc.fat + (entry.logged_fat ?? 0),
+      calories: 0,
     }),
     {
       calories: 0,
       protein: 0,
       carbs: 0,
       fat: 0,
-      water: totalWaterOz ?? 0,
     },
   );
+
+  return {
+    ...totals,
+    calories: calculateCaloriesFromMacros(totals.protein, totals.carbs, totals.fat),
+    water: totalWaterOz ?? 0,
+  };
 }
 
 export function composePrescriptionMessage(

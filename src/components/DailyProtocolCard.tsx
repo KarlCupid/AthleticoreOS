@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { DailyCutProtocolRow } from '../../lib/engine/types';
+import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
 interface Props {
   protocol: DailyCutProtocolRow;
@@ -15,6 +16,11 @@ const SECTION_ICONS: Record<string, string> = {
 
 export function DailyProtocolCard({ protocol }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const prescribedCalories = calculateCaloriesFromMacros(
+    protocol.prescribed_protein,
+    protocol.prescribed_carbs,
+    protocol.prescribed_fat,
+  );
 
   const waterPct = protocol.water_target_oz > 0
     ? Math.min((protocol.water_consumed_oz ?? 0) / protocol.water_target_oz, 1)
@@ -25,7 +31,6 @@ export function DailyProtocolCard({ protocol }: Props) {
 
   return (
     <View style={styles.card}>
-      {/* Top row: title + refeed badge */}
       <View style={styles.header}>
         <Text style={styles.title}>Today's Protocol</Text>
         {protocol.is_refeed_day && (
@@ -40,17 +45,14 @@ export function DailyProtocolCard({ protocol }: Props) {
         )}
       </View>
 
-      {/* Macro targets grid */}
       <View style={styles.macroGrid}>
-        <MacroCell label="Calories" value={`${protocol.prescribed_calories}`} unit="kcal" color={COLORS.chart.accent} />
+        <MacroCell label="Calories" value={`${prescribedCalories}`} unit="kcal" color={COLORS.chart.accent} />
         <MacroCell label="Protein" value={`${protocol.prescribed_protein}`} unit="g" color={COLORS.chart.protein} />
         <MacroCell label="Carbs" value={`${protocol.prescribed_carbs}`} unit="g" color={COLORS.chart.carbs} />
         <MacroCell label="Fat" value={`${protocol.prescribed_fat}`} unit="g" color={COLORS.chart.fat} />
       </View>
 
-      {/* Hydration + Sodium row */}
       <View style={styles.hydrRow}>
-        {/* Water bar */}
         <View style={styles.waterBlock}>
           <View style={styles.hydrLabelRow}>
             <Text style={styles.hydrLabel}>💧 Water</Text>
@@ -63,19 +65,16 @@ export function DailyProtocolCard({ protocol }: Props) {
           </View>
         </View>
 
-        {/* Sodium */}
         <View style={styles.sodiumBlock}>
           <Text style={styles.sodiumValue}>{sodiumK.toFixed(1)}g</Text>
           <Text style={styles.sodiumLabel}>Sodium</Text>
         </View>
       </View>
 
-      {/* Sodium instruction */}
       {protocol.sodium_instruction && (
         <Text style={styles.sodiumInstruction}>{protocol.sodium_instruction}</Text>
       )}
 
-      {/* Training recommendation */}
       <View style={styles.trainingRow}>
         <Text style={styles.trainingIcon}>🥊</Text>
         <View style={styles.trainingContent}>
@@ -88,7 +87,6 @@ export function DailyProtocolCard({ protocol }: Props) {
         </View>
       </View>
 
-      {/* Expandable protocol steps */}
       <TouchableOpacity
         onPress={() => setExpanded(!expanded)}
         style={styles.expandTrigger}
@@ -106,8 +104,8 @@ export function DailyProtocolCard({ protocol }: Props) {
             { label: 'Afternoon', text: protocol.afternoon_protocol },
             { label: 'Evening', text: protocol.evening_protocol },
           ]
-            .filter(s => s.text)
-            .map(s => (
+            .filter((s) => s.text)
+            .map((s) => (
               <View key={s.label} style={styles.scheduleRow}>
                 <Text style={styles.scheduleIcon}>{SECTION_ICONS[s.label]}</Text>
                 <View style={styles.scheduleTextBlock}>
@@ -179,41 +177,25 @@ const styles = StyleSheet.create({
   barFill: { height: '100%', borderRadius: 3 },
   sodiumBlock: {
     alignItems: 'center',
-    minWidth: 60,
     backgroundColor: COLORS.surfaceSecondary,
     borderRadius: RADIUS.md,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
-  sodiumValue: { fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: COLORS.text.primary },
-  sodiumLabel: { fontFamily: FONT_FAMILY.regular, fontSize: 10, color: COLORS.text.secondary },
-  sodiumInstruction: {
-    fontFamily: FONT_FAMILY.regular,
-    fontSize: 12,
-    color: COLORS.text.secondary,
-    fontStyle: 'italic',
-    marginTop: 4,
-    marginBottom: SPACING.xs,
-  },
-  trainingRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: COLORS.surfaceSecondary,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.sm,
-    marginTop: SPACING.xs,
-    gap: SPACING.xs,
-  },
+  sodiumValue: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.text.primary },
+  sodiumLabel: { fontFamily: FONT_FAMILY.regular, fontSize: 9, color: COLORS.text.secondary },
+  sodiumInstruction: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, marginBottom: SPACING.sm },
+  trainingRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
   trainingIcon: { fontSize: 18 },
-  trainingContent: { flex: 1 },
+  trainingContent: { flex: 1, gap: 2 },
   trainingCap: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.text.primary },
-  trainingRec: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, marginTop: 2 },
-  expandTrigger: { alignItems: 'center', paddingVertical: SPACING.sm },
-  expandText: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.tertiary },
-  scheduleBlock: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SPACING.sm },
-  scheduleRow: { flexDirection: 'row', gap: SPACING.xs },
-  scheduleIcon: { fontSize: 18 },
-  scheduleTextBlock: { flex: 1 },
-  scheduleLabel: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.text.primary },
-  scheduleBody: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: COLORS.text.secondary, marginTop: 2 },
+  trainingRec: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, lineHeight: 18 },
+  expandTrigger: { paddingTop: SPACING.xs },
+  expandText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: COLORS.text.secondary },
+  scheduleBlock: { marginTop: SPACING.sm, gap: SPACING.sm },
+  scheduleRow: { flexDirection: 'row', gap: SPACING.sm },
+  scheduleIcon: { fontSize: 16, marginTop: 1 },
+  scheduleTextBlock: { flex: 1, gap: 2 },
+  scheduleLabel: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: COLORS.text.primary },
+  scheduleBody: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, lineHeight: 18 },
 });

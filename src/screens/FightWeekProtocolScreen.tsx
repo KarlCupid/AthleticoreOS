@@ -11,6 +11,7 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { IconChevronLeft, IconDroplets } from '../components/icons';
 import { UrineColorPicker } from '../components/UrineColorPicker';
 import { CognitiveTestCard } from '../components/CognitiveTestCard';
+import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
 const DAY_LABELS: Record<number, string> = {
   7: 'Day 7', 6: 'Day 6', 5: 'Day 5', 4: 'Day 4',
@@ -58,6 +59,9 @@ export function FightWeekProtocolScreen() {
 
   const isToday = todayProtocol?.days_to_weigh_in === selectedDay;
   const protocol = isToday ? todayProtocol : null;
+  const protocolCalories = protocol
+    ? calculateCaloriesFromMacros(protocol.prescribed_protein, protocol.prescribed_carbs, protocol.prescribed_fat)
+    : 0;
   const phaseColors = (PHASE_COLORS[selectedDay] ?? ['#16A34A', '#15803D']) as [string, string];
 
   const dayDots = Array.from({ length: 8 }, (_, i) => 7 - i);  // 7 down to 0
@@ -131,7 +135,7 @@ export function FightWeekProtocolScreen() {
               title="Nutrition Targets"
               color={COLORS.chart.protein}
               items={[
-                `${protocol.prescribed_calories} calories`,
+                `${protocolCalories} calories`,
                 `${protocol.prescribed_protein}g protein  |  ${protocol.prescribed_carbs}g carbs  |  ${protocol.prescribed_fat}g fat`,
               ]}
             />

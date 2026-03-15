@@ -112,7 +112,7 @@ console.log('\n-- calculateNutrition --');
     [],
   );
 
-  assert('Active cut protocol overrides base calories', result.calories === 2200);
+  assert('Active cut protocol calories reconcile to its displayed macros', result.calories === 2150);
   assert('Active cut protocol source selected', result.source === 'weight_cut_protocol');
 })();
 

@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { computeMacroAdherence } from '../../lib/engine/calculateNutrition';
 import { logError } from '../../lib/utils/logger';
 import { formatLocalDate } from '../../lib/utils/date';
+import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
 interface NutritionAnalyticsSectionProps {
     userId: string;
@@ -27,12 +28,10 @@ interface DailyNutritionData {
 interface LedgerData {
     date: string;
     base_tdee: number;
-    prescribed_calories?: number | null;
     prescribed_protein: number;
     prescribed_carbs: number;
     prescribed_fats: number;
     target_source?: 'base' | 'daily_activity_adjusted' | 'weight_cut_protocol' | null;
-    actual_calories?: number;
     actual_protein?: number;
     actual_carbs?: number;
     actual_fat?: number;
@@ -94,7 +93,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                     .order('date'),
                 supabase
                     .from('macro_ledger')
-                    .select('date, base_tdee, prescribed_calories, prescribed_protein, prescribed_carbs, prescribed_fats, target_source, actual_calories, actual_protein, actual_carbs, actual_fat')
+                    .select('date, base_tdee, prescribed_protein, prescribed_carbs, prescribed_fats, target_source, actual_protein, actual_carbs, actual_fat')
                     .eq('user_id', userId)
                     .gte('date', dateStr30)
                     .order('date'),
@@ -137,8 +136,12 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                 const ds = formatLocalDate(d);
                 const l = ledgerMap.get(ds);
                 const s = summaryMap.get(ds);
-                const target = l ? ((l.prescribed_calories ?? l.base_tdee) || 0) : 0;
-                const actual = s ? s.total_calories : 0;
+                const target = l
+                    ? calculateCaloriesFromMacros(l.prescribed_protein || 0, l.prescribed_carbs || 0, l.prescribed_fats || 0)
+                    : 0;
+                const actual = s
+                    ? calculateCaloriesFromMacros(s.total_protein, s.total_carbs, s.total_fat)
+                    : 0;
                 balance7.push({
                     x: 6 - i,
                     target,
@@ -159,13 +162,13 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
 
                 if (s && l) {
                     const actual = {
-                        calories: s.total_calories,
+                        calories: calculateCaloriesFromMacros(s.total_protein, s.total_carbs, s.total_fat),
                         protein: s.total_protein,
                         carbs: s.total_carbs,
                         fat: s.total_fat,
                     };
                     const prescribed = {
-                        calories: (l.prescribed_calories ?? l.base_tdee) || 0,
+                        calories: calculateCaloriesFromMacros(l.prescribed_protein || 0, l.prescribed_carbs || 0, l.prescribed_fats || 0),
                         protein: l.prescribed_protein || 0,
                         carbs: l.prescribed_carbs || 0,
                         fat: l.prescribed_fats || 0,

@@ -11,6 +11,7 @@ import {
 } from './types';
 import { adjustForBiology } from './adjustForBiology';
 import { adjustNutritionForDay } from './calculateSchedule';
+import { calculateCaloriesFromMacros } from '../utils/nutrition';
 
 /**
  * @ANTI-WIRING:
@@ -182,9 +183,11 @@ export function calculateNutritionTargets(
     message += ` Deficit reduced by ${Math.abs(correction)} cal — ahead of weight target.`;
   }
 
+  const reconciledCalories = calculateCaloriesFromMacros(protein, carbs, fat);
+
   return {
     tdee,
-    adjustedCalories,
+    adjustedCalories: reconciledCalories,
     protein,
     carbs,
     fat,
@@ -256,9 +259,15 @@ export function resolveDailyNutritionTargets(
   // 1. If active cut, cut protocol is the ultimate truth. 
   // It already factors in baseline, biology, and activity adjustments.
   if (cutProtocol) {
+    const cutCalories = calculateCaloriesFromMacros(
+      cutProtocol.prescribed_protein,
+      cutProtocol.prescribed_carbs,
+      cutProtocol.prescribed_fat,
+    );
+
     return {
       ...baseTargets,
-      adjustedCalories: cutProtocol.prescribed_calories,
+      adjustedCalories: cutCalories,
       protein: cutProtocol.prescribed_protein,
       carbs: cutProtocol.prescribed_carbs,
       fat: cutProtocol.prescribed_fat,
@@ -285,9 +294,15 @@ export function resolveDailyNutritionTargets(
   const feasibleFatCalories = Math.max(0, modifiedCalories - (modifiedProtein * 4) - (modifiedCarbs * 4));
   const modifiedFat = Math.round(feasibleFatCalories / 9);
 
+  const reconciledCalories = calculateCaloriesFromMacros(
+    modifiedProtein,
+    modifiedCarbs,
+    modifiedFat,
+  );
+
   return {
     ...baseTargets,
-    adjustedCalories: modifiedCalories,
+    adjustedCalories: reconciledCalories,
     protein: modifiedProtein,
     carbs: modifiedCarbs,
     fat: modifiedFat,

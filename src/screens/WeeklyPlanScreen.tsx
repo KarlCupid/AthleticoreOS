@@ -1,4 +1,4 @@
-﻿import React, { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
     View,
     Text,
@@ -6,7 +6,6 @@ import {
     ScrollView,
     RefreshControl,
     TouchableOpacity,
-    ActivityIndicator,
     Alert,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -14,11 +13,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useWeeklyPlan } from '../hooks/useWeeklyPlan';
 import DayPlanCard from '../components/DayPlanCard';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { SectionHeader } from '../components/SectionHeader';
+import { AnimatedPressable } from '../components/AnimatedPressable';
+import { Card } from '../components/Card';
+import { SkeletonLoader } from '../components/SkeletonLoader';
+import { StatCard } from '../components/StatCard';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
@@ -27,11 +30,11 @@ import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import { PlanStackParamList } from '../navigation/types';
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ─────────────────────────────────────────────────────────
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-/** Return ISO date string -> short day name (Mon, Tue â€¦) */
+/** Return ISO date string -> short day name (Mon, Tue …) */
 function dayNameFromDate(dateStr: string): string {
     const d = new Date(dateStr + 'T00:00:00');
     return DAY_NAMES[d.getDay()];
@@ -63,7 +66,7 @@ function groupByDate(entries: WeeklyPlanEntryRow[]): Array<{
         }));
 }
 
-// â”€â”€â”€ Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Screen ──────────────────────────────────────────────────────────
 
 export function WeeklyPlanScreen() {
     const insets = useSafeAreaInsets();
@@ -88,7 +91,7 @@ export function WeeklyPlanScreen() {
         }, [loadPlan]),
     );
 
-    // â”€â”€ Navigation handlers â”€â”€
+    // ─── Navigation handlers ───
 
     function handleDayPress(entry: WeeklyPlanEntryRow) {
         (async () => {
@@ -149,55 +152,74 @@ export function WeeklyPlanScreen() {
         );
     }
 
-    // â”€â”€ Grouped display data â”€â”€
+    // ─── Grouped display data ───
 
     const grouped = groupByDate(entries);
 
-    // â”€â”€ Loading state â”€â”€
+    // ─── Derived Metrics ───
+    const totalSessions = entries.length;
+    const completedSessions = entries.filter((e) => e.status === 'completed').length;
+    
+    const totalMinutes = entries.reduce((acc, curr) => acc + (curr.estimated_duration_min || 0), 0);
+    const completedMinutes = entries
+        .filter((e) => e.status === 'completed')
+        .reduce((acc, curr) => acc + (curr.estimated_duration_min || 0), 0);
+
+    const totalHours = Math.round(totalMinutes / 60 * 10) / 10;
+    const completedHours = Math.round(completedMinutes / 60 * 10) / 10;
+
+    // ─── Loading state ───
 
     if (loading) {
         return (
-            <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
-                <ActivityIndicator color={COLORS.accent} size="large" />
-                <Text style={styles.loadingText}>Building your weekâ€¦</Text>
+            <View style={[styles.container, { paddingTop: insets.top }]}>
+                <View style={[styles.header, { paddingBottom: SPACING.md }]}>
+                    <SkeletonLoader width="60%" height={32} shape="text" style={{ marginBottom: SPACING.md }} />
+                </View>
+                <View style={[styles.scrollContent, { paddingHorizontal: SPACING.lg }]}>
+                   <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
+                   <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
+                   <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
+                </View>
             </View>
         );
     }
 
-    // â”€â”€ Empty state (no config yet) â”€â”€
+    // ─── Empty state (no config yet) ───
 
     if (!loading && entries.length === 0) {
         return (
             <View style={[styles.emptyContainer, { paddingTop: insets.top }]}>
-                <Animated.View entering={FadeInDown.duration(400)}>
-                    <Text style={styles.emptyTitle}>No Plan Yet</Text>
-                    <Text style={styles.emptySubtitle}>
-                        Set up your weekly training plan to get smart daily recommendations.
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.setupButton}
-                        onPress={handleSetupPress}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.setupButtonText}>Set Up Weekly Plan</Text>
-                    </TouchableOpacity>
+                <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
+                    <Card style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}>
+                        <Text style={styles.emptyTitle}>No Plan Yet</Text>
+                        <Text style={styles.emptySubtitle}>
+                            Set up your weekly training plan to get smart daily recommendations tailored to your goals.
+                        </Text>
+                        <AnimatedPressable
+                            style={styles.setupButton}
+                            onPress={handleSetupPress}
+                        >
+                            <Text style={styles.setupButtonText}>Set Up Weekly Plan</Text>
+                        </AnimatedPressable>
+                    </Card>
                 </Animated.View>
             </View>
         );
     }
 
-    // â”€â”€ Main render â”€â”€
+    // ─── Main render ───
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
-            {/* â”€â”€ Page Header â”€â”€ */}
+            {/* ─── Page Header ─── */}
             <View style={styles.header}>
                 {!loading && entries.length > 0 && (
                     <TouchableOpacity
                         onPress={handleOptionsPress}
                         style={[styles.headerOptionsBtn, { position: 'absolute', top: SPACING.md, right: SPACING.md, zIndex: 10 }]}
                     >
-                        <Text style={styles.headerOptionsIcon}>â‹®</Text>
+                        <Text style={styles.headerOptionsIcon}>⋮</Text>
                     </TouchableOpacity>
                 )}
                 <View style={styles.headerRow}>
@@ -226,47 +248,74 @@ export function WeeklyPlanScreen() {
                     />
                 }
             >
-                {/* â”€â”€ Plan Summary Card â”€â”€ */}
+                {/* ─── Plan Summary Card ─── */}
                 {weekPlan?.message ? (
-                    <Animated.View entering={FadeInDown.delay(50).duration(400)}>
-                        <View style={styles.summaryCard}>
-                            <Text style={styles.summaryIcon}>ðŸ“‹</Text>
+                    <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.slow).springify()} style={{ marginBottom: SPACING.sm }}>
+                        <Card variant="filled" style={styles.summaryCard} noPadding>
+                            <Text style={styles.summaryIcon}>📋</Text>
                             <Text style={styles.summaryText}>{weekPlan.message}</Text>
-                        </View>
+                        </Card>
                     </Animated.View>
                 ) : null}
 
-                {/* â”€â”€ Missed Sessions Banner â”€â”€ */}
+                {/* ─── Missed Sessions Banner ─── */}
                 {missedEntries.length > 0 && (
-                    <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-                        <TouchableOpacity
-                            style={styles.cautionBanner}
-                            onPress={handleMissedBannerPress}
-                            activeOpacity={0.8}
-                        >
-                            <View style={styles.cautionBannerInner}>
-                                <View style={styles.cautionIconBox}>
-                                    <Text style={styles.cautionIconText}>!</Text>
+                    <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.slow).springify()} style={{ marginBottom: SPACING.sm }}>
+                        <AnimatedPressable onPress={handleMissedBannerPress}>
+                            <Card style={styles.cautionBanner} noPadding>
+                                <View style={styles.cautionBannerInner}>
+                                    <View style={styles.cautionIconBox}>
+                                        <Text style={styles.cautionIconText}>!</Text>
+                                    </View>
+                                    <Text style={styles.cautionBannerText}>
+                                        {missedEntries.length} missed session
+                                        {missedEntries.length > 1 ? 's' : ''} — tap to reschedule
+                                    </Text>
+                                    <Text style={styles.cautionChevron}>›</Text>
                                 </View>
-                                <Text style={styles.cautionBannerText}>
-                                    {missedEntries.length} missed session
-                                    {missedEntries.length > 1 ? 's' : ''} â€” tap to reschedule
-                                </Text>
-                                <Text style={styles.cautionChevron}>â€º</Text>
-                            </View>
-                        </TouchableOpacity>
+                            </Card>
+                        </AnimatedPressable>
                     </Animated.View>
                 )}
 
-                {/* â”€â”€ Day Cards â”€â”€ */}
-                <SectionHeader title="Sessions" />
+                {/* ─── Day Cards ─── */}
+                <View style={{ marginTop: SPACING.md }}>
+                    <SectionHeader title="Weekly Overview" />
+                </View>
+                
+                <View style={styles.metricsRow}>
+                    <StatCard
+                        entering
+                        enteringDelay={150}
+                        icon={<Text style={{ fontSize: 16 }}>🎯</Text>}
+                        label="Compliance"
+                        value={`${completedSessions}/${totalSessions}`}
+                        sub="Sessions Completed"
+                        style={styles.metricCard}
+                        color={COLORS.success}
+                    />
+                    <StatCard
+                        entering
+                        enteringDelay={200}
+                        icon={<Text style={{ fontSize: 16 }}>⏱️</Text>}
+                        label="Active Time"
+                        value={`${completedHours}h`}
+                        sub={`of ${totalHours}h planned`}
+                        style={styles.metricCard}
+                        color={COLORS.accent}
+                    />
+                </View>
+
+                <View style={{ marginTop: SPACING.xl }}>
+                    <SectionHeader title="Sessions" />
+                </View>
 
                 {grouped.map((group, groupIdx) => {
                     const hasMissed = group.sessions.some(
                         (s) => s.status === 'skipped' || s.status === 'rescheduled',
                     );
 
-                    // Map WeeklyPlanEntryRow[] â†’ DayPlanCard session props
+                    // Map WeeklyPlanEntryRow[] → DayPlanCard session props
                     const sessionProps = group.sessions.map((entry) => ({
                         slot: entry.slot,
                         sessionType: entry.session_type,
@@ -279,7 +328,7 @@ export function WeeklyPlanScreen() {
                     return (
                         <Animated.View
                             key={group.date}
-                            entering={FadeInDown.delay(groupIdx * 60).duration(400)}
+                            entering={FadeInDown.delay(groupIdx * 60).duration(ANIMATION.slow).springify()}
                         >
                             <DayPlanCard
                                 dayName={group.dayName}
@@ -314,7 +363,7 @@ export function WeeklyPlanScreen() {
     );
 }
 
-// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
     container: {
@@ -371,8 +420,9 @@ const styles = StyleSheet.create({
 
     // Header
     header: {
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.md,
+        paddingHorizontal: SPACING.lg,
+        paddingVertical: SPACING.lg,
+        paddingBottom: SPACING.md,
         backgroundColor: COLORS.background,
         position: 'relative',
     },
@@ -383,9 +433,9 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: FONT_FAMILY.black,
-        fontSize: 28,
+        fontSize: 32,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: -1,
     },
     headerOptionsBtn: {
         padding: SPACING.sm,
@@ -414,19 +464,27 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingHorizontal: SPACING.md,
+        paddingHorizontal: SPACING.lg,
         paddingTop: SPACING.xs,
         gap: SPACING.xs,
+    },
+
+    metricsRow: {
+        flexDirection: 'row',
+        gap: SPACING.md,
+        marginVertical: SPACING.xs,
+    },
+    metricCard: {
+        flex: 1,
+        width: 'auto',
     },
 
     // Summary info card
     summaryCard: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         backgroundColor: COLORS.accentLight,
-        borderRadius: RADIUS.md,
         padding: SPACING.md,
-        marginBottom: SPACING.sm,
         gap: SPACING.sm,
     },
     summaryIcon: {
@@ -443,11 +501,8 @@ const styles = StyleSheet.create({
     // Missed sessions caution banner
     cautionBanner: {
         backgroundColor: COLORS.warning + '18',
-        borderRadius: RADIUS.md,
         borderWidth: 1,
         borderColor: COLORS.warning + '30',
-        marginBottom: SPACING.sm,
-        overflow: 'hidden',
     },
     cautionBannerInner: {
         flexDirection: 'row',
@@ -483,6 +538,3 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 });
-
-
-

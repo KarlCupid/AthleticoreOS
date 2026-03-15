@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { DailyMission } from '../../lib/engine/types';
+import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
@@ -25,6 +26,11 @@ function getRiskColor(level: DailyMission['riskState']['level']): string {
 
 export function DailyMissionCard({ mission, compact = false }: DailyMissionCardProps) {
   const riskColor = getRiskColor(mission.riskState.level);
+  const missionCalories = calculateCaloriesFromMacros(
+    mission.fuelDirective.protein,
+    mission.fuelDirective.carbs,
+    mission.fuelDirective.fat,
+  );
 
   return (
     <Card style={styles.card}>
@@ -54,7 +60,7 @@ export function DailyMissionCard({ mission, compact = false }: DailyMissionCardP
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Fuel</Text>
             <Text style={styles.sectionLine}>
-              {mission.fuelDirective.calories} kcal · P {mission.fuelDirective.protein} · C {mission.fuelDirective.carbs} · F {mission.fuelDirective.fat}
+              {missionCalories} kcal · P {mission.fuelDirective.protein} · C {mission.fuelDirective.carbs} · F {mission.fuelDirective.fat}
             </Text>
             <Text style={styles.metaLine}>
               Pre {mission.fuelDirective.preSessionCarbsG}g carbs · Post {mission.fuelDirective.postSessionProteinG}g protein · Water {mission.hydrationDirective.waterTargetOz} oz
@@ -158,13 +164,13 @@ const styles = StyleSheet.create({
   },
   footerLabel: {
     fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.text.tertiary,
-    textTransform: 'uppercase',
   },
   footerValue: {
     fontFamily: FONT_FAMILY.regular,
-    fontSize: 12,
-    color: COLORS.text.secondary,
+    fontSize: 13,
+    color: COLORS.text.primary,
+    lineHeight: 20,
   },
 });
