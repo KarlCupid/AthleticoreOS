@@ -1,4 +1,4 @@
-import {
+import type {
     ExerciseHistoryEntry,
     ExerciseLibraryRow,
     ExerciseRole,
@@ -17,10 +17,10 @@ import {
     WorkoutFocus,
     WorkoutSectionTemplate,
     WorkoutSessionSection,
-} from './types';
-import { suggestOverload, selectProgressionModel } from './calculateOverload';
-import { generateWarmupSets } from './calculateWarmup';
-import { findSubstituteExercise, getRestTimerDefaults } from './adaptiveWorkout';
+} from './types/training.ts';
+import { suggestOverload, selectProgressionModel } from './calculateOverload.ts';
+import { generateWarmupSets } from './calculateWarmup.ts';
+import { findSubstituteExercise, getRestTimerDefaults } from './adaptiveWorkout.ts';
 
 type ScoredExercise = {
     exercise: ExerciseLibraryRow;
@@ -300,7 +300,7 @@ function buildProgressionAnchor(
     if (template !== 'main_strength' && !(focus === 'full_body' && template === 'secondary_strength')) {
         if (template !== 'durability') return null;
         return {
-            key: `${focus}:durability:${exercise.muscle_group}`,
+            key: focus + ':durability:' + exercise.muscle_group,
             label: 'Durability rotation',
             stableAcrossBlock: false,
             rotationCadence: 'weekly',
@@ -309,8 +309,8 @@ function buildProgressionAnchor(
     }
 
     return {
-        key: `${focus}:${template}:${exercise.muscle_group}`,
-        label: `${capitalize(focusLabel(focus))} anchor`,
+        key: focus + ':' + template + ':' + exercise.muscle_group,
+        label: capitalize(focusLabel(focus)) + ' anchor',
         stableAcrossBlock: true,
         rotationCadence: 'block',
         rationale: 'Main lift patterns stay stable across the block so progression can compound cleanly.',
@@ -400,7 +400,7 @@ function buildSetPrescription(
             targetRPE: Math.min(4, rpeCap),
             restSeconds: 30,
             loadingStrategy: 'recovery_flow',
-            setScheme: `${sets} x ${reps} smooth reps`,
+            setScheme: sets + ' x ' + reps + ' smooth reps',
             loadingNotes: 'Use this to prep positions, rhythm, and range without fatigue.',
             setPrescription: [{ label: 'Prep', sets, reps, targetRPE: Math.min(4, rpeCap), restSeconds: 30 }],
         };
@@ -416,7 +416,7 @@ function buildSetPrescription(
             targetRPE: Math.min(6, rpeCap),
             restSeconds,
             loadingStrategy: 'straight_sets',
-            setScheme: `${sets} x ${reps} explosive reps`,
+            setScheme: sets + ' x ' + reps + ' explosive reps',
             loadingNotes: 'Every rep should stay fast. Shut the set down the moment velocity drops.',
             setPrescription: [{ label: 'Explosive work', sets, reps, targetRPE: Math.min(6, rpeCap), restSeconds }],
         };
@@ -432,9 +432,9 @@ function buildSetPrescription(
             targetRPE: Math.min(8, rpeCap),
             restSeconds,
             loadingStrategy: 'intervals',
-            setScheme: `${rounds} x ${workSeconds}s work / ${restSeconds}s rest`,
+            setScheme: rounds + ' x ' + workSeconds + 's work / ' + restSeconds + 's rest',
             loadingNotes: 'Stay on the prescribed work-rest rhythm. The goal is repeatable quality, not a death march.',
-            setPrescription: [{ label: 'Main set', sets: rounds, reps: `${workSeconds}s`, targetRPE: Math.min(8, rpeCap), restSeconds }],
+            setPrescription: [{ label: 'Main set', sets: rounds, reps: workSeconds + 's', targetRPE: Math.min(8, rpeCap), restSeconds }],
         };
     }
 
@@ -451,7 +451,7 @@ function buildSetPrescription(
             targetRPE: backoffRPE,
             restSeconds,
             loadingStrategy: 'top_set_backoff',
-            setScheme: `1 x ${topSetReps} @ RPE ${topSetRPE}, then ${backoffSets} x ${backoffReps} @ RPE ${backoffRPE}`,
+            setScheme: '1 x ' + topSetReps + ' @ RPE ' + topSetRPE + ', then ' + backoffSets + ' x ' + backoffReps + ' @ RPE ' + backoffRPE,
             loadingNotes: 'Build to one high-quality top set, then strip 6-10% and complete the backoff work.',
             setPrescription: [
                 { label: 'Top set', sets: 1, reps: topSetReps, targetRPE: topSetRPE, restSeconds },
@@ -470,7 +470,7 @@ function buildSetPrescription(
             targetRPE: Math.min(7, rpeCap),
             restSeconds,
             loadingStrategy: 'straight_sets',
-            setScheme: `${sets} x ${reps} @ RPE ${Math.min(7, rpeCap)}`,
+            setScheme: sets + ' x ' + reps + ' @ RPE ' + Math.min(7, rpeCap),
             loadingNotes: 'Leave one to three clean reps in reserve and protect movement quality.',
             setPrescription: [{ label: 'Work sets', sets, reps, targetRPE: Math.min(7, rpeCap), restSeconds }],
         };
@@ -487,7 +487,7 @@ function buildSetPrescription(
             targetRPE: Math.min(template === 'durability' ? 6 : 7, rpeCap),
             restSeconds,
             loadingStrategy,
-            setScheme: `${sets} x ${reps}`,
+            setScheme: sets + ' x ' + reps,
             loadingNotes: template === 'durability'
                 ? 'Build tissue capacity and positional control. Nothing here should spike fatigue.'
                 : 'Accumulate quality support volume without letting it compete with the main work.',
@@ -503,7 +503,7 @@ function buildSetPrescription(
             targetRPE: Math.min(8, rpeCap),
             restSeconds: 40,
             loadingStrategy: 'intervals',
-            setScheme: `${rounds} x 20s on / 40s off`,
+            setScheme: rounds + ' x 20s on / 40s off',
             loadingNotes: 'Use this only as a clean touch of repeatability. End it before mechanics slip.',
             setPrescription: [{ label: 'Finisher', sets: rounds, reps: '20s work', targetRPE: Math.min(8, rpeCap), restSeconds: 40 }],
         };
@@ -642,7 +642,7 @@ function trimSectionsToTime(sections: WorkoutSessionSection[], availableMinutes:
         const exercise = adjustable.exercises[0];
         if (exercise.targetSets > 2) {
             exercise.targetSets -= 1;
-            exercise.setScheme = `${exercise.targetSets} x ${exercise.targetReps} @ RPE ${exercise.targetRPE}`;
+            exercise.setScheme = exercise.targetSets + ' x ' + exercise.targetReps + ' @ RPE ' + exercise.targetRPE;
             if (exercise.setPrescription && exercise.setPrescription.length > 0) {
                 const lastIndex = exercise.setPrescription.length - 1;
                 exercise.setPrescription = exercise.setPrescription.map((entry, index) =>
@@ -665,15 +665,15 @@ function buildSessionGoal(
     const goal = (performanceGoalType ?? 'conditioning').replace(/_/g, ' ');
 
     if (focus === 'conditioning') {
-        return `Build ${goal} repeatability through a system-specific conditioning session.`;
+        return 'Build ' + goal + ' repeatability through a system-specific conditioning session.';
     }
     if (focus === 'recovery') {
         return 'Restore movement quality, blood flow, and readiness for the next high-value session.';
     }
     if (blockContext?.phase === 'realize') {
-        return `Express ${goal} with sharp ${focusLabel(focus)} work while protecting freshness.`;
+        return 'Express ' + goal + ' with sharp ' + focusLabel(focus) + ' work while protecting freshness.';
     }
-    return `Develop ${goal} with a coached ${focusLabel(focus)} session built around stable anchors and selective support work.`;
+    return 'Develop ' + goal + ' with a coached ' + focusLabel(focus) + ' session built around stable anchors and selective support work.';
 }
 
 function buildSectionExercise(input: {
@@ -830,7 +830,7 @@ export function buildSectionedWorkoutSession(input: BuildSectionedWorkoutInput):
             });
 
             return {
-                id: `${blueprint.template}-${index + 1}`,
+                id: blueprint.template + '-' + (index + 1),
                 template: blueprint.template,
                 title: blueprint.title,
                 intent: blueprint.intent,

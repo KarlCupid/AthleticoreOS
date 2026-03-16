@@ -4,8 +4,8 @@
  * Run with:  npx tsx lib/engine/calculateWeight.test.ts
  */
 
-import { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight';
-import type { WeightDataPoint, WeightTrendResult } from './types';
+import { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from '.ts';
+import type { WeightDataPoint, WeightTrendResult } from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

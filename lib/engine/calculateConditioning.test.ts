@@ -7,8 +7,8 @@
 import {
     prescribeConditioning,
     getWeeklyConditioningPlan,
-} from './calculateConditioning';
-import type { WeeklyConditioningInput, RecurringActivityRow } from './types';
+} from '.ts';
+import type { WeeklyConditioningInput, RecurringActivityRow } from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

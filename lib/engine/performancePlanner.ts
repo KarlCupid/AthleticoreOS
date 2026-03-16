@@ -5,7 +5,7 @@ import type {
   ReadinessState,
   TrainingBlockContext,
   WorkoutFocus,
-} from './types';
+} from './types.ts';
 
 interface PerformanceRiskInput {
   readinessState: ReadinessState;

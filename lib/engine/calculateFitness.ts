@@ -13,7 +13,7 @@
  * The caller is responsible for reading/writing to Supabase via fitnessService.ts.
  */
 
-import {
+import type {
     FitnessLevel,
     FitnessAssessmentInput,
     FitnessAssessmentResult,
@@ -22,7 +22,7 @@ import {
     Phase,
     TrainingSessionRow,
     WeeklyTargetsRow,
-} from './types';
+} from './types.ts';
 
 // ─── Scoring Thresholds ────────────────────────────────────────
 

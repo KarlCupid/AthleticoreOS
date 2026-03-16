@@ -8,8 +8,8 @@ import {
     assessFitnessFromQuestionnaire,
     deriveFitnessFromHistory,
     getFitnessModifiers,
-} from './calculateFitness';
-import type { FitnessAssessmentInput, TrainingSessionRow, WeeklyTargetsRow } from './types';
+} from '.ts';
+import type { FitnessAssessmentInput, TrainingSessionRow, WeeklyTargetsRow } from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

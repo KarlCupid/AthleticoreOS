@@ -1,12 +1,12 @@
-export { calculateACWR } from './calculateACWR';
-export { getHydrationProtocol } from './getHydrationProtocol';
-export { adjustForBiology } from './adjustForBiology';
-export { getGlobalReadinessState } from './getGlobalReadinessState';
-export { handleTimelineShift, autoRegulateSC } from './adaptive';
-export { calculateNutritionTargets, computeMacroAdherence, resolveDailyNutritionTargets } from './calculateNutrition';
-export { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight';
-export { calculateCampRisk } from './calculateCampRisk';
-export { DAILY_ENGINE_VERSION, buildDailyMission, buildMicrocyclePlan } from './calculateMission';
+export { calculateACWR } from './calculateACWR.ts';
+export { getHydrationProtocol } from './getHydrationProtocol.ts';
+export { adjustForBiology } from './adjustForBiology.ts';
+export { getGlobalReadinessState } from './getGlobalReadinessState.ts';
+export { handleTimelineShift, autoRegulateSC } from './adaptive.ts';
+export { calculateNutritionTargets, computeMacroAdherence, resolveDailyNutritionTargets } from './calculateNutrition.ts';
+export { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight.ts';
+export { calculateCampRisk } from './calculateCampRisk.ts';
+export { DAILY_ENGINE_VERSION, buildDailyMission, buildMicrocyclePlan } from './calculateMission.ts';
 export {
   determineFocus,
   scoreExerciseForUser,
@@ -15,7 +15,7 @@ export {
   calculateVolumeLoad,
   calculateWeeklyVolume,
   getWorkoutCompliance,
-} from './calculateSC';
+} from './calculateSC.ts';
 export {
   getRecoveryWindow,
   validateDayLoad,
@@ -23,93 +23,19 @@ export {
   adjustNutritionForDay,
   detectOvertrainingRisk,
   generateWeekPlan,
+  generateSmartWeekPlan,
+  getBoxingIntensityScalar,
   calculateWeeklyCompliance,
   getTrainingStreak,
-} from './calculateSchedule';
+} from './calculateSchedule.ts';
+export { 
+  generateCutPlan, 
+  determineCutPhase, 
+  computeDailyCutProtocol,
+  getDailyCutIntensityCap
+} from './calculateWeightCut.ts';
 
-export type {
-  ACWRInput,
-  ACWRResult,
-  GlobalReadinessInput,
-  ReadinessState,
-  HydrationInput,
-  HydrationResult,
-  BiologyInput,
-  BiologyResult,
-  CyclePhase,
-  Phase,
-  FightStatus,
-  TrainingSessionRow,
-  ExerciseType,
-  BlockType,
-  TimelineStatus,
-  MuscleGroup,
-  Equipment,
-  WorkoutType,
-  WorkoutFocus,
-  ExerciseLibraryRow,
-  DailyTimelineRow,
-  MacroLedgerRow,
-  WorkoutPrescription,
-  PrescribedExercise,
-  ExerciseScoringContext,
-  GenerateWorkoutInput,
-  WorkoutLogRow,
-  WorkoutSetLogRow,
-  WorkoutComplianceResult,
-  HandleTimelineShiftInput,
-  HandleTimelineShiftResult,
-  AutoRegulateSCInput,
-  AutoRegulateSCResult,
-  NutritionGoal,
-  ActivityLevel,
-  MealType,
-  NutritionProfileInput,
-  NutritionTargets,
-  ResolvedNutritionTargets,
-  MacroAdherenceResult,
-  FoodItemRow,
-  FoodLogRow,
-  DailyNutritionSummaryRow,
-  ActivityType,
-  ComponentType,
-  ScheduleSource,
-  ScheduleStatus,
-  SessionComponent,
-  RecurringActivityRow,
-  ScheduledActivityRow,
-  ActivityLogEntry,
-  WeeklyTargetsRow,
-  DayLoadValidation,
-  OvertrainingSeverity,
-  OvertrainingWarning,
-  WeeklyComplianceReport,
-  ScheduleGenerationInput,
-  NutritionDayAdjustment,
-  WeeklyPlanEntryRow,
-  WeightCutStatus,
-  WeightDataPoint,
-  WeightTrendInput,
-  WeightTrendResult,
-  WeightCorrectionInput,
-  WeightCorrectionResult,
-  WeightReadinessPenalty,
-  RecurrencePattern,
-  PerformanceObjective,
-  MacrocycleContext,
-  DailyMission,
-  DailyEngineState,
-  DailyEngineSnapshotRow,
-  TrainingDirective,
-  FuelDirective,
-  HydrationDirective,
-  RecoveryDirective,
-  MissionRiskState,
-  DecisionTraceItem,
-  MissionOverride,
-  WeeklyMissionPlan,
-} from './types';
+export type * from './types/index.ts';
 
-export type { CampRiskInput, CampRiskAssessment, CampRiskLevel } from './calculateCampRisk';
-
-
+export type { CampRiskInput, CampRiskAssessment, CampRiskLevel } from './calculateCampRisk.ts';
+export { formatLocalDate, todayLocalDate } from '../utils/date.ts';

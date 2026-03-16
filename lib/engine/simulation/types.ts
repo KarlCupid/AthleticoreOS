@@ -1,0 +1,154 @@
+import type {
+  ReadinessState,
+  Phase,
+  WorkoutFocus,
+  FitnessLevel,
+} from '../types/foundational.ts';
+// import {
+//   ACWRResult,
+// } from '../types/readiness.ts';
+
+export interface ACWRThresholds {
+  caution: number;
+  redline: number;
+  confidence: 'low' | 'medium' | 'high';
+  personalizationFactors: string[];
+}
+
+export interface ACWRResult {
+  ratio: number;
+  acute: number;
+  chronic: number;
+  status: 'safe' | 'caution' | 'redline';
+  message: string;
+  daysOfData: number;
+  thresholds: ACWRThresholds;
+  loadMetrics: any;
+}
+import type {
+  TrainingDirective,
+  FuelDirective,
+  HydrationDirective,
+  RecoveryDirective,
+  MissionRiskState,
+  DecisionTraceItem,
+  MissionOverride,
+  WeeklyMissionPlan,
+  DailyMission,
+  MacrocycleContext,
+} from '../types/mission.ts';
+
+export interface DailyEngineState {
+  date: string;
+  engineVersion: string;
+  objectiveContext: MacrocycleContext;
+  acwr: ACWRResult;
+  readinessState: ReadinessState;
+  cutProtocol: any;
+  nutritionTargets: any;
+  hydration: any;
+  scheduledActivities: any[];
+  weeklyPlanEntries: any[];
+  primaryScheduledActivity: any;
+  primaryPlanEntry: any;
+  primaryEnginePlanEntry: any;
+  workoutPrescription: any;
+  mission: DailyMission;
+  campRisk: any;
+}
+import type {
+  WorkoutPrescription,
+} from '../types/training.ts';
+
+export type SimulationPersona = {
+  name: string;
+  description: string;
+  
+  // Probabilities and biases
+  workoutCompliance: number; // 0.0 to 1.0
+  rpeBias: number; // e.g., +1 means they always report 1 RPE higher than prescribed
+  
+  // Recovery traits
+  averageSleepQuality: number; // 1-10
+  averageReadiness: number; // 1-10
+  readinessVolatility: number; // 0.0 (stable) to 1.0 (chaotic)
+  
+  // Nutrition traits
+  nutritionCompliance: number; // 0.0 to 1.0
+  cheatDayProbability: number; // probability of a "binge" day
+  cheatDayCalorieBurden: number; // how many extra calories on a cheat day
+};
+
+export type FatigueState = {
+  centralFatigue: number; // 0-100, affects readiness
+  muscularDamage: number; // 0-100, affects ACWR/injury risk
+  accumulationHistory: number[]; // recent 7d damage
+};
+
+export type MetabolicState = {
+  currentWeightLbs: number;
+  glycogenStores: number; // 0.0 to 1.0
+  hydrationState: number; // 0.0 to 1.0
+};
+
+export type SimulationState = {
+  fatigue: FatigueState;
+  metabolism: MetabolicState;
+  consecutiveDepletedDays: number;
+};
+
+export type DailySimulationLog = {
+  date: string;
+  engineState: DailyEngineState;
+  stateBefore: SimulationState;
+  stateAfter: SimulationState;
+  personaAction: {
+    readinessLogged: number;
+    sleepLogged: number;
+    didWarmup: boolean;
+    sessionsCompleted: Array<{
+      type: string;
+      sessionName?: string; 
+      prescribedRpe: number;
+      actualRpe: number;
+      prescribedDuration: number;
+      actualDuration: number;
+      tonnage?: number; 
+    }>;
+    nutritionAdherence: number;
+    isCheatDay: boolean;
+    actualCalories: number;
+    actualProtein: number;
+    actualCarbs: number;
+    actualFat: number;
+    cutPhase?: string; 
+    waterTargetOz?: number;
+    sodiumTargetMg?: number | null;
+    fiberState?: string;
+    interventionState?: 'none' | 'soft' | 'hard';
+    isMandatoryRecovery?: boolean;
+    weightDriftLbs?: number | null;
+    cutInterventionReason?: string | null;
+    workoutBlueprint?: string; 
+    coachingInsight?: string; 
+    athleteMonologue?: string; 
+  };
+};
+
+export type SimulationConfig = {
+  startDate: string;
+  weeks: number;
+  persona: SimulationPersona;
+  initialState: {
+    weightLbs: number;
+    fitnessLevel: 'beginner' | 'intermediate' | 'advanced' | 'elite';
+    goalMode: 'build_phase' | 'fight_camp';
+    targetWeight?: number;
+    fightDate?: string;
+  };
+};
+
+export type SimulationResult = {
+  config: SimulationConfig;
+  dailyLogs: DailySimulationLog[];
+};

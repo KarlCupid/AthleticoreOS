@@ -7,21 +7,21 @@ import type {
   ReadinessState,
   WorkoutFocus,
   WorkoutType,
-} from './foundational';
+} from './foundational.ts';
 import type {
   AdjustmentType,
   FeedbackSeverity,
   HRZone,
   SessionFatigueState,
-} from './misc';
-import type { CampConfig, CampPhase } from './camp';
+} from './misc.ts';
+import type { CampConfig, CampPhase } from './camp.ts';
 import type {
   DailyTimelineRow,
   RecurringActivityRow,
   ScheduledActivityRow,
-} from './schedule';
-import type { PerformanceGoalType } from './fightCampV1';
-import type { WeightCutPlanRow } from './weight_cut';
+} from './schedule.ts';
+import type { PerformanceGoalType } from './foundational.ts';
+import type { WeightCutPlanRow } from './weight_cut.ts';
 
 export interface ExerciseLibraryRow {
   id: string;

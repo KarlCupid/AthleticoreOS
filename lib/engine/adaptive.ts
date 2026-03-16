@@ -1,10 +1,11 @@
-import {
+import type {
     HandleTimelineShiftInput,
     HandleTimelineShiftResult,
     AutoRegulateSCInput,
     AutoRegulateSCResult,
     ExerciseLibraryRow,
-} from './types';
+} from './types.ts';
+import { formatLocalDate } from '../utils/date.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 

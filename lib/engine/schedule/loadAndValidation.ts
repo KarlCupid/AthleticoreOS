@@ -1,15 +1,28 @@
-﻿import {
-  ActivityType,
-  ScheduledActivityRow,
-  DayLoadValidation,
-  FitnessLevel,
-  Phase,
-  ReadinessState,
-  WeekPlanEntry,
-} from '../types';
-import { formatLocalDate, todayLocalDate } from '../../utils/date';
-import { getPersonalizedACWRThresholds } from '../calculateACWR';
-// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+import type {
+    ActivityType,
+    ReadinessState,
+    WorkoutFocus,
+    FitnessLevel,
+    Phase,
+} from '../types/foundational.ts';
+import type {
+    Mission,
+    MissionRequirement,
+} from '../types/mission.ts';
+import type {
+    GenerateWorkoutInputV2,
+    WorkoutPrescriptionV2,
+    TrainingSessionRow,
+    ScheduledActivityRow,
+    DayLoadValidation,
+    WeekPlanEntry,
+    WeeklyPlanV2,
+    DailyPlanV2,
+} from '../types/training.ts';
+import { formatLocalDate, todayLocalDate } from '../../utils/date.ts';
+import { getPersonalizedACWRThresholds } from '../calculateACWR.ts';
+
+// ─── Constants ─────────────────────────────────────────────────
 
 /**
  * Recovery windows (in hours) by activity type + intensity threshold.
@@ -61,7 +74,7 @@ const PHASE_HIGH_INTENSITY_CAPS: Record<Phase, number> = {
     'camp-taper': 2,
 };
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ───────────────────────────────────────────────────
 
 function isHighIntensity(intensity: number): boolean {
     return intensity >= 7;
@@ -91,8 +104,6 @@ function getCNSLoad(activityType: ActivityType, intensity: number): number {
 function getSessionLoad(durationMin: number, intensity: number): number {
     return durationMin * intensity;
 }
-
-
 
 function getDefaultChronicLoad(fitnessLevel: FitnessLevel): number {
     const baseByFitness: Record<FitnessLevel, number> = {
@@ -231,10 +242,6 @@ function buildDayLoadMap(
     return map;
 }
 
-/**
- * Returns candidate dates (sorted lowest-load-first) that pass the filter.
- * loadCap: skip days with load >= this value.
- */
 function findCandidateDays(
     weekStartDate: string,
     activities: Pick<ScheduledActivityRow | WeekPlanEntry, 'date' | 'activity_type' | 'expected_intensity' | 'estimated_duration_min'>[],
@@ -253,8 +260,7 @@ function findCandidateDays(
     return candidates.sort((a, b) => (dayLoads.get(a) ?? 0) - (dayLoads.get(b) ?? 0));
 }
 
-
-// â”€â”€â”€ getRecoveryWindow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getRecoveryWindow ─────────────────────────────────────────
 
 /**
  * Returns hours of recommended recovery before the next high-intensity session.
@@ -270,11 +276,11 @@ export function getRecoveryWindow(
     if (intensity >= config.threshold) {
         return config.hours;
     }
-    // Low intensity â†’ minimal recovery window
+    // Low intensity → minimal recovery window
     return Math.max(0, Math.floor(config.hours * 0.3));
 }
 
-// â”€â”€â”€ validateDayLoad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── validateDayLoad ──────────────────────────────────────────
 
 /**
  * Checks if a day's combined CNS/sRPE load is scientifically safe.
@@ -310,15 +316,15 @@ export function validateDayLoad(
     const issues: string[] = [];
 
     if (highIntensityCount > 2) {
-        issues.push(`${highIntensityCount} high - intensity sessions in one day is excessive â€” risk of overreaching and accumulated CNS fatigue.`);
+        issues.push(`${highIntensityCount} high-intensity sessions in one day is excessive — risk of overreaching and accumulated CNS fatigue.`);
     }
 
     if (totalCNS > 16) {
-        issues.push(`Combined CNS load of ${totalCNS.toFixed(1)} exceeds the safe daily threshold(16).Your nervous system needs time to recover between demanding efforts.`);
+        issues.push(`Combined CNS load of ${totalCNS.toFixed(1)} exceeds the safe daily threshold (16). Your nervous system needs time to recover between demanding efforts.`);
     }
 
     if (totalLoad > 800) {
-        issues.push(`Total session load of ${totalLoad} exceeds the recommended daily cap(800).This level of volume increases injury risk and delays recovery.`);
+        issues.push(`Total session load of ${totalLoad} exceeds the recommended daily cap (800). This level of volume increases injury risk and delays recovery.`);
     }
 
     // Check sparring + heavy SC on same day
@@ -330,13 +336,13 @@ export function validateDayLoad(
 
     const safe = issues.length === 0;
     const message = safe
-        ? `Day load looks good.${activities.length} session(s), total load ${totalLoad}, CNS ${totalCNS.toFixed(1)}.`
+        ? `Day load looks good. ${activities.length} session(s), total load ${totalLoad}, CNS ${totalCNS.toFixed(1)}.`
         : issues.join(' ');
 
     return { safe, totalLoad, totalCNS, activitiesCount: activities.length, message };
 }
 
-// â”€â”€â”€ suggestAlternative â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── suggestAlternative ───────────────────────────────────────
 
 /**
  * When readiness is Depleted and a high-intensity session is scheduled,
@@ -362,7 +368,7 @@ export function suggestAlternative(
             alternative: altType,
             message: `Weight cut protocol caps training at RPE ${trainingIntensityCap}. "${label}" at intensity ${intensity}/10 exceeds this limit. ` +
                 (trainingIntensityCap <= 2
-                    ? 'Rest only â€” no physical activity during this cut phase.'
+                    ? 'Rest only — no physical activity during this cut phase.'
                     : trainingIntensityCap <= 4
                         ? 'Light shadow boxing or stretching only during fight week.'
                         : 'Reduce intensity to stay within your cut protocol.'),
@@ -381,7 +387,7 @@ export function suggestAlternative(
         return {
             shouldSwap: false,
             alternative: type,
-            message: 'Readiness is moderate. This session intensity is manageable â€” listen to your body and adjust mid-session if needed.',
+            message: 'Readiness is moderate. This session intensity is manageable — listen to your body and adjust mid-session if needed.',
         };
     }
 
@@ -393,7 +399,7 @@ export function suggestAlternative(
         },
         sc: {
             alt: 'active_recovery',
-            desc: 'Mobility and light movement work. Your nervous system is taxed â€” heavy lifting in this state increases injury risk by ~40% and reduces strength output.',
+            desc: 'Mobility and light movement work. Your nervous system is taxed — heavy lifting in this state increases injury risk by ~40% and reduces strength output.',
         },
         running: {
             alt: 'active_recovery',
@@ -423,25 +429,22 @@ export function suggestAlternative(
     return {
         shouldSwap: true,
         alternative: swap.alt,
-        message: `Your readiness is ${stateLabel}."${label}" at intensity ${intensity}/10 is not recommended. Suggested: ${swap.desc}`,
+        message: `Your readiness is ${stateLabel}. "${label}" at intensity ${intensity}/10 is not recommended. Suggested: ${swap.desc}`,
     };
 }
 
-
 export {
-  MAX_HIGH_CNS_PER_72H,
-  ACWR_DANGER,
-  PHASE_HIGH_INTENSITY_CAPS,
-  isHighIntensity,
-  dateFromISO,
-  addDays,
-  daysBetween,
-  getSessionLoad,
-  getDefaultChronicLoad,
-  computeWeekLoadMetrics,
-  getAcwrPlanningThresholds,
-  buildDayLoadMap,
-  findCandidateDays,
+    MAX_HIGH_CNS_PER_72H,
+    ACWR_DANGER,
+    PHASE_HIGH_INTENSITY_CAPS,
+    isHighIntensity,
+    dateFromISO,
+    addDays,
+    daysBetween,
+    getSessionLoad,
+    getDefaultChronicLoad,
+    computeWeekLoadMetrics,
+    getAcwrPlanningThresholds,
+    buildDayLoadMap,
+    findCandidateDays,
 };
-
-

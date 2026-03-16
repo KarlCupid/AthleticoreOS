@@ -1,4 +1,4 @@
-import { GlobalReadinessInput, ReadinessState } from './types';
+import type { GlobalReadinessInput, ReadinessState } from './types.ts';
 
 /**
  * @ANTI-WIRING:

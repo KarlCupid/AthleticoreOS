@@ -1,15 +1,24 @@
-import {
+import type {
     SessionFatigueState,
     SetCompletionInput,
     SetAdaptationResult,
     ExerciseAdjustment,
     FatigueLevel,
     FeedbackSeverity,
-    ExerciseLibraryRow,
-    EquipmentItem,
     RestTimerConfig,
     ExerciseType,
-} from './types';
+} from './types/adaptation.ts';
+import type {
+    EquipmentItem,
+    ExerciseLibraryRow,
+    Phase,
+    ReadinessState,
+    TrainingSessionRow,
+    FitnessLevel,
+} from './types/foundational.ts';
+import type {
+    AutoRegulateSCInput,
+} from './types/training.ts';
 
 // ─── Equipment Mapping ──────────────────────────────────────────
 

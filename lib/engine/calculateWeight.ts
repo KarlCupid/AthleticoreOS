@@ -1,13 +1,15 @@
-import {
+import type {
+    Phase,
+} from './types/foundational.ts';
+import type {
     WeightTrendInput,
     WeightTrendResult,
     WeightCorrectionInput,
     WeightCorrectionResult,
     WeightReadinessPenalty,
     WeightCutStatus,
-    Phase,
-} from './types';
-import { formatLocalDate, todayLocalDate } from '../utils/date';
+} from './types/weight_cut.ts';
+import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
 /**
  * @ANTI-WIRING:

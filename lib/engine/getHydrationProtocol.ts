@@ -1,4 +1,5 @@
-import { HydrationInput, HydrationResult, CutHydrationInput, CutHydrationResult } from './types';
+import type { HydrationInput, HydrationResult } from './types.ts';
+import type { CutHydrationInput, CutHydrationResult } from './types.ts';
 
 /**
  * @ANTI-WIRING:

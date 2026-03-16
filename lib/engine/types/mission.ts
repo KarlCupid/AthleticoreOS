@@ -1,20 +1,21 @@
-import type { CampConfig, CampPhase } from './camp';
+import type { CampConfig, CampPhase } from './camp.ts';
 import type {
   AthleteGoalMode,
   BuildPhaseGoalRow,
   BuildPhaseGoalType,
+  InterventionState,
   ObjectiveSecondaryConstraint,
   PerformanceGoalType,
   WeightCutInfluenceState,
   WeighInTiming,
-} from './fightCampV1';
-import type { Phase, ReadinessState, WorkoutFocus, WorkoutType } from './foundational';
-import type { ACWRResult, HydrationResult } from './readiness';
-import type { ScheduledActivityRow, WeeklyPlanEntryRow } from './schedule';
-import type { FuelState, ResolvedNutritionTargets } from './nutrition';
-import type { WorkoutPrescriptionV2 } from './training';
-import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut';
-import type { CampRiskAssessment } from '../calculateCampRisk';
+} from './foundational.ts';
+import type { Phase, ReadinessState, WorkoutFocus, WorkoutType } from './foundational.ts';
+import type { ACWRResult, HydrationResult } from './readiness.ts';
+import type { ScheduledActivityRow, WeeklyPlanEntryRow } from './schedule.ts';
+import type { FuelState, ResolvedNutritionTargets } from './nutrition.ts';
+import type { WorkoutPrescriptionV2 } from './training.ts';
+import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut.ts';
+import type { CampRiskAssessment } from '../calculateCampRisk.ts';
 
 export type TrainingSessionRole =
   | 'develop'
@@ -72,6 +73,8 @@ export interface MacrocycleContext {
 
 export interface TrainingDirective {
   sessionRole: TrainingSessionRole;
+  interventionState: InterventionState;
+  isMandatoryRecovery: boolean;
   focus: WorkoutFocus | null;
   workoutType: WorkoutType | null;
   intent: string;
@@ -98,6 +101,7 @@ export interface FuelDirective {
   hydrationBoostOz: number;
   sodiumTargetMg: number | null;
   compliancePriority: 'performance' | 'weight' | 'recovery' | 'consistency';
+  adjustmentFlag: 'drift_correction' | null;
   source: DirectiveSource;
   message: string;
   reasons: string[];
@@ -128,6 +132,7 @@ export interface DecisionTraceItem {
   subsystem: 'objective' | 'training' | 'fuel' | 'hydration' | 'recovery' | 'risk';
   title: string;
   detail: string;
+  humanInterpretation: string | null;
   impact: 'kept' | 'adjusted' | 'restricted' | 'escalated';
 }
 

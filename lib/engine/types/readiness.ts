@@ -1,12 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type {
-  CyclePhase,
-  FightStatus,
   FitnessLevel,
   Phase,
-} from './foundational';
-import type { LoadMetrics } from './misc';
+  FightStatus,
+  CyclePhase,
+} from './foundational.ts';
+import type { LoadMetrics } from './misc.ts';
 
 export interface ACWRInput {
   userId: string;
@@ -116,5 +116,5 @@ export interface FitnessModifiers {
   intensityCap: number;
   recoveryDayFrequency: number;
   roadWorkDistanceMultiplier: number;
-  conditioningRoundsMultiplier: number;
+  conditioning_rounds_multiplier?: number; // Added to match likely usage if missing
 }

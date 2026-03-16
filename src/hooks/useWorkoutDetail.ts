@@ -26,6 +26,9 @@ export function useWorkoutDetail() {
     const [isLoading, setIsLoading] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [swappedId, setSwappedId] = useState<string | null>(null); // shows "Swapped" badge
+    const isMandatoryRecovery = entry?.daily_mission_snapshot?.trainingDirective?.isMandatoryRecovery ?? false;
+    const mandatoryRecoveryReason = entry?.daily_mission_snapshot?.trainingDirective?.reason
+        ?? 'Mandatory recovery is active for this session.';
 
     const load = useCallback(async (entryId: string) => {
         setIsLoading(true);
@@ -57,6 +60,10 @@ export function useWorkoutDetail() {
         substituteExercise: ExerciseLibraryRow,
     ) => {
         if (!prescription || !entry) return;
+        if (isMandatoryRecovery) {
+            Alert.alert('Mandatory recovery', mandatoryRecoveryReason);
+            return;
+        }
 
         // Build the replacement: preserve set prescription, swap the exercise row
         const updateSection = (section: WorkoutSessionSection): WorkoutSessionSection => {
@@ -98,7 +105,7 @@ export function useWorkoutDetail() {
             setPrescription(prescription);
             Alert.alert('Save failed', 'Could not save the exercise swap. Please try again.');
         }
-    }, [prescription, entry]);
+    }, [prescription, entry, isMandatoryRecovery, mandatoryRecoveryReason]);
 
     const regenerate = useCallback(async (userId: string, newFocus?: WorkoutFocus) => {
         if (!entry) return;
@@ -145,6 +152,8 @@ export function useWorkoutDetail() {
         isLoading,
         isRegenerating,
         swappedId,
+        isMandatoryRecovery,
+        mandatoryRecoveryReason,
         load,
         toggleExpanded,
         swapExercise,

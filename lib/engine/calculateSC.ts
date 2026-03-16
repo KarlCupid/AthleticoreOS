@@ -1,4 +1,13 @@
-import {
+import type {
+    ReadinessState,
+    WorkoutFocus,
+    FitnessLevel,
+} from './types/foundational.ts';
+import type {
+    CampConfig,
+    CampPhase,
+} from './types/camp.ts';
+import type {
     ExerciseLibraryRow,
     ExerciseScoringContext,
     GenerateWorkoutInput,
@@ -7,21 +16,20 @@ import {
     WorkoutPrescriptionV2,
     PrescribedExercise,
     PrescribedExerciseV2,
-    WorkoutFocus,
     WorkoutSetLogRow,
     WorkoutComplianceResult,
-    ReadinessState,
     Phase,
     MuscleGroup,
     EquipmentItem,
-    CampPhase,
     PerformanceGoalType,
     PerformanceRiskState,
     TrainingBlockContext,
-} from './types';
-import { getRestTimerDefaults } from './adaptiveWorkout';
-import { assessPerformanceRisk } from './performancePlanner';
-import { buildSectionedWorkoutSession } from './workoutSessionBuilder';
+} from './types/training.ts';
+import { getRestTimerDefaults } from './adaptiveWorkout.ts';
+import { assessPerformanceRisk } from './performancePlanner.ts';
+import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
+import { getGlobalReadinessState } from './getGlobalReadinessState.ts';
+import { suggestOverload } from './calculateOverload.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -143,7 +151,7 @@ export function scoreExerciseForUser(
     exercise: ExerciseLibraryRow,
     context: ExerciseScoringContext,
 ): number {
-    let score = 50; // baseline
+    let score = 50 + (Math.floor(Math.random() * 5) - 2); // baseline 50 +/- 2 points jitter for variety
 
     // 1. Readiness × exercise type alignment
     if (context.readinessState === 'Depleted') {

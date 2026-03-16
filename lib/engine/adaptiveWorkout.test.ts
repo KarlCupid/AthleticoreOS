@@ -7,8 +7,8 @@ import {
   processSetCompletion,
   findSubstituteExercise,
   getRestDuration,
-} from './adaptiveWorkout';
-import type { ExerciseLibraryRow, PrescribedExerciseV2 } from './types';
+} from '.ts';
+import type { ExerciseLibraryRow, PrescribedExerciseV2 } from '.ts';
 
 let passed = 0;
 let failed = 0;

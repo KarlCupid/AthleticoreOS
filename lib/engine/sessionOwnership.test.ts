@@ -3,7 +3,7 @@ import {
   hasGuidedEnginePrescription,
   isActiveGuidedEnginePlanEntry,
   isGuidedEngineActivityType,
-} from './sessionOwnership';
+} from '.ts';
 
 let passed = 0;
 let failed = 0;

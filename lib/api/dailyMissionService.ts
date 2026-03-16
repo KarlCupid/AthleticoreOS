@@ -21,7 +21,7 @@ import {
   type DailyEngineState,
   type WeeklyMissionPlan,
   type WeeklyPlanEntryRow,
-} from '../engine';
+} from '../engine/index.ts';
 import type { WeightCutPlanRow } from '../engine/types';
 import { calculateACWR } from '../engine/calculateACWR';
 import { determineCampPhase, toCampEnginePhase } from '../engine/calculateCamp';

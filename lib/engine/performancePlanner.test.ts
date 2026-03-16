@@ -2,7 +2,7 @@ import {
     assessPerformanceRisk,
     getGoalBasedFocusRotation,
     resolveTrainingBlockContext,
-} from './performancePlanner';
+} from '.ts';
 
 let passed = 0;
 let failed = 0;

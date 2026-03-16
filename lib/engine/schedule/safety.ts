@@ -1,20 +1,33 @@
-﻿import {
-  ScheduledActivityRow,
-  NutritionDayAdjustment,
-  NutritionTargets,
-  OvertrainingWarning,
+import type {
+  ActivityType,
+  ReadinessState,
   FitnessLevel,
   Phase,
   FuelState,
-} from '../types';
+  NutritionDayAdjustment,
+  NutritionTargets,
+  OvertrainingWarning,
+} from '../types/foundational.ts';
+import type {
+  Mission,
+} from '../types/mission.ts';
+import type {
+  GenerateWorkoutInputV2,
+  ScheduledActivityRow,
+} from '../types/training.ts';
+import { formatLocalDate, todayLocalDate } from '../../utils/date.ts';
 import {
+  validateDayLoad,
+  getRecoveryWindow,
   MAX_HIGH_CNS_PER_72H,
   PHASE_HIGH_INTENSITY_CAPS,
   computeWeekLoadMetrics,
   dateFromISO,
   getAcwrPlanningThresholds,
   isHighIntensity,
-} from './loadAndValidation';
+} from './loadAndValidation.ts';
+import { getPersonalizedACWRThresholds } from '../calculateACWR.ts';
+
 export function adjustNutritionForDay(
     baseTargets: NutritionTargets,
     dayActivities: Pick<ScheduledActivityRow, 'activity_type' | 'expected_intensity' | 'estimated_duration_min'>[],
@@ -195,15 +208,6 @@ export function adjustNutritionForDay(
     };
 }
 
-// â”€â”€â”€ detectOvertrainingRisk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-/**
- * Analyzes the week's planned load, ACWR trend, and sleep quality
- * to detect overtraining risks and provide recommendations.
- *
- * @ANTI-WIRING:
- * Pure synchronous function. No database queries. No LLM generation.
- */
 export function detectOvertrainingRisk(
     weekActivities: Pick<ScheduledActivityRow, 'activity_type' | 'expected_intensity' | 'estimated_duration_min' | 'date'>[],
     acwr: number,
@@ -219,10 +223,8 @@ export function detectOvertrainingRisk(
     const totalWeeklyLoad = weeklyMetrics.totalWeeklyLoad;
     const thresholds = getAcwrPlanningThresholds(fitnessLevel, phase, isOnActiveCut, weeklyMetrics);
 
-    // 1. Count high-intensity sessions
     const highIntensitySessions = weekActivities.filter((a) => isHighIntensity(a.expected_intensity));
 
-    // 2. ACWR check using personalized thresholds
     const dangerThreshold = thresholds.redline;
     const cautionThreshold = thresholds.caution;
 
@@ -250,7 +252,6 @@ export function detectOvertrainingRisk(
         });
     }
 
-    // 3. Phase-specific weekly high-intensity cap
     const phaseCap = PHASE_HIGH_INTENSITY_CAPS[phase] ?? 4;
     const highCap = isOnActiveCut ? Math.max(2, phaseCap - 1) : phaseCap;
     if (highIntensitySessions.length > highCap) {
@@ -262,7 +263,6 @@ export function detectOvertrainingRisk(
         });
     }
 
-    // 4. Sleep check
     if (sleepTrendAvg > 0 && sleepTrendAvg < 3.0) {
         warnings.push({
             severity: 'danger',
@@ -272,7 +272,6 @@ export function detectOvertrainingRisk(
         });
     }
 
-    // 5. Load cap check (lower during active cut)
     const loadCap = isOnActiveCut ? 4000 : 5000;
     if (totalWeeklyLoad > loadCap) {
         warnings.push({
@@ -285,7 +284,6 @@ export function detectOvertrainingRisk(
         });
     }
 
-    // 6. Monotony and strain checks
     const monotonyCaution = isOnActiveCut ? 1.7 : 1.9;
     const monotonyDanger = isOnActiveCut ? 2.1 : 2.3;
     if (weeklyMetrics.monotony >= monotonyDanger) {
@@ -338,7 +336,6 @@ export function detectOvertrainingRisk(
         });
     }
 
-    // 7. Check for 72h high-CNS density
     const sortedHigh = highIntensitySessions
         .map((a) => ({ ...a, dateMs: dateFromISO(a.date).getTime() }))
         .sort((a, b) => a.dateMs - b.dateMs);

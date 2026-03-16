@@ -1,5 +1,5 @@
-import type { FitnessLevel, WorkoutFocus } from './foundational';
-import type { ConditioningType, RoadWorkType } from './training';
+import type { FitnessLevel, WorkoutFocus } from './foundational.ts';
+import type { ConditioningType, RoadWorkType } from './training.ts';
 
 export type CampPhase = 'base' | 'build' | 'peak' | 'taper';
 

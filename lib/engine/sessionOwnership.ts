@@ -3,7 +3,7 @@ import type {
   WeeklyPlanEntryRow,
   WorkoutFocus,
   WorkoutPrescriptionV2,
-} from './types';
+} from './types.ts';
 
 const GUIDED_ENGINE_ACTIVITY_TYPES = ['sc', 'conditioning'] as const;
 

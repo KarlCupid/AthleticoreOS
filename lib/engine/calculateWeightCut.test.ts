@@ -6,8 +6,8 @@ import {
   generateCutPlan,
   determineCutPhase,
   computeDailyCutProtocol,
-} from './calculateWeightCut';
-import type { WeightCutPlanRow, NutritionTargets } from './types';
+} from '.ts';
+import type { WeightCutPlanRow, NutritionTargets } from '.ts';
 
 let passed = 0;
 let failed = 0;
@@ -130,6 +130,84 @@ console.log('\n-- calculateWeightCut --');
 
   assert('Fight-week calories are not forcibly clamped to calorie floor', result.prescribedCalories < plan.calorie_floor);
   assert('Calories and macros are internally consistent', Math.abs(macroCalories - result.prescribedCalories) <= 8);
+  assert('Fight-week cut does not trigger drift correction flag', result.interventionReason === null);
+})();
+
+(() => {
+  const plan = makePlan();
+  const result = computeDailyCutProtocol({
+    plan,
+    date: '2026-02-20',
+    currentWeight: 178.5,
+    weightHistory: [
+      { date: '2026-02-10', weight: 177.8 },
+      { date: '2026-02-11', weight: 177.7 },
+      { date: '2026-02-12', weight: 177.6 },
+      { date: '2026-02-13', weight: 177.5 },
+      { date: '2026-02-14', weight: 177.4 },
+      { date: '2026-02-15', weight: 177.3 },
+      { date: '2026-02-16', weight: 177.3 },
+      { date: '2026-02-17', weight: 177.4 },
+      { date: '2026-02-18', weight: 177.6 },
+      { date: '2026-02-19', weight: 177.9 },
+    ],
+    baseNutritionTargets: baseTargets,
+    dayActivities: [],
+    readinessState: 'Caution',
+    acwr: 1.1,
+    biologicalSex: 'male',
+    cycleDay: null,
+    weeklyVelocityLbs: -0.2,
+    lastRefeedDate: null,
+    lastDietBreakDate: null,
+    baselineCognitiveScore: null,
+    latestCognitiveScore: null,
+    urineColor: 3,
+    bodyTempF: 98.6,
+    consecutiveDepletedDays: 0,
+  });
+
+  assert('Off-curve intensified day computes positive weight drift', (result.weightDriftLbs ?? 0) > 0.5);
+  assert('Off-curve intensified day sets intervention reason', result.interventionReason !== null);
+  assert('Drift correction respects calorie floor', result.prescribedCalories >= plan.calorie_floor);
+})();
+
+(() => {
+  const plan = makePlan();
+  const result = computeDailyCutProtocol({
+    plan,
+    date: '2026-01-20',
+    currentWeight: 177.4,
+    weightHistory: [
+      { date: '2026-01-10', weight: 179.0 },
+      { date: '2026-01-11', weight: 178.9 },
+      { date: '2026-01-12', weight: 178.8 },
+      { date: '2026-01-13', weight: 178.7 },
+      { date: '2026-01-14', weight: 178.6 },
+      { date: '2026-01-15', weight: 178.5 },
+      { date: '2026-01-16', weight: 178.4 },
+      { date: '2026-01-17', weight: 178.3 },
+      { date: '2026-01-18', weight: 178.2 },
+      { date: '2026-01-19', weight: 178.1 },
+    ],
+    baseNutritionTargets: baseTargets,
+    dayActivities: [],
+    readinessState: 'Prime',
+    acwr: 1.0,
+    biologicalSex: 'male',
+    cycleDay: null,
+    weeklyVelocityLbs: -1.0,
+    lastRefeedDate: null,
+    lastDietBreakDate: null,
+    baselineCognitiveScore: null,
+    latestCognitiveScore: null,
+    urineColor: 2,
+    bodyTempF: 98.6,
+    consecutiveDepletedDays: 0,
+  });
+
+  assert('On-curve day keeps weight drift within tolerance', Math.abs(result.weightDriftLbs ?? 0) <= 0.5);
+  assert('On-curve day does not set intervention reason', result.interventionReason === null);
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);

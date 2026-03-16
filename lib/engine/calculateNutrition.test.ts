@@ -6,7 +6,7 @@ import {
   calculateNutritionTargets,
   computeMacroAdherence,
   resolveDailyMacros,
-} from './calculateNutrition';
+} from '.ts';
 
 let passed = 0;
 let failed = 0;

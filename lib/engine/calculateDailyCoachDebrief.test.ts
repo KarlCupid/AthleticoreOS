@@ -1,8 +1,8 @@
 import {
   generateDailyCoachDebrief,
   validateDailyCoachDebriefInput,
-} from './calculateDailyCoachDebrief';
-import type { DailyCoachDebriefInput } from './types';
+} from '.ts';
+import type { DailyCoachDebriefInput } from '.ts';
 
 let passed = 0;
 let failed = 0;

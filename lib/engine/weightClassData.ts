@@ -1,4 +1,4 @@
-import { WeightClass, WeightClassSuggestion, WeightClassRiskLevel, CutSport, FightStatus } from './types';
+import { WeightClass, WeightClassSuggestion, WeightClassRiskLevel, CutSport, FightStatus } from './types.ts';
 
 /**
  * @ANTI-WIRING:

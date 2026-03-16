@@ -13,20 +13,19 @@
  * All functions are pure and synchronous. No database queries. No LLM generation.
  */
 
-import {
-    RoadWorkPrescription,
-    RoadWorkType,
-    RoadWorkInterval,
-    HRZone,
-    WeeklyRoadWorkInput,
-    FitnessLevel,
+import type {
+    CampConfig,
     Phase,
     ReadinessState,
-    CampConfig,
-    WeightCutPlanRow,
-} from './types';
-import { getDailyCutIntensityCap } from './calculateWeightCut';
-import { formatLocalDate, todayLocalDate } from '../utils/date';
+    RoadWorkInput,
+    RoadWorkResult,
+    TrainingSessionRow,
+} from './types/foundational.ts';
+import type {
+    RoadWorkDirective,
+} from './types/training.ts';
+import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
+import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -504,5 +503,3 @@ export function getWeeklyRoadWorkPlan(
 
     return result;
 }
-
-

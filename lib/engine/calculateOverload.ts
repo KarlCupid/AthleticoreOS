@@ -15,7 +15,7 @@
  * The caller is responsible for reading/writing to Supabase via a service layer.
  */
 
-import {
+import type {
   FitnessLevel,
   MuscleGroup,
   ProgressionModel,
@@ -25,7 +25,17 @@ import {
   PRDetectionResult,
   DeloadDecisionInput,
   DeloadDecisionResult,
-} from './types';
+  OverloadPrescription,
+  Phase,
+  ReadinessState,
+  TrainingSessionRow,
+} from './types/foundational.ts';
+import type {
+  AutoRegulateSCInput,
+} from './types/training.ts';
+import type {
+  DailyMission,
+} from './types/mission.ts';
 
 // ─── Constants ───────────────────────────────────────────────
 

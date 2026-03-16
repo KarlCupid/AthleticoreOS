@@ -1,11 +1,8 @@
-import {
+import type {
     ActivityType,
-    ScheduledActivityRow,
-    WeeklyComplianceReport,
-    ScheduleGenerationInput,
+    FitnessLevel,
+    MuscleGroup,
     Phase,
-    DailyAdaptationInput,
-    DailyAdaptationResult,
     DailyAdaptationSwap,
     WeekPlanEntry,
     SmartWeekPlanInput,
@@ -18,17 +15,17 @@ import {
     PlanSlot,
     CampPhase,
     RecurringActivityRow,
-} from './types';
-import { getFitnessModifiers } from './calculateFitness';
-import { getWeeklyRoadWorkPlan } from './calculateRoadWork';
-import { getWeeklyConditioningPlan } from './calculateConditioning';
-import { determineCampPhase, getCampTrainingModifiers, toCampEnginePhase } from './calculateCamp';
-import { getDailyCutIntensityCap } from './calculateWeightCut';
-import { shouldDeload } from './calculateOverload';
-import { generateWorkoutV2 } from './calculateSC';
-import { assessPerformanceRisk, getGoalBasedFocusRotation, resolveTrainingBlockContext } from './performancePlanner';
-import { classifyGuidedSessionType } from './sessionOwnership';
-import { todayLocalDate } from '../utils/date';
+} from './types.ts';
+import { getFitnessModifiers } from './calculateFitness.ts';
+import { getWeeklyRoadWorkPlan } from './calculateRoadWork.ts';
+import { getWeeklyConditioningPlan } from './calculateConditioning.ts';
+import { determineCampPhase, getCampTrainingModifiers, toCampEnginePhase } from './calculateCamp.ts';
+import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
+import { shouldDeload } from './calculateOverload.ts';
+import { generateWorkoutV2 } from './calculateSC.ts';
+import { assessPerformanceRisk, getGoalBasedFocusRotation, resolveTrainingBlockContext } from './performancePlanner.ts';
+import { classifyGuidedSessionType } from './sessionOwnership.ts';
+import { todayLocalDate } from '../utils/date.ts';
 
 import {
   ACWR_DANGER,
@@ -41,13 +38,26 @@ import {
   getSessionLoad,
   suggestAlternative,
   validateDayLoad,
-} from './schedule/loadAndValidation';
-import { detectOvertrainingRisk } from './schedule/safety';
+} from './schedule/loadAndValidation.ts';
+import { detectOvertrainingRisk } from './schedule/safety.ts';
 
-export { getRecoveryWindow, suggestAlternative, validateDayLoad } from './schedule/loadAndValidation';
-export { adjustNutritionForDay, detectOvertrainingRisk } from './schedule/safety';
-
+export { getRecoveryWindow, suggestAlternative, validateDayLoad } from './schedule/loadAndValidation.ts';
+export { adjustNutritionForDay, detectOvertrainingRisk } from './schedule/safety.ts';
 // generateWeekPlan ----------------------------------------------------------
+
+function isBoxingActivityType(activityType: string): boolean {
+    return activityType === 'boxing_practice' || activityType === 'sparring';
+}
+
+function scaleBoxingIntensity(intensity: number, input: { isOnActiveCut: boolean; daysOut: number | null }): number {
+    return Math.max(2, Math.round(intensity * getBoxingIntensityScalar(input)));
+}
+
+export function getBoxingIntensityScalar(input: { isOnActiveCut: boolean; daysOut: number | null }): number {
+    const { isOnActiveCut, daysOut } = input;
+    if (isOnActiveCut || (daysOut !== null && daysOut <= 7)) return 0.6;
+    return 1;
+}
 
 /**
  * Given the user's recurring template, readiness, ACWR, phase, fitness level,
@@ -91,6 +101,11 @@ export function generateWeekPlan(
         );
 
         const cutCap = getDailyCutIntensityCap(input.activeCutPlan, date);
+        const daysOut = input.activeCutPlan
+            ? Math.max(0, daysBetween(date, input.activeCutPlan.weigh_in_date))
+            : input.campConfig
+                ? Math.max(0, daysBetween(date, input.campConfig.fightDate))
+                : null;
 
         for (const tmpl of dayTemplates) {
             const exists = existingActivities.some(
@@ -100,6 +115,17 @@ export function generateWeekPlan(
             if (!exists) {
                 let finalIntensity = tmpl.expected_intensity;
                 let engRec = 'Template activity';
+
+                if (isBoxingActivityType(tmpl.activity_type)) {
+                    const taperedIntensity = scaleBoxingIntensity(finalIntensity, {
+                        isOnActiveCut: input.activeCutPlan != null,
+                        daysOut,
+                    });
+                    if (taperedIntensity !== finalIntensity) {
+                        finalIntensity = taperedIntensity;
+                        engRec = 'Boxing taper active - intensity reduced 40% to preserve freshness.';
+                    }
+                }
 
                 if (cutCap != null && finalIntensity > cutCap) {
                     finalIntensity = cutCap;
@@ -911,6 +937,15 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         let offset = dayOfWeek - weekStartDay;
         if (offset < 0) offset += 7;
         const entryDate = addDays(weekStartDate, offset);
+        const daysOut = activeCutPlan
+            ? Math.max(0, daysBetween(entryDate, activeCutPlan.weigh_in_date))
+            : campConfig
+                ? Math.max(0, daysBetween(entryDate, campConfig.fightDate))
+                : null;
+        const boxingScalar = getBoxingIntensityScalar({
+            isOnActiveCut: activeCutPlan != null,
+            daysOut,
+        });
 
         const recurringAnchors = recurringActivities.filter((activity) => {
             if (!activity.is_active) return false;
@@ -920,11 +955,22 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             }
             return activity.recurrence.day_of_month === dateFromISO(entryDate).getDate();
         });
-        const hasSparringAnchor = recurringAnchors.some((activity) => activity.activity_type === 'sparring');
-        const hasCombatAnchor = recurringAnchors.some((activity) =>
+        const scaledRecurringAnchors = recurringAnchors.map((activity) =>
+            isBoxingActivityType(activity.activity_type)
+                ? {
+                    ...activity,
+                    expected_intensity: scaleBoxingIntensity(activity.expected_intensity, {
+                        isOnActiveCut: activeCutPlan != null,
+                        daysOut,
+                    }),
+                }
+                : activity,
+        );
+        const hasSparringAnchor = scaledRecurringAnchors.some((activity) => activity.activity_type === 'sparring');
+        const hasCombatAnchor = scaledRecurringAnchors.some((activity) =>
             activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice',
         );
-        const primaryCombatAnchor = recurringAnchors
+        const primaryCombatAnchor = scaledRecurringAnchors
             .filter((activity) => activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice')
             .sort((a, b) => {
                 const rank = (activityType: string) => activityType === 'sparring' ? 0 : 1;
@@ -932,8 +978,20 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 if (rankDelta !== 0) return rankDelta;
                 return (b.expected_intensity ?? 0) - (a.expected_intensity ?? 0);
             })[0] ?? null;
-        const hasHighAnchor = recurringAnchors.some((activity) => activity.expected_intensity >= 7);
+        const hasHighAnchor = scaledRecurringAnchors.some((activity) => activity.expected_intensity >= 7);
         const allowDoubleOnDay = config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek);
+        const pmSessionBaseIntensity = isDeloadWeek ? 4 : 6;
+        const pmSessionIntensity = isBoxingActivityType(config.pm_session_type)
+            ? scaleBoxingIntensity(pmSessionBaseIntensity, {
+                isOnActiveCut: activeCutPlan != null,
+                daysOut,
+            })
+            : pmSessionBaseIntensity;
+        const pmSessionNote = boxingScalar < 1 && isBoxingActivityType(config.pm_session_type)
+            ? 'Boxing taper active - PM session intensity reduced 40%.'
+            : isDeloadWeek
+                ? 'Deload â€” light PM session.'
+                : 'PM session.';
         const primaryCombatAnchorStart = parseTimeToMinutes(primaryCombatAnchor?.start_time ?? null);
         const primaryCombatAnchorEnd = primaryCombatAnchorStart != null && primaryCombatAnchor
             ? primaryCombatAnchorStart + primaryCombatAnchor.estimated_duration_min
@@ -988,7 +1046,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                     session_type: config.pm_session_type,
                     focus: null,
                     estimated_duration_min: 60,
-                    target_intensity: isDeloadWeek ? 4 : 6,
+                    target_intensity: pmSessionIntensity,
                     status: 'planned',
                     rescheduled_to: null,
                     workout_log_id: null,
@@ -1060,6 +1118,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
 
         // Build engine notes
         const notes: string[] = [];
+        if (boxingScalar < 1 && hasCombatAnchor) notes.push('Boxing taper active â€” combat intensity reduced 40%.');
         if (isDeloadWeek) notes.push('Deload week — reduced volume and intensity.');
         if (isSparringDay) notes.push('Sparring day — activation-only S&C.');
         if (hasCombatAnchor) {
@@ -1091,7 +1150,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         const hypotheticalSessionType = classifyGuidedSessionType({ focus });
         const dayLoadValidation: any = hasWindowCapacity && duration >= MIN_GUIDED_DURATION_MIN
             ? validateDayLoad([
-                ...recurringAnchors.map((activity) => ({
+                ...scaledRecurringAnchors.map((activity) => ({
                     activity_type: activity.activity_type,
                     expected_intensity: activity.expected_intensity,
                     estimated_duration_min: activity.estimated_duration_min,
@@ -1188,7 +1247,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 session_type: config.pm_session_type,
                 focus: null,
                 estimated_duration_min: 60,
-                target_intensity: isDeloadWeek ? 4 : 6,
+                    target_intensity: pmSessionIntensity,
                 status: 'planned',
                 rescheduled_to: null,
                 workout_log_id: null,
@@ -1217,6 +1276,25 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         }
     } else {
         message = `${guidedEntries.length}-day guided split (${scheduledDayNames}).`;
+    }
+
+    for (const entry of entries) {
+        if (entry.slot !== 'pm' || !isBoxingActivityType(entry.session_type)) continue;
+        const entryDaysOut = activeCutPlan
+            ? Math.max(0, daysBetween(entry.date, activeCutPlan.weigh_in_date))
+            : null;
+        const taperActive = getBoxingIntensityScalar({
+            isOnActiveCut: activeCutPlan != null,
+            daysOut: entryDaysOut,
+        }) < 1;
+
+        if (taperActive) {
+            entry.engine_notes = 'Boxing taper active - PM session intensity reduced 40%.';
+        } else if (isDeloadWeek) {
+            entry.engine_notes = 'Deload - light PM session.';
+        } else if (entry.engine_notes == null) {
+            entry.engine_notes = 'PM session.';
+        }
     }
 
     return {

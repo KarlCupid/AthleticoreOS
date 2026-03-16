@@ -11,6 +11,8 @@ export type FightStatus = 'amateur' | 'pro';
 
 export type ReadinessState = 'Prime' | 'Caution' | 'Depleted';
 
+export type InterventionState = 'none' | 'soft' | 'hard';
+
 export type CyclePhase =
   | 'menstrual'
   | 'follicular'

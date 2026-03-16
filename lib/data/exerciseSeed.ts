@@ -1,4 +1,4 @@
-import { ExerciseLibraryRow } from '../engine/types';
+import type { ExerciseLibraryRow } from '../engine/types/training.ts';
 
 /**
  * Pre-seeded exercise library (100+ exercises).

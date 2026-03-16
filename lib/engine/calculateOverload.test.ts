@@ -7,8 +7,8 @@ import {
   suggestOverload,
   shouldDeload,
   selectProgressionModel,
-} from './calculateOverload';
-import type { ExerciseHistoryEntry } from './types';
+} from '.ts';
+import type { ExerciseHistoryEntry } from '.ts';
 
 let passed = 0;
 let failed = 0;

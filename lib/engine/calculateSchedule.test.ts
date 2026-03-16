@@ -8,17 +8,18 @@ import {
     detectOvertrainingRisk,
     generateWeekPlan,
     generateSmartWeekPlan,
+    getBoxingIntensityScalar,
     calculateWeeklyCompliance,
     getTrainingStreak,
-} from './calculateSchedule';
+} from '.ts';
 import type {
     NutritionTargets,
     RecurringActivityRow,
     WeeklyTargetsRow,
     ExerciseLibraryRow,
     WeeklyPlanConfigRow,
-} from './types';
-import { formatLocalDate, todayLocalDate } from '../utils/date';
+} from '.ts';
+import { formatLocalDate, todayLocalDate } from '.ts';
 
 // ─── Test Runner ───────────────────────────────────────────────
 
@@ -336,6 +337,31 @@ test('Engine avoids placing SC on sparring day', () => {
     }
 });
 
+test('Boxing intensity scalar tapers active-cut and late-fight weeks', () => {
+    expect(getBoxingIntensityScalar({ isOnActiveCut: true, daysOut: 10 })).toBe(0.6);
+    expect(getBoxingIntensityScalar({ isOnActiveCut: false, daysOut: 7 })).toBe(0.6);
+    expect(getBoxingIntensityScalar({ isOnActiveCut: false, daysOut: 21 })).toBe(1);
+});
+
+test('Active cut reduces boxing template intensity by 40%', () => {
+    const plan = generateWeekPlan({
+        readinessState: 'Prime',
+        phase: 'fight-camp',
+        acwr: 1.0,
+        recurringActivities: mockTemplate,
+        existingActivities: [],
+        exerciseLibrary: [],
+        weeklyTargets: mockTargets,
+        sleepTrendAvg: 4.0,
+        weekStartDate: '2026-01-05',
+        activeCutPlan: { weigh_in_date: '2026-01-12' } as any,
+    });
+    const sparring = plan.find(a => a.activity_type === 'sparring');
+    const pads = plan.find(a => a.activity_type === 'boxing_practice');
+    expect(sparring?.expected_intensity).toBe(4);
+    expect(pads?.expected_intensity).toBe(4);
+});
+
 test('Smart plan keeps guided slots on boxing-anchor days without two-a-day opt-in', () => {
     const boxingAnchors: RecurringActivityRow[] = [1, 3, 5].map((day, index) => ({
         id: `bp-${index}`,
@@ -428,6 +454,38 @@ test('Smart plan skips guided slot when fixed combat session leaves no contiguou
     expect(guided.length).toBe(0);
     expect(combat.length).toBe(3);
     expect(combat.every((entry) => (entry.engine_notes ?? '').includes('no remaining contiguous availability window'))).toBeTruthy();
+});
+
+test('Smart plan tapers PM boxing sessions during active cut', () => {
+    const result = generateSmartWeekPlan({
+        config: {
+            ...smartPlanConfig,
+            allow_two_a_days: true,
+            two_a_day_days: [1, 3, 5],
+        },
+        readinessState: 'Prime',
+        phase: 'fight-camp',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'conditioning',
+        exerciseLibrary: smartPlanLibrary,
+        recentExerciseIds: [],
+        recentMuscleVolume: {
+            chest: 0, back: 0, shoulders: 0, quads: 0, hamstrings: 0,
+            glutes: 0, arms: 0, core: 0, full_body: 0, neck: 0, calves: 0,
+        },
+        campConfig: null,
+        activeCutPlan: { weigh_in_date: '2026-03-21' } as any,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-16',
+        recurringActivities: [],
+    });
+
+    const pmBoxingSessions = result.entries.filter((entry) => entry.slot === 'pm' && entry.session_type === 'boxing_practice');
+    expect(pmBoxingSessions.length).toBeGreaterThan(0);
+    expect(pmBoxingSessions.every((entry) => entry.target_intensity === 4)).toBeTruthy();
+    expect(pmBoxingSessions.some((entry) => (entry.engine_notes ?? '').includes('Boxing taper active'))).toBeTruthy();
 });
 
 // ─── calculateWeeklyCompliance ─────────────────────────────────

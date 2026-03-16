@@ -10,8 +10,8 @@ import {
     getCampTrainingModifiers,
     getCampWeekProfile,
     toCampEnginePhase,
-} from './calculateCamp';
-import type { CampPlanInput, CampConfig } from './types';
+} from '.ts';
+import type { CampPlanInput, CampConfig } from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

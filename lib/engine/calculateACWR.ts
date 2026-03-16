@@ -1,4 +1,4 @@
-import {
+import type {
   ACWRInput,
   ACWRResult,
   ACWRThresholds,
@@ -6,7 +6,7 @@ import {
   LoadMetrics,
   Phase,
   TrainingSessionRow,
-} from './types';
+} from './types.ts';
 
 function formatLocalISO(date: Date): string {
   const y = date.getFullYear();

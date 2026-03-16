@@ -12,7 +12,7 @@
  * All functions are pure and synchronous. No database queries. No LLM generation.
  */
 
-import {
+import type {
     ConditioningPrescription,
     ConditioningType,
     ConditioningExercise,
@@ -20,11 +20,17 @@ import {
     FitnessLevel,
     Phase,
     ReadinessState,
+    ConditioningInput,
+    ConditioningResult,
+    TrainingSessionRow,
     CampConfig,
     WeightCutPlanRow,
-} from './types';
-import { getDailyCutIntensityCap } from './calculateWeightCut';
-import { formatLocalDate, todayLocalDate } from '../utils/date';
+} from './types/foundational.ts';
+import type {
+    AutoregulationDirective,
+} from './types/training.ts';
+import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
+import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -402,6 +408,3 @@ export function getWeeklyConditioningPlan(
 
     return result;
 }
-
-
-

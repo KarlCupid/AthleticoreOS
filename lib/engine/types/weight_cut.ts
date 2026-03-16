@@ -1,6 +1,6 @@
-import type { FightStatus, Phase, ReadinessState } from './foundational';
-import type { NutritionTargets } from './nutrition';
-import type { ActivityType } from './schedule';
+import type { FightStatus, Phase, ReadinessState } from './foundational.ts';
+import type { NutritionTargets } from './nutrition.ts';
+import type { ActivityType } from './schedule.ts';
 
 export type WeightCutStatus =
   | 'on_track'
@@ -148,6 +148,7 @@ export interface DailyCutProtocolInput {
 export interface DailyCutProtocolResult {
   cutPhase: CutPhase;
   daysToWeighIn: number;
+  weightDriftLbs: number | null;
   prescribedCalories: number;
   prescribedProtein: number;
   prescribedCarbs: number;
@@ -160,6 +161,7 @@ export interface DailyCutProtocolResult {
   fiberInstruction: string;
   trainingIntensityCap: number | null;
   trainingRecommendation: string;
+  interventionReason: string | null;
   morningProtocol: string;
   afternoonProtocol: string;
   eveningProtocol: string;
@@ -317,6 +319,7 @@ export interface DailyCutProtocolRow {
   date: string;
   cut_phase: CutPhase;
   days_to_weigh_in: number;
+  weight_drift_lbs: number | null;
   prescribed_calories: number;
   prescribed_protein: number;
   prescribed_carbs: number;
@@ -329,6 +332,7 @@ export interface DailyCutProtocolRow {
   fiber_instruction: string | null;
   training_intensity_cap: number | null;
   training_recommendation: string | null;
+  intervention_reason: string | null;
   safety_flags: CutSafetyFlag[];
   morning_protocol: string | null;
   afternoon_protocol: string | null;

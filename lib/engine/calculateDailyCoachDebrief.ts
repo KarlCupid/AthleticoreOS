@@ -6,7 +6,7 @@ import type {
   DailyReadinessBand,
   MacroAdherenceStatus,
   PrimaryLimiter,
-} from './types';
+} from './types.ts';
 
 const PRIMARY_LIMITERS: PrimaryLimiter[] = [
   'sleep',

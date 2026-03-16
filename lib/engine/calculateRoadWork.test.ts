@@ -9,8 +9,8 @@ import {
     getRoadWorkType,
     calculateRunningLoad,
     getWeeklyRoadWorkPlan,
-} from './calculateRoadWork';
-import type { WeeklyRoadWorkInput, RecurringActivityRow, ScheduledActivityRow } from './types';
+} from '.ts';
+import type { WeeklyRoadWorkInput, RecurringActivityRow, ScheduledActivityRow } from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

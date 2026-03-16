@@ -1,4 +1,4 @@
-import type { AthleteGoalMode, WeightCutInfluenceState, WeighInTiming } from './types';
+import type { AthleteGoalMode, WeightCutInfluenceState, WeighInTiming } from '.ts';
 
 export type CampRiskLevel = 'low' | 'moderate' | 'high' | 'critical';
 

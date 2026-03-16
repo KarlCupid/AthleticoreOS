@@ -4,14 +4,14 @@
  * Run with:  npx tsx lib/engine/adaptive.test.ts
  */
 
-import { handleTimelineShift } from './adaptive';
-import { autoRegulateSC } from './adaptive';
+import { handleTimelineShift } from '.ts';
+import { autoRegulateSC } from '.ts';
 import type {
     DailyTimelineRow,
     MacroLedgerRow,
     ExerciseLibraryRow,
     ExerciseType
-} from './types';
+} from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

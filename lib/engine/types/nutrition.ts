@@ -1,4 +1,4 @@
-import type { Phase } from './foundational';
+import type { Phase } from './foundational.ts';
 
 export type NutritionGoal = 'maintain' | 'cut' | 'bulk';
 

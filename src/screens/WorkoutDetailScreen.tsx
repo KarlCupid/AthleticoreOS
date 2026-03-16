@@ -93,6 +93,8 @@ export function WorkoutDetailScreen() {
         isLoading,
         isRegenerating,
         swappedId,
+        isMandatoryRecovery,
+        mandatoryRecoveryReason,
         load,
         toggleExpanded,
         swapExercise,
@@ -300,6 +302,8 @@ export function WorkoutDetailScreen() {
                         expandedExerciseId={expandedExerciseId}
                         swappedId={swappedId}
                         exerciseLibrary={exerciseLibrary}
+                        isMandatoryRecovery={isMandatoryRecovery}
+                        mandatoryRecoveryReason={mandatoryRecoveryReason}
                         onToggleExpanded={toggleExpanded}
                         onSwapExercise={(exerciseId, sub) => {
                             const resolved = exerciseLibrary.find(e => e.id === sub.exerciseId);
@@ -324,6 +328,8 @@ export function WorkoutDetailScreen() {
                                 isExpanded={expandedExerciseId === ex.exercise.id}
                                 isSwapped={swappedId === ex.exercise.id}
                                 exerciseLibrary={exerciseLibrary}
+                                isMandatoryRecovery={isMandatoryRecovery}
+                                mandatoryRecoveryReason={mandatoryRecoveryReason}
                                 onToggle={() => toggleExpanded(ex.exercise.id)}
                                 onSwap={(sub) => {
                                     const resolved = exerciseLibrary.find(e => e.id === sub.exerciseId);
@@ -383,12 +389,24 @@ interface SectionBlockProps {
     expandedExerciseId: string | null;
     swappedId: string | null;
     exerciseLibrary: ExerciseLibraryRow[];
+    isMandatoryRecovery: boolean;
+    mandatoryRecoveryReason: string;
     onToggleExpanded: (id: string) => void;
     onSwapExercise: (exerciseId: string, sub: ExerciseSubstitution) => void;
     delay: number;
 }
 
-function SectionBlock({ section, expandedExerciseId, swappedId, exerciseLibrary, onToggleExpanded, onSwapExercise, delay }: SectionBlockProps) {
+function SectionBlock({
+    section,
+    expandedExerciseId,
+    swappedId,
+    exerciseLibrary,
+    isMandatoryRecovery,
+    mandatoryRecoveryReason,
+    onToggleExpanded,
+    onSwapExercise,
+    delay,
+}: SectionBlockProps) {
     const icon = SECTION_ICONS[section.template] ?? '•';
 
     return (
@@ -413,6 +431,8 @@ function SectionBlock({ section, expandedExerciseId, swappedId, exerciseLibrary,
                     isExpanded={expandedExerciseId === ex.exercise.id}
                     isSwapped={swappedId === ex.exercise.id}
                     exerciseLibrary={exerciseLibrary}
+                    isMandatoryRecovery={isMandatoryRecovery}
+                    mandatoryRecoveryReason={mandatoryRecoveryReason}
                     onToggle={() => onToggleExpanded(ex.exercise.id)}
                     onSwap={(sub) => onSwapExercise(ex.exercise.id, sub)}
                 />
@@ -428,11 +448,21 @@ interface ExerciseRowProps {
     isExpanded: boolean;
     isSwapped: boolean;
     exerciseLibrary: ExerciseLibraryRow[];
+    isMandatoryRecovery: boolean;
+    mandatoryRecoveryReason: string;
     onToggle: () => void;
     onSwap: (sub: ExerciseSubstitution) => void;
 }
 
-function ExerciseRow({ exercisePrescription: ep, isExpanded, isSwapped, onToggle, onSwap }: ExerciseRowProps) {
+function ExerciseRow({
+    exercisePrescription: ep,
+    isExpanded,
+    isSwapped,
+    isMandatoryRecovery,
+    mandatoryRecoveryReason,
+    onToggle,
+    onSwap,
+}: ExerciseRowProps) {
     const { exercise, setScheme, coachingCues, substitutions, restSeconds } = ep;
     const hasDetails = (coachingCues && coachingCues.length > 0) || (substitutions && substitutions.length > 0);
     const restMin = restSeconds ? Math.floor(restSeconds / 60) : null;
@@ -484,21 +514,27 @@ function ExerciseRow({ exercisePrescription: ep, isExpanded, isSwapped, onToggle
                     )}
                     {substitutions && substitutions.length > 0 && (
                         <View style={styles.subsBlock}>
-                            <Text style={styles.detailLabel}>SUBSTITUTES</Text>
-                            <View style={styles.subChipsRow}>
-                                {substitutions.slice(0, 3).map(sub => (
-                                    <TouchableOpacity
-                                        key={sub.exerciseId}
-                                        style={styles.subChip}
-                                        onPress={() => onSwap(sub)}
-                                    >
-                                        <Text style={styles.subChipName} numberOfLines={1}>{sub.exerciseName}</Text>
-                                        {sub.rationale ? (
-                                            <Text style={styles.subChipRationale} numberOfLines={1}>{sub.rationale}</Text>
-                                        ) : null}
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                            <Text style={styles.detailLabel}>{isMandatoryRecovery ? 'SUBSTITUTES LOCKED' : 'SUBSTITUTES'}</Text>
+                            {isMandatoryRecovery ? (
+                                <View style={styles.lockoutCard}>
+                                    <Text style={styles.lockoutText}>{mandatoryRecoveryReason}</Text>
+                                </View>
+                            ) : (
+                                <View style={styles.subChipsRow}>
+                                    {substitutions.slice(0, 3).map(sub => (
+                                        <TouchableOpacity
+                                            key={sub.exerciseId}
+                                            style={styles.subChip}
+                                            onPress={() => onSwap(sub)}
+                                        >
+                                            <Text style={styles.subChipName} numberOfLines={1}>{sub.exerciseName}</Text>
+                                            {sub.rationale ? (
+                                                <Text style={styles.subChipRationale} numberOfLines={1}>{sub.rationale}</Text>
+                                            ) : null}
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
                         </View>
                     )}
                 </View>
@@ -848,6 +884,20 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.regular,
         color: COLORS.text.tertiary,
         marginTop: 1,
+    },
+    lockoutCard: {
+        backgroundColor: COLORS.surfaceSecondary,
+        borderRadius: RADIUS.md,
+        paddingHorizontal: SPACING.sm,
+        paddingVertical: SPACING.sm,
+        borderWidth: 1,
+        borderColor: COLORS.warning,
+    },
+    lockoutText: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        lineHeight: 18,
     },
 
     // CTA bar

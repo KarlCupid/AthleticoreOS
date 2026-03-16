@@ -6,24 +6,24 @@ import type {
   ReadinessState,
   TimelineStatus,
   WorkoutFocus,
-} from './foundational';
-import type { FuelState, MacroLedgerRow } from './nutrition';
+} from './foundational.ts';
+import type { FuelState, MacroLedgerRow } from './nutrition.ts';
 import type {
   AvailabilityWindow,
   ConstraintTier,
   PerformanceGoalType,
   RecommendationLifecycleStatus,
-} from './fightCampV1';
-import type { CampConfig } from './camp';
+} from './foundational.ts';
+import type { CampConfig } from './camp.ts';
 import type {
   ConditioningPrescription,
   ExerciseLibraryRow,
   PrescribedExercise,
   RoadWorkPrescription,
   WorkoutPrescriptionV2,
-} from './training';
-import type { CutPhase, WeightCutPlanRow } from './weight_cut';
-import type { DailyMission } from './mission';
+} from './training.ts';
+import type { CutPhase, WeightCutPlanRow } from './weight_cut.ts';
+import type { DailyMission } from './mission.ts';
 
 export interface DailyTimelineRow {
   id: string;
@@ -292,7 +292,7 @@ export interface SmartWeekPlanInput {
   campConfig: CampConfig | null;
   activeCutPlan: WeightCutPlanRow | null;
   weeksSinceLastDeload: number;
-  gymProfile: import('./training').GymProfileRow | null;
+  gymProfile: import('./training.ts').GymProfileRow | null;
   weekStartDate: string;
   recurringActivities?: RecurringActivityRow[];
 }

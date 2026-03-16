@@ -16,14 +16,14 @@
  * All functions are pure and synchronous. No database queries. No LLM generation.
  */
 
-import {
+import type {
     CampConfig,
-    CampPhase,
-    CampWeekProfile,
-    CampPlanInput,
-    CampTrainingModifiers,
-    FitnessLevel,
     Phase,
+    ReadinessState,
+    WeightsInput,
+    WeightsResult,
+    TrainingSessionRow,
+    FitnessLevel,
     RoadWorkType,
     ConditioningType,
     WorkoutFocus,
@@ -31,8 +31,8 @@ import {
     CampSCModifier,
     ExerciseLibraryRow,
     PrescribedExercise,
-} from './types';
-import { formatLocalDate } from '../utils/date';
+} from './types.ts';
+import { formatLocalDate } from '../utils/date.ts';
 
 // ─── Phase Split Ratios ────────────────────────────────────────
 
@@ -483,4 +483,3 @@ export function getSparringDayGuidance(
         message: phaseMessages[campPhase],
     };
 }
-

@@ -6,6 +6,7 @@ import type {
   DirectiveSource,
   FuelDirective,
   HydrationDirective,
+  InterventionState,
   MissionOverride,
   MissionRiskLevel,
   MissionRiskState,
@@ -16,9 +17,17 @@ import type {
   WeeklyMissionPlan,
   WorkoutFocus,
   WorkoutType,
-} from './types';
+} from './types.ts';
 
 export const DAILY_ENGINE_VERSION = 'daily-engine-v2';
+
+interface InterventionStatus {
+  interventionState: InterventionState;
+  enforcedIntensityCap: number | null;
+  forcedSessionRole: TrainingSessionRole | null;
+  isMandatoryRecovery: boolean;
+  reason: string | null;
+}
 
 function titleize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -75,7 +84,7 @@ function getRoleIntent(role: TrainingSessionRole, objective: string, focus: Work
     case 'express':
       return `Express the qualities you have built and keep ${focusLabel.toLowerCase()} sharp.`;
     case 'taper_sharpen':
-      return `Stay sharp, stay fresh, and avoid carrying fatigue into the next key session.`;
+      return 'Stay sharp, stay fresh, and avoid carrying fatigue into the next key session.';
     case 'develop':
     default:
       return `Build the qualities that move ${objective.toLowerCase()} forward.`;
@@ -99,6 +108,67 @@ function getKeyQualities(role: TrainingSessionRole, focus: WorkoutFocus | null):
     default:
       return [...base, 'Progressive load', 'Consistency'];
   }
+}
+
+function checkInterventionStatus(
+  riskState: MissionRiskState,
+  plannedIntensityCap: number | null,
+): InterventionStatus {
+  if (riskState.score >= 75) {
+    return {
+      interventionState: 'hard',
+      enforcedIntensityCap: plannedIntensityCap === null ? 2 : Math.min(plannedIntensityCap, 2),
+      forcedSessionRole: 'recover',
+      isMandatoryRecovery: true,
+      reason: 'Critical risk is active. Recovery is mandatory today to stop the fatigue spiral.',
+    };
+  }
+
+  if (riskState.score >= 55) {
+    return {
+      interventionState: 'soft',
+      enforcedIntensityCap: plannedIntensityCap === null ? 4 : Math.min(plannedIntensityCap, 4),
+      forcedSessionRole: null,
+      isMandatoryRecovery: false,
+      reason: 'Risk is elevated. Output is capped today to protect recovery and keep the block on line.',
+    };
+  }
+
+  return {
+    interventionState: 'none',
+    enforcedIntensityCap: plannedIntensityCap,
+    forcedSessionRole: null,
+    isMandatoryRecovery: false,
+    reason: null,
+  };
+}
+
+function getAcwrInterpretation(status: BuildDailyMissionInput['acwr']['status']): string | null {
+  if (status === 'redline') return 'You are digging a hole. Stop before you break.';
+  if (status === 'caution') return 'Load is running hot. Keep the lid on before this turns into a breakdown.';
+  return null;
+}
+
+function getCutDepletionInterpretation(
+  input: BuildDailyMissionInput,
+  fuelDirective: FuelDirective,
+): string | null {
+  const cutPhase = input.cutProtocol?.cut_phase ?? null;
+  if (cutPhase === 'fight_week_cut' || cutPhase === 'intensified' || fuelDirective.state === 'cut_protect') {
+    return 'Tank is empty. You will feel slow and foggy today.';
+  }
+
+  return null;
+}
+
+function getSodiumRestrictionInterpretation(input: BuildDailyMissionInput): string | null {
+  const sodiumTargetMg = input.cutProtocol?.sodium_target_mg ?? null;
+  const sodiumInstruction = input.cutProtocol?.sodium_instruction?.toLowerCase() ?? '';
+  if ((sodiumTargetMg != null && sodiumTargetMg <= 500) || sodiumInstruction.includes('zero') || sodiumInstruction.includes('minimal')) {
+    return 'Stay away from salt. Water dump starts now.';
+  }
+
+  return null;
 }
 
 function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
@@ -173,29 +243,36 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
   const durationMin = input.weeklyPlanEntry?.estimated_duration_min
     ?? input.workoutPrescription?.estimatedDurationMin
     ?? null;
-  const intensityCap = input.cutProtocol?.training_intensity_cap
+  let intensityCap = input.cutProtocol?.training_intensity_cap
     ?? input.weeklyPlanEntry?.target_intensity
     ?? null;
+  const intervention = checkInterventionStatus(riskState, intensityCap);
+  intensityCap = intervention.enforcedIntensityCap;
+
   const hasSparring = input.scheduledActivities.some((activity) => activity.activity_type === 'sparring');
-  const sessionRole = inferSessionRole({
+  const inferredRole = inferSessionRole({
     campPhase: input.macrocycleContext.campPhase,
     focus,
     intensityCap,
     isOnActiveCut: input.macrocycleContext.isOnActiveCut,
     hasSparring,
   });
+  const sessionRole = intervention.forcedSessionRole ?? inferredRole;
   const source: DirectiveSource = input.cutProtocol ? 'weight_cut_protocol'
     : input.weeklyPlanEntry?.prescription_snapshot ? 'weekly_plan_snapshot'
       : 'daily_engine';
 
   return {
     sessionRole,
+    interventionState: intervention.interventionState,
+    isMandatoryRecovery: intervention.isMandatoryRecovery,
     focus,
     workoutType,
     intent: getRoleIntent(sessionRole, input.macrocycleContext.performanceObjective.primaryOutcome, focus),
-    reason: riskState.level === 'low'
-      ? `Today supports ${input.macrocycleContext.performanceObjective.primaryOutcome.toLowerCase()} with a clear execution window.`
-      : `Today is being controlled to respect ${riskState.drivers[0].toLowerCase()}`,
+    reason: intervention.reason
+      ?? (riskState.level === 'low'
+        ? `Today supports ${input.macrocycleContext.performanceObjective.primaryOutcome.toLowerCase()} with a clear execution window.`
+        : `Today is being controlled to respect ${riskState.drivers[0].toLowerCase()}`),
     intensityCap,
     durationMin,
     volumeTarget: summarizeVolume(durationMin, input.workoutPrescription?.exercises.length ?? 0),
@@ -262,20 +339,22 @@ function buildFuelDirective(
       ? 'weekly_plan_snapshot'
       : 'daily_engine';
   const message = input.cutProtocol
-    ? `Cut protocol is leading intake today. Hit the exact macro and hydration targets to keep weight on line.`
+    ? 'Cut protocol is leading intake today. Hit the exact macro and hydration targets to keep weight on line.'
     : compliancePriority === 'performance'
-      ? `Fuel the key work first. Front-load carbs before training and keep recovery intake tight after the session.`
+      ? 'Fuel the key work first. Front-load carbs before training and keep recovery intake tight after the session.'
       : compliancePriority === 'recovery'
-        ? `Keep intake steady to support recovery and avoid digging fatigue deeper.`
-        : `Stay on plan and treat nutrition consistency as part of the block.`;
+        ? 'Keep intake steady to support recovery and avoid digging fatigue deeper.'
+        : 'Stay on plan and treat nutrition consistency as part of the block.';
+  const weightDriftLbs = (input.cutProtocol as any)?.weightDriftLbs ?? input.cutProtocol?.weight_drift_lbs ?? null;
+  const hasDriftCorrection = weightDriftLbs != null && weightDriftLbs > 0.5;
 
   return {
     state: fuelState,
     sessionDemandScore: demandScore,
-    calories: input.nutritionTargets.adjustedCalories,
-    protein: input.nutritionTargets.protein,
-    carbs: input.nutritionTargets.carbs,
-    fat: input.nutritionTargets.fat,
+    calories: (input.cutProtocol as any)?.prescribedCalories ?? (input.cutProtocol as any)?.prescribed_calories ?? input.nutritionTargets.adjustedCalories,
+    protein: (input.cutProtocol as any)?.prescribedProtein ?? (input.cutProtocol as any)?.prescribed_protein ?? input.nutritionTargets.protein,
+    carbs: (input.cutProtocol as any)?.prescribedCarbs ?? (input.cutProtocol as any)?.prescribed_carbs ?? input.nutritionTargets.carbs,
+    fat: (input.cutProtocol as any)?.prescribedFat ?? (input.cutProtocol as any)?.prescribed_fat ?? input.nutritionTargets.fat,
     preSessionCarbsG,
     intraSessionCarbsG,
     postSessionProteinG,
@@ -283,8 +362,11 @@ function buildFuelDirective(
     hydrationBoostOz: input.nutritionTargets.hydrationBoostOz,
     sodiumTargetMg: input.cutProtocol?.sodium_target_mg ?? null,
     compliancePriority,
+    adjustmentFlag: hasDriftCorrection ? 'drift_correction' : null,
     source,
-    message,
+    message: hasDriftCorrection
+      ? `${message} Weight drift is above curve, so calories were tightened to pull the cut back on line.`
+      : message,
     reasons: input.nutritionTargets.reasonLines,
   };
 }
@@ -327,11 +409,16 @@ function buildRecoveryDirective(
   if (trainingDirective.sessionRole === 'recover' || trainingDirective.sessionRole === 'cut_protect') {
     modalities.push('Mobility reset', 'Early bedtime');
   }
+  if (trainingDirective.isMandatoryRecovery) {
+    restrictions.push('Do not swap in harder work or add extra volume.');
+  }
 
   return {
     emphasis: riskState.level === 'low'
       ? 'Recover well so tomorrow can stay productive.'
-      : 'Recovery is part of today’s workload. Treat it as mandatory.',
+      : trainingDirective.isMandatoryRecovery
+        ? 'Recovery is mandatory today. Do not negotiate with the redline.'
+        : 'Recovery is part of today\'s workload. Treat it as mandatory.',
     sleepTargetHours: riskState.level === 'low' ? 8 : 9,
     modalities,
     restrictions,
@@ -364,11 +451,14 @@ function buildDecisionTrace(
   trainingDirective: TrainingDirective,
   fuelDirective: FuelDirective,
 ): DecisionTraceItem[] {
+  const depletionInterpretation = getCutDepletionInterpretation(input, fuelDirective);
+  const sodiumRestrictionInterpretation = getSodiumRestrictionInterpretation(input);
   const trace: DecisionTraceItem[] = [
     {
       subsystem: 'objective',
       title: 'Objective anchor',
       detail: input.macrocycleContext.performanceObjective.primaryOutcome,
+      humanInterpretation: null,
       impact: 'kept',
     },
   ];
@@ -378,22 +468,37 @@ function buildDecisionTrace(
       subsystem: 'training',
       title: 'Camp phase routing',
       detail: `${titleize(input.macrocycleContext.campPhase)} phase shifted today toward ${trainingDirective.sessionRole.replace(/_/g, ' ')} work.`,
+      humanInterpretation: trainingDirective.isMandatoryRecovery
+        ? 'The engine has taken the keys for today. Recovery comes first.'
+        : null,
       impact: input.macrocycleContext.campPhase === 'taper' ? 'restricted' : 'adjusted',
     });
   }
 
   if (input.cutProtocol) {
+    const phaseName = (input.cutProtocol as any).cut_phase || (input.cutProtocol as any).cutPhase || 'active_cut';
     trace.push({
       subsystem: 'fuel',
       title: 'Cut protocol authority',
-      detail: `Macros, hydration, and training cap are being overridden by the active cut protocol for ${titleize(input.cutProtocol.cut_phase)}.`,
+      detail: `Macros, hydration, and training cap are being overridden by the active cut protocol for ${titleize(phaseName)}.`,
+      humanInterpretation: depletionInterpretation,
       impact: 'restricted',
     });
+    if (sodiumRestrictionInterpretation) {
+      trace.push({
+        subsystem: 'hydration',
+        title: 'Sodium restriction',
+        detail: input.cutProtocol?.sodium_instruction ?? 'Sodium is being restricted to accelerate the water cut.',
+        humanInterpretation: sodiumRestrictionInterpretation,
+        impact: 'restricted',
+      });
+    }
   } else {
     trace.push({
       subsystem: 'fuel',
       title: 'Fuel timing match',
-      detail: `${fuelDirective.preSessionCarbsG}g pre-session carbs and ${fuelDirective.postSessionProteinG}g post-session protein are matched to today’s training demand.`,
+      detail: `${fuelDirective.preSessionCarbsG}g pre-session carbs and ${fuelDirective.postSessionProteinG}g post-session protein are matched to today's training demand.`,
+      humanInterpretation: depletionInterpretation,
       impact: 'adjusted',
     });
   }
@@ -402,7 +507,8 @@ function buildDecisionTrace(
     trace.push({
       subsystem: 'risk',
       title: 'Risk control',
-      detail: riskState.drivers[0],
+      detail: trainingDirective.reason,
+      humanInterpretation: getAcwrInterpretation(input.acwr.status),
       impact: riskState.level === 'critical' ? 'escalated' : 'restricted',
     });
   }
@@ -412,6 +518,7 @@ function buildDecisionTrace(
       subsystem: 'recovery',
       title: 'Travel adjustment',
       detail: 'Recovery and hydration are being emphasized because travel is active.',
+      humanInterpretation: null,
       impact: 'adjusted',
     });
   }
@@ -421,6 +528,8 @@ function buildDecisionTrace(
 
 function buildHeadline(trainingDirective: TrainingDirective, riskState: MissionRiskState): string {
   const roleLabel = titleize(trainingDirective.sessionRole);
+  if (trainingDirective.interventionState === 'hard') return `${roleLabel}: mandatory recovery lock`;
+  if (trainingDirective.interventionState === 'soft') return `${roleLabel}: execute under intervention cap`;
   if (riskState.level === 'critical') return `${roleLabel}: protect freshness and make weight`;
   if (riskState.level === 'high') return `${roleLabel}: execute with tight control`;
   return `${roleLabel}: push the block forward`;
@@ -440,7 +549,7 @@ export function buildDailyMission(input: BuildDailyMissionInput): DailyMission {
     engineVersion: DAILY_ENGINE_VERSION,
     generatedAt: new Date().toISOString(),
     headline: buildHeadline(trainingDirective, riskState),
-    summary: `${trainingDirective.intent} ${fuelDirective.message}`,
+    summary: `${trainingDirective.interventionState === 'none' ? trainingDirective.intent : trainingDirective.reason} ${fuelDirective.message}`,
     objective: input.macrocycleContext.performanceObjective,
     macrocycleContext: input.macrocycleContext,
     trainingDirective,

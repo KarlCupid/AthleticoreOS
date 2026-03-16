@@ -1,17 +1,18 @@
-import {
-  NutritionProfileInput,
-  NutritionTargets,
-  MacroAdherenceResult,
-  ActivityLevel,
-  Phase,
-  NutritionGoal,
-  DailyCutProtocolRow,
-  ActivityType,
-  ResolvedNutritionTargets,
-} from './types';
-import { adjustForBiology } from './adjustForBiology';
-import { adjustNutritionForDay } from './calculateSchedule';
-import { calculateCaloriesFromMacros } from '../utils/nutrition';
+import type {
+    ActivityLevel,
+    BodyWeightState,
+    Gender,
+    NutritionDayAdjustment,
+    NutritionTargets,
+    WeightUnit,
+} from './types/foundational.ts';
+import type {
+    ScheduledActivityRow,
+} from './types/training.ts';
+import { adjustForBiology } from './adjustForBiology.ts';
+import { adjustNutritionForDay } from './schedule/safety.ts';
+import { computeDailyCutProtocol } from './calculateWeightCut.ts';
+import { calculateCaloriesFromMacros } from '../utils/nutrition.ts';
 
 /**
  * @ANTI-WIRING:

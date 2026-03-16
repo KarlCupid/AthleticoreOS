@@ -1,4 +1,4 @@
-import { BiologyInput, BiologyResult, CyclePhase } from './types';
+import type { BiologyInput, BiologyResult, CyclePhase } from './types.ts';
 
 /**
  * @ANTI-WIRING:

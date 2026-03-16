@@ -2,8 +2,8 @@
  * Standalone test script for lib/engine/calculateACWR.ts
  */
 
-import { calculateACWR } from './calculateACWR';
-import type { TrainingSessionRow } from './types';
+import { calculateACWR } from '.ts';
+import type { TrainingSessionRow } from '.ts';
 
 let passed = 0;
 let failed = 0;

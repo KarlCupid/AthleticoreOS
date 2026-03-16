@@ -1,4 +1,4 @@
-import type { CampConfig } from './camp';
+import type { CampConfig } from './camp.ts';
 
 export type AthleteGoalMode = 'fight_camp' | 'build_phase';
 export type BuildPhaseGoalType = 'strength' | 'conditioning' | 'boxing_skill' | 'weight_class_prep';

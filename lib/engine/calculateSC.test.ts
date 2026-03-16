@@ -12,7 +12,7 @@ import {
     calculateVolumeLoad,
     calculateWeeklyVolume,
     getWorkoutCompliance,
-} from './calculateSC';
+} from '.ts';
 import type {
     ExerciseLibraryRow,
     ExerciseScoringContext,
@@ -20,7 +20,7 @@ import type {
     MuscleGroup,
     PerformanceRiskState,
     TrainingBlockContext,
-} from './types';
+} from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

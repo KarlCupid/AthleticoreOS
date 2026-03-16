@@ -1,401 +1,148 @@
+import type {
+  BodyWeightState,
+  ExerciseLibraryRow,
+  WarmupPrescription,
+  Phase,
+  ReadinessState,
+  TrainingSessionRow,
+} from './types/foundational.ts';
+
 /**
- * calculateWarmup.ts
- *
- * Warmup set calculator for guided workout sessions.
- * Generates progressive warmup ramps based on working weight,
- * equipment type, and whether the muscle group is already warm.
- *
- * Functions:
- *   1. generateWarmupSets — creates a warmup ramp for a given exercise
- *
  * @ANTI-WIRING:
- * All functions are pure and synchronous. No database queries. No LLM generation.
+ * Pure logic for generating dynamic warmup protocols.
+ * No database or external service calls.
  */
 
-import {
-    WarmupSet,
-    WarmupInput,
-    WarmupResult,
-    ExerciseType,
-    Equipment,
-} from './types';
+// ─── Warmup Movement Database ─────────────────────────────────
 
-// ─── Constants ───────────────────────────────────────────────
+const MOVEMENT_LIB: Record<string, WarmupMove> = {
+  // GPP / General
+  'jog': { name: 'Light Jog', primary_target: 'full_body', cue: 'Stay light on feet, keep RPE 2-3' },
+  'jumping_jacks': { name: 'Jumping Jacks', primary_target: 'full_body', cue: 'Full range of motion in arms' },
+  'arm_circles': { name: 'Arm Circles', primary_target: 'shoulders', cue: 'Gradually increase circle size' },
+  'leg_swings': { name: 'Leg Swings', primary_target: 'hips', cue: 'Keep torso upright, swing freely' },
 
-/** Minimum barbell weight (empty bar). */
-const BAR_WEIGHT = 45;
+  // Mobility
+  'worlds_greatest': { name: "World's Greatest Stretch", primary_target: 'full_mobility', cue: 'Rotate deep toward front leg' },
+  'cat_cow': { name: 'Cat-Cow', primary_target: 'spine', cue: 'Move with breath' },
+  'pigeon': { name: 'Pigeon Pose', primary_target: 'hips', cue: 'Keep hips square' },
+  '90_90': { name: '90/90 Hip Switches', primary_target: 'hips', cue: 'Keep heels pinned, rotate through groin' },
+  'scap_cars': { name: 'Scapular CARs', primary_target: 'scapula', cue: 'Trace outer box with shoulder blades' },
 
-/** Minimum dumbbell weight. */
-const MIN_DUMBBELL = 5;
+  // Activation
+  'glute_bridge': { name: 'Glute Bridges', primary_target: 'glutes', cue: 'Drive through heels, squeeze at top' },
+  'monster_walk': { name: 'Lateral Monster Walk', primary_target: 'hip_abductors', cue: 'Don\'t let knees cave in' },
+  'plank': { name: 'Forearm Plank', primary_target: 'core', cue: 'Brace core as if about to be punched' },
+  'dead_bug': { name: 'Dead Bug', primary_target: 'core', cue: 'Keep lower back pinned to ground' },
 
-/** Common kettlebell weights (lbs). */
-const KB_WEIGHTS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100];
+  // Potentiation (Striking)
+  'shadow_boxing_flow': { name: 'Shadow Boxing (Flow)', primary_target: 'striking_rhythm', cue: 'Loose limbs, focus on breath' },
+  'shoulder_taps': { name: 'Plank Shoulder Taps', primary_target: 'core_shoulder_stability', cue: 'Minimize hip sway' },
+  'pogo_jumps': { name: 'Pogo Jumps', primary_target: 'ankles_elasticity', cue: 'Bounce only from ankles' },
 
-/** Estimated time per warmup set (minutes). */
-const TIME_PER_SET = 1.5;
+  // Potentiation (Grappling)
+  'hip_escapes': { name: 'Hip Escapes (Shrimping)', primary_target: 'grappling_movement', cue: 'Explode off the floor' },
+  'bridge_and_roll': { name: 'Bridge and Roll', primary_target: 'grappling_movement', cue: 'High bridge, look where you turn' },
+  'sprawls': { name: 'Light Sprawls', primary_target: 'defense_mobility', cue: 'Hips to mat, eyes forward' },
+};
 
-/** Exercise types that get minimal warmup. */
-const MINIMAL_WARMUP_TYPES: ExerciseType[] = [
-    'mobility', 'active_recovery', 'conditioning', 'sport_specific',
-];
+// ─── Phase Generators ──────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────
-
-/** Round to nearest 5 lbs. */
-function roundTo5(n: number): number {
-    return Math.round(n / 5) * 5;
+function getGPPPhase(intensity: number): WarmupPhase {
+  const moves = intensity > 5 ? ['jog', 'jumping_jacks', 'arm_circles'] : ['arm_circles', 'leg_swings'];
+  return {
+    name: 'General Warmup (GPP)',
+    duration_min: 5,
+    description: 'Elevate core temperature and heart rate.',
+    movements: moves.map(id => ({ ...MOVEMENT_LIB[id], reps: '2-3 min total' })),
+  };
 }
 
-/** Find the closest kettlebell weight at or below the target. */
-function nearestKBWeight(target: number): number {
-    let closest = KB_WEIGHTS[0];
-    for (const w of KB_WEIGHTS) {
-        if (w <= target) closest = w;
-        else break;
-    }
-    return closest;
+function getMobilityPhase(focus: 'striking' | 'grappling' | 's_c' | 'general'): WarmupPhase {
+  let moves = ['worlds_greatest', '90_90'];
+  if (focus === 'striking') moves.push('scap_cars');
+  if (focus === 'grappling') moves.push('cat_cow');
+  if (focus === 's_c') moves = ['worlds_greatest', '90_90', 'cat_cow', 'pigeon'];
+
+  return {
+    name: 'Dynamic Mobility',
+    duration_min: 5,
+    description: 'Improve range of motion in session-specific joints.',
+    movements: moves.map(id => ({ ...MOVEMENT_LIB[id], reps: '10 per side' })),
+  };
 }
 
-// ─── generateWarmupSets ──────────────────────────────────────
+function getActivationPhase(injuryHistory: string[] = []): WarmupPhase {
+  const moves = ['dead_bug', 'glute_bridge'];
+  if (injuryHistory.includes('shoulder')) moves.push('scap_cars');
+  if (injuryHistory.includes('knee') || injuryHistory.includes('hip')) moves.push('monster_walk');
+
+  return {
+    name: 'Specific Activation',
+    duration_min: 3,
+    description: 'Wake up stabilizing muscles and address weak points.',
+    movements: moves.map(id => ({ ...MOVEMENT_LIB[id], reps: '15 reps' })),
+  };
+}
+
+function getPotentiationPhase(type: 'striking' | 'grappling' | 's_c' | 'general'): WarmupPhase {
+  let moves: string[] = [];
+  if (type === 'striking') moves = ['shadow_boxing_flow', 'pogo_jumps'];
+  if (type === 'grappling') moves = ['hip_escapes', 'bridge_and_roll', 'sprawls'];
+  if (type === 's_c') moves = ['pogo_jumps', 'shoulder_taps'];
+  if (type === 'general') moves = ['shadow_boxing_flow'];
+
+  return {
+    name: 'Neural Potentiation',
+    duration_min: 3,
+    description: 'Ramp up nervous system for high-intensity output.',
+    movements: moves.map(id => ({ ...MOVEMENT_LIB[id], reps: '1-2 rounds light' })),
+  };
+}
+
+// ─── Main Entry Point ──────────────────────────────────────────
 
 /**
- * Generates a progressive warmup ramp for an exercise.
- *
- * @ANTI-WIRING:
- * UI Parameters Expected:
- *   - workingWeight: number (the target working set weight in lbs)
- *   - exerciseType: ExerciseType (determines warmup depth)
- *   - equipment: Equipment (determines rounding and min weights)
- *   - isFirstExerciseForMuscle: boolean (full warmup vs abbreviated)
- *   - fitnessLevel: FitnessLevel (unused for now, reserved for future scaling)
- *
- * Returns: WarmupResult
- *   - sets: WarmupSet[] (the warmup ramp)
- *   - totalWarmupSets: number
- *   - estimatedTimeMinutes: number
- *
- * Pure synchronous function. No database queries. No LLM generation.
+ * Generates a dynamic warmup protocol based on session type, intensity, and athlete state.
  */
 export function generateWarmupSets(input: WarmupInput): WarmupResult {
-    const { workingWeight, exerciseType, equipment, isFirstExerciseForMuscle } = input;
+  const { session_type, expected_intensity, readiness_score, injury_history, body_weight_state } = input;
 
-    // Minimal warmup for non-strength exercises
-    if (MINIMAL_WARMUP_TYPES.includes(exerciseType)) {
-        const sets: WarmupSet[] = [{
-            setNumber: 1,
-            weight: 0,
-            reps: 10,
-            label: 'Activation',
-            isCompleted: false,
-        }];
-        return {
-            sets,
-            totalWarmupSets: 1,
-            estimatedTimeMinutes: TIME_PER_SET,
-        };
-    }
+  // 1. Adjust duration based on readiness
+  let total_duration = 15;
+  if (readiness_score < 40) total_duration += 5; // Extra time for stiff/tired athletes
+  if (expected_intensity >= 8) total_duration += 5; // High intensity needs better ramp
 
-    // Bodyweight exercises: 1 activation set
-    if (equipment === 'bodyweight' || workingWeight <= 0) {
-        const sets: WarmupSet[] = [{
-            setNumber: 1,
-            weight: 0,
-            reps: 8,
-            label: 'Bodyweight',
-            isCompleted: false,
-        }];
-        return {
-            sets,
-            totalWarmupSets: 1,
-            estimatedTimeMinutes: TIME_PER_SET,
-        };
-    }
+  // 2. Map session type to internal focus
+  let focus: 'striking' | 'grappling' | 's_c' | 'general' = 'general';
+  if (['boxing', 'muay_thai', 'mman_striking'].includes(session_type)) focus = 'striking';
+  if (['bjj', 'wrestling', 'mman_grappling'].includes(session_type)) focus = 'grappling';
+  if (['strength', 'power', 'conditioning'].includes(session_type)) focus = 's_c';
 
-    // Already warm muscle: abbreviated warmup
-    if (!isFirstExerciseForMuscle) {
-        return buildAbbreviatedWarmup(workingWeight, equipment);
-    }
+  // 3. Assemble phases
+  const phases: WarmupPhase[] = [
+    getGPPPhase(expected_intensity),
+    getMobilityPhase(focus),
+    getActivationPhase(injury_history),
+  ];
 
-    // Full warmup ramp by equipment type
-    switch (equipment) {
-        case 'barbell':
-            return buildBarbellWarmup(workingWeight);
-        case 'dumbbell':
-            return buildDumbbellWarmup(workingWeight);
-        case 'kettlebell':
-            return buildKettlebellWarmup(workingWeight);
-        case 'cable':
-        case 'machine':
-        case 'band':
-            return buildMachineWarmup(workingWeight);
-        default:
-            return buildDumbbellWarmup(workingWeight); // fallback
-    }
-}
+  // Potentiation only for higher intensity
+  if (expected_intensity >= 6) {
+    phases.push(getPotentiationPhase(focus));
+  }
 
-// ─── Warmup Builders ─────────────────────────────────────────
+  // 4. Weight cut specific adjustment
+  let safety_warning: string | undefined;
+  if (body_weight_state === 'dehydrated') {
+    safety_warning = '⚠️ WEIGHT CUT ALERT: Low intensity only. Focus on breathing and mobility. Do not elevate heart rate significantly via GPP.';
+    // Modify GPP phase if dehydrated
+    phases[0].movements = [{ ...MOVEMENT_LIB['arm_circles'], reps: '5 min very slow' }];
+  }
 
-function buildBarbellWarmup(workingWeight: number): WarmupResult {
-    const sets: WarmupSet[] = [];
-    let setNum = 1;
-
-    // Very light working weight — just bar
-    if (workingWeight <= 65) {
-        sets.push({
-            setNumber: setNum++,
-            weight: BAR_WEIGHT,
-            reps: 10,
-            label: 'Bar',
-            isCompleted: false,
-        });
-        return { sets, totalWarmupSets: sets.length, estimatedTimeMinutes: sets.length * TIME_PER_SET };
-    }
-
-    // Light working weight — bar + one set
-    if (workingWeight <= 115) {
-        sets.push({
-            setNumber: setNum++,
-            weight: BAR_WEIGHT,
-            reps: 10,
-            label: 'Bar',
-            isCompleted: false,
-        });
-        const mid = roundTo5(workingWeight * 0.7);
-        if (mid > BAR_WEIGHT) {
-            sets.push({
-                setNumber: setNum++,
-                weight: mid,
-                reps: 5,
-                label: '70%',
-                isCompleted: false,
-            });
-        }
-        return { sets, totalWarmupSets: sets.length, estimatedTimeMinutes: sets.length * TIME_PER_SET };
-    }
-
-    // Standard full barbell ramp
-    // Bar x 10
-    sets.push({
-        setNumber: setNum++,
-        weight: BAR_WEIGHT,
-        reps: 10,
-        label: 'Bar',
-        isCompleted: false,
-    });
-
-    // 50% x 5
-    const fifty = roundTo5(workingWeight * 0.5);
-    if (fifty > BAR_WEIGHT) {
-        sets.push({
-            setNumber: setNum++,
-            weight: fifty,
-            reps: 5,
-            label: '50%',
-            isCompleted: false,
-        });
-    }
-
-    // 70% x 3
-    const seventy = roundTo5(workingWeight * 0.7);
-    if (seventy > fifty) {
-        sets.push({
-            setNumber: setNum++,
-            weight: seventy,
-            reps: 3,
-            label: '70%',
-            isCompleted: false,
-        });
-    }
-
-    // 85% x 2 (only for heavier working weights)
-    if (workingWeight >= 185) {
-        const eightyfive = roundTo5(workingWeight * 0.85);
-        if (eightyfive > seventy) {
-            sets.push({
-                setNumber: setNum++,
-                weight: eightyfive,
-                reps: 2,
-                label: '85%',
-                isCompleted: false,
-            });
-        }
-    }
-
-    return {
-        sets,
-        totalWarmupSets: sets.length,
-        estimatedTimeMinutes: sets.length * TIME_PER_SET,
-    };
-}
-
-function buildDumbbellWarmup(workingWeight: number): WarmupResult {
-    const sets: WarmupSet[] = [];
-    let setNum = 1;
-
-    // Very light weight
-    if (workingWeight <= 15) {
-        sets.push({
-            setNumber: setNum++,
-            weight: MIN_DUMBBELL,
-            reps: 10,
-            label: 'Light',
-            isCompleted: false,
-        });
-        return { sets, totalWarmupSets: sets.length, estimatedTimeMinutes: sets.length * TIME_PER_SET };
-    }
-
-    // ~30% x 8
-    const thirty = Math.max(MIN_DUMBBELL, roundTo5(workingWeight * 0.3));
-    sets.push({
-        setNumber: setNum++,
-        weight: thirty,
-        reps: 8,
-        label: '30%',
-        isCompleted: false,
-    });
-
-    // ~60% x 5
-    const sixty = roundTo5(workingWeight * 0.6);
-    if (sixty > thirty) {
-        sets.push({
-            setNumber: setNum++,
-            weight: sixty,
-            reps: 5,
-            label: '60%',
-            isCompleted: false,
-        });
-    }
-
-    // ~80% x 3
-    const eighty = roundTo5(workingWeight * 0.8);
-    if (eighty > sixty && workingWeight >= 40) {
-        sets.push({
-            setNumber: setNum++,
-            weight: eighty,
-            reps: 3,
-            label: '80%',
-            isCompleted: false,
-        });
-    }
-
-    return {
-        sets,
-        totalWarmupSets: sets.length,
-        estimatedTimeMinutes: sets.length * TIME_PER_SET,
-    };
-}
-
-function buildKettlebellWarmup(workingWeight: number): WarmupResult {
-    const sets: WarmupSet[] = [];
-    let setNum = 1;
-
-    // Light KB warmup
-    const light = nearestKBWeight(workingWeight * 0.4);
-    sets.push({
-        setNumber: setNum++,
-        weight: light,
-        reps: 8,
-        label: 'Light',
-        isCompleted: false,
-    });
-
-    // Moderate KB warmup
-    const moderate = nearestKBWeight(workingWeight * 0.7);
-    if (moderate > light) {
-        sets.push({
-            setNumber: setNum++,
-            weight: moderate,
-            reps: 5,
-            label: 'Moderate',
-            isCompleted: false,
-        });
-    }
-
-    return {
-        sets,
-        totalWarmupSets: sets.length,
-        estimatedTimeMinutes: sets.length * TIME_PER_SET,
-    };
-}
-
-function buildMachineWarmup(workingWeight: number): WarmupResult {
-    const sets: WarmupSet[] = [];
-    let setNum = 1;
-
-    // Light x 10
-    const light = roundTo5(workingWeight * 0.4);
-    sets.push({
-        setNumber: setNum++,
-        weight: Math.max(5, light),
-        reps: 10,
-        label: 'Light',
-        isCompleted: false,
-    });
-
-    // Moderate x 5
-    const moderate = roundTo5(workingWeight * 0.7);
-    if (moderate > light) {
-        sets.push({
-            setNumber: setNum++,
-            weight: moderate,
-            reps: 5,
-            label: 'Moderate',
-            isCompleted: false,
-        });
-    }
-
-    return {
-        sets,
-        totalWarmupSets: sets.length,
-        estimatedTimeMinutes: sets.length * TIME_PER_SET,
-    };
-}
-
-function buildAbbreviatedWarmup(workingWeight: number, equipment: Equipment): WarmupResult {
-    const sets: WarmupSet[] = [];
-    let setNum = 1;
-
-    // 50% x 5
-    let fiftyWeight: number;
-    if (equipment === 'barbell') {
-        fiftyWeight = Math.max(BAR_WEIGHT, roundTo5(workingWeight * 0.5));
-    } else if (equipment === 'kettlebell') {
-        fiftyWeight = nearestKBWeight(workingWeight * 0.5);
-    } else {
-        fiftyWeight = Math.max(MIN_DUMBBELL, roundTo5(workingWeight * 0.5));
-    }
-
-    sets.push({
-        setNumber: setNum++,
-        weight: fiftyWeight,
-        reps: 5,
-        label: '50%',
-        isCompleted: false,
-    });
-
-    // 75% x 3
-    let seventyfiveWeight: number;
-    if (equipment === 'barbell') {
-        seventyfiveWeight = roundTo5(workingWeight * 0.75);
-    } else if (equipment === 'kettlebell') {
-        seventyfiveWeight = nearestKBWeight(workingWeight * 0.75);
-    } else {
-        seventyfiveWeight = roundTo5(workingWeight * 0.75);
-    }
-
-    if (seventyfiveWeight > fiftyWeight) {
-        sets.push({
-            setNumber: setNum++,
-            weight: seventyfiveWeight,
-            reps: 3,
-            label: '75%',
-            isCompleted: false,
-        });
-    }
-
-    return {
-        sets,
-        totalWarmupSets: sets.length,
-        estimatedTimeMinutes: sets.length * TIME_PER_SET,
-    };
+  return {
+    total_duration_min: phases.reduce((acc, p) => acc + p.duration_min, 0),
+    focus,
+    phases,
+    safety_warning,
+  };
 }

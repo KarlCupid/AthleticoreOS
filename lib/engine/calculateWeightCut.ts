@@ -1,4 +1,4 @@
-import {
+import type {
   CutPlanInput,
   CutPlanResult,
   CutPhaseDates,
@@ -15,10 +15,33 @@ import {
   RehydrationProtocolResult,
   RehydrationPhase,
   WeightCutPlanRow,
-  FightStatus,
-} from './types';
-import { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol';
-import { formatLocalDate, todayLocalDate } from '../utils/date';
+  WeightTrendResult,
+} from './types/weight_cut.ts';
+import type { FightStatus } from './types/foundational.ts';
+import type {
+    ActivityLevel,
+    BodyWeightState,
+    FitnessLevel,
+    FruitTarget,
+    Gender,
+    NutritionDayAdjustment,
+    NutritionTargets,
+    Phase,
+    ReadinessState,
+    WeightUnit,
+} from './types/foundational.ts';
+import type {
+    ScheduledActivityRow,
+} from './types/training.ts';
+import type {
+    WeightCutPlan,
+    DailyCutProtocolRow,
+    WeightCutPhase,
+} from './types/weight_cut.ts';
+import { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol.ts';
+import { adjustNutritionForDay } from './schedule/safety.ts';
+import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
+import { calculateCaloriesFromMacros } from '../utils/nutrition.ts';
 
 /**
  * @ANTI-WIRING:
@@ -50,6 +73,21 @@ function daysBetween(a: string, b: string): number {
 
 function today(): string {
   return todayLocalDate();
+}
+
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function computeDailyTargetOnCurve(plan: WeightCutPlanRow, dateStr: string): number {
+  const totalDays = Math.max(0, daysBetween(plan.plan_created_date, plan.weigh_in_date));
+  if (totalDays === 0) return roundToTenth(plan.target_weight);
+
+  const elapsedDays = Math.max(0, Math.min(totalDays, daysBetween(plan.plan_created_date, dateStr)));
+  const progress = elapsedDays / totalDays;
+  const interpolatedWeight = plan.start_weight + ((plan.target_weight - plan.start_weight) * progress);
+
+  return roundToTenth(interpolatedWeight);
 }
 
 // ─── generateCutPlan ──────────────────────────────────────────
@@ -588,6 +626,8 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
   );
   const hasHighIntensitySession = dayActivities.some(a => a.expected_intensity >= 7);
   const remainingLbsToTarget = Math.max(0, currentWeight - plan.target_weight);
+  const dailyTargetOnCurve = computeDailyTargetOnCurve(plan, date);
+  const weightDriftLbs = roundToTenth(currentWeight - dailyTargetOnCurve);
 
   // ── Stall detection (diet phases only) ──────────────────────
   let isRefeedDay = false;
@@ -622,6 +662,7 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
   let morningProtocol: string;
   let afternoonProtocol: string;
   let eveningProtocol: string;
+  let interventionReason: string | null = null;
 
   const baseTDEE = baseNutritionTargets.tdee;
 
@@ -781,6 +822,16 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
   }
 
   // ── Safety validation ──────────────────────────────────────
+  const isAdjustableDriftPhase = cutPhase === 'chronic' || cutPhase === 'intensified' || cutPhase === 'fight_week_load';
+  if (isAdjustableDriftPhase && weightDriftLbs > 0.5) {
+    const driftCorrectionCalories = Math.round(weightDriftLbs * 500);
+    const correctedCalories = Math.max(calorieFloor, prescribedCalories - driftCorrectionCalories);
+    if (correctedCalories < prescribedCalories) {
+      prescribedCalories = correctedCalories;
+      interventionReason = `Weight drift +${weightDriftLbs.toFixed(1)} lb above curve; calories reduced to restore trajectory.`;
+    }
+  }
+
   // Normalize macros so they are internally consistent with prescribed calories.
   prescribedCalories = Math.max(0, Math.round(prescribedCalories));
   prescribedProtein = Math.max(0, Math.round(prescribedProtein));
@@ -801,117 +852,104 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     weeklyVelocityLbs,
     prescribedCalories,
     calorieFloor,
-    readinessState,
     consecutiveDepletedDays,
     acwr,
-    urineColor: isFightWeek(cutPhase) ? urineColor : null,
-    bodyTempF: isFightWeek(cutPhase) ? bodyTempF : null,
+    urineColor,
+    bodyTempF,
     baselineCognitiveScore,
     latestCognitiveScore,
     waterCutAllocationLbs: plan.water_cut_allocation_lbs,
     remainingLbsToTarget,
     daysToWeighIn,
-    fightStatus: plan.fight_status as FightStatus,
   });
 
+  // Rehydration protocol (if applicable)
+  let rehydrationProtocol: RehydrationProtocolResult | null = null;
+  if (cutPhase === 'rehydration' || cutPhase === 'weigh_in') {
+    rehydrationProtocol = computeRehydrationProtocol({
+      currentWeight,
+      targetWeight: plan.target_weight,
+      biologicalSex: plan.biological_sex as 'male' | 'female',
+      weighInTime: plan.weigh_in_date + 'T09:00:00', // Estimate 9am if not stored
+      fightTime: plan.fight_date + 'T19:00:00',    // Estimate 7pm if not stored
+    });
+  }
+
   return {
+    date,
     cutPhase,
     daysToWeighIn,
+    weightDriftLbs,
     prescribedCalories,
     prescribedProtein,
     prescribedCarbs,
     prescribedFat,
-    isRefeedDay,
     isCarbCycleHigh,
+    isRefeedDay,
     waterTargetOz,
     sodiumTargetMg,
     sodiumInstruction,
     fiberInstruction,
-    trainingIntensityCap,
     trainingRecommendation,
+    trainingIntensityCap,
+    interventionReason,
     morningProtocol,
     afternoonProtocol,
     eveningProtocol,
     safetyFlags,
+    rehydrationProtocol,
   };
-}
-
-function isFightWeek(phase: CutPhase): boolean {
-  return phase === 'fight_week_load' || phase === 'fight_week_cut' || phase === 'weigh_in';
 }
 
 // ─── computeRehydrationProtocol ───────────────────────────────
 
 /**
- * Generates the full post-weigh-in rehydration and refueling protocol.
- * Called when cut_phase === 'rehydration'.
- *
- * @ANTI-WIRING UI Parameters:
- *   - weighInWeightLbs: actual post-weigh-in body weight
- *   - targetWeightLbs: original weigh-in target (for context only)
- *   - hoursToFight: hours between weigh-in and fight start
- *   - biologicalSex: for calorie floor context
+ * Computes a detailed step-by-step rehydration timeline after weigh-in.
  */
 export function computeRehydrationProtocol(input: RehydrationInput): RehydrationProtocolResult {
-  const { weighInWeightLbs, hoursToFight, biologicalSex } = input;
+  const { currentWeight, targetWeight, biologicalSex, weighInTime, fightTime } = input;
 
-  const weightToRegainLbs = Math.round(weighInWeightLbs * 0.06 * 10) / 10;  // target 6% regain
-  const targetWeightByFight = Math.round((weighInWeightLbs + weightToRegainLbs) * 10) / 10;
+  const weightDeficitLbs = targetWeight - currentWeight;
+  const targetRegainLbs = Math.round((targetWeight * (biologicalSex === 'female' ? 0.05 : 0.07)) * 10) / 10;
+  const totalFluidTargetLiters = Math.round((Math.abs(weightDeficitLbs) * 0.7) * 10) / 10;
+
+  const hoursAvailable = (new Date(fightTime).getTime() - new Date(weighInTime).getTime()) / 3600000;
 
   const phases: RehydrationPhase[] = [
     {
-      timeWindow: '0–30 min',
-      fluidInstruction: 'Oral Rehydration Solution (ORS): 500 ml — sip steadily, do not gulp',
-      foodInstruction: null,
-      sodiumInstruction: 'Sodium 40-50 mmol/L (standard ORS sachets)',
-      targetFluidOz: 17,
+      name: 'Immediate Recovery (0-2h)',
+      startTime: weighInTime,
+      fluidTargetLiters: Math.round(totalFluidTargetLiters * 0.3 * 10) / 10,
+      sodiumTargetMg: 1500,
+      protocol: 'ORS/Electrolytes only. Sip 250ml every 15 min. Avoid solid food for first 45 min.',
     },
     {
-      timeWindow: '30–60 min',
-      fluidInstruction: 'Water or coconut water: 250-500 ml',
-      foodInstruction: 'Protein shake (25-30g) + 1 banana or handful of dates (fast carbs)',
-      sodiumInstruction: 'Moderate sodium',
-      targetFluidOz: 12,
+      name: 'Restoration (2-6h)',
+      startTime: addHours(weighInTime, 2),
+      fluidTargetLiters: Math.round(totalFluidTargetLiters * 0.4 * 10) / 10,
+      sodiumTargetMg: 2000,
+      protocol: 'High-carb/moderate-protein meals. Continue structured sipping. Salting all food heavily.',
     },
     {
-      timeWindow: '1–2 hours',
-      fluidInstruction: 'Water: 500 ml, sip continuously',
-      foodInstruction: 'Meal 1: white rice (1.5 cups cooked) + grilled chicken breast (5 oz). Target: 100g carbs, 40g protein.',
-      sodiumInstruction: 'Moderate — add a pinch of salt to food',
-      targetFluidOz: 17,
-    },
-    {
-      timeWindow: '2–4 hours',
-      fluidInstruction: 'Water: 500 ml',
-      foodInstruction: 'Meal 2: pasta or bread + lean protein. Same carb/protein targets as Meal 1.',
-      sodiumInstruction: 'Normal',
-      targetFluidOz: 17,
-    },
-    {
-      timeWindow: '4 hours+',
-      fluidInstruction: 'Sip to thirst — do not force fluids',
-      foodInstruction: hoursToFight > 8 ? 'Small snack if hungry: fruit, crackers, peanut butter' : 'Light pre-fight snack only if 2+ hours to fight start',
-      sodiumInstruction: 'Normal',
-      targetFluidOz: 8,
+      name: 'Maintenance (6h-Fight)',
+      startTime: addHours(weighInTime, 6),
+      fluidTargetLiters: Math.round(totalFluidTargetLiters * 0.3 * 10) / 10,
+      sodiumTargetMg: 1000,
+      protocol: 'Small digestible snacks. Water to thirst. Aim for pale yellow urine.',
     },
   ];
 
-  // Trim phases that exceed the time to fight
-  const applicablePhases = phases.filter((_, idx) => {
-    const approximateStartHours = [0, 0.5, 1, 2, 4][idx];
-    return approximateStartHours < hoursToFight;
-  });
-
-  const totalFluidOz = applicablePhases.reduce((sum, p) => sum + p.targetFluidOz, 0);
-  const genderNote = biologicalSex === 'female' ? ' Hormonal considerations may slow gastric emptying — listen to your body and do not force food.' : '';
-
   return {
-    phases: applicablePhases,
-    targetWeightByFight,
-    weightToRegainLbs,
-    totalFluidOz,
-    monitorMetrics: ['Urine color (target: pale yellow)', 'Body weight (target: +6% of weigh-in weight)', 'Alertness and cognitive function', 'No stomach distress'],
-    message: `Target: regain ${weightToRegainLbs.toFixed(1)} lbs by fight time. Drink ${totalFluidOz} oz total.${genderNote}`,
+    totalFluidTargetLiters,
+    totalSodiumTargetMg: 4500,
+    targetRegainLbs,
+    hoursAvailable,
+    phases,
   };
 }
 
+function addHours(iso: string, h: number): string {
+  const d = new Date(iso);
+  d.setHours(d.getHours() + h);
+  return d.toISOString();
+}
