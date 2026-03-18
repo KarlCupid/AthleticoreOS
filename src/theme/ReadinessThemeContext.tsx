@@ -31,6 +31,13 @@ interface ReadinessThemeContextType {
 
 const ReadinessThemeContext = createContext<ReadinessThemeContextType | undefined>(undefined);
 
+/**
+ * @deprecated ReadinessThemeProvider is no longer in the app root.
+ * It remains available for isolated use by the small set of components
+ * that explicitly opt into readiness color via useReadinessAccent().
+ * Do NOT wrap new screens or navigation in this provider.
+ * Use APP_CHROME from theme.ts for all app chrome and screen backgrounds.
+ */
 export const ReadinessThemeProvider = ({ children }: { children: ReactNode }) => {
     const [currentLevel, setCurrentLevel] = useState<ReadinessLevel>('Prime');
 

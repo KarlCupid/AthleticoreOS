@@ -159,12 +159,12 @@ export default function App() {
       <SafeAreaProvider>
         <ReadinessThemeProvider>
           <InteractionModeProvider>
-          <NavigationContainer theme={myTheme}>
-            <View style={styles.container}>
-              <StatusBar style="dark" />
-              {content}
-            </View>
-          </NavigationContainer>
+            <NavigationContainer theme={myTheme}>
+              <View style={styles.container}>
+                <StatusBar style="dark" />
+                {content}
+              </View>
+            </NavigationContainer>
           </InteractionModeProvider>
         </ReadinessThemeProvider>
       </SafeAreaProvider>
@@ -182,4 +182,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

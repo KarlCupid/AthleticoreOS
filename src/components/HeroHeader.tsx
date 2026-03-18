@@ -1,110 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    Easing,
-    FadeInUp,
-} from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, RADIUS, SPACING, ANIMATION } from '../theme/theme';
-import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { AnimatedNumber } from './AnimatedNumber';
+import { APP_CHROME, COLORS, FONT_FAMILY, SPACING, TYPOGRAPHY_V2 } from '../theme/theme';
 
-interface AnimatedWaveProps {
-    size: number;
-    color: string;
-    duration: number;
-    offset: number;
-    initialRotation?: number;
-}
-
-const AnimatedWave = ({ size, color, duration, offset, initialRotation = 0 }: AnimatedWaveProps) => {
-    const progress = useSharedValue(0);
-
-    React.useEffect(() => {
-        progress.value = withRepeat(
-            withTiming(1, { duration, easing: Easing.linear }),
-            -1,
-            false
-        );
-    }, [duration]);
-
-    const animatedStyle = useAnimatedStyle(() => {
-        const deg = initialRotation + (progress.value * 360);
-        return {
-            transform: [{ rotate: `${deg}deg` }],
-        };
-    });
-
-    return (
-        <Animated.View
-            style={[
-                {
-                    position: 'absolute',
-                    left: '50%',
-                    bottom: -size + offset,
-                    marginLeft: -size / 2,
-                    width: size,
-                    height: size,
-                    borderRadius: size * 0.43,
-                    backgroundColor: color,
-                },
-                animatedStyle,
-            ]}
-        />
-    );
-};
-
-interface AnimatedBlobProps {
-    size: number;
-    color: string;
-    duration: number;
-    top: any;
-    left: any;
-    initialRotation?: number;
-}
-
-const AnimatedBackgroundBlob = ({ size, color, duration, top, left, initialRotation = 0 }: AnimatedBlobProps) => {
-    const progress = useSharedValue(0);
-
-    React.useEffect(() => {
-        progress.value = withRepeat(
-            withTiming(1, { duration, easing: Easing.linear }),
-            -1,
-            false
-        );
-    }, [duration]);
-
-    const animatedStyle = useAnimatedStyle(() => {
-        const deg = initialRotation + (progress.value * 360);
-        return {
-            transform: [{ rotate: `${deg}deg` }],
-        };
-    });
-
-    return (
-        <Animated.View
-            style={[
-                {
-                    position: 'absolute',
-                    top,
-                    left,
-                    marginLeft: -size / 2,
-                    marginTop: -size / 2,
-                    width: size,
-                    height: size,
-                    borderRadius: size * 0.45,
-                    backgroundColor: color,
-                },
-                animatedStyle,
-            ]}
-        />
-    );
-};
-
+// Visual Noise Removal (Task 6):
+// - AnimatedBackgroundBlobs removed
+// - AnimatedWaves removed
+// - Glass pill (translucent statsRow) replaced with solid surface container
+// - Gradient background replaced with APP_CHROME.background (flat)
+// - AnimatedNumber replaced with plain Text (no odometer animation in Plan mode)
+// Premium feel now comes from typographic clarity, not decorative motion.
 
 interface HeroHeaderProps {
     greeting: string;
@@ -128,151 +33,104 @@ export function HeroHeader({
     weightTrend,
 }: HeroHeaderProps) {
     const insets = useSafeAreaInsets();
-    const { gradient } = useReadinessTheme();
 
     const dots = 10;
     const filledDots = Math.round((readinessScore / 100) * dots);
 
-    // Muted blob color — 18% opacity of the readiness accent
-    const blobColor = (gradient[0] as string) + '2E';
+    const readinessColor =
+        readinessScore >= 70
+            ? COLORS.readiness.prime
+            : readinessScore >= 40
+            ? COLORS.readiness.caution
+            : COLORS.readiness.depleted;
 
     return (
-        <View style={styles.wrapper}>
-            <View
-                style={[
-                    styles.container,
-                    {
-                        paddingTop: insets.top + SPACING.md,
-                        backgroundColor: gradient[1] as string,
-                    }
-                ]}
-            >
-                {/* Ambient background blobs — very subtle on dark */}
-                <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]}>
-                    <AnimatedBackgroundBlob size={800} color={blobColor} duration={25000} top="10%" left="20%" initialRotation={0} />
-                    <AnimatedBackgroundBlob size={900} color={blobColor} duration={32000} top="60%" left="85%" initialRotation={120} />
-                    <AnimatedBackgroundBlob size={600} color="rgba(255,255,255,0.03)" duration={18000} top="30%" left="50%" initialRotation={240} />
-                </View>
+        <View style={[styles.container, { paddingTop: insets.top + SPACING.md }]}>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.phase}>{phase}</Text>
 
-                {/* Flowing waves — barely visible shimmer */}
-                <View style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
-                    <AnimatedWave size={1200} color="rgba(255,255,255,0.04)" offset={60} duration={14000} initialRotation={0} />
-                    <AnimatedWave size={1250} color="rgba(255,255,255,0.06)" offset={45} duration={18000} initialRotation={45} />
-                    <AnimatedWave size={1200} color={COLORS.background} offset={25} duration={22000} initialRotation={90} />
-                </View>
-
-                {/* Content elevated over the waves */}
-                <View style={styles.contentWrap}>
-                    {/* Greeting */}
-                    <Text style={styles.greeting}>{greeting}</Text>
-                    <Text style={styles.phase}>{phase}</Text>
-
-                    {/* Readiness Score */}
-                    <Animated.View
-                        entering={FadeInUp.delay(200).duration(ANIMATION.slow).springify()}
-                        style={styles.scoreContainer}
-                    >
-                        <Text style={styles.scoreLabel}>READINESS</Text>
-                        <AnimatedNumber
-                            value={readinessScore}
-                            duration={800}
-                            style={styles.scoreValue}
+            {/* Readiness Score — plain text, no odometer animation */}
+            <View style={styles.scoreContainer}>
+                <Text style={styles.scoreLabel}>READINESS</Text>
+                <Text style={[styles.scoreValue, { color: readinessColor }]}>
+                    {Math.round(readinessScore)}
+                </Text>
+                <View style={styles.dotsRow}>
+                    {Array.from({ length: dots }).map((_, i) => (
+                        <View
+                            key={i}
+                            style={[
+                                styles.dot,
+                                { backgroundColor: i < filledDots ? readinessColor : COLORS.border },
+                            ]}
                         />
-                        <View style={styles.dotsRow}>
-                            {Array.from({ length: dots }).map((_, i) => (
-                                <Animated.View
-                                    key={i}
-                                    entering={FadeInUp.delay(400 + i * 40).duration(300)}
-                                    style={[
-                                        styles.dot,
-                                        i < filledDots ? styles.dotFilled : styles.dotEmpty,
-                                    ]}
-                                />
-                            ))}
-                            <Text style={styles.levelLabel}>{readinessLabel}</Text>
-                        </View>
-                    </Animated.View>
-
-                    {/* Mini Stats Row — glass pill */}
-                    <Animated.View
-                        entering={FadeInUp.delay(600).duration(ANIMATION.slow).springify()}
-                        style={styles.statsRow}
-                    >
-                        <View style={styles.statsPill}>
-                            {acwr !== undefined && (
-                                <View style={styles.statItem}>
-                                    <Text style={styles.statValue}>{acwr.toFixed(2)}</Text>
-                                    <Text style={styles.statLabel}>ACWR</Text>
-                                </View>
-                            )}
-                            {sleep !== undefined && (
-                                <>
-                                    <View style={styles.statDivider} />
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.statValue}>{sleep}/5</Text>
-                                        <Text style={styles.statLabel}>Sleep</Text>
-                                    </View>
-                                </>
-                            )}
-                            {weight && (
-                                <>
-                                    <View style={styles.statDivider} />
-                                    <View style={styles.statItem}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                                            <Text style={styles.statValue}>{weight}</Text>
-                                            {weightTrend && (
-                                                <Text style={{
-                                                    fontSize: 14,
-                                                    fontFamily: FONT_FAMILY.extraBold,
-                                                    color: weightTrend === 'down' ? COLORS.success
-                                                        : weightTrend === 'up' ? COLORS.error
-                                                            : 'rgba(255,255,255,0.5)',
-                                                }}>
-                                                    {weightTrend === 'down' ? '↓' : weightTrend === 'up' ? '↑' : '→'}
-                                                </Text>
-                                            )}
-                                        </View>
-                                        <Text style={styles.statLabel}>Weight</Text>
-                                    </View>
-                                </>
-                            )}
-                        </View>
-                    </Animated.View>
+                    ))}
+                    <Text style={styles.levelLabel}>{readinessLabel}</Text>
                 </View>
-
-                {/* Spacer to push content above the lowest solid wave */}
-                <View style={styles.waveSpacer} />
             </View>
+
+            {/* Stats row — solid surface, no glassmorphism */}
+            {(acwr !== undefined || sleep !== undefined || weight) && (
+                <View style={styles.statsRow}>
+                    {acwr !== undefined && (
+                        <View style={styles.statItem}>
+                            <Text style={styles.statValue}>{acwr.toFixed(2)}</Text>
+                            <Text style={styles.statLabel}>ACWR</Text>
+                        </View>
+                    )}
+                    {sleep !== undefined && (
+                        <>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{sleep}/5</Text>
+                                <Text style={styles.statLabel}>Sleep</Text>
+                            </View>
+                        </>
+                    )}
+                    {weight && (
+                        <>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                                    <Text style={styles.statValue}>{weight}</Text>
+                                    {weightTrend && (
+                                        <Text style={{
+                                            fontSize: 14,
+                                            fontFamily: FONT_FAMILY.extraBold,
+                                            color: weightTrend === 'down' ? COLORS.readiness.prime
+                                                : weightTrend === 'up' ? COLORS.readiness.depleted
+                                                : COLORS.text.tertiary,
+                                        }}>
+                                            {weightTrend === 'down' ? '↓' : weightTrend === 'up' ? '↑' : '→'}
+                                        </Text>
+                                    )}
+                                </View>
+                                <Text style={styles.statLabel}>Weight</Text>
+                            </View>
+                        </>
+                    )}
+                </View>
+            )}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
-        backgroundColor: COLORS.background,
-    },
     container: {
-        paddingBottom: 0,
-        position: 'relative',
-        overflow: 'hidden',
-    },
-    contentWrap: {
-        zIndex: 2,
+        backgroundColor: APP_CHROME.background, // Flat, never shifts with readiness
+        paddingBottom: SPACING.lg,
         paddingHorizontal: SPACING.lg,
-    },
-    waveSpacer: {
-        height: 80,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.borderLight,
     },
     greeting: {
-        fontSize: 22,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.inverse,
+        ...TYPOGRAPHY_V2.plan.title,
+        color: COLORS.text.primary,
         marginBottom: 2,
     },
     phase: {
-        fontSize: 14,
-        fontFamily: FONT_FAMILY.regular,
-        color: 'rgba(255,255,255,0.7)',
+        ...TYPOGRAPHY_V2.plan.caption,
+        color: COLORS.text.secondary,
         marginBottom: SPACING.lg,
     },
     scoreContainer: {
@@ -280,16 +138,14 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.lg,
     },
     scoreLabel: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: 'rgba(255,255,255,0.6)',
+        ...TYPOGRAPHY_V2.plan.caption,
+        color: COLORS.text.tertiary,
         letterSpacing: 1.5,
         marginBottom: SPACING.xs,
     },
     scoreValue: {
         fontSize: 56,
-        fontFamily: FONT_FAMILY.black,
-        color: COLORS.text.inverse,
+        fontFamily: FONT_FAMILY.extraBold,
         lineHeight: 62,
     },
     dotsRow: {
@@ -303,29 +159,19 @@ const styles = StyleSheet.create({
         height: 8,
         borderRadius: 4,
     },
-    dotFilled: {
-        backgroundColor: COLORS.text.inverse,
-    },
-    dotEmpty: {
-        backgroundColor: 'rgba(255,255,255,0.3)',
-    },
     levelLabel: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.inverse,
+        ...TYPOGRAPHY_V2.plan.caption,
+        color: COLORS.text.secondary,
         marginLeft: SPACING.sm,
     },
     statsRow: {
-        alignItems: 'center',
-    },
-    statsPill: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderRadius: RADIUS.lg,
+        backgroundColor: COLORS.surface, // Solid white, no backdrop blur
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: COLORS.borderLight,
         paddingVertical: SPACING.sm,
         paddingHorizontal: SPACING.md,
     },
@@ -334,19 +180,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
     },
     statValue: {
-        fontSize: 16,
-        fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.inverse,
+        ...TYPOGRAPHY_V2.plan.headline,
+        color: COLORS.text.primary,
     },
     statLabel: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.regular,
-        color: 'rgba(255,255,255,0.6)',
+        ...TYPOGRAPHY_V2.plan.caption,
+        color: COLORS.text.tertiary,
         marginTop: 2,
     },
     statDivider: {
         width: 1,
         height: 24,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+        backgroundColor: COLORS.borderLight,
     },
 });

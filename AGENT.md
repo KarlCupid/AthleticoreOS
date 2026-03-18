@@ -10,6 +10,7 @@ Athleticore OS is a **daily operating system for elite athletes**, centralizing 
 2. **Anti-Wiring**: Engine functions (`lib/engine`) MUST be pure and synchronous. No database calls, no network requests. If you need data, pass it in as an argument.
 3. **Decision Traceability**: The engine produces a `decisionTrace`. Use it to explain system behavior to the user.
 4. **Snapshot Persistence**: The system relies on "snapshots" of the engine state (`daily_engine_snapshots`). Changes to types in `lib/engine/types.ts` may require migrations for stored snapshots.
+5. **Sim-First Validation**: All core logic changes should be validated via the simulation runner (`lib/engine/simulation/runner.ts`) to ensure multi-week stability across different athlete profiles.
 
 ## Token-Saving Tips
 - **Check the Tests First**: Engine tests (`lib/engine/*.test.ts`) are the fastest way to understand complex logic without reading hundreds of lines of implementation.
@@ -24,3 +25,5 @@ Athleticore OS is a **daily operating system for elite athletes**, centralizing 
 - `lib/api/dailyMissionService.ts`: Daily engine orchestration.
 - `src/hooks/useDashboardData.ts`: Dashboard state assembly.
 - `lib/engine/index.ts`: Source of truth for engine logic.
+- `lib/engine/load` and `lib/engine/sc`: Critical v3 engine modules for interference and autoregulation.
+- `lib/engine/simulation`: The persona-based validation layer.

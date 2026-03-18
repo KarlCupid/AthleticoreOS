@@ -17,14 +17,15 @@ Athleticore OS is no longer just a workout planner. The app now behaves like an 
 - **App shell:** `App.tsx` decides among `AuthScreen`, `OnboardingScreen`, `PlanningSetupStackNavigator`, and `TabNavigator`.
 - **Navigation:** bottom-tab app with separate `HomeStack` and `PlanStack` flows.
 - **Backend:** Supabase for auth, profile data, plans, sessions, nutrition, weight cut, and engine snapshots.
-- **Deterministic engine:** `lib/engine/*` owns readiness, mission construction, schedule generation, nutrition targets, risk scoring, and workout prescriptions.
+- **Deterministic engine (v3):** `lib/engine/*` owns readiness, mission construction, schedule generation, nutrition targets, risk scoring, and workout prescriptions. It now includes explicit modules for **Interference Modeling** (`load/interferenceModel.ts`) and **S&C Autoregulation** (`sc/autoregulation.ts`).
 - **Anti-Wiring Principle:** All engine functions must be pure, synchronous, and side-effect-free (no DB, no API, no LLM).
-- **Service layer:** `lib/api/*` coordinates Supabase IO plus engine orchestration.
+- **Service layer:** `lib/api/*` coordinates Supabase IO plus engine orchestration, including the new `interventionService` for enforcing safety and goal adherence.
 
 ## Important Runtime Concepts
 - **Planning setup is a gate.** Users are not considered ready until they have availability windows plus an active mode record, unless legacy usage data satisfies the check.
-- **Daily engine state is central.** `getDailyEngineState` resolves objective context, ACWR, readiness, nutrition targets, hydration, cut protocol, workout prescription, and the final daily mission.
-- **Snapshots are first-class.** Daily engine results are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot` for reuse.
+- **Daily engine state is central.** `getDailyEngineState` (v3) resolves objective context, ACWR, readiness, nutrition targets, hydration, cut protocol, workout prescription, and the final daily mission, accounting for training interference.
+- **Snapshots are first-class.** Daily engine results are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot` for reuse. v3 snapshots include expanded prescription metadata.
+- **Intervention Enforcement.** The system monitors for critical deviations (weight drift, workload spikes) and injects mandatory interventions into the daily mission to preserve athlete safety.
 - **Guided engine sessions matter.** Weekly plan entries and scheduled activities can hand off into `GuidedWorkoutScreen` using engine-owned prescriptions and session ownership rules.
 - **Dashboard is operational, not decorative.** It is the "today" command center for mission summary, readiness, fuel, training load, weight trend, camp risk, and fast navigation into execution flows.
 
@@ -35,7 +36,8 @@ Athleticore OS is no longer just a workout planner. The app now behaves like an 
 - `/src/hooks` - screen-focused orchestration hooks like `useDashboardData`, `useWeeklyPlan`, and workout/planning hooks.
 - `/src/theme` - colors, spacing, readiness theme context.
 - `/lib/api` - service layer for athlete context, planning setup, daily mission state, weekly plans, nutrition, fight camp, and weight cut.
-- `/lib/engine` - deterministic business logic and tests.
+- `/lib/engine` - deterministic business logic, sub-divided into domain modules (load, sc, nutrition, weight, etc.).
+- `/lib/engine/simulation` - library of athlete personas and the simulation runner used to validate engine v3.
 - `/supabase/migrations` - schema history for planning, camp, daily mission OS, and daily engine snapshots.
 
 ## Files That Matter Most

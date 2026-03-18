@@ -74,7 +74,8 @@ export const FONT_FAMILY = {
     black: 'Inter_900Black',
 } as const;
 
-export const TYPOGRAPHY = {
+// V1 — retained for backward compatibility during migration
+export const TYPOGRAPHY_LEGACY = {
     // Legacy compat
     sans: 'Inter_400Regular',
 
@@ -132,6 +133,29 @@ export const TYPOGRAPHY = {
     },
 } as const;
 
+/** @deprecated Use TYPOGRAPHY_V2 for all new components. */
+export const TYPOGRAPHY = TYPOGRAPHY_LEGACY;
+
+// V2 — sentence-first hierarchy. No 800/900 weights in plan mode.
+// All new components from the UX revamp must import from TYPOGRAPHY_V2.
+export const TYPOGRAPHY_V2 = {
+    // Plan mode: planning screens, Morning Flow, Compass, Nutrition
+    plan: {
+        display:  { fontSize: 32, fontWeight: '700' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 40 },
+        title:    { fontSize: 26, fontWeight: '700' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 34 },
+        headline: { fontSize: 22, fontWeight: '600' as const, fontFamily: FONT_FAMILY.semiBold,  lineHeight: 28 },
+        body:     { fontSize: 16, fontWeight: '400' as const, fontFamily: FONT_FAMILY.regular,   lineHeight: 24 },
+        caption:  { fontSize: 12, fontWeight: '500' as const, fontFamily: FONT_FAMILY.semiBold,  lineHeight: 16 },
+    },
+    // Focus mode: Training Floor, Gym Floor Mode — larger targets, arm's-length readability
+    focus: {
+        display:  { fontSize: 28, fontWeight: '700' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 36 },
+        target:   { fontSize: 36, fontWeight: '800' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 44 },
+        action:   { fontSize: 20, fontWeight: '700' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 28 },
+        caption:  { fontSize: 16, fontWeight: '500' as const, fontFamily: FONT_FAMILY.semiBold,  lineHeight: 22 },
+    },
+} as const;
+
 export const SPACING = {
     xs: 4,
     sm: 8,
@@ -140,6 +164,21 @@ export const SPACING = {
     xl: 32,
     xxl: 48,
     xxxl: 64,
+} as const;
+
+// Focus/Gym Floor Mode spacing — increased density for fatigued/gloved athletes
+export const SPACING_FOCUS = {
+    elementGap:    24, // Between interactive elements (up from 16)
+    blockGap:      32, // Between exercise blocks (up from 24)
+    actionPadding: 48, // Around primary action button
+    screenPadding: 20, // Horizontal screen margin (up from 16)
+} as const;
+
+// Minimum tap targets per mode (dp)
+export const TAP_TARGETS = {
+    plan:         { min: 44, recommended: 48 },
+    focus:        { min: 56, recommended: 64 },
+    focusPrimary: { min: 64, recommended: 72 }, // Complete Set, Start Timer
 } as const;
 
 export const RADIUS = {
@@ -225,3 +264,21 @@ export const ANIMATION = {
     slow: 500,
     spring: { damping: 15, stiffness: 150 },
 } as const;
+
+// Fixed chrome palette — never shifts with readiness level
+export const APP_CHROME = {
+    background: COLORS.background, // Always #F0F4F5
+    accent:     '#0FA888',          // Always Mint
+    text:       COLORS.text.primary,
+} as const;
+
+// Semantic palette for AttentionCards and coaching notes
+// Replaces the readiness palette in all UI contexts after Task 3
+export const SEMANTIC_PALETTE = {
+    positive: { edge: '#0FA888', tint: '#F0FFF8' }, // Performance gains, compliance streaks
+    caution:  { edge: '#D4932B', tint: '#FFF8F0' }, // Nutrition alerts, weight check reminders
+    alert:    { edge: '#D4432B', tint: '#FFF0ED' }, // Recovery warnings, safety gates
+    info:     { edge: '#4A7BD4', tint: '#F0F4FF' }, // Schedule changes, phase transitions
+} as const;
+
+export type SemanticTier = keyof typeof SEMANTIC_PALETTE;

@@ -1,3 +1,10 @@
+/**
+ * @deprecated GlassCard is deprecated as of the design system revamp (Task 6).
+ * Glassmorphism (backdrop blur, translucent fills) is removed from all core flow screens.
+ * Replace usages with Card (src/components/Card.tsx) for structured content,
+ * or AttentionCard (src/components/compass/AttentionCard.tsx) for flagged items.
+ * This component will be deleted once all consumers are migrated.
+ */
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
