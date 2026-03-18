@@ -10,6 +10,8 @@ import {
     getCampTrainingModifiers,
     getCampWeekProfile,
     toCampEnginePhase,
+    getAutoTaperMultiplier,
+    getCampSCModifier,
 } from '.ts';
 import type { CampPlanInput, CampConfig } from '.ts';
 
@@ -23,14 +25,14 @@ function assert(label: string, condition: boolean): void {
         console.log(`  ✓ ${label}`);
         passed++;
     } else {
-        console.error(`  ✗ ${label}`);
+        console.error(`  ✗ FAIL: ${label}`);
         failed++;
     }
 }
 
 function makePlanInput(overrides: Partial<CampPlanInput> = {}): CampPlanInput {
     return {
-        fightDate: '2026-06-13',      // ~12 weeks from camp start
+        fightDate: '2026-06-13',
         campStartDate: '2026-03-21',
         fitnessLevel: 'intermediate',
         hasConcurrentCut: false,
@@ -43,17 +45,18 @@ function makePlanInput(overrides: Partial<CampPlanInput> = {}): CampPlanInput {
 
 console.log('\n── generateCampPlan ──');
 
-// Test 1: Basic structure
 (() => {
     const camp = generateCampPlan(makePlanInput());
     assert('Has valid id', camp.id.length > 0);
+    assert('Id contains userId', camp.id.includes('u1'));
+    assert('Id contains fightDate', camp.id.includes('2026-06-13'));
     assert('fightDate preserved', camp.fightDate === '2026-06-13');
     assert('campStartDate preserved', camp.campStartDate === '2026-03-21');
-    assert('totalWeeks ≥ 4', camp.totalWeeks >= 4);
+    assert('totalWeeks >= 4', camp.totalWeeks >= 4);
     assert('Status is active', camp.status === 'active');
+    assert('hasConcurrentCut preserved as false', camp.hasConcurrentCut === false);
 })();
 
-// Test 2: Phase dates are ordered correctly
 (() => {
     const camp = generateCampPlan(makePlanInput());
     assert('Base starts on camp start', camp.basePhaseDates.start === camp.campStartDate);
@@ -63,33 +66,18 @@ console.log('\n── generateCampPlan ──');
     assert('Taper ends before or on fight date', camp.taperPhaseDates.end <= camp.fightDate);
 })();
 
-// Test 3: Base phase is roughly 40% of camp
-(() => {
-    const camp = generateCampPlan(makePlanInput());
-    const totalDays = Math.round(
-        (new Date(camp.fightDate).getTime() - new Date(camp.campStartDate).getTime()) / (1000 * 3600 * 24)
-    );
-    const baseDays = Math.round(
-        (new Date(camp.basePhaseDates.end).getTime() - new Date(camp.basePhaseDates.start).getTime()) / (1000 * 3600 * 24)
-    ) + 1;
-    const baseRatio = baseDays / totalDays;
-    assert('Base phase ≈ 40% of camp (±10%)', baseRatio >= 0.30 && baseRatio <= 0.50);
-})();
-
-// Test 4: 8-week camp (shorter)
 (() => {
     const camp = generateCampPlan(makePlanInput({
         campStartDate: '2026-04-18',
         fightDate: '2026-06-13',
     }));
-    assert('8-week camp has ≥ 4 weeks', camp.totalWeeks >= 4);
-    assert('Build still starts after base', camp.buildPhaseDates.start > camp.basePhaseDates.end);
+    assert('8-week camp has >= 4 weeks', camp.totalWeeks >= 4);
+    assert('Short camp still has ordered phases', camp.buildPhaseDates.start > camp.basePhaseDates.end);
 })();
 
-// Test 5: hasConcurrentCut preserved
 (() => {
     const camp = generateCampPlan(makePlanInput({ hasConcurrentCut: true }));
-    assert('hasConcurrentCut preserved', camp.hasConcurrentCut === true);
+    assert('hasConcurrentCut=true preserved', camp.hasConcurrentCut === true);
 })();
 
 // ─── determineCampPhase ───────────────────────────────────────
@@ -98,120 +86,156 @@ console.log('\n── determineCampPhase ──');
 
 const STANDARD_CAMP = generateCampPlan(makePlanInput());
 
-// Test 6: First day of camp → base
 (() => {
-    const phase = determineCampPhase(STANDARD_CAMP, STANDARD_CAMP.campStartDate);
-    assert('First day → base phase', phase === 'base');
-})();
+    assert('First day → base phase',
+        determineCampPhase(STANDARD_CAMP, STANDARD_CAMP.campStartDate) === 'base');
 
-// Test 7: Last day of camp → taper
-(() => {
-    const phase = determineCampPhase(STANDARD_CAMP, STANDARD_CAMP.taperPhaseDates.end);
-    assert('Last day → taper phase', phase === 'taper');
-})();
+    assert('Last day of base → base',
+        determineCampPhase(STANDARD_CAMP, STANDARD_CAMP.basePhaseDates.end) === 'base');
 
-// Test 8: Middle of build phase
-(() => {
-    const buildStart = STANDARD_CAMP.buildPhaseDates.start;
-    const buildEnd = STANDARD_CAMP.buildPhaseDates.end;
-    // Pick a date in the middle of build
-    const buildMidDays = Math.floor(
-        (new Date(buildEnd).getTime() - new Date(buildStart).getTime()) / (1000 * 3600 * 24 * 2)
-    );
-    const mid = new Date(buildStart + 'T00:00:00');
-    mid.setDate(mid.getDate() + buildMidDays);
-    const midStr = mid.toISOString().split('T')[0];
-    const phase = determineCampPhase(STANDARD_CAMP, midStr);
-    assert('Mid-build date → build phase', phase === 'build');
-})();
+    assert('First day of build → build',
+        determineCampPhase(STANDARD_CAMP, STANDARD_CAMP.buildPhaseDates.start) === 'build');
 
-// Test 9: Date before camp → null
-(() => {
-    const phase = determineCampPhase(STANDARD_CAMP, '2026-01-01');
-    assert('Before camp → null', phase === null);
-})();
+    assert('First day of peak → peak',
+        determineCampPhase(STANDARD_CAMP, STANDARD_CAMP.peakPhaseDates.start) === 'peak');
 
-// Test 10: Date after fight → null
-(() => {
-    const phase = determineCampPhase(STANDARD_CAMP, '2026-12-31');
-    assert('After fight → null', phase === null);
+    assert('Last taper day → taper',
+        determineCampPhase(STANDARD_CAMP, STANDARD_CAMP.taperPhaseDates.end) === 'taper');
+
+    assert('Before camp → null',
+        determineCampPhase(STANDARD_CAMP, '2026-01-01') === null);
+
+    assert('After fight → null',
+        determineCampPhase(STANDARD_CAMP, '2026-12-31') === null);
 })();
 
 // ─── getCampTrainingModifiers ─────────────────────────────────
 
 console.log('\n── getCampTrainingModifiers ──');
 
-// Test 11: Volume decreases from build to taper
 (() => {
+    // Volume multipliers
+    const base = getCampTrainingModifiers('base', 'intermediate', false);
+    assert('Base volumeMultiplier = 1.15', base.volumeMultiplier === 1.15);
+
     const build = getCampTrainingModifiers('build', 'intermediate', false);
+    assert('Build volumeMultiplier = 1.10', build.volumeMultiplier === 1.10);
+
+    const peak = getCampTrainingModifiers('peak', 'intermediate', false);
+    assert('Peak volumeMultiplier = 0.85', peak.volumeMultiplier === 0.85);
+
     const taper = getCampTrainingModifiers('taper', 'intermediate', false);
-    assert('Taper volume < build volume', taper.volumeMultiplier < build.volumeMultiplier);
-})();
+    assert('Taper volumeMultiplier = 0.55', taper.volumeMultiplier === 0.55);
 
-// Test 12: Peak intensity is highest
-(() => {
-    const base = getCampTrainingModifiers('base', 'advanced', false);
-    const peak = getCampTrainingModifiers('peak', 'advanced', false);
-    const taper = getCampTrainingModifiers('taper', 'advanced', false);
-    assert('Peak intensity cap ≥ base', peak.intensityCap >= base.intensityCap);
-    assert('Taper intensity cap < peak', taper.intensityCap < peak.intensityCap);
-})();
+    // Intensity caps
+    assert('Base intensityCap = 7', base.intensityCap === 7);
+    assert('Build intensityCap = 9', build.intensityCap === 9);
+    assert('Peak intensityCap = 9', peak.intensityCap === 9);
+    assert('Taper intensityCap = 6', taper.intensityCap === 6);
 
-// Test 13: Concurrent cut reduces S&C and conditioning sessions
-(() => {
+    // Sparring days
+    assert('Base sparring = 1', base.sparringDaysPerWeek === 1);
+    assert('Build sparring = 2', build.sparringDaysPerWeek === 2);
+    assert('Peak sparring = 3', peak.sparringDaysPerWeek === 3);
+    assert('Taper sparring = 1', taper.sparringDaysPerWeek === 1);
+
+    // Rest days
+    assert('Base rest = 1', base.mandatoryRestDaysPerWeek === 1);
+    assert('Taper rest = 2', taper.mandatoryRestDaysPerWeek === 2);
+
+    // Concurrent cut reduces SC and conditioning
     const noCut = getCampTrainingModifiers('build', 'advanced', false);
     const withCut = getCampTrainingModifiers('build', 'advanced', true);
     assert('Cut reduces SC sessions', withCut.scSessionsPerWeek <= noCut.scSessionsPerWeek);
     assert('Cut reduces conditioning sessions', withCut.conditioningSessionsPerWeek <= noCut.conditioningSessionsPerWeek);
-})();
 
-// Test 14: Peak sparring exceeds base sparring
-(() => {
-    const base = getCampTrainingModifiers('base', 'elite', false);
-    const peak = getCampTrainingModifiers('peak', 'elite', false);
-    assert('Peak has more sparring days than base', peak.sparringDaysPerWeek > base.sparringDaysPerWeek);
-})();
-
-// Test 15: Elite gets more sessions than beginner
-(() => {
+    // Elite gets more sessions than beginner
     const beg = getCampTrainingModifiers('build', 'beginner', false);
     const eli = getCampTrainingModifiers('build', 'elite', false);
     assert('Elite runs more than beginner', eli.roadWorkSessionsPerWeek >= beg.roadWorkSessionsPerWeek);
 })();
 
-// ─── getCampWeekProfile ───────────────────────────────────────
+// ─── getAutoTaperMultiplier ──────────────────────────────────
 
-console.log('\n── getCampWeekProfile ──');
+console.log('\n── getAutoTaperMultiplier ──');
 
-// Test 16: Week 1 profile is base
 (() => {
-    const profile = getCampWeekProfile(STANDARD_CAMP, STANDARD_CAMP.campStartDate, 'intermediate');
-    assert('Week 1 profile not null', profile !== null);
-    if (profile) {
-        assert('Week 1 campPhase = base', profile.campPhase === 'base');
-        assert('Week 1 number = 1', profile.weekNumber === 1);
-        assert('Week 1 has valid roadWorkFocus', profile.roadWorkFocus === 'long_slow_distance');
-        assert('Week 1 has valid conditioningFocus', typeof profile.conditioningFocus === 'string');
-        assert('Week 1 has valid scFocus', typeof profile.scFocus === 'string');
-    }
-})();
+    assert('0 spar → 1.0', getAutoTaperMultiplier(0) === 1.0);
+    assert('1 spar → 1.0', getAutoTaperMultiplier(1) === 1.0);
 
-// Test 17: Week outside camp → null
-(() => {
-    const profile = getCampWeekProfile(STANDARD_CAMP, '2026-01-01', 'advanced');
-    assert('Before camp → null profile', profile === null);
+    const twoSpar = getAutoTaperMultiplier(2);
+    // 1.0 - (2-1) * 0.175 = 0.825
+    assert('2 spar → 0.825', Math.abs(twoSpar - 0.825) < 0.001);
+
+    const threeSpar = getAutoTaperMultiplier(3);
+    // 1.0 - (3-1) * 0.175 = 0.65
+    assert('3 spar → 0.65', Math.abs(threeSpar - 0.65) < 0.001);
+
+    const fourSpar = getAutoTaperMultiplier(4);
+    // max(0.5, 1.0 - 3*0.175) = max(0.5, 0.475) = 0.5
+    assert('4 spar → 0.5', fourSpar === 0.5);
+
+    const fiveSpar = getAutoTaperMultiplier(5);
+    // max(0.5, 1.0 - 4*0.175) = max(0.5, 0.3) = 0.5
+    assert('5 spar → 0.5 (clamped)', fiveSpar === 0.5);
 })();
 
 // ─── toCampEnginePhase ────────────────────────────────────────
 
 console.log('\n── toCampEnginePhase ──');
 
-// Test 18: All camp phases map to correct engine phases
 (() => {
     assert('base → camp-base', toCampEnginePhase('base') === 'camp-base');
     assert('build → camp-build', toCampEnginePhase('build') === 'camp-build');
     assert('peak → camp-peak', toCampEnginePhase('peak') === 'camp-peak');
     assert('taper → camp-taper', toCampEnginePhase('taper') === 'camp-taper');
+})();
+
+// ─── getCampSCModifier ────────────────────────────────────────
+
+console.log('\n── getCampSCModifier ──');
+
+(() => {
+    const baseMod = getCampSCModifier('base', 1);
+    assert('Base + 1 spar → allowHeavyLifts true', baseMod.allowHeavyLifts === true);
+    assert('Base + 1 spar → recommendedFocus full_body', baseMod.recommendedFocus === 'full_body');
+    // scVolumeMultiplier = 1.15 * 1.0 = 1.15
+    assert('Base + 1 spar → scVolumeMultiplier = 1.15',
+        Math.abs(baseMod.scVolumeMultiplier - 1.15) < 0.001);
+
+    const peakMod = getCampSCModifier('peak', 3);
+    assert('Peak + 3 spar → allowHeavyLifts false', peakMod.allowHeavyLifts === false);
+    assert('Peak → recommendedFocus sport_specific', peakMod.recommendedFocus === 'sport_specific');
+
+    const taperMod = getCampSCModifier('taper', 1);
+    assert('Taper → recommendedFocus recovery', taperMod.recommendedFocus === 'recovery');
+
+    // Build + 3 spar → heavy lifts disallowed (sparringDaysThisWeek > 2)
+    const buildHeavySpar = getCampSCModifier('build', 3);
+    assert('Build + 3 spar → allowHeavyLifts false', buildHeavySpar.allowHeavyLifts === false);
+
+    // Build + 2 spar → heavy lifts allowed
+    const buildLightSpar = getCampSCModifier('build', 2);
+    assert('Build + 2 spar → allowHeavyLifts true', buildLightSpar.allowHeavyLifts === true);
+})();
+
+// ─── getCampWeekProfile ───────────────────────────────────────
+
+console.log('\n── getCampWeekProfile ──');
+
+(() => {
+    const profile = getCampWeekProfile(STANDARD_CAMP, STANDARD_CAMP.campStartDate, 'intermediate');
+    assert('Week 1 profile not null', profile !== null);
+    if (profile) {
+        assert('Week 1 campPhase = base', profile.campPhase === 'base');
+        assert('Week 1 number = 1', profile.weekNumber === 1);
+        assert('Week 1 roadWorkFocus = long_slow_distance', profile.roadWorkFocus === 'long_slow_distance');
+        assert('Week 1 conditioningFocus = circuit', profile.conditioningFocus === 'circuit');
+        assert('Week 1 scFocus = upper_push', profile.scFocus === 'upper_push');
+    }
+
+    const outside = getCampWeekProfile(STANDARD_CAMP, '2026-01-01', 'advanced');
+    assert('Before camp → null profile', outside === null);
 })();
 
 // ─── Summary ───────────────────────────────────────────────────

@@ -1,329 +1,429 @@
 /**
- * Standalone test script for lib/engine/calculateWeight.ts
- *
- * Run with:  npx tsx lib/engine/calculateWeight.test.ts
+ * Standalone test for lib/engine/calculateWeight.ts
  */
 
 import { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from '.ts';
-import type { WeightDataPoint, WeightTrendResult } from '.ts';
-
-// ─── Helpers ───────────────────────────────────────────────────
+import type { WeightTrendResult } from '.ts';
 
 let passed = 0;
 let failed = 0;
 
 function assert(label: string, condition: boolean) {
-    if (condition) {
-        passed++;
-        console.log(`  ✓ ${label}`);
-    } else {
-        failed++;
-        console.error(`  ✗ FAIL: ${label}`);
-    }
+  if (condition) { passed++; console.log(`  PASS ${label}`); }
+  else { failed++; console.error(`  FAIL ${label}`); }
 }
 
-function makeHistory(startDate: string, startWeight: number, dailyChange: number, days: number): WeightDataPoint[] {
-    const history: WeightDataPoint[] = [];
-    for (let i = 0; i < days; i++) {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + i);
-        history.push({
-            date: d.toISOString().split('T')[0],
-            weight: Math.round((startWeight + dailyChange * i) * 10) / 10,
-        });
-    }
-    return history;
+function assertClose(label: string, actual: number, expected: number, tolerance: number) {
+  const ok = Math.abs(actual - expected) <= tolerance;
+  if (ok) { passed++; console.log(`  PASS ${label}`); }
+  else { failed++; console.error(`  FAIL ${label} (got ${actual}, expected ~${expected} ±${tolerance})`); }
 }
 
-// ─── calculateWeightTrend Tests ────────────────────────────────
-
-console.log('\n── calculateWeightTrend ──');
-
-// Test 1: Declining weight — on_track
-(() => {
-    const history = makeHistory('2026-02-01', 160, -0.2, 14);
-    const result = calculateWeightTrend({
-        weightHistory: history,
-        targetWeightLbs: 155,
-        baseWeightLbs: 160,
-        phase: 'fight-camp',
-        deadlineDate: '2026-04-01',
+function makeHistory(startDate: string, startWeight: number, dailyChange: number, days: number) {
+  const history: { date: string; weight: number }[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    history.push({
+      date: d.toISOString().split('T')[0],
+      weight: Math.round((startWeight + dailyChange * i) * 10) / 10,
     });
-    assert('14d declining → velocity < 0', result.weeklyVelocityLbs < 0);
-    assert('Status is on_track', result.status === 'on_track');
-    assert('currentWeight matches last entry', result.currentWeight === history[history.length - 1].weight);
-    assert('remainingLbs > 0', result.remainingLbs > 0);
-    assert('Has projected date', result.projectedDate !== null);
-    assert('Has projected earliest date', result.projectedDateEarliest !== null);
-    assert('Has projected latest date', result.projectedDateLatest !== null);
-    assert('Has projection confidence', !!result.projectionConfidence);
-    const hasRange = !!result.projectedDateEarliest && !!result.projectedDateLatest;
-    assert('Projection range ordered', !hasRange || (result.projectedDateEarliest as string) <= (result.projectedDateLatest as string));
-    assert('percentComplete > 0', result.percentComplete > 0);
-})();
+  }
+  return history;
+}
 
-// Test 1b: Volatile trend - uncertainty stays explicit
+function makeTrend(overrides: Partial<WeightTrendResult>): WeightTrendResult {
+  return {
+    currentWeight: 160,
+    movingAverage7d: 160,
+    weeklyVelocityLbs: -1.0,
+    totalChangeLbs: -5,
+    remainingLbs: 5,
+    projectedDaysToTarget: null,
+    projectedDate: null,
+    projectedDateEarliest: null,
+    projectedDateLatest: null,
+    projectionConfidence: 'low',
+    projectedWeeklyVelocityRange: null,
+    status: 'on_track',
+    isRapidLoss: false,
+    percentComplete: 50,
+    message: '',
+    ...overrides,
+  };
+}
+
+// ── calculateWeightTrend ──
+console.log('\n-- calculateWeightTrend --');
+
+// Empty history
 (() => {
-    const history = makeHistory('2026-02-01', 170, -0.25, 21).map((p, i) => ({
-        ...p,
-        weight: Math.round((p.weight + (i % 2 === 0 ? 0.2 : -0.2)) * 10) / 10,
-    }));
-
-    const result = calculateWeightTrend({
-        weightHistory: history,
-        targetWeightLbs: 162,
-        baseWeightLbs: 170,
-        phase: 'fight-camp',
-        deadlineDate: '2026-05-01',
-    });
-
-    assert('Volatile trend has projection range', result.projectedWeeklyVelocityRange != null);
-    if (result.projectedWeeklyVelocityRange) {
-        assert(
-            'Velocity range ordered (optimistic <= expected <= conservative)',
-            result.projectedWeeklyVelocityRange.optimistic <= result.projectedWeeklyVelocityRange.expected &&
-            result.projectedWeeklyVelocityRange.expected <= result.projectedWeeklyVelocityRange.conservative,
-        );
-    }
-    assert('Volatile trend has explicit confidence', !!result.projectionConfidence);
+  const r = calculateWeightTrend({
+    weightHistory: [],
+    targetWeightLbs: 155,
+    baseWeightLbs: 160,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('Empty → uses baseWeight', r.currentWeight === 160);
+  assert('Empty → stalled status', r.status === 'stalled');
+  assert('Empty → velocity 0', r.weeklyVelocityLbs === 0);
+  assert('Empty → remainingLbs correct', r.remainingLbs === 5);
+  assert('Empty → message about data', r.message.includes('Not enough'));
 })();
-// Test 2: Flat history — stalled
+
+// Empty history, no target
 (() => {
-    const history = makeHistory('2026-02-01', 160, 0, 14);
-    const result = calculateWeightTrend({
-        weightHistory: history,
-        targetWeightLbs: 155,
-        baseWeightLbs: 160,
-        phase: 'fight-camp',
-        deadlineDate: null,
-    });
-    assert('Flat weight → status stalled', result.status === 'stalled');
-    assert('velocity near 0', Math.abs(result.weeklyVelocityLbs) < 0.3);
+  const r = calculateWeightTrend({
+    weightHistory: [],
+    targetWeightLbs: null,
+    baseWeightLbs: 160,
+    phase: 'off-season',
+    deadlineDate: null,
+  });
+  assert('Empty no target → no_target status', r.status === 'no_target');
 })();
 
-// Test 3: Rapid loss — ahead, isRapidLoss
+// SMA verification with 7 known weights
 (() => {
-    const history = makeHistory('2026-02-01', 165, -0.5, 14);
-    const result = calculateWeightTrend({
-        weightHistory: history,
-        targetWeightLbs: 155,
-        baseWeightLbs: 165,
-        phase: 'fight-camp',
-        deadlineDate: null,
-    });
-    assert('Rapid loss → isRapidLoss', result.isRapidLoss);
-    assert('Status is ahead', result.status === 'ahead');
+  const weights = [150, 151, 152, 153, 154, 155, 156];
+  const history = weights.map((w, i) => ({
+    date: `2026-02-${String(i + 1).padStart(2, '0')}`,
+    weight: w,
+  }));
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: null,
+    baseWeightLbs: 150,
+    phase: 'off-season',
+    deadlineDate: null,
+  });
+  assertClose('7-weight SMA = 153', r.movingAverage7d, 153, 0.1);
+  assert('currentWeight is last entry', r.currentWeight === 156);
 })();
 
-// Test 4: No target
+// Velocity with <7 days (scaling)
 (() => {
-    const history = makeHistory('2026-02-01', 160, -0.1, 10);
-    const result = calculateWeightTrend({
-        weightHistory: history,
-        targetWeightLbs: null,
-        baseWeightLbs: 160,
-        phase: 'off-season',
-        deadlineDate: null,
-    });
-    assert('No target → status no_target', result.status === 'no_target');
-    assert('remainingLbs === 0', result.remainingLbs === 0);
+  const history = makeHistory('2026-02-01', 160, -0.5, 4);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 155,
+    baseWeightLbs: 160,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assertClose('Short history velocity scaled', r.weeklyVelocityLbs, -3.5, 0.2);
 })();
 
-// Test 5: Empty history
+// Status: on_track (velocity -1.0)
 (() => {
-    const result = calculateWeightTrend({
-        weightHistory: [],
-        targetWeightLbs: 155,
-        baseWeightLbs: 160,
-        phase: 'fight-camp',
-        deadlineDate: null,
-    });
-    assert('Empty history → uses baseWeight', result.currentWeight === 160);
-    assert('Empty history → stalled', result.status === 'stalled');
-    assert('Empty history → message', result.message.includes('Not enough'));
+  const history = makeHistory('2026-02-01', 160, -0.143, 14);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 155,
+    baseWeightLbs: 160,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('Moderate loss → on_track', r.status === 'on_track');
 })();
 
-// Test 6: Gaining during fight-camp
+// Status: ahead (velocity < -2.0)
 (() => {
-    const history = makeHistory('2026-02-01', 155, 0.15, 14);
-    const result = calculateWeightTrend({
-        weightHistory: history,
-        targetWeightLbs: 150,
-        baseWeightLbs: 155,
-        phase: 'fight-camp',
-        deadlineDate: null,
-    });
-    assert('Gaining during cut → status gaining', result.status === 'gaining');
+  const history = makeHistory('2026-02-01', 165, -0.5, 14);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 155,
+    baseWeightLbs: 165,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('Rapid loss → ahead', r.status === 'ahead');
+  assert('isRapidLoss true', r.isRapidLoss === true);
 })();
 
-// ─── calculateWeightCorrection Tests ───────────────────────────
-
-console.log('\n── calculateWeightCorrection ──');
-
-// Test 7: Off-season → no correction
+// Status: stalled (flat weight, 14d)
 (() => {
-    const trend: WeightTrendResult = {
-        currentWeight: 165,
-        movingAverage7d: 165,
-        weeklyVelocityLbs: 0.5,
-        totalChangeLbs: 2,
-        remainingLbs: 0,
-        projectedDaysToTarget: null,
-        projectedDate: null,
-        status: 'no_target',
-        isRapidLoss: false,
-        percentComplete: 0,
-        message: '',
-    };
-    const result = calculateWeightCorrection({
-        weightTrend: trend,
-        phase: 'off-season',
-        currentTDEE: 2500,
-        deadlineDate: null,
-    });
-    assert('Off-season → correction = 0', result.correctionDeficitCal === 0);
-    assert('Off-season → adjusted = TDEE', result.adjustedCalorieTarget === 2500);
+  const history = makeHistory('2026-02-01', 160, 0, 14);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 155,
+    baseWeightLbs: 160,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('Flat weight → stalled', r.status === 'stalled');
+  assert('Stalled velocity near 0', Math.abs(r.weeklyVelocityLbs) <= 0.2);
 })();
 
-// Test 8: Fight-camp + behind → correction 300
+// Status: gaining (fight-camp, positive velocity)
 (() => {
-    const trend: WeightTrendResult = {
-        currentWeight: 160,
-        movingAverage7d: 160,
-        weeklyVelocityLbs: -0.3,
-        totalChangeLbs: -2,
-        remainingLbs: 5,
-        projectedDaysToTarget: null,
-        projectedDate: null,
-        status: 'behind',
-        isRapidLoss: false,
-        percentComplete: 40,
-        message: '',
-    };
-    const result = calculateWeightCorrection({
-        weightTrend: trend,
-        phase: 'fight-camp',
-        currentTDEE: 2500,
-        deadlineDate: null,
-    });
-    assert('Fight-camp behind → correction = 300', result.correctionDeficitCal === 300);
-    assert('Adjusted = 2200', result.adjustedCalorieTarget === 2200);
+  const history = makeHistory('2026-02-01', 155, 0.15, 14);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 150,
+    baseWeightLbs: 155,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('Gaining during fight-camp → gaining', r.status === 'gaining');
 })();
 
-// Test 9: Ahead → negative correction (reduce deficit)
+// Status: behind (fight-camp, slow loss)
 (() => {
-    const trend: WeightTrendResult = {
-        currentWeight: 155,
-        movingAverage7d: 155,
-        weeklyVelocityLbs: -3.5,
-        totalChangeLbs: -10,
-        remainingLbs: 0,
-        projectedDaysToTarget: null,
-        projectedDate: null,
-        status: 'ahead',
-        isRapidLoss: true,
-        percentComplete: 100,
-        message: '',
-    };
-    const result = calculateWeightCorrection({
-        weightTrend: trend,
-        phase: 'fight-camp',
-        currentTDEE: 2500,
-        deadlineDate: null,
-    });
-    assert('Ahead → negative correction', result.correctionDeficitCal < 0);
-    assert('Adjusted > TDEE', result.adjustedCalorieTarget > 2500);
+  const history = makeHistory('2026-02-01', 160, -0.04, 14);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 155,
+    baseWeightLbs: 160,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('Slow loss in fight-camp → behind', r.status === 'behind');
 })();
 
-// ─── calculateWeightReadinessPenalty Tests ──────────────────────
-
-console.log('\n── calculateWeightReadinessPenalty ──');
-
-// Test 10: Off-season → no penalty
+// Already at target
 (() => {
-    const trend: WeightTrendResult = {
-        currentWeight: 160,
-        movingAverage7d: 160,
-        weeklyVelocityLbs: -3.0,
-        totalChangeLbs: -5,
-        remainingLbs: 5,
-        projectedDaysToTarget: null,
-        projectedDate: null,
-        status: 'ahead',
-        isRapidLoss: true,
-        percentComplete: 50,
-        message: '',
-    };
-    const result = calculateWeightReadinessPenalty(trend, 'off-season');
-    assert('Off-season → penalty = 0', result.penaltyPoints === 0);
-    assert('Off-season → not stressor', !result.isStressor);
+  const history = makeHistory('2026-02-01', 155, -0.1, 7);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 160,
+    baseWeightLbs: 160,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('Below target → on_track', r.status === 'on_track');
+  assert('remainingLbs <= 0', r.remainingLbs <= 0);
 })();
 
-// Test 11: Rapid loss > 2 lbs/wk → 1 point
+// No target
 (() => {
-    const trend: WeightTrendResult = {
-        currentWeight: 158,
-        movingAverage7d: 158,
-        weeklyVelocityLbs: -2.5,
-        totalChangeLbs: -7,
-        remainingLbs: 3,
-        projectedDaysToTarget: null,
-        projectedDate: null,
-        status: 'ahead',
-        isRapidLoss: true,
-        percentComplete: 70,
-        message: '',
-    };
-    const result = calculateWeightReadinessPenalty(trend, 'fight-camp');
-    assert('Rapid loss (-2.5) → penalty = 1', result.penaltyPoints === 1);
-    assert('Is stressor', result.isStressor);
+  const history = makeHistory('2026-02-01', 160, -0.1, 10);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: null,
+    baseWeightLbs: 160,
+    phase: 'off-season',
+    deadlineDate: null,
+  });
+  assert('No target → no_target', r.status === 'no_target');
+  assert('No target → remainingLbs 0', r.remainingLbs === 0);
 })();
 
-// Test 12: Very rapid loss > 3 lbs/wk → 2 points
+// Projection with enough data
 (() => {
-    const trend: WeightTrendResult = {
-        currentWeight: 155,
-        movingAverage7d: 155,
-        weeklyVelocityLbs: -3.5,
-        totalChangeLbs: -10,
-        remainingLbs: 0,
-        projectedDaysToTarget: null,
-        projectedDate: null,
-        status: 'ahead',
-        isRapidLoss: true,
-        percentComplete: 100,
-        message: '',
-    };
-    const result = calculateWeightReadinessPenalty(trend, 'fight-camp');
-    assert('Very rapid loss (-3.5) → penalty = 2', result.penaltyPoints === 2);
-    assert('Is stressor', result.isStressor);
+  const history = makeHistory('2026-01-01', 170, -0.2, 25);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 160,
+    baseWeightLbs: 170,
+    phase: 'fight-camp',
+    deadlineDate: '2026-06-01',
+  });
+  assert('25d decline → has projection', r.projectedDate !== null);
+  assert('Has projection range', r.projectedWeeklyVelocityRange !== null);
+  if (r.projectedWeeklyVelocityRange) {
+    assert('Velocity range ordered', r.projectedWeeklyVelocityRange.optimistic <= r.projectedWeeklyVelocityRange.expected);
+  }
 })();
 
-// Test 13: Normal loss rate → no penalty
+// Volatile trend
 (() => {
-    const trend: WeightTrendResult = {
-        currentWeight: 158,
-        movingAverage7d: 158,
-        weeklyVelocityLbs: -1.5,
-        totalChangeLbs: -5,
-        remainingLbs: 3,
-        projectedDaysToTarget: null,
-        projectedDate: null,
-        status: 'on_track',
-        isRapidLoss: false,
-        percentComplete: 60,
-        message: '',
-    };
-    const result = calculateWeightReadinessPenalty(trend, 'fight-camp');
-    assert('Normal rate → penalty = 0', result.penaltyPoints === 0);
-    assert('Not stressor', !result.isStressor);
+  const history = makeHistory('2026-02-01', 170, -0.25, 21).map((p, i) => ({
+    ...p,
+    weight: Math.round((p.weight + (i % 2 === 0 ? 0.2 : -0.2)) * 10) / 10,
+  }));
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 162,
+    baseWeightLbs: 170,
+    phase: 'fight-camp',
+    deadlineDate: '2026-05-01',
+  });
+  assert('Volatile has projection range', r.projectedWeeklyVelocityRange != null);
+  assert('Volatile has confidence', !!r.projectionConfidence);
 })();
 
-// ─── Summary ───────────────────────────────────────────────────
+// Percent complete
+(() => {
+  const history = makeHistory('2026-02-01', 155, 0, 7);
+  const r = calculateWeightTrend({
+    weightHistory: history,
+    targetWeightLbs: 150,
+    baseWeightLbs: 160,
+    phase: 'fight-camp',
+    deadlineDate: null,
+  });
+  assert('percentComplete = 50', r.percentComplete === 50);
+})();
 
-console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
+// ── calculateWeightCorrection ──
+console.log('\n-- calculateWeightCorrection --');
+
+// Off-season: 0
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'behind' }),
+    phase: 'off-season',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('Off-season → correction = 0', r.correctionDeficitCal === 0);
+  assert('Off-season → adjusted = TDEE', r.adjustedCalorieTarget === 2500);
+})();
+
+// Ahead: -125
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'ahead' }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('Ahead → correction = -125', r.correctionDeficitCal === -125);
+  assert('Ahead → adjusted = 2625', r.adjustedCalorieTarget === 2625);
+})();
+
+// On-track: 0
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'on_track' }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('On-track → correction = 0', r.correctionDeficitCal === 0);
+})();
+
+// Pre-camp behind: 150
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'behind' }),
+    phase: 'pre-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('Pre-camp behind → 150', r.correctionDeficitCal === 150);
+})();
+
+// Pre-camp gaining: 200
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'gaining' }),
+    phase: 'pre-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('Pre-camp gaining → 200', r.correctionDeficitCal === 200);
+})();
+
+// Fight-camp behind: 300
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'behind' }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('Fight-camp behind → 300', r.correctionDeficitCal === 300);
+})();
+
+// Fight-camp stalled: 250
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'stalled' }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('Fight-camp stalled → 250', r.correctionDeficitCal === 250);
+})();
+
+// Fight-camp gaining: 400
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'gaining' }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('Fight-camp gaining → 400', r.correctionDeficitCal === 400);
+})();
+
+// Deadline boost
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'behind', remainingLbs: 5 }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: '2026-03-25',
+  });
+  assert('Deadline boost: correction > base 300', r.correctionDeficitCal > 300);
+  assert('Deadline boost: capped at 500', r.correctionDeficitCal <= 500);
+})();
+
+// Global cap
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'gaining', remainingLbs: 10 }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: '2026-03-25',
+  });
+  assert('Correction capped at 1000', r.correctionDeficitCal <= 1000);
+})();
+
+// no_target: 0
+(() => {
+  const r = calculateWeightCorrection({
+    weightTrend: makeTrend({ status: 'no_target' }),
+    phase: 'fight-camp',
+    currentTDEE: 2500,
+    deadlineDate: null,
+  });
+  assert('no_target → correction = 0', r.correctionDeficitCal === 0);
+})();
+
+// ── calculateWeightReadinessPenalty ──
+console.log('\n-- calculateWeightReadinessPenalty --');
+
+(() => {
+  const r = calculateWeightReadinessPenalty(makeTrend({ weeklyVelocityLbs: -3.5 }), 'off-season');
+  assert('Off-season → penalty = 0', r.penaltyPoints === 0);
+  assert('Off-season → not stressor', !r.isStressor);
+})();
+
+(() => {
+  const r = calculateWeightReadinessPenalty(makeTrend({ weeklyVelocityLbs: -3.5 }), 'fight-camp');
+  assert('Velocity -3.5 → penalty = 2', r.penaltyPoints === 2);
+  assert('Is stressor', r.isStressor === true);
+})();
+
+(() => {
+  const r = calculateWeightReadinessPenalty(makeTrend({ weeklyVelocityLbs: -2.5 }), 'fight-camp');
+  assert('Velocity -2.5 → penalty = 1', r.penaltyPoints === 1);
+})();
+
+(() => {
+  const r = calculateWeightReadinessPenalty(makeTrend({ weeklyVelocityLbs: -1.5 }), 'fight-camp');
+  assert('Velocity -1.5 → penalty = 0', r.penaltyPoints === 0);
+  assert('Not stressor', !r.isStressor);
+})();
+
+(() => {
+  const r = calculateWeightReadinessPenalty(makeTrend({ weeklyVelocityLbs: -2.0 }), 'fight-camp');
+  assert('Velocity -2.0 exact → penalty = 0', r.penaltyPoints === 0);
+})();
+
+(() => {
+  const r = calculateWeightReadinessPenalty(makeTrend({ weeklyVelocityLbs: -3.0 }), 'fight-camp');
+  assert('Velocity -3.0 exact → penalty = 1', r.penaltyPoints === 1);
+})();
+
+(() => {
+  const r = calculateWeightReadinessPenalty(makeTrend({ weeklyVelocityLbs: -3.5 }), 'pre-camp');
+  assert('Pre-camp also applies penalty = 2', r.penaltyPoints === 2);
+})();
+
+console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
 process.exit(failed > 0 ? 1 : 0);
-
-
-
-

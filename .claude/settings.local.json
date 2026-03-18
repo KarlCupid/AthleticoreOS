@@ -35,7 +35,13 @@
       "Bash(pip install:*)",
       "Bash(python3 -m pip install defusedxml -q)",
       "Bash(python3 \"C:\\\\Users\\\\karll\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\284a73e8-c92f-4fbf-a422-8d8a7dd06a93\\\\06d3585a-8284-49d5-b805-e0a79f2e4048\\\\skills\\\\docx\\\\scripts\\\\office\\\\unpack.py\" \"C:\\\\Users\\\\karll\\\\Downloads\\\\athleticore_design_system_revamp.docx\" \"C:\\\\Users\\\\karll\\\\Downloads\\\\docx_unpacked\")",
-      "Bash(find 'C:\\\\Users\\\\karll\\\\Documents\\\\Athleticore OS' -name *.ts -path */engine/*)"
+      "Bash(find 'C:\\\\Users\\\\karll\\\\Documents\\\\Athleticore OS' -name *.ts -path */engine/*)",
+      "Bash(find '/c/Users/karll/Documents/Athleticore OS' -type f -name *.test.* -o -name *.spec.* -o -name __tests__ -type d)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(find 'C:/Users/karll/Documents/Athleticore OS/src/components' -maxdepth 1 -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(find 'C:/Users/karll/Documents/Athleticore OS/src/screens' -maxdepth 1 -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(find 'C:/Users/karll/Documents/Athleticore OS/lib/engine' -name *.test.ts)",
+      "Bash(ls \"/c/Users/karll/Documents/Athleticore OS/lib/engine/\"*/)"
     ]
   }
 }

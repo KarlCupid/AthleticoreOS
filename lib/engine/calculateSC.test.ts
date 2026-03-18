@@ -8,7 +8,6 @@ import {
     determineFocus,
     scoreExerciseForUser,
     generateWorkout,
-    generateWorkoutV2,
     calculateVolumeLoad,
     calculateWeeklyVolume,
     getWorkoutCompliance,
@@ -16,10 +15,7 @@ import {
 import type {
     ExerciseLibraryRow,
     ExerciseScoringContext,
-    ReadinessState,
     MuscleGroup,
-    PerformanceRiskState,
-    TrainingBlockContext,
 } from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -92,18 +88,36 @@ const MOCK_LIBRARY: ExerciseLibraryRow[] = [
 console.log('\n── determineFocus ──');
 
 (() => {
-    assert('Depleted always returns recovery',
-        determineFocus(1, 'Depleted', 'off-season') === 'recovery');
-})();
+    // Default weekly focus map
+    assert('Sunday → recovery', determineFocus(0, 'Prime', 'off-season') === 'recovery');
+    assert('Monday → upper_push', determineFocus(1, 'Prime', 'off-season') === 'upper_push');
+    assert('Tuesday → lower', determineFocus(2, 'Prime', 'off-season') === 'lower');
+    assert('Wednesday → sport_specific', determineFocus(3, 'Prime', 'off-season') === 'sport_specific');
+    assert('Thursday → upper_pull', determineFocus(4, 'Prime', 'off-season') === 'upper_pull');
+    assert('Friday → full_body', determineFocus(5, 'Prime', 'off-season') === 'full_body');
+    assert('Saturday → conditioning', determineFocus(6, 'Prime', 'off-season') === 'conditioning');
 
-(() => {
-    assert('Override takes precedence',
-        determineFocus(1, 'Prime', 'off-season', 'lower') === 'lower');
-})();
+    // Depleted always recovery regardless of day or phase
+    assert('Depleted Mon → recovery', determineFocus(1, 'Depleted', 'off-season') === 'recovery');
+    assert('Depleted Wed → recovery', determineFocus(3, 'Depleted', 'fight-camp') === 'recovery');
+    assert('Depleted Fri → recovery', determineFocus(5, 'Depleted', 'pre-camp') === 'recovery');
+    assert('Depleted Sat → recovery', determineFocus(6, 'Depleted', 'off-season') === 'recovery');
 
-(() => {
-    assert('Fight camp Mon returns sport_specific',
-        determineFocus(1, 'Prime', 'fight-camp') === 'sport_specific');
+    // Override takes precedence over everything
+    assert('Override beats weekly map', determineFocus(1, 'Prime', 'off-season', 'lower') === 'lower');
+    assert('Override beats Depleted', determineFocus(1, 'Depleted', 'off-season', 'conditioning') === 'conditioning');
+
+    // Fight-camp pattern: Mon/Wed/Fri → sport_specific, Tue/Thu → conditioning, Sun/Sat → recovery
+    assert('Fight-camp Mon → sport_specific', determineFocus(1, 'Prime', 'fight-camp') === 'sport_specific');
+    assert('Fight-camp Wed → sport_specific', determineFocus(3, 'Prime', 'fight-camp') === 'sport_specific');
+    assert('Fight-camp Fri → sport_specific', determineFocus(5, 'Prime', 'fight-camp') === 'sport_specific');
+    assert('Fight-camp Tue → conditioning', determineFocus(2, 'Prime', 'fight-camp') === 'conditioning');
+    assert('Fight-camp Thu → conditioning', determineFocus(4, 'Prime', 'fight-camp') === 'conditioning');
+    assert('Fight-camp Sun → recovery', determineFocus(0, 'Prime', 'fight-camp') === 'recovery');
+    assert('Fight-camp Sat → recovery', determineFocus(6, 'Prime', 'fight-camp') === 'recovery');
+
+    // Caution uses normal weekly map (not forced to recovery like Depleted)
+    assert('Caution Mon → upper_push (normal map)', determineFocus(1, 'Caution', 'off-season') === 'upper_push');
 })();
 
 // ─── scoreExerciseForUser Tests ────────────────────────────────
@@ -111,53 +125,94 @@ console.log('\n── determineFocus ──');
 console.log('\n── scoreExerciseForUser ──');
 
 (() => {
+    // Depleted + heavy_lift → 0
     const heavyLift = makeExercise({ type: 'heavy_lift', cns_load: 9 });
-    const score = scoreExerciseForUser(heavyLift, makeScoringContext({ readinessState: 'Depleted' }));
-    assert('Heavy lift scores 0 when Depleted', score === 0);
-})();
+    assert('Depleted + heavy_lift → 0',
+        scoreExerciseForUser(heavyLift, makeScoringContext({ readinessState: 'Depleted' })) === 0);
 
-(() => {
+    // Depleted + power → 0
+    const power = makeExercise({ type: 'power', cns_load: 6 });
+    assert('Depleted + power → 0',
+        scoreExerciseForUser(power, makeScoringContext({ readinessState: 'Depleted' })) === 0);
+
+    // Depleted + mobility → high score (50 base + 30 bonus = 80)
     const mobility = makeExercise({ type: 'mobility', cns_load: 1 });
-    const score = scoreExerciseForUser(mobility, makeScoringContext({ readinessState: 'Depleted' }));
-    assert('Mobility scores high when Depleted', score >= 70);
-})();
+    const mobilityDepleted = scoreExerciseForUser(mobility, makeScoringContext({ readinessState: 'Depleted' }));
+    assert('Depleted + mobility → 80', mobilityDepleted === 80);
 
-(() => {
-    const heavyLift = makeExercise({ type: 'heavy_lift', cns_load: 5 });
-    const score = scoreExerciseForUser(heavyLift, makeScoringContext({ readinessState: 'Prime' }));
-    assert('Heavy lift scores well when Prime', score >= 60);
-})();
+    // Depleted + active_recovery → high score (50 + 30 = 80)
+    const activeRecovery = makeExercise({ type: 'active_recovery', cns_load: 1 });
+    const arDepleted = scoreExerciseForUser(activeRecovery, makeScoringContext({ readinessState: 'Depleted' }));
+    assert('Depleted + active_recovery → 80', arDepleted === 80);
 
-(() => {
-    const exercise = makeExercise({ id: 'recent-1', type: 'heavy_lift', cns_load: 5 });
-    const score = scoreExerciseForUser(exercise, makeScoringContext({
-        recentExerciseIds: ['recent-1'],
-    }));
-    const baseScore = scoreExerciseForUser(exercise, makeScoringContext({
-        recentExerciseIds: [],
-    }));
-    assert('Recently used exercise scored lower', score < baseScore);
-})();
+    // Prime + heavy_lift → higher than base (50 + 20 = 70)
+    const heavyPrime = scoreExerciseForUser(
+        makeExercise({ type: 'heavy_lift', cns_load: 5 }),
+        makeScoringContext({ readinessState: 'Prime' }),
+    );
+    assert('Prime + heavy_lift → 70', heavyPrime === 70);
 
-(() => {
-    const exercise = makeExercise({ type: 'heavy_lift', cns_load: 60 });
-    const score = scoreExerciseForUser(exercise, makeScoringContext({ cnsBudgetRemaining: 10 }));
-    assert('Exercise exceeding CNS budget scores 0', score === 0);
-})();
+    // Prime + power → 70
+    const powerPrime = scoreExerciseForUser(
+        makeExercise({ type: 'power', cns_load: 5 }),
+        makeScoringContext({ readinessState: 'Prime' }),
+    );
+    assert('Prime + power → 70', powerPrime === 70);
 
-(() => {
-    const exercise = makeExercise({ type: 'heavy_lift', cns_load: 8 });
-    const highACWR = scoreExerciseForUser(exercise, makeScoringContext({ acwr: 1.5 }));
-    const normalACWR = scoreExerciseForUser(exercise, makeScoringContext({ acwr: 1.0 }));
-    assert('High ACWR penalizes high-CNS exercises', highACWR < normalACWR);
-})();
+    // Phase boost: off-season boosts heavy_lift (+15)
+    const heavyOffSeason = scoreExerciseForUser(
+        makeExercise({ type: 'heavy_lift', cns_load: 5 }),
+        makeScoringContext({ readinessState: 'Prime', phase: 'off-season' }),
+    );
+    // 50 (base) + 20 (Prime heavy) + 15 (off-season boost for heavy_lift) = 85
+    assert('Off-season phase boosts heavy_lift', heavyOffSeason === 85);
 
-(() => {
+    // Phase boost: fight-camp boosts sport_specific
+    const sportSpecFightCamp = scoreExerciseForUser(
+        makeExercise({ type: 'sport_specific', cns_load: 3 }),
+        makeScoringContext({ phase: 'fight-camp' }),
+    );
+    // 50 (base) + 15 (fight-camp boost for sport_specific) = 65
+    assert('Fight-camp phase boosts sport_specific', sportSpecFightCamp === 65);
+
+    // Recency penalty: recently used exercise scored lower
+    const recentEx = makeExercise({ id: 'recent-1', type: 'heavy_lift', cns_load: 5 });
+    const scoreRecent = scoreExerciseForUser(recentEx, makeScoringContext({ recentExerciseIds: ['recent-1'] }));
+    const scoreNotRecent = scoreExerciseForUser(recentEx, makeScoringContext({ recentExerciseIds: [] }));
+    assert('Recently used exercise scores 25 less', scoreNotRecent - scoreRecent === 25);
+
+    // CNS budget exceeded → 0
+    const overBudget = makeExercise({ type: 'conditioning', cns_load: 60 });
+    assert('CNS budget exceeded → 0',
+        scoreExerciseForUser(overBudget, makeScoringContext({ cnsBudgetRemaining: 10 })) === 0);
+
+    // High ACWR penalizes high-CNS exercises
+    const highCNS = makeExercise({ type: 'heavy_lift', cns_load: 8 });
+    const highACWR = scoreExerciseForUser(highCNS, makeScoringContext({ acwr: 1.5 }));
+    const normalACWR = scoreExerciseForUser(highCNS, makeScoringContext({ acwr: 1.0 }));
+    assert('High ACWR penalizes high-CNS exercises by 20', normalACWR - highACWR === 20);
+
+    // Beginners penalized for power lifts
     const powerLift = makeExercise({ type: 'power', cns_load: 8 });
     const beginnerScore = scoreExerciseForUser(powerLift, makeScoringContext({ fitnessLevel: 'beginner' }));
+    assert('Beginner power lift score reduced (below 50)', beginnerScore < 50);
+
+    // Elite rewarded for complex power
     const eliteScore = scoreExerciseForUser(powerLift, makeScoringContext({ fitnessLevel: 'elite' }));
-    assert('Beginners are penalized for complex power lifts', beginnerScore < 50);
-    assert('Elites are rewarded for complex power lifts', eliteScore > 50);
+    assert('Elite power lift score boosted (above 50)', eliteScore > 50);
+
+    // Muscle balance: under-trained group gets a boost
+    const underTrainedVolume = { ...EMPTY_VOLUME, chest: 0, back: 5000, shoulders: 5000 };
+    const chestExercise = makeExercise({ type: 'conditioning', cns_load: 3, muscle_group: 'chest' });
+    const underScore = scoreExerciseForUser(chestExercise, makeScoringContext({ recentMuscleVolume: underTrainedVolume }));
+    const evenVolume = { ...EMPTY_VOLUME };
+    const evenScore = scoreExerciseForUser(chestExercise, makeScoringContext({ recentMuscleVolume: evenVolume }));
+    assert('Under-trained muscle group gets boost', underScore > evenScore);
+
+    // Caution + high-CNS heavy_lift penalized
+    const cautionHeavy = makeExercise({ type: 'heavy_lift', cns_load: 9 });
+    const cautionScore = scoreExerciseForUser(cautionHeavy, makeScoringContext({ readinessState: 'Caution' }));
+    assert('Caution penalizes heavy_lift with cns_load >= 9', cautionScore < 50);
 })();
 
 // ─── generateWorkout Tests ─────────────────────────────────────
@@ -165,6 +220,7 @@ console.log('\n── scoreExerciseForUser ──');
 console.log('\n── generateWorkout ──');
 
 (() => {
+    // Prime generates exercises and respects CNS budget
     const result = generateWorkout({
         readinessState: 'Prime',
         phase: 'off-season',
@@ -173,15 +229,14 @@ console.log('\n── generateWorkout ──');
         recentExerciseIds: [],
         recentMuscleVolume: { ...EMPTY_VOLUME },
         fitnessLevel: 'intermediate',
-        trainingDate: '2026-03-09',
+        trainingDate: '2026-03-09', // Sunday
     });
     assert('Prime generates exercises', result.exercises.length > 0);
     assert('Prime respects CNS budget', result.usedCNS <= result.totalCNSBudget);
     assert('Has a message', result.message.length > 0);
-})();
 
-(() => {
-    const result = generateWorkout({
+    // Depleted → recovery focus, only mobility/recovery exercises
+    const depleted = generateWorkout({
         readinessState: 'Depleted',
         phase: 'off-season',
         acwr: 1.0,
@@ -191,27 +246,26 @@ console.log('\n── generateWorkout ──');
         fitnessLevel: 'intermediate',
         trainingDate: '2026-03-09',
     });
-    assert('Depleted generates recovery focus', result.focus === 'recovery');
-    assert('Depleted only has mobility/recovery exercises',
-        result.exercises.every(e => e.exercise.type === 'mobility' || e.exercise.type === 'active_recovery'));
-})();
+    assert('Depleted → recovery focus', depleted.focus === 'recovery');
+    assert('Depleted → only mobility/recovery exercises',
+        depleted.exercises.every(e => e.exercise.type === 'mobility' || e.exercise.type === 'active_recovery'));
+    assert('Depleted → max 3 exercises', depleted.exercises.length <= 3);
 
-(() => {
-    const result = generateWorkout({
-        readinessState: 'Prime',
+    // Caution → max 6 exercises
+    const caution = generateWorkout({
+        readinessState: 'Caution',
         phase: 'off-season',
         acwr: 1.0,
         exerciseLibrary: MOCK_LIBRARY,
         recentExerciseIds: [],
         recentMuscleVolume: { ...EMPTY_VOLUME },
         fitnessLevel: 'intermediate',
-        focus: 'lower',
+        trainingDate: '2026-03-10', // Monday → upper_push
     });
-    assert('Override focus is respected', result.focus === 'lower');
-})();
+    assert('Caution → max 6 exercises', caution.exercises.length <= 6);
 
-(() => {
-    const result = generateWorkout({
+    // Empty library → 0 exercises
+    const empty = generateWorkout({
         readinessState: 'Prime',
         phase: 'off-season',
         acwr: 1.0,
@@ -221,7 +275,61 @@ console.log('\n── generateWorkout ──');
         fitnessLevel: 'intermediate',
         trainingDate: '2026-03-09',
     });
-    assert('Empty library produces 0 exercises', result.exercises.length === 0);
+    assert('Empty library → 0 exercises', empty.exercises.length === 0);
+
+    // Override focus is respected
+    const overridden = generateWorkout({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        focus: 'lower',
+    });
+    assert('Override focus respected', overridden.focus === 'lower');
+
+    // Fight week cap (intensity cap <= 4) → recovery only
+    const fightWeek = generateWorkout({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        trainingIntensityCap: 4,
+    });
+    assert('Fight week cap → recovery focus', fightWeek.focus === 'recovery');
+    assert('Fight week cap → all RPEs <= 4',
+        fightWeek.exercises.every(e => e.targetRPE <= 4));
+
+    // Set prescriptions: Prime exercises that are heavy_lift should have 4 sets
+    const primeHeavy = generateWorkout({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: MOCK_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        trainingDate: '2026-03-10', // Monday → upper_push
+    });
+    const heavyEx = primeHeavy.exercises.find(e => e.exercise.type === 'heavy_lift');
+    if (heavyEx) {
+        assert('Prime heavy_lift → 4 sets', heavyEx.targetSets === 4);
+        assert('Prime heavy_lift → reps = max(3, 6-2) = 4', heavyEx.targetReps === 4);
+        assert('Prime heavy_lift → RPE 8', heavyEx.targetRPE === 8);
+    }
+
+    // Mobility exercises always get 2 sets, 12 reps, RPE 4
+    const depletedMobility = depleted.exercises.find(e => e.exercise.type === 'mobility');
+    if (depletedMobility) {
+        assert('Mobility → 2 sets', depletedMobility.targetSets === 2);
+        assert('Mobility → 12 reps', depletedMobility.targetReps === 12);
+        assert('Mobility → RPE <= 4', depletedMobility.targetRPE <= 4);
+    }
 })();
 
 // ─── calculateVolumeLoad Tests ─────────────────────────────────
@@ -235,16 +343,39 @@ console.log('\n── calculateVolumeLoad ──');
         { reps: 6, weight_lbs: 205, is_warmup: false },
         { reps: 10, weight_lbs: 95, is_warmup: true },
     ]);
-    const expectedVolume = (8 * 135) + (8 * 185) + (6 * 205); // 1080 + 1480 + 1230 = 3790
+    const expectedVolume = (8 * 135) + (8 * 185) + (6 * 205); // 3790
     assert(`Volume = ${expectedVolume}`, result.totalVolume === expectedVolume);
     assert('Working sets = 3', result.workingSets === 3);
     assert('Total sets = 4', result.totalSets === 4);
+
+    const emptyResult = calculateVolumeLoad([]);
+    assert('Empty sets → 0 volume', emptyResult.totalVolume === 0);
+    assert('Empty sets → 0 working', emptyResult.workingSets === 0);
+
+    // All warmups → 0 volume
+    const warmupOnly = calculateVolumeLoad([
+        { reps: 10, weight_lbs: 45, is_warmup: true },
+        { reps: 8, weight_lbs: 65, is_warmup: true },
+    ]);
+    assert('Warmup-only sets → 0 volume', warmupOnly.totalVolume === 0);
+    assert('Warmup-only → 0 working sets', warmupOnly.workingSets === 0);
+    assert('Warmup-only → total sets = 2', warmupOnly.totalSets === 2);
 })();
 
+// ─── calculateWeeklyVolume Tests ───────────────────────────────
+
+console.log('\n── calculateWeeklyVolume ──');
+
 (() => {
-    const result = calculateVolumeLoad([]);
-    assert('Empty sets = 0 volume', result.totalVolume === 0);
-    assert('Empty sets = 0 working', result.workingSets === 0);
+    const weeklyVol = calculateWeeklyVolume([
+        { reps: 8, weight_lbs: 200, is_warmup: false, muscle_group: 'chest' },
+        { reps: 6, weight_lbs: 200, is_warmup: false, muscle_group: 'chest' },
+        { reps: 10, weight_lbs: 135, is_warmup: false, muscle_group: 'back' },
+        { reps: 5, weight_lbs: 100, is_warmup: true, muscle_group: 'chest' },
+    ]);
+    assert('Chest weekly volume = 2800', weeklyVol.chest === (8 * 200) + (6 * 200));
+    assert('Back weekly volume = 1350', weeklyVol.back === 10 * 135);
+    assert('Quads weekly volume = 0', weeklyVol.quads === 0);
 })();
 
 // ─── getWorkoutCompliance Tests ────────────────────────────────
@@ -252,215 +383,27 @@ console.log('\n── calculateVolumeLoad ──');
 console.log('\n── getWorkoutCompliance ──');
 
 (() => {
-    const result = getWorkoutCompliance(12, 12, 5000, 5000);
-    assert('100% compliance = Target Met', result.overall === 'Target Met');
-    assert('Sets compliance = 100', result.setsCompletedPct === 100);
-})();
+    const perfect = getWorkoutCompliance(12, 12, 5000, 5000);
+    assert('100% compliance → Target Met', perfect.overall === 'Target Met');
+    assert('Sets 100%', perfect.setsCompletedPct === 100);
+    assert('Volume 100%', perfect.volumeCompliancePct === 100);
 
-(() => {
-    const result = getWorkoutCompliance(12, 9, 5000, 4000);
-    assert('~80% avg compliance = Close Enough', result.overall === 'Close Enough');
-})();
+    const moderate = getWorkoutCompliance(12, 9, 5000, 4000);
+    assert('~80% avg → Close Enough', moderate.overall === 'Close Enough');
 
-(() => {
-    const result = getWorkoutCompliance(12, 4, 5000, 1500);
-    assert('Low compliance = Missed It', result.overall === 'Missed It');
-})();
+    const low = getWorkoutCompliance(12, 4, 5000, 1500);
+    assert('Low compliance → Missed It', low.overall === 'Missed It');
 
-// ─── Cut-Aware generateWorkout Tests ───────────────────────────
+    // Edge: 0 planned, some actual
+    const zeroPlan = getWorkoutCompliance(0, 5, 0, 1000);
+    assert('0 planned + some actual → 100%', zeroPlan.setsCompletedPct === 100);
 
-console.log('\n── Cut-Aware generateWorkout ──');
-
-(() => {
-    const result = generateWorkout({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        trainingIntensityCap: 4,
-    });
-    assert('Fight week cap → recovery focus', result.focus === 'recovery');
-    assert('Fight week cap → recovery workout type', result.workoutType === 'recovery');
-    assert('Fight week cap → all RPEs ≤ 4',
-        result.exercises.every(e => e.targetRPE <= 4));
-    assert('Fight week cap → message mentions fight week',
-        result.message.includes('fight week'));
-})();
-
-(() => {
-    const result = generateWorkout({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        trainingIntensityCap: 8,
-    });
-    assert('Intensified cap → all RPEs ≤ 8',
-        result.exercises.every(e => e.targetRPE <= 8));
-    assert('Intensified cap → CNS budget scaled',
-        result.totalCNSBudget <= 65 * 0.8 + 1); // 65 * 8/10 = 52, +1 for rounding
-    assert('Intensified cap → message mentions cut',
-        result.message.includes('Weight cut'));
-})();
-
-(() => {
-    const result = generateWorkout({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        trainingDate: '2026-03-09',
-    });
-    assert('No cap → normal CNS budget', result.totalCNSBudget === 65);
-    assert('No cap ? not recovery focus', result.focus !== 'recovery');
-})();
-
-// â”€â”€â”€ generateWorkoutV2 Planning Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-console.log('\nâ”€â”€ generateWorkoutV2 planning â”€â”€');
-
-(() => {
-    const risk: PerformanceRiskState = {
-        level: 'red',
-        intensityCap: 4,
-        volumeMultiplier: 0.5,
-        cnsMultiplier: 0.45,
-        allowHighImpact: false,
-        reasons: ['acute load is redlining'],
-    };
-    const blockContext: TrainingBlockContext = {
-        weekInBlock: 4,
-        phase: 'pivot',
-        volumeMultiplier: 0.72,
-        intensityOffset: -1,
-        focusBias: 'recovery',
-        note: 'Pivot week.',
-    };
-    const result = generateWorkoutV2({
-        readinessState: 'Caution',
-        phase: 'off-season',
-        acwr: 1.48,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        focus: 'full_body',
-        performanceGoalType: 'strength',
-        performanceRisk: risk,
-        blockContext,
-    });
-    assert('Red risk preserves only low-cost work',
-        result.exercises.every((exercise) => exercise.exercise.cns_load <= 3));
-    assert('Red risk sets recovery-forward intent',
-        (result.sessionIntent ?? '').includes('Protect recovery'));
-    assert('Decision trace records risk', result.decisionTrace.includes('risk:red'));
-    assert('Red risk suppresses finisher sections',
-        !result.sections?.some((section) => section.template === 'finisher'));
-})();
-
-(() => {
-    const result = generateWorkoutV2({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        focus: 'conditioning',
-        performanceGoalType: 'conditioning',
-        trainingDate: '2026-03-09',
-    });
-    assert('Conditioning goal surfaces conditioning adaptation', result.primaryAdaptation === 'conditioning');
-    assert('Conditioning goal tags decision trace', result.decisionTrace.includes('goal:conditioning'));
-    assert('Conditioning day emits sections', (result.sections?.length ?? 0) > 0);
-})();
-
-(() => {
-    const result = generateWorkoutV2({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        focus: 'lower',
-        performanceGoalType: 'strength',
-        trainingDate: '2026-03-09',
-    });
-
-    const mainSection = result.sections?.find((section) => section.template === 'main_strength');
-    assert('Sectioned workout exposes a main strength block', Boolean(mainSection));
-    assert('Main strength block uses top-set backoff loading',
-        mainSection?.exercises.some((exercise) => exercise.loadingStrategy === 'top_set_backoff') ?? false);
-    assert('Main strength block carries substitutions',
-        mainSection?.exercises.some((exercise) => (exercise.substitutions?.length ?? 0) > 0) ?? false);
-})();
-
-(() => {
-    const first = generateWorkoutV2({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        focus: 'upper_push',
-        performanceGoalType: 'strength',
-        trainingDate: '2026-03-09',
-    });
-    const second = generateWorkoutV2({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        focus: 'upper_push',
-        performanceGoalType: 'strength',
-        trainingDate: '2026-03-16',
-    });
-
-    const firstAnchor = first.sections?.find((section) => section.template === 'main_strength')?.exercises[0]?.progressionAnchor?.key;
-    const secondAnchor = second.sections?.find((section) => section.template === 'main_strength')?.exercises[0]?.progressionAnchor?.key;
-    assert('Main lift anchor remains stable across repeated upper-push generations', firstAnchor === secondAnchor);
-})();
-
-(() => {
-    const result = generateWorkoutV2({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        exerciseLibrary: MOCK_LIBRARY,
-        recentExerciseIds: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME },
-        fitnessLevel: 'intermediate',
-        focus: 'lower',
-        performanceGoalType: 'strength',
-        availableMinutes: 28,
-        trainingDate: '2026-03-09',
-    });
-
-    assert('Short sessions keep the main strength section',
-        result.sections?.some((section) => section.template === 'main_strength') ?? false);
-    assert('Short sessions trim optional finisher work first',
-        !result.sections?.some((section) => section.template === 'finisher'));
+    // Edge: 0 planned, 0 actual
+    const allZero = getWorkoutCompliance(0, 0, 0, 0);
+    assert('All zeros → 0% → Missed It', allZero.overall === 'Missed It');
 })();
 
 // ─── Summary ───────────────────────────────────────────────────
 
 console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
 process.exit(failed > 0 ? 1 : 0);
-

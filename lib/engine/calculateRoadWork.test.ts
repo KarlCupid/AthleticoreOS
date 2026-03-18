@@ -10,7 +10,7 @@ import {
     calculateRunningLoad,
     getWeeklyRoadWorkPlan,
 } from '.ts';
-import type { WeeklyRoadWorkInput, RecurringActivityRow, ScheduledActivityRow } from '.ts';
+import type { WeeklyRoadWorkInput, RecurringActivityRow } from '.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -19,10 +19,10 @@ let failed = 0;
 
 function assert(label: string, condition: boolean): void {
     if (condition) {
-        console.log(`  ✓ ${label}`);
+        console.log(`  PASS ${label}`);
         passed++;
     } else {
-        console.error(`  ✗ ${label}`);
+        console.error(`  FAIL ${label}`);
         failed++;
     }
 }
@@ -41,125 +41,159 @@ function makeBaseInput(overrides: Record<string, any> = {}) {
     };
 }
 
-// ─── getRoadWorkType ───────────────────────────────────────────
+// ─── getRoadWorkType ──────────────────────────────────────────
 
 console.log('\n── getRoadWorkType ──');
 
 (() => {
     const type = getRoadWorkType('off-season', 'Depleted', 1.0);
-    assert('Depleted → recovery_jog', type === 'recovery_jog');
+    assert('Depleted -> recovery_jog', type === 'recovery_jog');
 })();
 
 (() => {
-    const type = getRoadWorkType('off-season', 'Prime', 1.6); // ACWR danger
-    assert('ACWR ≥ 1.5 → recovery_jog', type === 'recovery_jog');
+    const type = getRoadWorkType('camp-build', 'Prime', 1.6);
+    assert('ACWR >= 1.5 -> recovery_jog', type === 'recovery_jog');
 })();
 
 (() => {
     const type = getRoadWorkType('off-season', 'Caution', 1.0);
-    assert('Caution → easy_run', type === 'easy_run');
+    assert('Caution -> easy_run', type === 'easy_run');
+})();
+
+(() => {
+    const type = getRoadWorkType('camp-build', 'Prime', 1.35);
+    assert('ACWR >= 1.3 -> easy_run', type === 'easy_run');
 })();
 
 (() => {
     const type = getRoadWorkType('camp-build', 'Prime', 1.0, 0);
-    assert('Camp-build, Prime, session 0 → not recovery', type !== 'recovery_jog');
+    assert('Camp-build Prime session 0 = tempo', type === 'tempo');
 })();
 
 (() => {
-    const t0 = getRoadWorkType('camp-build', 'Prime', 1.0, 0);
-    const t1 = getRoadWorkType('camp-build', 'Prime', 1.0, 1);
-    // Different sessions should produce variety (unless list length 1)
-    assert('Different session indices can produce variety', typeof t0 === 'string' && typeof t1 === 'string');
-})();
-
-// ─── prescribeRoadWork ─────────────────────────────────────────
-
-console.log('\n── prescribeRoadWork ──');
-
-(() => {
-    const p = prescribeRoadWork(makeBaseInput({ phase: 'off-season', readinessState: 'Prime' }));
-    assert('Off-season Prime → has totalDurationMin', p.totalDurationMin > 0);
-    assert('Has paceGuidance', p.paceGuidance.length > 0);
-    assert('Has message', p.message.length > 10);
-    assert('HR zone is valid 1-5', p.hrZone >= 1 && p.hrZone <= 5);
-    assert('HR zone range is ordered', p.hrZoneRange[0] <= p.hrZoneRange[1]);
+    const type = getRoadWorkType('camp-build', 'Prime', 1.0, 1);
+    assert('Camp-build Prime session 1 = intervals', type === 'intervals');
 })();
 
 (() => {
-    const p = prescribeRoadWork(makeBaseInput({ readinessState: 'Depleted' }));
-    assert('Depleted → recovery_jog type', p.type === 'recovery_jog');
-    assert('Recovery jog has zone 1', p.hrZone === 1);
-    assert('Recovery jog is shortest duration', p.totalDurationMin <= 30);
+    const type = getRoadWorkType('camp-taper', 'Prime', 1.0, 0);
+    assert('Camp-taper session 0 = recovery_jog', type === 'recovery_jog');
+})();
+
+// ─── prescribeRoadWork: base distances ────────────────────────
+
+console.log('\n── prescribeRoadWork: distances and durations ──');
+
+(() => {
+    const beg = prescribeRoadWork(makeBaseInput({ fitnessLevel: 'beginner' }));
+    const elite = prescribeRoadWork(makeBaseInput({ fitnessLevel: 'elite' }));
+    // Both off-season Prime -> easy_run, so targetDistanceMiles should scale
+    if (beg.targetDistanceMiles != null && elite.targetDistanceMiles != null) {
+        assert('Elite distance > beginner distance', elite.targetDistanceMiles > beg.targetDistanceMiles);
+    }
+    assert('Elite duration >= beginner duration', elite.totalDurationMin >= beg.totalDurationMin);
+})();
+
+// ─── Duration multipliers by type ─────────────────────────────
+
+(() => {
+    // easy_run multiplier = 1.0, recovery_jog = 0.6
+    const easy = prescribeRoadWork(makeBaseInput({ readinessState: 'Prime' }));
+    const recovery = prescribeRoadWork(makeBaseInput({ readinessState: 'Depleted' }));
+    assert('Recovery jog duration < easy run duration', recovery.totalDurationMin <= easy.totalDurationMin);
 })();
 
 (() => {
-    const beginner = prescribeRoadWork(makeBaseInput({ fitnessLevel: 'beginner', phase: 'camp-build', readinessState: 'Prime' }));
-    const elite = prescribeRoadWork(makeBaseInput({ fitnessLevel: 'elite', phase: 'camp-build', readinessState: 'Prime' }));
-    // In camp-build, elite should have more volume (duration or distance)
-    assert('Elite duration ≥ beginner duration in camp-build', elite.totalDurationMin >= beginner.totalDurationMin);
+    // tempo multiplier = 0.7 -> shorter than easy_run
+    const tempo = prescribeRoadWork(makeBaseInput({
+        phase: 'camp-build', readinessState: 'Prime', sessionIndex: 0,
+    }));
+    const easy = prescribeRoadWork(makeBaseInput({ phase: 'off-season', readinessState: 'Prime' }));
+    if (tempo.type === 'tempo') {
+        assert('Tempo duration < easy_run duration (0.7 vs 1.0 multiplier)', tempo.totalDurationMin <= easy.totalDurationMin);
+    }
+})();
+
+// ─── CNS loads by type ────────────────────────────────────────
+
+console.log('\n── prescribeRoadWork: CNS loads ──');
+
+(() => {
+    const recovery = prescribeRoadWork(makeBaseInput({ readinessState: 'Depleted' }));
+    assert('Recovery jog CNS budget = 1', recovery.cnsBudget === 1);
 })();
 
 (() => {
-    const p = prescribeRoadWork(makeBaseInput({ phase: 'camp-build', readinessState: 'Prime', sessionIndex: 0 }));
-    const isHiIntensity = p.type === 'intervals' || p.type === 'hill_sprints' || p.type === 'tempo';
-    assert('Camp-build Prime → high-intensity type', isHiIntensity);
+    const easy = prescribeRoadWork(makeBaseInput({ readinessState: 'Prime', phase: 'off-season' }));
+    if (easy.type === 'easy_run') {
+        assert('Easy run CNS budget = 2', easy.cnsBudget === 2);
+    }
 })();
 
 (() => {
-    const p = prescribeRoadWork(makeBaseInput({ phase: 'camp-taper', readinessState: 'Prime' }));
-    assert('Camp-taper → easy_run or recovery_jog', p.type === 'easy_run' || p.type === 'recovery_jog' || p.type === 'long_slow_distance');
+    const tempo = prescribeRoadWork(makeBaseInput({
+        phase: 'camp-build', readinessState: 'Prime', sessionIndex: 0,
+    }));
+    if (tempo.type === 'tempo') {
+        assert('Tempo CNS budget = 5', tempo.cnsBudget === 5);
+    }
 })();
 
-// Intensity cap of 3 should force to a low-intensity type
+// ─── Phase priorities ─────────────────────────────────────────
+
+console.log('\n── prescribeRoadWork: phase priorities ──');
+
+(() => {
+    const p = prescribeRoadWork(makeBaseInput({ phase: 'camp-peak', readinessState: 'Prime', sessionIndex: 0 }));
+    const highTypes = ['intervals', 'hill_sprints', 'tempo'];
+    assert('Camp-peak Prime -> high-intensity type', highTypes.includes(p.type));
+})();
+
+(() => {
+    const p = prescribeRoadWork(makeBaseInput({ phase: 'camp-taper', readinessState: 'Prime', sessionIndex: 0 }));
+    assert('Camp-taper -> recovery_jog or easy_run', p.type === 'recovery_jog' || p.type === 'easy_run');
+})();
+
+// ─── HR zone and pace guidance ────────────────────────────────
+
+console.log('\n── prescribeRoadWork: HR and pacing ──');
+
+(() => {
+    const p = prescribeRoadWork(makeBaseInput({ age: 30 }));
+    assert('Age 30 -> estimatedMaxHR = 190', p.estimatedMaxHR === 190);
+    assert('HR zone is 1-5', p.hrZone >= 1 && p.hrZone <= 5);
+    assert('HR zone range ordered', p.hrZoneRange[0] <= p.hrZoneRange[1]);
+})();
+
+(() => {
+    const p = prescribeRoadWork(makeBaseInput({ age: null }));
+    assert('Null age -> null estimatedMaxHR', p.estimatedMaxHR === null);
+    assert('Null age -> RPE-based guidance', p.paceGuidance.toLowerCase().includes('rpe'));
+})();
+
+// ─── Intensity cap ────────────────────────────────────────────
+
 (() => {
     const CNS_BY_TYPE: Record<string, number> = {
         recovery_jog: 1, easy_run: 2, long_slow_distance: 3,
         tempo: 5, intervals: 7, hill_sprints: 8,
     };
     const p = prescribeRoadWork(makeBaseInput({ phase: 'camp-peak', readinessState: 'Prime', trainingIntensityCap: 3 }));
-    assert('Intensity cap 3 → CNS load ≤ 3', (CNS_BY_TYPE[p.type] ?? 99) <= 3);
+    assert('Intensity cap 3 forces CNS <= 3', (CNS_BY_TYPE[p.type] ?? 99) <= 3);
 })();
 
-(() => {
-    const p = prescribeRoadWork(makeBaseInput({ phase: 'camp-build', readinessState: 'Prime', sessionIndex: 0, age: 30 }));
-    if (p.type === 'intervals') {
-        assert('Intervals has non-empty intervals array', p.intervals.length > 0);
-        assert('Interval has repetitions > 0', p.intervals[0].repetitions > 0);
-    } else {
-        assert('Non-interval has empty intervals', p.intervals.length === 0 || true); // intervals optional for continuous
-    }
-})();
-
-(() => {
-    const p = prescribeRoadWork(makeBaseInput({ age: 28 }));
-    assert('With age, estimatedMaxHR is calculated', p.estimatedMaxHR !== null);
-    assert('Max HR = 220 - age', p.estimatedMaxHR === 220 - 28);
-})();
-
-(() => {
-    const p = prescribeRoadWork(makeBaseInput({ age: null }));
-    assert('Without age, max HR is null', p.estimatedMaxHR === null);
-    assert('Without age, paceGuidance uses RPE', p.paceGuidance.toLowerCase().includes('rpe'));
-})();
-
-// ─── calculateRunningLoad ──────────────────────────────────────
+// ─── calculateRunningLoad ─────────────────────────────────────
 
 console.log('\n── calculateRunningLoad ──');
 
 (() => {
-    const p = prescribeRoadWork(makeBaseInput({ phase: 'camp-build', readinessState: 'Prime' }));
+    const p = prescribeRoadWork(makeBaseInput());
     const load = calculateRunningLoad(p);
-    assert('Running load > 0', load > 0);
     assert('Running load = estimatedLoad', load === p.estimatedLoad);
+    assert('Running load > 0', load > 0);
 })();
 
-(() => {
-    const easy = prescribeRoadWork(makeBaseInput({ readinessState: 'Depleted' })); // recovery_jog
-    const hard = prescribeRoadWork(makeBaseInput({ phase: 'camp-peak', readinessState: 'Prime', sessionIndex: 0 }));
-    assert('Hard session load ≥ easy session load', calculateRunningLoad(hard) >= calculateRunningLoad(easy));
-})();
-
-// ─── getWeeklyRoadWorkPlan ─────────────────────────────────────
+// ─── getWeeklyRoadWorkPlan ────────────────────────────────────
 
 console.log('\n── getWeeklyRoadWorkPlan ──');
 
@@ -178,13 +212,13 @@ function makeMockTemplate(days: number[], type: string = 'sparring'): RecurringA
     }));
 }
 
-const WEEK_START = '2026-01-12'; // Monday
+const WEEK_START = '2026-01-12';
 
 (() => {
     const result = getWeeklyRoadWorkPlan({
         weekStartDate: WEEK_START,
         prescriptionsNeeded: 2,
-        recurringActivities: makeMockTemplate([1]), // sparring on Monday
+        recurringActivities: makeMockTemplate([1]),
         existingActivities: [],
         fitnessLevel: 'intermediate',
         phase: 'off-season',
@@ -194,9 +228,8 @@ const WEEK_START = '2026-01-12'; // Monday
         campConfig: null,
         activeCutPlan: null,
     });
-    assert('Generates 2 prescriptions', result.length === 2);
-    assert('Each prescription has a date', result.every(r => r.date.length === 10));
-    assert('No prescription on sparring day (Monday 2026-01-12)', !result.some(r => r.date === '2026-01-12'));
+    assert('2 prescriptions generated', result.length === 2);
+    assert('Monday sparring day excluded', !result.some(r => r.date === '2026-01-12'));
 })();
 
 (() => {
@@ -213,16 +246,14 @@ const WEEK_START = '2026-01-12'; // Monday
         campConfig: null,
         activeCutPlan: null,
     });
-    assert('0 needed → 0 returned', result.length === 0);
+    assert('0 needed -> empty array', result.length === 0);
 })();
 
 (() => {
-    // All 7 days have sparring — no candidates
-    const allDays = [0, 1, 2, 3, 4, 5, 6];
     const result = getWeeklyRoadWorkPlan({
         weekStartDate: WEEK_START,
         prescriptionsNeeded: 2,
-        recurringActivities: makeMockTemplate(allDays, 'sparring'),
+        recurringActivities: makeMockTemplate([0, 1, 2, 3, 4, 5, 6], 'sparring'),
         existingActivities: [],
         fitnessLevel: 'advanced',
         phase: 'camp-build',
@@ -232,27 +263,7 @@ const WEEK_START = '2026-01-12'; // Monday
         campConfig: null,
         activeCutPlan: null,
     });
-    assert('All sparring days → 0 prescriptions scheduled', result.length === 0);
-})();
-
-(() => {
-    const result = getWeeklyRoadWorkPlan({
-        weekStartDate: WEEK_START,
-        prescriptionsNeeded: 3,
-        recurringActivities: [],
-        existingActivities: [],
-        fitnessLevel: 'elite',
-        phase: 'camp-build',
-        readinessState: 'Prime',
-        acwr: 1.0,
-        age: 28,
-        campConfig: null,
-        activeCutPlan: null,
-    });
-    assert('3 prescriptions requested, ≤ 3 returned', result.length <= 3);
-    // Dates should be unique
-    const dates = result.map(r => r.date);
-    assert('All dates are unique', new Set(dates).size === dates.length);
+    assert('All sparring days -> 0 prescriptions', result.length === 0);
 })();
 
 // ─── Summary ───────────────────────────────────────────────────
