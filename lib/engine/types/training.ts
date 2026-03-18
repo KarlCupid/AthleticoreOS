@@ -58,6 +58,7 @@ export interface PrescribedExercise {
   targetRPE: number;
   supersetGroup: number | null;
   score: number;
+  recoveryCost?: number;
 }
 
 export interface ExerciseScoringContext {

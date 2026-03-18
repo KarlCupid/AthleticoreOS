@@ -189,10 +189,24 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       status: simState.fatigue.muscularDamage > 80 ? 'redline' : simState.fatigue.muscularDamage > 50 ? 'caution' : 'safe',
       acute: simState.fatigue.muscularDamage,
       chronic: 50,
+      acuteEWMA: 50,
+      chronicEWMA: 50,
       daysOfData: i,
       message: 'Simulated Biological ACWR',
-      thresholds: { caution: 1.2, redline: 1.5, confidence: 'high', personalizationFactors: [] },
-      loadMetrics: { acuteLoad: simState.fatigue.muscularDamage, chronicLoad: 50, dailyLoads: [] }
+      thresholds: { caution: 1.2, redline: 1.5, confidence: 'high', personalizationFactors: [], source: 'ewma_personalized' },
+      loadMetrics: {
+        weeklyLoad: Math.round(simState.fatigue.muscularDamage),
+        monotony: 1,
+        strain: Math.round(simState.fatigue.muscularDamage),
+        acuteEWMA: simState.fatigue.muscularDamage,
+        chronicEWMA: 50,
+        rollingFatigueRatio: 1,
+        rollingFatigueScore: simState.fatigue.centralFatigue,
+        fatigueBand: simState.fatigue.centralFatigue > 75 ? 'very_high' : simState.fatigue.centralFatigue > 55 ? 'high' : simState.fatigue.centralFatigue > 30 ? 'moderate' : 'low',
+        safetyThreshold: 1.2,
+        thresholdSource: 'low_chronic',
+        dailyLoads: [],
+      }
     } as any;
 
     const baselineTdee = simState.metabolism.currentWeightLbs * 15.5; // Activity-adjusted baseline for a fighter
@@ -346,7 +360,12 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         fuelState: 'aerobic',
         sessionDemandScore: 50,
         hydrationBoostOz: 0,
-        reasonLines: []
+        reasonLines: [],
+        energyAvailability: 35,
+        fuelingFloorTriggered: false,
+        deficitBankDelta: 0,
+        safetyWarning: 'none',
+        traceLines: []
       } as any,
       hydration: { dailyWaterOz: cutProtocol?.water_target_oz || 128, message: 'Simulated' } as any,
       scheduledActivities: scheduledActivities.map(a => ({

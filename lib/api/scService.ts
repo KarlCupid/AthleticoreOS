@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import {
+    ComplianceReason,
     ExerciseLibraryRow,
     WorkoutLogRow,
     WorkoutSetLogRow,
@@ -205,6 +206,10 @@ export async function completeWorkout(
     sessionRPE: number,
     durationMinutes: number,
     notes?: string,
+    options?: {
+        complianceReason?: ComplianceReason | null;
+        activationRPE?: number | null;
+    },
 ): Promise<void> {
     // 1. Fetch all sets for this workout
     const { data: sets, error: setsErr } = await supabase
@@ -228,6 +233,8 @@ export async function completeWorkout(
             total_sets: totalSets,
             session_rpe: sessionRPE,
             duration_minutes: durationMinutes,
+            compliance_reason: options?.complianceReason ?? null,
+            activation_rpe: options?.activationRPE ?? null,
             notes: notes ?? null,
         })
         .eq('id', workoutLogId)

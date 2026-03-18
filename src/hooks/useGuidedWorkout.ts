@@ -5,6 +5,7 @@ import {
     processSetCompletion,
     getRestDuration,
 } from '../../lib/engine/adaptiveWorkout';
+import { autoregulateSession } from '../../lib/engine/sc/autoregulation';
 import { detectPR } from '../../lib/engine/calculateOverload';
 import {
     completeWorkout,
@@ -26,6 +27,7 @@ import type {
     ReadinessState,
     WorkoutLogRow,
     GymProfileRow,
+    ComplianceReason,
 } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 
@@ -60,6 +62,8 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     const [isComplete, setIsComplete] = useState(false);
     const [startTime, setStartTime] = useState<Date | null>(null);
     const [emptyStateMessage, setEmptyStateMessage] = useState<string | null>(null);
+    const [activationRPE, setActivationRPE] = useState<number | null>(null);
+    const [complianceReason, setComplianceReason] = useState<ComplianceReason | null>(null);
 
     // Exercise state
     const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -243,10 +247,17 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             setIsStarted(true);
             setStartTime(new Date());
             setFatigueState(initFatigueState());
+            setActivationRPE(null);
+            setComplianceReason(null);
         } catch (error) {
             logError('useGuidedWorkout.startWorkout', error, { weeklyPlanEntryId, scheduledActivityId });
         }
     }, [prescription, weeklyPlanEntryId, scheduledActivityId, gymProfile]);
+
+    const submitActivationRPE = useCallback((rpe: number) => {
+        setActivationRPE(rpe);
+        setPrescription((current) => current ? autoregulateSession(current, rpe, current.expectedActivationRPE) : current);
+    }, []);
 
     // ── Log a Set ─────────────────────────────────────────────────
 
@@ -472,6 +483,11 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 workoutLog.id,
                 avgRPE ? Math.round(avgRPE * 10) / 10 : 6,
                 durationMin,
+                undefined,
+                {
+                    complianceReason,
+                    activationRPE,
+                },
             );
         }
 
@@ -503,6 +519,8 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         prResult,
         showPRCelebration,
         setShowPRCelebration,
+        activationRPE,
+        complianceReason,
         // Rest timer
         restSeconds,
         restTotal,
@@ -514,6 +532,8 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         completeExercise,
         goToPreviousExercise,
         finishWorkout,
+        submitActivationRPE,
+        setComplianceReason,
         skipRest,
         extendRest,
     };

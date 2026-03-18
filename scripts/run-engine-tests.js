@@ -9,7 +9,11 @@ const TEST_EXIT_SENTINEL = '__ENGINE_TEST_EXIT__';
 function registerTypeScriptHook() {
   const compile = (filename) => {
     const source = fs.readFileSync(filename, 'utf8');
-    return ts.transpileModule(source, {
+    const normalizedSource = source
+      .replace(/from\s+['"]\.ts['"]/g, "from './.ts'")
+      .replace(/require\((['"])\.ts\1\)/g, "require('./.ts')");
+
+    return ts.transpileModule(normalizedSource, {
       compilerOptions: {
         module: ts.ModuleKind.CommonJS,
         target: ts.ScriptTarget.ES2020,

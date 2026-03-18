@@ -1,12 +1,19 @@
 export { calculateACWR } from './calculateACWR.ts';
-export { getHydrationProtocol } from './getHydrationProtocol.ts';
+export { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol.ts';
 export { adjustForBiology } from './adjustForBiology.ts';
 export { getGlobalReadinessState } from './getGlobalReadinessState.ts';
 export { handleTimelineShift, autoRegulateSC } from './adaptive.ts';
-export { calculateNutritionTargets, computeMacroAdherence, resolveDailyNutritionTargets } from './calculateNutrition.ts';
+export { initFatigueState, processSetCompletion, findSubstituteExercise, getRestTimerDefaults, getRestDuration } from './adaptiveWorkout.ts';
+export { calculateNutritionTargets, computeMacroAdherence, resolveDailyNutritionTargets, resolveDailyMacros } from './calculateNutrition.ts';
 export { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight.ts';
 export { calculateCampRisk } from './calculateCampRisk.ts';
 export { DAILY_ENGINE_VERSION, buildDailyMission, buildMicrocyclePlan } from './calculateMission.ts';
+export * from './calculateCamp.ts';
+export * from './calculateConditioning.ts';
+export * from './calculateDailyCoachDebrief.ts';
+export * from './calculateFitness.ts';
+export * from './calculateOverload.ts';
+export * from './calculateRoadWork.ts';
 export {
   determineFocus,
   scoreExerciseForUser,
@@ -28,6 +35,8 @@ export {
   calculateWeeklyCompliance,
   getTrainingStreak,
 } from './calculateSchedule.ts';
+export * from './performancePlanner.ts';
+export * from './sessionOwnership.ts';
 export { 
   generateCutPlan, 
   determineCutPhase, 

@@ -326,16 +326,16 @@ export async function calculateACWR({
   const sessions = data as Pick<TrainingSessionRow, 'date' | 'total_load'>[];
   const daysOfData = new Set(sessions.map((s) => s.date)).size;
 
-  const dailyLoads28 = buildDailyLoads(sessions, twentyEightDaysStartStr, asOfDateStr);
-  const dailyLoads7 = dailyLoads28.slice(-7);
-
-  const legacyAcute = dailyLoads7.reduce((sum, load) => sum + load, 0);
-
-  const chronicTotal = sessions.reduce((sum, s) => sum + s.total_load, 0);
   const oldestSessionDate = sessions.reduce(
     (oldest, s) => (s.date < oldest ? s.date : oldest),
     sessions[0].date,
   );
+  const dailyLoadsWindow = buildDailyLoads(sessions, oldestSessionDate, asOfDateStr);
+  const dailyLoads7 = dailyLoadsWindow.slice(-7);
+
+  const legacyAcute = dailyLoads7.reduce((sum, load) => sum + load, 0);
+
+  const chronicTotal = sessions.reduce((sum, s) => sum + s.total_load, 0);
   const calendarDaysCovered = Math.max(1, daysBetweenLocal(oldestSessionDate, asOfDateStr) + 1);
   const chronicWindowDays = Math.min(28, calendarDaysCovered);
 
@@ -344,7 +344,7 @@ export async function calculateACWR({
     ? (chronicTotal / chronicWindowDays) * 7
     : 0;
 
-  const loadMetrics = computeLoadMetrics(dailyLoads28);
+  const loadMetrics = computeLoadMetrics(dailyLoadsWindow);
   const acute = loadMetrics.acuteEWMA;
   const chronic = loadMetrics.chronicEWMA;
   const ratio = chronic === 0 ? 0 : parseFloat((acute / chronic).toFixed(2));

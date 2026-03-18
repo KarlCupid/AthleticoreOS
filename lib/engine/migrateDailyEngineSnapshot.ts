@@ -3,7 +3,7 @@ import type {
   DailyMission,
   ResolvedNutritionTargets,
   WorkoutPrescriptionV2,
-} from './types';
+} from './types.ts';
 
 type MaybeObject = Record<string, unknown> | null | undefined;
 

@@ -18,6 +18,7 @@ import type {
   WorkoutFocus,
   WorkoutType,
 } from './types.ts';
+import { getInterferencePenalty, type SessionType } from './load/interferenceModel.ts';
 
 export const DAILY_ENGINE_VERSION = 'daily-engine-v3';
 
@@ -50,6 +51,23 @@ function inferWorkoutType(sessionType: string | null | undefined): WorkoutType |
       return 'strength';
     default:
       return null;
+  }
+}
+
+function mapActivityToSessionType(activityType: MissionScheduledActivity['activity_type']): SessionType {
+  switch (activityType) {
+    case 'sparring':
+      return 'SPARRING';
+    case 'boxing_practice':
+      return 'SKILL';
+    case 'conditioning':
+    case 'road_work':
+    case 'running':
+      return 'CONDITIONING';
+    case 'sc':
+      return 'HEAVY_STRENGTH';
+    default:
+      return 'RECOVERY';
   }
 }
 
@@ -536,6 +554,23 @@ function buildDecisionTrace(
       humanInterpretation: null,
       impact: 'adjusted',
     });
+  }
+
+  const activeActivities = input.scheduledActivities.filter((activity) => activity.status !== 'skipped');
+  if (activeActivities.length >= 2) {
+    const sortedActivities = [...activeActivities].sort((a, b) => b.expected_intensity - a.expected_intensity);
+    const first = mapActivityToSessionType(sortedActivities[0].activity_type);
+    const second = mapActivityToSessionType(sortedActivities[1].activity_type);
+    const penalty = getInterferencePenalty(first, second, 4);
+    if (penalty > 1.15) {
+      trace.push({
+        subsystem: 'training',
+        title: 'Session interference check',
+        detail: `Same-day sequencing penalty detected (${penalty.toFixed(2)}x). Separate the harder sessions or downshift the second effort.`,
+        humanInterpretation: 'Two demanding sessions are stacked too tightly to treat as independent.',
+        impact: 'restricted',
+      });
+    }
   }
 
   return trace;

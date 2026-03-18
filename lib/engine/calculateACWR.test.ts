@@ -88,10 +88,11 @@ console.log('\n-- calculateACWR --');
       phase: 'fight-camp',
     });
 
-    assert('Sparse 7-day dataset yields acute 700', result.acute === 700);
-    assert('Sparse 7-day dataset yields chronic ~700', result.chronic === 700);
+    assert('Sparse 7-day dataset yields EWMA acute near 100', result.acute >= 95 && result.acute <= 100);
+    assert('Sparse 7-day dataset yields EWMA chronic near 100', result.chronic >= 90 && result.chronic <= 100);
     assert('Sparse 7-day ratio is 1.00', result.ratio === 1);
     assert('Monotony metric is populated', result.loadMetrics.monotony > 0);
+    assert('EWMA metrics are exposed', result.acuteEWMA > 0 && result.chronicEWMA > 0);
   }
 
   {
@@ -145,6 +146,7 @@ console.log('\n-- calculateACWR --');
     });
 
     assert('Personalized thresholds: beginner cut is stricter than elite off-season', beginnerCut.thresholds.redline < eliteOff.thresholds.redline);
+    assert('Thresholds report EWMA source', beginnerCut.thresholds.source === 'ewma_personalized');
   }
 
   console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);

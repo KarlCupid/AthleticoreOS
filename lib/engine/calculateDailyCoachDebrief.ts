@@ -1,5 +1,6 @@
 import type {
   CoachingFocus,
+  ComplianceReason,
   DailyCoachActionStep,
   DailyCoachDebrief,
   DailyCoachDebriefInput,
@@ -263,6 +264,55 @@ function buildTrainingAction(_input: DailyCoachDebriefInput, band: DailyReadines
   };
 }
 
+function buildComplianceReasonAction(reason: ComplianceReason | null | undefined): DailyCoachActionStep | null {
+  if (!reason) return null;
+
+  switch (reason) {
+    case 'FATIGUE':
+      return {
+        pillar: 'training',
+        priority: 1,
+        action: 'Reduce loading on the next session and keep recovery work non-negotiable.',
+        why: 'Low compliance came from fatigue, so the next decision should protect recovery capacity.',
+      };
+    case 'TIME':
+      return {
+        pillar: 'training',
+        priority: 1,
+        action: 'Keep the next session focused on the highest-value work only.',
+        why: 'Time constraints call for a tighter session structure, not lower training capacity.',
+      };
+    case 'PAIN':
+      return {
+        pillar: 'recovery',
+        priority: 1,
+        action: 'Modify the painful movement pattern for the next 48 hours and flag it for review.',
+        why: 'Pain is a tissue-management problem, not a motivation problem.',
+      };
+    case 'MOTIVATION':
+      return {
+        pillar: 'training',
+        priority: 1,
+        action: 'Lower friction on tomorrow’s session and simplify the first work block.',
+        why: 'Motivation misses respond better to better session design than to more pressure.',
+      };
+    case 'EQUIPMENT':
+      return {
+        pillar: 'training',
+        priority: 1,
+        action: 'Swap in equivalent movements before the session starts.',
+        why: 'Equipment misses should trigger substitutions, not unnecessary load reduction.',
+      };
+    default:
+      return {
+        pillar: 'training',
+        priority: 1,
+        action: 'Review the last session barrier before loading the next one.',
+        why: 'Clear barriers let the next prescription stay specific.',
+      };
+  }
+}
+
 function buildRecoveryAction(limiter: PrimaryLimiter, band: DailyReadinessBand): DailyCoachActionStep {
   const recoveryByLimiter: Record<PrimaryLimiter, string> = {
     sleep: 'Go to bed earlier tonight and stop caffeine 8 hours before bed.',
@@ -363,9 +413,12 @@ export function generateDailyCoachDebrief(rawInput: DailyCoachDebriefInput): Dai
   const training = buildTrainingAction(input, band);
   const recovery = buildRecoveryAction(limiter, band);
   const nutrition = buildNutritionAction(input);
+  const complianceReasonAction = buildComplianceReasonAction(input.complianceReason);
 
-  const actionSteps = [training, recovery, nutrition]
+  const actionSteps = [complianceReasonAction, training, recovery, nutrition]
+    .filter((step): step is DailyCoachActionStep => Boolean(step))
     .sort((a, b) => a.priority - b.priority)
+    .slice(0, 3)
     .map((step, index) => ({ ...step, priority: (index + 1) as 1 | 2 | 3 }));
 
   const selectedEducation = chooseEducation(limiter, input.previousDebrief, riskFlags);

@@ -346,6 +346,9 @@ async function resolveNutritionTargets(input: {
             expected_intensity: entry.target_intensity ?? 5,
             estimated_duration_min: entry.estimated_duration_min,
           }))),
+    {
+      daysToWeighIn: cutProtocol?.days_to_weigh_in ?? null,
+    },
   );
 }
 
@@ -491,6 +494,7 @@ async function resolveWorkoutPrescription(input: {
   readinessState: ReadinessState;
   acwr: ACWRResult;
   fitnessLevel: string;
+  trainingAge: 'novice' | 'intermediate' | 'advanced';
   performanceGoalType: MacrocycleContext['performanceGoalType'];
   weeklyPlanEntry: WeeklyPlanEntryRow | null;
   cutProtocol: Awaited<ReturnType<typeof getCutProtocolForDate>>;
@@ -535,6 +539,7 @@ async function resolveWorkoutPrescription(input: {
     focus: input.weeklyPlanEntry?.focus ?? undefined,
     trainingIntensityCap: input.cutProtocol?.training_intensity_cap ?? undefined,
     fitnessLevel: input.fitnessLevel as any,
+    trainingAge: input.trainingAge,
     performanceGoalType: input.performanceGoalType,
     availableMinutes: input.weeklyPlanEntry?.estimated_duration_min,
     gymEquipment: gym?.equipment ?? [],
@@ -612,6 +617,11 @@ export async function getDailyEngineState(
       sessionDemandScore: 0,
       hydrationBoostOz: 0,
       reasonLines: [],
+      energyAvailability: null,
+      fuelingFloorTriggered: false,
+      deficitBankDelta: 0,
+      safetyWarning: 'none',
+      traceLines: [],
     } as ResolvedNutritionTargets);
 
   const hydration = getHydrationProtocol({
@@ -630,6 +640,7 @@ export async function getDailyEngineState(
     readinessState,
     acwr,
     fitnessLevel: athleteContext.fitnessLevel,
+    trainingAge: athleteContext.trainingAge,
     performanceGoalType: athleteContext.performanceGoalType,
     weeklyPlanEntry: primaryEnginePlanEntry,
     cutProtocol,

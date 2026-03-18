@@ -30,6 +30,8 @@ import { assessPerformanceRisk } from './performancePlanner.ts';
 import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
 import { getGlobalReadinessState } from './getGlobalReadinessState.ts';
 import { suggestOverload } from './calculateOverload.ts';
+import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
+import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseScoring.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -38,12 +40,6 @@ import { suggestOverload } from './calculateOverload.ts';
  * Prime → athlete can handle high-CNS work.
  * Depleted → restrict to low-CNS mobility/recovery.
  */
-const CNS_BUDGET: Record<ReadinessState, number> = {
-    Prime: 65,
-    Caution: 40,
-    Depleted: 15,
-};
-
 /**
  * Default exercise count by readiness state.
  */
@@ -93,6 +89,16 @@ const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
     'chest', 'back', 'shoulders', 'quads', 'hamstrings',
     'glutes', 'arms', 'core', 'full_body', 'neck', 'calves',
 ];
+
+function resolveTrainingAge(
+    fitnessLevel: FitnessLevel,
+    explicitTrainingAge?: 'novice' | 'intermediate' | 'advanced',
+): 'novice' | 'intermediate' | 'advanced' {
+    if (explicitTrainingAge) return explicitTrainingAge;
+    if (fitnessLevel === 'beginner') return 'novice';
+    if (fitnessLevel === 'advanced' || fitnessLevel === 'elite') return 'advanced';
+    return 'intermediate';
+}
 
 function resolveDayOfWeek(trainingDate?: string): number {
     if (trainingDate) {
@@ -151,7 +157,7 @@ export function scoreExerciseForUser(
     exercise: ExerciseLibraryRow,
     context: ExerciseScoringContext,
 ): number {
-    let score = 50 + (Math.floor(Math.random() * 5) - 2); // baseline 50 +/- 2 points jitter for variety
+    let score = 50;
 
     // 1. Readiness × exercise type alignment
     if (context.readinessState === 'Depleted') {
@@ -304,6 +310,8 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
         trainingIntensityCap,
         trainingDate,
         fitnessLevel,
+        trainingAge,
+        complianceHistory28d,
     } = input;
 
     const dayOfWeek = resolveDayOfWeek(trainingDate);
@@ -314,7 +322,11 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
         : determineFocus(dayOfWeek, readinessState, phase, overrideFocus);
 
     // Scale CNS budget proportionally when intensity cap is present
-    const baseCNSBudget = CNS_BUDGET[readinessState];
+    const baseCNSBudget = getCalibratedCNSBudget({
+        readinessState,
+        trainingAge: resolveTrainingAge(fitnessLevel, trainingAge),
+        complianceHistory28d,
+    });
     const totalCNSBudget = (trainingIntensityCap != null)
         ? Math.round(baseCNSBudget * (trainingIntensityCap / 10))
         : baseCNSBudget;
@@ -336,18 +348,34 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
 
     // Score each exercise
     let cnsBudgetRemaining = totalCNSBudget;
-    const scored = focusExercises.map(exercise => ({
-        exercise,
-        score: scoreExerciseForUser(exercise, {
+    let recoveryBudgetRemaining = totalCNSBudget;
+    const scored = focusExercises.map(exercise => {
+        const fitScore = scoreExerciseForUser(exercise, {
             readinessState,
             phase,
             acwr,
             recentExerciseIds,
             recentMuscleVolume,
-            cnsBudgetRemaining: totalCNSBudget, // score with full budget first
+            cnsBudgetRemaining: totalCNSBudget,
             fitnessLevel,
-        }),
-    }));
+            recoveryBudget: totalCNSBudget,
+        });
+        const candidate = scoreExerciseCandidate(exercise, fitScore, {
+            readinessState,
+            phase,
+            acwr,
+            recentExerciseIds,
+            recentMuscleVolume,
+            cnsBudgetRemaining: totalCNSBudget,
+            fitnessLevel,
+            recoveryBudget: totalCNSBudget,
+        });
+        return {
+            exercise,
+            score: candidate.fitScore,
+            recoveryCost: candidate.recoveryCost,
+        };
+    });
 
     // Sort by score descending and pick top exercises
     scored.sort((a, b) => b.score - a.score);
@@ -355,10 +383,11 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
     const selectedExercises: PrescribedExercise[] = [];
     let usedCNS = 0;
 
-    for (const { exercise, score } of scored) {
+    for (const { exercise, score, recoveryCost } of scored) {
         if (selectedExercises.length >= targetExerciseCount) break;
         if (score <= 0) continue;
         if (exercise.cns_load > cnsBudgetRemaining) continue;
+        if (recoveryCost > recoveryBudgetRemaining) continue;
 
         // Adjust sets/reps based on exercise type
         let sets = prescription.sets;
@@ -388,10 +417,12 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
             targetRPE: rpe,
             supersetGroup: null,
             score,
+            recoveryCost,
         });
 
         usedCNS += exercise.cns_load;
         cnsBudgetRemaining -= exercise.cns_load;
+        recoveryBudgetRemaining -= recoveryCost;
     }
 
     // Auto-pair complementary exercises into supersets (push + pull)
@@ -409,7 +440,7 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
     } else if (readinessState === 'Caution') {
         message = `Moderate ${focusLabel} session. Volume pulled back to let your body catch up.`;
     } else {
-        message = `${capitalize(focusLabel)} day. You're in Prime shape — go after it. CNS budget: ${usedCNS}/${totalCNSBudget}.`;
+        message = `${capitalize(focusLabel)} day. You're in Prime shape — go after it. Recovery budget: ${usedCNS}/${totalCNSBudget}.`;
     }
 
     return {
@@ -562,6 +593,8 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         trainingIntensityCap,
         trainingDate,
         fitnessLevel,
+        trainingAge,
+        complianceHistory28d,
         availableMinutes,
         gymEquipment,
         exerciseHistory,
@@ -600,7 +633,12 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     const resolvedBlockContext = blockContext ?? null;
 
     // Scale CNS budget
-    let baseCNSBudget = CNS_BUDGET[readinessState];
+    const calibratedBaseBudget = getCalibratedCNSBudget({
+        readinessState,
+        trainingAge: resolveTrainingAge(fitnessLevel, trainingAge),
+        complianceHistory28d,
+    });
+    let baseCNSBudget = calibratedBaseBudget;
     if (trainingIntensityCap != null) {
         baseCNSBudget = Math.round(baseCNSBudget * (trainingIntensityCap / 10));
     }
@@ -613,7 +651,8 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         baseCNSBudget = Math.round(baseCNSBudget * resolvedBlockContext.volumeMultiplier);
     }
     const rawCNSBudget = baseCNSBudget * resolvedPerformanceRisk.cnsMultiplier;
-    const flooredBudget = Math.max(rawCNSBudget, CNS_BUDGET[readinessState] * 0.55);
+    const minimumBudget = Math.max(8, Math.round(calibratedBaseBudget * 0.55));
+    const flooredBudget = Math.max(rawCNSBudget, minimumBudget);
     const totalCNSBudget = Math.max(10, Math.round(flooredBudget));
 
     // Deload: reduce exercise count and intensity
@@ -642,7 +681,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     const usableExercises = filterByEquipment(exerciseLibrary, gymEquipment);
     const scored = usableExercises.map(exercise => ({
         exercise,
-        score: scoreExerciseForUser(exercise, {
+        ...scoreExerciseCandidate(exercise, scoreExerciseForUser(exercise, {
             readinessState,
             phase,
             acwr,
@@ -654,9 +693,24 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             performanceRiskLevel: resolvedPerformanceRisk.level,
             allowHighImpact: resolvedPerformanceRisk.allowHighImpact,
             blockPhase: resolvedBlockContext?.phase,
+            recoveryBudget: totalCNSBudget,
+        }), {
+            readinessState,
+            phase,
+            acwr,
+            recentExerciseIds,
+            recentMuscleVolume,
+            cnsBudgetRemaining: totalCNSBudget,
+            fitnessLevel,
+            performanceGoalType,
+            performanceRiskLevel: resolvedPerformanceRisk.level,
+            allowHighImpact: resolvedPerformanceRisk.allowHighImpact,
+            blockPhase: resolvedBlockContext?.phase,
+            recoveryBudget: totalCNSBudget,
         }),
     }))
-        .filter(item => item.score > 0)
+        .filter(item => item.fitScore > 0 && item.recoveryCost <= totalCNSBudget)
+        .map(item => ({ ...item, score: item.fitScore }))
         .sort((a, b) => b.score - a.score);
 
     const sectionedSession = buildSectionedWorkoutSession({
@@ -674,9 +728,13 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         progressionModel: inputProgressionModel,
         isDeloadWeek,
         targetExerciseCount,
+        recoveryBudget: totalCNSBudget,
     });
 
-    const finalExercises = sectionedSession.exercises;
+    const finalExercises = sectionedSession.exercises.map((exercise) => ({
+        ...exercise,
+        recoveryCost: getExerciseRecoveryCost(exercise.exercise),
+    }));
     const estimatedDuration = sectionedSession.estimatedDuration || estimateWorkoutTime(finalExercises);
     const primaryAdaptation = resolvePrimaryAdaptation(effectiveFocus, performanceGoalType);
     const sessionGoal = sectionedSession.sessionGoal;
@@ -746,6 +804,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         performanceRisk: resolvedPerformanceRisk,
         blockContext: resolvedBlockContext,
         decisionTrace,
+        expectedActivationRPE: 4,
+        activationGuidance: 'Log the activation block before main work. If it feels 2+ RPE above plan, the session should downshift.',
+        interferenceWarnings: [],
     };
 }
 

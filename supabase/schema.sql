@@ -256,7 +256,7 @@ CREATE TABLE IF NOT EXISTS public.daily_engine_snapshots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.Users(id) NOT NULL,
     date DATE NOT NULL,
-    engine_version TEXT NOT NULL DEFAULT 'daily-engine-v2',
+    engine_version TEXT NOT NULL DEFAULT 'daily-engine-v3',
     objective_context_snapshot JSONB NOT NULL,
     nutrition_targets_snapshot JSONB NOT NULL,
     workout_prescription_snapshot JSONB,

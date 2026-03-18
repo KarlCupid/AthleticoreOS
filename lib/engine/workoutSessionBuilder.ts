@@ -25,6 +25,7 @@ import { findSubstituteExercise, getRestTimerDefaults } from './adaptiveWorkout.
 type ScoredExercise = {
     exercise: ExerciseLibraryRow;
     score: number;
+    recoveryCost?: number;
 };
 
 type SectionBlueprint = {
@@ -54,6 +55,7 @@ export interface BuildSectionedWorkoutInput {
     progressionModel?: GenerateWorkoutInputV2['progressionModel'];
     isDeloadWeek: boolean;
     targetExerciseCount: number;
+    recoveryBudget?: number;
 }
 
 export interface BuildSectionedWorkoutResult {
@@ -567,15 +569,21 @@ function selectSectionExercises(
     template: WorkoutSectionTemplate,
     maxExercises: number,
     usedExerciseIds: Set<string>,
+    recoveryBudgetRemaining: number,
 ): ScoredExercise[] {
     return scoredExercises
         .filter(({ exercise }) => !usedExerciseIds.has(exercise.id))
+        .filter(({ recoveryCost }) => (recoveryCost ?? 0) <= recoveryBudgetRemaining)
         .filter(({ exercise }) => matchesSectionTemplate(exercise, focus, template))
-        .map(({ exercise, score }) => ({
+        .map(({ exercise, score, recoveryCost }) => ({
             exercise,
             score: getSectionSpecificScore(exercise, score, focus, template),
+            recoveryCost,
         }))
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return (a.recoveryCost ?? 0) - (b.recoveryCost ?? 0);
+        })
         .slice(0, maxExercises);
 }
 
@@ -793,10 +801,12 @@ export function buildSectionedWorkoutSession(input: BuildSectionedWorkoutInput):
         progressionModel,
         isDeloadWeek,
         targetExerciseCount,
+        recoveryBudget,
     } = input;
 
     const usedExerciseIds = new Set<string>();
     const muscleGroupsSeen = new Set<MuscleGroup>();
+    let recoveryBudgetRemaining = recoveryBudget ?? Number.POSITIVE_INFINITY;
 
     let sections = resolveSessionArchetype(focus, performanceRisk)
         .map((blueprint, index) => {
@@ -806,10 +816,12 @@ export function buildSectionedWorkoutSession(input: BuildSectionedWorkoutInput):
                 blueprint.template,
                 blueprint.maxExercises,
                 usedExerciseIds,
+                recoveryBudgetRemaining,
             );
 
-            const exercises = chosen.map(({ exercise, score }) => {
+            const exercises = chosen.map(({ exercise, score, recoveryCost }) => {
                 usedExerciseIds.add(exercise.id);
+                recoveryBudgetRemaining -= recoveryCost ?? 0;
                 return buildSectionExercise({
                     exercise,
                     score,

@@ -2,7 +2,7 @@ import type {
   ExerciseLibraryRow,
   ExerciseScore,
   ExerciseScoringContext,
-} from '../types';
+} from '../types.ts';
 
 export function getExerciseRecoveryCost(exercise: ExerciseLibraryRow): number {
   if (typeof exercise.normalized_recovery_cost === 'number' && Number.isFinite(exercise.normalized_recovery_cost)) {

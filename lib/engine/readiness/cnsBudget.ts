@@ -1,4 +1,4 @@
-import type { ReadinessState, TrainingAge } from '../types';
+import type { ReadinessState, TrainingAge } from '../types.ts';
 import { calibrateBudgetValue } from './calibration.ts';
 
 const BASELINE_BUDGETS: Record<TrainingAge, { fresh: number; moderate: number; depleted: number }> = {

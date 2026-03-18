@@ -5,6 +5,7 @@
 import {
   calculateNutritionTargets,
   computeMacroAdherence,
+  resolveDailyNutritionTargets,
   resolveDailyMacros,
 } from '.ts';
 
@@ -77,6 +78,40 @@ console.log('\n-- calculateNutrition --');
 })();
 
 (() => {
+  const maintain = calculateNutritionTargets({
+    weightLbs: 180,
+    heightInches: 70,
+    age: 30,
+    biologicalSex: 'male',
+    activityLevel: 'moderate',
+    phase: 'off-season',
+    nutritionGoal: 'maintain',
+    cycleDay: null,
+    coachProteinOverride: null,
+    coachCarbsOverride: null,
+    coachFatOverride: null,
+    coachCaloriesOverride: null,
+  });
+
+  const cut = calculateNutritionTargets({
+    weightLbs: 180,
+    heightInches: 70,
+    age: 30,
+    biologicalSex: 'male',
+    activityLevel: 'moderate',
+    phase: 'fight-camp',
+    nutritionGoal: 'cut',
+    cycleDay: null,
+    coachProteinOverride: null,
+    coachCarbsOverride: null,
+    coachFatOverride: null,
+    coachCaloriesOverride: null,
+  });
+
+  assert('Protein scales up in a deeper deficit', cut.protein > maintain.protein);
+})();
+
+(() => {
   const adherence = computeMacroAdherence(
     { calories: 1990, protein: 151, carbs: 201, fat: 61 },
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
@@ -112,8 +147,36 @@ console.log('\n-- calculateNutrition --');
     [],
   );
 
-  assert('Active cut protocol calories reconcile to its displayed macros', result.calories === 2150);
+  const reconciledCalories = (result.protein * 4) + (result.carbs * 4) + (result.fat * 9);
+  assert('Active cut protocol calories reconcile to its displayed macros', result.calories === reconciledCalories);
   assert('Active cut protocol source selected', result.source === 'weight_cut_protocol');
+})();
+
+(() => {
+  const base = calculateNutritionTargets({
+    weightLbs: 165,
+    heightInches: 69,
+    age: 28,
+    biologicalSex: 'male',
+    activityLevel: 'moderate',
+    phase: 'fight-camp',
+    nutritionGoal: 'cut',
+    cycleDay: null,
+    coachProteinOverride: null,
+    coachCarbsOverride: null,
+    coachFatOverride: null,
+    coachCaloriesOverride: 1800,
+  });
+
+  const resolved = resolveDailyNutritionTargets(
+    base,
+    null,
+    [{ activity_type: 'sparring', expected_intensity: 9, estimated_duration_min: 75 }],
+  );
+
+  assert('Fueling floor triggers on hard training day', resolved.fuelingFloorTriggered === true);
+  assert('Training-day EA is protected to 30+', (resolved.energyAvailability ?? 0) >= 30);
+  assert('Nutrition trace is populated', resolved.traceLines.length > 0);
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
