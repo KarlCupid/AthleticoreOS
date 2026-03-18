@@ -44,7 +44,7 @@ export {
   getDailyCutIntensityCap
 } from './calculateWeightCut.ts';
 
-export type * from './types/index.ts';
+export * from './types.ts';
 
 export type { CampRiskInput, CampRiskAssessment, CampRiskLevel } from './calculateCampRisk.ts';
 export { formatLocalDate, todayLocalDate } from '../utils/date.ts';

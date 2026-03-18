@@ -1,24 +1,6 @@
-import type {
-  ActivityType,
-  ReadinessState,
-  FitnessLevel,
-  Phase,
-  FuelState,
-  NutritionDayAdjustment,
-  NutritionTargets,
-  OvertrainingWarning,
-} from '../types/foundational.ts';
-import type {
-  Mission,
-} from '../types/mission.ts';
-import type {
-  GenerateWorkoutInputV2,
-  ScheduledActivityRow,
-} from '../types/training.ts';
-import { formatLocalDate, todayLocalDate } from '../../utils/date.ts';
+import type { FitnessLevel, Phase, FuelState, NutritionDayAdjustment, NutritionTargets, OvertrainingWarning } from '../types/foundational.ts';
+import type { ScheduledActivityRow } from '../types/training.ts';
 import {
-  validateDayLoad,
-  getRecoveryWindow,
   MAX_HIGH_CNS_PER_72H,
   PHASE_HIGH_INTENSITY_CAPS,
   computeWeekLoadMetrics,
@@ -26,7 +8,6 @@ import {
   getAcwrPlanningThresholds,
   isHighIntensity,
 } from './loadAndValidation.ts';
-import { getPersonalizedACWRThresholds } from '../calculateACWR.ts';
 
 export function adjustNutritionForDay(
     baseTargets: NutritionTargets,

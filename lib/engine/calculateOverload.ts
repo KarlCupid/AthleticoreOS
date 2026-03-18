@@ -25,17 +25,7 @@ import type {
   PRDetectionResult,
   DeloadDecisionInput,
   DeloadDecisionResult,
-  OverloadPrescription,
-  Phase,
-  ReadinessState,
-  TrainingSessionRow,
 } from './types/foundational.ts';
-import type {
-  AutoRegulateSCInput,
-} from './types/training.ts';
-import type {
-  DailyMission,
-} from './types/mission.ts';
 
 // ─── Constants ───────────────────────────────────────────────
 

@@ -6,12 +6,8 @@ import type {
 } from './types.ts';
 import { 
   buildDailyMission, 
-  calculateACWR,
   getGlobalReadinessState,
   getBoxingIntensityScalar,
-  calculateNutritionTargets,
-  resolveDailyNutritionTargets,
-  calculateCampRisk,
   generateWorkout,
   generateCutPlan,
   computeDailyCutProtocol
@@ -19,19 +15,12 @@ import {
 import { EXERCISE_SEED } from '../../data/exerciseSeed.ts';
 import type { ExerciseLibraryRow } from '../types.ts';
 import type {
-  DailyEngineState,
   MacrocycleContext,
   PerformanceObjective,
 } from '../types/mission.ts';
 import type {
-  ReadinessState,
-  ReadinessDetail,
-  ReadinessFactors,
   ACWRResult,
 } from '../types/readiness.ts';
-import type {
-  Phase,
-} from '../types/foundational.ts';
 import type {
   ScheduledActivityRow,
 } from '../types/training.ts';

@@ -1,7 +1,5 @@
 import type {
     ActivityType,
-    FitnessLevel,
-    MuscleGroup,
     Phase,
     DailyAdaptationSwap,
     WeekPlanEntry,
@@ -987,7 +985,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 daysOut,
             })
             : pmSessionBaseIntensity;
-        const pmSessionNote = boxingScalar < 1 && isBoxingActivityType(config.pm_session_type)
+        const _pmSessionNote = boxingScalar < 1 && isBoxingActivityType(config.pm_session_type)
             ? 'Boxing taper active - PM session intensity reduced 40%.'
             : isDeloadWeek
                 ? 'Deload â€” light PM session.'

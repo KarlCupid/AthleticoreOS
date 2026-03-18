@@ -4,7 +4,6 @@ import type {
     FitnessLevel,
 } from './types/foundational.ts';
 import type {
-    CampConfig,
     CampPhase,
 } from './types/camp.ts';
 import type {
@@ -28,8 +27,6 @@ import type {
 import { getRestTimerDefaults } from './adaptiveWorkout.ts';
 import { assessPerformanceRisk } from './performancePlanner.ts';
 import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
-import { getGlobalReadinessState } from './getGlobalReadinessState.ts';
-import { suggestOverload } from './calculateOverload.ts';
 import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
 import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseScoring.ts';
 

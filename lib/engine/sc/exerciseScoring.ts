@@ -11,7 +11,7 @@ export function getExerciseRecoveryCost(exercise: ExerciseLibraryRow): number {
 
   const eccentric = exercise.eccentric_damage ?? Math.max(1, Math.min(5, Math.round(exercise.cns_load / 2)));
   const recoveryHours = exercise.recovery_hours ?? (exercise.cns_load >= 8 ? 48 : exercise.cns_load >= 5 ? 36 : 24);
-  return Math.round((exercise.cns_load * 4) + (eccentric * 5) + (recoveryHours / 4));
+  return Math.round((exercise.cns_load * 2) + (eccentric * 2) + (recoveryHours / 12));
 }
 
 export function scoreExerciseCandidate(

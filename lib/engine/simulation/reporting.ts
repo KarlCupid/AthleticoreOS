@@ -1,7 +1,5 @@
 import type {
   SimulationResult,
-  DailySimulationLog,
-  SimulationConfig,
 } from './types.ts';
 
 export function generateCSVReport(result: SimulationResult): string {

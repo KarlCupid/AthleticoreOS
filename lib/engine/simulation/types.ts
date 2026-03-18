@@ -1,8 +1,5 @@
 import type {
   ReadinessState,
-  Phase,
-  WorkoutFocus,
-  FitnessLevel,
 } from '../types/foundational.ts';
 // import {
 //   ACWRResult,
@@ -26,14 +23,6 @@ export interface ACWRResult {
   loadMetrics: any;
 }
 import type {
-  TrainingDirective,
-  FuelDirective,
-  HydrationDirective,
-  RecoveryDirective,
-  MissionRiskState,
-  DecisionTraceItem,
-  MissionOverride,
-  WeeklyMissionPlan,
   DailyMission,
   MacrocycleContext,
 } from '../types/mission.ts';
@@ -56,9 +45,6 @@ export interface DailyEngineState {
   mission: DailyMission;
   campRisk: any;
 }
-import type {
-  WorkoutPrescription,
-} from '../types/training.ts';
 
 export type SimulationPersona = {
   name: string;

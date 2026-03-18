@@ -1,23 +1,13 @@
 import type {
     ActivityType,
     ReadinessState,
-    WorkoutFocus,
     FitnessLevel,
     Phase,
 } from '../types/foundational.ts';
 import type {
-    Mission,
-    MissionRequirement,
-} from '../types/mission.ts';
-import type {
-    GenerateWorkoutInputV2,
-    WorkoutPrescriptionV2,
-    TrainingSessionRow,
     ScheduledActivityRow,
     DayLoadValidation,
     WeekPlanEntry,
-    WeeklyPlanV2,
-    DailyPlanV2,
 } from '../types/training.ts';
 import { formatLocalDate, todayLocalDate } from '../../utils/date.ts';
 import { getPersonalizedACWRThresholds } from '../calculateACWR.ts';

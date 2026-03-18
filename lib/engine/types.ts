@@ -1,4 +1,5 @@
 export * from './types/foundational.ts';
+export * from './types/camp.ts';
 export * from './types/training.ts';
 export * from './types/nutrition.ts';
 export * from './types/schedule.ts';

@@ -1,11 +1,3 @@
-import type {
-  BodyWeightState,
-  ExerciseLibraryRow,
-  WarmupPrescription,
-  Phase,
-  ReadinessState,
-  TrainingSessionRow,
-} from './types/foundational.ts';
 
 /**
  * @ANTI-WIRING:
@@ -109,9 +101,9 @@ export function generateWarmupSets(input: WarmupInput): WarmupResult {
   const { session_type, expected_intensity, readiness_score, injury_history, body_weight_state } = input;
 
   // 1. Adjust duration based on readiness
-  let total_duration = 15;
-  if (readiness_score < 40) total_duration += 5; // Extra time for stiff/tired athletes
-  if (expected_intensity >= 8) total_duration += 5; // High intensity needs better ramp
+  let _totalDuration = 15;
+  if (readiness_score < 40) _totalDuration += 5; // Extra time for stiff/tired athletes
+  if (expected_intensity >= 8) _totalDuration += 5; // High intensity needs better ramp
 
   // 2. Map session type to internal focus
   let focus: 'striking' | 'grappling' | 's_c' | 'general' = 'general';

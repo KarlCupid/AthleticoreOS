@@ -17,13 +17,7 @@ import type {
     CampConfig,
     Phase,
     ReadinessState,
-    RoadWorkInput,
-    RoadWorkResult,
-    TrainingSessionRow,
 } from './types/foundational.ts';
-import type {
-    RoadWorkDirective,
-} from './types/training.ts';
 import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 

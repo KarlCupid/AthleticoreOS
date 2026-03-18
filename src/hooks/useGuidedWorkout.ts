@@ -28,6 +28,8 @@ import type {
     WorkoutLogRow,
     GymProfileRow,
     ComplianceReason,
+    ScheduledActivityRow,
+    WeeklyPlanEntryRow,
 } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 
@@ -138,14 +140,14 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
             if (weeklyPlanEntryId) {
                 const weekStart = engineState.primaryPlanEntry?.week_start_date
-                    ?? engineState.weeklyPlanEntries.find((entry) => entry.id === weeklyPlanEntryId)?.week_start_date
+                    ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)?.week_start_date
                     ?? engineState.weeklyPlanEntries[0]?.week_start_date
                     ?? null;
                 const weeklyMission = weekStart
                     ? await getWeeklyMission(userId, weekStart, { forceRefresh: true })
                     : null;
-                const matchingEntry = weeklyMission?.entries.find((entry) => entry.id === weeklyPlanEntryId)
-                    ?? engineState.weeklyPlanEntries.find((entry) => entry.id === weeklyPlanEntryId)
+                const matchingEntry = weeklyMission?.entries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
+                    ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
                     ?? null;
 
                 mission = matchingEntry?.daily_mission_snapshot ?? engineState.mission;
@@ -171,9 +173,9 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             }
 
             if (scheduledActivityId) {
-                const matchingActivity = engineState.scheduledActivities.find((activity) => activity.id === scheduledActivityId) ?? null;
+                const matchingActivity = engineState.scheduledActivities.find((activity: ScheduledActivityRow) => activity.id === scheduledActivityId) ?? null;
                 const matchingEntry = matchingActivity?.weekly_plan_entry_id
-                    ? engineState.weeklyPlanEntries.find((entry) => entry.id === matchingActivity.weekly_plan_entry_id) ?? null
+                    ? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === matchingActivity.weekly_plan_entry_id) ?? null
                     : null;
                 const entryMission = matchingEntry?.daily_mission_snapshot ?? mission;
                 const entryPrescription = matchingEntry?.daily_mission_snapshot?.trainingDirective.prescription
@@ -279,9 +281,9 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         const workingSetNumber = progress.setsLogged.filter(s => !s.isWarmup).length + 1;
 
         // Process adaptation
-        let adaptation: SetAdaptationResult | null = null;
+        let adaptationResultForSet: SetAdaptationResult | null = null;
         if (!isWarmup) {
-            adaptation = processSetCompletion({
+            const adaptation = processSetCompletion({
                 exerciseId,
                 exerciseName: currentExercise.exercise.name,
                 setNumber: workingSetNumber,
@@ -301,6 +303,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
             setFatigueState(adaptation.updatedFatigueState);
             setAdaptationResult(adaptation);
+            adaptationResultForSet = adaptation;
 
             // Check for PRs
             const existingPRs = await getPRs(userId, exerciseId);
@@ -337,8 +340,8 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             weight,
             rpe: isWarmup ? null : rpe,
             isWarmup,
-            wasAdapted: (adaptation?.adjustments.length ?? 0) > 0,
-            adaptationReason: adaptation?.feedbackMessage ?? null,
+            wasAdapted: (adaptationResultForSet?.adjustments.length ?? 0) > 0,
+            adaptationReason: adaptationResultForSet?.feedbackMessage ?? null,
             completedAt: new Date(),
         };
 

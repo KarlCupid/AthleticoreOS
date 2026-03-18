@@ -11,14 +11,7 @@ import type {
 import type {
     EquipmentItem,
     ExerciseLibraryRow,
-    Phase,
-    ReadinessState,
-    TrainingSessionRow,
-    FitnessLevel,
 } from './types/foundational.ts';
-import type {
-    AutoRegulateSCInput,
-} from './types/training.ts';
 
 // ─── Equipment Mapping ──────────────────────────────────────────
 

@@ -19,10 +19,6 @@
 import type {
     CampConfig,
     Phase,
-    ReadinessState,
-    WeightsInput,
-    WeightsResult,
-    TrainingSessionRow,
     FitnessLevel,
     RoadWorkType,
     ConditioningType,

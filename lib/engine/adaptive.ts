@@ -5,7 +5,6 @@ import type {
     AutoRegulateSCResult,
     ExerciseLibraryRow,
 } from './types.ts';
-import { formatLocalDate } from '../utils/date.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 

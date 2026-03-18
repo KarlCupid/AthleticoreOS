@@ -15,33 +15,10 @@ import type {
   RehydrationProtocolResult,
   RehydrationPhase,
   WeightCutPlanRow,
-  WeightTrendResult,
 } from './types/weight_cut.ts';
 import type { FightStatus } from './types/foundational.ts';
-import type {
-    ActivityLevel,
-    BodyWeightState,
-    FitnessLevel,
-    FruitTarget,
-    Gender,
-    NutritionDayAdjustment,
-    NutritionTargets,
-    Phase,
-    ReadinessState,
-    WeightUnit,
-} from './types/foundational.ts';
-import type {
-    ScheduledActivityRow,
-} from './types/training.ts';
-import type {
-    WeightCutPlan,
-    DailyCutProtocolRow,
-    WeightCutPhase,
-} from './types/weight_cut.ts';
 import { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol.ts';
-import { adjustNutritionForDay } from './schedule/safety.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
-import { calculateCaloriesFromMacros } from '../utils/nutrition.ts';
 
 /**
  * @ANTI-WIRING:
@@ -605,7 +582,7 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     weightHistory,
     baseNutritionTargets,
     dayActivities,
-    readinessState,
+    readinessState: _readinessState,
     acwr,
     cycleDay,
     weeklyVelocityLbs,

@@ -671,7 +671,7 @@ export async function getDailyEngineState(
           expected_intensity: activity.expected_intensity,
           status: activity.status,
         }))
-      : weeklyPlanEntries.map((entry) => ({
+      : weeklyPlanEntries.map((entry: WeeklyPlanEntryRow) => ({
           date: entry.date,
           activity_type: entry.session_type as any,
           estimated_duration_min: entry.estimated_duration_min,

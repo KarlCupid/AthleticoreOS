@@ -20,15 +20,9 @@ import type {
     FitnessLevel,
     Phase,
     ReadinessState,
-    ConditioningInput,
-    ConditioningResult,
-    TrainingSessionRow,
     CampConfig,
     WeightCutPlanRow,
 } from './types/foundational.ts';
-import type {
-    AutoregulationDirective,
-} from './types/training.ts';
 import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
