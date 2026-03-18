@@ -422,4 +422,116 @@ export const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.accent,
     },
+
+    // Compass header (replaces HeroHeader above-fold)
+    compassHeader: {
+        paddingHorizontal: SPACING.lg,
+        paddingBottom: SPACING.lg,
+    },
+    compassSessionRole: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.7)',
+        letterSpacing: 1.2,
+        marginBottom: SPACING.xs,
+    },
+    compassHeadline: {
+        fontSize: 28,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: '#FFFFFF',
+        letterSpacing: -0.5,
+        lineHeight: 34,
+    },
+    compassSummary: {
+        marginTop: SPACING.xs,
+        fontSize: 15,
+        fontFamily: FONT_FAMILY.regular,
+        color: 'rgba(255,255,255,0.82)',
+        lineHeight: 22,
+    },
+    compassReasonRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: SPACING.md,
+        gap: SPACING.sm,
+    },
+    compassReasonBar: {
+        width: 3,
+        borderRadius: 2,
+        marginTop: 3,
+        minHeight: 14,
+        backgroundColor: 'rgba(255,255,255,0.5)',
+    },
+    compassReasonText: {
+        flex: 1,
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.regular,
+        color: 'rgba(255,255,255,0.72)',
+        lineHeight: 20,
+    },
+    compassPrimaryButton: {
+        marginTop: SPACING.lg,
+        borderRadius: RADIUS.full,
+        alignItems: 'center',
+        paddingVertical: SPACING.md + 2,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+    compassPrimaryText: {
+        fontSize: 16,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: '#FFFFFF',
+        letterSpacing: 0.2,
+    },
+    compassSecondaryButton: {
+        marginTop: SPACING.sm,
+        alignItems: 'center',
+        paddingVertical: SPACING.sm,
+    },
+    compassSecondaryText: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.7)',
+    },
+    compassMissionLink: {
+        marginTop: SPACING.sm,
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.6)',
+        textAlign: 'center',
+    },
+
+    // Why Today? expandable
+    whyTodayHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: SPACING.xs,
+    },
+    whyTodayTitle: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+    },
+    whyTodayChevron: {
+        fontSize: 11,
+        color: COLORS.text.tertiary,
+    },
+    whyTodayItem: {
+        marginTop: SPACING.sm,
+        paddingTop: SPACING.sm,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: COLORS.borderLight,
+    },
+    whyTodayItemTitle: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+    },
+    whyTodayItemSentence: {
+        marginTop: 2,
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        lineHeight: 19,
+    },
 });

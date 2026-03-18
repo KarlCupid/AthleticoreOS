@@ -1,6 +1,8 @@
 import React from 'react';
 import { Alert, Modal, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import { HeroHeader } from '../components/HeroHeader';
@@ -12,6 +14,8 @@ import { COLORS, RADIUS, SPACING, ANIMATION } from '../theme/theme';
 import { IconRestaurant, IconActivity, IconFire, IconCalendar } from '../components/icons';
 import { DashboardNutritionCard } from '../components/DashboardNutritionCard';
 import { DailyMissionCard } from '../components/DailyMissionCard';
+import { useReadinessTheme } from '../theme/ReadinessThemeContext';
+import { buildCompassViewModel, getAllDecisionReasons } from '../../lib/engine/presentation';
 import { TrainingLoadChartCard } from '../components/TrainingLoadChartCard';
 import { PrescriptionCard } from '../components/PrescriptionCard';
 import { WeightTrendCard } from '../components/WeightTrendCard';
@@ -45,6 +49,8 @@ type DashboardPhaseControlState = {
 
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const { themeColor, gradient } = useReadinessTheme();
 
   const [activeCutPlan, setActiveCutPlan] = React.useState<WeightCutPlanRow | null>(null);
   const [todayCutProtocol, setTodayCutProtocol] = React.useState<DailyCutProtocolRow | null>(null);
@@ -134,6 +140,14 @@ export function DashboardScreen() {
     goalMode,
     hasActiveFightCamp,
   } = useDashboardData();
+
+  const [showWhyToday, setShowWhyToday] = React.useState(false);
+  const compassVM = buildCompassViewModel(
+    dailyMission,
+    Boolean(workoutPrescription || todayPlanEntry),
+    checkinDone,
+    sessionDone,
+  );
 
   const targetCalories = todayCutProtocol
     ? calculateCaloriesFromMacros(
@@ -233,6 +247,24 @@ export function DashboardScreen() {
 
     openBuildPhaseSetup();
   }, [hasLivePlanningState, openBuildPhaseSetup, openPlanScreen]);
+
+  const handleCompassCTA = React.useCallback(() => {
+    switch (compassVM.primaryCTATarget) {
+      case 'checkin': navigation.navigate('Log'); break;
+      case 'training': void openTodayTraining(); break;
+      case 'nutrition': openPlanScreen('NutritionHome'); break;
+      case 'plan': openPlanningSurface(); break;
+    }
+  }, [compassVM.primaryCTATarget, navigation, openPlanScreen, openPlanningSurface, openTodayTraining]);
+
+  const handleCompassSecondaryCTA = React.useCallback(() => {
+    switch (compassVM.secondaryCTATarget) {
+      case 'checkin': navigation.navigate('Log'); break;
+      case 'training': void openTodayTraining(); break;
+      case 'nutrition': openPlanScreen('NutritionHome'); break;
+      case 'plan': openPlanningSurface(); break;
+    }
+  }, [compassVM.secondaryCTATarget, navigation, openPlanScreen, openPlanningSurface, openTodayTraining]);
 
   const handleSwitchToBuildPhase = React.useCallback(() => {
     Alert.alert(
@@ -400,37 +432,66 @@ export function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
-        <HeroHeader
-          greeting={getGreeting()}
-          phase={
-            activeCutPlan && todayCutProtocol
-              ? `${todayCutProtocol.cut_phase === 'fight_week_cut' ? 'Water Cut' : todayCutProtocol.cut_phase.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} · ${todayCutProtocol.days_to_weigh_in === 0 ? 'Weigh-in Today!' : `${todayCutProtocol.days_to_weigh_in} days out`}`
-              : campStatusLabel
-          }
-          readinessScore={readinessScore}
-          readinessLabel={currentLevel}
-          acwr={acwr?.ratio}
-          sleep={sleepQuality ?? undefined}
-          weight={morningWeight ? `${morningWeight} lb` : undefined}
-          weightTrend={
-            weightTrend
-              ? weightTrend.weeklyVelocityLbs < -0.1
-                ? 'down'
-                : weightTrend.weeklyVelocityLbs > 0.1
-                  ? 'up'
-                  : 'stable'
-              : undefined
-          }
-        />
+        {/* CompassHeader — mission-first above-fold */}
+        <LinearGradient
+          colors={gradient as [string, string, ...string[]]}
+          style={[styles.compassHeader, { paddingTop: insets.top + SPACING.lg }]}
+        >
+          <Text style={styles.compassSessionRole}>{compassVM.sessionRoleLabel.toUpperCase()}</Text>
+          <Text style={styles.compassHeadline}>{compassVM.headline}</Text>
+          <Text style={styles.compassSummary}>{compassVM.summaryLine}</Text>
+          <View style={styles.compassReasonRow}>
+            <View style={[styles.compassReasonBar, { backgroundColor: 'rgba(255,255,255,0.5)' }]} />
+            <Text style={styles.compassReasonText}>{compassVM.reasonSentence}</Text>
+          </View>
+          <AnimatedPressable
+            style={[styles.compassPrimaryButton, { backgroundColor: 'rgba(255,255,255,0.22)' }]}
+            onPress={handleCompassCTA}
+          >
+            <Text style={styles.compassPrimaryText}>{compassVM.primaryCTALabel}</Text>
+          </AnimatedPressable>
+          {compassVM.secondaryCTALabel ? (
+            <AnimatedPressable style={styles.compassSecondaryButton} onPress={handleCompassSecondaryCTA}>
+              <Text style={styles.compassSecondaryText}>{compassVM.secondaryCTALabel}</Text>
+            </AnimatedPressable>
+          ) : null}
+          {dailyMission ? (
+            <AnimatedPressable onPress={() => setShowWhyToday(true)}>
+              <Text style={styles.compassMissionLink}>View Full Mission ›</Text>
+            </AnimatedPressable>
+          ) : null}
+        </LinearGradient>
 
         <View style={styles.content}>
-          {dailyMission ? (
-            <Animated.View entering={FadeInDown.delay(D * 0.6).duration(ANIMATION.slow).springify()}>
+          {/* Why Today? expandable decision trace */}
+          {(dailyMission?.decisionTrace?.length ?? 0) > 0 ? (
+            <Animated.View entering={FadeInDown.delay(D * 0.4).duration(ANIMATION.slow).springify()}>
+              <Card>
+                <AnimatedPressable
+                  style={styles.whyTodayHeader}
+                  onPress={() => setShowWhyToday((v) => !v)}
+                >
+                  <Text style={styles.whyTodayTitle}>Why Today?</Text>
+                  <Text style={styles.whyTodayChevron}>{showWhyToday ? '▲' : '▼'}</Text>
+                </AnimatedPressable>
+                {showWhyToday && getAllDecisionReasons(dailyMission!.decisionTrace).map((reason, idx) => (
+                  <View key={idx} style={styles.whyTodayItem}>
+                    <Text style={styles.whyTodayItemTitle}>{reason.title}</Text>
+                    <Text style={styles.whyTodayItemSentence}>{reason.sentence}</Text>
+                  </View>
+                ))}
+              </Card>
+            </Animated.View>
+          ) : null}
+
+          {/* DailyMissionCard shown when Why Today is expanded or as fallback prescription */}
+          {showWhyToday && dailyMission ? (
+            <Animated.View entering={FadeInDown.delay(D * 0.6).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
               <DailyMissionCard mission={dailyMission} compact />
             </Animated.View>
-          ) : (
+          ) : !dailyMission ? (
             <PrescriptionCard message={prescriptionMessage} entering enteringDelay={D} />
-          )}
+          ) : null}
 
           <Animated.View entering={FadeInDown.delay(D * 0.8).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <Card>
@@ -558,6 +619,32 @@ export function DashboardScreen() {
               ))}
             </Animated.View>
           )}
+
+          {/* HeroHeader moved below-fold — readiness stats, sleep, weight, ACWR */}
+          <Animated.View entering={FadeInDown.delay(D * 3.5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
+            <HeroHeader
+              greeting={getGreeting()}
+              phase={
+                activeCutPlan && todayCutProtocol
+                  ? `${todayCutProtocol.cut_phase === 'fight_week_cut' ? 'Water Cut' : todayCutProtocol.cut_phase.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} · ${todayCutProtocol.days_to_weigh_in === 0 ? 'Weigh-in Today!' : `${todayCutProtocol.days_to_weigh_in} days out`}`
+                  : campStatusLabel
+              }
+              readinessScore={readinessScore}
+              readinessLabel={currentLevel}
+              acwr={acwr?.ratio}
+              sleep={sleepQuality ?? undefined}
+              weight={morningWeight ? `${morningWeight} lb` : undefined}
+              weightTrend={
+                weightTrend
+                  ? weightTrend.weeklyVelocityLbs < -0.1
+                    ? 'down'
+                    : weightTrend.weeklyVelocityLbs > 0.1
+                      ? 'up'
+                      : 'stable'
+                  : undefined
+              }
+            />
+          </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(D * 4).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <SectionHeader title="Training Load" />

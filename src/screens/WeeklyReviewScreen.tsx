@@ -14,6 +14,7 @@ import { AnimatedNumber } from '../components/AnimatedNumber';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 
 import { getWeeklyReview } from '../../lib/api/scheduleService';
+import { buildWeeklyReviewNarrativeViewModel, type WeeklyReviewInsights, type WeeklyReviewNarrativeViewModel } from '../../lib/engine/presentation';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
 import type { WeeklyComplianceReport } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
@@ -55,6 +56,8 @@ export function WeeklyReviewScreen() {
 
   const [report, setReport] = useState<WeeklyComplianceReport | null>(null);
   const [insights, setInsights] = useState<WeekInsights | null>(null);
+  const [narrative, setNarrative] = useState<WeeklyReviewNarrativeViewModel | null>(null);
+  const [showLoadDetails, setShowLoadDetails] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -166,7 +169,7 @@ export function WeeklyReviewScreen() {
 
       const projectedMakeWeightStatus = campRisk?.projectedMakeWeightStatus ?? 'Build Phase active';
 
-      setInsights({
+      const weekInsights: WeekInsights = {
         campLabel: campStatus.label,
         projectedMakeWeightStatus,
         readinessAvg,
@@ -175,7 +178,19 @@ export function WeeklyReviewScreen() {
         recommendationFollowThroughPct,
         recommendationCount,
         campRisk,
-      });
+      };
+      setInsights(weekInsights);
+
+      const narrativeInsights: WeeklyReviewInsights = {
+        readinessAvg,
+        readinessDelta,
+        weightDelta,
+        recommendationFollowThroughPct,
+        recommendationCount,
+        campRisk,
+        campLabel: campStatus.label,
+      };
+      setNarrative(buildWeeklyReviewNarrativeViewModel(review, narrativeInsights));
     } catch (error) {
       logError('WeeklyReviewScreen.loadReview', error, { weekStart, weekEnd });
     }
@@ -217,45 +232,92 @@ export function WeeklyReviewScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.normal).springify()}>
-          <View style={styles.scoreCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-              <AnimatedNumber value={report.overallPct} style={[styles.scoreNumber, { color: themeColor }]} />
-              <Text style={[styles.scoreNumber, { color: themeColor }]}>%</Text>
+        {/* 1. Narrative — reading-first */}
+        {narrative ? (
+          <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.normal).springify()}>
+            <View style={styles.card}>
+              <Text style={styles.narrativeSummary}>{narrative.narrativeSummary}</Text>
+
+              <View style={styles.narrativeRowList}>
+                <View style={styles.narrativeRow}>
+                  <Text style={[styles.narrativeKicker, { color: COLORS.success }]}>IMPROVED</Text>
+                  <Text style={styles.narrativeRowText}>{narrative.whatImproved}</Text>
+                </View>
+                {narrative.whatSlipped ? (
+                  <View style={styles.narrativeRow}>
+                    <Text style={[styles.narrativeKicker, { color: COLORS.warning }]}>SLIPPED</Text>
+                    <Text style={styles.narrativeRowText}>{narrative.whatSlipped}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.narrativeRow}>
+                  <Text style={[styles.narrativeKicker, { color: themeColor }]}>NEXT FOCUS</Text>
+                  <Text style={styles.narrativeRowText}>{narrative.whatChangesNext}</Text>
+                </View>
+              </View>
             </View>
-            <Text style={styles.scoreLabel}>Weekly Compliance</Text>
-            <Text style={styles.scoreMessage}>{report.message}</Text>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        ) : null}
 
-        <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Camp Progress</Text>
-            <Text style={styles.metricLabel}>{insights.campLabel}</Text>
-            <Text style={styles.metricValue}>{insights.projectedMakeWeightStatus}</Text>
-            {insights.campRisk ? (
-              <Text style={styles.metricMeta}>
-                Camp risk: {insights.campRisk.level} ({insights.campRisk.score}/100)
-              </Text>
-            ) : null}
-            <Text style={styles.metricMeta}>
-              Readiness avg: {insights.readinessAvg ?? 'n/a'}
-              {insights.readinessDelta != null ? ` · Trend ${insights.readinessDelta > 0 ? '+' : ''}${insights.readinessDelta}` : ''}
-            </Text>
-            <Text style={styles.metricMeta}>
-              Weekly weight: {insights.weightDelta != null ? `${insights.weightDelta > 0 ? '+' : ''}${insights.weightDelta} lb` : 'n/a'}
-            </Text>
-            <Text style={styles.metricMeta}>
-              Recommendation follow-through: {insights.recommendationFollowThroughPct != null ? `${insights.recommendationFollowThroughPct}%` : 'n/a'}
-              {insights.recommendationCount > 0 ? ` (${insights.recommendationCount} recommendations)` : ''}
-            </Text>
-            {insights.campRisk ? <Text style={styles.metricMeta}>{insights.campRisk.drivers[0]}</Text> : null}
-          </View>
-        </Animated.View>
+        {/* 2. Single highlight chart */}
+        {narrative?.highlightChart === 'training_compliance' ? (
+          <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Training Compliance</Text>
+              <WeeklyComplianceBar label="S&C" planned={report.sc.planned} actual={report.sc.actual} color="#4A90D9" />
+              <WeeklyComplianceBar label="Boxing" planned={report.boxing.planned} actual={report.boxing.actual} color="#FF6B35" />
+            </View>
+          </Animated.View>
+        ) : null}
+        {narrative?.highlightChart === 'readiness_trend' ? (
+          <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Readiness Trend</Text>
+              <View style={styles.loadRow}>
+                <View style={styles.loadStat}>
+                  <AnimatedNumber value={insights.readinessAvg ?? 0} style={[styles.loadNumber, { color: themeColor }]} />
+                  <Text style={styles.loadLabel}>Avg Readiness</Text>
+                </View>
+                {insights.readinessDelta != null ? (
+                  <>
+                    <View style={styles.loadDivider} />
+                    <View style={styles.loadStat}>
+                      <Text style={[styles.loadNumber, { color: insights.readinessDelta >= 0 ? COLORS.success : COLORS.error }]}>
+                        {insights.readinessDelta >= 0 ? '+' : ''}{insights.readinessDelta}
+                      </Text>
+                      <Text style={styles.loadLabel}>Week Trend</Text>
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            </View>
+          </Animated.View>
+        ) : null}
+        {narrative?.highlightChart === 'weight_trend' ? (
+          <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Weight This Week</Text>
+              <View style={styles.loadRow}>
+                <View style={styles.loadStat}>
+                  <Text style={[styles.loadNumber, { color: insights.weightDelta != null && insights.weightDelta <= 0 ? COLORS.success : COLORS.warning }]}>
+                    {insights.weightDelta != null ? `${insights.weightDelta > 0 ? '+' : ''}${insights.weightDelta} lb` : 'n/a'}
+                  </Text>
+                  <Text style={styles.loadLabel}>Weight Change</Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+        ) : null}
 
+        {/* 3. Activity Breakdown — secondary */}
         <Animated.View entering={FadeInDown.delay(120).duration(ANIMATION.normal).springify()}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Training Breakdown</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md }}>
+              <Text style={styles.cardTitle}>Activity Breakdown</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                <AnimatedNumber value={report.overallPct} style={[styles.inlineScore, { color: themeColor }]} />
+                <Text style={[styles.inlineScore, { color: themeColor }]}>%</Text>
+              </View>
+            </View>
             <WeeklyComplianceBar label="S&C" planned={report.sc.planned} actual={report.sc.actual} color="#4A90D9" />
             <WeeklyComplianceBar label="Boxing" planned={report.boxing.planned} actual={report.boxing.actual} color="#FF6B35" />
             <WeeklyComplianceBar label="Running" planned={report.running.planned} actual={report.running.actual} color="#4CAF50" />
@@ -264,20 +326,31 @@ export function WeeklyReviewScreen() {
           </View>
         </Animated.View>
 
+        {/* 4. Load Summary — collapsed */}
         <Animated.View entering={FadeInDown.delay(150).duration(ANIMATION.normal).springify()}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Load Summary</Text>
-            <View style={styles.loadRow}>
-              <View style={styles.loadStat}>
-                <AnimatedNumber value={report.totalLoadPlanned} style={styles.loadNumber} />
-                <Text style={styles.loadLabel}>Planned Load</Text>
+            <AnimatedPressable
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              onPress={() => setShowLoadDetails((v) => !v)}
+            >
+              <Text style={styles.cardTitle}>Load Details</Text>
+              <Text style={{ fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary }}>
+                {showLoadDetails ? 'Hide ▲' : 'Show ▼'}
+              </Text>
+            </AnimatedPressable>
+            {showLoadDetails ? (
+              <View style={[styles.loadRow, { marginTop: SPACING.md }]}>
+                <View style={styles.loadStat}>
+                  <AnimatedNumber value={report.totalLoadPlanned} style={styles.loadNumber} />
+                  <Text style={styles.loadLabel}>Planned Load</Text>
+                </View>
+                <View style={styles.loadDivider} />
+                <View style={styles.loadStat}>
+                  <AnimatedNumber value={report.totalLoadActual} style={styles.loadNumber} />
+                  <Text style={styles.loadLabel}>Actual Load</Text>
+                </View>
               </View>
-              <View style={styles.loadDivider} />
-              <View style={styles.loadStat}>
-                <AnimatedNumber value={report.totalLoadActual} style={styles.loadNumber} />
-                <Text style={styles.loadLabel}>Actual Load</Text>
-              </View>
-            </View>
+            ) : null}
           </View>
         </Animated.View>
 
@@ -348,6 +421,40 @@ const styles = StyleSheet.create({
   loadNumber: { fontSize: 24, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
   loadLabel: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 2 },
   loadDivider: { width: 1, height: 40, backgroundColor: COLORS.borderLight },
+
+  // Narrative styles
+  narrativeSummary: {
+    fontSize: 16,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    lineHeight: 24,
+    marginBottom: SPACING.md,
+  },
+  narrativeRowList: {
+    gap: SPACING.sm,
+  },
+  narrativeRow: {
+    paddingTop: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.borderLight,
+  },
+  narrativeKicker: {
+    fontSize: 10,
+    fontFamily: FONT_FAMILY.semiBold,
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  narrativeRowText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+  },
+  inlineScore: {
+    fontSize: 24,
+    fontFamily: FONT_FAMILY.black,
+    letterSpacing: -0.3,
+  },
 });
 
 

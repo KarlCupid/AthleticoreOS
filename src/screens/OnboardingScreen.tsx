@@ -16,7 +16,7 @@ interface OnboardingScreenProps {
     onComplete: () => void;
 }
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 3;
 
 const STEP_META = [
     {
@@ -34,19 +34,6 @@ const STEP_META = [
         title: 'Athlete Profile',
         description: 'These selections control physiology and fight-context assumptions used in daily guidance.',
     },
-    {
-        eyebrow: 'Phase 4',
-        title: 'Fueling Setup',
-        description: 'This sets your baseline nutrition direction before planning setup personalizes the week.',
-    },
-] as const;
-
-const ACTIVITY_LEVEL_OPTIONS = [
-    { value: 'sedentary', label: 'Sedentary', descriptor: 'Mostly seated day' },
-    { value: 'light', label: 'Light', descriptor: 'Easy movement most days' },
-    { value: 'moderate', label: 'Moderate', descriptor: 'Regular training and an active day' },
-    { value: 'very_active', label: 'Very Active', descriptor: 'Hard training and high daily movement' },
-    { value: 'extra_active', label: 'Extra Active', descriptor: 'Two-a-days or very high workload' },
 ] as const;
 
 const FIGHT_STATUS_OPTIONS = [
@@ -64,12 +51,6 @@ const CYCLE_TRACKING_OPTIONS = [
     { value: false, label: 'Skip', descriptor: 'Use standard readiness guidance only' },
 ] as const;
 
-const NUTRITION_GOAL_OPTIONS = [
-    { value: 'maintain', label: 'Maintain', descriptor: 'Hold bodyweight while fueling performance' },
-    { value: 'cut', label: 'Cut Weight', descriptor: 'Reduce bodyweight with controlled deficit' },
-    { value: 'bulk', label: 'Lean Gain', descriptor: 'Add size and strength with surplus' },
-] as const;
-
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const insets = useSafeAreaInsets();
     const [step, setStep] = useState(0);
@@ -80,7 +61,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [heightInches, setHeightInches] = useState('');
     const [age, setAge] = useState('');
     const [weight, setWeight] = useState('');
-    const [targetWeight, setTargetWeight] = useState('');
     const [fightStatus, setFightStatus] = useState<'amateur' | 'pro'>('amateur');
     const [bioSex, setBioSex] = useState<'male' | 'female'>('male');
     const [cycleTracking, setCycleTracking] = useState(false);
@@ -148,7 +128,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 biological_sex: bioSex,
                 fight_status: fightStatus,
                 phase: 'off-season',
-                target_weight: targetWeight ? parseFloat(targetWeight) : null,
+                target_weight: null,
                 base_weight: weight ? parseFloat(weight) : null,
                 cycle_tracking: cycleTracking,
                 height_inches: totalInches,
@@ -248,32 +228,17 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             </View>
                         </View>
 
-                        <View style={styles.inputRow}>
-                            <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>Body Weight (lbs)</Text>
-                                <Text style={styles.helperText}>Your current walk-around weight. This is required.</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="155"
-                                    placeholderTextColor={COLORS.text.tertiary}
-                                    keyboardType="numeric"
-                                    value={weight}
-                                    onChangeText={setWeight}
-                                />
-                            </View>
-                            <View style={{ width: SPACING.md }} />
-                            <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>Target Weight (optional)</Text>
-                                <Text style={styles.helperText}>The division or performance weight you want to work toward.</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="145"
-                                    placeholderTextColor={COLORS.text.tertiary}
-                                    keyboardType="numeric"
-                                    value={targetWeight}
-                                    onChangeText={setTargetWeight}
-                                />
-                            </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Body Weight (lbs)</Text>
+                            <Text style={styles.helperText}>Your current walk-around weight. This is required.</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="155"
+                                placeholderTextColor={COLORS.text.tertiary}
+                                keyboardType="numeric"
+                                value={weight}
+                                onChangeText={setWeight}
+                            />
                         </View>
                     </View>
                 );
@@ -370,67 +335,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 </View>
                             </View>
                         ) : null}
-                    </View>
-                );
-            case 3:
-                return (
-                    <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Fueling Setup</Text>
-                        <Text style={styles.stepSubtitle}>These answers define the baseline we use for calories, recovery needs, and body-composition direction.</Text>
-
-                        <Text style={styles.inputLabel}>Activity Level</Text>
-                        <Text style={styles.helperText}>Think beyond formal training and choose the option that best matches your full-day workload.</Text>
-                        <View style={styles.activityOptionsList}>
-                            {ACTIVITY_LEVEL_OPTIONS.map((option) => (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[styles.activityOptionCard, activityLevel === option.value && styles.activityOptionCardActive]}
-                                    onPress={() => setActivityLevel(option.value)}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={styles.activityOptionCopy}>
-                                        <Text style={[styles.activityOptionTitle, activityLevel === option.value && styles.activityOptionTitleActive]}>
-                                            {option.label}
-                                        </Text>
-                                        <Text style={[styles.activityOptionDescription, activityLevel === option.value && styles.activityOptionDescriptionActive]}>
-                                            {option.descriptor}
-                                        </Text>
-                                    </View>
-                                    <View style={[styles.activityOptionIndicator, activityLevel === option.value && styles.activityOptionIndicatorActive]}>
-                                        {activityLevel === option.value ? (
-                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
-                                        ) : null}
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Nutrition Goal</Text>
-                        <Text style={styles.helperText}>Tell us whether you want to maintain, cut, or add lean mass so targets move in the right direction.</Text>
-                        <View style={styles.activityOptionsList}>
-                            {NUTRITION_GOAL_OPTIONS.map((option) => (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[styles.activityOptionCard, nutritionGoal === option.value && styles.activityOptionCardActive]}
-                                    onPress={() => setNutritionGoal(option.value)}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={styles.activityOptionCopy}>
-                                        <Text style={[styles.activityOptionTitle, nutritionGoal === option.value && styles.activityOptionTitleActive]}>
-                                            {option.label}
-                                        </Text>
-                                        <Text style={[styles.activityOptionDescription, nutritionGoal === option.value && styles.activityOptionDescriptionActive]}>
-                                            {option.descriptor}
-                                        </Text>
-                                    </View>
-                                    <View style={[styles.activityOptionIndicator, nutritionGoal === option.value && styles.activityOptionIndicatorActive]}>
-                                        {nutritionGoal === option.value ? (
-                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
-                                        ) : null}
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
                     </View>
                 );
             default:

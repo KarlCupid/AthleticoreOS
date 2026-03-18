@@ -19,6 +19,7 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { TabNavigator } from './src/navigation/TabNavigator';
 import { PlanningSetupStackNavigator } from './src/navigation/PlanningSetupStack';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
+import { InteractionModeProvider } from './src/context/InteractionModeContext';
 import { COLORS } from './src/theme/theme';
 import { logError } from './lib/utils/logger';
 
@@ -157,12 +158,14 @@ export default function App() {
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
         <ReadinessThemeProvider>
+          <InteractionModeProvider>
           <NavigationContainer theme={myTheme}>
             <View style={styles.container}>
               <StatusBar style="dark" />
               {content}
             </View>
           </NavigationContainer>
+          </InteractionModeProvider>
         </ReadinessThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -9,6 +9,7 @@ import { PlanStackNavigator } from './PlanStack';
 import { ProfileSettingsScreen } from '../screens/ProfileSettingsScreen';
 import { COLORS, RADIUS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
+import { useInteractionMode } from '../context/InteractionModeContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -42,12 +43,13 @@ function TabIcon({ focused, color, IconComponent }: { focused: boolean; color: s
 
 export function TabNavigator() {
   const { themeColor } = useReadinessTheme();
+  const { mode } = useInteractionMode();
 
   return (
     <Tab.Navigator
       // @ts-expect-error sceneContainerStyle is passed successfully but causes TS issue
       sceneContainerStyle={{
-        paddingBottom: Platform.OS === 'ios' ? 70 : 60,
+        paddingBottom: mode === 'gym-floor' ? 0 : (Platform.OS === 'ios' ? 70 : 60),
       }}
       screenOptions={{
         headerShown: false,
@@ -69,6 +71,7 @@ export function TabNavigator() {
           shadowOffset: { width: 0, height: 10 },
           shadowOpacity: 0.15,
           shadowRadius: 20,
+          display: mode === 'gym-floor' ? 'none' : 'flex',
         },
         tabBarBackground: () => (
           Platform.OS === 'ios' ? (

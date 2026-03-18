@@ -10,7 +10,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING, RADIUS, ANIMATION, GRADIENTS } from '../theme/theme';
+import { COLORS, SPACING, RADIUS, ANIMATION, GRADIENTS, FONT_FAMILY } from '../theme/theme';
+import { buildNutritionQuickActionViewModel } from '../../lib/engine/presentation';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { Card } from '../components/Card';
 import { AnimatedNumber } from '../components/AnimatedNumber';
@@ -42,6 +43,7 @@ export function NutritionScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { themeColor } = useReadinessTheme();
+  const [nutritionMode, setNutritionMode] = useState<'quick' | 'detailed'>('quick');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [targets, setTargets] = useState<ResolvedNutritionTargets | null>(null);
@@ -247,6 +249,129 @@ export function NutritionScreen() {
           renderSkeleton()
         ) : (
           <>
+            {/* Quick Fuel mode — default path */}
+            {nutritionMode === 'quick' && (() => {
+              const quickVM = buildNutritionQuickActionViewModel(dailyMission, totals);
+              const inferMealType = () => {
+                const h = new Date().getHours();
+                if (h < 11) return 'breakfast';
+                if (h < 14) return 'lunch';
+                if (h < 17) return 'snacks';
+                return 'dinner';
+              };
+              return (
+                <>
+                  {quickVM.safetyWarning ? (
+                    <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}>
+                      <View style={{
+                        backgroundColor: COLORS.error + '18',
+                        borderRadius: RADIUS.lg,
+                        borderWidth: 1,
+                        borderColor: COLORS.error + '40',
+                        padding: SPACING.md,
+                        marginBottom: SPACING.sm,
+                      }}>
+                        <Text style={{ fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.error, lineHeight: 19 }}>
+                          {quickVM.safetyWarning}
+                        </Text>
+                      </View>
+                    </Animated.View>
+                  ) : null}
+
+                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}>
+                    <Card style={{ marginBottom: SPACING.sm + 4 }}>
+                      <Text style={{ fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.sm }}>
+                        {quickVM.fuelDirectiveHeadline}
+                      </Text>
+                      {[quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
+                        .filter(Boolean)
+                        .map((cue, i) => (
+                          <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: i > 0 ? SPACING.sm : 0 }}>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: themeColor, marginTop: 6 }} />
+                            <Text style={{ flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 }}>{cue}</Text>
+                          </View>
+                        ))
+                      }
+                    </Card>
+                  </Animated.View>
+
+                  {quickVM.quickIntentOptions.length > 0 ? (
+                    <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}>
+                      <Text style={{ fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: SPACING.sm, letterSpacing: 0.5 }}>
+                        QUICK LOG
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
+                        {quickVM.quickIntentOptions.map((intent) => (
+                          <AnimatedPressable
+                            key={intent.id}
+                            style={{
+                              backgroundColor: COLORS.surface,
+                              borderRadius: RADIUS.xl,
+                              borderWidth: 1,
+                              borderColor: COLORS.borderLight,
+                              padding: SPACING.md,
+                              marginRight: SPACING.sm,
+                              minWidth: 140,
+                            }}
+                            onPress={() => navigation.navigate('FoodSearch', { mealType: inferMealType(), date: today })}
+                          >
+                            <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs }}>
+                              {intent.label}
+                            </Text>
+                            <Text style={{ fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.chart.accent }}>
+                              ~{intent.calTarget} cal
+                            </Text>
+                            <Text style={{ fontSize: 11, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 2 }}>
+                              P {intent.proteinTarget}g · C {intent.carbTarget}g · F {intent.fatTarget}g
+                            </Text>
+                          </AnimatedPressable>
+                        ))}
+                      </ScrollView>
+                    </Animated.View>
+                  ) : null}
+
+                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}>
+                    <Card style={{ marginBottom: SPACING.md }}>
+                      <MacroProgressBar
+                        label="Calories"
+                        current={totals.calories}
+                        target={targets?.adjustedCalories ?? 0}
+                        color={COLORS.chart.accent}
+                        unit=" cal"
+                      />
+                    </Card>
+                  </Animated.View>
+
+                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}>
+                    <HydrationTracker
+                      currentOz={waterCurrent}
+                      targetOz={waterTarget}
+                      onQuickAdd={handleQuickAddWater}
+                    />
+                  </Animated.View>
+
+                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.slow).springify()} style={{ alignItems: 'center', marginTop: SPACING.lg }}>
+                    <AnimatedPressable onPress={() => setNutritionMode('detailed')}>
+                      <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: themeColor }}>
+                        Log Detailed Meal ›
+                      </Text>
+                    </AnimatedPressable>
+                  </Animated.View>
+                </>
+              );
+            })()}
+
+            {/* Detailed mode — full existing layout */}
+            {nutritionMode === 'detailed' && (
+              <>
+                <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
+                  <AnimatedPressable onPress={() => setNutritionMode('quick')}>
+                    <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: themeColor }}>
+                      ‹ Back to Quick View
+                    </Text>
+                  </AnimatedPressable>
+                </Animated.View>
+
             {dailyMission && (
               <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}>
                 <Card style={{ marginBottom: SPACING.sm + 4 }}>
@@ -415,6 +540,8 @@ export function NutritionScreen() {
             </Animated.View>
 
             <View style={{ height: SPACING.xxl + 40 }} />
+              </>
+            )}
           </>
         )}
       </ScrollView>

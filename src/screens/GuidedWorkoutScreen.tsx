@@ -26,6 +26,8 @@ import {
     ANIMATION,
 } from '../theme/theme';
 import { useGuidedWorkout } from '../hooks/useGuidedWorkout';
+import { useInteractionMode } from '../context/InteractionModeContext';
+import { buildTrainingFloorViewModel } from '../../lib/engine/presentation';
 import RPESelector from '../components/RPESelector';
 import WeightSuggestionBanner from '../components/WeightSuggestionBanner';
 import AdaptationBanner from '../components/AdaptationBanner';
@@ -95,6 +97,14 @@ export function GuidedWorkoutScreen() {
         extendRest,
     } = useGuidedWorkout(params?.weeklyPlanEntryId, params?.scheduledActivityId);
 
+    const { isGymFloor, setMode } = useInteractionMode();
+
+    // Activation check
+    const [activationCheckDone, setActivationCheckDone] = useState(false);
+
+    // Training floor view model (pure, no side effects)
+    const floorVM = buildTrainingFloorViewModel(prescription ?? null, dailyMission ?? null);
+
     // Elapsed timer
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -149,6 +159,11 @@ export function GuidedWorkoutScreen() {
             if (elapsedRef.current) clearInterval(elapsedRef.current);
         };
     }, [isStarted, startTime]);
+
+    // ── Gym-floor mode: hide tabs during workout ──────────────────
+    useEffect(() => {
+        setMode(isStarted ? 'gym-floor' : 'standard');
+    }, [isStarted]);
 
     // ── Navigate on complete ──────────────────────────────────────
     useEffect(() => {
@@ -334,20 +349,49 @@ export function GuidedWorkoutScreen() {
             {/* ── Loading state ───────────────────────────────── */}
             {loading && <LoadingSkeleton />}
 
-            {/* ── Not started: prescription preview ───────────── */}
-            {!loading && prescription && !isStarted && (
+            {/* ── Not started: activation check (if required) ─── */}
+            {!loading && prescription && !isStarted && floorVM.activationRequired && !activationCheckDone && (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {missionIntent || missionReason ? (
-                        <Card style={styles.missionCard}>
-                            <Text style={styles.missionKicker}>SESSION ROLE</Text>
-                            {missionIntent ? <Text style={styles.missionIntent}>{missionIntent}</Text> : null}
-                            {missionReason ? <Text style={styles.missionReason}>{missionReason}</Text> : null}
-                        </Card>
-                    ) : null}
+                    <Card style={styles.missionCard}>
+                        <Text style={styles.missionKicker}>ACTIVATION REQUIRED</Text>
+                        <Text style={styles.missionIntent}>{floorVM.sessionGoal}</Text>
+                        <Text style={[styles.missionReason, { marginTop: SPACING.md }]}>
+                            {floorVM.activationGuidance}
+                        </Text>
+                    </Card>
+                    <TouchableOpacity
+                        style={[styles.primaryButton, { marginBottom: SPACING.sm }]}
+                        onPress={() => setActivationCheckDone(true)}
+                        activeOpacity={0.82}
+                    >
+                        <Text style={styles.primaryButtonText}>Activation done — continue</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.skipLink}
+                        onPress={() => setActivationCheckDone(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.skipLinkText}>Skip activation</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            )}
+
+            {/* ── Not started: prescription preview ───────────── */}
+            {!loading && prescription && !isStarted && (!floorVM.activationRequired || activationCheckDone) && (
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <Card style={styles.missionCard}>
+                        <Text style={styles.missionKicker}>SESSION ROLE</Text>
+                        <Text style={styles.missionIntent}>{floorVM.sessionGoal}</Text>
+                        <Text style={styles.missionReason}>{floorVM.reasonSentence}</Text>
+                    </Card>
                     <PrescriptionPreview
                         prescription={prescription}
                         gymProfile={gymProfile}
@@ -400,13 +444,11 @@ export function GuidedWorkoutScreen() {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {missionIntent || missionReason ? (
-                            <Card style={styles.missionCard}>
-                                <Text style={styles.missionKicker}>WHY THIS SESSION</Text>
-                                {missionIntent ? <Text style={styles.missionIntent}>{missionIntent}</Text> : null}
-                                {missionReason ? <Text style={styles.missionReason}>{missionReason}</Text> : null}
-                            </Card>
-                        ) : null}
+                        <Card style={styles.missionCard}>
+                            <Text style={styles.missionKicker}>WHY THIS SESSION</Text>
+                            <Text style={styles.missionIntent}>{floorVM.sessionGoal}</Text>
+                            <Text style={styles.missionReason}>{floorVM.reasonSentence}</Text>
+                        </Card>
 
                         {/* Exercise name + muscle badge */}
                         <Animated.View
@@ -414,7 +456,7 @@ export function GuidedWorkoutScreen() {
                             entering={SlideInRight.duration(ANIMATION.normal).springify()}
                             style={styles.exerciseHeader}
                         >
-                            <Text style={styles.exerciseName}>{currentExercise.exercise.name}</Text>
+                            <Text style={[styles.exerciseName, isGymFloor && { fontSize: 34 }]}>{currentExercise.exercise.name}</Text>
                             <View style={styles.muscleBadge}>
                                 <Text style={styles.muscleBadgeText}>
                                     {currentExercise.exercise.muscle_group.replace(/_/g, ' ')}
@@ -490,6 +532,11 @@ export function GuidedWorkoutScreen() {
                                     severity={adaptationResult.feedbackSeverity}
                                     onDismiss={() => setAdaptationDismissed(true)}
                                 />
+                                {adaptationResult.adjustments?.[0]?.reason ? (
+                                    <Text style={{ fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: SPACING.xs, paddingHorizontal: SPACING.xs, lineHeight: 17 }}>
+                                        {adaptationResult.adjustments[0].reason}
+                                    </Text>
+                                ) : null}
                             </Animated.View>
                         )}
 
@@ -531,12 +578,13 @@ export function GuidedWorkoutScreen() {
                                     style={[
                                         styles.primaryButton,
                                         !canLogSet && styles.primaryButtonDisabled,
+                                        isGymFloor && { paddingVertical: SPACING.lg },
                                     ]}
                                     onPress={handleLogSet}
                                     disabled={!canLogSet}
                                     activeOpacity={0.82}
                                 >
-                                    <Text style={styles.primaryButtonText}>
+                                    <Text style={[styles.primaryButtonText, isGymFloor && { fontSize: 19 }]}>
                                         {isLoggingSet ? 'Logging...' : 'Log Set'}
                                     </Text>
                                 </TouchableOpacity>
