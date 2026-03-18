@@ -5,6 +5,7 @@ import type {
   MuscleGroup,
   Phase,
   ReadinessState,
+  TrainingAge,
   WorkoutFocus,
   WorkoutType,
 } from './foundational.ts';
@@ -12,6 +13,7 @@ import type {
   AdjustmentType,
   FeedbackSeverity,
   HRZone,
+  MovementPattern,
   SessionFatigueState,
 } from './misc.ts';
 import type { CampConfig, CampPhase } from './camp.ts';
@@ -33,6 +35,11 @@ export interface ExerciseLibraryRow {
   description: string;
   cues: string;
   sport_tags: string[];
+  movement_pattern?: MovementPattern | null;
+  recovery_hours?: number | null;
+  eccentric_damage?: 1 | 2 | 3 | 4 | 5 | null;
+  interference_risk?: 'NONE' | 'LOW' | 'MODERATE' | 'HIGH' | null;
+  normalized_recovery_cost?: number | null;
 }
 
 export interface WorkoutPrescription {
@@ -65,6 +72,7 @@ export interface ExerciseScoringContext {
   performanceRiskLevel?: PerformanceRiskLevel;
   allowHighImpact?: boolean;
   blockPhase?: TrainingBlockPhase;
+  recoveryBudget?: number;
 }
 
 export interface GenerateWorkoutInput {
@@ -78,6 +86,8 @@ export interface GenerateWorkoutInput {
   focus?: WorkoutFocus;
   trainingIntensityCap?: number | null;
   fitnessLevel: FitnessLevel;
+  trainingAge?: TrainingAge;
+  complianceHistory28d?: number[];
 }
 
 export interface WorkoutLogRow {
@@ -94,6 +104,8 @@ export interface WorkoutLogRow {
   session_rpe: number | null;
   duration_minutes: number | null;
   notes: string | null;
+  compliance_reason?: ComplianceReason | null;
+  activation_rpe?: number | null;
 }
 
 export interface WorkoutSetLogRow {
@@ -166,6 +178,27 @@ export interface GymProfileRow {
 }
 
 export type ProgressionModel = 'linear' | 'wave' | 'block';
+
+export type ComplianceReason =
+  | 'FATIGUE'
+  | 'TIME'
+  | 'PAIN'
+  | 'MOTIVATION'
+  | 'EQUIPMENT'
+  | 'OTHER';
+
+export interface ExerciseRecoveryProfile {
+  cnsLoad: 1 | 2 | 3 | 4 | 5;
+  eccentricDamage: 1 | 2 | 3 | 4 | 5;
+  recoveryHours: number;
+  interferenceRisk: 'NONE' | 'LOW' | 'MODERATE' | 'HIGH';
+  normalizedCost: number;
+}
+
+export interface ExerciseScore {
+  fitScore: number;
+  recoveryCost: number;
+}
 
 export interface ExerciseHistoryEntry {
   date: string;
@@ -424,6 +457,12 @@ export interface PrescribedExerciseV2 extends PrescribedExercise {
   sectionId?: string;
   sectionTemplate?: WorkoutSectionTemplate;
   sectionIntent?: string;
+  recoveryCost?: number;
+  expectedActivationRPE?: number | null;
+  interferenceAdjustment?: {
+    penalty: number;
+    warning: string | null;
+  } | null;
 }
 
 export type PerformanceRiskLevel = 'green' | 'yellow' | 'orange' | 'red';
@@ -548,4 +587,14 @@ export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   performanceRisk: PerformanceRiskState | null;
   blockContext: TrainingBlockContext | null;
   decisionTrace: string[];
+  expectedActivationRPE?: number | null;
+  activationGuidance?: string | null;
+  interferenceWarnings?: string[];
+}
+
+export interface CNSBudgetProfile {
+  trainingAge: TrainingAge;
+  fresh: number;
+  moderate: number;
+  depleted: number;
 }

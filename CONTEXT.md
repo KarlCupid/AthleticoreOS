@@ -18,6 +18,7 @@ Athleticore OS is no longer just a workout planner. The app now behaves like an 
 - **Navigation:** bottom-tab app with separate `HomeStack` and `PlanStack` flows.
 - **Backend:** Supabase for auth, profile data, plans, sessions, nutrition, weight cut, and engine snapshots.
 - **Deterministic engine:** `lib/engine/*` owns readiness, mission construction, schedule generation, nutrition targets, risk scoring, and workout prescriptions.
+- **Anti-Wiring Principle:** All engine functions must be pure, synchronous, and side-effect-free (no DB, no API, no LLM).
 - **Service layer:** `lib/api/*` coordinates Supabase IO plus engine orchestration.
 
 ## Important Runtime Concepts
@@ -58,5 +59,6 @@ Athleticore OS is no longer just a workout planner. The app now behaves like an 
 
 ## High-Value Test Areas
 - `lib/engine/*.test.ts` covers the deterministic layer and is the safest place to add coverage.
+- **Functional Core / Imperative Shell:** Always prefer changing engine logic (the core) before touching the service layer or UI (the shell).
 - Mission, workout, schedule, camp-risk, nutrition, and weight-cut changes should usually be verified with `npm run test:engine`.
 - Structural changes should also pass `npm run lint`, `npm run typecheck`, and `npm run typecheck:clean`.

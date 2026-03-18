@@ -105,6 +105,9 @@ export interface FuelDirective {
   source: DirectiveSource;
   message: string;
   reasons: string[];
+  energyAvailability: number | null;
+  fuelingFloorTriggered: boolean;
+  safetyWarning: import('./nutrition.ts').NutritionSafetyWarning;
 }
 
 export interface HydrationDirective {

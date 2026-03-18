@@ -1,18 +1,22 @@
+import type { DailyCutProtocolRow } from './types/weight_cut.ts';
 import type {
-    ActivityLevel,
-    BodyWeightState,
-    Gender,
-    NutritionDayAdjustment,
-    NutritionTargets,
-    WeightUnit,
-} from './types/foundational.ts';
-import type {
-    ScheduledActivityRow,
-} from './types/training.ts';
+  MacroAdherenceResult,
+  NutritionProfileInput,
+  NutritionTargets,
+  ResolvedNutritionTargets,
+} from './types/nutrition.ts';
+import type { Phase } from './types/foundational.ts';
+import type { ActivityLevel, NutritionGoal } from './types/nutrition.ts';
+import type { ActivityType } from './types/schedule.ts';
 import { adjustForBiology } from './adjustForBiology.ts';
 import { adjustNutritionForDay } from './schedule/safety.ts';
-import { computeDailyCutProtocol } from './calculateWeightCut.ts';
 import { calculateCaloriesFromMacros } from '../utils/nutrition.ts';
+import {
+  applyFuelingFloor,
+  estimateLeanMassKg,
+  estimateTrainingExpenditure,
+} from './nutrition/energyAvailability.ts';
+import { distributeMacros, getProteinTarget } from './nutrition/macroDistribution.ts';
 
 /**
  * @ANTI-WIRING:
@@ -151,18 +155,19 @@ export function calculateNutritionTargets(
     biologyMessage = biology.message;
   }
 
-  // 4. Protein: 1.0g/lb bodyweight, modified by biology
-  const protein = coachProteinOverride ?? Math.round(weightLbs * 1.0 * proteinModifier);
+  const deficitPercent = tdee > 0 ? Math.max(0, (tdee - adjustedCalories) / tdee) : 0;
+  const protein = coachProteinOverride ?? getProteinTarget({
+    bodyweightLbs: weightLbs,
+    deficitPercent,
+    proteinModifier,
+  });
 
-  // 5. Fat: 30% of adjusted calories (up from 25% to prevent crazy high carbs), min 40g
-  const fatFromCalories = Math.round((adjustedCalories * 0.30) / 9);
-  const fat = coachFatOverride ?? Math.max(40, fatFromCalories);
-
-  // 6. Carbs: remaining calories
-  const proteinCalories = protein * 4;
-  const fatCalories = fat * 9;
-  const remainingCalories = Math.max(0, adjustedCalories - proteinCalories - fatCalories);
-  const carbs = coachCarbsOverride ?? Math.round(remainingCalories / 4);
+  const distributed = distributeMacros({
+    adjustedCalories,
+    proteinTarget: protein,
+  });
+  const fat = coachFatOverride ?? distributed.fat;
+  const carbs = coachCarbsOverride ?? Math.max(0, Math.round((adjustedCalories - (protein * 4) - (fat * 9)) / 4));
 
   // 7. Build message
   let message = '';
@@ -256,27 +261,62 @@ export function resolveDailyNutritionTargets(
   baseTargets: NutritionTargets,
   cutProtocol: DailyCutProtocolRow | null,
   dayActivities: { activity_type: ActivityType; expected_intensity: number; estimated_duration_min: number }[],
+  options?: {
+    daysToWeighIn?: number | null;
+  },
 ): ResolvedNutritionTargets {
+  const estimatedBodyweightLbs = Math.max(100, Math.round(baseTargets.protein / Math.max(baseTargets.proteinModifier, 1)));
+  const leanMassKg = estimateLeanMassKg(estimatedBodyweightLbs);
+  const estimatedExpenditure = estimateTrainingExpenditure(dayActivities);
+  const isTrainingDay = dayActivities.some((activity) => activity.activity_type !== 'rest' && activity.activity_type !== 'active_recovery');
+
   // 1. If active cut, cut protocol is the ultimate truth. 
-  // It already factors in baseline, biology, and activity adjustments.
   if (cutProtocol) {
     const cutCalories = calculateCaloriesFromMacros(
       cutProtocol.prescribed_protein,
       cutProtocol.prescribed_carbs,
       cutProtocol.prescribed_fat,
     );
+    const deficitPercent = baseTargets.tdee > 0 ? Math.max(0, (baseTargets.tdee - cutCalories) / baseTargets.tdee) : 0;
+    const scaledProtein = getProteinTarget({
+      bodyweightLbs: estimatedBodyweightLbs,
+      deficitPercent,
+      proteinModifier: baseTargets.proteinModifier,
+    });
+    const cutDistributed = distributeMacros({
+      adjustedCalories: cutCalories,
+      proteinTarget: Math.max(cutProtocol.prescribed_protein, scaledProtein),
+    });
+    const floorResult = applyFuelingFloor({
+      targetCalories: cutDistributed.calories,
+      estimatedExpenditure,
+      leanMassKg,
+      isTrainingDay,
+      daysToWeighIn: options?.daysToWeighIn ?? cutProtocol.days_to_weigh_in,
+    });
+    const finalDistributed = distributeMacros({
+      adjustedCalories: floorResult.adjustedCalories,
+      proteinTarget: cutDistributed.protein,
+    });
+    const reasonLines = ['Active weight cut protocol overrides the normal day engine.'];
+    const traceLines = [...reasonLines, ...floorResult.traceLines];
 
     return {
       ...baseTargets,
-      adjustedCalories: cutCalories,
-      protein: cutProtocol.prescribed_protein,
-      carbs: cutProtocol.prescribed_carbs,
-      fat: cutProtocol.prescribed_fat,
-      source: 'weight_cut_protocol' as const,
+      adjustedCalories: finalDistributed.calories,
+      protein: finalDistributed.protein,
+      carbs: finalDistributed.carbs,
+      fat: finalDistributed.fat,
+      source: floorResult.fuelingFloorTriggered ? 'weight_cut_protocol_safety_adjusted' as const : 'weight_cut_protocol' as const,
       fuelState: 'cut_protect',
       sessionDemandScore: 0,
       hydrationBoostOz: 0,
-      reasonLines: ['Active weight cut protocol overrides the normal day engine.'],
+      reasonLines,
+      energyAvailability: floorResult.energyAvailability,
+      fuelingFloorTriggered: floorResult.fuelingFloorTriggered,
+      deficitBankDelta: floorResult.deficitBankDelta,
+      safetyWarning: floorResult.safetyWarning,
+      traceLines,
       message: cutProtocol.cut_phase
         ? `Weight cut protocol (${cutProtocol.cut_phase.replace(/_/g, ' ')})`
         : 'Following active weight cut macro targets.',
@@ -287,31 +327,48 @@ export function resolveDailyNutritionTargets(
   const dayAdj = adjustNutritionForDay(baseTargets, dayActivities, null);
 
   const modifiedCalories = baseTargets.adjustedCalories + dayAdj.calorieModifier;
-  const modifiedProtein = baseTargets.protein + dayAdj.proteinModifier;
-  const targetCarbs = Math.max(0, Math.round(baseTargets.carbs * (1 + dayAdj.carbModifierPct / 100)));
-  const minFat = Math.max(40, Math.round((modifiedCalories * 0.20) / 9));
-  const maxCarbCalories = Math.max(0, modifiedCalories - (modifiedProtein * 4) - (minFat * 9));
-  const modifiedCarbs = Math.min(targetCarbs, Math.floor(maxCarbCalories / 4));
-  const feasibleFatCalories = Math.max(0, modifiedCalories - (modifiedProtein * 4) - (modifiedCarbs * 4));
-  const modifiedFat = Math.round(feasibleFatCalories / 9);
-
-  const reconciledCalories = calculateCaloriesFromMacros(
-    modifiedProtein,
-    modifiedCarbs,
-    modifiedFat,
-  );
+  const deficitPercent = baseTargets.tdee > 0 ? Math.max(0, (baseTargets.tdee - modifiedCalories) / baseTargets.tdee) : 0;
+  const modifiedProtein = getProteinTarget({
+    bodyweightLbs: estimatedBodyweightLbs,
+    deficitPercent,
+    proteinModifier: baseTargets.proteinModifier,
+  }) + dayAdj.proteinModifier;
+  const distributed = distributeMacros({
+    adjustedCalories: modifiedCalories,
+    proteinTarget: modifiedProtein,
+  });
+  const targetCarbs = Math.max(0, Math.round(distributed.carbs * (1 + dayAdj.carbModifierPct / 100)));
+  const modifiedCarbs = Math.min(targetCarbs, distributed.carbs);
+  const modifiedFat = Math.max(40, Math.round((modifiedCalories - (modifiedProtein * 4) - (modifiedCarbs * 4)) / 9));
+  const floorResult = applyFuelingFloor({
+    targetCalories: calculateCaloriesFromMacros(modifiedProtein, modifiedCarbs, modifiedFat),
+    estimatedExpenditure,
+    leanMassKg,
+    isTrainingDay,
+    daysToWeighIn: options?.daysToWeighIn ?? null,
+  });
+  const finalDistributed = distributeMacros({
+    adjustedCalories: floorResult.adjustedCalories,
+    proteinTarget: modifiedProtein,
+  });
+  const reconciledCalories = finalDistributed.calories;
 
   return {
     ...baseTargets,
     adjustedCalories: reconciledCalories,
-    protein: modifiedProtein,
-    carbs: modifiedCarbs,
-    fat: modifiedFat,
+    protein: finalDistributed.protein,
+    carbs: finalDistributed.carbs,
+    fat: finalDistributed.fat,
     source: dayActivities.length > 0 ? 'daily_activity_adjusted' as const : 'base' as const,
     fuelState: dayAdj.fuelState,
     sessionDemandScore: dayAdj.sessionDemandScore,
     hydrationBoostOz: dayAdj.hydrationBoostOz,
     reasonLines: dayAdj.reasons,
+    energyAvailability: floorResult.energyAvailability,
+    fuelingFloorTriggered: floorResult.fuelingFloorTriggered,
+    deficitBankDelta: floorResult.deficitBankDelta,
+    safetyWarning: floorResult.safetyWarning,
+    traceLines: [...dayAdj.reasons, ...floorResult.traceLines],
     message: dayActivities.length > 0 ? dayAdj.message : baseTargets.message,
   };
 }

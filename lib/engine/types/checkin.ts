@@ -1,4 +1,5 @@
 import type { Phase } from './foundational.ts';
+import type { ComplianceReason } from './training.ts';
 
 export type MacroAdherenceStatus = 'Target Met' | 'Close Enough' | 'Missed It';
 
@@ -51,6 +52,7 @@ export interface DailyCoachDebriefHistory {
   education_topic?: string | null;
   risk_flags?: string[] | null;
   primary_limiter?: PrimaryLimiter | null;
+  compliance_reasons_14d?: ComplianceReason[] | null;
 }
 
 export interface DailyCoachDebriefInput {
@@ -63,6 +65,9 @@ export interface DailyCoachDebriefInput {
   nutritionAdherence?: MacroAdherenceStatus | null;
   nutritionBarrier?: NutritionBarrier | null;
   coachingFocus?: CoachingFocus | null;
+  complianceReason?: ComplianceReason | null;
+  complianceReasonHistory14d?: ComplianceReason[] | null;
+  skippedMovementPatterns48h?: string[] | null;
   trainingLoadSummary: {
     plannedMinutes: number;
     plannedIntensity: number;

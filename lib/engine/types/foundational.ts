@@ -75,3 +75,5 @@ export type WorkoutFocus =
   | 'conditioning';
 
 export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced' | 'elite';
+
+export type TrainingAge = 'novice' | 'intermediate' | 'advanced';

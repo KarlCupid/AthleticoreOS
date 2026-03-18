@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import type { ActivityLevel, FitnessLevel, NutritionGoal, Phase, AthleteGoalMode, PerformanceGoalType } from '../engine/types';
+import type { ActivityLevel, FitnessLevel, NutritionGoal, Phase, AthleteGoalMode, PerformanceGoalType, TrainingAge } from '../engine/types';
 
 export interface AthleteProfileRow {
   user_id: string;
@@ -34,6 +34,7 @@ export interface AthleteProfileRow {
   planning_setup_version: number | null;
   first_run_guidance_status: 'pending' | 'completed' | null;
   first_run_guidance_intro_seen_at: string | null;
+  training_age: TrainingAge | null;
 }
 
 const VALID_PHASES: readonly Phase[] = [
@@ -66,6 +67,15 @@ export function normalizeFitnessLevel(value: unknown): FitnessLevel {
   return typeof value === 'string' && (VALID_FITNESS_LEVELS as readonly string[]).includes(value)
     ? (value as FitnessLevel)
     : DEFAULT_FITNESS_LEVEL;
+}
+
+export function normalizeTrainingAge(value: unknown, fitnessLevel?: FitnessLevel): TrainingAge {
+  if (value === 'novice' || value === 'intermediate' || value === 'advanced') {
+    return value;
+  }
+  if (fitnessLevel === 'beginner') return 'novice';
+  if (fitnessLevel === 'elite' || fitnessLevel === 'advanced') return 'advanced';
+  return 'intermediate';
 }
 
 export function normalizeGoalMode(value: unknown): AthleteGoalMode {
@@ -135,17 +145,20 @@ export async function getAthleteContext(userId: string): Promise<{
   profile: AthleteProfileRow | null;
   phase: Phase;
   fitnessLevel: FitnessLevel;
+  trainingAge: TrainingAge;
   isOnActiveCut: boolean;
   goalMode: AthleteGoalMode;
   performanceGoalType: PerformanceGoalType;
   planningSetupVersion: number;
 }> {
   const profile = await getAthleteProfile(userId);
+  const fitnessLevel = normalizeFitnessLevel(profile?.fitness_level);
 
   return {
     profile,
     phase: normalizePhase(profile?.phase),
-    fitnessLevel: normalizeFitnessLevel(profile?.fitness_level),
+    fitnessLevel,
+    trainingAge: normalizeTrainingAge(profile?.training_age, fitnessLevel),
     isOnActiveCut: Boolean(profile?.active_cut_plan_id),
     goalMode: normalizeGoalMode(profile?.athlete_goal_mode),
     performanceGoalType: (profile?.performance_goal_type ?? 'conditioning') as PerformanceGoalType,

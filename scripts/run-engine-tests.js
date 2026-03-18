@@ -62,17 +62,30 @@ function run() {
 
   registerTypeScriptHook();
 
-  const testFiles = fs
-    .readdirSync(engineDir)
-    .filter((file) => file.endsWith('.test.ts'))
-    .sort();
+  const collectTestFiles = (dir) => {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const results = [];
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...collectTestFiles(fullPath));
+      } else if (entry.isFile() && entry.name.endsWith('.test.ts')) {
+        results.push(fullPath);
+      }
+    }
+
+    return results;
+  };
+
+  const testFiles = collectTestFiles(engineDir).sort();
 
   if (testFiles.length === 0) {
     throw new Error('No engine test files found.');
   }
 
-  for (const testFile of testFiles) {
-    const fullPath = path.join(engineDir, testFile);
+  for (const fullPath of testFiles) {
+    const testFile = path.relative(engineDir, fullPath);
     console.log(`\nRunning ${testFile}`);
     const exitCode = runSingleTest(fullPath);
     if (exitCode !== 0) {

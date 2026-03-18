@@ -19,7 +19,7 @@ import type {
   WorkoutType,
 } from './types.ts';
 
-export const DAILY_ENGINE_VERSION = 'daily-engine-v2';
+export const DAILY_ENGINE_VERSION = 'daily-engine-v3';
 
 interface InterventionStatus {
   interventionState: InterventionState;
@@ -368,6 +368,9 @@ function buildFuelDirective(
       ? `${message} Weight drift is above curve, so calories were tightened to pull the cut back on line.`
       : message,
     reasons: input.nutritionTargets.reasonLines,
+    energyAvailability: input.nutritionTargets.energyAvailability,
+    fuelingFloorTriggered: input.nutritionTargets.fuelingFloorTriggered,
+    safetyWarning: input.nutritionTargets.safetyWarning,
   };
 }
 
@@ -500,6 +503,18 @@ function buildDecisionTrace(
       detail: `${fuelDirective.preSessionCarbsG}g pre-session carbs and ${fuelDirective.postSessionProteinG}g post-session protein are matched to today's training demand.`,
       humanInterpretation: depletionInterpretation,
       impact: 'adjusted',
+    });
+  }
+
+  if (input.nutritionTargets.fuelingFloorTriggered) {
+    trace.push({
+      subsystem: 'fuel',
+      title: 'Fueling floor protection',
+      detail: input.nutritionTargets.traceLines[0] ?? 'The engine raised calories to protect minimum training-day energy availability.',
+      humanInterpretation: input.nutritionTargets.safetyWarning === 'critical_energy_availability'
+        ? 'Fuel was raised to avoid a dangerous low-energy state.'
+        : null,
+      impact: 'restricted',
     });
   }
 

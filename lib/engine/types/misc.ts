@@ -11,9 +11,14 @@ export interface LoadMetrics {
   weeklyLoad: number;
   monotony: number;
   strain: number;
+  acuteEWMA: number;
+  chronicEWMA: number;
   rollingFatigueRatio: number;
   rollingFatigueScore: number;
   fatigueBand: 'low' | 'moderate' | 'high' | 'very_high';
+  safetyThreshold: number;
+  thresholdSource: 'low_chronic' | 'standard_chronic' | 'high_chronic';
+  dailyLoads?: number[];
 }
 
 export type OvertrainingSeverity = 'info' | 'caution' | 'danger';

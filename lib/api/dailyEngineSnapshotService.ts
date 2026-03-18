@@ -6,6 +6,7 @@ import type {
   ResolvedNutritionTargets,
   WorkoutPrescriptionV2,
 } from '../engine/types';
+import { migrateDailyEngineSnapshot } from '../engine/migrateDailyEngineSnapshot';
 
 let hasDailyEngineSnapshotsTable: boolean | null = null;
 
@@ -69,7 +70,7 @@ export async function getDailyEngineSnapshot(
   }
 
   hasDailyEngineSnapshotsTable = true;
-  return (data as DailyEngineSnapshotRow | null) ?? null;
+  return data ? migrateDailyEngineSnapshot(data as DailyEngineSnapshotRow) : null;
 }
 
 export async function getDailyEngineSnapshotsForDates(
@@ -97,7 +98,9 @@ export async function getDailyEngineSnapshotsForDates(
 
   hasDailyEngineSnapshotsTable = true;
   return new Map(
-    ((data ?? []) as DailyEngineSnapshotRow[]).map((snapshot) => [snapshot.date, snapshot]),
+    ((data ?? []) as DailyEngineSnapshotRow[])
+      .map((snapshot) => migrateDailyEngineSnapshot(snapshot))
+      .map((snapshot) => [snapshot.date, snapshot]),
   );
 }
 

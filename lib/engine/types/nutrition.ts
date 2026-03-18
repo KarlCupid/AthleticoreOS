@@ -69,7 +69,14 @@ export type FuelState =
 export type DailyNutritionTargetSource =
   | 'base'
   | 'daily_activity_adjusted'
-  | 'weight_cut_protocol';
+  | 'weight_cut_protocol'
+  | 'weight_cut_protocol_safety_adjusted';
+
+export type NutritionSafetyWarning =
+  | 'none'
+  | 'fueling_floor_applied'
+  | 'low_energy_availability'
+  | 'critical_energy_availability';
 
 export interface ResolvedNutritionTargets extends NutritionTargets {
   source: DailyNutritionTargetSource;
@@ -77,6 +84,11 @@ export interface ResolvedNutritionTargets extends NutritionTargets {
   sessionDemandScore: number;
   hydrationBoostOz: number;
   reasonLines: string[];
+  energyAvailability: number | null;
+  fuelingFloorTriggered: boolean;
+  deficitBankDelta: number;
+  safetyWarning: NutritionSafetyWarning;
+  traceLines: string[];
 }
 
 export interface MacroAdherenceResult {

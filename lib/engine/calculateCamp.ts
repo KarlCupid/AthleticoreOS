@@ -33,6 +33,7 @@ import type {
     PrescribedExercise,
 } from './types.ts';
 import { formatLocalDate } from '../utils/date.ts';
+import { calculatePhaseAllocation } from './phases/calculatePhaseAllocation.ts';
 
 // ─── Phase Split Ratios ────────────────────────────────────────
 
@@ -45,17 +46,6 @@ import { formatLocalDate } from '../utils/date.ts';
  * build: SPP — specific physical preparedness, volume peaks then drops, intensity rises
  * peak: Competition prep — low volume, high intensity, sport-specific
  * taper: Pre-fight — cut load significantly, maintain feel and speed
- */
-const PHASE_SPLIT_RATIOS = {
-    base: 0.40,   // first 40% of camp
-    build: 0.30,   // next 30%
-    peak: 0.20,   // next 20%
-    taper: 0.10,   // final 10%
-};
-
-/**
- * Volume multipliers per phase.
- * 1.0 = standard weekly targets.
  */
 const PHASE_VOLUME_MULTIPLIERS: Record<CampPhase, number> = {
     base: 1.15,  // high volume base
@@ -135,24 +125,23 @@ export function generateCampPlan(input: CampPlanInput): CampConfig {
     const totalDays = daysBetween(campStartDate, fightDate);
     const totalWeeks = Math.max(4, Math.round(totalDays / 7)); // minimum 4-week camp
 
-    // Calculate phase lengths in days
-    const baseDays = Math.round(totalDays * PHASE_SPLIT_RATIOS.base);
-    const buildDays = Math.round(totalDays * PHASE_SPLIT_RATIOS.build);
-    const peakDays = Math.round(totalDays * PHASE_SPLIT_RATIOS.peak);
-    // Taper gets the remainder to ensure dates add up correctly
-    const taperDays = totalDays - baseDays - buildDays - peakDays;
+    const allocation = calculatePhaseAllocation(totalDays);
+    const baseDays = allocation.gpp;
+    const buildDays = allocation.spp;
+    const peakDays = allocation.peak;
+    const taperDays = allocation.taper;
 
     const baseStart = campStartDate;
-    const baseEnd = addDays(baseStart, baseDays - 1);
+    const baseEnd = addDays(baseStart, Math.max(0, baseDays - 1));
 
     const buildStart = addDays(baseStart, baseDays);
-    const buildEnd = addDays(buildStart, buildDays - 1);
+    const buildEnd = addDays(buildStart, Math.max(0, buildDays - 1));
 
     const peakStart = addDays(buildStart, buildDays);
-    const peakEnd = addDays(peakStart, peakDays - 1);
+    const peakEnd = addDays(peakStart, Math.max(0, peakDays - 1));
 
     const taperStart = addDays(peakStart, peakDays);
-    const taperEnd = addDays(taperStart, taperDays - 1);
+    const taperEnd = addDays(taperStart, Math.max(0, taperDays - 1));
 
     return {
         id: `camp-${userId}-${fightDate}`,

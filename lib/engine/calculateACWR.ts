@@ -7,6 +7,7 @@ import type {
   Phase,
   TrainingSessionRow,
 } from './types.ts';
+import { getSafetyThreshold } from './load/safetyThresholds.ts';
 
 function formatLocalISO(date: Date): string {
   const y = date.getFullYear();
@@ -100,6 +101,7 @@ function computeLoadMetrics(dailyLoads28: number[]): LoadMetrics {
   const acuteEWMA = ewma(dailyLoads28, 2 / (7 + 1));
   const chronicEWMA = ewma(dailyLoads28, 2 / (28 + 1));
   const rollingFatigueRatio = chronicEWMA <= 0 ? 0 : acuteEWMA / chronicEWMA;
+  const threshold = getSafetyThreshold(chronicEWMA);
 
   const ratioComponent = clamp((rollingFatigueRatio - 0.9) / 0.6, 0, 1) * 55;
   const monotonyComponent = clamp((monotony - 1.4) / 1.3, 0, 1) * 25;
@@ -116,9 +118,14 @@ function computeLoadMetrics(dailyLoads28: number[]): LoadMetrics {
     weeklyLoad: Math.round(weeklyLoad),
     monotony: roundTo(monotony, 2),
     strain: Math.round(strain),
+    acuteEWMA: roundTo(acuteEWMA, 2),
+    chronicEWMA: roundTo(chronicEWMA, 2),
     rollingFatigueRatio: roundTo(rollingFatigueRatio, 2),
     rollingFatigueScore,
     fatigueBand,
+    safetyThreshold: threshold.caution,
+    thresholdSource: threshold.source,
+    dailyLoads: dailyLoads28,
   };
 }
 
@@ -149,12 +156,13 @@ export function getPersonalizedACWRThresholds(input: {
   const effectiveFitness = fitnessLevel ?? inferFitnessLevel(chronicLoad);
   const effectivePhase: Phase = phase ?? 'off-season';
   const factors: string[] = [];
+  const safetyThreshold = getSafetyThreshold(loadMetrics.chronicEWMA || chronicLoad);
 
   const baseByFitness: Record<FitnessLevel, { caution: number; redline: number }> = {
-    beginner: { caution: 1.12, redline: 1.3 },
-    intermediate: { caution: 1.2, redline: 1.4 },
-    advanced: { caution: 1.24, redline: 1.45 },
-    elite: { caution: 1.28, redline: 1.5 },
+    beginner: { caution: safetyThreshold.caution - 0.08, redline: safetyThreshold.redline - 0.08 },
+    intermediate: { caution: safetyThreshold.caution, redline: safetyThreshold.redline },
+    advanced: { caution: safetyThreshold.caution + 0.04, redline: safetyThreshold.redline + 0.03 },
+    elite: { caution: safetyThreshold.caution + 0.08, redline: safetyThreshold.redline + 0.05 },
   };
 
   const phaseAdj: Record<Phase, number> = {
@@ -224,6 +232,7 @@ export function getPersonalizedACWRThresholds(input: {
     redline: roundTo(redline, 2),
     confidence,
     personalizationFactors: factors,
+    source: 'ewma_personalized',
   };
 }
 
@@ -280,9 +289,14 @@ export async function calculateACWR({
       weeklyLoad: 0,
       monotony: 0,
       strain: 0,
+      acuteEWMA: 0,
+      chronicEWMA: 0,
       rollingFatigueRatio: 0,
       rollingFatigueScore: 0,
       fatigueBand: 'low',
+      safetyThreshold: 1.2,
+      thresholdSource: 'low_chronic',
+      dailyLoads: [],
     };
 
     const thresholds = getPersonalizedACWRThresholds({
@@ -298,6 +312,8 @@ export async function calculateACWR({
       ratio: 0,
       acute: 0,
       chronic: 0,
+      acuteEWMA: 0,
+      chronicEWMA: 0,
       status: 'safe',
       message:
         'Not enough training data yet. Log sessions consistently and we will start tracking your load ratio.',
@@ -313,7 +329,7 @@ export async function calculateACWR({
   const dailyLoads28 = buildDailyLoads(sessions, twentyEightDaysStartStr, asOfDateStr);
   const dailyLoads7 = dailyLoads28.slice(-7);
 
-  const acute = dailyLoads7.reduce((sum, load) => sum + load, 0);
+  const legacyAcute = dailyLoads7.reduce((sum, load) => sum + load, 0);
 
   const chronicTotal = sessions.reduce((sum, s) => sum + s.total_load, 0);
   const oldestSessionDate = sessions.reduce(
@@ -324,12 +340,14 @@ export async function calculateACWR({
   const chronicWindowDays = Math.min(28, calendarDaysCovered);
 
   // Convert available multi-day load into a weekly-equivalent chronic load.
-  const chronic = chronicWindowDays > 0
+  const legacyChronic = chronicWindowDays > 0
     ? (chronicTotal / chronicWindowDays) * 7
     : 0;
 
-  const ratio = chronic === 0 ? 0 : parseFloat((acute / chronic).toFixed(2));
   const loadMetrics = computeLoadMetrics(dailyLoads28);
+  const acute = loadMetrics.acuteEWMA;
+  const chronic = loadMetrics.chronicEWMA;
+  const ratio = chronic === 0 ? 0 : parseFloat((acute / chronic).toFixed(2));
   const thresholds = getPersonalizedACWRThresholds({
     fitnessLevel,
     phase,
@@ -362,10 +380,17 @@ export async function calculateACWR({
     ratio,
     acute: Math.round(acute),
     chronic: Math.round(chronic),
+    acuteEWMA: acute,
+    chronicEWMA: chronic,
     status,
     message,
     daysOfData,
     thresholds,
     loadMetrics,
+    migrationDebug: {
+      legacyAcute: Math.round(legacyAcute),
+      legacyChronic: Math.round(legacyChronic),
+      legacyRatio: legacyChronic === 0 ? 0 : parseFloat((legacyAcute / legacyChronic).toFixed(2)),
+    },
   };
 }

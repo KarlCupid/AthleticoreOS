@@ -22,17 +22,25 @@ export interface ACWRThresholds {
   redline: number;
   confidence: 'low' | 'medium' | 'high';
   personalizationFactors: string[];
+  source: 'ewma_personalized';
 }
 
 export interface ACWRResult {
   ratio: number;
   acute: number;
   chronic: number;
+  acuteEWMA: number;
+  chronicEWMA: number;
   status: 'safe' | 'caution' | 'redline';
   message: string;
   daysOfData: number;
   thresholds: ACWRThresholds;
   loadMetrics: LoadMetrics;
+  migrationDebug?: {
+    legacyAcute?: number;
+    legacyChronic?: number;
+    legacyRatio?: number;
+  };
 }
 
 export interface HydrationInput {

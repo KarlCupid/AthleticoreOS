@@ -1,12 +1,13 @@
 # Project State
 
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-17
 
 ## Current Direction
 - **Athlete OS:** the app is now centered on a daily operating system for athletes, not just isolated workout or nutrition screens.
 - **Daily mission engine:** `getDailyEngineState` is the main integration point joining objective context, readiness, ACWR, hydration, nutrition, workout prescription, camp risk, and daily mission output.
 - **Structured planning:** onboarding now leads into a required planning setup flow before the main tab app is accessible.
 - **Mode-aware coaching:** the product actively supports both `build_phase` and `fight_camp`, including active cut and fight-week related flows.
+- **Functional Core Pattern:** coaching logic is isolated in pure, deterministic engine functions (`lib/engine/*`) for 100% testability.
 
 ## What Is Already In Place
 - Auth -> onboarding -> planning setup -> tab navigation gate is implemented in `App.tsx`.
@@ -18,7 +19,8 @@
 
 ## Current Priorities
 - **Consistency across surfaces:** keep dashboard, weekly plan, guided workout, and logs using the same engine-derived truth.
-- **Snapshot reliability:** make sure mission and prescription changes stay compatible with stored snapshots and refresh paths.
+- **Snapshot reliability:** ensure `PrescriptionV2` schema updates don't break historical snapshots in `daily_engine_snapshots`.
+- **ACWR Integrity:** rigorously monitor acute:chronic workload ratios, especially when users skip rest days or add unscheduled volume.
 - **Planning quality:** keep rolling schedule generation and plan setup stable for both build phase and fight camp.
 - **Execution polish:** improve guided workout, logging, and daily action flows without breaking the engine contract.
 - **Testing discipline:** continue adding engine-level coverage when changing deterministic behavior.
