@@ -101,9 +101,34 @@ function makeInput(overrides: Record<string, any> = {}) {
             message: 'Base targets active.',
             source: 'base',
             fuelState: 'strength_power',
+            prioritySession: 'heavy_sc',
+            deficitClass: 'steady_maintain',
+            recoveryNutritionFocus: 'none',
             sessionDemandScore: 5,
             hydrationBoostOz: 16,
+            hydrationPlan: {
+                dailyTargetOz: 120,
+                sodiumTargetMg: null,
+                emphasis: 'performance',
+                notes: [],
+            },
+            sessionFuelingPlan: {
+                priority: 'heavy_sc',
+                priorityLabel: 'Heavy S&C',
+                sessionLabel: 'Strength session',
+                preSession: { label: 'Before training', timing: '60-90 min', carbsG: 45, proteinG: 25, notes: [] },
+                intraSession: { fluidsOz: 20, electrolytesMg: 600, carbsG: 10, notes: [] },
+                betweenSessions: null,
+                postSession: { label: 'After training', timing: 'Within 60 min', carbsG: 40, proteinG: 35, notes: [] },
+                hydrationNotes: [],
+                coachingNotes: [],
+            },
             reasonLines: ['Base targets active.'],
+            energyAvailability: 35,
+            fuelingFloorTriggered: false,
+            deficitBankDelta: 0,
+            safetyWarning: 'none',
+            traceLines: ['Base targets active.'],
         },
         hydration: {
             dailyWaterOz: 120,
@@ -344,6 +369,8 @@ console.log('\n── Output structure ──');
     assert('Has fuelDirective', mission.fuelDirective != null);
     assert('Has hydrationDirective', mission.hydrationDirective != null);
     assert('Training directive includes constraintSet', mission.trainingDirective.constraintSet != null);
+    assert('Fuel directive includes session fueling plan', mission.fuelDirective.sessionFuelingPlan != null);
+    assert('Legacy pre-session carbs come from session fueling plan', mission.fuelDirective.preSessionCarbsG === mission.fuelDirective.sessionFuelingPlan?.preSession.carbsG);
 })();
 
 // ─── Summary ───────────────────────────────────────────────────

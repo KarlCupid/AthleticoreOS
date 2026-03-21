@@ -19,7 +19,14 @@ import type {
   StimulusConstraintSet,
 } from './readiness.ts';
 import type { ScheduledActivityRow, WeeklyPlanEntryRow } from './schedule.ts';
-import type { FuelState, ResolvedNutritionTargets } from './nutrition.ts';
+import type {
+  DeficitClass,
+  FuelPriority,
+  FuelState,
+  RecoveryNutritionFocus,
+  ResolvedNutritionTargets,
+  SessionFuelingPlan,
+} from './nutrition.ts';
 import type { WorkoutPrescriptionV2 } from './training.ts';
 import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut.ts';
 import type { CampRiskAssessment } from '../calculateCampRisk.ts';
@@ -98,6 +105,9 @@ export interface TrainingDirective {
 
 export interface FuelDirective {
   state: FuelState;
+  prioritySession?: FuelPriority;
+  deficitClass?: DeficitClass;
+  recoveryNutritionFocus?: RecoveryNutritionFocus;
   sessionDemandScore: number;
   calories: number;
   protein: number;
@@ -114,6 +124,7 @@ export interface FuelDirective {
   source: DirectiveSource;
   message: string;
   reasons: string[];
+  sessionFuelingPlan?: SessionFuelingPlan;
   energyAvailability: number | null;
   fuelingFloorTriggered: boolean;
   safetyWarning: import('./nutrition.ts').NutritionSafetyWarning;

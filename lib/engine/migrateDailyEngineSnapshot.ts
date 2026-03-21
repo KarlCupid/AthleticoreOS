@@ -19,6 +19,46 @@ function coerceNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+function getFallbackHydrationPlan() {
+  return {
+    dailyTargetOz: 96,
+    sodiumTargetMg: null,
+    emphasis: 'baseline' as const,
+    notes: [],
+  };
+}
+
+function getFallbackSessionFuelingPlan() {
+  return {
+    priority: 'recovery' as const,
+    priorityLabel: 'Recovery day',
+    sessionLabel: 'Recovery day',
+    preSession: {
+      label: 'Before training',
+      timing: 'No timed pre-session fueling needed',
+      carbsG: 0,
+      proteinG: 0,
+      notes: [],
+    },
+    intraSession: {
+      fluidsOz: 0,
+      electrolytesMg: null,
+      carbsG: 0,
+      notes: [],
+    },
+    betweenSessions: null,
+    postSession: {
+      label: 'After training',
+      timing: 'Use normal meals',
+      carbsG: 0,
+      proteinG: 25,
+      notes: [],
+    },
+    hydrationNotes: [],
+    coachingNotes: [],
+  };
+}
+
 function migrateNutritionTargets(raw: unknown): ResolvedNutritionTargets {
   const source = asObject(raw) ?? {};
   const reasonLines = asStringArray(source.reasonLines);
@@ -36,8 +76,13 @@ function migrateNutritionTargets(raw: unknown): ResolvedNutritionTargets {
     message: typeof source.message === 'string' ? source.message : '',
     source: (source.source as ResolvedNutritionTargets['source']) ?? 'base',
     fuelState: (source.fuelState as ResolvedNutritionTargets['fuelState']) ?? 'rest',
+    prioritySession: (source.prioritySession as ResolvedNutritionTargets['prioritySession']) ?? 'recovery',
+    deficitClass: (source.deficitClass as ResolvedNutritionTargets['deficitClass']) ?? 'steady_maintain',
+    recoveryNutritionFocus: (source.recoveryNutritionFocus as ResolvedNutritionTargets['recoveryNutritionFocus']) ?? 'none',
     sessionDemandScore: coerceNumber(source.sessionDemandScore, 0),
     hydrationBoostOz: coerceNumber(source.hydrationBoostOz, 0),
+    hydrationPlan: (asObject(source.hydrationPlan) as unknown as ResolvedNutritionTargets['hydrationPlan']) ?? getFallbackHydrationPlan(),
+    sessionFuelingPlan: (asObject(source.sessionFuelingPlan) as unknown as ResolvedNutritionTargets['sessionFuelingPlan']) ?? getFallbackSessionFuelingPlan(),
     reasonLines,
     energyAvailability: typeof source.energyAvailability === 'number' ? source.energyAvailability : null,
     fuelingFloorTriggered: Boolean(source.fuelingFloorTriggered),
@@ -77,6 +122,10 @@ function migrateMission(raw: unknown, migratedNutrition: ResolvedNutritionTarget
     },
     fuelDirective: {
       ...fuelDirective,
+      prioritySession: (fuelDirective.prioritySession as DailyMission['fuelDirective']['prioritySession']) ?? migratedNutrition.prioritySession,
+      deficitClass: (fuelDirective.deficitClass as DailyMission['fuelDirective']['deficitClass']) ?? migratedNutrition.deficitClass,
+      recoveryNutritionFocus: (fuelDirective.recoveryNutritionFocus as DailyMission['fuelDirective']['recoveryNutritionFocus']) ?? migratedNutrition.recoveryNutritionFocus,
+      sessionFuelingPlan: (asObject(fuelDirective.sessionFuelingPlan) as unknown as DailyMission['fuelDirective']['sessionFuelingPlan']) ?? migratedNutrition.sessionFuelingPlan,
       energyAvailability: typeof fuelDirective.energyAvailability === 'number'
         ? fuelDirective.energyAvailability
         : migratedNutrition.energyAvailability,

@@ -324,74 +324,53 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
   };
 }
 
-function getActiveTrainingCount(activities: MissionScheduledActivity[]): number {
-  return activities.filter((activity) => activity.status !== 'skipped').length;
-}
-
 function buildFuelDirective(
   input: BuildDailyMissionInput,
   trainingDirective: TrainingDirective,
   riskState: MissionRiskState,
 ): FuelDirective {
-  const trainingCount = getActiveTrainingCount(input.scheduledActivities);
-  const durationMin = trainingDirective.durationMin ?? 0;
-  const intensity = trainingDirective.intensityCap ?? input.weeklyPlanEntry?.target_intensity ?? 5;
   const fuelState = input.nutritionTargets.fuelState;
   const demandScore = input.nutritionTargets.sessionDemandScore;
-  const highDemand = intensity >= 7 || durationMin >= 70 || trainingDirective.sessionRole === 'express' || demandScore >= 60;
+  const sessionFuelingPlan = input.nutritionTargets.sessionFuelingPlan;
+  const hasMultipleSessions = input.scheduledActivities.filter((activity) => activity.status !== 'skipped').length > 1;
+  const highDemand = trainingDirective.sessionRole === 'express' || demandScore >= 60 || sessionFuelingPlan.priority === 'double_session' || sessionFuelingPlan.priority === 'sparring';
   const cutProtected = fuelState === 'cut_protect'
     || (input.cutProtocol?.training_intensity_cap != null && input.cutProtocol.training_intensity_cap <= 4);
-
-  const preSessionCarbsG = cutProtected
-    ? 20
-    : fuelState === 'double_day'
-      ? 60
-      : fuelState === 'spar_support'
-        ? 55
-        : fuelState === 'strength_power'
-          ? 45
-          : fuelState === 'aerobic'
-            ? 35
-            : 20;
-  const intraSessionCarbsG = cutProtected
-    ? 0
-    : fuelState === 'double_day'
-      ? 25
-      : fuelState === 'spar_support'
-        ? 20
-        : fuelState === 'aerobic' && durationMin >= 60
-          ? 10
-          : highDemand
-            ? 15
-            : 0;
-  const postSessionProteinG = durationMin >= 60 || fuelState === 'double_day' ? 40 : 30;
-  const intraSessionHydrationOz = Math.max(
-    12,
-    Math.round(durationMin / 3) + input.nutritionTargets.hydrationBoostOz + (trainingCount > 1 ? 8 : 0),
-  );
+  const preSessionCarbsG = sessionFuelingPlan.preSession.carbsG;
+  const intraSessionCarbsG = sessionFuelingPlan.intraSession.carbsG;
+  const postSessionProteinG = sessionFuelingPlan.postSession.proteinG;
+  const intraSessionHydrationOz = sessionFuelingPlan.intraSession.fluidsOz;
 
   let compliancePriority: FuelDirective['compliancePriority'] = 'consistency';
   if (input.cutProtocol || input.macrocycleContext.weightCutState === 'driving') compliancePriority = 'weight';
   else if (riskState.level === 'high' || riskState.level === 'critical') compliancePriority = 'recovery';
-  else if (highDemand || trainingCount > 1) compliancePriority = 'performance';
+  else if (highDemand || hasMultipleSessions) compliancePriority = 'performance';
 
   const source: DirectiveSource = input.cutProtocol
     ? 'weight_cut_protocol'
     : input.weeklyPlanEntry?.prescription_snapshot
       ? 'weekly_plan_snapshot'
       : 'daily_engine';
-  const message = input.cutProtocol
+  let message = input.cutProtocol
     ? 'Cut protocol is leading intake today. Hit the exact macro and hydration targets to keep weight on line.'
     : compliancePriority === 'performance'
       ? 'Fuel the key work first. Front-load carbs before training and keep recovery intake tight after the session.'
       : compliancePriority === 'recovery'
         ? 'Keep intake steady to support recovery and avoid digging fatigue deeper.'
         : 'Stay on plan and treat nutrition consistency as part of the block.';
+  if (input.nutritionTargets.recoveryNutritionFocus === 'hydration_restore') {
+    message += ' Low-energy or dehydration signs are present, so fluids and easy carbs matter more than perfect meal variety today.';
+  } else if (input.nutritionTargets.recoveryNutritionFocus === 'impact_recovery') {
+    message += ' Protein timing matters today because tissue recovery is part of the workload.';
+  }
   const weightDriftLbs = (input.cutProtocol as any)?.weightDriftLbs ?? input.cutProtocol?.weight_drift_lbs ?? null;
   const hasDriftCorrection = weightDriftLbs != null && weightDriftLbs > 0.5;
 
   return {
     state: fuelState,
+    prioritySession: input.nutritionTargets.prioritySession,
+    deficitClass: input.nutritionTargets.deficitClass,
+    recoveryNutritionFocus: input.nutritionTargets.recoveryNutritionFocus,
     sessionDemandScore: demandScore,
     calories: (input.cutProtocol as any)?.prescribedCalories ?? (input.cutProtocol as any)?.prescribed_calories ?? input.nutritionTargets.adjustedCalories,
     protein: (input.cutProtocol as any)?.prescribedProtein ?? (input.cutProtocol as any)?.prescribed_protein ?? input.nutritionTargets.protein,
@@ -410,6 +389,7 @@ function buildFuelDirective(
       ? `${message} Weight drift is above curve, so calories were tightened to pull the cut back on line.`
       : message,
     reasons: input.nutritionTargets.reasonLines,
+    sessionFuelingPlan,
     energyAvailability: input.nutritionTargets.energyAvailability,
     fuelingFloorTriggered: input.nutritionTargets.fuelingFloorTriggered,
     safetyWarning: input.nutritionTargets.safetyWarning,
@@ -542,7 +522,7 @@ function buildDecisionTrace(
     trace.push({
       subsystem: 'fuel',
       title: 'Fuel timing match',
-      detail: `${fuelDirective.preSessionCarbsG}g pre-session carbs and ${fuelDirective.postSessionProteinG}g post-session protein are matched to today's training demand.`,
+      detail: `${fuelDirective.sessionFuelingPlan?.priorityLabel ?? 'Training'} is supported with ${fuelDirective.preSessionCarbsG}g pre-session carbs, ${fuelDirective.intraSessionHydrationOz} oz fluids during training, and ${fuelDirective.postSessionProteinG}g protein after.`,
       humanInterpretation: depletionInterpretation,
       impact: 'adjusted',
     });

@@ -66,6 +66,61 @@ export type FuelState =
   | 'taper'
   | 'cut_protect';
 
+export type FuelPriority =
+  | 'sparring'
+  | 'boxing_practice'
+  | 'heavy_sc'
+  | 'conditioning'
+  | 'double_session'
+  | 'recovery'
+  | 'cut_protect';
+
+export type DeficitClass =
+  | 'steady_cut'
+  | 'steady_maintain'
+  | 'steady_bulk';
+
+export type RecoveryNutritionFocus =
+  | 'none'
+  | 'impact_recovery'
+  | 'glycogen_restore'
+  | 'hydration_restore';
+
+export interface SessionFuelingWindow {
+  label: string;
+  timing: string;
+  carbsG: number;
+  proteinG: number;
+  notes: string[];
+  lowResidue?: boolean;
+}
+
+export interface SessionHydrationPlan {
+  fluidsOz: number;
+  electrolytesMg: number | null;
+  carbsG: number;
+  notes: string[];
+}
+
+export interface SessionFuelingPlan {
+  priority: FuelPriority;
+  priorityLabel: string;
+  sessionLabel: string;
+  preSession: SessionFuelingWindow;
+  intraSession: SessionHydrationPlan;
+  betweenSessions: SessionFuelingWindow | null;
+  postSession: SessionFuelingWindow;
+  hydrationNotes: string[];
+  coachingNotes: string[];
+}
+
+export interface DailyHydrationPlan {
+  dailyTargetOz: number;
+  sodiumTargetMg: number | null;
+  emphasis: 'baseline' | 'performance' | 'recovery' | 'cut';
+  notes: string[];
+}
+
 export type DailyNutritionTargetSource =
   | 'base'
   | 'daily_activity_adjusted'
@@ -81,8 +136,13 @@ export type NutritionSafetyWarning =
 export interface ResolvedNutritionTargets extends NutritionTargets {
   source: DailyNutritionTargetSource;
   fuelState: FuelState;
+  prioritySession: FuelPriority;
+  deficitClass: DeficitClass;
+  recoveryNutritionFocus: RecoveryNutritionFocus;
   sessionDemandScore: number;
   hydrationBoostOz: number;
+  hydrationPlan: DailyHydrationPlan;
+  sessionFuelingPlan: SessionFuelingPlan;
   reasonLines: string[];
   energyAvailability: number | null;
   fuelingFloorTriggered: boolean;

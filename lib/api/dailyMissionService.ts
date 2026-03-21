@@ -468,9 +468,25 @@ async function resolveNutritionTargets(input: {
   currentWeight: number;
   profile: NonNullable<Awaited<ReturnType<typeof getAthleteContext>>['profile']>;
   weightTrend: MacrocycleContext['weightTrend'];
+  macrocycleContext: MacrocycleContext;
+  readinessProfile: ReadinessProfile;
+  constraintSet: StimulusConstraintSet;
+  medStatus?: MEDStatus | null;
   weeklyPlanEntries?: WeeklyPlanEntryRow[];
 }): Promise<ResolvedNutritionTargets> {
-  const { userId, date, phase, currentWeight, profile, weightTrend, weeklyPlanEntries = [] } = input;
+  const {
+    userId,
+    date,
+    phase,
+    currentWeight,
+    profile,
+    weightTrend,
+    macrocycleContext,
+    readinessProfile,
+    constraintSet,
+    medStatus = null,
+    weeklyPlanEntries = [],
+  } = input;
   const scheduledActivities = await getScheduledActivities(userId, date, date);
 
   let cutProtocol = null as Awaited<ReturnType<typeof getCutProtocolForDate>>;
@@ -528,6 +544,8 @@ async function resolveNutritionTargets(input: {
             activity_type: activity.activity_type,
             expected_intensity: activity.expected_intensity,
             estimated_duration_min: activity.estimated_duration_min,
+            start_time: activity.start_time,
+            custom_label: activity.custom_label,
           }))
       : weeklyPlanEntries
           .filter((entry) => entry.status !== 'skipped')
@@ -535,9 +553,15 @@ async function resolveNutritionTargets(input: {
             activity_type: entry.session_type as any,
             expected_intensity: entry.target_intensity ?? 5,
             estimated_duration_min: entry.estimated_duration_min,
+            start_time: null,
+            custom_label: null,
           }))),
     {
       daysToWeighIn: cutProtocol?.days_to_weigh_in ?? null,
+      readinessProfile,
+      constraintSet,
+      macrocycleContext,
+      medStatus,
     },
   );
 }
@@ -811,6 +835,10 @@ export async function getDailyEngineState(
       currentWeight,
       profile,
       weightTrend: objectiveContext.weightTrend,
+      macrocycleContext: objectiveContext,
+      readinessProfile,
+      constraintSet,
+      medStatus,
       weeklyPlanEntries,
     })
     : ({
@@ -825,8 +853,28 @@ export async function getDailyEngineState(
       message: '',
       source: 'base',
       fuelState: 'rest',
+      prioritySession: 'recovery',
+      deficitClass: 'steady_maintain',
+      recoveryNutritionFocus: 'none',
       sessionDemandScore: 0,
       hydrationBoostOz: 0,
+      hydrationPlan: {
+        dailyTargetOz: 96,
+        sodiumTargetMg: null,
+        emphasis: 'baseline',
+        notes: [],
+      },
+      sessionFuelingPlan: {
+        priority: 'recovery',
+        priorityLabel: 'Recovery day',
+        sessionLabel: 'Recovery day',
+        preSession: { label: 'Before training', timing: 'No timed pre-session fueling needed', carbsG: 0, proteinG: 0, notes: [] },
+        intraSession: { fluidsOz: 0, electrolytesMg: null, carbsG: 0, notes: [] },
+        betweenSessions: null,
+        postSession: { label: 'After training', timing: 'Use normal meals', carbsG: 0, proteinG: 25, notes: [] },
+        hydrationNotes: [],
+        coachingNotes: [],
+      },
       reasonLines: [],
       energyAvailability: null,
       fuelingFloorTriggered: false,

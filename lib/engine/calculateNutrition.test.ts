@@ -20,7 +20,7 @@ function assert(label: string, condition: boolean) {
 function assertClose(label: string, actual: number, expected: number, tolerance: number) {
   const ok = Math.abs(actual - expected) <= tolerance;
   if (ok) { passed++; console.log(`  PASS ${label}`); }
-  else { failed++; console.error(`  FAIL ${label} (got ${actual}, expected ~${expected} ±${tolerance})`); }
+  else { failed++; console.error(`  FAIL ${label} (got ${actual}, expected ~${expected} +/- ${tolerance})`); }
 }
 
 const baseInput = (overrides: Record<string, any> = {}) => ({
@@ -41,33 +41,22 @@ const baseInput = (overrides: Record<string, any> = {}) => ({
 
 console.log('\n-- calculateNutritionTargets --');
 
-// === Mifflin-St Jeor BMR ===
 (() => {
-  // Male: 10*kg + 6.25*cm - 5*age + 5
-  // 180 lbs = 81.64656 kg, 70 in = 177.8 cm, age 25
-  // BMR = 10*81.64656 + 6.25*177.8 - 5*25 + 5 = 816.47 + 1111.25 - 125 + 5 = 1807.72
-  // TDEE = round(1807.72 * 1.4) = round(2530.8) = 2531
   const r = calculateNutritionTargets(baseInput());
   assertClose('Male BMR-based TDEE (moderate)', r.tdee, 2531, 2);
   assert('Off-season maintain phaseMultiplier = 0', r.phaseMultiplier === 0);
 })();
 
 (() => {
-  // Female: 10*kg + 6.25*cm - 5*age - 161
-  // BMR = 816.47 + 1111.25 - 125 - 161 = 1641.72
-  // TDEE = round(1641.72 * 1.4) = round(2298.4) = 2298
   const r = calculateNutritionTargets(baseInput({ biologicalSex: 'female' }));
   assertClose('Female BMR-based TDEE (moderate)', r.tdee, 2298, 2);
 })();
 
-// === Simplified BMR (no height/age) ===
 (() => {
   const r = calculateNutritionTargets(baseInput({ heightInches: null, age: null }));
-  // BMR = 10 * 180 = 1800, TDEE = round(1800 * 1.4) = 2520
   assertClose('Simplified BMR TDEE', r.tdee, 2520, 1);
 })();
 
-// === Activity multipliers ===
 (() => {
   const levels = [
     ['sedentary', 1.15],
@@ -79,13 +68,11 @@ console.log('\n-- calculateNutritionTargets --');
 
   for (const [level, mult] of levels) {
     const r = calculateNutritionTargets(baseInput({ activityLevel: level }));
-    // BMR ~ 1808, TDEE = round(1808 * mult)
     const expectedTDEE = Math.round(1808 * mult);
-    assertClose(`Activity ${level} → TDEE ~${expectedTDEE}`, r.tdee, expectedTDEE, 3);
+    assertClose(`Activity ${level} -> TDEE ~${expectedTDEE}`, r.tdee, expectedTDEE, 3);
   }
 })();
 
-// === Phase + goal modifiers ===
 (() => {
   const offCut = calculateNutritionTargets(baseInput({ nutritionGoal: 'cut' }));
   assert('Off-season cut: phaseMultiplier = -0.1', offCut.phaseMultiplier === -0.1);
@@ -100,7 +87,6 @@ console.log('\n-- calculateNutritionTargets --');
   assert('Camp-taper cut: phaseMultiplier = -0.2', ctCut.phaseMultiplier === -0.2);
 })();
 
-// === Calorie floors ===
 (() => {
   const r = calculateNutritionTargets(baseInput({
     biologicalSex: 'female',
@@ -121,7 +107,6 @@ console.log('\n-- calculateNutritionTargets --');
   assert('Male calorie floor enforced (>= 1500)', r.adjustedCalories >= 1500);
 })();
 
-// === Biology modifier (protein) ===
 (() => {
   const follicular = calculateNutritionTargets(baseInput({
     biologicalSex: 'female',
@@ -136,7 +121,6 @@ console.log('\n-- calculateNutritionTargets --');
   assert('Late-luteal protein > follicular protein', lutealLate.protein > follicular.protein);
 })();
 
-// === Weight correction deficit ===
 (() => {
   const base = calculateNutritionTargets(baseInput());
   const withCorrection = calculateNutritionTargets(baseInput({ weightCorrectionDeficit: 200 }));
@@ -151,27 +135,23 @@ console.log('\n-- calculateNutritionTargets --');
   assert('Ahead message mentions deficit reduced', ahead.message.includes('Deficit reduced'));
 })();
 
-// === Coach overrides ===
 (() => {
   const r = calculateNutritionTargets(baseInput({ coachProteinOverride: 250 }));
   assert('Coach protein override applied', r.protein === 250);
 })();
 
-// === Protein scales with deficit ===
 (() => {
   const maintain = calculateNutritionTargets(baseInput({ nutritionGoal: 'maintain' }));
   const cut = calculateNutritionTargets(baseInput({ phase: 'fight-camp', nutritionGoal: 'cut' }));
   assert('Protein scales up in deeper deficit', cut.protein > maintain.protein);
 })();
 
-// === Macro reconciliation ===
 (() => {
   const r = calculateNutritionTargets(baseInput());
   const reconciledCal = r.protein * 4 + r.carbs * 4 + r.fat * 9;
   assert('Macros reconcile to adjustedCalories', r.adjustedCalories === reconciledCal);
 })();
 
-// === computeMacroAdherence ===
 console.log('\n-- computeMacroAdherence --');
 
 (() => {
@@ -179,7 +159,7 @@ console.log('\n-- computeMacroAdherence --');
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
   );
-  assert('Perfect adherence → Target Met', r.overall === 'Target Met');
+  assert('Perfect adherence -> Target Met', r.overall === 'Target Met');
   assert('All percentages 100%', r.caloriesPct === 100 && r.proteinPct === 100);
 })();
 
@@ -188,37 +168,33 @@ console.log('\n-- computeMacroAdherence --');
     { calories: 1990, protein: 151, carbs: 201, fat: 61 },
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
   );
-  assert('Near-perfect (within 10%) → Target Met', r.overall === 'Target Met');
+  assert('Near-perfect (within 10%) -> Target Met', r.overall === 'Target Met');
 })();
 
 (() => {
-  // 15% off on calories: 2000 * 0.85 = 1700
   const r = computeMacroAdherence(
     { calories: 1700, protein: 150, carbs: 200, fat: 60 },
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
   );
-  assert('15% off calories → Close Enough', r.overall === 'Close Enough');
+  assert('15% off calories -> Close Enough', r.overall === 'Close Enough');
 })();
 
 (() => {
-  // 25% off on protein: 150 * 0.75 = 112
   const r = computeMacroAdherence(
     { calories: 2000, protein: 112, carbs: 200, fat: 60 },
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
   );
-  assert('25% off protein → Missed It', r.overall === 'Missed It');
+  assert('25% off protein -> Missed It', r.overall === 'Missed It');
 })();
 
 (() => {
-  // Zero prescribed and zero actual
   const r = computeMacroAdherence(
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
-  assert('Zero/zero → 100% → Target Met', r.overall === 'Target Met');
+  assert('Zero/zero -> 100% -> Target Met', r.overall === 'Target Met');
 })();
 
-// === resolveDailyMacros ===
 console.log('\n-- resolveDailyMacros --');
 
 (() => {
@@ -257,14 +233,163 @@ console.log('\n-- resolveDailyMacros --');
   );
 
   assert('Fueling floor triggers on hard training day', resolved.fuelingFloorTriggered === true);
-  assert('EA protected to 30+', (resolved.energyAvailability ?? 0) >= 20);
+  assert('EA protected to 20+', (resolved.energyAvailability ?? 0) >= 20);
   assert('Trace lines populated', resolved.traceLines.length > 0);
+  assert('Hard training day builds sparring fueling plan', resolved.sessionFuelingPlan.priority === 'sparring');
+  assert('Hard training day hydration plan is populated', resolved.hydrationPlan.dailyTargetOz > 0);
 })();
 
 (() => {
   const base = calculateNutritionTargets(baseInput());
   const resolved = resolveDailyNutritionTargets(base, null, []);
-  assert('No activities → source is base', resolved.source === 'base');
+  assert('No activities -> source is base', resolved.source === 'base');
+  assert('No activities -> recovery priority', resolved.prioritySession === 'recovery');
+})();
+
+(() => {
+  const base = calculateNutritionTargets(baseInput({
+    phase: 'camp-build',
+    nutritionGoal: 'maintain',
+  }));
+  const baseline = resolveDailyNutritionTargets(
+    base,
+    null,
+    [{ activity_type: 'boxing_practice' as any, expected_intensity: 7, estimated_duration_min: 60, start_time: '10:00' }],
+    {
+      macrocycleContext: {
+        goalMode: 'fight_camp',
+        campPhase: 'build',
+      } as any,
+    },
+  );
+  const resolved = resolveDailyNutritionTargets(
+    base,
+    null,
+    [{ activity_type: 'boxing_practice' as any, expected_intensity: 7, estimated_duration_min: 60, start_time: '10:00' }],
+    {
+      readinessProfile: {
+        readinessState: 'Caution',
+        neuralReadiness: 48,
+        structuralReadiness: 76,
+        metabolicReadiness: 72,
+        trend: 'stable',
+        flags: [],
+        performanceAnchors: [],
+      } as any,
+      macrocycleContext: {
+        goalMode: 'fight_camp',
+        campPhase: 'build',
+      } as any,
+    },
+  );
+
+  assert('Low neural practice day keeps boxing priority', resolved.prioritySession === 'boxing_practice');
+  assert('Low neural practice day preserves or raises pre-session carbs', resolved.sessionFuelingPlan.preSession.carbsG >= baseline.sessionFuelingPlan.preSession.carbsG);
+  assert('Low neural practice day raises hydration support', resolved.hydrationBoostOz > baseline.hydrationBoostOz);
+  assert('Low neural practice day does not cut calories below the baseline practice day', resolved.adjustedCalories >= baseline.adjustedCalories);
+})();
+
+(() => {
+  const base = calculateNutritionTargets(baseInput({
+    phase: 'camp-build',
+    nutritionGoal: 'maintain',
+  }));
+  const resolved = resolveDailyNutritionTargets(
+    base,
+    null,
+    [{ activity_type: 'sparring' as any, expected_intensity: 8, estimated_duration_min: 60 }],
+    {
+      readinessProfile: {
+        readinessState: 'Caution',
+        neuralReadiness: 72,
+        structuralReadiness: 42,
+        metabolicReadiness: 70,
+        trend: 'stable',
+        flags: [],
+        performanceAnchors: [],
+      } as any,
+    },
+  );
+
+  assert('Low structural day marks impact recovery focus', resolved.recoveryNutritionFocus === 'impact_recovery');
+  assert('Low structural day keeps protein elevated', resolved.protein >= base.protein + 6);
+  assert('Low structural day still gives recovery protein target', resolved.sessionFuelingPlan.postSession.proteinG >= 30);
+})();
+
+(() => {
+  const base = calculateNutritionTargets(baseInput({
+    phase: 'fight-camp',
+    nutritionGoal: 'cut',
+    coachCaloriesOverride: 1950,
+  }));
+  const resolved = resolveDailyNutritionTargets(
+    base,
+    null,
+    [{ activity_type: 'conditioning' as any, expected_intensity: 8, estimated_duration_min: 50 }],
+    {
+      readinessProfile: {
+        readinessState: 'Caution',
+        neuralReadiness: 66,
+        structuralReadiness: 68,
+        metabolicReadiness: 40,
+        trend: 'dropping',
+        flags: [],
+        performanceAnchors: [],
+      } as any,
+      macrocycleContext: {
+        goalMode: 'fight_camp',
+        campPhase: 'peak',
+      } as any,
+    },
+  );
+
+  assert('Low metabolic day marks hydration restore focus', resolved.recoveryNutritionFocus === 'hydration_restore');
+  assert('Low metabolic day raises hydration plan notes', resolved.hydrationPlan.notes.length > 0);
+  assert('Low metabolic day reduces deficit pressure', resolved.adjustedCalories >= base.adjustedCalories);
+})();
+
+(() => {
+  const base = calculateNutritionTargets(baseInput({
+    phase: 'camp-build',
+    nutritionGoal: 'maintain',
+  }));
+  const resolved = resolveDailyNutritionTargets(
+    base,
+    null,
+    [
+      { activity_type: 'boxing_practice' as any, expected_intensity: 7, estimated_duration_min: 60, start_time: '09:00' },
+      { activity_type: 'sc' as any, expected_intensity: 7, estimated_duration_min: 50, start_time: '17:00' },
+    ],
+  );
+
+  assert('Double-session day uses double-session priority', resolved.prioritySession === 'double_session');
+  assert('Double-session day has between-session refuel', resolved.sessionFuelingPlan.betweenSessions != null);
+})();
+
+(() => {
+  const base = calculateNutritionTargets(baseInput({
+    phase: 'camp-build',
+    nutritionGoal: 'cut',
+  }));
+  const resolved = resolveDailyNutritionTargets(
+    base,
+    {
+      prescribed_calories: 1900,
+      prescribed_protein: 190,
+      prescribed_carbs: 120,
+      prescribed_fat: 55,
+      cut_phase: 'fight_week_cut',
+      training_intensity_cap: 4,
+      water_target_oz: 140,
+      sodium_target_mg: 600,
+      days_to_weigh_in: 3,
+    } as any,
+    [{ activity_type: 'boxing_practice' as any, expected_intensity: 5, estimated_duration_min: 40 }],
+  );
+
+  assert('Cut protocol still uses cut-protect fuel state', resolved.fuelState === 'cut_protect');
+  assert('Cut protocol still builds session fueling plan', resolved.sessionFuelingPlan.preSession.carbsG > 0);
+  assert('Cut protocol hydration plan follows cut target', resolved.hydrationPlan.dailyTargetOz >= 140);
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
