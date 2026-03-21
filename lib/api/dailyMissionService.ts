@@ -6,18 +6,22 @@ import {
   calculateNutritionTargets,
   calculateWeightCorrection,
   calculateWeightTrend,
+  deriveReadinessProfile,
+  deriveStimulusConstraintSet,
   generateWorkoutV2,
-  getGlobalReadinessState,
   getHydrationProtocol,
   resolveDailyNutritionTargets,
   type ACWRResult,
   type DailyMission,
   type MacrocycleContext,
+  type MEDStatus,
   type PerformanceObjective,
   type Phase,
+  type ReadinessProfile,
   type ReadinessState,
   type ResolvedNutritionTargets,
   type ScheduledActivityRow,
+  type StimulusConstraintSet,
   type DailyEngineState,
   type WeeklyMissionPlan,
   type WeeklyPlanEntryRow,
@@ -46,6 +50,24 @@ function daysBetween(start: string, end: string): number {
   const a = new Date(`${start}T00:00:00`).getTime();
   const b = new Date(`${end}T00:00:00`).getTime();
   return Math.round((b - a) / 86400000);
+}
+
+function addDays(date: string, delta: number): string {
+  const target = new Date(`${date}T00:00:00`);
+  target.setDate(target.getDate() + delta);
+  return target.toISOString().slice(0, 10);
+}
+
+function getWeekWindow(date: string): { weekStart: string; weekEnd: string } {
+  const target = new Date(`${date}T00:00:00`);
+  const day = target.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  target.setDate(target.getDate() + mondayOffset);
+  const weekStart = target.toISOString().slice(0, 10);
+  return {
+    weekStart,
+    weekEnd: addDays(weekStart, 6),
+  };
 }
 
 function buildPerformanceObjective(input: {
@@ -173,6 +195,20 @@ async function getPlanEntriesForDate(userId: string, date: string): Promise<Week
   return (data ?? []) as WeeklyPlanEntryRow[];
 }
 
+async function getPlanEntriesForRange(userId: string, startDate: string, endDate: string): Promise<WeeklyPlanEntryRow[]> {
+  const { data, error } = await supabase
+    .from('weekly_plan_entries')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date')
+    .order('slot');
+
+  if (error) throw error;
+  return (data ?? []) as WeeklyPlanEntryRow[];
+}
+
 function pickPrimaryPlanEntry(entries: WeeklyPlanEntryRow[]): WeeklyPlanEntryRow | null {
   if (entries.length === 0) return null;
 
@@ -255,20 +291,174 @@ async function resolveACWR(userId: string, date: string, phase: Phase, fitnessLe
   });
 }
 
-async function resolveReadinessState(userId: string, date: string, acwr: ACWRResult, weightPenalty: number): Promise<ReadinessState> {
-  const { data: checkin } = await supabase
-    .from('daily_checkins')
-    .select('sleep_quality, readiness')
-    .eq('user_id', userId)
-    .eq('date', date)
-    .maybeSingle();
+async function resolveReadinessProfile(input: {
+  userId: string;
+  date: string;
+  acwr: ACWRResult;
+  objectiveContext: MacrocycleContext;
+  trainingIntensityCap?: number | null;
+}): Promise<{
+  readinessProfile: ReadinessProfile;
+  readinessState: ReadinessState;
+  constraintSet: StimulusConstraintSet;
+}> {
+  const { userId, date, acwr, objectiveContext, trainingIntensityCap = null } = input;
+  const historyStart = addDays(date, -6);
+  const recentActivityStart = addDays(date, -1);
 
-  return getGlobalReadinessState({
-    sleep: checkin?.sleep_quality ?? 4,
-    readiness: checkin?.readiness ?? 4,
-    acwr: acwr.ratio,
-    weightPenalty,
+  const [checkinsResult, recentActivities, activationResult] = await Promise.all([
+    supabase
+      .from('daily_checkins')
+      .select('date, sleep_quality, readiness, stress_level, soreness_level, confidence_level, external_heart_rate_load, cognitive_score, urine_color, body_temp_f')
+      .eq('user_id', userId)
+      .gte('date', historyStart)
+      .lte('date', date)
+      .order('date'),
+    getScheduledActivities(userId, recentActivityStart, date),
+    supabase
+      .from('workout_log')
+      .select('date, activation_rpe')
+      .eq('user_id', userId)
+      .not('activation_rpe', 'is', null)
+      .lte('date', date)
+      .order('date', { ascending: false })
+      .limit(1),
+  ]);
+
+  const checkins = ((checkinsResult.data ?? []) as Array<{
+    date: string;
+    sleep_quality?: number | null;
+    readiness?: number | null;
+    stress_level?: number | null;
+    soreness_level?: number | null;
+    confidence_level?: number | null;
+    external_heart_rate_load?: number | null;
+    cognitive_score?: number | null;
+    urine_color?: number | null;
+    body_temp_f?: number | null;
+  }>);
+  const todayCheckin = checkins.find((checkin) => checkin.date === date) ?? null;
+  const readinessHistory = checkins
+    .map((checkin) => checkin.readiness)
+    .filter((value): value is number => typeof value === 'number');
+  const recentSparringCount48h = recentActivities.filter((activity) => activity.activity_type === 'sparring' && activity.status !== 'skipped').length;
+  const recentHighImpactCount48h = recentActivities.filter((activity) =>
+    (activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice')
+    && activity.expected_intensity >= 7
+    && activity.status !== 'skipped',
+  ).length;
+  const recentHeavyStrengthCount48h = recentActivities.filter((activity) =>
+    activity.activity_type === 'sc'
+    && activity.expected_intensity >= 7
+    && activity.status !== 'skipped',
+  ).length;
+  const latestActivationRPE = (activationResult.data as Array<{ date: string; activation_rpe?: number | null }> | null)?.[0]?.activation_rpe ?? null;
+  const profile = deriveReadinessProfile({
+    sleepQuality: todayCheckin?.sleep_quality ?? null,
+    subjectiveReadiness: todayCheckin?.readiness ?? null,
+    confidenceLevel: todayCheckin?.confidence_level ?? null,
+    stressLevel: todayCheckin?.stress_level ?? null,
+    sorenessLevel: todayCheckin?.soreness_level ?? null,
+    acwrRatio: acwr.ratio,
+    loadMetrics: acwr.loadMetrics,
+    externalHeartRateLoad: todayCheckin?.external_heart_rate_load ?? null,
+    activationRPE: latestActivationRPE,
+    expectedActivationRPE: 4,
+    baselineCognitiveScore: null,
+    latestCognitiveScore: todayCheckin?.cognitive_score ?? null,
+    urineColor: todayCheckin?.urine_color ?? null,
+    bodyTempF: todayCheckin?.body_temp_f ?? null,
+    weightCutIntensityCap: trainingIntensityCap,
+    recentSparringCount48h,
+    recentHighImpactCount48h,
+    recentHeavyStrengthCount48h,
+    goalMode: objectiveContext.goalMode,
+    phase: objectiveContext.phase,
+    daysOut: objectiveContext.daysOut,
+    isOnActiveCut: objectiveContext.isOnActiveCut,
+    hasHardSparringScheduled: recentActivities.some((activity) => activity.activity_type === 'sparring' && activity.status !== 'skipped'),
+    hasTechnicalSessionScheduled: recentActivities.some((activity) => activity.activity_type === 'boxing_practice' && activity.status !== 'skipped'),
+    readinessHistory,
   });
+  const constraintSet = deriveStimulusConstraintSet(profile, {
+    phase: objectiveContext.phase,
+    goalMode: objectiveContext.goalMode,
+    daysOut: objectiveContext.daysOut,
+    trainingIntensityCap,
+  });
+
+  return {
+    readinessProfile: profile,
+    readinessState: profile.readinessState,
+    constraintSet,
+  };
+}
+
+function inferPowerTouch(entry: WeeklyPlanEntryRow): boolean {
+  if (entry.prescription_snapshot?.primaryAdaptation === 'power') return true;
+  return entry.focus === 'sport_specific'
+    || entry.focus === 'full_body';
+}
+
+function inferStrengthTouch(entry: WeeklyPlanEntryRow): boolean {
+  if (entry.prescription_snapshot?.primaryAdaptation === 'strength') return true;
+  return entry.session_type === 'sc'
+    || entry.focus === 'lower'
+    || entry.focus === 'upper_push'
+    || entry.focus === 'upper_pull'
+    || entry.focus === 'full_body';
+}
+
+function inferConditioningTouch(entry: WeeklyPlanEntryRow): boolean {
+  if (entry.prescription_snapshot?.primaryAdaptation === 'conditioning') return true;
+  return entry.session_type === 'conditioning'
+    || entry.session_type === 'road_work'
+    || entry.focus === 'conditioning';
+}
+
+function summarizeMedExposure(targetTouches: number, scheduledTouches: number, dayIndex: number): { targetTouches: number; scheduledTouches: number; remainingTouches: number; status: 'met' | 'pending' | 'at_risk' | 'missed' } {
+  const remainingTouches = Math.max(0, targetTouches - scheduledTouches);
+  if (scheduledTouches >= targetTouches) {
+    return { targetTouches, scheduledTouches, remainingTouches, status: 'met' };
+  }
+  if (dayIndex >= 5 && remainingTouches > 1) {
+    return { targetTouches, scheduledTouches, remainingTouches, status: 'missed' };
+  }
+  if (dayIndex >= 4 && remainingTouches >= 1) {
+    return { targetTouches, scheduledTouches, remainingTouches, status: 'at_risk' };
+  }
+  return { targetTouches, scheduledTouches, remainingTouches, status: 'pending' };
+}
+
+function deriveMEDStatus(entries: WeeklyPlanEntryRow[], date: string): MEDStatus {
+  const weekStart = getWeekWindow(date).weekStart;
+  const dayIndex = Math.max(0, daysBetween(weekStart, date));
+  const activeEntries = entries.filter((entry) => entry.status !== 'skipped');
+  const powerTouches = activeEntries.filter(inferPowerTouch).length;
+  const strengthTouches = activeEntries.filter(inferStrengthTouch).length;
+  const conditioningTouches = activeEntries.filter(inferConditioningTouch).length;
+
+  const power = summarizeMedExposure(1, powerTouches, dayIndex);
+  const strength = summarizeMedExposure(2, strengthTouches, dayIndex);
+  const conditioning = summarizeMedExposure(2, conditioningTouches, dayIndex);
+  const statuses = [power.status, strength.status, conditioning.status];
+  const overall = statuses.includes('missed')
+    ? 'missed'
+    : statuses.includes('at_risk')
+      ? 'at_risk'
+      : 'on_track';
+
+  return {
+    power,
+    strength,
+    conditioning,
+    overall,
+    summary: overall === 'on_track'
+      ? 'Minimum effective dose exposures are on track this week.'
+      : overall === 'at_risk'
+        ? 'At least one key quality is drifting toward a missed weekly exposure.'
+        : 'The current week is missing at least one minimum effective dose target.',
+  };
 }
 
 async function resolveNutritionTargets(input: {
@@ -492,12 +682,16 @@ async function resolveWorkoutPrescription(input: {
   date: string;
   phase: Phase;
   readinessState: ReadinessState;
+  readinessProfile: ReadinessProfile;
+  constraintSet: StimulusConstraintSet;
   acwr: ACWRResult;
   fitnessLevel: string;
   trainingAge: 'novice' | 'intermediate' | 'advanced';
   performanceGoalType: MacrocycleContext['performanceGoalType'];
   weeklyPlanEntry: WeeklyPlanEntryRow | null;
   cutProtocol: Awaited<ReturnType<typeof getCutProtocolForDate>>;
+  objectiveContext: MacrocycleContext;
+  medStatus: MEDStatus | null;
 }): Promise<WeeklyPlanEntryRow['prescription_snapshot']> {
   const scheduledActivities = await getScheduledActivities(input.userId, input.date, input.date);
   const activeScheduledActivities = scheduledActivities.filter((activity) => activity.status !== 'skipped');
@@ -530,6 +724,8 @@ async function resolveWorkoutPrescription(input: {
 
   return generateWorkoutV2({
     readinessState: input.readinessState,
+    readinessProfile: input.readinessProfile,
+    constraintSet: input.constraintSet,
     phase: input.phase,
     acwr: input.acwr.ratio,
     exerciseLibrary: library,
@@ -546,6 +742,7 @@ async function resolveWorkoutPrescription(input: {
     exerciseHistory,
     isDeloadWeek: input.weeklyPlanEntry?.is_deload ?? false,
     weeklyPlanFocus: input.weeklyPlanEntry?.focus ?? undefined,
+    medStatus: input.medStatus,
   });
 }
 
@@ -564,11 +761,13 @@ export async function getDailyEngineState(
   options: DailyMissionOptions = {},
 ): Promise<DailyEngineState> {
   const snapshot = options.forceRefresh ? null : await getDailyEngineSnapshot(userId, date);
+  const weekWindow = getWeekWindow(date);
 
-  const [objectiveContext, athleteContext, weeklyPlanEntries] = await Promise.all([
+  const [objectiveContext, athleteContext, weeklyPlanEntries, weeklyEntries] = await Promise.all([
     resolveObjectiveContext(userId, date),
     getAthleteContext(userId),
     getPlanEntriesForDate(userId, date),
+    getPlanEntriesForRange(userId, weekWindow.weekStart, weekWindow.weekEnd),
   ]);
 
   const primaryPlanEntry = pickPrimaryPlanEntry(weeklyPlanEntries);
@@ -578,8 +777,12 @@ export async function getDailyEngineState(
   const currentWeight = objectiveContext.currentWeightLbs ?? profile?.base_weight ?? 150;
   const targetWeight = objectiveContext.targetWeightLbs ?? currentWeight;
   const acwr = await resolveACWR(userId, date, objectiveContext.phase, athleteContext.fitnessLevel, athleteContext.isOnActiveCut);
-  const weightPenalty = 0;
-  const readinessState = await resolveReadinessState(userId, date, acwr, weightPenalty);
+  const initialReadiness = await resolveReadinessProfile({
+    userId,
+    date,
+    acwr,
+    objectiveContext,
+  });
   const cutProtocol = athleteContext.isOnActiveCut && profile
     ? await ensureCutProtocolForDate({
       userId,
@@ -587,10 +790,18 @@ export async function getDailyEngineState(
       profile,
       phase: objectiveContext.phase,
       currentWeight,
-      readinessState,
+      readinessState: initialReadiness.readinessState,
       acwr,
     })
     : null;
+  const { readinessProfile, readinessState, constraintSet } = await resolveReadinessProfile({
+    userId,
+    date,
+    acwr,
+    objectiveContext,
+    trainingIntensityCap: cutProtocol?.training_intensity_cap ?? null,
+  });
+  const medStatus = deriveMEDStatus(weeklyEntries, date);
 
   const nutritionTargets = profile
     ? await resolveNutritionTargets({
@@ -638,12 +849,16 @@ export async function getDailyEngineState(
     date,
     phase: objectiveContext.phase,
     readinessState,
+    readinessProfile,
+    constraintSet,
     acwr,
     fitnessLevel: athleteContext.fitnessLevel,
     trainingAge: athleteContext.trainingAge,
     performanceGoalType: athleteContext.performanceGoalType,
     weeklyPlanEntry: primaryEnginePlanEntry,
     cutProtocol,
+    objectiveContext,
+    medStatus,
   });
 
   const riskAssessment = calculateCampRisk({
@@ -660,6 +875,8 @@ export async function getDailyEngineState(
     date,
     macrocycleContext: objectiveContext,
     readinessState,
+    readinessProfile,
+    constraintSet,
     acwr,
     nutritionTargets,
     hydration,
@@ -681,6 +898,7 @@ export async function getDailyEngineState(
     cutProtocol,
     workoutPrescription: workoutPrescription ?? null,
     weeklyPlanEntry: primaryPlanEntry,
+    medStatus,
     riskScore: riskAssessment?.score ?? null,
     riskDrivers: riskAssessment?.drivers ?? [],
   });
@@ -702,6 +920,8 @@ export async function getDailyEngineState(
     objectiveContext,
     acwr,
     readinessState,
+    readinessProfile,
+    constraintSet,
     cutProtocol,
     nutritionTargets: snapshot?.nutrition_targets_snapshot ?? nutritionTargets,
     hydration,
@@ -713,6 +933,7 @@ export async function getDailyEngineState(
     workoutPrescription: workoutPrescription ?? null,
     mission,
     campRisk: riskAssessment ?? null,
+    medStatus,
   };
 }
 

@@ -41,7 +41,15 @@
       "Bash(find 'C:/Users/karll/Documents/Athleticore OS/src/components' -maxdepth 1 -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
       "Bash(find 'C:/Users/karll/Documents/Athleticore OS/src/screens' -maxdepth 1 -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
       "Bash(find 'C:/Users/karll/Documents/Athleticore OS/lib/engine' -name *.test.ts)",
-      "Bash(ls \"/c/Users/karll/Documents/Athleticore OS/lib/engine/\"*/)"
+      "Bash(ls \"/c/Users/karll/Documents/Athleticore OS/lib/engine/\"*/)",
+      "Bash(npx tsx:*)",
+      "Bash(grep -rn \"from ''''.ts''''\" lib/engine/ --include=\"*.test.ts\")",
+      "Bash(grep -rn \"from ''.ts''\" lib/engine/ --include=\"*.test.ts\" -l)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/karll/Documents/Athleticore OS/**)",
+      "Bash(done)",
+      "Bash(grep -rn \"from ''\\\\.\\\\/\\\\.ts''\" lib/engine/ --include=\"*.test.ts\" -l)"
     ]
   }
 }

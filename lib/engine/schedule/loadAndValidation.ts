@@ -4,6 +4,7 @@ import type {
     FitnessLevel,
     Phase,
 } from '../types/foundational.ts';
+import type { StimulusConstraintSet } from '../types/readiness.ts';
 import type {
     ScheduledActivityRow,
     DayLoadValidation,
@@ -345,6 +346,7 @@ export function suggestAlternative(
     activity: Pick<ScheduledActivityRow, 'activity_type' | 'expected_intensity' | 'custom_label'>,
     readinessState: ReadinessState,
     trainingIntensityCap?: number | null,
+    constraintSet?: StimulusConstraintSet | null,
 ): { shouldSwap: boolean; alternative: ActivityType; message: string } {
     const intensity = activity.expected_intensity;
     const type = activity.activity_type as ActivityType;
@@ -388,20 +390,24 @@ export function suggestAlternative(
             desc: 'Technical pad work at 50% intensity. This keeps your timing sharp without the concussive CNS impact of live sparring.',
         },
         sc: {
-            alt: 'active_recovery',
-            desc: 'Mobility and light movement work. Your nervous system is taxed — heavy lifting in this state increases injury risk by ~40% and reduces strength output.',
+            alt: constraintSet?.allowedStimuli.includes('controlled_strength') ? 'sc' : 'active_recovery',
+            desc: constraintSet?.allowedStimuli.includes('controlled_strength')
+                ? 'Keep the lift intent, but swap to a lower-cost machine or controlled unilateral strength block.'
+                : 'Mobility and light movement work. Your nervous system is taxed — heavy lifting in this state increases injury risk by ~40% and reduces strength output.',
         },
         running: {
             alt: 'active_recovery',
             desc: 'Easy walk or light yoga. Your cardiovascular system recovers faster with gentle movement than complete rest.',
         },
         conditioning: {
-            alt: 'active_recovery',
-            desc: 'Light stretching and foam rolling. Pushing conditioning while depleted delays recovery without meaningful fitness gains.',
+            alt: constraintSet?.allowedStimuli.includes('aerobic_conditioning') ? 'road_work' : 'active_recovery',
+            desc: constraintSet?.allowedStimuli.includes('aerobic_conditioning')
+                ? 'Swap to a lower-cost aerobic touch like bike, easy run, or jump rope instead of hard intervals.'
+                : 'Light stretching and foam rolling. Pushing conditioning while depleted delays recovery without meaningful fitness gains.',
         },
         boxing_practice: {
-            alt: 'active_recovery',
-            desc: 'Shadow boxing at conversational pace or mobility work. Technical skills are better drilled when fresh.',
+            alt: 'boxing_practice',
+            desc: 'Keep the session technical only — crisp drills, lower impact, no hard live work.',
         },
     };
 

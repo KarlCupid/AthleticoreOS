@@ -10,8 +10,8 @@ import {
     findSubstituteExercise,
     getRestTimerDefaults,
     getRestDuration,
-} from '.ts';
-import type { ExerciseLibraryRow, PrescribedExerciseV2, SessionFatigueState } from '.ts';
+} from './adaptiveWorkout.ts';
+import type { ExerciseLibraryRow, PrescribedExerciseV2, SessionFatigueState } from './types.ts';
 
 let passed = 0;
 let failed = 0;

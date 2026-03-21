@@ -1,10 +1,16 @@
 import type {
     ActivityType,
+    DailyAdaptationInput,
+    DailyAdaptationResult,
     Phase,
     DailyAdaptationSwap,
+    ReadinessState,
+    ScheduleGenerationInput,
+    ScheduledActivityRow,
     WeekPlanEntry,
     SmartWeekPlanInput,
     SmartWeekPlanResult,
+    WeeklyComplianceReport,
     WeeklyPlanEntryRow,
     MissedDayRescheduleInput,
     MissedDayRescheduleResult,
@@ -22,6 +28,7 @@ import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
 import { shouldDeload } from './calculateOverload.ts';
 import { generateWorkoutV2 } from './calculateSC.ts';
 import { assessPerformanceRisk, getGoalBasedFocusRotation, resolveTrainingBlockContext } from './performancePlanner.ts';
+import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { classifyGuidedSessionType } from './sessionOwnership.ts';
 import { todayLocalDate } from '../utils/date.ts';
 
@@ -55,6 +62,49 @@ export function getBoxingIntensityScalar(input: { isOnActiveCut: boolean; daysOu
     const { isOnActiveCut, daysOut } = input;
     if (isOnActiveCut || (daysOut !== null && daysOut <= 7)) return 0.6;
     return 1;
+}
+
+function createFallbackReadinessProfile(input: {
+    readinessState: ReadinessState;
+    acwr: number;
+    phase: Phase;
+    daysOut: number | null;
+    isOnActiveCut: boolean;
+    trainingIntensityCap?: number | null;
+    hasHardSparringScheduled?: boolean;
+    hasTechnicalSessionScheduled?: boolean;
+}): ReturnType<typeof deriveReadinessProfile> {
+    const {
+        readinessState,
+        acwr,
+        phase,
+        daysOut,
+        isOnActiveCut,
+        trainingIntensityCap = null,
+        hasHardSparringScheduled = false,
+        hasTechnicalSessionScheduled = false,
+    } = input;
+    const readinessSeed = readinessState === 'Prime' ? 4.4 : readinessState === 'Caution' ? 3.2 : 2.2;
+    const sleepSeed = readinessState === 'Prime' ? 4.2 : readinessState === 'Caution' ? 3.1 : 2.3;
+    const sorenessSeed = readinessState === 'Prime' ? 2.2 : readinessState === 'Caution' ? 3.2 : 4.2;
+    const stressSeed = readinessState === 'Prime' ? 2.1 : readinessState === 'Caution' ? 3.1 : 4.1;
+
+    return deriveReadinessProfile({
+        sleepQuality: sleepSeed,
+        subjectiveReadiness: readinessSeed,
+        confidenceLevel: readinessSeed,
+        stressLevel: stressSeed,
+        sorenessLevel: sorenessSeed,
+        acwrRatio: acwr,
+        weightCutIntensityCap: trainingIntensityCap,
+        goalMode: phase.startsWith('camp-') || phase === 'fight-camp' ? 'fight_camp' : 'build_phase',
+        phase,
+        daysOut,
+        isOnActiveCut,
+        hasHardSparringScheduled,
+        hasTechnicalSessionScheduled,
+        readinessHistory: [readinessSeed, readinessSeed, readinessSeed],
+    });
 }
 
 /**
@@ -491,6 +541,27 @@ export function adaptDailySchedule(
         phase,
         trainingIntensityCap,
     } = input;
+    const daysOut = input.campConfig
+        ? Math.max(0, daysBetween(input.today, input.campConfig.fightDate))
+        : null;
+    const readinessProfile = createFallbackReadinessProfile({
+        readinessState,
+        acwr,
+        phase,
+        daysOut,
+        isOnActiveCut: trainingIntensityCap != null,
+        trainingIntensityCap,
+        hasHardSparringScheduled: todayActivities.some((activity) => activity.activity_type === 'sparring'),
+        hasTechnicalSessionScheduled: todayActivities.some((activity) => activity.activity_type === 'boxing_practice'),
+    });
+    const constraintSet = deriveStimulusConstraintSet(readinessProfile, {
+        phase,
+        goalMode: phase.startsWith('camp-') || phase === 'fight-camp' ? 'fight_camp' : 'build_phase',
+        daysOut,
+        trainingIntensityCap,
+        isSparringDay: todayActivities.some((activity) => activity.activity_type === 'sparring'),
+        hasTechnicalSession: todayActivities.some((activity) => activity.activity_type === 'boxing_practice'),
+    });
 
     const swaps: DailyAdaptationSwap[] = [];
     const adjustedActivities: ScheduledActivityRow[] = [...todayActivities] as ScheduledActivityRow[];
@@ -549,6 +620,7 @@ export function adaptDailySchedule(
             activity,
             readinessState,
             trainingIntensityCap,
+            constraintSet,
         );
 
         if (suggestion.shouldSwap) {
@@ -1131,12 +1203,37 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         const trainingIntensityCap = activeCutPlan
             ? getDailyCutIntensityCap(activeCutPlan, entryDate)
             : null;
+        const readinessProfile = createFallbackReadinessProfile({
+            readinessState,
+            acwr,
+            phase,
+            daysOut,
+            isOnActiveCut: activeCutPlan != null,
+            trainingIntensityCap,
+            hasHardSparringScheduled: hasSparringAnchor,
+            hasTechnicalSessionScheduled: scaledRecurringAnchors.some((activity) => activity.activity_type === 'boxing_practice'),
+        });
+        const constraintSet = deriveStimulusConstraintSet(readinessProfile, {
+            phase,
+            goalMode: activeCutPlan != null || campConfig != null ? 'fight_camp' : 'build_phase',
+            daysOut,
+            isSparringDay,
+            hasTechnicalSession: scaledRecurringAnchors.some((activity) => activity.activity_type === 'boxing_practice'),
+            isDeloadWeek,
+            trainingIntensityCap,
+        });
         const performanceRisk = assessPerformanceRisk({
             readinessState,
+            readinessProfile,
+            constraintSet,
             acwr,
             isDeloadWeek,
             trainingIntensityCap,
             isSparringDay,
+            campPhase,
+            goalMode: activeCutPlan != null || campConfig != null ? 'fight_camp' : 'build_phase',
+            daysOut,
+            hasTechnicalSession: scaledRecurringAnchors.some((activity) => activity.activity_type === 'boxing_practice'),
         });
         targetIntensity = Math.min(targetIntensity, performanceRisk.intensityCap);
         duration = Math.max(20, Math.round(duration * performanceRisk.volumeMultiplier));
@@ -1174,6 +1271,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         const prescriptionSnapshot = exerciseLibrary.length > 0
             ? generateWorkoutV2({
                 readinessState,
+                readinessProfile,
+                constraintSet,
                 phase,
                 acwr,
                 exerciseLibrary,

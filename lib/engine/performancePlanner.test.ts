@@ -8,7 +8,8 @@ import {
     assessPerformanceRisk,
     getGoalBasedFocusRotation,
     resolveTrainingBlockContext,
-} from '.ts';
+} from './performancePlanner.ts';
+import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 
 let passed = 0;
 let failed = 0;
@@ -103,6 +104,26 @@ console.log('\n── assessPerformanceRisk: risk triggers ──');
     const result = assessPerformanceRisk({ readinessState: 'Prime', acwr: 1.0, isSparringDay: true });
     assert('Sparring day -> yellow', result.level === 'yellow');
     assert('Sparring reason mentions support work', result.reasons.some(r => r.includes('support work')));
+})();
+
+(() => {
+    const profile = deriveReadinessProfile({
+        sleepQuality: 4,
+        subjectiveReadiness: 4,
+        confidenceLevel: 4,
+        acwrRatio: 1.0,
+        activationRPE: 7,
+        expectedActivationRPE: 4,
+        readinessHistory: [4, 4, 4],
+    });
+    const result = assessPerformanceRisk({
+        readinessState: profile.readinessState,
+        readinessProfile: profile,
+        constraintSet: deriveStimulusConstraintSet(profile, { phase: 'camp-build', goalMode: 'fight_camp', daysOut: 21 }),
+        acwr: 1.0,
+    });
+    assert('constraint-driven day requires substitution', result.requiresSubstitution === true);
+    assert('constraint-driven day carries constraint set', result.constraintSet != null);
 })();
 
 // ─── getGoalBasedFocusRotation ────────────────────────────────

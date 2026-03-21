@@ -1,4 +1,4 @@
-import { calculateCampRisk } from '.ts';
+import { calculateCampRisk } from './calculateCampRisk.ts';
 
 let passed = 0;
 let failed = 0;

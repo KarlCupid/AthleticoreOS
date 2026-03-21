@@ -5,6 +5,7 @@ import type {
   Phase,
   FightStatus,
   CyclePhase,
+  ReadinessState,
 } from './foundational.ts';
 import type { LoadMetrics } from './misc.ts';
 
@@ -57,6 +58,122 @@ export interface HydrationResult {
   shedCapPercent: number;
   shedCapLbs: number;
   message: string;
+}
+
+export type ReadinessDimension = 'neural' | 'structural' | 'metabolic';
+export type FlagLevel = 'none' | 'yellow' | 'red';
+export type FatigueTrend = 'dropping' | 'stable' | 'rebounding';
+export type PerformanceAnchorStatus = 'below_baseline' | 'normal' | 'above_baseline' | 'unknown';
+export type StimulusType =
+  | 'max_velocity'
+  | 'plyometric'
+  | 'high_impact'
+  | 'heavy_strength'
+  | 'controlled_strength'
+  | 'machine_strength'
+  | 'tempo_conditioning'
+  | 'aerobic_conditioning'
+  | 'glycolytic_conditioning'
+  | 'hard_sparring'
+  | 'technical_skill'
+  | 'recovery';
+
+export interface ReadinessFlag {
+  code: string;
+  level: FlagLevel;
+  dimension: ReadinessDimension | 'global';
+  reason: string;
+}
+
+export interface PerformanceAnchor {
+  key: 'activation_rpe' | 'cognitive_score' | 'warmup_feel';
+  label: string;
+  dimension: ReadinessDimension;
+  status: PerformanceAnchorStatus;
+  value: number | null;
+  baseline: number | null;
+  detail: string;
+}
+
+export interface StimulusConstraintSet {
+  explosiveBudget: number;
+  impactBudget: number;
+  strengthBudget: number;
+  aerobicBudget: number;
+  volumeMultiplier: number;
+  hardCaps: {
+    intensityCap: number | null;
+    allowImpact: boolean;
+    allowHardSparring: boolean;
+    maxConditioningRounds: number | null;
+  };
+  allowedStimuli: StimulusType[];
+  blockedStimuli: StimulusType[];
+}
+
+export interface ReadinessProfile {
+  neuralReadiness: number;
+  structuralReadiness: number;
+  metabolicReadiness: number;
+  overallReadiness: number;
+  trend: FatigueTrend;
+  flags: ReadinessFlag[];
+  performanceAnchors: PerformanceAnchor[];
+  readinessState: ReadinessState;
+}
+
+export interface ReadinessProfileInput {
+  sleepQuality: number | null;
+  subjectiveReadiness: number | null;
+  confidenceLevel?: number | null;
+  stressLevel?: number | null;
+  sorenessLevel?: number | null;
+  acwrRatio: number;
+  loadMetrics?: LoadMetrics | null;
+  externalHeartRateLoad?: number | null;
+  activationRPE?: number | null;
+  expectedActivationRPE?: number | null;
+  baselineCognitiveScore?: number | null;
+  latestCognitiveScore?: number | null;
+  urineColor?: number | null;
+  bodyTempF?: number | null;
+  weightCutIntensityCap?: number | null;
+  recentSparringCount48h?: number;
+  recentHighImpactCount48h?: number;
+  recentHeavyStrengthCount48h?: number;
+  goalMode?: 'build_phase' | 'fight_camp';
+  phase?: Phase | null;
+  daysOut?: number | null;
+  isOnActiveCut?: boolean;
+  hasHardSparringScheduled?: boolean;
+  hasTechnicalSessionScheduled?: boolean;
+  readinessHistory?: number[];
+  priorDayReadinessState?: ReadinessState | null;
+}
+
+export interface ConstraintContext {
+  phase?: Phase | null;
+  goalMode?: 'build_phase' | 'fight_camp';
+  daysOut?: number | null;
+  isSparringDay?: boolean;
+  hasTechnicalSession?: boolean;
+  isDeloadWeek?: boolean;
+  trainingIntensityCap?: number | null;
+}
+
+export interface MEDExposureStatus {
+  targetTouches: number;
+  scheduledTouches: number;
+  remainingTouches: number;
+  status: 'met' | 'pending' | 'at_risk' | 'missed';
+}
+
+export interface MEDStatus {
+  power: MEDExposureStatus;
+  strength: MEDExposureStatus;
+  conditioning: MEDExposureStatus;
+  overall: 'on_track' | 'at_risk' | 'missed';
+  summary: string;
 }
 
 export interface GlobalReadinessInput {

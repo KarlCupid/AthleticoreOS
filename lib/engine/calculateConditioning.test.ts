@@ -7,8 +7,9 @@
 import {
     prescribeConditioning,
     getWeeklyConditioningPlan,
-} from '.ts';
-import type { WeeklyConditioningInput, RecurringActivityRow } from '.ts';
+} from './calculateConditioning.ts';
+import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
+import type { WeeklyConditioningInput, RecurringActivityRow } from './types.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -206,6 +207,25 @@ console.log('\n── prescribeConditioning: readiness/ACWR overrides ──');
         phase: 'camp-peak', readinessState: 'Prime', acwr: 1.0, trainingIntensityCap: 3,
     }));
     assert('Intensity cap 3 forces jump_rope from camp-peak', p.type === 'jump_rope');
+})();
+
+(() => {
+    const profile = deriveReadinessProfile({
+        sleepQuality: 2,
+        subjectiveReadiness: 3,
+        acwrRatio: 1.0,
+        externalHeartRateLoad: 70,
+        weightCutIntensityCap: 4,
+        isOnActiveCut: true,
+        urineColor: 6,
+        readinessHistory: [3, 3, 3],
+    });
+    const p = prescribeConditioning(makeInput({
+        phase: 'camp-build',
+        readinessState: profile.readinessState,
+        constraintSet: deriveStimulusConstraintSet(profile, { phase: 'camp-build', goalMode: 'fight_camp', daysOut: 18 }),
+    }));
+    assert('constraint set swaps hard conditioning to lower-cost option', p.type === 'jump_rope' || p.type === 'agility_drills');
 })();
 
 // ─── Estimated load reflects type ─────────────────────────────

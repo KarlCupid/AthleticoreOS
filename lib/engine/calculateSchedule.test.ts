@@ -12,12 +12,12 @@ import {
     detectOvertrainingRisk,
     generateWeekPlan,
     getBoxingIntensityScalar,
-} from '.ts';
+} from './calculateSchedule.ts';
 import type {
     NutritionTargets,
     RecurringActivityRow,
     WeeklyTargetsRow,
-} from '.ts';
+} from './types.ts';
 
 // ─── Test Runner ───────────────────────────────────────────────
 

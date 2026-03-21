@@ -8,8 +8,8 @@ import {
     assessFitnessFromQuestionnaire,
     deriveFitnessFromHistory,
     getFitnessModifiers,
-} from '.ts';
-import type { FitnessAssessmentInput, TrainingSessionRow, WeeklyTargetsRow } from '.ts';
+} from './calculateFitness.ts';
+import type { FitnessAssessmentInput, TrainingSessionRow, WeeklyTargetsRow } from './types.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -147,7 +147,7 @@ console.log('\n── getFitnessModifiers ──');
 
 (() => {
     const beg = getFitnessModifiers('beginner', 'off-season');
-    assert('Beginner volume = 0.65', beg.volumeMultiplier === 0.65);
+    assert('Beginner volume ~0.65 (base 0.70 minus off-season -0.05)', Math.abs(beg.volumeMultiplier - 0.65) < 0.001);
     assert('Beginner intensityCap = 7', beg.intensityCap === 7);
     assert('Beginner recovery freq = 4', beg.recoveryDayFrequency === 4);
 })();

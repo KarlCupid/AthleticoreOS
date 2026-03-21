@@ -7,7 +7,7 @@ import {
   computeMacroAdherence,
   resolveDailyNutritionTargets,
   resolveDailyMacros,
-} from '.ts';
+} from './calculateNutrition.ts';
 
 let passed = 0;
 let failed = 0;

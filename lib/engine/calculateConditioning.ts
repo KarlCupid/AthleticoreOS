@@ -23,6 +23,7 @@ import type {
     CampConfig,
     WeightCutPlanRow,
 } from './types/foundational.ts';
+import type { ReadinessProfile, StimulusConstraintSet } from './types/readiness.ts';
 import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
@@ -162,6 +163,8 @@ export function prescribeConditioning(input: {
     phase: Phase;
     fitnessLevel: FitnessLevel;
     readinessState: ReadinessState;
+    readinessProfile?: ReadinessProfile | null;
+    constraintSet?: StimulusConstraintSet | null;
     acwr: number;
     sessionIndex?: number;
     activeCutPlan?: WeightCutPlanRow | null;
@@ -173,6 +176,7 @@ export function prescribeConditioning(input: {
         phase,
         fitnessLevel,
         readinessState,
+        constraintSet = null,
         acwr,
         sessionIndex = 0,
         activeCutPlan,
@@ -197,7 +201,16 @@ export function prescribeConditioning(input: {
     }
 
     // Depleted or high ACWR → force light
-    if (readinessState === 'Depleted' || acwr >= 1.4) {
+    if (constraintSet) {
+        if (constraintSet.blockedStimuli.includes('glycolytic_conditioning')) {
+            type = constraintSet.allowedStimuli.includes('aerobic_conditioning') ? 'jump_rope' : 'agility_drills';
+        }
+        if (constraintSet.blockedStimuli.includes('tempo_conditioning') && type === 'circuit') {
+            type = 'jump_rope';
+        }
+    }
+
+    if ((readinessState === 'Depleted' && !constraintSet?.allowedStimuli.includes('aerobic_conditioning')) || acwr >= 1.4) {
         type = 'jump_rope';
     }
 
@@ -218,6 +231,9 @@ export function prescribeConditioning(input: {
                 BASE_BAG_ROUNDS[fitnessLevel] *
                 (readinessState === 'Caution' ? 0.7 : 1.0)
             );
+            if (constraintSet?.hardCaps.maxConditioningRounds != null) {
+                rounds = Math.min(rounds, constraintSet.hardCaps.maxConditioningRounds);
+            }
             workIntervalSec = BAG_WORK_INTERVAL[fitnessLevel];
             restIntervalSec = BAG_REST_INTERVAL[fitnessLevel];
             totalDurationMin = Math.round(
@@ -244,6 +260,9 @@ export function prescribeConditioning(input: {
         case 'jump_rope': {
             const jrByLevel: Record<FitnessLevel, number> = { beginner: 3, intermediate: 5, advanced: 8, elite: 10 };
             rounds = jrByLevel[fitnessLevel];
+            if (constraintSet?.hardCaps.maxConditioningRounds != null) {
+                rounds = Math.min(rounds, Math.max(3, constraintSet.hardCaps.maxConditioningRounds));
+            }
             workIntervalSec = 60;
             restIntervalSec = 30;
             totalDurationMin = Math.round((rounds * (workIntervalSec + restIntervalSec)) / 60) + 3;

@@ -2,17 +2,26 @@ import type {
   CampPhase,
   PerformanceGoalType,
   PerformanceRiskState,
+  ReadinessProfile,
   ReadinessState,
+  StimulusConstraintSet,
   TrainingBlockContext,
   WorkoutFocus,
 } from './types.ts';
+import { deriveStimulusConstraintSet } from './readiness/profile.ts';
 
 interface PerformanceRiskInput {
   readinessState: ReadinessState;
+  readinessProfile?: ReadinessProfile | null;
+  constraintSet?: StimulusConstraintSet | null;
   acwr: number;
   isDeloadWeek?: boolean;
   trainingIntensityCap?: number | null;
   isSparringDay?: boolean;
+  campPhase?: CampPhase | null;
+  goalMode?: 'build_phase' | 'fight_camp';
+  daysOut?: number | null;
+  hasTechnicalSession?: boolean;
 }
 
 interface TrainingBlockInput {
@@ -56,14 +65,44 @@ function clamp(value: number, min: number, max: number): number {
 export function assessPerformanceRisk(input: PerformanceRiskInput): PerformanceRiskState {
   const {
     readinessState,
+    readinessProfile = null,
+    constraintSet = null,
     acwr,
     isDeloadWeek = false,
     trainingIntensityCap = null,
     isSparringDay = false,
+    campPhase = null,
+    goalMode = 'build_phase',
+    daysOut = null,
+    hasTechnicalSession = false,
   } = input;
+
+  const resolvedConstraintSet = constraintSet ?? deriveStimulusConstraintSet(
+    readinessProfile ?? {
+      neuralReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 62 : 34,
+      structuralReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 60 : 38,
+      metabolicReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 58 : 36,
+      overallReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 60 : 36,
+      trend: 'stable',
+      flags: [],
+      performanceAnchors: [],
+      readinessState,
+    },
+    {
+      phase: campPhase ? (`camp-${campPhase}` as const) : undefined,
+      goalMode,
+      daysOut,
+      isSparringDay,
+      hasTechnicalSession,
+      isDeloadWeek,
+      trainingIntensityCap,
+    },
+  );
 
   let severity = 0;
   const reasons: string[] = [];
+  let requiresSubstitution = false;
+  const useConstraintCap = constraintSet != null || readinessProfile != null;
 
   if (isDeloadWeek) {
     severity = Math.max(severity, 1);
@@ -107,46 +146,85 @@ export function assessPerformanceRisk(input: PerformanceRiskInput): PerformanceR
     reasons.push('sparring requires low-cost support work');
   }
 
+  if (resolvedConstraintSet.blockedStimuli.length > 0) {
+    requiresSubstitution = true;
+    severity = Math.max(
+      severity,
+      useConstraintCap && resolvedConstraintSet.blockedStimuli.includes('hard_sparring') ? 2 : 1,
+    );
+    reasons.push(`stimulus substitution is active (${resolvedConstraintSet.blockedStimuli.join(', ')})`);
+  }
+
+  if ((readinessProfile?.flags ?? []).some((flag) => flag.level === 'red')) {
+    severity = Math.max(severity, 3);
+    reasons.push('red readiness flag is active');
+  } else if ((readinessProfile?.flags ?? []).some((flag) => flag.level === 'yellow')) {
+    severity = Math.max(severity, 1);
+    reasons.push('yellow readiness flag is active');
+  }
+
   if (severity <= 0) {
     return {
       level: 'green',
-      intensityCap: 9,
+      intensityCap: useConstraintCap ? (resolvedConstraintSet.hardCaps.intensityCap ?? 9) : 9,
       volumeMultiplier: 1,
       cnsMultiplier: 1,
-      allowHighImpact: true,
+      allowHighImpact: resolvedConstraintSet.hardCaps.allowImpact,
       reasons: ['full performance window'],
+      readinessProfile,
+      constraintSet: resolvedConstraintSet,
+      requiresSubstitution,
+      protectMode: false,
     };
   }
 
   if (severity === 1) {
     return {
       level: 'yellow',
-      intensityCap: clamp(trainingIntensityCap ?? 7, 6, 7),
+      intensityCap: useConstraintCap
+        ? clamp(resolvedConstraintSet.hardCaps.intensityCap ?? trainingIntensityCap ?? 7, 5, 7)
+        : clamp(trainingIntensityCap ?? 7, 6, 7),
       volumeMultiplier: 0.9,
       cnsMultiplier: 0.9,
-      allowHighImpact: true,
+      allowHighImpact: resolvedConstraintSet.hardCaps.allowImpact,
       reasons,
+      readinessProfile,
+      constraintSet: resolvedConstraintSet,
+      requiresSubstitution: true,
+      protectMode: false,
     };
   }
 
   if (severity === 2) {
     return {
       level: 'orange',
-      intensityCap: clamp(trainingIntensityCap ?? 6, 5, 6),
+      intensityCap: useConstraintCap
+        ? clamp(resolvedConstraintSet.hardCaps.intensityCap ?? trainingIntensityCap ?? 6, 4, 6)
+        : clamp(trainingIntensityCap ?? 6, 5, 6),
       volumeMultiplier: 0.72,
       cnsMultiplier: 0.7,
-      allowHighImpact: false,
+      allowHighImpact: resolvedConstraintSet.hardCaps.allowImpact,
       reasons,
+      readinessProfile,
+      constraintSet: resolvedConstraintSet,
+      requiresSubstitution: true,
+      protectMode: false,
     };
   }
 
   return {
     level: 'red',
-    intensityCap: clamp(trainingIntensityCap ?? 4, 2, 4),
+    intensityCap: useConstraintCap
+      ? clamp(resolvedConstraintSet.hardCaps.intensityCap ?? trainingIntensityCap ?? 4, 2, 4)
+      : clamp(trainingIntensityCap ?? 4, 2, 4),
     volumeMultiplier: 0.5,
     cnsMultiplier: 0.45,
     allowHighImpact: false,
     reasons,
+    readinessProfile,
+    constraintSet: resolvedConstraintSet,
+    requiresSubstitution: true,
+    protectMode: true,
   };
 }
 

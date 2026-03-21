@@ -2,8 +2,8 @@
  * Standalone test for lib/engine/calculateWeight.ts
  */
 
-import { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from '.ts';
-import type { WeightTrendResult } from '.ts';
+import { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight.ts';
+import type { WeightTrendResult } from './types.ts';
 
 let passed = 0;
 let failed = 0;

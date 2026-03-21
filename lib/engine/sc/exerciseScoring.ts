@@ -31,6 +31,14 @@ export function scoreExerciseCandidate(
     recoveryCost += 10;
   }
 
+  if (context.constraintSet?.blockedStimuli.includes('high_impact') && exercise.cns_load >= 6) {
+    recoveryCost += 10;
+  }
+
+  if (context.constraintSet?.blockedStimuli.includes('glycolytic_conditioning') && exercise.type === 'conditioning' && exercise.cns_load >= 6) {
+    recoveryCost += 12;
+  }
+
   return {
     fitScore,
     recoveryCost,

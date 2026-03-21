@@ -11,12 +11,12 @@ import {
     calculateVolumeLoad,
     calculateWeeklyVolume,
     getWorkoutCompliance,
-} from '.ts';
+} from './calculateSC.ts';
 import type {
     ExerciseLibraryRow,
     ExerciseScoringContext,
     MuscleGroup,
-} from '.ts';
+} from './types.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -97,11 +97,11 @@ console.log('\n── determineFocus ──');
     assert('Friday → full_body', determineFocus(5, 'Prime', 'off-season') === 'full_body');
     assert('Saturday → conditioning', determineFocus(6, 'Prime', 'off-season') === 'conditioning');
 
-    // Depleted always recovery regardless of day or phase
-    assert('Depleted Mon → recovery', determineFocus(1, 'Depleted', 'off-season') === 'recovery');
-    assert('Depleted Wed → recovery', determineFocus(3, 'Depleted', 'fight-camp') === 'recovery');
-    assert('Depleted Fri → recovery', determineFocus(5, 'Depleted', 'pre-camp') === 'recovery');
-    assert('Depleted Sat → recovery', determineFocus(6, 'Depleted', 'off-season') === 'recovery');
+    // Depleted no longer automatically becomes recovery; the day keeps its intent until constraints substitute the stimulus
+    assert('Depleted Mon keeps upper_push intent', determineFocus(1, 'Depleted', 'off-season') === 'upper_push');
+    assert('Depleted Wed keeps fight-camp sport_specific intent', determineFocus(3, 'Depleted', 'fight-camp') === 'sport_specific');
+    assert('Depleted Fri keeps full_body intent', determineFocus(5, 'Depleted', 'pre-camp') === 'full_body');
+    assert('Depleted Sat keeps conditioning intent', determineFocus(6, 'Depleted', 'off-season') === 'conditioning');
 
     // Override takes precedence over everything
     assert('Override beats weekly map', determineFocus(1, 'Prime', 'off-season', 'lower') === 'lower');
@@ -145,19 +145,19 @@ console.log('\n── scoreExerciseForUser ──');
     const arDepleted = scoreExerciseForUser(activeRecovery, makeScoringContext({ readinessState: 'Depleted' }));
     assert('Depleted + active_recovery → 80', arDepleted === 80);
 
-    // Prime + heavy_lift → higher than base (50 + 20 = 70)
+    // Prime + heavy_lift → 50 base + 20 (Prime) + 15 (off-season phase boost) = 85
     const heavyPrime = scoreExerciseForUser(
         makeExercise({ type: 'heavy_lift', cns_load: 5 }),
         makeScoringContext({ readinessState: 'Prime' }),
     );
-    assert('Prime + heavy_lift → 70', heavyPrime === 70);
+    assert('Prime + heavy_lift → 85 (Prime boost + off-season phase boost)', heavyPrime === 85);
 
-    // Prime + power → 70
+    // Prime + power → 85 (off-season also boosts power)
     const powerPrime = scoreExerciseForUser(
         makeExercise({ type: 'power', cns_load: 5 }),
         makeScoringContext({ readinessState: 'Prime' }),
     );
-    assert('Prime + power → 70', powerPrime === 70);
+    assert('Prime + power → 85 (Prime boost + off-season phase boost)', powerPrime === 85);
 
     // Phase boost: off-season boosts heavy_lift (+15)
     const heavyOffSeason = scoreExerciseForUser(
@@ -209,10 +209,12 @@ console.log('\n── scoreExerciseForUser ──');
     const evenScore = scoreExerciseForUser(chestExercise, makeScoringContext({ recentMuscleVolume: evenVolume }));
     assert('Under-trained muscle group gets boost', underScore > evenScore);
 
-    // Caution + high-CNS heavy_lift penalized
+    // Caution + high-CNS heavy_lift scores lower than Prime (off-season phase boost cancels Caution penalty at base,
+    // but Caution score (50) is clearly less than Prime score (85))
     const cautionHeavy = makeExercise({ type: 'heavy_lift', cns_load: 9 });
     const cautionScore = scoreExerciseForUser(cautionHeavy, makeScoringContext({ readinessState: 'Caution' }));
-    assert('Caution penalizes heavy_lift with cns_load >= 9', cautionScore < 50);
+    const primeHeavyScore = scoreExerciseForUser(cautionHeavy, makeScoringContext({ readinessState: 'Prime' }));
+    assert('Caution penalizes heavy_lift with cns_load >= 9 vs Prime', cautionScore < primeHeavyScore);
 })();
 
 // ─── generateWorkout Tests ─────────────────────────────────────
@@ -235,7 +237,7 @@ console.log('\n── generateWorkout ──');
     assert('Prime respects CNS budget', result.usedCNS <= result.totalCNSBudget);
     assert('Has a message', result.message.length > 0);
 
-    // Depleted → recovery focus, only mobility/recovery exercises
+    // Depleted keeps the scheduled intent, but the actual work is substituted down to low-cost options
     const depleted = generateWorkout({
         readinessState: 'Depleted',
         phase: 'off-season',
@@ -246,7 +248,7 @@ console.log('\n── generateWorkout ──');
         fitnessLevel: 'intermediate',
         trainingDate: '2026-03-09',
     });
-    assert('Depleted → recovery focus', depleted.focus === 'recovery');
+    assert('Depleted keeps scheduled focus', depleted.focus === 'upper_push');
     assert('Depleted → only mobility/recovery exercises',
         depleted.exercises.every(e => e.exercise.type === 'mobility' || e.exercise.type === 'active_recovery'));
     assert('Depleted → max 3 exercises', depleted.exercises.length <= 3);

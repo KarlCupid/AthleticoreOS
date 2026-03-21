@@ -63,10 +63,18 @@ function migrateWorkoutPrescription(raw: unknown): WorkoutPrescriptionV2 | null 
 function migrateMission(raw: unknown, migratedNutrition: ResolvedNutritionTargets): DailyMission {
   const source = asObject(raw) ?? {};
   const fuelDirective = asObject(source.fuelDirective) ?? {};
+  const riskState = asObject(source.riskState) ?? {};
+  const trainingDirective = asObject(source.trainingDirective) ?? {};
 
   return {
     ...source,
     engineVersion: 'daily-engine-v3',
+    readinessProfile: asObject(source.readinessProfile) as DailyMission['readinessProfile'],
+    trainingDirective: {
+      ...trainingDirective,
+      constraintSet: asObject(trainingDirective.constraintSet) as DailyMission['trainingDirective']['constraintSet'],
+      medStatus: asObject(trainingDirective.medStatus) as DailyMission['trainingDirective']['medStatus'],
+    },
     fuelDirective: {
       ...fuelDirective,
       energyAvailability: typeof fuelDirective.energyAvailability === 'number'
@@ -75,6 +83,11 @@ function migrateMission(raw: unknown, migratedNutrition: ResolvedNutritionTarget
       fuelingFloorTriggered: Boolean(fuelDirective.fuelingFloorTriggered ?? migratedNutrition.fuelingFloorTriggered),
       safetyWarning: (fuelDirective.safetyWarning as DailyMission['fuelDirective']['safetyWarning']) ?? migratedNutrition.safetyWarning,
       reasons: asStringArray(fuelDirective.reasons),
+    },
+    riskState: {
+      ...riskState,
+      flags: Array.isArray(riskState.flags) ? riskState.flags : [],
+      anchorSummary: typeof riskState.anchorSummary === 'string' ? riskState.anchorSummary : null,
     },
   } as DailyMission;
 }

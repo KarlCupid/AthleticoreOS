@@ -2,8 +2,8 @@
  * Standalone test script for lib/engine/calculateACWR.ts
  */
 
-import { calculateACWR, getPersonalizedACWRThresholds } from '.ts';
-import type { TrainingSessionRow, LoadMetrics } from '.ts';
+import { calculateACWR, getPersonalizedACWRThresholds } from './calculateACWR.ts';
+import type { TrainingSessionRow, LoadMetrics } from './types.ts';
 
 let passed = 0;
 let failed = 0;
@@ -339,10 +339,10 @@ console.log('\n-- calculateACWR --');
   {
     const asOf = '2026-03-08';
 
-    // Low fatigue: steady low loads
+    // Low fatigue: steady very low loads (must be < 47/day to stay under score 35 threshold)
     const rowsLow: Pick<TrainingSessionRow, 'date' | 'total_load'>[] = [];
     for (let i = 0; i < 28; i++) {
-      rowsLow.push({ date: addDays(asOf, -i), total_load: 50 });
+      rowsLow.push({ date: addDays(asOf, -i), total_load: 40 });
     }
     const subLow = createMockSupabase(rowsLow);
     const resultLow = await calculateACWR({

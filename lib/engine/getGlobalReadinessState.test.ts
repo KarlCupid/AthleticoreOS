@@ -2,7 +2,7 @@
  * Standalone test for lib/engine/getGlobalReadinessState.ts
  */
 
-import { getGlobalReadinessState } from '.ts';
+import { getGlobalReadinessState } from './getGlobalReadinessState.ts';
 
 let passed = 0;
 let failed = 0;

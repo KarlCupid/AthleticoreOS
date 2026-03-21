@@ -6,9 +6,11 @@ import type {
 } from './types.ts';
 import { 
   buildDailyMission, 
+  deriveReadinessProfile,
+  deriveStimulusConstraintSet,
   getGlobalReadinessState,
   getBoxingIntensityScalar,
-  generateWorkout,
+  generateWorkoutV2,
   generateCutPlan,
   computeDailyCutProtocol
 } from '../index.ts';
@@ -330,10 +332,25 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       simulatedRiskDrivers.push('Glycogen stores are critically depleted.');
     }
 
+    const readinessProfile = deriveReadinessProfile({
+      sleepQuality: sleepLogged,
+      subjectiveReadiness: readinessLogged,
+      acwrRatio: mockACWR.ratio,
+      loadMetrics: mockACWR.loadMetrics,
+      readinessHistory: [readinessLogged],
+    });
+    const constraintSet = deriveStimulusConstraintSet(readinessProfile, {
+      phase: macrocycleContext.phase,
+      goalMode: macrocycleContext.goalMode,
+      daysOut,
+    });
+
     const mission = buildDailyMission({
       date: dateStr,
       macrocycleContext,
       readinessState,
+      readinessProfile,
+      constraintSet,
       acwr: mockACWR,
       nutritionTargets: {
         tdee: baselineTdee,
@@ -364,17 +381,21 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         expected_intensity: a.expected_intensity
       })),
       cutProtocol: cutProtocol as any,
-      workoutPrescription: generateWorkout({
+      workoutPrescription: generateWorkoutV2({
         readinessState,
+        readinessProfile,
+        constraintSet,
         phase: i < (days - 7) ? 'camp-build' : 'camp-peak',
         acwr: mockACWR.ratio,
         exerciseLibrary: currentExercises,
         recentExerciseIds,
         recentMuscleVolume: recentMuscleVolume as any,
         trainingDate: dateStr,
-        fitnessLevel: initialState.fitnessLevel as any
+        fitnessLevel: initialState.fitnessLevel as any,
+        performanceGoalType: macrocycleContext.performanceGoalType,
       }) as any,
       weeklyPlanEntry: null,
+      medStatus: null,
       riskScore: simulatedRiskScore,
       riskDrivers: simulatedRiskDrivers
     });
@@ -542,6 +563,8 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         objectiveContext: macrocycleContext,
         acwr: mockACWR,
         readinessState,
+        readinessProfile,
+        constraintSet,
         cutProtocol: null,
         nutritionTargets: mission.fuelDirective as any,
         hydration: mission.hydrationDirective as any,
@@ -550,9 +573,10 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         primaryScheduledActivity: null,
         primaryPlanEntry: null,
         primaryEnginePlanEntry: null,
-        workoutPrescription: null,
+        workoutPrescription: mission.trainingDirective.prescription ?? null,
         mission,
-        campRisk: null
+        campRisk: null,
+        medStatus: null,
       },
       stateBefore,
       stateAfter: JSON.parse(JSON.stringify(simState)),

@@ -10,12 +10,12 @@ import {
   detectStall,
   validateCutSafety,
   computeRehydrationProtocol,
-} from '.ts';
+} from './calculateWeightCut.ts';
 import type {
   WeightCutPlanRow,
   CutSafetyInput,
   WeightDataPoint,
-} from '.ts';
+} from './types.ts';
 
 let passed = 0;
 let failed = 0;

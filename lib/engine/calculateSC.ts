@@ -24,10 +24,17 @@ import type {
     PerformanceRiskState,
     TrainingBlockContext,
 } from './types/training.ts';
+import type {
+    MEDStatus,
+    ReadinessProfile,
+    StimulusConstraintSet,
+    StimulusType,
+} from './types/readiness.ts';
 import { getRestTimerDefaults } from './adaptiveWorkout.ts';
 import { assessPerformanceRisk } from './performancePlanner.ts';
 import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
 import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
+import { deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseScoring.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
@@ -119,20 +126,23 @@ export function determineFocus(
     readinessState: ReadinessState,
     phase: Phase,
     overrideFocus?: WorkoutFocus,
+    constraintSet?: StimulusConstraintSet | null,
 ): WorkoutFocus {
     if (overrideFocus) return overrideFocus;
 
-    // Depleted → always recovery
-    if (readinessState === 'Depleted') return 'recovery';
-
     // Fight camp adjustments: more sport-specific work
     if (phase === 'fight-camp') {
-        if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) return 'sport_specific';
-        if (dayOfWeek === 2 || dayOfWeek === 4) return 'conditioning';
-        return 'recovery';
+        if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) return resolveFocusFromConstraints('sport_specific', constraintSet);
+        if (dayOfWeek === 2 || dayOfWeek === 4) return resolveFocusFromConstraints('conditioning', constraintSet);
+        return resolveFocusFromConstraints('recovery', constraintSet);
     }
 
-    return WEEKLY_FOCUS_MAP[dayOfWeek] ?? 'full_body';
+    const baseFocus = WEEKLY_FOCUS_MAP[dayOfWeek] ?? 'full_body';
+    if (readinessState === 'Depleted' && constraintSet && constraintSet.strengthBudget >= 50) {
+        return resolveFocusFromConstraints(baseFocus === 'recovery' ? 'full_body' : baseFocus, constraintSet);
+    }
+
+    return resolveFocusFromConstraints(baseFocus, constraintSet);
 }
 
 // ─── Exercise Scoring ──────────────────────────────────────────
@@ -155,11 +165,15 @@ export function scoreExerciseForUser(
     context: ExerciseScoringContext,
 ): number {
     let score = 50;
+    const constraintSet = context.constraintSet ?? null;
+    const stimuli = getExerciseStimuli(exercise);
 
     // 1. Readiness × exercise type alignment
     if (context.readinessState === 'Depleted') {
         if (exercise.type === 'heavy_lift' || exercise.type === 'power') {
-            return 0; // too heavy for depleted state
+            if (!constraintSet || constraintSet.strengthBudget < 50 || stimuli.includes('heavy_strength') || stimuli.includes('max_velocity')) {
+                return 0; // too heavy for depleted state
+            }
         }
         if (exercise.type === 'mobility' || exercise.type === 'active_recovery') {
             score += 30;
@@ -196,6 +210,35 @@ export function scoreExerciseForUser(
     const boostedTypes = PHASE_BOOSTS[context.phase] ?? [];
     if (boostedTypes.includes(exercise.type)) {
         score += 15;
+    }
+
+    if (constraintSet) {
+        const blockedHit = stimuli.filter((stimulus) => constraintSet.blockedStimuli.includes(stimulus));
+        if (blockedHit.length > 0) {
+            if (stimuli.includes('recovery') && constraintSet.allowedStimuli.includes('recovery')) {
+                score += 10;
+            } else if (blockedHit.includes('high_impact') || blockedHit.includes('hard_sparring')) {
+                return 0;
+            } else {
+                score -= 30;
+            }
+        }
+
+        if (stimuli.includes('machine_strength') && constraintSet.allowedStimuli.includes('machine_strength')) {
+            score += 12;
+        }
+        if (stimuli.includes('controlled_strength') && constraintSet.allowedStimuli.includes('controlled_strength')) {
+            score += 8;
+        }
+        if (stimuli.includes('aerobic_conditioning') && constraintSet.allowedStimuli.includes('aerobic_conditioning')) {
+            score += 10;
+        }
+        if (stimuli.includes('tempo_conditioning') && constraintSet.allowedStimuli.includes('tempo_conditioning')) {
+            score += 6;
+        }
+        if (stimuli.includes('technical_skill') && constraintSet.allowedStimuli.includes('technical_skill')) {
+            score += 8;
+        }
     }
 
     // 3. Recency penalty — don't repeat the same exercise within 48h
@@ -309,14 +352,19 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
         fitnessLevel,
         trainingAge,
         complianceHistory28d,
+        readinessProfile,
+        constraintSet,
     } = input;
 
     const dayOfWeek = resolveDayOfWeek(trainingDate);
+    const resolvedConstraintSet = constraintSet ?? (readinessProfile
+        ? deriveStimulusConstraintSet(readinessProfile, { phase, trainingIntensityCap })
+        : null);
 
     // Weight cut fight week (cap <= 4): force recovery focus
-    const effectiveFocus = (trainingIntensityCap != null && trainingIntensityCap <= 4)
+    const effectiveFocus = (trainingIntensityCap != null && trainingIntensityCap <= 4 && (resolvedConstraintSet?.strengthBudget ?? 0) < 50)
         ? 'recovery' as WorkoutFocus
-        : determineFocus(dayOfWeek, readinessState, phase, overrideFocus);
+        : determineFocus(dayOfWeek, readinessState, phase, overrideFocus, resolvedConstraintSet);
 
     // Scale CNS budget proportionally when intensity cap is present
     const baseCNSBudget = getCalibratedCNSBudget({
@@ -349,6 +397,8 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
     const scored = focusExercises.map(exercise => {
         const fitScore = scoreExerciseForUser(exercise, {
             readinessState,
+            readinessProfile,
+            constraintSet: resolvedConstraintSet,
             phase,
             acwr,
             recentExerciseIds,
@@ -359,6 +409,8 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
         });
         const candidate = scoreExerciseCandidate(exercise, fitScore, {
             readinessState,
+            readinessProfile,
+            constraintSet: resolvedConstraintSet,
             phase,
             acwr,
             recentExerciseIds,
@@ -603,11 +655,34 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         performanceGoalType,
         performanceRisk,
         blockContext,
+        readinessProfile,
+        constraintSet,
+        medStatus = null,
     } = input;
+
+    const resolvedConstraintSet = constraintSet ?? deriveStimulusConstraintSet(
+        readinessProfile ?? {
+            neuralReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 62 : 34,
+            structuralReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 60 : 38,
+            metabolicReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 58 : 36,
+            overallReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 60 : 36,
+            trend: 'stable',
+            flags: [],
+            performanceAnchors: [],
+            readinessState,
+        },
+        {
+            phase,
+            daysOut: null,
+            isSparringDay,
+            isDeloadWeek,
+            trainingIntensityCap,
+        },
+    );
 
     // Sparring day: return activation-only workout
     if (isSparringDay) {
-        return buildSparringDayWorkout(exerciseLibrary, gymEquipment, phase);
+        return buildSparringDayWorkout(exerciseLibrary, gymEquipment, phase, readinessProfile ?? null, resolvedConstraintSet, medStatus);
     }
 
     const dayOfWeek = resolveDayOfWeek(trainingDate);
@@ -616,12 +691,14 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     const focusOverride = weeklyPlanFocus ?? overrideFocus;
 
     // Weight cut fight week (cap <= 4): force recovery
-    const effectiveFocus = (trainingIntensityCap != null && trainingIntensityCap <= 4)
+    const effectiveFocus = (trainingIntensityCap != null && trainingIntensityCap <= 4 && resolvedConstraintSet.strengthBudget < 50)
         ? 'recovery' as WorkoutFocus
-        : determineFocus(dayOfWeek, readinessState, phase, focusOverride);
+        : determineFocus(dayOfWeek, readinessState, phase, focusOverride, resolvedConstraintSet);
 
     const resolvedPerformanceRisk = performanceRisk ?? assessPerformanceRisk({
         readinessState,
+        readinessProfile,
+        constraintSet: resolvedConstraintSet,
         acwr,
         isDeloadWeek,
         trainingIntensityCap,
@@ -647,6 +724,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     if (resolvedBlockContext) {
         baseCNSBudget = Math.round(baseCNSBudget * resolvedBlockContext.volumeMultiplier);
     }
+    baseCNSBudget = Math.round(baseCNSBudget * resolvedConstraintSet.volumeMultiplier);
     const rawCNSBudget = baseCNSBudget * resolvedPerformanceRisk.cnsMultiplier;
     const minimumBudget = Math.max(8, Math.round(calibratedBaseBudget * 0.55));
     const flooredBudget = Math.max(rawCNSBudget, minimumBudget);
@@ -680,6 +758,8 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         exercise,
         ...scoreExerciseCandidate(exercise, scoreExerciseForUser(exercise, {
             readinessState,
+            readinessProfile,
+            constraintSet: resolvedConstraintSet,
             phase,
             acwr,
             recentExerciseIds,
@@ -693,6 +773,8 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             recoveryBudget: totalCNSBudget,
         }), {
             readinessState,
+            readinessProfile,
+            constraintSet: resolvedConstraintSet,
             phase,
             acwr,
             recentExerciseIds,
@@ -762,9 +844,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     } else if (trainingIntensityCap != null) {
         message = `Weight cut active — intensity capped at ${trainingIntensityCap}/10. ${capitalize(focusLabel)} session adjusted for your cut.`;
     } else if (readinessState === 'Depleted') {
-        message = `Recovery day. Light mobility and active recovery.`;
+        message = `Low-readiness day. Training intent stays alive, but the stimulus has been substituted to fit today's constraints.`;
     } else if (readinessState === 'Caution') {
-        message = `Moderate ${focusLabel} session. Volume pulled back.`;
+        message = `Moderate ${focusLabel} session. Stimulus is adjusted to protect the wrong stress while keeping productive work in.`;
     } else {
         message = `${capitalize(focusLabel)} day. You're in Prime shape — go after it.`;
     }
@@ -799,12 +881,112 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         sessionIntent,
         primaryAdaptation,
         performanceRisk: resolvedPerformanceRisk,
+        readinessProfile: readinessProfile ?? null,
+        constraintSet: resolvedConstraintSet,
+        medStatus,
         blockContext: resolvedBlockContext,
         decisionTrace,
         expectedActivationRPE: 4,
         activationGuidance: 'Log the activation block before main work. If it feels 2+ RPE above plan, the session should downshift.',
         interferenceWarnings: [],
     };
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+function focusBlockedByConstraints(
+    focus: WorkoutFocus,
+    constraintSet?: StimulusConstraintSet | null,
+): boolean {
+    if (!constraintSet) return false;
+
+    if (focus === 'conditioning') {
+        return constraintSet.blockedStimuli.includes('glycolytic_conditioning')
+            && constraintSet.blockedStimuli.includes('tempo_conditioning')
+            && constraintSet.aerobicBudget < 40;
+    }
+
+    if (focus === 'sport_specific') {
+        return constraintSet.blockedStimuli.includes('hard_sparring')
+            && constraintSet.blockedStimuli.includes('high_impact')
+            && constraintSet.explosiveBudget < 40;
+    }
+
+    if (focus === 'lower' || focus === 'upper_push' || focus === 'upper_pull' || focus === 'full_body') {
+        return constraintSet.blockedStimuli.includes('heavy_strength')
+            && constraintSet.blockedStimuli.includes('controlled_strength')
+            && constraintSet.strengthBudget < 40;
+    }
+
+    return false;
+}
+
+function resolveFocusFromConstraints(
+    focus: WorkoutFocus,
+    constraintSet?: StimulusConstraintSet | null,
+): WorkoutFocus {
+    if (!constraintSet) return focus;
+    if (!focusBlockedByConstraints(focus, constraintSet)) return focus;
+
+    if (constraintSet.strengthBudget >= 50 && !constraintSet.blockedStimuli.includes('controlled_strength')) {
+        return focus === 'conditioning' ? 'full_body' : focus;
+    }
+
+    if (constraintSet.aerobicBudget >= 48 && !constraintSet.blockedStimuli.includes('aerobic_conditioning')) {
+        return 'conditioning';
+    }
+
+    return 'recovery';
+}
+
+function getExerciseStimuli(exercise: ExerciseLibraryRow): StimulusType[] {
+    const stimuli: StimulusType[] = [];
+    const name = exercise.name.toLowerCase();
+
+    if (exercise.type === 'power') {
+        stimuli.push('max_velocity');
+        if (name.includes('jump') || name.includes('bound') || name.includes('plyo')) {
+            stimuli.push('plyometric', 'high_impact');
+        }
+    }
+
+    if (exercise.type === 'heavy_lift') {
+        if (exercise.equipment === 'machine') {
+            stimuli.push('machine_strength', 'controlled_strength');
+        } else if (exercise.cns_load >= 7) {
+            stimuli.push('heavy_strength');
+        } else {
+            stimuli.push('controlled_strength');
+        }
+        if (name.includes('split squat') || name.includes('lunge') || name.includes('single')) {
+            stimuli.push('controlled_strength');
+        }
+    }
+
+    if (exercise.type === 'conditioning') {
+        if (exercise.cns_load >= 6 || name.includes('sprint') || name.includes('bag')) {
+            stimuli.push('glycolytic_conditioning');
+        } else if (exercise.cns_load >= 4) {
+            stimuli.push('tempo_conditioning');
+        } else {
+            stimuli.push('aerobic_conditioning');
+        }
+    }
+
+    if (exercise.type === 'sport_specific') {
+        stimuli.push('technical_skill');
+        if (exercise.cns_load >= 6) {
+            stimuli.push('hard_sparring', 'high_impact');
+        }
+    }
+
+    if (exercise.type === 'mobility' || exercise.type === 'active_recovery') {
+        stimuli.push('recovery');
+    }
+
+    return stimuli.length > 0 ? stimuli : ['recovery'];
 }
 
 /**
@@ -814,6 +996,9 @@ function buildSparringDayWorkout(
     library: ExerciseLibraryRow[],
     gymEquipment?: EquipmentItem[],
     phase?: Phase,
+    readinessProfile?: ReadinessProfile | null,
+    constraintSet?: StimulusConstraintSet | null,
+    medStatus?: MEDStatus | null,
 ): WorkoutPrescriptionV2 {
     let exercises = library.filter(e =>
         e.type === 'mobility' || e.type === 'active_recovery' ||
@@ -905,6 +1090,9 @@ function buildSparringDayWorkout(
         sessionIntent: 'Support sparring with low-cost activation and mobility only.',
         primaryAdaptation: 'recovery',
         performanceRisk: null,
+        readinessProfile: readinessProfile ?? null,
+        constraintSet: constraintSet ?? null,
+        medStatus: medStatus ?? null,
         blockContext: null,
         decisionTrace: ['focus:recovery', 'sparring day activation'],
     };

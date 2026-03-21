@@ -2,7 +2,7 @@
  * Standalone test for lib/engine/getHydrationProtocol.ts
  */
 
-import { getHydrationProtocol, getCutHydrationProtocol } from '.ts';
+import { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol.ts';
 
 let passed = 0;
 let failed = 0;

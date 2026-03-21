@@ -85,7 +85,9 @@ function inferSessionRole(input: {
   }
   if (campPhase === 'taper') return 'taper_sharpen';
   if (hasSparring || focus === 'sport_specific') return 'spar_support';
-  if (campPhase === 'peak' || (intensityCap ?? 0) >= 8) return 'express';
+  if (campPhase === 'peak') return 'express';
+  if (campPhase === 'build' || campPhase === 'base') return 'develop';
+  if ((intensityCap ?? 0) >= 8 && !isOnActiveCut) return 'express';
   if (focus === 'recovery') return 'recover';
   return 'develop';
 }
@@ -192,6 +194,10 @@ function getSodiumRestrictionInterpretation(input: BuildDailyMissionInput): stri
 function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
   const drivers = [...(input.riskDrivers ?? [])];
   let score = input.riskScore ?? 8;
+  const anchorSummary = input.readinessProfile.performanceAnchors
+    .filter((anchor) => anchor.status === 'below_baseline')
+    .map((anchor) => anchor.label)
+    .join(', ');
 
   if (input.acwr.status === 'redline') {
     score += 20;
@@ -207,6 +213,16 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
   } else if (input.readinessState === 'Caution') {
     score += 10;
     drivers.push('Readiness is below peak.');
+  }
+
+  const yellowFlags = input.readinessProfile.flags.filter((flag) => flag.level === 'yellow').length;
+  const redFlags = input.readinessProfile.flags.filter((flag) => flag.level === 'red').length;
+  score += yellowFlags * 4;
+  score += redFlags * 9;
+  if (redFlags > 0) {
+    drivers.push('Red readiness flags are active.');
+  } else if (yellowFlags > 0) {
+    drivers.push('Yellow readiness flags are shaping the day.');
   }
 
   if (input.macrocycleContext.isTravelWindow) {
@@ -245,6 +261,8 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
     score: Math.max(0, Math.min(100, Math.round(score))),
     label,
     drivers: drivers.length > 0 ? drivers : ['No major risk drivers detected.'],
+    flags: input.readinessProfile.flags,
+    anchorSummary: anchorSummary || null,
   };
 }
 
@@ -262,6 +280,7 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     ?? input.workoutPrescription?.estimatedDurationMin
     ?? null;
   let intensityCap = input.cutProtocol?.training_intensity_cap
+    ?? input.constraintSet.hardCaps.intensityCap
     ?? input.weeklyPlanEntry?.target_intensity
     ?? null;
   const intervention = checkInterventionStatus(riskState, intensityCap);
@@ -288,6 +307,9 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     workoutType,
     intent: getRoleIntent(sessionRole, input.macrocycleContext.performanceObjective.primaryOutcome, focus),
     reason: intervention.reason
+      ?? (input.readinessProfile.flags.length > 0
+        ? `The engine is preserving training intent by swapping out the wrong stress for today's readiness profile.`
+        : undefined)
       ?? (riskState.level === 'low'
         ? `Today supports ${input.macrocycleContext.performanceObjective.primaryOutcome.toLowerCase()} with a clear execution window.`
         : `Today is being controlled to respect ${riskState.drivers[0].toLowerCase()}`),
@@ -295,6 +317,8 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     durationMin,
     volumeTarget: summarizeVolume(durationMin, input.workoutPrescription?.exercises.length ?? 0),
     keyQualities: getKeyQualities(sessionRole, focus),
+    constraintSet: input.constraintSet,
+    medStatus: input.medStatus ?? null,
     source,
     prescription: input.workoutPrescription,
   };
@@ -541,8 +565,18 @@ function buildDecisionTrace(
       subsystem: 'risk',
       title: 'Risk control',
       detail: trainingDirective.reason,
-      humanInterpretation: getAcwrInterpretation(input.acwr.status),
+      humanInterpretation: riskState.anchorSummary ?? getAcwrInterpretation(input.acwr.status),
       impact: riskState.level === 'critical' ? 'escalated' : 'restricted',
+    });
+  }
+
+  if (input.medStatus && input.medStatus.overall !== 'on_track') {
+    trace.push({
+      subsystem: 'training',
+      title: 'MED protection',
+      detail: input.medStatus.summary,
+      humanInterpretation: 'The week still needs key exposure touches, so today keeps the intent alive with safer substitutions.',
+      impact: 'adjusted',
     });
   }
 
@@ -602,6 +636,7 @@ export function buildDailyMission(input: BuildDailyMissionInput): DailyMission {
     summary: `${trainingDirective.interventionState === 'none' ? trainingDirective.intent : trainingDirective.reason} ${fuelDirective.message}`,
     objective: input.macrocycleContext.performanceObjective,
     macrocycleContext: input.macrocycleContext,
+    readinessProfile: input.readinessProfile,
     trainingDirective,
     fuelDirective,
     hydrationDirective,
@@ -622,6 +657,8 @@ export function buildMicrocyclePlan(input: BuildMicrocyclePlanInput): WeeklyMiss
         date: entry.date,
       },
       readinessState: input.readinessState,
+      readinessProfile: input.readinessProfile,
+      constraintSet: input.constraintSet,
       acwr: input.acwr,
       nutritionTargets: input.baseNutritionTargets,
       hydration: input.hydration,
@@ -635,6 +672,7 @@ export function buildMicrocyclePlan(input: BuildMicrocyclePlanInput): WeeklyMiss
       cutProtocol: null,
       workoutPrescription: entry.prescription_snapshot ?? null,
       weeklyPlanEntry: entry,
+      medStatus: input.medStatus ?? null,
     });
 
     return {

@@ -10,7 +10,14 @@ import type {
   WeighInTiming,
 } from './foundational.ts';
 import type { Phase, ReadinessState, WorkoutFocus, WorkoutType } from './foundational.ts';
-import type { ACWRResult, HydrationResult } from './readiness.ts';
+import type {
+  ACWRResult,
+  HydrationResult,
+  MEDStatus,
+  ReadinessFlag,
+  ReadinessProfile,
+  StimulusConstraintSet,
+} from './readiness.ts';
 import type { ScheduledActivityRow, WeeklyPlanEntryRow } from './schedule.ts';
 import type { FuelState, ResolvedNutritionTargets } from './nutrition.ts';
 import type { WorkoutPrescriptionV2 } from './training.ts';
@@ -83,6 +90,8 @@ export interface TrainingDirective {
   durationMin: number | null;
   volumeTarget: string;
   keyQualities: string[];
+  constraintSet?: StimulusConstraintSet | null;
+  medStatus?: MEDStatus | null;
   source: DirectiveSource;
   prescription: WorkoutPrescriptionV2 | null;
 }
@@ -129,6 +138,8 @@ export interface MissionRiskState {
   score: number;
   label: string;
   drivers: string[];
+  flags?: ReadinessFlag[];
+  anchorSummary?: string | null;
 }
 
 export interface DecisionTraceItem {
@@ -152,6 +163,7 @@ export interface DailyMission {
   summary: string;
   objective: PerformanceObjective;
   macrocycleContext: MacrocycleContext;
+  readinessProfile?: ReadinessProfile;
   trainingDirective: TrainingDirective;
   fuelDirective: FuelDirective;
   hydrationDirective: HydrationDirective;
@@ -186,6 +198,8 @@ export interface BuildDailyMissionInput {
   date: string;
   macrocycleContext: MacrocycleContext;
   readinessState: ReadinessState;
+  readinessProfile: ReadinessProfile;
+  constraintSet: StimulusConstraintSet;
   acwr: ACWRResult;
   nutritionTargets: ResolvedNutritionTargets;
   hydration: HydrationResult;
@@ -193,6 +207,7 @@ export interface BuildDailyMissionInput {
   cutProtocol: DailyCutProtocolRow | null;
   workoutPrescription: WorkoutPrescriptionV2 | null;
   weeklyPlanEntry: WeeklyPlanEntryRow | null;
+  medStatus?: MEDStatus | null;
   riskScore?: number | null;
   riskDrivers?: string[];
 }
@@ -201,9 +216,12 @@ export interface BuildMicrocyclePlanInput {
   entries: WeeklyPlanEntryRow[];
   macrocycleContext: MacrocycleContext;
   readinessState: ReadinessState;
+  readinessProfile: ReadinessProfile;
+  constraintSet: StimulusConstraintSet;
   acwr: ACWRResult;
   baseNutritionTargets: ResolvedNutritionTargets;
   hydration: HydrationResult;
+  medStatus?: MEDStatus | null;
 }
 
 export interface WeeklyMissionPlan {
@@ -218,6 +236,8 @@ export interface DailyEngineState {
   objectiveContext: MacrocycleContext;
   acwr: ACWRResult;
   readinessState: ReadinessState;
+  readinessProfile: ReadinessProfile;
+  constraintSet: StimulusConstraintSet;
   cutProtocol: DailyCutProtocolRow | null;
   nutritionTargets: ResolvedNutritionTargets;
   hydration: HydrationResult;
@@ -229,4 +249,5 @@ export interface DailyEngineState {
   workoutPrescription: WorkoutPrescriptionV2 | null;
   mission: DailyMission;
   campRisk: CampRiskAssessment | null;
+  medStatus: MEDStatus | null;
 }

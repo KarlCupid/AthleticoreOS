@@ -18,6 +18,11 @@ import type {
 } from './misc.ts';
 import type { CampConfig, CampPhase } from './camp.ts';
 import type {
+  MEDStatus,
+  ReadinessProfile,
+  StimulusConstraintSet,
+} from './readiness.ts';
+import type {
   DailyTimelineRow,
   RecurringActivityRow,
   ScheduledActivityRow,
@@ -63,6 +68,8 @@ export interface PrescribedExercise {
 
 export interface ExerciseScoringContext {
   readinessState: ReadinessState;
+  readinessProfile?: ReadinessProfile | null;
+  constraintSet?: StimulusConstraintSet | null;
   phase: Phase;
   acwr: number;
   recentExerciseIds: string[];
@@ -78,6 +85,8 @@ export interface ExerciseScoringContext {
 
 export interface GenerateWorkoutInput {
   readinessState: ReadinessState;
+  readinessProfile?: ReadinessProfile | null;
+  constraintSet?: StimulusConstraintSet | null;
   phase: Phase;
   acwr: number;
   exerciseLibrary: ExerciseLibraryRow[];
@@ -133,6 +142,8 @@ export interface AutoRegulateSCInput {
   boxingBlock: DailyTimelineRow;
   next24hBlocks: DailyTimelineRow[];
   exerciseLibrary: ExerciseLibraryRow[];
+  readinessProfile?: ReadinessProfile | null;
+  constraintSet?: StimulusConstraintSet | null;
 }
 
 export interface AutoRegulateSCResult {
@@ -433,6 +444,7 @@ export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
   performanceGoalType?: PerformanceGoalType;
   performanceRisk?: PerformanceRiskState | null;
   blockContext?: TrainingBlockContext | null;
+  medStatus?: MEDStatus | null;
 }
 
 export interface PrescribedExerciseV2 extends PrescribedExercise {
@@ -560,6 +572,10 @@ export interface PerformanceRiskState {
   cnsMultiplier: number;
   allowHighImpact: boolean;
   reasons: string[];
+  readinessProfile?: ReadinessProfile | null;
+  constraintSet?: StimulusConstraintSet | null;
+  requiresSubstitution?: boolean;
+  protectMode?: boolean;
 }
 
 export interface TrainingBlockContext {
@@ -586,6 +602,9 @@ export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   sessionIntent: string | null;
   primaryAdaptation: 'strength' | 'power' | 'conditioning' | 'recovery' | 'mixed';
   performanceRisk: PerformanceRiskState | null;
+  readinessProfile?: ReadinessProfile | null;
+  constraintSet?: StimulusConstraintSet | null;
+  medStatus?: MEDStatus | null;
   blockContext: TrainingBlockContext | null;
   decisionTrace: string[];
   expectedActivationRPE?: number | null;

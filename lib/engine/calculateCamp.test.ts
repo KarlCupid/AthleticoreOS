@@ -12,8 +12,8 @@ import {
     toCampEnginePhase,
     getAutoTaperMultiplier,
     getCampSCModifier,
-} from '.ts';
-import type { CampPlanInput, CampConfig } from '.ts';
+} from './calculateCamp.ts';
+import type { CampPlanInput, CampConfig } from './types.ts';
 
 // ─── Helpers ───────────────────────────────────────────────────
 

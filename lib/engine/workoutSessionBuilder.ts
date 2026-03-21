@@ -556,9 +556,13 @@ function resolveSessionArchetype(
     if (risk.level === 'red') return SESSION_ARCHETYPES.recovery;
 
     const base = SESSION_ARCHETYPES[focus] ?? SESSION_ARCHETYPES.full_body;
+    const blockedStimuli = risk.constraintSet?.blockedStimuli ?? [];
     return base.filter(section => {
         if (risk.level === 'orange' && (section.template === 'power' || section.template === 'finisher')) return false;
         if (risk.level === 'yellow' && section.template === 'finisher') return false;
+        if (section.template === 'power' && (blockedStimuli.includes('max_velocity') || blockedStimuli.includes('plyometric'))) return false;
+        if (section.template === 'finisher' && (blockedStimuli.includes('glycolytic_conditioning') || blockedStimuli.includes('tempo_conditioning'))) return false;
+        if (focus === 'sport_specific' && section.template === 'power' && blockedStimuli.includes('hard_sparring')) return false;
         return true;
     });
 }

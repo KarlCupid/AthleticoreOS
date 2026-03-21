@@ -4,7 +4,8 @@
  * Run with:  npx tsx lib/engine/calculateMission.test.ts
  */
 
-import { buildDailyMission } from '.ts';
+import { buildDailyMission } from './calculateMission.ts';
+import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 
 let passed = 0;
 let failed = 0;
@@ -45,6 +46,20 @@ function makeAcwr(overrides: Record<string, any> = {}) {
 }
 
 function makeInput(overrides: Record<string, any> = {}) {
+    const readinessProfile = deriveReadinessProfile({
+        sleepQuality: 4,
+        subjectiveReadiness: 4,
+        confidenceLevel: 4,
+        stressLevel: 2,
+        sorenessLevel: 2,
+        acwrRatio: 1.05,
+        readinessHistory: [4, 4, 4],
+    });
+    const constraintSet = deriveStimulusConstraintSet(readinessProfile, {
+        phase: 'fight-camp',
+        goalMode: 'fight_camp',
+        daysOut: 30,
+    });
     return {
         date: '2026-03-10',
         macrocycleContext: {
@@ -71,6 +86,8 @@ function makeInput(overrides: Record<string, any> = {}) {
             weightTrend: null,
         },
         readinessState: 'Prime',
+        readinessProfile,
+        constraintSet,
         acwr: makeAcwr(),
         nutritionTargets: {
             tdee: 2600,
@@ -107,6 +124,7 @@ function makeInput(overrides: Record<string, any> = {}) {
         cutProtocol: null,
         workoutPrescription: null,
         weeklyPlanEntry: null,
+        medStatus: null,
         riskScore: 8,
         riskDrivers: [],
         ...overrides,
@@ -203,11 +221,11 @@ console.log('\n── Risk state scoring ──');
 })();
 
 (() => {
-    // High risk: Depleted + caution ACWR
+    // High risk: Depleted + caution ACWR (20 base + 10 caution + 20 Depleted = 50; use 26 to reach 56 → 'high')
     const mission = buildDailyMission(makeInput({
         readinessState: 'Depleted',
         acwr: makeAcwr({ status: 'caution', ratio: 1.35 }),
-        riskScore: 20,
+        riskScore: 26,
     }));
     assert('Depleted + caution ACWR -> score >= 55', mission.riskState.score >= 55);
     assert('High risk level', mission.riskState.level === 'high' || mission.riskState.level === 'critical');
@@ -321,9 +339,11 @@ console.log('\n── Output structure ──');
     assert('Has summary', typeof mission.summary === 'string' && mission.summary.length > 0);
     assert('Has engineVersion', mission.engineVersion === 'daily-engine-v3');
     assert('Has date', mission.date === '2026-03-10');
+    assert('Has readinessProfile', mission.readinessProfile != null);
     assert('Has recoveryDirective', mission.recoveryDirective != null);
     assert('Has fuelDirective', mission.fuelDirective != null);
     assert('Has hydrationDirective', mission.hydrationDirective != null);
+    assert('Training directive includes constraintSet', mission.trainingDirective.constraintSet != null);
 })();
 
 // ─── Summary ───────────────────────────────────────────────────

@@ -10,8 +10,8 @@ import {
     detectPR,
     shouldDeload,
     selectProgressionModel,
-} from '.ts';
-import type { ExerciseHistoryEntry, PRRecord } from '.ts';
+} from './calculateOverload.ts';
+import type { ExerciseHistoryEntry, PRRecord } from './types.ts';
 
 let passed = 0;
 let failed = 0;
@@ -427,11 +427,14 @@ console.log('\n── detectPR ──');
     assert('Weight PR previous = 220', weightPR.previousBest === 220);
     assert('Weight PR new = 225', weightPR.newValue === 225);
 
-    // No PR: weight below existing
+    // No PR: weight below existing, reps below existing, e1RM below existing
+    // detectPR checks weight, reps, and estimated_1rm — all must be covered to avoid a false positive
     const noPR = detectPR('ex-1', 'Bench Press', 200, 5, 8, [
         { id: 'pr-1', exerciseId: 'ex-1', exerciseName: 'Bench Press', prType: 'weight', value: 225, repsAtPR: 5, weightAtPR: 225, rpeAtPR: 8, date: '2026-03-01' },
+        { id: 'pr-2', exerciseId: 'ex-1', exerciseName: 'Bench Press', prType: 'reps', value: 8, repsAtPR: 8, weightAtPR: 200, rpeAtPR: 8, date: '2026-03-01' },
+        { id: 'pr-3', exerciseId: 'ex-1', exerciseName: 'Bench Press', prType: 'estimated_1rm', value: 265, repsAtPR: 5, weightAtPR: 225, rpeAtPR: 8, date: '2026-03-01' },
     ]);
-    assert('No weight PR when below existing', noPR.isNewPR === false);
+    assert('No PR when weight, reps, and e1RM are all below existing', noPR.isNewPR === false);
 
     // Weight = 0 → no PR
     const zeroWeight = detectPR('ex-1', 'Bench Press', 0, 5, 8, []);

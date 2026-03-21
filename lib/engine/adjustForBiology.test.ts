@@ -2,7 +2,7 @@
  * Standalone test for lib/engine/adjustForBiology.ts
  */
 
-import { adjustForBiology } from '.ts';
+import { adjustForBiology } from './adjustForBiology.ts';
 
 let passed = 0;
 let failed = 0;

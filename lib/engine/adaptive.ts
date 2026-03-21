@@ -112,6 +112,7 @@ export function autoRegulateSC({
     boxingBlock,
     next24hBlocks,
     exerciseLibrary,
+    constraintSet,
 }: AutoRegulateSCInput): AutoRegulateSCResult {
     // Guard: only triggers when boxing intensity was genuinely high.
     if (
@@ -146,33 +147,43 @@ export function autoRegulateSC({
         };
     }
 
-    // Pick the lowest-CNS-load mobility exercise as the replacement.
+    const lowCostStrength = exerciseLibrary
+        .filter((ex: ExerciseLibraryRow) => ex.type === 'heavy_lift' && ex.cns_load <= 5 && (ex.equipment === 'machine' || ex.cns_load <= 4))
+        .sort((a: ExerciseLibraryRow, b: ExerciseLibraryRow) => a.cns_load - b.cns_load);
     const mobilityExercises = exerciseLibrary
-        .filter((ex: ExerciseLibraryRow) => ex.type === 'mobility')
+        .filter((ex: ExerciseLibraryRow) => ex.type === 'mobility' || ex.type === 'active_recovery')
         .sort((a: ExerciseLibraryRow, b: ExerciseLibraryRow) => a.cns_load - b.cns_load);
 
-    if (mobilityExercises.length === 0) {
+    const canKeepStrengthIntent = Boolean(
+        constraintSet
+        && constraintSet.allowedStimuli.includes('controlled_strength')
+        && !constraintSet.blockedStimuli.includes('high_impact')
+        && lowCostStrength.length > 0,
+    );
+    const replacement = canKeepStrengthIntent ? lowCostStrength[0] : mobilityExercises[0];
+
+    if (!replacement) {
         return {
             swapped: false,
             originalBlockId: heavyLiftBlock.id,
             replacementType: null,
             message:
-                'A heavy lift should be swapped out to protect your CNS, but no mobility exercises are available in the exercise library.',
+                'A heavy lift should be swapped out to protect your CNS, but no suitable lower-cost substitute is available in the exercise library.',
         };
     }
 
-    const replacement = mobilityExercises[0];
-
     const message =
         `Boxing intensity was ${boxingBlock.actual_intensity}/10. ` +
-        `Your scheduled S&C session has been swapped to a mobility block ` +
+        (canKeepStrengthIntent
+            ? `Your scheduled S&C session has been downshifted to a lower-cost strength substitute `
+            : `Your scheduled S&C session has been swapped to a recovery block `) +
         `(${replacement.name}, CNS load ${replacement.cns_load}/10) ` +
-        `to protect your central nervous system.`;
+        `to protect your central nervous system without throwing away the day.`;
 
     return {
         swapped: true,
         originalBlockId: heavyLiftBlock.id,
-        replacementType: 'mobility',
+        replacementType: replacement.type,
         message,
     };
 }

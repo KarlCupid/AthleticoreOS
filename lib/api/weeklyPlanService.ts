@@ -739,7 +739,9 @@ export async function regenerateDayWorkout(
 
     const prescription = generateWorkoutV2({
         readinessState: engineState.readinessState,
-        phase: athleteCtx.phase,
+        readinessProfile: engineState.readinessProfile,
+        constraintSet: engineState.constraintSet,
+        phase: engineState.objectiveContext.phase,
         acwr: engineState.acwr.ratio,
         exerciseLibrary,
         recentExerciseIds,
@@ -747,9 +749,12 @@ export async function regenerateDayWorkout(
         fitnessLevel: athleteCtx.fitnessLevel,
         weeklyPlanFocus: overrideFocus ?? entry.focus ?? undefined,
         availableMinutes: entry.estimated_duration_min,
+        trainingIntensityCap: engineState.cutProtocol?.training_intensity_cap ?? undefined,
         gymEquipment: gymProfile?.equipment ?? undefined,
         isDeloadWeek: entry.is_deload,
         trainingDate: entry.date,
+        performanceGoalType: engineState.objectiveContext.performanceGoalType,
+        medStatus: engineState.medStatus,
     });
 
     await updatePlanEntryPrescription(entryId, prescription);
@@ -768,6 +773,5 @@ export async function markRecommendationAccepted(entryId: string): Promise<void>
 
     if (error) throw error;
 }
-
 
 
