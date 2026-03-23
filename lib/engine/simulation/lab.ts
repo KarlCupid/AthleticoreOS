@@ -24,6 +24,22 @@ export interface EngineReplayDecisionReason {
   impact: 'kept' | 'adjusted' | 'restricted' | 'escalated';
 }
 
+export interface EngineReplayExerciseLog {
+  exerciseId: string;
+  exerciseName: string;
+  sectionTitle: string | null;
+  targetSets: number;
+  completedSets: number;
+  targetReps: number;
+  actualReps: number;
+  targetRpe: number;
+  actualRpe: number | null;
+  suggestedWeight: number | null;
+  actualWeight: number | null;
+  completed: boolean;
+  note: string;
+}
+
 export interface EngineReplayDay {
   index: number;
   date: string;
@@ -42,8 +58,13 @@ export interface EngineReplayDay {
   workoutTitle: string;
   headline: string;
   summary: string;
+  didWarmup: boolean;
+  workoutBlueprint: string;
+  coachingInsight: string;
+  athleteMonologue: string;
   decisionReasons: EngineReplayDecisionReason[];
   prescriptionPreview: string[];
+  exerciseLogs: EngineReplayExerciseLog[];
   prescribedCalories: number;
   actualCalories: number;
   prescribedProtein: number;
@@ -333,6 +354,10 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     workoutTitle: mission.trainingDirective.focus ?? mission.trainingDirective.intent,
     headline: mission.headline,
     summary: mission.summary,
+    didWarmup: personaAction.didWarmup,
+    workoutBlueprint: personaAction.workoutBlueprint ?? 'Rest day',
+    coachingInsight: personaAction.coachingInsight ?? '',
+    athleteMonologue: personaAction.athleteMonologue ?? '',
     decisionReasons: getAllDecisionReasons(mission.decisionTrace).map((reason) => ({
       subsystem: reason.subsystem,
       title: reason.title,
@@ -340,6 +365,21 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
       impact: reason.impact,
     })),
     prescriptionPreview: prescription?.exercises?.slice(0, 4).map((exercise) => exercise.exercise.name) ?? [],
+    exerciseLogs: (personaAction.exerciseLogs ?? []).map((entry) => ({
+      exerciseId: entry.exerciseId,
+      exerciseName: entry.exerciseName,
+      sectionTitle: entry.sectionTitle ?? null,
+      targetSets: entry.targetSets,
+      completedSets: entry.completedSets,
+      targetReps: entry.targetReps,
+      actualReps: entry.actualReps,
+      targetRpe: entry.targetRpe,
+      actualRpe: entry.actualRpe ?? null,
+      suggestedWeight: entry.suggestedWeight ?? null,
+      actualWeight: entry.actualWeight ?? null,
+      completed: entry.completed,
+      note: entry.note,
+    })),
     prescribedCalories,
     actualCalories: personaAction.actualCalories,
     prescribedProtein: mission.fuelDirective.protein,

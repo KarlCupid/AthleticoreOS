@@ -120,7 +120,22 @@ export type DailySimulationLog = {
     cutInterventionReason?: string | null;
     workoutBlueprint?: string; 
     coachingInsight?: string; 
-    athleteMonologue?: string; 
+    athleteMonologue?: string;
+    exerciseLogs?: Array<{
+      exerciseId: string;
+      exerciseName: string;
+      sectionTitle?: string | null;
+      targetSets: number;
+      completedSets: number;
+      targetReps: number;
+      actualReps: number;
+      targetRpe: number;
+      actualRpe: number | null;
+      suggestedWeight: number | null;
+      actualWeight: number | null;
+      completed: boolean;
+      note: string;
+    }>;
   };
 };
 

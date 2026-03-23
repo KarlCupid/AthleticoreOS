@@ -119,6 +119,109 @@ function normalizeCutProtocol(protocol: any) {
   };
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function simulateExerciseLogs(input: {
+  prescription: any;
+  trainingComplied: boolean;
+  persona: { rpeBias: number };
+  riskLevel: string;
+  isMandatoryRecovery: boolean;
+  random: () => number;
+}) {
+  const {
+    prescription,
+    trainingComplied,
+    persona,
+    riskLevel,
+    isMandatoryRecovery,
+    random,
+  } = input;
+
+  if (!prescription?.exercises?.length) return [];
+
+  const riskPenalty = riskLevel === 'critical'
+    ? 0.25
+    : riskLevel === 'high'
+      ? 0.15
+      : riskLevel === 'moderate'
+        ? 0.08
+        : 0;
+
+  return prescription.exercises.map((exercise: any, index: number) => {
+    const completionChance = trainingComplied
+      ? clamp(0.95 - (index * 0.04) - riskPenalty - (isMandatoryRecovery ? 0.35 : 0), 0.3, 0.98)
+      : 0;
+    const completed = random() < completionChance;
+    const targetSets = Math.max(1, Number(exercise.targetSets ?? 1));
+    const targetReps = Math.max(1, Number(exercise.targetReps ?? 1));
+    const targetRpe = clamp(Number(exercise.targetRPE ?? 6), 1, 10);
+    const sectionTitle = exercise.sectionIntent ?? exercise.sectionTemplate ?? null;
+    const suggestedWeight = typeof exercise.suggestedWeight === 'number'
+      ? Math.round(exercise.suggestedWeight)
+      : null;
+
+    if (!completed) {
+      return {
+        exerciseId: exercise.exercise.id,
+        exerciseName: exercise.exercise.name,
+        sectionTitle,
+        targetSets,
+        completedSets: 0,
+        targetReps,
+        actualReps: 0,
+        targetRpe,
+        actualRpe: null,
+        suggestedWeight,
+        actualWeight: null,
+        completed: false,
+        note: isMandatoryRecovery
+          ? 'Skipped because the day was locked to recovery.'
+          : 'Skipped after simulated athlete drop-off.',
+      };
+    }
+
+    const setDropChance = 0.12 + riskPenalty + (index * 0.03);
+    const repVariance = Math.round((random() - 0.5) * 2);
+    const rpeNoise = (random() - 0.5) * 1.2;
+    const completedSets = random() < setDropChance
+      ? Math.max(1, targetSets - 1)
+      : targetSets;
+    const actualReps = clamp(targetReps + repVariance, 1, Math.max(20, targetReps + 3));
+    const actualRpe = clamp(targetRpe + (persona.rpeBias * 0.45) + rpeNoise + (completedSets < targetSets ? 0.35 : 0), 1, 10);
+    const actualWeight = suggestedWeight != null
+      ? Math.max(0, Math.round(suggestedWeight * (1 + ((actualRpe - targetRpe) * 0.025))))
+      : null;
+
+    let note = 'Completed as prescribed.';
+    if (completedSets < targetSets) {
+      note = 'Dropped one set because simulated fatigue built up mid-session.';
+    } else if (actualRpe >= targetRpe + 1) {
+      note = 'Logged harder than prescribed; athlete input drifted upward.';
+    } else if (actualRpe <= targetRpe - 1) {
+      note = 'Logged easier than prescribed; athlete moved well today.';
+    }
+
+    return {
+      exerciseId: exercise.exercise.id,
+      exerciseName: exercise.exercise.name,
+      sectionTitle,
+      targetSets,
+      completedSets,
+      targetReps,
+      actualReps,
+      targetRpe,
+      actualRpe: Number(actualRpe.toFixed(1)),
+      suggestedWeight,
+      actualWeight,
+      completed: true,
+      note,
+    };
+  });
+}
+
 
 /**
  * Core loop to run a simulation for a specific persona
@@ -158,9 +261,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     : null;
 
   for (let i = 0; i < days; i++) {
-    const currentDate = new Date(startDate);
-    currentDate.setDate(currentDate.getDate() + i);
-    const dateStr = currentDate.toISOString().split('T')[0];
+    const dateStr = addIsoDays(startDate, i);
     
     // Deep clone state Before
     const stateBefore: SimulationState = JSON.parse(JSON.stringify(simState));
@@ -565,6 +666,14 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       actualDuration: mission.trainingDirective.durationMin || 60,
       tonnage: actualRpe * 1000 // Mock tonnage
     } : null;
+    const exerciseLogs = simulateExerciseLogs({
+      prescription: mission.trainingDirective.prescription,
+      trainingComplied,
+      persona,
+      riskLevel: mission.riskState.level,
+      isMandatoryRecovery: mission.trainingDirective.isMandatoryRecovery,
+      random,
+    });
 
     // --- STEP 4: Narrative Auditor (Simulation 3.0) ---
     let coachingInsight = '';
@@ -643,7 +752,8 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         cutInterventionReason: cutProtocol?.interventionReason ?? null,
         workoutBlueprint,
         coachingInsight,
-        athleteMonologue
+        athleteMonologue,
+        exerciseLogs,
       } as any
     });
 

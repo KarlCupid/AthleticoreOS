@@ -1,12 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bar, CartesianChart, Line } from 'victory-native';
 
@@ -14,10 +7,10 @@ import {
   ENGINE_REPLAY_SCENARIOS,
   buildEngineReplayRun,
   type EngineReplayDay,
+  type EngineReplayExerciseLog,
   type EngineReplayFinding,
   type EngineReplayRun,
 } from '../../lib/engine/simulation/lab.ts';
-import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 import { AnimatedPressable } from './AnimatedPressable';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
@@ -27,76 +20,61 @@ interface EngineReplayLabProps {
   onClose: () => void;
 }
 
-function getSeverityColors(severity: EngineReplayFinding['severity']) {
-  switch (severity) {
-    case 'danger':
-      return { bg: COLORS.readiness.depletedLight, fg: COLORS.readiness.depleted };
-    case 'warning':
-      return { bg: COLORS.readiness.cautionLight, fg: COLORS.readiness.caution };
-    default:
-      return { bg: COLORS.surfaceSecondary, fg: COLORS.text.secondary };
-  }
-}
-
-function getRiskColors(level: EngineReplayDay['riskLevel']) {
-  switch (level) {
-    case 'critical':
-      return { bg: COLORS.readiness.depletedLight, fg: COLORS.readiness.depleted };
-    case 'high':
-      return { bg: '#FDE8E8', fg: COLORS.error };
-    case 'moderate':
-      return { bg: COLORS.readiness.cautionLight, fg: COLORS.readiness.caution };
-    default:
-      return { bg: COLORS.readiness.primeLight, fg: COLORS.readiness.prime };
-  }
-}
-
-function formatSessionRole(value: string) {
-  return value.replace(/_/g, ' ');
-}
+type ReplayTab = 'overview' | 'workout' | 'fuel' | 'decisions';
 
 function formatPhase(value: string) {
-  return value.replace(/-/g, ' ');
+  return value.replace(/[-_]/g, ' ');
 }
 
-function MetricTile({ label, value, tone = 'default' }: { label: string; value: string; tone?: 'default' | 'danger' | 'accent' }) {
-  const valueColor = tone === 'danger'
-    ? COLORS.readiness.depleted
-    : tone === 'accent'
-      ? COLORS.accent
-      : COLORS.text.primary;
+function formatDate(date: string) {
+  return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
+function severityColors(severity: EngineReplayFinding['severity']) {
+  if (severity === 'danger') return { bg: COLORS.readiness.depletedLight, fg: COLORS.readiness.depleted };
+  if (severity === 'warning') return { bg: COLORS.readiness.cautionLight, fg: COLORS.readiness.caution };
+  return { bg: COLORS.surfaceSecondary, fg: COLORS.text.secondary };
+}
+
+function riskColors(level: EngineReplayDay['riskLevel']) {
+  if (level === 'critical') return { bg: COLORS.readiness.depletedLight, fg: COLORS.readiness.depleted };
+  if (level === 'high') return { bg: '#FDE8E8', fg: COLORS.error };
+  if (level === 'moderate') return { bg: COLORS.readiness.cautionLight, fg: COLORS.readiness.caution };
+  return { bg: COLORS.readiness.primeLight, fg: COLORS.readiness.prime };
+}
+
+function chunkWeeks(days: EngineReplayDay[]) {
+  const weeks: Array<{ index: number; days: EngineReplayDay[] }> = [];
+  for (let i = 0; i < days.length; i += 7) {
+    weeks.push({ index: weeks.length, days: days.slice(i, i + 7) });
+  }
+  return weeks;
+}
+
+function MetricTile({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.metricTile}>
       <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.metricValue, { color: valueColor }]}>{value}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
     </View>
   );
 }
 
 function ScenarioButton({
+  selected,
   label,
   description,
-  selected,
   onPress,
 }: {
+  selected: boolean;
   label: string;
   description: string;
-  selected: boolean;
   onPress: () => void;
 }) {
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      style={[
-        styles.scenarioButton,
-        selected && styles.scenarioButtonSelected,
-      ]}
-    >
-      <Text style={[styles.scenarioLabel, selected && styles.scenarioLabelSelected]}>{label}</Text>
-      <Text style={[styles.scenarioDescription, selected && styles.scenarioDescriptionSelected]}>
-        {description}
-      </Text>
+    <AnimatedPressable onPress={onPress} style={[styles.scenarioButton, selected && styles.scenarioButtonSelected]}>
+      <Text style={[styles.scenarioTitle, selected && styles.scenarioTitleSelected]}>{label}</Text>
+      <Text style={styles.scenarioDescription}>{description}</Text>
     </AnimatedPressable>
   );
 }
@@ -117,24 +95,12 @@ function SignalChart({
   if (data.length < 2) return null;
 
   return (
-    <Card style={styles.chartCard}>
-      <Text style={styles.chartTitle}>{title}</Text>
-      <Text style={styles.chartSubtitle}>{subtitle}</Text>
+    <Card>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionSubtitle}>{subtitle}</Text>
       <View style={styles.chartArea}>
-        <CartesianChart
-          data={data as any[]}
-          xKey="x"
-          yKeys={[yKey]}
-          domainPadding={{ left: 12, right: 18, top: 12 }}
-        >
-          {({ points }) => (
-            <Line
-              points={points[yKey]}
-              color={color}
-              strokeWidth={2.5}
-              curveType="natural"
-            />
-          )}
+        <CartesianChart data={data as any[]} xKey="x" yKeys={[yKey]} domainPadding={{ left: 12, right: 18, top: 12 }}>
+          {({ points }) => <Line points={points[yKey]} color={color} strokeWidth={2.5} curveType="natural" />}
         </CartesianChart>
       </View>
     </Card>
@@ -145,16 +111,11 @@ function CaloriesChart({ data }: { data: EngineReplayRun['chartData'] }) {
   if (data.length < 2) return null;
 
   return (
-    <Card style={styles.chartCard}>
-      <Text style={styles.chartTitle}>Calories</Text>
-      <Text style={styles.chartSubtitle}>Actual intake vs prescribed target across the block</Text>
+    <Card>
+      <Text style={styles.sectionTitle}>Calories</Text>
+      <Text style={styles.sectionSubtitle}>Actual intake vs prescribed target</Text>
       <View style={styles.chartArea}>
-        <CartesianChart
-          data={data as any[]}
-          xKey="x"
-          yKeys={['actualCalories', 'prescribedCalories']}
-          domainPadding={{ left: 12, right: 18, top: 16 }}
-        >
+        <CartesianChart data={data as any[]} xKey="x" yKeys={['actualCalories', 'prescribedCalories']} domainPadding={{ left: 12, right: 18, top: 16 }}>
           {({ points, chartBounds }) => (
             <>
               <Bar
@@ -164,12 +125,7 @@ function CaloriesChart({ data }: { data: EngineReplayRun['chartData'] }) {
                 roundedCorners={{ topLeft: 6, topRight: 6 }}
                 barWidth={8}
               />
-              <Line
-                points={points.prescribedCalories}
-                color={COLORS.chart.protein}
-                strokeWidth={2}
-                curveType="natural"
-              />
+              <Line points={points.prescribedCalories} color={COLORS.chart.protein} strokeWidth={2} curveType="natural" />
             </>
           )}
         </CartesianChart>
@@ -178,49 +134,32 @@ function CaloriesChart({ data }: { data: EngineReplayRun['chartData'] }) {
   );
 }
 
-function FindingChip({ finding }: { finding: EngineReplayFinding }) {
-  const colors = getSeverityColors(finding.severity);
+function TabButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
   return (
-    <View style={[styles.findingChip, { backgroundColor: colors.bg }]}>
-      <Text style={[styles.findingChipText, { color: colors.fg }]}>{finding.title}</Text>
-    </View>
+    <AnimatedPressable onPress={onPress} style={[styles.tabButton, active && styles.tabButtonActive]}>
+      <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>{label}</Text>
+    </AnimatedPressable>
   );
 }
 
-function DayCard({
-  day,
-  selected,
-  onPress,
-}: {
-  day: EngineReplayDay;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const risk = getRiskColors(day.riskLevel);
+function ExerciseLogRow({ entry }: { entry: EngineReplayExerciseLog }) {
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      style={[styles.dayCard, selected && styles.dayCardSelected]}
-    >
-      <View style={styles.dayCardTopRow}>
-        <Text style={styles.dayCardDate}>{day.date}</Text>
-        <View style={[styles.riskBadge, { backgroundColor: risk.bg }]}>
-          <Text style={[styles.riskBadgeText, { color: risk.fg }]}>{day.riskLevel}</Text>
+    <View style={styles.exerciseRow}>
+      <View style={styles.exerciseHeader}>
+        <View style={styles.exerciseHeaderBody}>
+          <Text style={styles.exerciseName}>{entry.exerciseName}</Text>
+          <Text style={styles.exerciseMeta}>{entry.sectionTitle ?? 'session'} | {entry.completed ? 'logged' : 'skipped'}</Text>
         </View>
+        <Text style={[styles.exerciseStatus, !entry.completed && styles.exerciseStatusMiss]}>{entry.completed ? 'Logged' : 'Skipped'}</Text>
       </View>
-      <Text style={styles.dayCardHeadline} numberOfLines={2}>{day.headline}</Text>
-      <Text style={styles.dayCardMeta}>
-        {formatPhase(day.phase)} · {formatSessionRole(day.sessionRole)}
+      <Text style={styles.bodyText}>Planned {entry.targetSets} x {entry.targetReps} @ RPE {entry.targetRpe}</Text>
+      <Text style={styles.bodyText}>
+        Logged {entry.completedSets} x {entry.actualReps}
+        {entry.actualRpe != null ? ` @ RPE ${entry.actualRpe}` : ''}
+        {entry.actualWeight != null ? ` | ${entry.actualWeight} lb` : entry.suggestedWeight != null ? ` | target ${entry.suggestedWeight} lb` : ''}
       </Text>
-      <Text style={styles.dayCardMeta}>
-        Ready {day.readinessLogged}/10 · {day.prescribedCalories} kcal
-      </Text>
-      {day.findings.length > 0 ? (
-        <Text style={styles.dayCardFindingCount}>{day.findings.length} finding{day.findings.length === 1 ? '' : 's'}</Text>
-      ) : (
-        <Text style={styles.dayCardFindingClear}>No findings</Text>
-      )}
-    </AnimatedPressable>
+      <Text style={styles.detailText}>{entry.note}</Text>
+    </View>
   );
 }
 
@@ -231,230 +170,258 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [tab, setTab] = useState<ReplayTab>('overview');
 
   async function executeReplay(nextScenarioId: string) {
     setLoading(true);
     setError(null);
+    setRun(null);
+    setSelectedDayIndex(0);
+    setTab('overview');
+
     try {
       const nextRun = await buildEngineReplayRun(nextScenarioId);
       setRun(nextRun);
-      setSelectedDayIndex(0);
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : 'Replay failed.');
-      setRun(null);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!visible) return;
-    void executeReplay(scenarioId);
+    if (visible) void executeReplay(scenarioId);
   }, [visible]);
 
-  const selectedDay = useMemo(() => {
-    if (!run) return null;
-    return run.days[selectedDayIndex] ?? run.days[0] ?? null;
-  }, [run, selectedDayIndex]);
+  const selectedDay = run?.days[selectedDayIndex] ?? null;
+  const weeks = useMemo(() => chunkWeeks(run?.days ?? []), [run]);
+  const selectedWeekIndex = selectedDay ? Math.floor(selectedDay.index / 7) : 0;
+  const selectedWeek = weeks[selectedWeekIndex] ?? null;
+
+  function jumpDay(delta: number) {
+    if (!run) return;
+    setSelectedDayIndex((current) => Math.max(0, Math.min(run.days.length - 1, current + delta)));
+  }
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
-      <View style={[styles.modalRoot, { paddingTop: insets.top }]}>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <View style={styles.headerCopy}>
+          <View style={styles.headerBody}>
             <Text style={styles.eyebrow}>INTERNAL LAB</Text>
             <Text style={styles.title}>Engine Replay Lab</Text>
-            <Text style={styles.subtitle}>
-              Deterministic block simulation for training, nutrition, cut, and decision-trace inspection.
-            </Text>
+            <Text style={styles.subtitle}>Block replay with simulated workout logging and a cleaner week/day browser.</Text>
           </View>
           <AnimatedPressable onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>Close</Text>
+            <Text style={styles.closeText}>Close</Text>
           </AnimatedPressable>
         </View>
 
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.xl }]}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.xl }]} showsVerticalScrollIndicator={false}>
           <Card title="Scenario">
-            <View style={styles.scenarioList}>
+            <View style={styles.listGap}>
               {ENGINE_REPLAY_SCENARIOS.map((scenario) => (
                 <ScenarioButton
                   key={scenario.id}
+                  selected={scenario.id === scenarioId}
                   label={scenario.label}
                   description={scenario.description}
-                  selected={scenario.id === scenarioId}
                   onPress={() => setScenarioId(scenario.id)}
                 />
               ))}
             </View>
-
-            <AnimatedPressable
-              style={styles.runButton}
-              onPress={() => void executeReplay(scenarioId)}
-            >
+            <AnimatedPressable style={styles.runButton} onPress={() => void executeReplay(scenarioId)}>
               <Text style={styles.runButtonText}>{loading ? 'Running...' : 'Run Replay'}</Text>
             </AnimatedPressable>
           </Card>
 
           {loading ? (
-            <View style={styles.loadingState}>
+            <View style={styles.loadingWrap}>
               <ActivityIndicator color={COLORS.accent} />
-              <Text style={styles.loadingText}>Simulating the full block...</Text>
+              <Text style={styles.bodyText}>Clearing the old replay and simulating the new block...</Text>
             </View>
           ) : null}
 
           {error ? (
-            <Card style={styles.errorCard}>
-              <Text style={styles.errorTitle}>Replay failed</Text>
+            <Card>
               <Text style={styles.errorText}>{error}</Text>
             </Card>
           ) : null}
 
-          {run ? (
+          {run && selectedDay ? (
             <>
-              <Card title="Run Summary" subtitle={`${run.scenario.label} · seed ${run.scenario.config.seed ?? 42}`}>
+              <Card title="Run Summary" subtitle={`${run.scenario.label} | seed ${run.scenario.config.seed ?? 42}`}>
                 <View style={styles.metricGrid}>
                   <MetricTile label="Days" value={String(run.summary.totalDays)} />
                   <MetricTile label="Final Weight" value={`${run.summary.finalWeightLbs.toFixed(1)} lbs`} />
-                  <MetricTile label="Interventions" value={String(run.summary.interventionDays)} tone="accent" />
-                  <MetricTile
-                    label="Danger Findings"
-                    value={String(run.summary.findingCounts.danger)}
-                    tone={run.summary.findingCounts.danger > 0 ? 'danger' : 'default'}
-                  />
-                </View>
-                <View style={styles.metricGrid}>
-                  <MetricTile label="Avg Readiness" value={`${run.summary.avgReadiness}/10`} />
-                  <MetricTile label="Weight Change" value={`${run.summary.weightChangeLbs.toFixed(1)} lbs`} />
-                  <MetricTile label="Mandatory Recovery" value={String(run.summary.mandatoryRecoveryDays)} />
-                  <MetricTile label="High Risk Days" value={String(run.summary.highRiskDays)} />
+                  <MetricTile label="Interventions" value={String(run.summary.interventionDays)} />
+                  <MetricTile label="Danger Findings" value={String(run.summary.findingCounts.danger)} />
                 </View>
               </Card>
 
-              <SignalChart
-                title="Readiness"
-                subtitle="Subjective readiness logged across the block"
-                data={run.chartData}
-                yKey="readiness"
-                color={COLORS.chart.readiness}
-              />
-              <SignalChart
-                title="Body Weight"
-                subtitle="End-of-day body weight across the block"
-                data={run.chartData}
-                yKey="weight"
-                color={COLORS.chart.fitness}
-              />
+              <SignalChart title="Readiness" subtitle="Subjective readiness across the block" data={run.chartData} yKey="readiness" color={COLORS.chart.readiness} />
+              <SignalChart title="Body Weight" subtitle="End-of-day weight across the block" data={run.chartData} yKey="weight" color={COLORS.chart.fitness} />
               <CaloriesChart data={run.chartData} />
 
-              <Card title="Day Timeline" subtitle="Tap a day to inspect the exact prescription and reasoning.">
-                <View style={styles.dayCardList}>
-                  {run.days.map((day, index) => (
-                    <DayCard
-                      key={day.date}
-                      day={day}
-                      selected={selectedDayIndex === index}
-                      onPress={() => setSelectedDayIndex(index)}
-                    />
+              <Card title="Replay Browser" subtitle="Pick a week, then inspect the days inside that week.">
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
+                  {weeks.map((week) => (
+                    <AnimatedPressable
+                      key={`week-${week.index}`}
+                      onPress={() => setSelectedDayIndex(week.days[0]?.index ?? 0)}
+                      style={[styles.weekButton, week.index === selectedWeekIndex && styles.weekButtonActive]}
+                    >
+                      <Text style={[styles.weekButtonTitle, week.index === selectedWeekIndex && styles.weekButtonTitleActive]}>Week {week.index + 1}</Text>
+                      <Text style={styles.weekButtonDate}>{formatDate(week.days[0].date)} - {formatDate(week.days[week.days.length - 1].date)}</Text>
+                    </AnimatedPressable>
                   ))}
+                </ScrollView>
+
+                <View style={styles.dayNavRow}>
+                  <AnimatedPressable
+                    onPress={() => jumpDay(-1)}
+                    disabled={selectedDayIndex === 0}
+                    style={[styles.navButton, selectedDayIndex === 0 && styles.navButtonDisabled]}
+                  >
+                    <Text style={styles.navButtonText}>Previous</Text>
+                  </AnimatedPressable>
+                  <View style={styles.dayNavCenter}>
+                    <Text style={styles.dayNavTitle}>{formatDate(selectedDay.date)}</Text>
+                    <Text style={styles.dayNavSubtitle}>{formatPhase(selectedDay.phase)} | {formatPhase(selectedDay.sessionRole)}</Text>
+                  </View>
+                  <AnimatedPressable
+                    onPress={() => jumpDay(1)}
+                    disabled={selectedDayIndex === run.days.length - 1}
+                    style={[styles.navButton, selectedDayIndex === run.days.length - 1 && styles.navButtonDisabled]}
+                  >
+                    <Text style={styles.navButtonText}>Next</Text>
+                  </AnimatedPressable>
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
+                  {selectedWeek?.days.map((day) => {
+                    const risk = riskColors(day.riskLevel);
+                    const active = day.index === selectedDayIndex;
+
+                    return (
+                      <AnimatedPressable key={`day-${day.index}`} onPress={() => setSelectedDayIndex(day.index)} style={[styles.dayButton, active && styles.dayButtonActive]}>
+                        <Text style={[styles.dayButtonDate, active && styles.dayButtonDateActive]}>{formatDate(day.date)}</Text>
+                        <Text style={styles.dayButtonRole} numberOfLines={1}>{formatPhase(day.sessionRole)}</Text>
+                        <View style={[styles.riskChip, { backgroundColor: risk.bg }]}>
+                          <Text style={[styles.riskChipText, { color: risk.fg }]}>{day.riskLevel}</Text>
+                        </View>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </ScrollView>
+              </Card>
+
+              <Card title="Selected Day" subtitle={`${selectedDay.date} | ${formatPhase(selectedDay.cutPhase)} | ${selectedDay.exerciseLogs.length} exercise logs`}>
+                <Text style={styles.dayHeadline}>{selectedDay.headline}</Text>
+                <Text style={styles.bodyText}>{selectedDay.summary}</Text>
+                <View style={styles.tagRow}>
+                  <Text style={styles.tag}>Ready {selectedDay.readinessLogged}/10</Text>
+                  <Text style={styles.tag}>Sleep {selectedDay.sleepLogged}/10</Text>
+                  <Text style={styles.tag}>ACWR {selectedDay.acwrRatio.toFixed(2)}</Text>
+                  <Text style={styles.tag}>Warm-up {selectedDay.didWarmup ? 'done' : 'missed'}</Text>
+                </View>
+                <View style={styles.tagRow}>
+                  <Text style={styles.tag}>Risk {selectedDay.riskLevel}</Text>
+                  <Text style={styles.tag}>Intervention {selectedDay.interventionState}</Text>
+                  <Text style={styles.tag}>{selectedDay.isMandatoryRecovery ? 'Mandatory recovery' : 'Training allowed'}</Text>
+                </View>
+                <View style={styles.tabRow}>
+                  <TabButton active={tab === 'overview'} label="Overview" onPress={() => setTab('overview')} />
+                  <TabButton active={tab === 'workout'} label="Workout Log" onPress={() => setTab('workout')} />
+                  <TabButton active={tab === 'fuel'} label="Fuel" onPress={() => setTab('fuel')} />
+                  <TabButton active={tab === 'decisions'} label="Decisions" onPress={() => setTab('decisions')} />
                 </View>
               </Card>
 
-              {selectedDay ? (
+              {tab === 'overview' ? (
                 <>
-                  <Card title={selectedDay.headline} subtitle={`${selectedDay.date} · ${formatPhase(selectedDay.phase)} · ${formatSessionRole(selectedDay.sessionRole)}`}>
-                    <Text style={styles.selectedSummary}>{selectedDay.summary}</Text>
-                    <View style={styles.selectedMetaRow}>
-                      <Text style={styles.selectedMetaText}>Readiness {selectedDay.readinessLogged}/10</Text>
-                      <Text style={styles.selectedMetaText}>Sleep {selectedDay.sleepLogged}/10</Text>
-                      <Text style={styles.selectedMetaText}>ACWR {selectedDay.acwrRatio.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.selectedMetaRow}>
-                      <Text style={styles.selectedMetaText}>Risk {selectedDay.riskLevel}</Text>
-                      <Text style={styles.selectedMetaText}>Intervention {selectedDay.interventionState}</Text>
-                      <Text style={styles.selectedMetaText}>
-                        {selectedDay.isMandatoryRecovery ? 'Mandatory recovery' : 'Training allowed'}
-                      </Text>
-                    </View>
-                  </Card>
-
-                  <Card title="Findings" subtitle="Invariant checks and notable engine conditions for the selected day.">
+                  <Card title="Findings" subtitle="Invariant checks and notable engine conditions for this day.">
                     {selectedDay.findings.length > 0 ? (
-                      <View style={styles.findingList}>
-                        {selectedDay.findings.map((finding) => (
-                          <View key={`${finding.severity}-${finding.title}`} style={styles.findingRow}>
-                            <FindingChip finding={finding} />
-                            <Text style={styles.findingDetail}>{finding.detail}</Text>
-                          </View>
-                        ))}
+                      <View style={styles.listGap}>
+                        {selectedDay.findings.map((finding, index) => {
+                          const colors = severityColors(finding.severity);
+
+                          return (
+                            <View key={`${finding.severity}-${finding.title}-${index}`} style={styles.findingRow}>
+                              <View style={[styles.findingBadge, { backgroundColor: colors.bg }]}>
+                                <Text style={[styles.findingBadgeText, { color: colors.fg }]}>{finding.title}</Text>
+                              </View>
+                              <Text style={styles.detailText}>{finding.detail}</Text>
+                            </View>
+                          );
+                        })}
                       </View>
-                    ) : (
-                      <Text style={styles.emptyText}>No findings on this day.</Text>
-                    )}
+                    ) : <Text style={styles.bodyText}>No findings on this day.</Text>}
                   </Card>
 
-                  <Card title="Training Prescription" subtitle={`${selectedDay.workoutTitle} · ${selectedDay.workoutType ?? 'untyped session'}`}>
+                  <Card title="Session Summary" subtitle={selectedDay.workoutTitle}>
                     <View style={styles.metricGrid}>
                       <MetricTile label="Prescribed Load" value={selectedDay.prescribedLoad.toFixed(0)} />
                       <MetricTile label="Actual Load" value={selectedDay.actualLoad.toFixed(0)} />
                       <MetricTile label="Start Weight" value={`${selectedDay.bodyWeightStart.toFixed(1)} lbs`} />
                       <MetricTile label="End Weight" value={`${selectedDay.bodyWeightEnd.toFixed(1)} lbs`} />
                     </View>
-
-                    {selectedDay.prescriptionPreview.length > 0 ? (
-                      <View style={styles.previewList}>
-                        {selectedDay.prescriptionPreview.map((item) => (
-                          <Text key={item} style={styles.previewItem}>• {item}</Text>
-                        ))}
-                      </View>
-                    ) : (
-                      <Text style={styles.emptyText}>No detailed exercise list was generated for this day.</Text>
-                    )}
+                    <Text style={styles.bodyText}>{selectedDay.workoutBlueprint}</Text>
                   </Card>
+                </>
+              ) : null}
 
-                  <Card title="Nutrition & Hydration" subtitle={`${selectedDay.cutPhase} · fuel and water targets vs simulated actuals`}>
-                    <View style={styles.metricGrid}>
-                      <MetricTile label="Prescribed" value={`${selectedDay.prescribedCalories} kcal`} />
-                      <MetricTile label="Actual" value={`${selectedDay.actualCalories} kcal`} />
-                      <MetricTile label="Water" value={`${selectedDay.waterTargetOz} oz`} />
-                      <MetricTile label="Sodium" value={selectedDay.sodiumTargetMg != null ? `${selectedDay.sodiumTargetMg} mg` : '—'} />
-                    </View>
-
-                    <View style={styles.macroCompareBlock}>
-                      <MacroRow
-                        label="Protein"
-                        prescribed={selectedDay.prescribedProtein}
-                        actual={selectedDay.actualProtein}
-                        color={COLORS.chart.protein}
-                      />
-                      <MacroRow
-                        label="Carbs"
-                        prescribed={selectedDay.prescribedCarbs}
-                        actual={selectedDay.actualCarbs}
-                        color={COLORS.chart.carbs}
-                      />
-                      <MacroRow
-                        label="Fat"
-                        prescribed={selectedDay.prescribedFat}
-                        actual={selectedDay.actualFat}
-                        color={COLORS.chart.fat}
-                      />
-                    </View>
+              {tab === 'workout' ? (
+                <>
+                  <Card title="Prescription Preview" subtitle={selectedDay.workoutType ?? 'untyped session'}>
+                    {selectedDay.prescriptionPreview.length > 0
+                      ? selectedDay.prescriptionPreview.map((item, index) => <Text key={`${item}-${index}`} style={styles.bodyText}>- {item}</Text>)
+                      : <Text style={styles.bodyText}>No exercise prescription was generated for this day.</Text>}
                   </Card>
+                  <Card title="Simulated Workout Log" subtitle="Exercise-by-exercise output from the simulated athlete.">
+                    {selectedDay.exerciseLogs.length > 0
+                      ? selectedDay.exerciseLogs.map((entry, index) => (
+                        <ExerciseLogRow key={`${entry.exerciseId}-${entry.sectionTitle ?? 'section'}-${index}`} entry={entry} />
+                      ))
+                      : <Text style={styles.bodyText}>No exercise-level simulated log exists for this day.</Text>}
+                  </Card>
+                </>
+              ) : null}
 
+              {tab === 'fuel' ? (
+                <Card title="Nutrition & Hydration" subtitle="Prescribed targets vs simulated actual intake.">
+                  <View style={styles.metricGrid}>
+                    <MetricTile label="Prescribed" value={`${selectedDay.prescribedCalories} kcal`} />
+                    <MetricTile label="Actual" value={`${selectedDay.actualCalories} kcal`} />
+                    <MetricTile label="Water" value={`${selectedDay.waterTargetOz} oz`} />
+                    <MetricTile label="Sodium" value={selectedDay.sodiumTargetMg != null ? `${selectedDay.sodiumTargetMg} mg` : '--'} />
+                  </View>
+                  <View style={styles.metricGrid}>
+                    <MetricTile label="Protein" value={`${selectedDay.actualProtein} / ${selectedDay.prescribedProtein}g`} />
+                    <MetricTile label="Carbs" value={`${selectedDay.actualCarbs} / ${selectedDay.prescribedCarbs}g`} />
+                    <MetricTile label="Fat" value={`${selectedDay.actualFat} / ${selectedDay.prescribedFat}g`} />
+                    <MetricTile label="Cut Phase" value={formatPhase(selectedDay.cutPhase)} />
+                  </View>
+                </Card>
+              ) : null}
+
+              {tab === 'decisions' ? (
+                <>
                   <Card title="Decision Trace" subtitle="Why the engine prescribed this day the way it did.">
-                    {selectedDay.decisionReasons.length > 0 ? (
-                      selectedDay.decisionReasons.map((reason) => (
-                        <View key={`${reason.subsystem}-${reason.title}`} style={styles.reasonRow}>
+                    {selectedDay.decisionReasons.length > 0
+                      ? selectedDay.decisionReasons.map((reason, index) => (
+                        <View key={`${reason.subsystem}-${reason.title}-${index}`} style={styles.reasonRow}>
                           <Text style={styles.reasonTitle}>{reason.title}</Text>
-                          <Text style={styles.reasonSentence}>{reason.sentence}</Text>
+                          <Text style={styles.detailText}>{reason.sentence}</Text>
                         </View>
                       ))
-                    ) : (
-                      <Text style={styles.emptyText}>No decision reasons were captured for this day.</Text>
-                    )}
+                      : <Text style={styles.bodyText}>No decision reasons were captured for this day.</Text>}
+                  </Card>
+                  <Card title="Narrative Notes" subtitle="Simulated coach and athlete perspective.">
+                    <Text style={styles.noteLabel}>Coach</Text>
+                    <Text style={styles.bodyText}>{selectedDay.coachingInsight || 'No coaching note generated.'}</Text>
+                    <Text style={[styles.noteLabel, styles.noteLabelSpacing]}>Athlete</Text>
+                    <Text style={styles.bodyText}>{selectedDay.athleteMonologue || 'No athlete monologue generated.'}</Text>
                   </Card>
                 </>
               ) : null}
@@ -466,377 +433,75 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
   );
 }
 
-function MacroRow({
-  label,
-  prescribed,
-  actual,
-  color,
-}: {
-  label: string;
-  prescribed: number;
-  actual: number;
-  color: string;
-}) {
-  const delta = actual - prescribed;
-  const deltaSign = delta > 0 ? '+' : '';
-  const actualCalories = calculateCaloriesFromMacros(
-    label === 'Protein' ? actual : 0,
-    label === 'Carbs' ? actual : 0,
-    label === 'Fat' ? actual : 0,
-  );
-
-  return (
-    <View style={styles.macroRow}>
-      <View style={styles.macroRowHeader}>
-        <Text style={styles.macroLabel}>{label}</Text>
-        <Text style={styles.macroValues}>
-          {prescribed}g prescribed · {actual}g actual · {deltaSign}{delta}g
-        </Text>
-      </View>
-      <View style={styles.macroTrack}>
-        <View
-          style={[
-            styles.macroFill,
-            {
-              width: `${Math.min(100, Math.max(8, prescribed === 0 ? 0 : (actual / prescribed) * 100))}%`,
-              backgroundColor: color,
-            },
-          ]}
-        />
-      </View>
-      <Text style={styles.macroCaloriesNote}>
-        {label === 'Protein' ? `${actualCalories} kcal from protein` : label === 'Carbs' ? `${actualCalories} kcal from carbs` : `${actualCalories} kcal from fat`}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
-    gap: SPACING.md,
-  },
-  headerCopy: {
-    gap: SPACING.xs,
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.tertiary,
-    letterSpacing: 1,
-  },
-  title: {
-    fontSize: 28,
-    fontFamily: FONT_FAMILY.black,
-    color: COLORS.text.primary,
-  },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-    lineHeight: 20,
-  },
-  closeButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  closeButtonText: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-  },
-  content: {
-    paddingHorizontal: SPACING.lg,
-    gap: SPACING.md,
-  },
-  scenarioList: {
-    gap: SPACING.sm,
-  },
-  scenarioButton: {
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surfaceSecondary,
-    padding: SPACING.md,
-  },
-  scenarioButtonSelected: {
-    backgroundColor: COLORS.accentLight,
-    borderColor: COLORS.accent,
-  },
-  scenarioLabel: {
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-  },
-  scenarioLabelSelected: {
-    color: COLORS.accent,
-  },
-  scenarioDescription: {
-    marginTop: SPACING.xs,
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-    lineHeight: 18,
-  },
-  scenarioDescriptionSelected: {
-    color: COLORS.text.primary,
-  },
-  runButton: {
-    marginTop: SPACING.md,
-    backgroundColor: COLORS.accent,
-    borderRadius: RADIUS.lg,
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-  },
-  runButtonText: {
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.inverse,
-  },
-  loadingState: {
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.lg,
-  },
-  loadingText: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-  },
-  errorCard: {
-    borderWidth: 1,
-    borderColor: COLORS.readiness.depleted,
-  },
-  errorTitle: {
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.readiness.depleted,
-  },
-  errorText: {
-    marginTop: SPACING.xs,
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-  },
-  metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  metricTile: {
-    flexBasis: '48%',
-    backgroundColor: COLORS.surfaceSecondary,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  metricValue: {
-    marginTop: SPACING.xs,
-    fontSize: 20,
-    fontFamily: FONT_FAMILY.extraBold,
-  },
-  chartCard: {
-    marginTop: SPACING.md,
-  },
-  chartTitle: {
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-  },
-  chartSubtitle: {
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.sm,
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-  },
-  chartArea: {
-    height: 180,
-  },
-  dayCardList: {
-    gap: SPACING.sm,
-  },
-  dayCard: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surfaceSecondary,
-    padding: SPACING.md,
-  },
-  dayCardSelected: {
-    borderColor: COLORS.accent,
-    backgroundColor: COLORS.accentLight,
-  },
-  dayCardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  dayCardDate: {
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.tertiary,
-  },
-  riskBadge: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-  },
-  riskBadgeText: {
-    fontSize: 11,
-    fontFamily: FONT_FAMILY.semiBold,
-    textTransform: 'uppercase',
-  },
-  dayCardHeadline: {
-    marginTop: SPACING.sm,
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-  },
-  dayCardMeta: {
-    marginTop: 4,
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-  },
-  dayCardFindingCount: {
-    marginTop: SPACING.sm,
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.readiness.caution,
-  },
-  dayCardFindingClear: {
-    marginTop: SPACING.sm,
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.readiness.prime,
-  },
-  selectedSummary: {
-    fontSize: 14,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-    lineHeight: 21,
-  },
-  selectedMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    marginTop: SPACING.sm,
-  },
-  selectedMetaText: {
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.secondary,
-    backgroundColor: COLORS.surfaceSecondary,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 6,
-  },
-  findingList: {
-    gap: SPACING.sm,
-  },
-  findingRow: {
-    gap: SPACING.xs,
-  },
-  findingChip: {
-    alignSelf: 'flex-start',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 5,
-  },
-  findingChipText: {
-    fontSize: 11,
-    fontFamily: FONT_FAMILY.semiBold,
-    textTransform: 'uppercase',
-  },
-  findingDetail: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-    lineHeight: 19,
-  },
-  previewList: {
-    marginTop: SPACING.sm,
-    gap: SPACING.xs,
-  },
-  previewItem: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.primary,
-  },
-  macroCompareBlock: {
-    marginTop: SPACING.sm,
-    gap: SPACING.md,
-  },
-  macroRow: {
-    gap: SPACING.xs,
-  },
-  macroRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  macroLabel: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-  },
-  macroValues: {
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-  },
-  macroTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.borderLight,
-    overflow: 'hidden',
-  },
-  macroFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  macroCaloriesNote: {
-    fontSize: 11,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.tertiary,
-  },
-  reasonRow: {
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.borderLight,
-  },
-  reasonTitle: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-  },
-  reasonSentence: {
-    marginTop: 4,
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-    lineHeight: 19,
-  },
-  emptyText: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.secondary,
-  },
+  root: { flex: 1, backgroundColor: COLORS.background },
+  header: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
+  headerBody: { flex: 1 },
+  eyebrow: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, letterSpacing: 1 },
+  title: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
+  subtitle: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 20, marginTop: SPACING.xs },
+  closeButton: { alignSelf: 'flex-start', backgroundColor: COLORS.surface, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+  closeText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  content: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
+  listGap: { gap: SPACING.sm },
+  scenarioButton: { borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.md },
+  scenarioButtonSelected: { borderColor: COLORS.accent, backgroundColor: COLORS.accentLight },
+  scenarioTitle: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  scenarioTitleSelected: { color: COLORS.accent },
+  scenarioDescription: { marginTop: SPACING.xs, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 18 },
+  runButton: { marginTop: SPACING.md, borderRadius: RADIUS.lg, backgroundColor: COLORS.accent, alignItems: 'center', paddingVertical: SPACING.md },
+  runButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
+  loadingWrap: { alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.lg },
+  errorText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.depleted },
+  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
+  metricTile: { flexBasis: '48%', backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.md, padding: SPACING.md },
+  metricLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase' },
+  metricValue: { marginTop: SPACING.xs, fontSize: 18, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
+  sectionTitle: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  sectionSubtitle: { marginTop: SPACING.xs, marginBottom: SPACING.sm, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
+  chartArea: { height: 180 },
+  horizontalRow: { gap: SPACING.sm },
+  weekButton: { minWidth: 136, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.md },
+  weekButtonActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accentLight },
+  weekButtonTitle: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  weekButtonTitleActive: { color: COLORS.accent },
+  weekButtonDate: { marginTop: 4, fontSize: 11, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
+  dayNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sm, marginVertical: SPACING.md },
+  navButton: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+  navButtonDisabled: { opacity: 0.45 },
+  navButtonText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  dayNavCenter: { flex: 1, alignItems: 'center' },
+  dayNavTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  dayNavSubtitle: { marginTop: 4, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
+  dayButton: { width: 120, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.md },
+  dayButtonActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accentLight },
+  dayButtonDate: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  dayButtonDateActive: { color: COLORS.accent },
+  dayButtonRole: { marginTop: 6, fontSize: 11, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
+  riskChip: { alignSelf: 'flex-start', marginTop: SPACING.sm, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 4 },
+  riskChipText: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase' },
+  dayHeadline: { fontSize: 18, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  bodyText: { marginTop: SPACING.sm, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 20 },
+  detailText: { marginTop: 4, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 18 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
+  tag: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 6 },
+  tabRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.md },
+  tabButton: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+  tabButtonActive: { backgroundColor: COLORS.accent },
+  tabButtonText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  tabButtonTextActive: { color: COLORS.text.inverse },
+  findingRow: { gap: SPACING.xs },
+  findingBadge: { alignSelf: 'flex-start', borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 5 },
+  findingBadgeText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase' },
+  exerciseRow: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight, paddingBottom: SPACING.md, marginBottom: SPACING.md },
+  exerciseHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.sm, alignItems: 'flex-start' },
+  exerciseHeaderBody: { flex: 1 },
+  exerciseName: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  exerciseMeta: { marginTop: 4, fontSize: 11, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary },
+  exerciseStatus: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.prime, textTransform: 'uppercase' },
+  exerciseStatusMiss: { color: COLORS.readiness.depleted },
+  noteLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  noteLabelSpacing: { marginTop: SPACING.md },
+  reasonRow: { paddingVertical: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight },
+  reasonTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
 });
