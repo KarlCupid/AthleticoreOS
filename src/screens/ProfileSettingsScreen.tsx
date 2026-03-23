@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { EngineReplayLab } from '../components/EngineReplayLab';
 import { resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
 import { logError } from '../../lib/utils/logger';
 
@@ -36,6 +37,9 @@ export function ProfileSettingsScreen() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [guidanceStatus, setGuidanceStatus] = useState<'pending' | 'completed'>('pending');
+  const [engineReplayVisible, setEngineReplayVisible] = useState(false);
+  const [versionTapCount, setVersionTapCount] = useState(0);
+  const [lastVersionTapAt, setLastVersionTapAt] = useState(0);
 
   useEffect(() => {
     loadProfile();
@@ -117,6 +121,19 @@ export function ProfileSettingsScreen() {
     } catch (error) {
       logError('ProfileSettingsScreen.replaySetupGuide', error);
       Alert.alert('Error', 'Could not reset setup guide right now.');
+    }
+  }
+
+  function handleVersionPress() {
+    const now = Date.now();
+    const nextCount = now - lastVersionTapAt < 1500 ? versionTapCount + 1 : 1;
+
+    setVersionTapCount(nextCount);
+    setLastVersionTapAt(now);
+
+    if (nextCount >= 5) {
+      setVersionTapCount(0);
+      setEngineReplayVisible(true);
     }
   }
 
@@ -285,9 +302,13 @@ export function ProfileSettingsScreen() {
           </AnimatedPressable>
         </Animated.View>
 
-        <Text style={styles.version}>v1.0.0</Text>
+        <AnimatedPressable onPress={handleVersionPress}>
+          <Text style={styles.version}>v1.0.0</Text>
+        </AnimatedPressable>
         <View style={{ height: SPACING.xxl }} />
       </ScrollView>
+
+      <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} />
     </View>
   );
 }

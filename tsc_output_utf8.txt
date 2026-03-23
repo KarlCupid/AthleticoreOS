@@ -1,0 +1,155 @@
+﻿lib/engine/adaptiveWorkout.test.ts(107,47): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/adaptiveWorkout.test.ts(118,47): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/adaptiveWorkout.test.ts(119,44): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/adaptiveWorkout.test.ts(132,47): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/adaptiveWorkout.test.ts(224,45): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/adaptiveWorkout.ts(10,8): error TS2307: Cannot find module './types/adaptation.ts' or its corresponding type declarations.
+lib/engine/adaptiveWorkout.ts(12,5): error TS2724: '"./types/foundational.ts"' has no exported member named 'EquipmentItem'. Did you mean 'Equipment'?
+lib/engine/adaptiveWorkout.ts(13,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'ExerciseLibraryRow'.
+lib/engine/adaptiveWorkout.ts(257,49): error TS7006: Parameter 'e' implicitly has an 'any' type.
+lib/engine/calculateCamp.ts(46,40): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(56,36): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(66,35): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(76,31): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(118,41): error TS2304: Cannot find name 'CampPlanInput'.
+lib/engine/calculateCamp.ts(168,4): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(187,16): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(190,4): error TS2304: Cannot find name 'CampTrainingModifiers'.
+lib/engine/calculateCamp.ts(230,4): error TS2304: Cannot find name 'CampWeekProfile'.
+lib/engine/calculateCamp.ts(236,40): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(243,44): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(250,34): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(280,46): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(281,23): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(325,16): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(337,27): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(346,32): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(384,16): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCamp.ts(457,33): error TS2304: Cannot find name 'CampPhase'.
+lib/engine/calculateCampRisk.ts(1,15): error TS2305: Module '".ts"' has no exported member 'AthleteGoalMode'.
+lib/engine/calculateCampRisk.ts(1,32): error TS2305: Module '".ts"' has no exported member 'WeightCutInfluenceState'.
+lib/engine/calculateCampRisk.ts(1,57): error TS2305: Module '".ts"' has no exported member 'WeighInTiming'.
+lib/engine/calculateConditioning.ts(16,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'ConditioningPrescription'.
+lib/engine/calculateConditioning.ts(17,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'ConditioningType'.
+lib/engine/calculateConditioning.ts(18,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'ConditioningExercise'.
+lib/engine/calculateConditioning.ts(19,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'WeeklyConditioningInput'.
+lib/engine/calculateConditioning.ts(23,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'CampConfig'.
+lib/engine/calculateConditioning.ts(24,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'WeightCutPlanRow'.
+lib/engine/calculateConditioning.ts(371,9): error TS7006: Parameter 't' implicitly has an 'any' type.
+lib/engine/calculateConditioning.ts(380,61): error TS7006: Parameter 't' implicitly has an 'any' type.
+lib/engine/calculateConditioning.ts(383,58): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/calculateConditioning.ts(392,14): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+lib/engine/calculateConditioning.ts(392,19): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/calculateFitness.ts(49,9): error TS2561: Object literal may only specify known properties, but 'conditioningRoundsMultiplier' does not exist in type 'FitnessModifiers'. Did you mean to write 'conditioning_rounds_multiplier'?
+lib/engine/calculateFitness.ts(56,9): error TS2561: Object literal may only specify known properties, but 'conditioningRoundsMultiplier' does not exist in type 'FitnessModifiers'. Did you mean to write 'conditioning_rounds_multiplier'?
+lib/engine/calculateFitness.ts(63,9): error TS2561: Object literal may only specify known properties, but 'conditioningRoundsMultiplier' does not exist in type 'FitnessModifiers'. Did you mean to write 'conditioning_rounds_multiplier'?
+lib/engine/calculateFitness.ts(70,9): error TS2561: Object literal may only specify known properties, but 'conditioningRoundsMultiplier' does not exist in type 'FitnessModifiers'. Did you mean to write 'conditioning_rounds_multiplier'?
+lib/engine/calculateOverload.ts(21,3): error TS2305: Module '"./types/foundational.ts"' has no exported member 'ProgressionModel'.
+lib/engine/calculateOverload.ts(22,3): error TS2305: Module '"./types/foundational.ts"' has no exported member 'OverloadInput'.
+lib/engine/calculateOverload.ts(23,3): error TS2305: Module '"./types/foundational.ts"' has no exported member 'OverloadSuggestion'.
+lib/engine/calculateOverload.ts(24,3): error TS2305: Module '"./types/foundational.ts"' has no exported member 'PRRecord'.
+lib/engine/calculateOverload.ts(25,3): error TS2305: Module '"./types/foundational.ts"' has no exported member 'PRDetectionResult'.
+lib/engine/calculateOverload.ts(26,3): error TS2305: Module '"./types/foundational.ts"' has no exported member 'DeloadDecisionInput'.
+lib/engine/calculateOverload.ts(27,3): error TS2305: Module '"./types/foundational.ts"' has no exported member 'DeloadDecisionResult'.
+lib/engine/calculateRoadWork.ts(17,5): error TS2305: Module '"./types/foundational.ts"' has no exported member 'CampConfig'.
+lib/engine/calculateRoadWork.ts(30,30): error TS2304: Cannot find name 'FitnessLevel'.
+lib/engine/calculateRoadWork.ts(41,41): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(53,32): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(65,28): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(65,42): error TS2304: Cannot find name 'HRZone'.
+lib/engine/calculateRoadWork.ts(77,26): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(77,41): error TS2304: Cannot find name 'HRZone'.
+lib/engine/calculateRoadWork.ts(77,49): error TS2304: Cannot find name 'HRZone'.
+lib/engine/calculateRoadWork.ts(89,38): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(111,26): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(119,34): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(123,34): error TS2304: Cannot find name 'HRZone'.
+lib/engine/calculateRoadWork.ts(137,28): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(148,37): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(168,29): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(168,57): error TS2304: Cannot find name 'FitnessLevel'.
+lib/engine/calculateRoadWork.ts(169,36): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(190,31): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(190,59): error TS2304: Cannot find name 'FitnessLevel'.
+lib/engine/calculateRoadWork.ts(190,74): error TS2304: Cannot find name 'RoadWorkInterval'.
+lib/engine/calculateRoadWork.ts(192,35): error TS2304: Cannot find name 'FitnessLevel'.
+lib/engine/calculateRoadWork.ts(203,35): error TS2304: Cannot find name 'FitnessLevel'.
+lib/engine/calculateRoadWork.ts(228,4): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(264,19): error TS2304: Cannot find name 'FitnessLevel'.
+lib/engine/calculateRoadWork.ts(269,21): error TS2304: Cannot find name 'WeightCutPlanRow'.
+lib/engine/calculateRoadWork.ts(273,5): error TS2304: Cannot find name 'RoadWorkPrescription'.
+lib/engine/calculateRoadWork.ts(299,32): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(327,43): error TS2304: Cannot find name 'RoadWorkType'.
+lib/engine/calculateRoadWork.ts(379,52): error TS2304: Cannot find name 'RoadWorkPrescription'.
+lib/engine/calculateRoadWork.ts(412,12): error TS2304: Cannot find name 'WeeklyRoadWorkInput'.
+lib/engine/calculateRoadWork.ts(413,34): error TS2304: Cannot find name 'RoadWorkPrescription'.
+lib/engine/calculateRoadWork.ts(432,9): error TS7006: Parameter 't' implicitly has an 'any' type.
+lib/engine/calculateRoadWork.ts(440,61): error TS7006: Parameter 't' implicitly has an 'any' type.
+lib/engine/calculateRoadWork.ts(443,58): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/calculateRoadWork.ts(450,14): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+lib/engine/calculateRoadWork.ts(450,19): error TS7006: Parameter 'a' implicitly has an 'any' type.
+lib/engine/calculateRoadWork.ts(462,49): error TS2304: Cannot find name 'RoadWorkPrescription'.
+lib/engine/calculateSchedule.ts(345,50): error TS2551: Property 'conditioningRoundsMultiplier' does not exist on type 'FitnessModifiers'. Did you mean 'conditioning_rounds_multiplier'?
+lib/engine/calculateWarmup.ts(10,36): error TS2304: Cannot find name 'WarmupMove'.
+lib/engine/calculateWarmup.ts(43,42): error TS2304: Cannot find name 'WarmupPhase'.
+lib/engine/calculateWarmup.ts(53,81): error TS2304: Cannot find name 'WarmupPhase'.
+lib/engine/calculateWarmup.ts(67,60): error TS2304: Cannot find name 'WarmupPhase'.
+lib/engine/calculateWarmup.ts(80,84): error TS2304: Cannot find name 'WarmupPhase'.
+lib/engine/calculateWarmup.ts(100,43): error TS2304: Cannot find name 'WarmupInput'.
+lib/engine/calculateWarmup.ts(100,57): error TS2304: Cannot find name 'WarmupResult'.
+lib/engine/calculateWarmup.ts(115,17): error TS2304: Cannot find name 'WarmupPhase'.
+lib/engine/calculateWeightCut.test.ts(180,7): error TS2322: Type '"professional"' is not assignable to type 'FightStatus'.
+lib/engine/calculateWeightCut.test.ts(193,7): error TS2322: Type '"professional"' is not assignable to type 'FightStatus'.
+lib/engine/calculateWeightCut.test.ts(408,7): error TS2353: Object literal may only specify known properties, and 'currentWeight' does not exist in type 'RehydrationInput'.
+lib/engine/calculateWeightCut.test.ts(414,65): error TS2339: Property 'targetRegainLbs' does not exist on type 'RehydrationProtocolResult'.
+lib/engine/calculateWeightCut.test.ts(414,99): error TS2339: Property 'targetRegainLbs' does not exist on type 'RehydrationProtocolResult'.
+lib/engine/calculateWeightCut.test.ts(416,52): error TS2339: Property 'totalSodiumTargetMg' does not exist on type 'RehydrationProtocolResult'.
+lib/engine/calculateWeightCut.test.ts(422,7): error TS2353: Object literal may only specify known properties, and 'currentWeight' does not exist in type 'RehydrationInput'.
+lib/engine/calculateWeightCut.test.ts(428,67): error TS2339: Property 'targetRegainLbs' does not exist on type 'RehydrationProtocolResult'.
+lib/engine/calculateWeightCut.test.ts(428,100): error TS2339: Property 'targetRegainLbs' does not exist on type 'RehydrationProtocolResult'.
+lib/engine/calculateWeightCut.test.ts(434,7): error TS2353: Object literal may only specify known properties, and 'currentWeight' does not exist in type 'RehydrationInput'.
+lib/engine/calculateWeightCut.test.ts(441,59): error TS2339: Property 'totalFluidTargetLiters' does not exist on type 'RehydrationProtocolResult'.
+lib/engine/calculateWeightCut.test.ts(442,72): error TS2339: Property 'fluidTargetLiters' does not exist on type 'RehydrationPhase'.
+lib/engine/calculateWeightCut.ts(825,41): error TS2345: Argument of type '{ cutPhase: CutPhase; startWeightLbs: number; currentWeightLbs: number; weeklyVelocityLbs: number; prescribedCalories: number; calorieFloor: number; consecutiveDepletedDays: number; ... 7 more ...; daysToWeighIn: number; }' is not assignable to parameter of type 'CutSafetyInput'.
+  Type '{ cutPhase: CutPhase; startWeightLbs: number; currentWeightLbs: number; weeklyVelocityLbs: number; prescribedCalories: number; calorieFloor: number; consecutiveDepletedDays: number; ... 7 more ...; daysToWeighIn: number; }' is missing the following properties from type 'CutSafetyInput': readinessState, fightStatus
+lib/engine/calculateWeightCut.ts(847,7): error TS2353: Object literal may only specify known properties, and 'currentWeight' does not exist in type 'RehydrationInput'.
+lib/engine/calculateWeightCut.ts(849,27): error TS2339: Property 'biological_sex' does not exist on type 'WeightCutPlanRow'.
+lib/engine/calculateWeightCut.ts(856,5): error TS2353: Object literal may only specify known properties, and 'date' does not exist in type 'DailyCutProtocolResult'.
+lib/engine/calculateWeightCut.ts(887,11): error TS2339: Property 'currentWeight' does not exist on type 'RehydrationInput'.
+lib/engine/calculateWeightCut.ts(887,26): error TS2339: Property 'targetWeight' does not exist on type 'RehydrationInput'.
+lib/engine/calculateWeightCut.ts(887,55): error TS2339: Property 'weighInTime' does not exist on type 'RehydrationInput'.
+lib/engine/calculateWeightCut.ts(887,68): error TS2339: Property 'fightTime' does not exist on type 'RehydrationInput'.
+lib/engine/calculateWeightCut.ts(897,7): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'RehydrationPhase'.
+lib/engine/calculateWeightCut.ts(904,7): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'RehydrationPhase'.
+lib/engine/calculateWeightCut.ts(911,7): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'RehydrationPhase'.
+lib/engine/calculateWeightCut.ts(920,5): error TS2353: Object literal may only specify known properties, and 'totalFluidTargetLiters' does not exist in type 'RehydrationProtocolResult'.
+lib/engine/presentation/compass.test.ts(30,7): error TS2322: Type '"strength"' is not assignable to type 'WorkoutFocus | null'.
+lib/engine/presentation/nutritionQuickAction.test.ts(33,7): error TS2322: Type '"strength"' is not assignable to type 'WorkoutFocus | null'.
+lib/engine/presentation/trainingFloor.test.ts(31,7): error TS2322: Type '"strength"' is not assignable to type 'WorkoutFocus | null'.
+lib/engine/schedule/loadAndValidation.ts(2,5): error TS2305: Module '"../types/foundational.ts"' has no exported member 'ActivityType'.
+lib/engine/schedule/loadAndValidation.ts(9,5): error TS2459: Module '"../types/training.ts"' declares 'ScheduledActivityRow' locally, but it is not exported.
+lib/engine/schedule/loadAndValidation.ts(10,5): error TS2305: Module '"../types/training.ts"' has no exported member 'DayLoadValidation'.
+lib/engine/schedule/loadAndValidation.ts(11,5): error TS2305: Module '"../types/training.ts"' has no exported member 'WeekPlanEntry'.
+lib/engine/schedule/loadAndValidation.ts(208,9): error TS2739: Type '{ weeklyLoad: number; monotony: number; strain: number; rollingFatigueRatio: number; rollingFatigueScore: number; fatigueBand: "low" | "moderate" | "high" | "very_high"; }' is missing the following properties from type 'LoadMetrics': acuteEWMA, chronicEWMA, safetyThreshold, thresholdSource
+lib/engine/schedule/safety.ts(1,36): error TS2305: Module '"../types/foundational.ts"' has no exported member 'FuelState'.
+lib/engine/schedule/safety.ts(1,47): error TS2305: Module '"../types/foundational.ts"' has no exported member 'NutritionDayAdjustment'.
+lib/engine/schedule/safety.ts(1,71): error TS2305: Module '"../types/foundational.ts"' has no exported member 'NutritionTargets'.
+lib/engine/schedule/safety.ts(1,89): error TS2305: Module '"../types/foundational.ts"' has no exported member 'OvertrainingWarning'.
+lib/engine/schedule/safety.ts(2,15): error TS2459: Module '"../types/training.ts"' declares 'ScheduledActivityRow' locally, but it is not exported.
+lib/engine/types/mission.ts(3,3): error TS2305: Module '"./foundational.ts"' has no exported member 'AthleteGoalMode'.
+lib/engine/types/mission.ts(4,3): error TS2305: Module '"./foundational.ts"' has no exported member 'BuildPhaseGoalRow'.
+lib/engine/types/mission.ts(5,3): error TS2305: Module '"./foundational.ts"' has no exported member 'BuildPhaseGoalType'.
+lib/engine/types/mission.ts(7,3): error TS2305: Module '"./foundational.ts"' has no exported member 'ObjectiveSecondaryConstraint'.
+lib/engine/types/mission.ts(8,3): error TS2305: Module '"./foundational.ts"' has no exported member 'PerformanceGoalType'.
+lib/engine/types/mission.ts(9,3): error TS2305: Module '"./foundational.ts"' has no exported member 'WeightCutInfluenceState'.
+lib/engine/types/mission.ts(10,3): error TS2305: Module '"./foundational.ts"' has no exported member 'WeighInTiming'.
+lib/engine/types/schedule.ts(12,3): error TS2305: Module '"./foundational.ts"' has no exported member 'AvailabilityWindow'.
+lib/engine/types/schedule.ts(13,3): error TS2305: Module '"./foundational.ts"' has no exported member 'ConstraintTier'.
+lib/engine/types/schedule.ts(14,3): error TS2305: Module '"./foundational.ts"' has no exported member 'PerformanceGoalType'.
+lib/engine/types/schedule.ts(15,3): error TS2305: Module '"./foundational.ts"' has no exported member 'RecommendationLifecycleStatus'.
+lib/engine/types/training.ts(30,15): error TS2305: Module '"./foundational.ts"' has no exported member 'PerformanceGoalType'.
+lib/engine/workoutSessionBuilder.ts(6,5): error TS2459: Module '"./types/training.ts"' declares 'FitnessLevel' locally, but it is not exported.
+lib/engine/workoutSessionBuilder.ts(9,5): error TS2459: Module '"./types/training.ts"' declares 'MuscleGroup' locally, but it is not exported.
+lib/engine/workoutSessionBuilder.ts(10,5): error TS2459: Module '"./types/training.ts"' declares 'PerformanceGoalType' locally, but it is not exported.
+lib/engine/workoutSessionBuilder.ts(14,5): error TS2459: Module '"./types/training.ts"' declares 'ReadinessState' locally, but it is not exported.
+lib/engine/workoutSessionBuilder.ts(17,5): error TS2459: Module '"./types/training.ts"' declares 'WorkoutFocus' locally, but it is not exported.

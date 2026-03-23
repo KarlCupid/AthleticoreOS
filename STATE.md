@@ -1,36 +1,42 @@
 # Project State
 
-**Last Updated:** 2026-03-17
+**Last Updated:** 2026-03-21
 
-## Current Direction
-- **Daily Engine v3:** the core orchestration layer has been upgraded to a more granular, simulation-backed version that manages complex concurrent training interference.
-- **Interference & Autoregulation:** `lib/engine` now explicitly models the metabolic and structural interference between S&C and Conditioning, with real-time autoregulation of prescriptions.
-- **Intervention Enforcement:** the system proactively identifies and enforces interventions for weight drift, excessive chronic load, or nutritional gaps.
-- **Sim-First Validation:** all engine changes are verified against a massive library of athlete personas via `lib/engine/simulation`.
+## Current direction
 
-## What Is Already In Place
-- Auth -> onboarding -> planning setup -> tab navigation gate is implemented in `App.tsx`.
-- Dashboard data is driven by live engine state via `useDashboardData`.
-- Weekly planning, guided workout handoff, and mission snapshot reuse are implemented.
-- Interference Model, Energy Availability, and SC Autoregulation modules are integrated into the core engine.
-- Daily engine snapshots are persisted in `daily_engine_snapshots` with v3 schema support.
-- Weight drift and external training load tracking are implemented at the database and API level.
-- Engine test coverage is high, supplemented by rigorous simulation runs (`/sim_results`).
+- The product is centered on a daily engine state, not a standalone workout planner flow.
+- `build_phase` and `fight_camp` both feed the same mission-driven runtime.
+- The repo is optimized around a deterministic engine plus a Supabase service layer.
+- Validation is expected to start with engine tests and, for higher-risk changes, simulation.
 
-## Current Priorities
-- **Intervention Mastery:** refine the "coaching nudge" and enforcement logic to ensure athletes stay within safe performance windows.
-- **Simulation Fidelity:** ensure the persona library in `lib/engine/simulation` accurately represents edge-case athlete behaviors.
-- **ACWR & External Load:** deepen the integration of unscheduled external load into the acute:chronic workload calculations.
-- **Testing discipline:** continue adding engine-level coverage when changing deterministic behavior.
+## What is in place
 
-## Active Risks / Tech Debt
-- Some large files still exist, especially in engine and screen orchestration layers.
-- Snapshot-backed flows can drift if mission schema changes are not updated everywhere.
-- The app mixes legacy data paths with newer mission-driven behavior in some places, so regressions can hide in fallback logic.
-- Weekly plan and scheduled activity flows need careful handling because both can feed today's mission and workout entry points.
+- Auth -> onboarding -> planning setup -> tab app gating is implemented in `App.tsx`.
+- Dashboard loading is driven by `src/hooks/useDashboardData.ts`, which pulls `getDailyEngineState`, rolling schedule data, nutrition ledger data, and fight-camp status.
+- Daily engine orchestration is implemented in `lib/api/dailyMissionService.ts`.
+- Weekly plan entries can reuse stored daily mission snapshots and engine-owned prescriptions.
+- Snapshot persistence exists for `daily_engine_snapshots` and weekly plan mission mirrors.
+- Engine modules cover readiness, ACWR, mission construction, nutrition, hydration, weight trend, cut protocols, interference modeling, S&C autoregulation, presentation mapping, and simulation.
+- Supabase migrations are present through `015_engine_v3_foundation.sql`.
 
-## Working Assumptions For Agents
+## Current priorities
+
+- Keep documentation and architecture notes aligned with the actual code, especially around engine orchestration and persistence contracts.
+- Continue improving intervention behavior inside the mission and cut logic without fragmenting the ownership model.
+- Maintain confidence in ACWR, readiness, and workload-sensitive prescriptions.
+- Add or preserve engine-level coverage whenever deterministic behavior changes.
+
+## Active risks and tech debt
+
+- `lib/api/dailyMissionService.ts` is the densest orchestration file and remains a likely source of coupling risk.
+- Snapshot-backed behavior can drift if schema or mission shape changes are only updated in one path.
+- The app still has legacy fallback behavior in some flows, especially around planning completion and reused mission data.
+- Weekly plan entries and scheduled activities both influence the daily mission, so precedence bugs are easy to introduce.
+- Simulation tooling exists, but its usage is still discipline-dependent rather than enforced by the toolchain.
+
+## Working assumptions
+
 - Read this file first, then `CONTEXT.md`.
-- Assume the daily mission engine is the current product source of truth unless the task explicitly targets legacy behavior.
-- When changing user-facing recommendations, verify whether the change belongs in engine logic, API orchestration, snapshot persistence, or only the UI.
-- Keep documentation aligned with the current athlete OS direction whenever major architecture or product-state changes land.
+- Treat the daily engine and its persisted snapshots as the operational source of truth.
+- Before changing UI summaries, verify whether the real fix belongs in engine logic or service orchestration.
+- When documentation drifts from the code, update the docs in the same pass as the code change.

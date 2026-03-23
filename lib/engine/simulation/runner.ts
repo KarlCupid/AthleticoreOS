@@ -25,7 +25,18 @@ import type {
 } from '../types/readiness.ts';
 import type {
   ScheduledActivityRow,
-} from '../types/training.ts';
+} from '../types/schedule.ts';
+
+function createSeededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+
+  return () => {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 function addIsoDays(dateStr: string, days: number): string {
   const date = new Date(`${dateStr}T00:00:00Z`);
@@ -116,6 +127,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
   const { startDate, weeks, persona, initialState } = config;
   const days = weeks * 7;
   const dailyLogs: DailySimulationLog[] = [];
+  const random = createSeededRandom(config.seed ?? 42);
 
   // 1. Initialize Simulation State
   let simState: SimulationState = {
@@ -158,11 +170,11 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     // Readiness is impacted by central fatigue
     const fatiguePenalty = (simState.fatigue.centralFatigue / 20); // up to -5 points
     const baseReadiness = persona.averageReadiness - fatiguePenalty;
-    const readinessLogged = Math.max(1, Math.min(10, Math.round(baseReadiness + (Math.random() - 0.5) * persona.readinessVolatility * 10)));
+    const readinessLogged = Math.max(1, Math.min(10, Math.round(baseReadiness + (random() - 0.5) * persona.readinessVolatility * 10)));
     
     // Sleep is impacted by overtraining/fatigue spikes
     const sleepPenalty = simState.fatigue.centralFatigue > 80 ? 2 : 0;
-    const sleepLogged = Math.max(1, Math.min(10, Math.round(persona.averageSleepQuality - sleepPenalty + (Math.random() - 0.5) * persona.readinessVolatility * 10)));
+    const sleepLogged = Math.max(1, Math.min(10, Math.round(persona.averageSleepQuality - sleepPenalty + (random() - 0.5) * persona.readinessVolatility * 10)));
 
     if (readinessLogged <= 3) {
       simState.consecutiveDepletedDays++;
@@ -230,8 +242,8 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         activity_type: todayBoxing.type as any,
         name: todayBoxing.name,
         expected_intensity: todayBoxing.intensity,
-        duration_min: todayBoxing.duration,
-        scheduled_date: dateStr,
+        estimated_duration_min: todayBoxing.duration,
+        date: dateStr,
         status: 'scheduled',
         is_recurring: true
       } as any);
@@ -395,9 +407,9 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       } as any,
       hydration: { dailyWaterOz: cutProtocol?.water_target_oz || 128, message: 'Simulated' } as any,
       scheduledActivities: scheduledActivities.map(a => ({
-        date: a.scheduled_date,
+        date: a.date,
         activity_type: a.activity_type,
-        estimated_duration_min: a.duration_min,
+        estimated_duration_min: a.estimated_duration_min,
         expected_intensity: a.expected_intensity
       })),
       cutProtocol: cutProtocol as any,
@@ -424,12 +436,12 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     if (cutProtocol) {
       // Acute Weight Shift Physics
       if (cutProtocol.cutPhase === 'fight_week_cut') {
-        const waterLoss = (Math.random() * 1.5) + 1.0; 
+        const waterLoss = (random() * 1.5) + 1.0;
         simState.metabolism.currentWeightLbs -= waterLoss;
         // Severe fatigue penalty for dehydration/fog
         simState.fatigue.centralFatigue = Math.min(100, simState.fatigue.centralFatigue + 20);
       } else if (cutProtocol.cutPhase === 'rehydration') {
-        const waterRegain = (Math.random() * 4) + 3; 
+        const waterRegain = (random() * 4) + 3;
         simState.metabolism.currentWeightLbs += waterRegain;
       }
 
@@ -449,8 +461,8 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     // --- STEP 3: Persona Reaction & Biological Physics ---
 
     // A. Nutrition (Simulation 5.0: Variety & Role Adaptation)
-    const isCheatDay = Math.random() < (persona.cheatDayProbability || 0);
-    const nutritionComplied = !isCheatDay && Math.random() < persona.nutritionCompliance;
+    const isCheatDay = random() < (persona.cheatDayProbability || 0);
+    const nutritionComplied = !isCheatDay && random() < persona.nutritionCompliance;
     
     // Base targets from engine
     let actualCalories = mission.fuelDirective.calories;
@@ -459,7 +471,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     let actualFat = mission.fuelDirective.fat;
 
     // Apply "Compliant Variance" (+/- 10%)
-    const variance = 0.9 + (Math.random() * 0.2); 
+    const variance = 0.9 + (random() * 0.2);
     if (nutritionComplied) {
       actualCalories *= variance;
       actualProtein *= variance;
@@ -471,7 +483,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       actualFat += 50;
     } else {
       // Non-compliant but not cheat: higher variance
-      const badVariance = 0.7 + (Math.random() * 0.6); // 70% to 130%
+      const badVariance = 0.7 + (random() * 0.6); // 70% to 130%
       actualCalories *= badVariance;
       actualProtein *= badVariance;
       actualCarbs *= badVariance;
@@ -490,7 +502,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
     // Physics: Use dynamic baselineTdee for deficit calculation
     const calorieDelta = actualCalories - baselineTdee; 
-    const weightChange = (calorieDelta / 3500) + (Math.random() * 0.1 - 0.05); 
+    const weightChange = (calorieDelta / 3500) + (random() * 0.1 - 0.05);
     simState.metabolism.currentWeightLbs += weightChange;
 
     // Boxing execution follows the shared taper rule, then mission intervention can shut it down.
@@ -507,7 +519,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     }
 
     // B. Training (Simulation 5.0: Healing Physics)
-    const trainingComplied = Math.random() < persona.workoutCompliance;
+    const trainingComplied = random() < persona.workoutCompliance;
     
     // Use the capped intensity from the mission as the limit
     const missionCap = mission.trainingDirective.intensityCap;
@@ -540,7 +552,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
     // C. Natural Recovery (Overnight)
     // Add Biological Variance (+/- 20% to recovery efficiency)
-    const recoveryEfficiency = 0.8 + (Math.random() * 0.4);
+    const recoveryEfficiency = 0.8 + (random() * 0.4);
     simState.fatigue.centralFatigue = Math.max(0, simState.fatigue.centralFatigue - (sleepLogged * 2.5 * recoveryEfficiency));
     simState.fatigue.muscularDamage = Math.max(0, simState.fatigue.muscularDamage - (sleepLogged * 1.5 * recoveryEfficiency));
 
@@ -603,7 +615,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       personaAction: {
         readinessLogged,
         sleepLogged,
-        didWarmup: trainingComplied && (Math.random() < 0.8),
+        didWarmup: trainingComplied && (random() < 0.8),
         sessionsCompleted: [
           ...(completedSession ? [completedSession] : []),
           ...(todayBoxing && todayBoxing.intensity > 0 ? [{

@@ -1,66 +1,124 @@
 # Athleticore OS - Architecture & Product Context
 
-**Read `STATE.md` first** before making targeted changes. It captures the current product direction and active priorities.
+Read `STATE.md` first for the current direction. This file explains how the codebase is organized today.
 
-Athleticore OS is no longer just a workout planner. The app now behaves like an athlete operating system: it gates users through onboarding and planning setup, computes a daily engine state, and drives training, nutrition, hydration, weight-cut, and risk guidance from that shared context.
+Athleticore OS is an athlete operating system for combat-sports training. The product is built around a shared daily engine state that turns planning, readiness, nutrition, hydration, workload, and weight-management data into one actionable mission.
 
-## Product Shape
-- **Primary experience:** authenticated athlete dashboard plus a planning workspace.
-- **Goal modes:** `build_phase` and `fight_camp`.
-- **Core runtime loop:** onboarding -> planning setup -> rolling schedule + daily engine -> dashboard mission + plan execution -> logs and snapshots.
-- **Main user surfaces:**
-  - `Home` tab: dashboard, today detail, logs.
-  - `Plan` tab: weekly plan, guided workouts, calendar, nutrition, weight cut, weekly review.
-  - `Profile` tab: profile and settings.
+## Product shape
 
-## Current Architecture
-- **App shell:** `App.tsx` decides among `AuthScreen`, `OnboardingScreen`, `PlanningSetupStackNavigator`, and `TabNavigator`.
-- **Navigation:** bottom-tab app with separate `HomeStack` and `PlanStack` flows.
-- **Backend:** Supabase for auth, profile data, plans, sessions, nutrition, weight cut, and engine snapshots.
-- **Deterministic engine (v3):** `lib/engine/*` owns readiness, mission construction, schedule generation, nutrition targets, risk scoring, and workout prescriptions. It now includes explicit modules for **Interference Modeling** (`load/interferenceModel.ts`) and **S&C Autoregulation** (`sc/autoregulation.ts`).
-- **Anti-Wiring Principle:** All engine functions must be pure, synchronous, and side-effect-free (no DB, no API, no LLM).
-- **Service layer:** `lib/api/*` coordinates Supabase IO plus engine orchestration, including the new `interventionService` for enforcing safety and goal adherence.
+- Primary experience: authenticated athlete dashboard plus planning and execution flows.
+- Goal modes: `build_phase` and `fight_camp`.
+- Core loop: auth -> onboarding -> planning setup -> rolling schedule + daily engine -> dashboard and plan execution -> logs and snapshots.
+- Main surfaces:
+  - `Home`: dashboard, day detail, activity log, logging.
+  - `Plan`: weekly plan, workouts, calendar, nutrition, weight-cut, review.
+  - `Profile`: settings/profile.
 
-## Important Runtime Concepts
-- **Planning setup is a gate.** Users are not considered ready until they have availability windows plus an active mode record, unless legacy usage data satisfies the check.
-- **Daily engine state is central.** `getDailyEngineState` (v3) resolves objective context, ACWR, readiness, nutrition targets, hydration, cut protocol, workout prescription, and the final daily mission, accounting for training interference.
-- **Snapshots are first-class.** Daily engine results are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot` for reuse. v3 snapshots include expanded prescription metadata.
-- **Intervention Enforcement.** The system monitors for critical deviations (weight drift, workload spikes) and injects mandatory interventions into the daily mission to preserve athlete safety.
-- **Guided engine sessions matter.** Weekly plan entries and scheduled activities can hand off into `GuidedWorkoutScreen` using engine-owned prescriptions and session ownership rules.
-- **Dashboard is operational, not decorative.** It is the "today" command center for mission summary, readiness, fuel, training load, weight trend, camp risk, and fast navigation into execution flows.
+## Current architecture
 
-## Directory Guide
-- `/src/screens` - top-level product surfaces. Start here for user-visible behavior.
-- `/src/components` - reusable UI blocks used by dashboard, planning, nutrition, and workout flows.
-- `/src/navigation` - app shell, tab structure, and stack routing.
-- `/src/hooks` - screen-focused orchestration hooks like `useDashboardData`, `useWeeklyPlan`, and workout/planning hooks.
-- `/src/theme` - colors, spacing, readiness theme context.
-- `/lib/api` - service layer for athlete context, planning setup, daily mission state, weekly plans, nutrition, fight camp, and weight cut.
-- `/lib/engine` - deterministic business logic, sub-divided into domain modules (load, sc, nutrition, weight, etc.).
-- `/lib/engine/simulation` - library of athlete personas and the simulation runner used to validate engine v3.
-- `/supabase/migrations` - schema history for planning, camp, daily mission OS, and daily engine snapshots.
+### App shell
 
-## Files That Matter Most
+`App.tsx` decides between:
+
+- `AuthScreen`
+- `OnboardingScreen`
+- `PlanningSetupStackNavigator`
+- `TabNavigator`
+
+That decision depends on Supabase auth, the existence of an athlete profile, and `getPlanningSetupStatus`.
+
+### Navigation
+
+- `src/navigation/HomeStack.tsx`: dashboard and logging flows.
+- `src/navigation/PlanStack.tsx`: weekly plan, workouts, nutrition, calendar, weight-cut, and review flows.
+- `src/navigation/PlanningSetupStack.tsx`: setup gate before the main app.
+- `src/navigation/TabNavigator.tsx`: bottom-tab shell.
+
+### Data ownership
+
+- `lib/engine/*`: deterministic calculations and domain rules.
+- `lib/api/*`: Supabase access plus orchestration around engine inputs/outputs.
+- `src/hooks/*`: screen-oriented assembly of service results and UI state.
+- `src/screens/*`: final product surfaces.
+
+## Runtime concepts that matter
+
+### Planning setup is enforced
+
+Users are not fully admitted into the app until they have:
+
+- an athlete profile
+- availability windows
+- an active mode record for the current goal mode
+
+Legacy usage can satisfy the gate for older accounts.
+
+### Daily engine state is the center of the app
+
+`lib/api/dailyMissionService.ts` resolves, in order:
+
+- objective context
+- ACWR
+- readiness profile and stimulus constraints
+- cut protocol
+- nutrition targets
+- hydration
+- workout prescription
+- camp risk
+- final mission
+
+This state is what powers the dashboard and much of the planning UI.
+
+### Snapshot persistence is part of the contract
+
+Engine outputs are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot`. If mission or engine shapes change, you need to consider persistence and reuse paths, not just the local caller.
+
+### Intervention logic is engine-driven
+
+There is no separate `interventionService` at the moment. Safety and intervention behavior are embedded in the mission engine and related cut/risk calculations, especially in `lib/engine/calculateMission.ts`, `lib/engine/calculateWeightCut.ts`, and the orchestration in `lib/api/dailyMissionService.ts`.
+
+### Guided sessions have ownership rules
+
+Weekly plan entries can supply engine-owned prescriptions that flow into workout execution. The ownership rules live in `lib/engine/sessionOwnership.ts`.
+
+## Directory guide
+
+- `src/screens`: user-visible surfaces.
+- `src/components`: shared UI blocks.
+- `src/navigation`: tab and stack definitions.
+- `src/hooks`: orchestration hooks like `useDashboardData`, `useWeeklyPlan`, and workout hooks.
+- `src/theme`: theme tokens and readiness-aware theming.
+- `src/context`: shared runtime UI contexts.
+- `lib/api`: service layer for athlete context, planning, mission, schedules, nutrition, fight camp, weight, and weight cut.
+- `lib/engine`: deterministic business logic.
+- `lib/engine/presentation`: engine-to-copy mapping for summaries and semantic presentation.
+- `lib/engine/simulation`: persona library, runner, and reporting.
+- `supabase/migrations`: schema history.
+
+## Files that matter most
+
 1. `App.tsx`
-   Controls the app gate sequence and tells you which product state the user can reach.
+   Entry gate and provider tree.
 2. `lib/api/dailyMissionService.ts`
-   Main orchestration layer for the daily engine. Read this before changing dashboard, mission, or daily prescription behavior.
+   Main daily engine orchestration path.
 3. `src/hooks/useDashboardData.ts`
-   Connects the dashboard to the daily engine, schedule generation, ledgers, and current athlete context.
-4. `src/screens/WeeklyPlanScreen.tsx` and `lib/api/weeklyPlanService.ts`
-   Core weekly planning and mission snapshot integration.
+   Dashboard state assembly and refresh behavior.
+4. `lib/api/weeklyPlanService.ts` and `src/screens/WeeklyPlanScreen.tsx`
+   Weekly planning, mission reuse, and plan execution entry points.
 5. `lib/engine/index.ts` and `lib/engine/types.ts`
-   Source of truth for exported engine functions and shared domain types.
+   Export surface and shared engine contracts.
 
-## Editing Guidance
-- Prefer changing engine or service code over patching screen logic when the behavior is cross-surface.
-- Reuse types from `lib/engine/types.ts` or the typed splits under `lib/engine/types/*`.
-- Treat `daily_mission_snapshot` and `daily_engine_snapshots` as part of the contract when changing mission shape.
-- Preserve the setup gate in `App.tsx`; do not bypass onboarding or planning setup unless that is the explicit task.
-- If a flow depends on goal mode, verify both `build_phase` and `fight_camp` paths.
+## Editing guidance
 
-## High-Value Test Areas
-- `lib/engine/*.test.ts` covers the deterministic layer and is the safest place to add coverage.
-- **Functional Core / Imperative Shell:** Always prefer changing engine logic (the core) before touching the service layer or UI (the shell).
-- Mission, workout, schedule, camp-risk, nutrition, and weight-cut changes should usually be verified with `npm run test:engine`.
-- Structural changes should also pass `npm run lint`, `npm run typecheck`, and `npm run typecheck:clean`.
+- Prefer fixing behavior in the engine or service layer when multiple screens depend on it.
+- Reuse shared engine types instead of redefining API or UI-only variants.
+- Treat snapshots and mirrored mission fields as public contracts inside the app.
+- Preserve the auth/profile/planning gate unless the task explicitly targets it.
+- If the code path is mode-sensitive, check both `build_phase` and `fight_camp`.
+
+## Validation guidance
+
+- Engine logic: start with `lib/engine/*.test.ts`
+- Deterministic changes: run `npm run test:engine`
+- Structural changes: also run `npm run lint`, `npm run typecheck`, and `npm run typecheck:clean`
+- Higher-risk engine changes: use the simulation tooling in `scripts/run-simulation.ts` and `lib/engine/simulation/*`

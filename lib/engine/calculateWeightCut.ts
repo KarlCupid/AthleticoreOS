@@ -364,7 +364,12 @@ export function detectStall(input: StallDetectionInput): StallDetectionResult {
     return { stalled: false, stallDurationDays: 0, recommendation: 'none', refeedDurationDays: 0, message: 'Weight is still moving.' };
   }
 
-  const todayStr = today();
+  // Anchor "today" to the latest recorded weigh-in date so historical scenarios
+  // and deterministic simulations do not drift based on the machine clock.
+  const todayStr = weightHistory.reduce(
+    (latest, point) => (point.date > latest ? point.date : latest),
+    weightHistory[0].date,
+  );
   const daysSinceRefeed = lastRefeedDate ? daysBetween(lastRefeedDate, todayStr) : daysAtDeficit;
   const daysSinceDietBreak = lastDietBreakDate ? daysBetween(lastDietBreakDate, todayStr) : daysAtDeficit;
 

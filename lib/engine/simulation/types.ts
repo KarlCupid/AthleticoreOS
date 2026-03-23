@@ -33,6 +33,8 @@ export interface DailyEngineState {
   objectiveContext: MacrocycleContext;
   acwr: ACWRResult;
   readinessState: ReadinessState;
+  readinessProfile: any;
+  constraintSet: any;
   cutProtocol: any;
   nutritionTargets: any;
   hydration: any;
@@ -44,6 +46,7 @@ export interface DailyEngineState {
   workoutPrescription: any;
   mission: DailyMission;
   campRisk: any;
+  medStatus: any;
 }
 
 export type SimulationPersona = {
@@ -124,6 +127,7 @@ export type DailySimulationLog = {
 export type SimulationConfig = {
   startDate: string;
   weeks: number;
+  seed?: number;
   persona: SimulationPersona;
   initialState: {
     weightLbs: number;

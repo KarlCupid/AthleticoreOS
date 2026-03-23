@@ -2,10 +2,15 @@ import type {
     ReadinessState,
     WorkoutFocus,
     FitnessLevel,
+    Phase,
+    MuscleGroup,
 } from './types/foundational.ts';
 import type {
     CampPhase,
 } from './types/camp.ts';
+import type {
+    PerformanceGoalType,
+} from './types/fightCampV1.ts';
 import type {
     ExerciseLibraryRow,
     ExerciseScoringContext,
@@ -17,10 +22,7 @@ import type {
     PrescribedExerciseV2,
     WorkoutSetLogRow,
     WorkoutComplianceResult,
-    Phase,
-    MuscleGroup,
     EquipmentItem,
-    PerformanceGoalType,
     PerformanceRiskState,
     TrainingBlockContext,
 } from './types/training.ts';

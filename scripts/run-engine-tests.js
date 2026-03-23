@@ -1,70 +1,28 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const ts = require('typescript');
+const { spawnSync } = require('node:child_process');
 
 const projectRoot = process.cwd();
 const engineDir = path.join(projectRoot, 'lib', 'engine');
-const TEST_EXIT_SENTINEL = '__ENGINE_TEST_EXIT__';
-
-function registerTypeScriptHook() {
-  const compile = (filename) => {
-    const source = fs.readFileSync(filename, 'utf8');
-    const normalizedSource = source
-      .replace(/from\s+['"]\.ts['"]/g, "from './.ts'")
-      .replace(/require\((['"])\.ts\1\)/g, "require('./.ts')");
-
-    return ts.transpileModule(normalizedSource, {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2020,
-        esModuleInterop: true,
-        strict: true,
-        jsx: ts.JsxEmit.React,
-      },
-      fileName: filename,
-    }).outputText;
-  };
-
-  require.extensions['.ts'] = (module, filename) => {
-    const js = compile(filename);
-    module._compile(js, filename);
-  };
-
-  require.extensions['.tsx'] = (module, filename) => {
-    const js = compile(filename);
-    module._compile(js, filename);
-  };
-}
+const singleTestRunner = path.join(projectRoot, 'scripts', 'run-single-engine-test.js');
 
 function runSingleTest(fullPath) {
-  const originalExit = process.exit;
-  let exitCode = 0;
+  const result = spawnSync(process.execPath, [singleTestRunner, fullPath], {
+    cwd: projectRoot,
+    stdio: 'inherit',
+  });
 
-  process.exit = (code = 0) => {
-    exitCode = Number(code) || 0;
-    throw new Error(TEST_EXIT_SENTINEL);
-  };
-
-  try {
-    delete require.cache[require.resolve(fullPath)];
-    require(fullPath);
-  } catch (error) {
-    if (!(error instanceof Error && error.message === TEST_EXIT_SENTINEL)) {
-      throw error;
-    }
-  } finally {
-    process.exit = originalExit;
+  if (result.error) {
+    throw result.error;
   }
 
-  return exitCode;
+  return result.status ?? 1;
 }
 
 function run() {
   if (!fs.existsSync(engineDir)) {
     throw new Error(`Engine directory not found: ${engineDir}`);
   }
-
-  registerTypeScriptHook();
 
   const collectTestFiles = (dir) => {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
