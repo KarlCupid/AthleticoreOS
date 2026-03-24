@@ -40,6 +40,60 @@ export interface EngineReplayExerciseLog {
   note: string;
 }
 
+export interface EngineReplayPrescribedExercise {
+  exerciseId: string;
+  exerciseName: string;
+  sectionTitle: string | null;
+  sectionTemplate: string | null;
+  setScheme: string | null;
+  targetSets: number;
+  targetReps: number;
+  targetRpe: number;
+  suggestedWeight: number | null;
+  warmupSetCount: number;
+}
+
+export interface EngineReplayConditioningDrill {
+  name: string;
+  targetRounds: number;
+  completedRounds: number;
+  durationSec: number | null;
+  reps: number | null;
+  restSec: number;
+  completed: boolean;
+  note: string;
+}
+
+export interface EngineReplayConditioningPrescription {
+  type: string;
+  totalDurationMin: number;
+  rounds: number;
+  workIntervalSec: number;
+  restIntervalSec: number;
+  intensityLabel: 'light' | 'moderate' | 'hard';
+  message: string;
+  cnsBudget: number;
+  estimatedLoad: number;
+  drills: Array<{
+    name: string;
+    durationSec: number | null;
+    reps: number | null;
+    rounds: number;
+    restSec: number;
+  }>;
+}
+
+export interface EngineReplayConditioningLog {
+  completedRounds: number;
+  prescribedRounds: number;
+  completedDurationMin: number;
+  targetDurationMin: number;
+  actualRpe: number | null;
+  completionRate: number;
+  note: string;
+  drillLogs: EngineReplayConditioningDrill[];
+}
+
 export interface EngineReplayDay {
   index: number;
   date: string;
@@ -59,11 +113,16 @@ export interface EngineReplayDay {
   headline: string;
   summary: string;
   didWarmup: boolean;
+  durationMin: number;
+  activationGuidance: string | null;
   workoutBlueprint: string;
   coachingInsight: string;
   athleteMonologue: string;
   decisionReasons: EngineReplayDecisionReason[];
   prescriptionPreview: string[];
+  prescribedExercises: EngineReplayPrescribedExercise[];
+  conditioningPrescription: EngineReplayConditioningPrescription | null;
+  conditioningLog: EngineReplayConditioningLog | null;
   exerciseLogs: EngineReplayExerciseLog[];
   prescribedCalories: number;
   actualCalories: number;
@@ -355,6 +414,8 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     headline: mission.headline,
     summary: mission.summary,
     didWarmup: personaAction.didWarmup,
+    durationMin: mission.trainingDirective.durationMin ?? 0,
+    activationGuidance: prescription?.activationGuidance ?? null,
     workoutBlueprint: personaAction.workoutBlueprint ?? 'Rest day',
     coachingInsight: personaAction.coachingInsight ?? '',
     athleteMonologue: personaAction.athleteMonologue ?? '',
@@ -365,6 +426,55 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
       impact: reason.impact,
     })),
     prescriptionPreview: prescription?.exercises?.slice(0, 4).map((exercise) => exercise.exercise.name) ?? [],
+    prescribedExercises: prescription?.exercises?.map((exercise) => ({
+      exerciseId: exercise.exercise.id,
+      exerciseName: exercise.exercise.name,
+      sectionTitle: exercise.sectionIntent ?? null,
+      sectionTemplate: exercise.sectionTemplate ?? null,
+      setScheme: exercise.setScheme ?? null,
+      targetSets: exercise.targetSets,
+      targetReps: exercise.targetReps,
+      targetRpe: exercise.targetRPE,
+      suggestedWeight: exercise.suggestedWeight ?? null,
+      warmupSetCount: Array.isArray(exercise.warmupSets) ? exercise.warmupSets.length : 0,
+    })) ?? [],
+    conditioningPrescription: personaAction.conditioningPrescription ? {
+      type: personaAction.conditioningPrescription.type,
+      totalDurationMin: personaAction.conditioningPrescription.totalDurationMin,
+      rounds: personaAction.conditioningPrescription.rounds,
+      workIntervalSec: personaAction.conditioningPrescription.workIntervalSec,
+      restIntervalSec: personaAction.conditioningPrescription.restIntervalSec,
+      intensityLabel: personaAction.conditioningPrescription.intensityLabel,
+      message: personaAction.conditioningPrescription.message,
+      cnsBudget: personaAction.conditioningPrescription.cnsBudget,
+      estimatedLoad: personaAction.conditioningPrescription.estimatedLoad,
+      drills: (personaAction.conditioningPrescription.exercises ?? []).map((exercise) => ({
+        name: exercise.name,
+        durationSec: exercise.durationSec ?? null,
+        reps: exercise.reps ?? null,
+        rounds: exercise.rounds,
+        restSec: exercise.restSec,
+      })),
+    } : null,
+    conditioningLog: personaAction.conditioningLog ? {
+      completedRounds: personaAction.conditioningLog.completedRounds,
+      prescribedRounds: personaAction.conditioningLog.prescribedRounds,
+      completedDurationMin: personaAction.conditioningLog.completedDurationMin,
+      targetDurationMin: personaAction.conditioningLog.targetDurationMin,
+      actualRpe: personaAction.conditioningLog.actualRpe ?? null,
+      completionRate: personaAction.conditioningLog.completionRate,
+      note: personaAction.conditioningLog.note,
+      drillLogs: (personaAction.conditioningLog.drillLogs ?? []).map((drill) => ({
+        name: drill.name,
+        targetRounds: drill.targetRounds,
+        completedRounds: drill.completedRounds,
+        durationSec: drill.durationSec ?? null,
+        reps: drill.reps ?? null,
+        restSec: drill.restSec,
+        completed: drill.completed,
+        note: drill.note,
+      })),
+    } : null,
     exerciseLogs: (personaAction.exerciseLogs ?? []).map((entry) => ({
       exerciseId: entry.exerciseId,
       exerciseName: entry.exerciseName,

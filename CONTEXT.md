@@ -13,6 +13,7 @@ Athleticore OS is an athlete operating system for combat-sports training. The pr
   - `Home`: dashboard, day detail, activity log, logging.
   - `Plan`: weekly plan, workouts, calendar, nutrition, weight-cut, review.
   - `Profile`: settings/profile.
+  - Internal-only replay inspection: `Engine Replay Lab` from the hidden Profile version-tap entry.
 
 ## Current architecture
 
@@ -81,10 +82,27 @@ There is no separate `interventionService` at the moment. Safety and interventio
 
 Weekly plan entries can supply engine-owned prescriptions that flow into workout execution. The ownership rules live in `lib/engine/sessionOwnership.ts`.
 
+### Replay lab is now a first-class internal debugging surface
+
+`src/components/EngineReplayLab.tsx` is the current internal inspection tool for understanding how the engine behaves over a full block. It reuses `lib/engine/simulation/lab.ts` and `lib/engine/simulation/runner.ts` rather than a separate visualization-only simulator.
+
+Current replay lab capabilities include:
+
+- deterministic seeded block replay
+- week/day browsing instead of a single long day list
+- chart focus controls with 7/14/28/all windows plus pan/center actions
+- run-level readiness, weight, calories, and load charts with summary stats
+- selected-day inspection tabs for overview, workout, fuel, and decisions
+- full prescribed-vs-logged S&C inspection
+- dedicated conditioning prescription and simulated conditioning log views
+
+If you change simulation output shape, you usually need to update both the replay adapter in `lib/engine/simulation/lab.ts` and the replay UI in `src/components/EngineReplayLab.tsx`.
+
 ## Directory guide
 
 - `src/screens`: user-visible surfaces.
 - `src/components`: shared UI blocks.
+- `src/components/EngineReplayLab.tsx`: internal replay and engine inspection surface.
 - `src/navigation`: tab and stack definitions.
 - `src/hooks`: orchestration hooks like `useDashboardData`, `useWeeklyPlan`, and workout hooks.
 - `src/theme`: theme tokens and readiness-aware theming.
@@ -107,6 +125,8 @@ Weekly plan entries can supply engine-owned prescriptions that flow into workout
    Weekly planning, mission reuse, and plan execution entry points.
 5. `lib/engine/index.ts` and `lib/engine/types.ts`
    Export surface and shared engine contracts.
+6. `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/EngineReplayLab.tsx`
+   Deterministic replay generation, replay view-model mapping, and internal engine inspection UI.
 
 ## Editing guidance
 
@@ -115,6 +135,7 @@ Weekly plan entries can supply engine-owned prescriptions that flow into workout
 - Treat snapshots and mirrored mission fields as public contracts inside the app.
 - Preserve the auth/profile/planning gate unless the task explicitly targets it.
 - If the code path is mode-sensitive, check both `build_phase` and `fight_camp`.
+- For replay-lab work, do not fork engine logic for visualization. Reuse engine outputs and add adapter/view-model fields instead.
 
 ## Validation guidance
 
@@ -122,3 +143,4 @@ Weekly plan entries can supply engine-owned prescriptions that flow into workout
 - Deterministic changes: run `npm run test:engine`
 - Structural changes: also run `npm run lint`, `npm run typecheck`, and `npm run typecheck:clean`
 - Higher-risk engine changes: use the simulation tooling in `scripts/run-simulation.ts` and `lib/engine/simulation/*`
+- In practice, `npm run test:engine` is the dependable gate today for replay and engine work. Full typecheck is known to have pre-existing failures, so use targeted transpile or replay smoke checks when touching replay UI.

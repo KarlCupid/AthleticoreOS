@@ -11,6 +11,7 @@ import {
   getGlobalReadinessState,
   getBoxingIntensityScalar,
   generateWorkoutV2,
+  prescribeConditioning,
   generateCutPlan,
   computeDailyCutProtocol
 } from '../index.ts';
@@ -220,6 +221,84 @@ function simulateExerciseLogs(input: {
       note,
     };
   });
+}
+
+function simulateConditioningLog(input: {
+  prescription: any;
+  trainingComplied: boolean;
+  persona: { rpeBias: number };
+  riskLevel: string;
+  random: () => number;
+}) {
+  const { prescription, trainingComplied, persona, riskLevel, random } = input;
+  if (!prescription) return null;
+
+  const riskPenalty = riskLevel === 'critical'
+    ? 0.22
+    : riskLevel === 'high'
+      ? 0.14
+      : riskLevel === 'moderate'
+        ? 0.08
+        : 0;
+
+  const completionBase = trainingComplied ? clamp(0.94 - riskPenalty, 0.45, 0.98) : 0.2;
+  const completedRounds = Math.max(
+    0,
+    Math.min(
+      prescription.rounds,
+      Math.round(prescription.rounds * clamp(completionBase + ((random() - 0.5) * 0.18), 0, 1)),
+    ),
+  );
+  const completionRate = prescription.rounds > 0 ? completedRounds / prescription.rounds : 0;
+  const completedDurationMin = Math.round(prescription.totalDurationMin * completionRate);
+  const actualRpe = completedRounds > 0
+    ? Number(clamp((prescription.intensityLabel === 'hard' ? 7.5 : prescription.intensityLabel === 'moderate' ? 6 : 4.5) + persona.rpeBias * 0.4 + ((random() - 0.5) * 1.2), 1, 10).toFixed(1))
+    : null;
+
+  const drillLogs = (prescription.exercises ?? []).map((drill: any, index: number) => {
+    const drillCompletionChance = clamp(completionBase - (index * 0.03), 0.2, 0.98);
+    const completed = random() < drillCompletionChance && completedRounds > 0;
+    const drillRounds = completed ? Math.max(1, Math.min(drill.rounds ?? prescription.rounds, completedRounds)) : 0;
+    let note = 'Completed cleanly at the prescribed conditioning rhythm.';
+    if (!completed) {
+      note = 'Dropped from the simulated conditioning block before this drill was completed.';
+    } else if (drillRounds < (drill.rounds ?? prescription.rounds)) {
+      note = 'Only partial rounds were completed before the athlete faded.';
+    } else if (actualRpe != null && actualRpe >= 8) {
+      note = 'Logged as a hard effort with fatigue accumulating late.';
+    }
+
+    return {
+      name: drill.name,
+      targetRounds: drill.rounds ?? prescription.rounds,
+      completedRounds: drillRounds,
+      durationSec: drill.durationSec ?? null,
+      reps: drill.reps ?? null,
+      restSec: drill.restSec ?? prescription.restIntervalSec,
+      completed,
+      note,
+    };
+  });
+
+  let note = 'Conditioning session completed close to plan.';
+  if (completedRounds === 0) {
+    note = 'Conditioning session was effectively missed by the simulated athlete.';
+  } else if (completionRate < 0.7) {
+    note = 'Conditioning volume dropped off before the full prescription was completed.';
+  } else if (actualRpe != null && actualRpe >= 8) {
+    note = 'Conditioning landed harder than prescribed and should be reviewed against readiness.';
+  }
+
+  return {
+    completedRounds,
+    prescribedRounds: prescription.rounds,
+    completedDurationMin,
+    targetDurationMin: prescription.totalDurationMin,
+    actualRpe,
+    completionRate: Number(completionRate.toFixed(2)),
+    note,
+    drillLogs,
+  };
 }
 
 
@@ -533,6 +612,24 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       riskDrivers: simulatedRiskDrivers
     });
 
+    const hasStructuredPrescription = Array.isArray(mission.trainingDirective.prescription?.exercises)
+      && mission.trainingDirective.prescription.exercises.length > 0;
+
+    const fallbackConditioningPrescription = mission.trainingDirective.workoutType === 'conditioning'
+      && !hasStructuredPrescription
+      ? prescribeConditioning({
+          phase: macrocycleContext.phase,
+          fitnessLevel: initialState.fitnessLevel,
+          readinessState,
+          readinessProfile,
+          constraintSet,
+          acwr: mockACWR.ratio,
+          sessionIndex: Math.floor(i / 7),
+          activeCutPlan: simulationCutPlan as any,
+          trainingIntensityCap: mission.trainingDirective.intensityCap,
+        })
+      : null;
+
     // --- STEP 2.5: Weight Cut & Fatigue Physics (Simulation 6.0) ---
     if (cutProtocol) {
       // Acute Weight Shift Physics
@@ -555,9 +652,18 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       }
     }
 
-    const workoutBlueprint = mission.trainingDirective.prescription ? mission.trainingDirective.prescription.exercises.map((e: any) => 
-      `${e.exercise.name} (${e.targetSets}x${e.targetReps} @ RPE ${e.targetRPE})`
-    ).join(' | ') : 'Rest Day';
+    const workoutBlueprint = hasStructuredPrescription
+      ? mission.trainingDirective.prescription.exercises.map((e: any) =>
+        `${e.exercise.name} (${e.targetSets}x${e.targetReps} @ RPE ${e.targetRPE})`
+      ).join(' | ')
+      : fallbackConditioningPrescription
+        ? fallbackConditioningPrescription.exercises.map((exercise: any) => {
+          const effort = exercise.durationSec != null
+            ? `${exercise.rounds} rounds x ${exercise.durationSec}s`
+            : `${exercise.rounds} rounds x ${exercise.reps ?? 0} reps`;
+          return `${exercise.name} (${effort})`;
+        }).join(' | ')
+        : 'Rest Day';
 
     // --- STEP 3: Persona Reaction & Biological Physics ---
 
@@ -659,19 +765,26 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
     const completedSession = trainingComplied ? {
       type: mission.trainingDirective.workoutType || 'unknown',
-      sessionName: mission.trainingDirective.focus || 'Strength & Conditioning',
+      sessionName: fallbackConditioningPrescription?.message || mission.trainingDirective.focus || 'Strength & Conditioning',
       prescribedRpe: baseIntensity,
       actualRpe,
-      prescribedDuration: mission.trainingDirective.durationMin || 60,
-      actualDuration: mission.trainingDirective.durationMin || 60,
+      prescribedDuration: mission.trainingDirective.durationMin || fallbackConditioningPrescription?.totalDurationMin || 60,
+      actualDuration: mission.trainingDirective.durationMin || fallbackConditioningPrescription?.totalDurationMin || 60,
       tonnage: actualRpe * 1000 // Mock tonnage
     } : null;
     const exerciseLogs = simulateExerciseLogs({
-      prescription: mission.trainingDirective.prescription,
+      prescription: hasStructuredPrescription ? mission.trainingDirective.prescription : null,
       trainingComplied,
       persona,
       riskLevel: mission.riskState.level,
       isMandatoryRecovery: mission.trainingDirective.isMandatoryRecovery,
+      random,
+    });
+    const conditioningLog = simulateConditioningLog({
+      prescription: fallbackConditioningPrescription,
+      trainingComplied,
+      persona,
+      riskLevel: mission.riskState.level,
       random,
     });
 
@@ -753,6 +866,8 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         workoutBlueprint,
         coachingInsight,
         athleteMonologue,
+        conditioningPrescription: fallbackConditioningPrescription,
+        conditioningLog,
         exerciseLogs,
       } as any
     });
@@ -761,7 +876,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       sessionHistory.push(completedSession);
       
       // Update Rolling History
-      if (mission.trainingDirective.prescription) {
+      if (hasStructuredPrescription) {
         const newlyDoneIds = mission.trainingDirective.prescription.exercises.map((e: any) => e.exercise.id);
         recentExerciseIds = [...newlyDoneIds, ...recentExerciseIds].slice(0, 20); // Keep last 20 IDs (~3 sessions)
         

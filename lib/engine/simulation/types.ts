@@ -121,6 +121,43 @@ export type DailySimulationLog = {
     workoutBlueprint?: string; 
     coachingInsight?: string; 
     athleteMonologue?: string;
+    conditioningPrescription?: {
+      type: string;
+      totalDurationMin: number;
+      rounds: number;
+      workIntervalSec: number;
+      restIntervalSec: number;
+      intensityLabel: 'light' | 'moderate' | 'hard';
+      message: string;
+      cnsBudget: number;
+      estimatedLoad: number;
+      exercises: Array<{
+        name: string;
+        durationSec: number | null;
+        reps: number | null;
+        rounds: number;
+        restSec: number;
+      }>;
+    } | null;
+    conditioningLog?: {
+      completedRounds: number;
+      prescribedRounds: number;
+      completedDurationMin: number;
+      targetDurationMin: number;
+      actualRpe: number | null;
+      completionRate: number;
+      note: string;
+      drillLogs: Array<{
+        name: string;
+        targetRounds: number;
+        completedRounds: number;
+        durationSec: number | null;
+        reps: number | null;
+        restSec: number;
+        completed: boolean;
+        note: string;
+      }>;
+    } | null;
     exerciseLogs?: Array<{
       exerciseId: string;
       exerciseName: string;

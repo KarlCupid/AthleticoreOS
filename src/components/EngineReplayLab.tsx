@@ -9,6 +9,7 @@ import {
   type EngineReplayDay,
   type EngineReplayExerciseLog,
   type EngineReplayFinding,
+  type EngineReplayPrescribedExercise,
   type EngineReplayRun,
 } from '../../lib/engine/simulation/lab.ts';
 import { AnimatedPressable } from './AnimatedPressable';
@@ -21,6 +22,7 @@ interface EngineReplayLabProps {
 }
 
 type ReplayTab = 'overview' | 'workout' | 'fuel' | 'decisions';
+type ChartWindowSize = 7 | 14 | 28 | 'all';
 
 function formatPhase(value: string) {
   return value.replace(/[-_]/g, ' ');
@@ -51,11 +53,109 @@ function chunkWeeks(days: EngineReplayDay[]) {
   return weeks;
 }
 
+function average(values: number[]) {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function formatNumber(value: number, decimals = 0, suffix = '') {
+  return `${value.toFixed(decimals)}${suffix}`;
+}
+
+function formatSignedNumber(value: number, decimals = 0, suffix = '') {
+  const prefix = value > 0 ? '+' : '';
+  return `${prefix}${value.toFixed(decimals)}${suffix}`;
+}
+
+function summarizeMetric(data: EngineReplayRun['chartData'], key: keyof EngineReplayRun['chartData'][number]) {
+  const values = data.map((point) => Number(point[key]));
+  return {
+    first: values[0] ?? 0,
+    last: values[values.length - 1] ?? 0,
+    min: Math.min(...values),
+    max: Math.max(...values),
+    avg: average(values),
+    delta: (values[values.length - 1] ?? 0) - (values[0] ?? 0),
+  };
+}
+
+function findExtremePoint(
+  data: EngineReplayRun['chartData'],
+  key: keyof EngineReplayRun['chartData'][number],
+  mode: 'min' | 'max',
+) {
+  const sorted = [...data].sort((left, right) => (
+    mode === 'min'
+      ? Number(left[key]) - Number(right[key])
+      : Number(right[key]) - Number(left[key])
+  ));
+  return sorted[0] ?? null;
+}
+
+function summarizeGap(data: EngineReplayRun['chartData'], actualKey: 'actualCalories' | 'actualLoad', targetKey: 'prescribedCalories' | 'prescribedLoad') {
+  const gaps = data.map((point) => point[actualKey] - point[targetKey]);
+  return {
+    avgGap: average(gaps),
+    biggestSurplus: Math.max(...gaps),
+    biggestDeficit: Math.min(...gaps),
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.metricTile}>
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={styles.metricValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ChartStat({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  tone?: 'default' | 'good' | 'warning';
+}) {
+  return (
+    <View
+      style={[
+        styles.chartStat,
+        tone === 'good' && styles.chartStatGood,
+        tone === 'warning' && styles.chartStatWarning,
+      ]}
+    >
+      <Text style={styles.chartStatLabel}>{label}</Text>
+      <Text style={styles.chartStatValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ChartLegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={styles.chartLegendItem}>
+      <View style={[styles.chartLegendDot, { backgroundColor: color }]} />
+      <Text style={styles.chartLegendText}>{label}</Text>
+    </View>
+  );
+}
+
+function ChartDateAxis({ data }: { data: EngineReplayRun['chartData'] }) {
+  if (data.length === 0) return null;
+
+  const midIndex = Math.floor((data.length - 1) / 2);
+
+  return (
+    <View style={styles.chartDateAxis}>
+      <Text style={styles.chartDateText}>{data[0]?.label ?? '--'}</Text>
+      <Text style={styles.chartDateText}>{data[midIndex]?.label ?? '--'}</Text>
+      <Text style={styles.chartDateText}>{data[data.length - 1]?.label ?? '--'}</Text>
     </View>
   );
 }
@@ -85,24 +185,43 @@ function SignalChart({
   data,
   yKey,
   color,
+  valueSuffix,
+  decimals,
+  insight,
 }: {
   title: string;
   subtitle: string;
   data: EngineReplayRun['chartData'];
   yKey: 'readiness' | 'weight';
   color: string;
+  valueSuffix: string;
+  decimals: number;
+  insight: string;
 }) {
   if (data.length < 2) return null;
+
+  const summary = summarizeMetric(data, yKey);
 
   return (
     <Card>
       <Text style={styles.sectionTitle}>{title}</Text>
       <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+      <View style={styles.chartStatsRow}>
+        <ChartStat label="Current" value={formatNumber(summary.last, decimals, valueSuffix)} tone="good" />
+        <ChartStat label="Change" value={formatSignedNumber(summary.delta, decimals, valueSuffix)} tone={summary.delta >= 0 ? 'good' : 'warning'} />
+        <ChartStat label="Avg" value={formatNumber(summary.avg, decimals, valueSuffix)} />
+        <ChartStat label="Range" value={`${formatNumber(summary.min, decimals, valueSuffix)} to ${formatNumber(summary.max, decimals, valueSuffix)}`} />
+      </View>
       <View style={styles.chartArea}>
         <CartesianChart data={data as any[]} xKey="x" yKeys={[yKey]} domainPadding={{ left: 12, right: 18, top: 12 }}>
           {({ points }) => <Line points={points[yKey]} color={color} strokeWidth={2.5} curveType="natural" />}
         </CartesianChart>
       </View>
+      <ChartDateAxis data={data} />
+      <View style={styles.chartLegendRow}>
+        <ChartLegendItem color={color} label={title} />
+      </View>
+      <Text style={styles.chartInsight}>{insight}</Text>
     </Card>
   );
 }
@@ -110,10 +229,20 @@ function SignalChart({
 function CaloriesChart({ data }: { data: EngineReplayRun['chartData'] }) {
   if (data.length < 2) return null;
 
+  const actualSummary = summarizeMetric(data, 'actualCalories');
+  const targetSummary = summarizeMetric(data, 'prescribedCalories');
+  const gap = summarizeGap(data, 'actualCalories', 'prescribedCalories');
+
   return (
     <Card>
       <Text style={styles.sectionTitle}>Calories</Text>
       <Text style={styles.sectionSubtitle}>Actual intake vs prescribed target</Text>
+      <View style={styles.chartStatsRow}>
+        <ChartStat label="Actual Avg" value={formatNumber(actualSummary.avg, 0, ' kcal')} />
+        <ChartStat label="Target Avg" value={formatNumber(targetSummary.avg, 0, ' kcal')} />
+        <ChartStat label="Avg Gap" value={formatSignedNumber(gap.avgGap, 0, ' kcal')} tone={gap.avgGap <= 0 ? 'good' : 'warning'} />
+        <ChartStat label="Worst Miss" value={`${formatSignedNumber(gap.biggestDeficit, 0, ' kcal')} / ${formatSignedNumber(gap.biggestSurplus, 0, ' kcal')}`} />
+      </View>
       <View style={styles.chartArea}>
         <CartesianChart data={data as any[]} xKey="x" yKeys={['actualCalories', 'prescribedCalories']} domainPadding={{ left: 12, right: 18, top: 16 }}>
           {({ points, chartBounds }) => (
@@ -130,6 +259,60 @@ function CaloriesChart({ data }: { data: EngineReplayRun['chartData'] }) {
           )}
         </CartesianChart>
       </View>
+      <ChartDateAxis data={data} />
+      <View style={styles.chartLegendRow}>
+        <ChartLegendItem color={COLORS.chart.accent} label="Actual intake" />
+        <ChartLegendItem color={COLORS.chart.protein} label="Prescribed target" />
+      </View>
+      <Text style={styles.chartInsight}>
+        Fueling averaged {formatSignedNumber(gap.avgGap, 0, ' kcal')} against target. Largest deficit was {formatSignedNumber(gap.biggestDeficit, 0, ' kcal')} and largest surplus was {formatSignedNumber(gap.biggestSurplus, 0, ' kcal')}.
+      </Text>
+    </Card>
+  );
+}
+
+function LoadChart({ data }: { data: EngineReplayRun['chartData'] }) {
+  if (data.length < 2) return null;
+
+  const actualSummary = summarizeMetric(data, 'actualLoad');
+  const targetSummary = summarizeMetric(data, 'prescribedLoad');
+  const gap = summarizeGap(data, 'actualLoad', 'prescribedLoad');
+  const peakDay = findExtremePoint(data, 'actualLoad', 'max');
+
+  return (
+    <Card>
+      <Text style={styles.sectionTitle}>Training Load</Text>
+      <Text style={styles.sectionSubtitle}>Actual session load against prescribed load across the block</Text>
+      <View style={styles.chartStatsRow}>
+        <ChartStat label="Actual Avg" value={formatNumber(actualSummary.avg, 0)} />
+        <ChartStat label="Target Avg" value={formatNumber(targetSummary.avg, 0)} />
+        <ChartStat label="Avg Gap" value={formatSignedNumber(gap.avgGap, 0)} tone={gap.avgGap <= 0 ? 'good' : 'warning'} />
+        <ChartStat label="Peak Day" value={peakDay ? `${formatNumber(peakDay.actualLoad, 0)} on ${peakDay.label}` : '--'} />
+      </View>
+      <View style={styles.chartArea}>
+        <CartesianChart data={data as any[]} xKey="x" yKeys={['actualLoad', 'prescribedLoad']} domainPadding={{ left: 12, right: 18, top: 16 }}>
+          {({ points, chartBounds }) => (
+            <>
+              <Bar
+                points={points.actualLoad}
+                chartBounds={chartBounds}
+                color={COLORS.chart.fatigue}
+                roundedCorners={{ topLeft: 6, topRight: 6 }}
+                barWidth={8}
+              />
+              <Line points={points.prescribedLoad} color={COLORS.chart.fitness} strokeWidth={2} curveType="natural" />
+            </>
+          )}
+        </CartesianChart>
+      </View>
+      <ChartDateAxis data={data} />
+      <View style={styles.chartLegendRow}>
+        <ChartLegendItem color={COLORS.chart.fatigue} label="Actual load" />
+        <ChartLegendItem color={COLORS.chart.fitness} label="Prescribed load" />
+      </View>
+      <Text style={styles.chartInsight}>
+        Load averaged {formatSignedNumber(gap.avgGap, 0)} versus prescription. Peak actual load hit {peakDay ? `${formatNumber(peakDay.actualLoad, 0)} on ${peakDay.label}` : '--'}.
+      </Text>
     </Card>
   );
 }
@@ -138,6 +321,22 @@ function TabButton({ active, label, onPress }: { active: boolean; label: string;
   return (
     <AnimatedPressable onPress={onPress} style={[styles.tabButton, active && styles.tabButtonActive]}>
       <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>{label}</Text>
+    </AnimatedPressable>
+  );
+}
+
+function ChartWindowButton({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <AnimatedPressable onPress={onPress} style={[styles.chartWindowButton, active && styles.chartWindowButtonActive]}>
+      <Text style={[styles.chartWindowButtonText, active && styles.chartWindowButtonTextActive]}>{label}</Text>
     </AnimatedPressable>
   );
 }
@@ -163,6 +362,100 @@ function ExerciseLogRow({ entry }: { entry: EngineReplayExerciseLog }) {
   );
 }
 
+function PrescribedExerciseRow({ entry }: { entry: EngineReplayPrescribedExercise }) {
+  return (
+    <View style={styles.exerciseRow}>
+      <View style={styles.exerciseHeader}>
+        <View style={styles.exerciseHeaderBody}>
+          <Text style={styles.exerciseName}>{entry.exerciseName}</Text>
+          <Text style={styles.exerciseMeta}>{entry.sectionTemplate ?? 'main'} | {entry.sectionTitle ?? 'No section intent recorded'}</Text>
+        </View>
+        <Text style={styles.exerciseStatus}>Prescribed</Text>
+      </View>
+      <Text style={styles.bodyText}>{entry.setScheme ?? `${entry.targetSets} x ${entry.targetReps} @ RPE ${entry.targetRpe}`}</Text>
+      <View style={styles.inlineStatRow}>
+        <Text style={styles.inlineStat}>Sets {entry.targetSets}</Text>
+        <Text style={styles.inlineStat}>Reps {entry.targetReps}</Text>
+        <Text style={styles.inlineStat}>RPE {entry.targetRpe}</Text>
+        <Text style={styles.inlineStat}>{entry.suggestedWeight != null ? `${entry.suggestedWeight} lb` : 'Bodyweight/open load'}</Text>
+      </View>
+      {entry.warmupSetCount > 0 ? <Text style={styles.detailText}>Warmup sets: {entry.warmupSetCount}</Text> : null}
+    </View>
+  );
+}
+
+function WorkoutComparisonRow({
+  prescribed,
+  logged,
+}: {
+  prescribed: EngineReplayPrescribedExercise;
+  logged: EngineReplayExerciseLog | null;
+}) {
+  const completionRate = logged ? Math.round((logged.completedSets / Math.max(prescribed.targetSets, 1)) * 100) : 0;
+  const repDelta = logged ? logged.actualReps - prescribed.targetReps : 0;
+  const rpeDelta = logged?.actualRpe != null ? logged.actualRpe - prescribed.targetRpe : null;
+
+  return (
+    <View style={styles.comparisonCard}>
+      <View style={styles.exerciseHeader}>
+        <View style={styles.exerciseHeaderBody}>
+          <Text style={styles.exerciseName}>{prescribed.exerciseName}</Text>
+          <Text style={styles.exerciseMeta}>{prescribed.sectionTemplate ?? 'main'} | {prescribed.sectionTitle ?? 'No section intent recorded'}</Text>
+        </View>
+        <Text style={[styles.exerciseStatus, (!logged || !logged.completed) && styles.exerciseStatusMiss]}>
+          {logged?.completed ? `${completionRate}% done` : 'Missed'}
+        </Text>
+      </View>
+      <View style={styles.comparisonGrid}>
+        <View style={styles.comparisonCell}>
+          <Text style={styles.comparisonLabel}>Prescription</Text>
+          <Text style={styles.comparisonValue}>{prescribed.targetSets} x {prescribed.targetReps}</Text>
+          <Text style={styles.detailText}>RPE {prescribed.targetRpe}{prescribed.suggestedWeight != null ? ` | ${prescribed.suggestedWeight} lb` : ''}</Text>
+        </View>
+        <View style={styles.comparisonCell}>
+          <Text style={styles.comparisonLabel}>Logged</Text>
+          <Text style={styles.comparisonValue}>{logged ? `${logged.completedSets} x ${logged.actualReps}` : 'No sets logged'}</Text>
+          <Text style={styles.detailText}>
+            {logged?.actualRpe != null ? `RPE ${logged.actualRpe}` : 'RPE --'}
+            {logged?.actualWeight != null ? ` | ${logged.actualWeight} lb` : ''}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.inlineStatRow}>
+        <Text style={styles.inlineStat}>Set delta {logged ? formatSignedNumber(logged.completedSets - prescribed.targetSets) : '--'}</Text>
+        <Text style={styles.inlineStat}>Rep delta {logged ? formatSignedNumber(repDelta) : '--'}</Text>
+        <Text style={styles.inlineStat}>RPE delta {rpeDelta != null ? formatSignedNumber(rpeDelta, 1) : '--'}</Text>
+      </View>
+      <Text style={styles.detailText}>{logged?.note ?? 'No simulated athlete note was generated.'}</Text>
+    </View>
+  );
+}
+
+function ConditioningDrillRow({
+  name,
+  subtitle,
+  status,
+  note,
+}: {
+  name: string;
+  subtitle: string;
+  status: string;
+  note: string;
+}) {
+  return (
+    <View style={styles.exerciseRow}>
+      <View style={styles.exerciseHeader}>
+        <View style={styles.exerciseHeaderBody}>
+          <Text style={styles.exerciseName}>{name}</Text>
+          <Text style={styles.exerciseMeta}>{subtitle}</Text>
+        </View>
+        <Text style={styles.exerciseStatus}>{status}</Text>
+      </View>
+      <Text style={styles.detailText}>{note}</Text>
+    </View>
+  );
+}
+
 export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
   const insets = useSafeAreaInsets();
   const [scenarioId, setScenarioId] = useState(ENGINE_REPLAY_SCENARIOS[0]?.id ?? '');
@@ -171,6 +464,8 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [tab, setTab] = useState<ReplayTab>('overview');
+  const [chartWindowSize, setChartWindowSize] = useState<ChartWindowSize>(14);
+  const [chartWindowStart, setChartWindowStart] = useState(0);
 
   async function executeReplay(nextScenarioId: string) {
     setLoading(true);
@@ -178,6 +473,7 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
     setRun(null);
     setSelectedDayIndex(0);
     setTab('overview');
+    setChartWindowStart(0);
 
     try {
       const nextRun = await buildEngineReplayRun(nextScenarioId);
@@ -197,10 +493,67 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
   const weeks = useMemo(() => chunkWeeks(run?.days ?? []), [run]);
   const selectedWeekIndex = selectedDay ? Math.floor(selectedDay.index / 7) : 0;
   const selectedWeek = weeks[selectedWeekIndex] ?? null;
+  const completedExerciseCount = selectedDay?.exerciseLogs.filter((entry) => entry.completed).length ?? 0;
+  const prescribedExerciseCount = selectedDay?.prescribedExercises.length ?? 0;
+  const completionRate = prescribedExerciseCount > 0
+    ? Math.round((completedExerciseCount / prescribedExerciseCount) * 100)
+    : 0;
+  const plannedSetCount = selectedDay?.prescribedExercises.reduce((sum, entry) => sum + entry.targetSets, 0) ?? 0;
+  const completedSetCount = selectedDay?.exerciseLogs.reduce((sum, entry) => sum + entry.completedSets, 0) ?? 0;
+  const averageLoggedRpe = average((selectedDay?.exerciseLogs ?? []).filter((entry) => entry.actualRpe != null).map((entry) => entry.actualRpe ?? 0));
+  const averagePrescribedRpe = average((selectedDay?.prescribedExercises ?? []).map((entry) => entry.targetRpe));
+  const conditioningCompletionRate = selectedDay?.conditioningLog != null
+    ? Math.round(selectedDay.conditioningLog.completionRate * 100)
+    : 0;
+  const chartWindowLength = chartWindowSize === 'all' ? (run?.chartData.length ?? 0) : chartWindowSize;
+  const maxChartWindowStart = Math.max(0, (run?.chartData.length ?? 0) - Math.max(chartWindowLength, 1));
+  const chartWindowData = useMemo(() => {
+    if (!run) return [];
+    if (chartWindowSize === 'all') {
+      return run.chartData.map((point, index) => ({ ...point, x: index }));
+    }
+    return run.chartData
+      .slice(chartWindowStart, chartWindowStart + chartWindowLength)
+      .map((point, index) => ({ ...point, x: index }));
+  }, [run, chartWindowSize, chartWindowStart, chartWindowLength]);
+  const chartWindowStartLabel = chartWindowData[0]?.label ?? '--';
+  const chartWindowEndLabel = chartWindowData[chartWindowData.length - 1]?.label ?? '--';
+
+  useEffect(() => {
+    setChartWindowStart((current) => clamp(current, 0, maxChartWindowStart));
+  }, [maxChartWindowStart]);
 
   function jumpDay(delta: number) {
     if (!run) return;
     setSelectedDayIndex((current) => Math.max(0, Math.min(run.days.length - 1, current + delta)));
+  }
+
+  function setChartZoom(nextWindow: ChartWindowSize) {
+    if (!run) {
+      setChartWindowSize(nextWindow);
+      return;
+    }
+
+    const nextLength = nextWindow === 'all' ? run.chartData.length : nextWindow;
+    const centeredStart = clamp(selectedDayIndex - Math.floor(nextLength / 2), 0, Math.max(0, run.chartData.length - nextLength));
+    setChartWindowSize(nextWindow);
+    setChartWindowStart(nextWindow === 'all' ? 0 : centeredStart);
+  }
+
+  function shiftChartWindow(direction: -1 | 1) {
+    if (!run || chartWindowSize === 'all') return;
+    setChartWindowStart((current) => clamp(current + (direction * chartWindowSize), 0, Math.max(0, run.chartData.length - chartWindowSize)));
+  }
+
+  function focusSelectedWeek() {
+    if (!selectedWeek || !run) return;
+    setChartWindowSize(7);
+    setChartWindowStart(clamp(selectedWeek.days[0]?.index ?? 0, 0, Math.max(0, run.chartData.length - 7)));
+  }
+
+  function focusSelectedDay() {
+    if (!run || chartWindowSize === 'all') return;
+    setChartWindowStart(clamp(selectedDayIndex - Math.floor(chartWindowLength / 2), 0, maxChartWindowStart));
   }
 
   return (
@@ -259,9 +612,66 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
                 </View>
               </Card>
 
-              <SignalChart title="Readiness" subtitle="Subjective readiness across the block" data={run.chartData} yKey="readiness" color={COLORS.chart.readiness} />
-              <SignalChart title="Body Weight" subtitle="End-of-day weight across the block" data={run.chartData} yKey="weight" color={COLORS.chart.fitness} />
-              <CaloriesChart data={run.chartData} />
+              <Card title="Chart Focus" subtitle={`Viewing ${chartWindowData.length} day${chartWindowData.length === 1 ? '' : 's'} from ${chartWindowStartLabel} to ${chartWindowEndLabel}`}>
+                <View style={styles.chartWindowRow}>
+                  <ChartWindowButton active={chartWindowSize === 7} label="7D" onPress={() => setChartZoom(7)} />
+                  <ChartWindowButton active={chartWindowSize === 14} label="14D" onPress={() => setChartZoom(14)} />
+                  <ChartWindowButton active={chartWindowSize === 28} label="28D" onPress={() => setChartZoom(28)} />
+                  <ChartWindowButton active={chartWindowSize === 'all'} label="All" onPress={() => setChartZoom('all')} />
+                </View>
+                <View style={styles.chartWindowRow}>
+                  <AnimatedPressable
+                    onPress={() => shiftChartWindow(-1)}
+                    disabled={chartWindowSize === 'all' || chartWindowStart === 0}
+                    style={[styles.chartActionButton, (chartWindowSize === 'all' || chartWindowStart === 0) && styles.chartActionButtonDisabled]}
+                  >
+                    <Text style={styles.chartActionButtonText}>Back</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable
+                    onPress={focusSelectedDay}
+                    disabled={chartWindowSize === 'all'}
+                    style={[styles.chartActionButton, chartWindowSize === 'all' && styles.chartActionButtonDisabled]}
+                  >
+                    <Text style={styles.chartActionButtonText}>Center Day</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable onPress={focusSelectedWeek} style={styles.chartActionButton}>
+                    <Text style={styles.chartActionButtonText}>Selected Week</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable
+                    onPress={() => shiftChartWindow(1)}
+                    disabled={chartWindowSize === 'all' || chartWindowStart >= maxChartWindowStart}
+                    style={[styles.chartActionButton, (chartWindowSize === 'all' || chartWindowStart >= maxChartWindowStart) && styles.chartActionButtonDisabled]}
+                  >
+                    <Text style={styles.chartActionButtonText}>Forward</Text>
+                  </AnimatedPressable>
+                </View>
+                <Text style={styles.chartInsight}>
+                  Use shorter windows to zoom into a camp stretch, then center on the selected day or jump to the selected week to inspect local engine behavior.
+                </Text>
+              </Card>
+
+              <SignalChart
+                title="Readiness"
+                subtitle="Subjective readiness across the block"
+                data={chartWindowData}
+                yKey="readiness"
+                color={COLORS.chart.readiness}
+                valueSuffix="/10"
+                decimals={1}
+                insight={`Readiness moved ${formatSignedNumber(summarizeMetric(chartWindowData, 'readiness').delta, 1)} points in this window. Lowest day here was ${formatNumber(findExtremePoint(chartWindowData, 'readiness', 'min')?.readiness ?? 0, 1)}/10 on ${findExtremePoint(chartWindowData, 'readiness', 'min')?.label ?? '--'}.`}
+              />
+              <SignalChart
+                title="Body Weight"
+                subtitle="End-of-day weight across the block"
+                data={chartWindowData}
+                yKey="weight"
+                color={COLORS.chart.fitness}
+                valueSuffix=" lb"
+                decimals={1}
+                insight={`Net weight change in this window was ${formatSignedNumber(summarizeMetric(chartWindowData, 'weight').delta, 1, ' lb')}. Lowest weigh-in here was ${formatNumber(findExtremePoint(chartWindowData, 'weight', 'min')?.weight ?? 0, 1, ' lb')} on ${findExtremePoint(chartWindowData, 'weight', 'min')?.label ?? '--'}.`}
+              />
+              <CaloriesChart data={chartWindowData} />
+              <LoadChart data={chartWindowData} />
 
               <Card title="Replay Browser" subtitle="Pick a week, then inspect the days inside that week.">
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
@@ -373,12 +783,127 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
 
               {tab === 'workout' ? (
                 <>
-                  <Card title="Prescription Preview" subtitle={selectedDay.workoutType ?? 'untyped session'}>
-                    {selectedDay.prescriptionPreview.length > 0
-                      ? selectedDay.prescriptionPreview.map((item, index) => <Text key={`${item}-${index}`} style={styles.bodyText}>- {item}</Text>)
+                  <Card title="Workout Snapshot" subtitle={selectedDay.workoutType ?? 'untyped session'}>
+                    <View style={styles.metricGrid}>
+                      <MetricTile
+                        label="Duration"
+                        value={selectedDay.conditioningPrescription
+                          ? `${selectedDay.conditioningLog?.completedDurationMin ?? 0} / ${selectedDay.conditioningPrescription.totalDurationMin} min`
+                          : selectedDay.durationMin > 0
+                            ? `${selectedDay.durationMin} min`
+                            : '--'}
+                      />
+                      <MetricTile
+                        label={selectedDay.conditioningPrescription ? 'Rounds' : 'Exercises'}
+                        value={selectedDay.conditioningPrescription
+                          ? `${selectedDay.conditioningLog?.completedRounds ?? 0} / ${selectedDay.conditioningPrescription.rounds}`
+                          : `${completedExerciseCount} / ${prescribedExerciseCount}`}
+                      />
+                      <MetricTile
+                        label={selectedDay.conditioningPrescription ? 'Drills' : 'Set Completion'}
+                        value={selectedDay.conditioningPrescription
+                          ? `${selectedDay.conditioningLog?.drillLogs.filter((entry) => entry.completed).length ?? 0} / ${selectedDay.conditioningPrescription.drills.length}`
+                          : plannedSetCount > 0
+                            ? `${completedSetCount} / ${plannedSetCount}`
+                            : '--'}
+                      />
+                      <MetricTile label="Completion" value={`${selectedDay.conditioningPrescription ? conditioningCompletionRate : completionRate}%`} />
+                    </View>
+                    <View style={styles.metricGrid}>
+                      <MetricTile
+                        label="Planned Avg RPE"
+                        value={selectedDay.conditioningPrescription
+                          ? selectedDay.conditioningPrescription.intensityLabel
+                          : prescribedExerciseCount > 0
+                            ? averagePrescribedRpe.toFixed(1)
+                            : '--'}
+                      />
+                      <MetricTile
+                        label="Logged Avg RPE"
+                        value={selectedDay.conditioningPrescription
+                          ? selectedDay.conditioningLog?.actualRpe?.toFixed(1) ?? '--'
+                          : completedExerciseCount > 0
+                            ? averageLoggedRpe.toFixed(1)
+                            : '--'}
+                      />
+                      <MetricTile label="Warm-up" value={selectedDay.didWarmup ? 'Completed' : 'Missed'} />
+                      <MetricTile label="Role" value={formatPhase(selectedDay.sessionRole)} />
+                    </View>
+                    {selectedDay.activationGuidance ? <Text style={styles.bodyText}>Activation: {selectedDay.activationGuidance}</Text> : null}
+                    {selectedDay.conditioningPrescription ? <Text style={styles.bodyText}>Conditioning: {selectedDay.conditioningPrescription.message}</Text> : null}
+                    <Text style={styles.bodyText}>Blueprint: {selectedDay.workoutBlueprint}</Text>
+                  </Card>
+
+                  {selectedDay.conditioningPrescription ? (
+                    <>
+                      <Card title="Conditioning Prescription" subtitle={selectedDay.conditioningPrescription.message}>
+                        <View style={styles.metricGrid}>
+                          <MetricTile label="Type" value={formatPhase(selectedDay.conditioningPrescription.type)} />
+                          <MetricTile label="Rounds" value={String(selectedDay.conditioningPrescription.rounds)} />
+                          <MetricTile label="Work / Rest" value={`${selectedDay.conditioningPrescription.workIntervalSec}s / ${selectedDay.conditioningPrescription.restIntervalSec}s`} />
+                          <MetricTile label="Est. Load" value={String(selectedDay.conditioningPrescription.estimatedLoad)} />
+                        </View>
+                        {selectedDay.conditioningPrescription.drills.map((drill, index) => (
+                          <ConditioningDrillRow
+                            key={`${drill.name}-prescribed-${index}`}
+                            name={drill.name}
+                            subtitle={`${drill.rounds} rounds${drill.durationSec != null ? ` | ${drill.durationSec}s work` : ''}${drill.reps != null ? ` | ${drill.reps} reps` : ''}${drill.restSec ? ` | ${drill.restSec}s rest` : ''}`}
+                            status="Planned"
+                            note="Engine prescribed this drill as part of the conditioning block."
+                          />
+                        ))}
+                      </Card>
+
+                      <Card title="Simulated Conditioning Log" subtitle={selectedDay.conditioningLog?.note ?? 'No simulated conditioning log exists.'}>
+                        {selectedDay.conditioningLog ? (
+                          <>
+                            <View style={styles.metricGrid}>
+                              <MetricTile label="Rounds" value={`${selectedDay.conditioningLog.completedRounds} / ${selectedDay.conditioningLog.prescribedRounds}`} />
+                              <MetricTile label="Minutes" value={`${selectedDay.conditioningLog.completedDurationMin} / ${selectedDay.conditioningLog.targetDurationMin}`} />
+                              <MetricTile label="Actual RPE" value={selectedDay.conditioningLog.actualRpe?.toFixed(1) ?? '--'} />
+                              <MetricTile label="Completion" value={`${conditioningCompletionRate}%`} />
+                            </View>
+                            {selectedDay.conditioningLog.drillLogs.map((drill, index) => (
+                              <ConditioningDrillRow
+                                key={`${drill.name}-logged-${index}`}
+                                name={drill.name}
+                                subtitle={`${drill.completedRounds} / ${drill.targetRounds} rounds${drill.durationSec != null ? ` | ${drill.durationSec}s work` : ''}${drill.reps != null ? ` | ${drill.reps} reps` : ''}${drill.restSec ? ` | ${drill.restSec}s rest` : ''}`}
+                                status={drill.completed ? 'Logged' : 'Missed'}
+                                note={drill.note}
+                              />
+                            ))}
+                          </>
+                        ) : (
+                          <Text style={styles.bodyText}>No simulated conditioning log exists for this day.</Text>
+                        )}
+                      </Card>
+                    </>
+                  ) : null}
+
+                  <Card title="Prescribed Session" subtitle="Full prescription before the simulated athlete touched it.">
+                    {selectedDay.prescribedExercises.length > 0
+                      ? selectedDay.prescribedExercises.map((entry, index) => (
+                        <PrescribedExerciseRow key={`${entry.exerciseId}-${entry.sectionTemplate ?? 'section'}-${index}`} entry={entry} />
+                      ))
                       : <Text style={styles.bodyText}>No exercise prescription was generated for this day.</Text>}
                   </Card>
-                  <Card title="Simulated Workout Log" subtitle="Exercise-by-exercise output from the simulated athlete.">
+
+                  <Card title="Prescribed vs Logged" subtitle="Side-by-side comparison for each exercise in the session.">
+                    {selectedDay.prescribedExercises.length > 0
+                      ? selectedDay.prescribedExercises.map((entry, index) => {
+                        const logged = selectedDay.exerciseLogs.find((candidate) => candidate.exerciseId === entry.exerciseId) ?? null;
+                        return (
+                          <WorkoutComparisonRow
+                            key={`${entry.exerciseId}-compare-${index}`}
+                            prescribed={entry}
+                            logged={logged}
+                          />
+                        );
+                      })
+                      : <Text style={styles.bodyText}>No prescribed exercises exist to compare on this day.</Text>}
+                  </Card>
+
+                  <Card title="Raw Simulated Workout Log" subtitle="Exercise-by-exercise output from the simulated athlete.">
                     {selectedDay.exerciseLogs.length > 0
                       ? selectedDay.exerciseLogs.map((entry, index) => (
                         <ExerciseLogRow key={`${entry.exerciseId}-${entry.sectionTitle ?? 'section'}-${index}`} entry={entry} />
@@ -453,13 +978,34 @@ const styles = StyleSheet.create({
   runButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
   loadingWrap: { alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.lg },
   errorText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.depleted },
+  chartWindowRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
+  chartWindowButton: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+  chartWindowButtonActive: { backgroundColor: COLORS.accent },
+  chartWindowButtonText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  chartWindowButtonTextActive: { color: COLORS.text.inverse },
+  chartActionButton: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
+  chartActionButtonDisabled: { opacity: 0.45 },
+  chartActionButtonText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
   metricTile: { flexBasis: '48%', backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.md, padding: SPACING.md },
   metricLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase' },
   metricValue: { marginTop: SPACING.xs, fontSize: 18, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
   sectionTitle: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   sectionSubtitle: { marginTop: SPACING.xs, marginBottom: SPACING.sm, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
+  chartStatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.sm },
+  chartStat: { flexBasis: '48%', backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.md, padding: SPACING.sm },
+  chartStatGood: { backgroundColor: COLORS.accentLight },
+  chartStatWarning: { backgroundColor: COLORS.readiness.cautionLight },
+  chartStatLabel: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase' },
+  chartStatValue: { marginTop: 4, fontSize: 14, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
   chartArea: { height: 180 },
+  chartDateAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SPACING.xs },
+  chartDateText: { fontSize: 11, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary },
+  chartLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, marginTop: SPACING.sm },
+  chartLegendItem: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  chartLegendDot: { width: 10, height: 10, borderRadius: 999 },
+  chartLegendText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  chartInsight: { marginTop: SPACING.sm, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 18 },
   horizontalRow: { gap: SPACING.sm },
   weekButton: { minWidth: 136, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.md },
   weekButtonActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accentLight },
@@ -485,6 +1031,8 @@ const styles = StyleSheet.create({
   detailText: { marginTop: 4, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 18 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
   tag: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 6 },
+  inlineStatRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
+  inlineStat: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 5 },
   tabRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.md },
   tabButton: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
   tabButtonActive: { backgroundColor: COLORS.accent },
@@ -493,6 +1041,11 @@ const styles = StyleSheet.create({
   findingRow: { gap: SPACING.xs },
   findingBadge: { alignSelf: 'flex-start', borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 5 },
   findingBadgeText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase' },
+  comparisonCard: { borderRadius: RADIUS.lg, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.md, marginBottom: SPACING.md },
+  comparisonGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
+  comparisonCell: { flexBasis: '48%', backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.sm },
+  comparisonLabel: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase' },
+  comparisonValue: { marginTop: 4, fontSize: 14, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
   exerciseRow: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight, paddingBottom: SPACING.md, marginBottom: SPACING.md },
   exerciseHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.sm, alignItems: 'flex-start' },
   exerciseHeaderBody: { flex: 1 },
