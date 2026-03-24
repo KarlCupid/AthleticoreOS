@@ -19,52 +19,92 @@ interface WorkoutTabProps {
 // ---------------------------------------------------------------------------
 
 function ConditioningWorkoutView({ day, workoutStats }: WorkoutTabProps) {
-  const cp = day.conditioningPrescription!;
+  const cp = day.conditioningPrescription;
   const cl = day.conditioningLog;
+  const structuredCompletionRate = cp ? workoutStats.conditioningCompletionRate : workoutStats.completionRate;
+  const formatHighlights = Array.from(new Set([
+    ...(cp?.format ? [formatPhase(cp.format)] : []),
+    ...((cp?.timedWork?.format ? [formatPhase(cp.timedWork.format)] : [])),
+    ...day.prescribedExercises.flatMap((entry) => {
+      const scheme = entry.setScheme?.toLowerCase() ?? '';
+      if (scheme.includes('emom')) return ['EMOM'];
+      if (scheme.includes('amrap')) return ['AMRAP'];
+      if (scheme.includes('tabata')) return ['Tabata'];
+      if (scheme.includes('for time')) return ['For time'];
+      return [];
+    }),
+  ]));
 
   return (
     <>
       <Card title="Workout Snapshot" subtitle={day.workoutType ?? 'untyped session'}>
         <View style={shared.metricGrid}>
-          <MetricTile label="Duration" value={`${cl?.completedDurationMin ?? 0} / ${cp.totalDurationMin} min`} />
-          <MetricTile label="Rounds" value={`${cl?.completedRounds ?? 0} / ${cp.rounds}`} />
           <MetricTile
-            label="Drills"
-            value={`${cl?.drillLogs.filter((e) => e.completed).length ?? 0} / ${cp.drills.length}`}
+            label="Duration"
+            value={cp ? `${cl?.completedDurationMin ?? 0} / ${cp.totalDurationMin} min` : (day.durationMin > 0 ? `${day.durationMin} min` : '--')}
+          />
+          <MetricTile
+            label={cp ? 'Rounds' : 'Blocks'}
+            value={cp ? `${cl?.completedRounds ?? 0} / ${cp.rounds}` : `${workoutStats.completedExerciseCount} / ${workoutStats.prescribedExerciseCount}`}
+          />
+          <MetricTile
+            label={cp ? 'Drills' : 'Set Completion'}
+            value={cp
+              ? `${cl?.drillLogs.filter((e) => e.completed).length ?? 0} / ${cp.drills.length}`
+              : (workoutStats.plannedSetCount > 0 ? `${workoutStats.completedSetCount} / ${workoutStats.plannedSetCount}` : '--')}
           />
           <MetricTile
             label="Completion"
-            value={`${workoutStats.conditioningCompletionRate}%`}
-            tone={completionTone(workoutStats.conditioningCompletionRate)}
+            value={`${structuredCompletionRate}%`}
+            tone={completionTone(structuredCompletionRate)}
           />
         </View>
         <View style={shared.metricGrid}>
-          <MetricTile label="Planned Intensity" value={cp.intensityLabel} />
-          <MetricTile label="Logged Avg RPE" value={cl?.actualRpe?.toFixed(1) ?? '--'} />
+          <MetricTile label="Planned Intensity" value={cp?.intensityLabel ?? '--'} />
+          <MetricTile
+            label="Logged Avg RPE"
+            value={cp ? (cl?.actualRpe?.toFixed(1) ?? '--') : (workoutStats.averageLoggedRpe > 0 ? workoutStats.averageLoggedRpe.toFixed(1) : '--')}
+          />
           <MetricTile label="Warm-up" value={day.didWarmup ? 'Completed' : 'Missed'} />
           <MetricTile label="Role" value={formatPhase(day.sessionRole)} />
         </View>
+        {formatHighlights.length > 0 ? (
+          <Text style={shared.bodyText}>Formats: {formatHighlights.join(' • ')}</Text>
+        ) : null}
         {day.activationGuidance ? <Text style={shared.bodyText}>Activation: {day.activationGuidance}</Text> : null}
-        <Text style={shared.bodyText}>Conditioning: {cp.message}</Text>
+        {cp ? <Text style={shared.bodyText}>Conditioning: {cp.message}</Text> : null}
         <Text style={shared.bodyText}>Blueprint: {day.workoutBlueprint}</Text>
       </Card>
 
-      <Card title="Conditioning Prescription" subtitle={cp.message}>
-        <View style={shared.metricGrid}>
-          <MetricTile label="Type" value={formatPhase(cp.type)} />
-          <MetricTile label="Rounds" value={String(cp.rounds)} />
-          <MetricTile label="Work / Rest" value={`${cp.workIntervalSec}s / ${cp.restIntervalSec}s`} />
-          <MetricTile label="Est. Load" value={String(cp.estimatedLoad)} />
-        </View>
-        {cp.drills.map((drill, index) => (
-          <ConditioningDrillRow
-            key={`${drill.name}-prescribed-${index}`}
-            name={drill.name}
-            subtitle={`${drill.rounds} rounds${drill.durationSec != null ? ` | ${drill.durationSec}s work` : ''}${drill.reps != null ? ` | ${drill.reps} reps` : ''}${drill.restSec ? ` | ${drill.restSec}s rest` : ''}`}
-            status="Planned"
-            note="Engine prescribed this drill as part of the conditioning block."
-          />
-        ))}
+      {cp ? (
+        <Card title="Conditioning Prescription" subtitle={cp.message}>
+          <View style={shared.metricGrid}>
+            <MetricTile label="Type" value={formatPhase(cp.type)} />
+            <MetricTile label="Rounds" value={String(cp.rounds)} />
+            <MetricTile label="Work / Rest" value={`${cp.workIntervalSec}s / ${cp.restIntervalSec}s`} />
+            <MetricTile label="Est. Load" value={String(cp.estimatedLoad)} />
+          </View>
+          {cp.drills.map((drill, index) => (
+            <ConditioningDrillRow
+              key={`${drill.name}-prescribed-${index}`}
+              name={drill.name}
+              subtitle={`${drill.rounds} rounds${drill.durationSec != null ? ` | ${drill.durationSec}s work` : ''}${drill.reps != null ? ` | ${drill.reps} reps` : ''}${drill.restSec ? ` | ${drill.restSec}s rest` : ''}`}
+              status="Planned"
+              note="Engine prescribed this drill as part of the conditioning block."
+            />
+          ))}
+        </Card>
+      ) : null}
+
+      <Card
+        title={cp ? 'Structured Conditioning Blocks' : 'Conditioning Prescription'}
+        subtitle={cp ? 'Engine-built blocks attached to the guided conditioning session.' : 'This conditioning day came through the structured workout pipeline.'}
+      >
+        {day.prescribedExercises.length > 0
+          ? day.prescribedExercises.map((entry, index) => (
+            <PrescribedExerciseRow key={`${entry.exerciseId}-${entry.sectionTemplate ?? 'section'}-${index}`} entry={entry} />
+          ))
+          : <Text style={shared.bodyText}>No exercise prescription was generated for this conditioning day.</Text>}
       </Card>
 
       <Card title="Simulated Conditioning Log" subtitle={cl?.note ?? 'No simulated conditioning log exists.'}>
@@ -87,9 +127,24 @@ function ConditioningWorkoutView({ day, workoutStats }: WorkoutTabProps) {
             ))}
           </>
         ) : (
-          <Text style={shared.bodyText}>No simulated conditioning log exists for this day.</Text>
+          <Text style={shared.bodyText}>
+            {day.exerciseLogs.length > 0
+              ? 'This conditioning day used the structured workout path, so exercise-level logs are shown below instead of a rounds log.'
+              : 'No simulated conditioning log exists for this day.'}
+          </Text>
         )}
       </Card>
+
+      {day.exerciseLogs.length > 0 ? (
+        <Card title="Conditioning Blocks vs Logged" subtitle="Side-by-side comparison for each structured conditioning block.">
+          {day.prescribedExercises.map((entry, index) => {
+            const logged = day.exerciseLogs.find((candidate) => candidate.exerciseId === entry.exerciseId) ?? null;
+            return (
+              <WorkoutComparisonRow key={`${entry.exerciseId}-conditioning-compare-${index}`} prescribed={entry} logged={logged} />
+            );
+          })}
+        </Card>
+      ) : null}
     </>
   );
 }
@@ -166,7 +221,7 @@ function StrengthWorkoutView({ day, workoutStats }: WorkoutTabProps) {
 // ---------------------------------------------------------------------------
 
 export function WorkoutTab({ day, workoutStats }: WorkoutTabProps) {
-  if (day.conditioningPrescription) {
+  if (day.workoutType === 'conditioning' || day.conditioningPrescription) {
     return <ConditioningWorkoutView day={day} workoutStats={workoutStats} />;
   }
   return <StrengthWorkoutView day={day} workoutStats={workoutStats} />;

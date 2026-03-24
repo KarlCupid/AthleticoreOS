@@ -30,6 +30,21 @@ export function useReplayState(visible: boolean) {
 
   // ---- Actions ----
 
+  const findPreferredDayIndex = useCallback((nextRun: EngineReplayRun): number => {
+    const interestingIndex = nextRun.days.findIndex((day) =>
+      day.workoutType === 'conditioning'
+      || day.conditioningPrescription != null
+      || day.prescribedExercises.some((entry) => {
+        const scheme = entry.setScheme?.toLowerCase() ?? '';
+        return scheme.includes('emom')
+          || scheme.includes('amrap')
+          || scheme.includes('tabata')
+          || scheme.includes('for time');
+      }),
+    );
+    return interestingIndex >= 0 ? interestingIndex : 0;
+  }, []);
+
   const executeReplay = useCallback(async (nextScenarioId: string) => {
     setLoading(true);
     setError(null);
@@ -41,12 +56,13 @@ export function useReplayState(visible: boolean) {
     try {
       const nextRun = await buildEngineReplayRun(nextScenarioId);
       setRun(nextRun);
+      setSelectedDayIndex(findPreferredDayIndex(nextRun));
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : 'Replay failed.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [findPreferredDayIndex]);
 
   useEffect(() => {
     if (visible) void executeReplay(scenarioId);
