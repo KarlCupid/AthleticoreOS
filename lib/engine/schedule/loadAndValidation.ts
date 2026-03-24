@@ -209,9 +209,13 @@ function getAcwrPlanningThresholds(
             weeklyLoad: fallbackMetrics.totalWeeklyLoad,
             monotony: fallbackMetrics.monotony,
             strain: fallbackMetrics.strain,
+            acuteEWMA: fallbackMetrics.totalWeeklyLoad,
+            chronicEWMA: fallbackMetrics.totalWeeklyLoad,
             rollingFatigueRatio: fallbackMetrics.rollingFatigueRatio,
             rollingFatigueScore: fallbackMetrics.rollingFatigueScore,
             fatigueBand: fallbackMetrics.fatigueBand,
+            safetyThreshold: 1.3,
+            thresholdSource: 'standard_chronic',
         },
     });
 

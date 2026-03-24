@@ -57,8 +57,9 @@ export interface PRRecord {
   repsAtPR: number | null;
   weightAtPR: number | null;
   rpeAtPR: number | null;
-  estimated1RM: number | null;
-  achievedDate: string;
+  estimated1RM?: number | null;
+  achievedDate?: string;
+  date?: string;
 }
 
 export interface PRDetectionResult {

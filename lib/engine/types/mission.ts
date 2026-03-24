@@ -90,7 +90,7 @@ export interface TrainingDirective {
   sessionRole: TrainingSessionRole;
   interventionState: InterventionState;
   isMandatoryRecovery: boolean;
-  focus: WorkoutFocus | null;
+  focus: WorkoutFocus | 'strength' | null;
   workoutType: WorkoutType | null;
   intent: string;
   reason: string;

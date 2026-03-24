@@ -1,6 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { SPACING } from '../../../theme/theme';
+﻿import React from 'react';
+import { Text, View } from 'react-native';
 import { Card } from '../../Card';
 import { MetricTile } from '../primitives/MetricTile';
 import { ExerciseLogRow, PrescribedExerciseRow, WorkoutComparisonRow } from '../primitives/ExerciseRow';
@@ -9,7 +8,6 @@ import { formatPhase } from '../helpers';
 import { shared } from '../styles';
 import type { EngineReplayDay } from '../../../../lib/engine/simulation/lab';
 import type { WorkoutStats } from '../useReplayState';
-import type { MetricTone } from '../styles';
 
 interface WorkoutTabProps {
   day: EngineReplayDay;
@@ -164,7 +162,7 @@ function StrengthWorkoutView({ day, workoutStats }: WorkoutTabProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Public component — branches between conditioning and strength
+// Public component â€” branches between conditioning and strength
 // ---------------------------------------------------------------------------
 
 export function WorkoutTab({ day, workoutStats }: WorkoutTabProps) {
@@ -183,3 +181,4 @@ function completionTone(rate: number): 'good' | 'warning' | 'default' {
   if (rate < 60) return 'warning';
   return 'default';
 }
+

@@ -894,10 +894,6 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     };
 }
 
-function clampNumber(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-}
-
 function focusBlockedByConstraints(
     focus: WorkoutFocus,
     constraintSet?: StimulusConstraintSet | null,

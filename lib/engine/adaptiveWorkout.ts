@@ -1,19 +1,21 @@
+﻿import type {
+    ExerciseType,
+} from './types/foundational.ts';
 import type {
-    SessionFatigueState,
-    SetCompletionInput,
-    SetAdaptationResult,
-    ExerciseAdjustment,
     FatigueLevel,
     FeedbackSeverity,
-    RestTimerConfig,
-    ExerciseType,
-} from './types/adaptation.ts';
+    SessionFatigueState,
+} from './types/misc.ts';
 import type {
     EquipmentItem,
+    ExerciseAdjustment,
     ExerciseLibraryRow,
-} from './types/foundational.ts';
+    RestTimerConfig,
+    SetAdaptationResult,
+    SetCompletionInput,
+} from './types/training.ts';
 
-// ─── Equipment Mapping ──────────────────────────────────────────
+// â”€â”€â”€ Equipment Mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Maps exercise-level equipment strings to the gym profile EquipmentItem
@@ -26,7 +28,7 @@ const EQUIPMENT_TO_GYM_MAP: Record<string, EquipmentItem | null> = {
     cable: 'cables',
     bodyweight: null,       // always available
     band: 'resistance_bands',
-    machine: null,          // handled separately — any machine item qualifies
+    machine: null,          // handled separately â€” any machine item qualifies
     medicine_ball: 'medicine_balls',
     sled: 'sled',
     heavy_bag: 'heavy_bag',
@@ -42,7 +44,7 @@ const MACHINE_EQUIPMENT_ITEMS: EquipmentItem[] = [
     'rowing_machine',
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** Clamp a number between min and max (inclusive). */
 function clamp(value: number, min: number, max: number): number {
@@ -71,11 +73,11 @@ function isEquipmentAvailable(
     }
 
     const requiredItem = EQUIPMENT_TO_GYM_MAP[exerciseEquipment];
-    if (requiredItem == null) return true; // unknown equipment — assume available
+    if (requiredItem == null) return true; // unknown equipment â€” assume available
     return availableEquipment.includes(requiredItem);
 }
 
-// ─── initFatigueState ───────────────────────────────────────────
+// â”€â”€â”€ initFatigueState â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * @ANTI-WIRING:
@@ -95,7 +97,7 @@ export function initFatigueState(): SessionFatigueState {
     };
 }
 
-// ─── processSetCompletion ───────────────────────────────────────
+// â”€â”€â”€ processSetCompletion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * @ANTI-WIRING:
@@ -143,10 +145,10 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         availableEquipment,
     } = input;
 
-    // ── 1. Compute RPE delta ────────────────────────────────────
+    // â”€â”€ 1. Compute RPE delta â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const rpeDelta = actualRPE - targetRPE;
 
-    // ── 2. Update fatigue state ─────────────────────────────────
+    // â”€â”€ 2. Update fatigue state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const setsCompleted = currentFatigueState.setsCompleted + 1;
     const cumulativeRPEDelta = currentFatigueState.cumulativeRPEDelta + rpeDelta;
     const avgRPEDelta = cumulativeRPEDelta / setsCompleted;
@@ -181,14 +183,14 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         fatigueLevel,
     };
 
-    // ── 3. Generate adjustments ─────────────────────────────────
+    // â”€â”€ 3. Generate adjustments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const adjustments: ExerciseAdjustment[] = [];
     let shouldEndWorkoutEarly = false;
     let endEarlyReason: string | null = null;
     let feedbackMessage = '';
     let feedbackSeverity: FeedbackSeverity = 'neutral';
 
-    // RPE delta >= +2: heavy fatigue — reduce weight 10% AND reps 1-2
+    // RPE delta >= +2: heavy fatigue â€” reduce weight 10% AND reps 1-2
     if (rpeDelta >= 2) {
         const reducedWeight = Math.round(targetWeight * 0.9);
         const reducedReps = Math.max(1, targetReps - 2);
@@ -212,7 +214,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         feedbackMessage = `Fatigue building. Reducing target weight from ${targetWeight} to ${reducedWeight} for remaining sets.`;
         feedbackSeverity = 'warning';
     }
-    // RPE delta == +1: mild fatigue — reduce weight 5%
+    // RPE delta == +1: mild fatigue â€” reduce weight 5%
     else if (rpeDelta === 1) {
         const reducedWeight = Math.round(targetWeight * 0.95);
 
@@ -227,7 +229,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         feedbackMessage = `RPE slightly higher than expected. Reducing to ${reducedWeight} lbs for next set.`;
         feedbackSeverity = 'caution';
     }
-    // RPE delta <= -1: feeling strong — suggest weight increase
+    // RPE delta <= -1: feeling strong â€” suggest weight increase
     else if (rpeDelta <= -1) {
         const increasedWeight = Math.max(
             Math.round(targetWeight * 1.025),
@@ -304,7 +306,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
     };
 }
 
-// ─── findSubstituteExercise ─────────────────────────────────────
+// â”€â”€â”€ findSubstituteExercise â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * @ANTI-WIRING:
@@ -322,7 +324,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
  *   2. Lower cns_load than the original.
  *   3. Not the same exercise.
  *   4. Equipment is available (if gym profile provided).
- *   5. Sorted by cns_load ascending — returns the lowest-CNS option.
+ *   5. Sorted by cns_load ascending â€” returns the lowest-CNS option.
  *
  * Pure synchronous function. No database queries. No LLM generation.
  */
@@ -343,7 +345,7 @@ export function findSubstituteExercise(
     return candidates.length > 0 ? candidates[0] : null;
 }
 
-// ─── getRestTimerDefaults ───────────────────────────────────────
+// â”€â”€â”€ getRestTimerDefaults â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * @ANTI-WIRING:
@@ -363,7 +365,7 @@ export function getRestTimerDefaults(): Record<ExerciseType, RestTimerConfig> {
     };
 }
 
-// ─── getRestDuration ────────────────────────────────────────────
+// â”€â”€â”€ getRestDuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * @ANTI-WIRING:
@@ -390,3 +392,4 @@ export function getRestDuration(exerciseType: ExerciseType, fatigueLevel: Fatigu
 
     return seconds;
 }
+

@@ -5,7 +5,7 @@ import Animated, {
     useAnimatedStyle,
     withTiming,
 } from 'react-native-reanimated';
-import { ANIMATION, APP_CHROME, COLORS, FONT_FAMILY, RADIUS, SPACING, TYPOGRAPHY_V2, TAP_TARGETS } from '../../theme/theme';
+import { APP_CHROME, COLORS, FONT_FAMILY, RADIUS, SPACING, TYPOGRAPHY_V2, TAP_TARGETS } from '../../theme/theme';
 
 // Used for 2–3 option selections in Morning Flow and Quick Fuel screens.
 // Replaces numeric sliders for check-in flows.

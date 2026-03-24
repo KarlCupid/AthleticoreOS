@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+﻿import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
     useSharedValue,
@@ -9,8 +9,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { APP_CHROME, COLORS, FONT_FAMILY, SPACING, TYPOGRAPHY_V2 } from '../../theme/theme';
 
-// Brief phase transition screen shown between camp phases (GPP→SPP, SPP→Peak, etc.)
-// Auto-advances after 3 seconds. Lazy-loaded — only import in phase-aware navigation.
+// Brief phase transition screen shown between camp phases (GPPâ†’SPP, SPPâ†’Peak, etc.)
+// Auto-advances after 3 seconds. Lazy-loaded â€” only import in phase-aware navigation.
 
 interface PhaseTransitionProps {
     fromPhase: string;  // e.g. "General Physical Preparation"
@@ -19,13 +19,6 @@ interface PhaseTransitionProps {
     onComplete: () => void;
     displayMs?: number; // Default 3000ms
 }
-
-const PHASE_MOTIVATIONS: Record<string, string> = {
-    'GPP → SPP': 'Foundation built. Now make it specific.',
-    'SPP → Peak': 'Volume drops. Intensity spikes. Trust the plan.',
-    'Peak → Fight Week': 'One week out. Sharpen, don\'t grind.',
-    default: 'New phase. Same standard.',
-};
 
 export function PhaseTransition({ fromPhase, toPhase, tagline, onComplete, displayMs = 3000 }: PhaseTransitionProps) {
     const opacity = useSharedValue(0);
@@ -52,9 +45,9 @@ export function PhaseTransition({ fromPhase, toPhase, tagline, onComplete, displ
     return (
         <Animated.View style={[styles.screen, containerStyle]}>
             <View style={styles.content}>
-                {/* From → To */}
+                {/* From â†’ To */}
                 <Text style={styles.fromLabel}>{fromPhase}</Text>
-                <Animated.Text style={[styles.arrow, arrowStyle]}>↓</Animated.Text>
+                <Animated.Text style={[styles.arrow, arrowStyle]}>â†“</Animated.Text>
                 <Text style={styles.toLabel}>{toPhase}</Text>
 
                 {/* Accent bar */}
@@ -109,3 +102,4 @@ const styles = StyleSheet.create({
         lineHeight: 26,
     },
 });
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -122,7 +122,7 @@ export function GuidedWorkoutScreen() {
     const [adaptationDismissed, setAdaptationDismissed] = useState(false);
     const adaptationDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // ── Load on focus ────────────────────────────────────────────
+    // â”€â”€ Load on focus â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useFocusEffect(
         useCallback(() => {
             loadAndGenerate(
@@ -146,7 +146,7 @@ export function GuidedWorkoutScreen() {
         ]),
     );
 
-    // ── Elapsed timer ─────────────────────────────────────────────
+    // â”€â”€ Elapsed timer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (!isStarted || !startTime) return;
 
@@ -160,12 +160,12 @@ export function GuidedWorkoutScreen() {
         };
     }, [isStarted, startTime]);
 
-    // ── Gym-floor mode: hide tabs during workout ──────────────────
+    // â”€â”€ Gym-floor mode: hide tabs during workout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         setMode(isStarted ? 'gym-floor' : 'standard');
     }, [isStarted]);
 
-    // ── Navigate on complete ──────────────────────────────────────
+    // â”€â”€ Navigate on complete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (!isComplete) return;
         const doFinish = async () => {
@@ -180,7 +180,7 @@ export function GuidedWorkoutScreen() {
         doFinish();
     }, [isComplete]);
 
-    // ── Pre-fill inputs when exercise changes ─────────────────────
+    // â”€â”€ Pre-fill inputs when exercise changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (!currentExercise) return;
         setSelectedRPE(null);
@@ -196,7 +196,7 @@ export function GuidedWorkoutScreen() {
         setSelectedReps(currentExercise.targetReps);
     }, [currentExercise?.exercise.id]);
 
-    // ── Auto-dismiss adaptation banner after 3 s ──────────────────
+    // â”€â”€ Auto-dismiss adaptation banner after 3 s â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         if (!adaptationResult) return;
         setAdaptationDismissed(false);
@@ -209,7 +209,7 @@ export function GuidedWorkoutScreen() {
         };
     }, [adaptationResult]);
 
-    // ── Vibrate on rest end ───────────────────────────────────────
+    // â”€â”€ Vibrate on rest end â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const prevRestRef = useRef<number | null>(null);
     useEffect(() => {
         if (prevRestRef.current !== null && prevRestRef.current > 0 && restSeconds === null) {
@@ -218,7 +218,7 @@ export function GuidedWorkoutScreen() {
         prevRestRef.current = restSeconds;
     }, [restSeconds]);
 
-    // ── Derived values ────────────────────────────────────────────
+    // â”€â”€ Derived values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const totalExercises = prescription?.exercises.length ?? 0;
     const overallProgress = totalExercises > 0 ? currentExerciseIndex / totalExercises : 0;
@@ -242,10 +242,7 @@ export function GuidedWorkoutScreen() {
     const overloadSuggestion = currentExercise?.overloadSuggestion ?? null;
     const showWeightBanner = overloadSuggestion !== null && workingSetsLogged === 0;
 
-    const missionReason = dailyMission?.trainingDirective.reason ?? null;
-    const missionIntent = dailyMission?.trainingDirective.intent ?? null;
-
-    // ── Handlers ──────────────────────────────────────────────────
+    // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const handleBeginWorkout = async () => {
         await startWorkout();
@@ -341,15 +338,15 @@ export function GuidedWorkoutScreen() {
         setSelectedReps(prev => prev + 1);
     };
 
-    // ── Render ────────────────────────────────────────────────────
+    // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
 
-            {/* ── Loading state ───────────────────────────────── */}
+            {/* â”€â”€ Loading state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {loading && <LoadingSkeleton />}
 
-            {/* ── Not started: activation check (if required) ─── */}
+            {/* â”€â”€ Not started: activation check (if required) â”€â”€â”€ */}
             {!loading && prescription && !isStarted && floorVM.activationRequired && !activationCheckDone && (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -368,7 +365,7 @@ export function GuidedWorkoutScreen() {
                         onPress={() => setActivationCheckDone(true)}
                         activeOpacity={0.82}
                     >
-                        <Text style={styles.primaryButtonText}>Activation done — continue</Text>
+                        <Text style={styles.primaryButtonText}>Activation done â€” continue</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.skipLink}
@@ -380,7 +377,7 @@ export function GuidedWorkoutScreen() {
                 </ScrollView>
             )}
 
-            {/* ── Not started: prescription preview ───────────── */}
+            {/* â”€â”€ Not started: prescription preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {!loading && prescription && !isStarted && (!floorVM.activationRequired || activationCheckDone) && (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -400,7 +397,7 @@ export function GuidedWorkoutScreen() {
                 </ScrollView>
             )}
 
-            {/* ── Active workout ───────────────────────────────── */}
+            {/* â”€â”€ Active workout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {!loading && isStarted && currentExercise && (
                 <>
                     {/* Header */}
@@ -417,7 +414,7 @@ export function GuidedWorkoutScreen() {
                                     (currentExerciseIndex === 0 || restSeconds !== null) && styles.backButtonDisabled,
                                 ]}
                             >
-                                ‹
+                                â€¹
                             </Text>
                         </TouchableOpacity>
 
@@ -551,7 +548,7 @@ export function GuidedWorkoutScreen() {
                             />
 
                             <View style={styles.inputSeparator}>
-                                <Text style={styles.inputSeparatorText}>×</Text>
+                                <Text style={styles.inputSeparatorText}>Ã—</Text>
                             </View>
 
                             <NumberStepper
@@ -595,7 +592,7 @@ export function GuidedWorkoutScreen() {
                                     activeOpacity={0.82}
                                 >
                                     <Text style={styles.primaryButtonText}>
-                                        {isLastExercise ? 'Finish Workout' : 'Complete Exercise →'}
+                                        {isLastExercise ? 'Finish Workout' : 'Complete Exercise â†’'}
                                     </Text>
                                 </TouchableOpacity>
                             )}
@@ -639,7 +636,7 @@ export function GuidedWorkoutScreen() {
                 </>
             )}
 
-            {/* ── No prescription yet (edge case) ─────────────── */}
+            {/* â”€â”€ No prescription yet (edge case) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {!loading && !prescription && (
                 <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>
@@ -689,7 +686,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
 
-    // ── Header ────────────────────────────────────────────────────
+    // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -735,7 +732,7 @@ const styles = StyleSheet.create({
         color: COLORS.text.secondary,
     },
 
-    // ── Progress bar ──────────────────────────────────────────────
+    // â”€â”€ Progress bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     progressBarContainer: {
         paddingHorizontal: SPACING.md,
         paddingTop: SPACING.sm,
@@ -743,7 +740,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
     },
 
-    // ── Scroll ────────────────────────────────────────────────────
+    // â”€â”€ Scroll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     scrollView: {
         flex: 1,
     },
@@ -775,7 +772,7 @@ const styles = StyleSheet.create({
         marginTop: SPACING.xs,
     },
 
-    // ── Exercise header ───────────────────────────────────────────
+    // â”€â”€ Exercise header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     exerciseHeader: {
         marginBottom: SPACING.md,
     },
@@ -800,7 +797,7 @@ const styles = StyleSheet.create({
         textTransform: 'capitalize',
     },
 
-    // ── Set tracker ───────────────────────────────────────────────
+    // â”€â”€ Set tracker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     setTrackerRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -813,12 +810,12 @@ const styles = StyleSheet.create({
         color: COLORS.text.secondary,
     },
 
-    // ── Section gap ───────────────────────────────────────────────
+    // â”€â”€ Section gap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     sectionGap: {
         marginBottom: SPACING.md,
     },
 
-    // ── Input row ─────────────────────────────────────────────────
+    // â”€â”€ Input row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -836,7 +833,7 @@ const styles = StyleSheet.create({
         color: COLORS.text.tertiary,
     },
 
-    // ── Buttons ───────────────────────────────────────────────────
+    // â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     primaryButton: {
         backgroundColor: COLORS.accent,
         borderRadius: RADIUS.xl,
@@ -880,7 +877,7 @@ const styles = StyleSheet.create({
         color: COLORS.error + 'CC',
     },
 
-    // ── Empty / error state ───────────────────────────────────────
+    // â”€â”€ Empty / error state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     emptyState: {
         flex: 1,
         alignItems: 'center',
@@ -907,6 +904,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
 });
+
 
 
 

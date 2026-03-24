@@ -1,12 +1,12 @@
-/**
+﻿/**
  * calculateConditioning.ts
  *
- * Conditioning programming engine — heavy bag, circuits, jump rope,
+ * Conditioning programming engine â€” heavy bag, circuits, jump rope,
  * sport-specific drills, and metabolic conditioning.
  *
  * Functions:
- *   1. prescribeConditioning      — generates a single conditioning session
- *   2. getWeeklyConditioningPlan  — distributes conditioning across the week
+ *   1. prescribeConditioning      â€” generates a single conditioning session
+ *   2. getWeeklyConditioningPlan  â€” distributes conditioning across the week
  *
  * @ANTI-WIRING:
  * All functions are pure and synchronous. No database queries. No LLM generation.
@@ -22,12 +22,12 @@ import type {
     ReadinessState,
     CampConfig,
     WeightCutPlanRow,
-} from './types/foundational.ts';
+} from './types.ts';
 import type { ReadinessProfile, StimulusConstraintSet } from './types/readiness.ts';
 import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
-// ─── Constants ─────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Base rounds for heavy bag work per fitness level.
@@ -85,7 +85,7 @@ const PHASE_CONDITIONING_MAP: Record<Phase, ConditioningType[]> = {
     'camp-taper': ['jump_rope', 'agility_drills'],
 };
 
-// ─── Exercise Libraries ────────────────────────────────────────
+// â”€â”€â”€ Exercise Libraries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const CIRCUIT_EXERCISES: ConditioningExercise[] = [
     { name: 'Burpees', durationSec: null, reps: 10, rounds: 3, restSec: 15 },
@@ -119,7 +119,7 @@ const AGILITY_EXERCISES: ConditioningExercise[] = [
     { name: 'T-Drill', durationSec: 20, reps: null, rounds: 3, restSec: 30 },
 ];
 
-// ─── Helpers ───────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function addDays(dateStr: string, days: number): string {
     const d = new Date(dateStr);
@@ -143,7 +143,7 @@ function getConditioningType(
     return list[sessionIndex % list.length];
 }
 
-// ─── prescribeConditioning ─────────────────────────────────────
+// â”€â”€â”€ prescribeConditioning â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Generates a single conditioning session prescription.
@@ -193,14 +193,14 @@ export function prescribeConditioning(input: {
         ? resolvedIntensityCap
         : getDailyCutIntensityCap(activeCutPlan, effectiveDate);
 
-    // Apply intensity cap — if cut is strict, no heavy bag
+    // Apply intensity cap â€” if cut is strict, no heavy bag
     if (effectiveIntensityCap !== null && effectiveIntensityCap !== undefined) {
         if (CONDITIONING_CNS[type] > effectiveIntensityCap) {
             type = 'jump_rope';
         }
     }
 
-    // Depleted or high ACWR → force light
+    // Depleted or high ACWR â†’ force light
     if (constraintSet) {
         if (constraintSet.blockedStimuli.includes('glycolytic_conditioning')) {
             type = constraintSet.allowedStimuli.includes('aerobic_conditioning') ? 'jump_rope' : 'agility_drills';
@@ -319,12 +319,12 @@ export function prescribeConditioning(input: {
         'camp-build': 'Increasing intensity to match fight-level demands.',
         'camp-peak': 'Sharpening sport-specific skills under fatigue.',
         'camp-taper': 'Maintaining feel while minimizing fatigue accumulation.',
-        'fight-camp': 'Fight camp conditioning — quality over quantity.',
-        'off-season': 'Off-season conditioning — general fitness focus.',
+        'fight-camp': 'Fight camp conditioning â€” quality over quantity.',
+        'off-season': 'Off-season conditioning â€” general fitness focus.',
     };
 
     const message =
-        `${typeLabels[type]}: ${rounds} rounds × ${Math.round(workIntervalSec / 60 * 10) / 10} min. ` +
+        `${typeLabels[type]}: ${rounds} rounds Ã— ${Math.round(workIntervalSec / 60 * 10) / 10} min. ` +
         (phaseIntent[phase] ? phaseIntent[phase] + ' ' : '') +
         `Intensity: ${intensityLabel}.`;
 
@@ -342,7 +342,7 @@ export function prescribeConditioning(input: {
     };
 }
 
-// ─── getWeeklyConditioningPlan ─────────────────────────────────
+// â”€â”€â”€ getWeeklyConditioningPlan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Distributes conditioning sessions across the week.
@@ -421,3 +421,4 @@ export function getWeeklyConditioningPlan(
 
     return result;
 }
+

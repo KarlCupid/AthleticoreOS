@@ -6,7 +6,7 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
-import { APP_CHROME, COLORS, FONT_FAMILY, RADIUS, SPACING, TYPOGRAPHY_V2, SEMANTIC_PALETTE } from '../../theme/theme';
+import { APP_CHROME, COLORS, RADIUS, SPACING, TYPOGRAPHY_V2, SEMANTIC_PALETTE } from '../../theme/theme';
 
 // Shown on Weekly Review when athlete hits 90%+ compliance for 3+ consecutive weeks.
 // Lazy-loaded: import only in WeeklyReviewScreen, never on Compass or Training Floor.

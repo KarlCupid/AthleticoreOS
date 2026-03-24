@@ -1,5 +1,5 @@
-/**
- * LazyChart — wrapper for lazy-loading Victory Native chart components.
+﻿/**
+ * LazyChart â€” wrapper for lazy-loading Victory Native chart components.
  *
  * Victory Native is a heavy rendering dependency. Charts should not initialize
  * on mount for screens where they are not immediately visible (e.g., collapsed
@@ -13,16 +13,16 @@
  *   const ChartModule = React.lazy(() => import('../TrainingLoadChartCard'));
  *   <Suspense fallback={<ChartPlaceholder />}><ChartModule ... /></Suspense>
  *
- * Victory Native audit (Task 7) — 4 files currently import victory-native:
- *   1. TrainingLoadChartCard.tsx  → keep, wrap in Suspense in "Under the Hood" collapsible
- *   2. WeightCutChart.tsx         → keep, used on Cut screen (not core daily flow)
- *   3. NutritionAnalyticsSection.tsx → migrate to lightweight SVG (Phase 2 analytics)
- *   4. WorkoutAnalyticsTab.tsx    → migrate to lightweight SVG (S&C analytics)
- *   5. SCAnalyticsSection.tsx     → migrate to lightweight SVG
- * Target after UX revamp: ≤2 files importing victory-native.
+ * Victory Native audit (Task 7) â€” 4 files currently import victory-native:
+ *   1. TrainingLoadChartCard.tsx  â†’ keep, wrap in Suspense in "Under the Hood" collapsible
+ *   2. WeightCutChart.tsx         â†’ keep, used on Cut screen (not core daily flow)
+ *   3. NutritionAnalyticsSection.tsx â†’ migrate to lightweight SVG (Phase 2 analytics)
+ *   4. WorkoutAnalyticsTab.tsx    â†’ migrate to lightweight SVG (S&C analytics)
+ *   5. SCAnalyticsSection.tsx     â†’ migrate to lightweight SVG
+ * Target after UX revamp: â‰¤2 files importing victory-native.
  */
 
-import React, { ReactNode } from 'react';
+import React from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { COLORS, SPACING } from '../../theme/theme';
 
@@ -47,3 +47,4 @@ const styles = StyleSheet.create({
         marginVertical: SPACING.sm,
     },
 });
+

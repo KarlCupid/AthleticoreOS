@@ -146,6 +146,7 @@ export interface DailyCutProtocolInput {
 }
 
 export interface DailyCutProtocolResult {
+  date: string;
   cutPhase: CutPhase;
   daysToWeighIn: number;
   weightDriftLbs: number | null;
@@ -166,6 +167,7 @@ export interface DailyCutProtocolResult {
   afternoonProtocol: string;
   eveningProtocol: string;
   safetyFlags: CutSafetyFlag[];
+  rehydrationProtocol?: RehydrationProtocolResult | null;
 }
 
 export interface StallDetectionInput {
@@ -223,22 +225,35 @@ export interface CutSafetyInput {
 }
 
 export interface RehydrationPhase {
-  timeWindow: string;
-  fluidInstruction: string;
-  foodInstruction: string | null;
-  sodiumInstruction: string | null;
-  targetFluidOz: number;
+  name?: string;
+  startTime?: string;
+  fluidTargetLiters?: number;
+  sodiumTargetMg?: number;
+  protocol?: string;
+  timeWindow?: string;
+  fluidInstruction?: string;
+  foodInstruction?: string | null;
+  sodiumInstruction?: string | null;
+  targetFluidOz?: number;
 }
 
 export interface RehydrationInput {
-  weighInWeightLbs: number;
-  targetWeightLbs: number;
-  hoursToFight: number;
+  weighInWeightLbs?: number;
+  targetWeightLbs?: number;
+  hoursToFight?: number;
+  currentWeight?: number;
+  targetWeight?: number;
+  weighInTime?: string;
+  fightTime?: string;
   biologicalSex: 'male' | 'female';
 }
 
 export interface RehydrationProtocolResult {
   phases: RehydrationPhase[];
+  targetRegainLbs: number;
+  totalFluidTargetLiters: number;
+  totalSodiumTargetMg: number;
+  hoursAvailable: number;
   targetWeightByFight: number;
   weightToRegainLbs: number;
   totalFluidOz: number;
@@ -308,6 +323,7 @@ export interface WeightCutPlanRow {
   calorie_floor: number;
   baseline_cognitive_score: number | null;
   coach_notes: string | null;
+  biological_sex?: 'male' | 'female' | null;
   created_at: string;
   updated_at: string;
 }

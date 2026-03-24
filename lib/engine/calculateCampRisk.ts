@@ -1,4 +1,4 @@
-import type { AthleteGoalMode, WeightCutInfluenceState, WeighInTiming } from '.ts';
+import type { AthleteGoalMode, WeightCutInfluenceState, WeighInTiming } from './types.ts';
 
 export type CampRiskLevel = 'low' | 'moderate' | 'high' | 'critical';
 
@@ -52,7 +52,7 @@ function formatProjectedMakeWeightStatus(input: {
   }
 
   const overLabel = `${remainingWeightLbs.toFixed(1)} lb over`;
-  const sameDayTag = weighInTiming === 'same_day' ? ' · same-day weigh-in constraints' : '';
+  const sameDayTag = weighInTiming === 'same_day' ? ' Â· same-day weigh-in constraints' : '';
 
   if (weightCutState === 'driving') {
     return `High risk (${overLabel})${sameDayTag}`;

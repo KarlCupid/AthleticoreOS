@@ -1,8 +1,8 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING, TYPOGRAPHY_V2 } from '../../../theme/theme';
 import type { EngineReplayExerciseLog, EngineReplayPrescribedExercise } from '../../../../lib/engine/simulation/lab';
-import { formatPhase, formatSignedNumber } from '../helpers';
+import { formatSignedNumber } from '../helpers';
 import { shared } from '../styles';
 
 // ---------------------------------------------------------------------------
@@ -173,3 +173,4 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
 });
+

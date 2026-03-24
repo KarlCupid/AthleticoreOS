@@ -241,5 +241,6 @@ export interface FitnessModifiers {
   intensityCap: number;
   recoveryDayFrequency: number;
   roadWorkDistanceMultiplier: number;
-  conditioning_rounds_multiplier?: number; // Added to match likely usage if missing
+  conditioningRoundsMultiplier: number;
+  conditioning_rounds_multiplier?: number;
 }

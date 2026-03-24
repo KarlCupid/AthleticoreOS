@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ScrollView, Alert, Keyboard,
@@ -64,8 +64,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [fightStatus, setFightStatus] = useState<'amateur' | 'pro'>('amateur');
     const [bioSex, setBioSex] = useState<'male' | 'female'>('male');
     const [cycleTracking, setCycleTracking] = useState(false);
-    const [activityLevel, setActivityLevel] = useState<'sedentary' | 'light' | 'moderate' | 'very_active' | 'extra_active'>('moderate');
-    const [nutritionGoal, setNutritionGoal] = useState<'maintain' | 'cut' | 'bulk'>('maintain');
+    const [activityLevel, _setActivityLevel] = useState<'sedentary' | 'light' | 'moderate' | 'very_active' | 'extra_active'>('moderate');
+    const [nutritionGoal, _setNutritionGoal] = useState<'maintain' | 'cut' | 'bulk'>('maintain');
     const [saving, setSaving] = useState(false);
 
     const currentStepMeta = STEP_META[step];
@@ -417,3 +417,4 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         </KeyboardAvoidingView>
     );
 }
+

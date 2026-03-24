@@ -45,7 +45,7 @@ export interface CampWeekProfile {
 export interface CampPlanInput {
   fightDate: string;
   campStartDate: string;
-  fitnessLevel: FitnessLevel;
+  fitnessLevel?: FitnessLevel;
   hasConcurrentCut: boolean;
   userId: string;
 }

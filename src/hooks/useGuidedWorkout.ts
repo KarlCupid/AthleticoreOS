@@ -33,6 +33,10 @@ import type {
 } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 
+function normalizeWorkoutFocus(focus: WorkoutPrescriptionV2['focus']): WorkoutLogRow['focus'] {
+    return focus === 'strength' ? 'full_body' : focus;
+}
+
 export interface SetEntry {
     exerciseId: string;
     setNumber: number;
@@ -235,7 +239,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             const gym = gymProfile;
             const log = await startWorkoutV2(session.user.id, {
                 workoutType: prescription.workoutType,
-                focus: prescription.focus,
+                focus: normalizeWorkoutFocus(prescription.focus),
                 weeklyPlanEntryId,
                 scheduledActivityId,
                 gymProfileId: gym?.id,

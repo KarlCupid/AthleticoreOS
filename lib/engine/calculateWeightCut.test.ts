@@ -177,7 +177,7 @@ console.log('\n-- calculateWeightCut --');
       targetWeight: 170,
       fightDate: '2027-06-15',
       weighInDate: '2027-06-14',
-      fightStatus: 'professional',
+      fightStatus: 'pro',
       biologicalSex: 'male',
       sport: 'mma',
     });
@@ -190,7 +190,7 @@ console.log('\n-- calculateWeightCut --');
       targetWeight: 160,
       fightDate: '2027-06-15',
       weighInDate: '2027-06-14',
-      fightStatus: 'professional',
+      fightStatus: 'pro',
       biologicalSex: 'male',
       sport: 'mma',
     });

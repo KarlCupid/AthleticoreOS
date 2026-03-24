@@ -21,11 +21,10 @@ import type {
   ProgressionModel,
   OverloadInput,
   OverloadSuggestion,
-  PRRecord,
-  PRDetectionResult,
   DeloadDecisionInput,
   DeloadDecisionResult,
-} from './types/foundational.ts';
+} from './types.ts';
+import type { PRRecord, PRDetectionResult } from './types/misc.ts';
 
 // ─── Constants ───────────────────────────────────────────────
 

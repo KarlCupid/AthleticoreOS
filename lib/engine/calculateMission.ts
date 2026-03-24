@@ -63,12 +63,16 @@ function inferFocusFromActivity(
     case 'road_work':
     case 'running':
       return 'conditioning';
-    case 'recovery':
     case 'active_recovery':
       return 'recovery';
     default:
       return null;
   }
+}
+
+function normalizeWorkoutFocus(focus: TrainingDirective['focus']): WorkoutFocus | null {
+  if (focus === 'strength') return 'full_body';
+  return focus ?? null;
 }
 
 function getPrimaryScheduledActivity(input: BuildDailyMissionInput): MissionScheduledActivity | null {
@@ -380,10 +384,12 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
   const primaryScheduledActivity = getPrimaryScheduledActivity(input);
   const activeScheduledActivities = input.scheduledActivities.filter((activity) => activity.status !== 'skipped');
   const hasCombatAnchor = activeScheduledActivities.some((activity) => isCombatActivity(activity.activity_type));
-  const plannedFocus = input.workoutPrescription?.focus
+  const plannedFocus = normalizeWorkoutFocus(
+    input.workoutPrescription?.focus
     ?? input.weeklyPlanEntry?.focus
     ?? inferFocusFromActivity(primaryScheduledActivity?.activity_type)
-    ?? null;
+    ?? null,
+  );
   const plannedWorkoutType = input.workoutPrescription?.workoutType
     ?? inferWorkoutType(input.weeklyPlanEntry?.session_type)
     ?? inferWorkoutType(primaryScheduledActivity?.activity_type);

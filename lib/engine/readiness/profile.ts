@@ -334,7 +334,6 @@ export function deriveStimulusConstraintSet(
 ): StimulusConstraintSet {
   const protectWindow = context.daysOut != null && context.daysOut <= 3;
   const taperWindow = context.phase === 'camp-taper';
-  const sharpenWindow = context.daysOut != null && context.daysOut <= 21;
   const redFlags = profile.flags.filter((flag) => flag.level === 'red').length;
   const yellowFlags = profile.flags.filter((flag) => flag.level === 'yellow').length;
   const neuralYellowFlags = profile.flags.filter((flag) => flag.dimension === 'neural' && flag.level === 'yellow').length;

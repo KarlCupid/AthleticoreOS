@@ -48,7 +48,7 @@ export interface ExerciseLibraryRow {
 }
 
 export interface WorkoutPrescription {
-  focus: WorkoutFocus;
+  focus: WorkoutFocus | 'strength';
   workoutType: WorkoutType;
   exercises: PrescribedExercise[];
   totalCNSBudget: number;
@@ -618,3 +618,16 @@ export interface CNSBudgetProfile {
   moderate: number;
   depleted: number;
 }
+
+export type {
+  FitnessLevel,
+  MuscleGroup,
+  PerformanceGoalType,
+  ReadinessState,
+  WorkoutFocus,
+} from './foundational.ts';
+export type {
+  DayLoadValidation,
+  ScheduledActivityRow,
+  WeekPlanEntry,
+} from './schedule.ts';

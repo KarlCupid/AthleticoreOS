@@ -10,7 +10,6 @@ import {
   deriveReadinessProfile,
   deriveStimulusConstraintSet,
   getGlobalReadinessState,
-  getBoxingIntensityScalar,
   generateCampPlan,
   generateSmartWeekPlan,
   prescribeConditioning,
@@ -429,6 +428,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         userId: 'sim-user',
         campStartDate: startDate,
         fightDate: initialState.fightDate,
+        fitnessLevel: initialState.fitnessLevel,
         hasConcurrentCut: simulationCutPlan != null,
       })
     : null;

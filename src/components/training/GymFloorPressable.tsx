@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { APP_CHROME, ANIMATION, COLORS, FONT_FAMILY, RADIUS, TYPOGRAPHY_V2, TAP_TARGETS } from '../../theme/theme';
+import { APP_CHROME, ANIMATION, COLORS, RADIUS, TYPOGRAPHY_V2, TAP_TARGETS } from '../../theme/theme';
 
 // Use GymFloorPressable on Training Floor only — not in Plan mode screens.
 // For Plan mode interactive elements, use AnimatedPressable.

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Alert, Modal, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -50,7 +50,7 @@ type DashboardPhaseControlState = {
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { themeColor, gradient } = useReadinessTheme();
+  const { gradient } = useReadinessTheme();
 
   const [activeCutPlan, setActiveCutPlan] = React.useState<WeightCutPlanRow | null>(null);
   const [todayCutProtocol, setTodayCutProtocol] = React.useState<DailyCutProtocolRow | null>(null);
@@ -432,7 +432,7 @@ export function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
-        {/* CompassHeader — mission-first above-fold */}
+        {/* CompassHeader â€” mission-first above-fold */}
         <LinearGradient
           colors={gradient as [string, string, ...string[]]}
           style={[styles.compassHeader, { paddingTop: insets.top + SPACING.lg }]}
@@ -457,7 +457,7 @@ export function DashboardScreen() {
           ) : null}
           {dailyMission ? (
             <AnimatedPressable onPress={() => setShowWhyToday(true)}>
-              <Text style={styles.compassMissionLink}>View Full Mission ›</Text>
+              <Text style={styles.compassMissionLink}>View Full Mission â€º</Text>
             </AnimatedPressable>
           ) : null}
         </LinearGradient>
@@ -472,7 +472,7 @@ export function DashboardScreen() {
                   onPress={() => setShowWhyToday((v) => !v)}
                 >
                   <Text style={styles.whyTodayTitle}>Why Today?</Text>
-                  <Text style={styles.whyTodayChevron}>{showWhyToday ? '▲' : '▼'}</Text>
+                  <Text style={styles.whyTodayChevron}>{showWhyToday ? 'â–²' : 'â–¼'}</Text>
                 </AnimatedPressable>
                 {showWhyToday && getAllDecisionReasons(dailyMission!.decisionTrace).map((reason, idx) => (
                   <View key={idx} style={styles.whyTodayItem}>
@@ -555,7 +555,7 @@ export function DashboardScreen() {
                     >
                       <View style={[styles.firstRunStepBadge, step.done && styles.firstRunStepBadgeDone]}>
                         <Text style={[styles.firstRunStepBadgeText, step.done && styles.firstRunStepBadgeTextDone]}>
-                          {step.done ? '✓' : `${idx + 1}`}
+                          {step.done ? 'âœ“' : `${idx + 1}`}
                         </Text>
                       </View>
                       <View style={styles.firstRunStepCopy}>
@@ -574,7 +574,7 @@ export function DashboardScreen() {
             <Animated.View entering={FadeInDown.delay(D * 1.2).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
               <Card>
                 <Text style={[styles.biologyTitle, { color: getCampRiskColor(campRisk.level) }]}>
-                  Camp Risk {campRisk.score}/100 · {formatCampRiskLevel(campRisk.level)}
+                  Camp Risk {campRisk.score}/100 Â· {formatCampRiskLevel(campRisk.level)}
                 </Text>
                 <Text style={[styles.biologyDesc, { marginTop: SPACING.xs }]}>
                   {campRisk.projectedMakeWeightStatus}
@@ -620,13 +620,13 @@ export function DashboardScreen() {
             </Animated.View>
           )}
 
-          {/* HeroHeader moved below-fold — readiness stats, sleep, weight, ACWR */}
+          {/* HeroHeader moved below-fold â€” readiness stats, sleep, weight, ACWR */}
           <Animated.View entering={FadeInDown.delay(D * 3.5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
             <HeroHeader
               greeting={getGreeting()}
               phase={
                 activeCutPlan && todayCutProtocol
-                  ? `${todayCutProtocol.cut_phase === 'fight_week_cut' ? 'Water Cut' : todayCutProtocol.cut_phase.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} · ${todayCutProtocol.days_to_weigh_in === 0 ? 'Weigh-in Today!' : `${todayCutProtocol.days_to_weigh_in} days out`}`
+                  ? `${todayCutProtocol.cut_phase === 'fight_week_cut' ? 'Water Cut' : todayCutProtocol.cut_phase.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} Â· ${todayCutProtocol.days_to_weigh_in === 0 ? 'Weigh-in Today!' : `${todayCutProtocol.days_to_weigh_in} days out`}`
                   : campStatusLabel
               }
               readinessScore={readinessScore}
@@ -771,3 +771,4 @@ function getGreeting(): string {
   if (hour < 17) return 'Good Afternoon';
   return 'Good Evening';
 }
+
