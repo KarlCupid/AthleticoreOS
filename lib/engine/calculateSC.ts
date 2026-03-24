@@ -4,6 +4,7 @@ import type {
     FitnessLevel,
     Phase,
     MuscleGroup,
+    Equipment,
 } from './types/foundational.ts';
 import type {
     CampPhase,
@@ -25,8 +26,11 @@ import type {
     WorkoutSetLogRow,
     WorkoutComplianceResult,
     EquipmentItem,
+    ConditioningPrescription,
     PerformanceRiskState,
+    SectionExercisePrescription,
     TrainingBlockContext,
+    WorkoutSessionSection,
 } from './types/training.ts';
 import type {
     MEDStatus,
@@ -35,6 +39,7 @@ import type {
     StimulusType,
 } from './types/readiness.ts';
 import { getRestTimerDefaults } from './adaptiveWorkout.ts';
+import { prescribeConditioning } from './calculateConditioning.ts';
 import { assessPerformanceRisk, getGoalBasedFocusRotation } from './performancePlanner.ts';
 import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
 import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
@@ -728,6 +733,247 @@ function buildSessionIntent(input: {
     return `Build ${goalLabel} through ${focusLabel} work with a ${input.primaryAdaptation} bias.${timeLine}`;
 }
 
+function getConditioningTypeLabel(type: ConditioningPrescription['type']): string {
+    const labels: Record<ConditioningPrescription['type'], string> = {
+        heavy_bag_rounds: 'Heavy Bag Rounds',
+        circuit: 'Conditioning Circuit',
+        jump_rope: 'Jump Rope',
+        sled_work: 'Sled Work',
+        agility_drills: 'Agility Drills',
+        sport_specific_drill: 'Sport-Specific Drills',
+        assault_bike: 'Assault Bike',
+        rowing: 'Rowing',
+        swimming: 'Swimming',
+        bike_erg: 'Bike Erg',
+        ski_erg: 'Ski Erg',
+        interval_medley: 'Interval Medley',
+    };
+
+    return labels[type];
+}
+
+function resolveConditioningEquipment(type: ConditioningPrescription['type']): Equipment {
+    switch (type) {
+        case 'heavy_bag_rounds':
+            return 'heavy_bag';
+        case 'sled_work':
+            return 'sled';
+        case 'assault_bike':
+        case 'rowing':
+        case 'bike_erg':
+        case 'ski_erg':
+            return 'machine';
+        default:
+            return 'bodyweight';
+    }
+}
+
+function resolveConditioningExerciseType(type: ConditioningPrescription['type']): ExerciseLibraryRow['type'] {
+    if (type === 'heavy_bag_rounds' || type === 'sport_specific_drill') return 'sport_specific';
+    return 'conditioning';
+}
+
+function buildConditioningSetScheme(
+    prescription: ConditioningPrescription,
+    exercise: ConditioningPrescription['exercises'][number],
+): string {
+    const timedWork = exercise.timedWork ?? prescription.timedWork;
+    if (timedWork?.format === 'emom') {
+        return `EMOM ${Math.round(timedWork.totalDurationSec / 60)}`;
+    }
+    if (timedWork?.format === 'tabata') {
+        return `Tabata: ${timedWork.roundCount ?? 8} x ${timedWork.workIntervalSec ?? 20}s on / ${timedWork.restIntervalSec ?? 10}s off`;
+    }
+    if (timedWork?.format === 'amrap') {
+        return `${Math.round(timedWork.totalDurationSec / 60)}-min AMRAP`;
+    }
+    if (timedWork?.format === 'for_time') {
+        return `For time (${Math.round(timedWork.totalDurationSec / 60)} min cap)`;
+    }
+    if (prescription.circuitRound) {
+        return `${prescription.circuitRound.roundCount} circuit rounds`;
+    }
+    if (exercise.durationSec != null) {
+        return `${exercise.rounds} x ${exercise.durationSec}s${exercise.restSec > 0 ? ` / ${exercise.restSec}s easy` : ''}`;
+    }
+    if (exercise.reps != null) {
+        return `${exercise.rounds} x ${exercise.reps}`;
+    }
+    return `${prescription.rounds} rounds`;
+}
+
+function mapConditioningLoadingStrategy(
+    prescription: ConditioningPrescription,
+    exercise: ConditioningPrescription['exercises'][number],
+): SectionExercisePrescription['loadingStrategy'] {
+    const format = exercise.timedWork?.format ?? prescription.timedWork?.format ?? prescription.format;
+    switch (format) {
+        case 'emom':
+            return 'emom';
+        case 'amrap':
+            return 'amrap';
+        case 'tabata':
+            return 'tabata';
+        case 'for_time':
+            return 'for_time';
+        default:
+            return prescription.circuitRound ? 'circuit_rounds' : 'intervals';
+    }
+}
+
+function getConditioningSessionIndex(trainingDate?: string): number {
+    if (!trainingDate) return 0;
+    const parsed = Date.parse(`${trainingDate}T00:00:00Z`);
+    if (Number.isNaN(parsed)) return 0;
+    return Math.floor(parsed / 86400000);
+}
+
+function buildConditioningWorkoutV2(input: {
+    prescription: ConditioningPrescription;
+    campPhaseContext: CampPhase | null;
+    availableMinutes?: number;
+    gymEquipment?: EquipmentItem[];
+    readinessProfile?: ReadinessProfile | null;
+    constraintSet: StimulusConstraintSet;
+    performanceRisk: PerformanceRiskState;
+    blockContext: TrainingBlockContext | null;
+    medStatus?: MEDStatus | null;
+}): WorkoutPrescriptionV2 {
+    const {
+        prescription,
+        campPhaseContext,
+        availableMinutes,
+        gymEquipment,
+        readinessProfile,
+        constraintSet,
+        performanceRisk,
+        blockContext,
+        medStatus,
+    } = input;
+
+    const sectionId = 'conditioning-main-1';
+    const conditioningTypeLabel = getConditioningTypeLabel(prescription.type);
+    const targetRPE = prescription.intensityLabel === 'light' ? 5 : prescription.intensityLabel === 'moderate' ? 6 : 8;
+
+    const exercises: SectionExercisePrescription[] = prescription.exercises.map((exercise, index) => {
+        const preferredExercise: ExerciseLibraryRow = {
+            id: exercise.exerciseId ?? `conditioning-${prescription.type}-${index + 1}`,
+            name: exercise.name,
+            type: resolveConditioningExerciseType(prescription.type),
+            cns_load: prescription.cnsBudget,
+            muscle_group: 'full_body',
+            equipment: resolveConditioningEquipment(prescription.type),
+            description: `${conditioningTypeLabel} prescription.`,
+            cues: 'Stay on the prescribed pace and keep technique crisp.',
+            sport_tags: prescription.type === 'heavy_bag_rounds' || prescription.type === 'sport_specific_drill'
+                ? ['boxing']
+                : ['general'],
+        };
+        const timedWork = exercise.timedWork ?? (index === 0 ? prescription.timedWork : undefined);
+        const setCount = prescription.circuitRound
+            ? prescription.circuitRound.roundCount
+            : Math.max(1, exercise.rounds || prescription.rounds);
+        const restSeconds = prescription.circuitRound
+            ? prescription.circuitRound.restBetweenRoundsSec
+            : timedWork?.restIntervalSec ?? exercise.restSec ?? prescription.restIntervalSec;
+        const setPrescription = [{
+            label: prescription.circuitRound
+                ? 'Circuit rounds'
+                : timedWork
+                    ? conditioningTypeLabel
+                    : 'Conditioning work',
+            sets: setCount,
+            reps: exercise.reps ?? (exercise.durationSec != null ? `${exercise.durationSec}s` : 'task'),
+            targetRPE,
+            restSeconds,
+            timedWork,
+            circuitRound: index === 0 ? prescription.circuitRound : undefined,
+        }];
+
+        return {
+            exercise: preferredExercise,
+            preferredExercise,
+            targetSets: setCount,
+            targetReps: exercise.reps ?? 1,
+            targetRPE,
+            supersetGroup: null,
+            score: 90 - (index * 2),
+            recoveryCost: prescription.cnsBudget,
+            restSeconds,
+            formCues: preferredExercise.cues,
+            isSubstitute: false,
+            role: 'anchor',
+            loadingStrategy: mapConditioningLoadingStrategy(prescription, exercise),
+            progressionAnchor: null,
+            substitutions: [],
+            coachingCues: ['Stay on the prescribed pace.', 'End the set if mechanics slip.'],
+            fatigueCost: prescription.intensityLabel === 'hard' ? 'high' : prescription.intensityLabel === 'moderate' ? 'moderate' : 'low',
+            setScheme: buildConditioningSetScheme(prescription, exercise),
+            loadingNotes: prescription.message,
+            setPrescription,
+            sectionId,
+            sectionTemplate: 'main_strength',
+            sectionIntent: prescription.message,
+        };
+    });
+
+    const sections: WorkoutSessionSection[] = [{
+        id: sectionId,
+        template: 'main_strength',
+        title: conditioningTypeLabel,
+        intent: prescription.message,
+        timeCap: availableMinutes != null ? Math.min(availableMinutes, prescription.totalDurationMin) : prescription.totalDurationMin,
+        restRule: 'Respect the work-to-rest structure exactly.',
+        densityRule: prescription.circuitRound ? 'Round-based conditioning block' : prescription.format ? `${prescription.format} structure` : 'Conditioning intervals',
+        exercises,
+        decisionTrace: [
+            'template:main_strength',
+            'focus:conditioning',
+            `conditioning_type:${prescription.type}`,
+            `conditioning_format:${prescription.format ?? 'rounds'}`,
+        ],
+        finisherReason: null,
+    }];
+
+    const estimatedDuration = availableMinutes != null
+        ? Math.min(availableMinutes, prescription.totalDurationMin)
+        : prescription.totalDurationMin;
+
+    return {
+        focus: 'conditioning',
+        workoutType: 'conditioning',
+        exercises,
+        payloadVersion: 'v3',
+        totalCNSBudget: Math.max(prescription.cnsBudget, 15),
+        usedCNS: prescription.cnsBudget,
+        message: prescription.message,
+        estimatedDurationMin: estimatedDuration,
+        isDeloadWorkout: false,
+        equipmentProfile: gymEquipment ? 'custom' : null,
+        campPhaseContext,
+        weeklyPlanDay: null,
+        sparringDayGuidance: null,
+        sessionTemplate: sections.map((section) => section.template),
+        sessionGoal: `Build repeatable conditioning through ${conditioningTypeLabel.toLowerCase()}.`,
+        sections,
+        sessionIntent: `Build conditioning through ${conditioningTypeLabel.toLowerCase()} with a ${prescription.intensityLabel} output target.${availableMinutes ? ` Keep the work inside ${availableMinutes} minutes.` : ''}`,
+        primaryAdaptation: 'conditioning',
+        performanceRisk,
+        readinessProfile: readinessProfile ?? null,
+        constraintSet,
+        medStatus: medStatus ?? null,
+        blockContext,
+        decisionTrace: [
+            'focus:conditioning',
+            `conditioning_type:${prescription.type}`,
+            `conditioning_format:${prescription.format ?? 'rounds'}`,
+        ],
+        expectedActivationRPE: null,
+        activationGuidance: null,
+        interferenceWarnings: [],
+    };
+}
+
 // ─── V2 Workout Generation ────────────────────────────────────
 
 /**
@@ -881,6 +1127,37 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             : effectiveFocus === 'sport_specific' ? 'practice' as const
                 : 'strength' as const;
 
+    let campPhaseContext: CampPhase | null = null;
+    if (phase.startsWith('camp-')) {
+        campPhaseContext = phase.replace('camp-', '') as CampPhase;
+    }
+
+    if (effectiveFocus === 'conditioning') {
+        const conditioningPrescription = prescribeConditioning({
+            phase,
+            fitnessLevel,
+            readinessState,
+            readinessProfile,
+            constraintSet: resolvedConstraintSet,
+            acwr,
+            sessionIndex: getConditioningSessionIndex(trainingDate),
+            activeCutPlan: null,
+            trainingIntensityCap,
+        });
+
+        return buildConditioningWorkoutV2({
+            prescription: conditioningPrescription,
+            campPhaseContext,
+            availableMinutes,
+            gymEquipment,
+            readinessProfile: readinessProfile ?? null,
+            constraintSet: resolvedConstraintSet,
+            performanceRisk: resolvedPerformanceRisk,
+            blockContext: resolvedBlockContext,
+            medStatus,
+        });
+    }
+
     const usableExercises = filterByEquipment(exerciseLibrary, gymEquipment);
     const scored = usableExercises.map(exercise => ({
         exercise,
@@ -918,7 +1195,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             exerciseUsageSummary,
         }),
     }))
-        .filter(item => item.fitScore > 0 && item.recoveryCost <= totalCNSBudget)
+        .filter(item => item.fitScore > 0 && item.exercise.cns_load <= totalCNSBudget)
         .map(item => ({ ...item, score: item.fitScore }))
         .sort((a, b) => b.score - a.score);
 
@@ -984,12 +1261,6 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
 
     if (availableMinutes) {
         message += ` ${finalExercises.length} exercises, ~${estimatedDuration} min.`;
-    }
-
-    // Determine camp phase context
-    let campPhaseContext: CampPhase | null = null;
-    if (phase.startsWith('camp-')) {
-        campPhaseContext = phase.replace('camp-', '') as CampPhase;
     }
 
     return {

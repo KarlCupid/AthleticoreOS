@@ -753,7 +753,7 @@ function selectSectionExercises(
 ): ScoredExercise[] {
     const candidates = scoredExercises
         .filter(({ exercise }) => !usedExerciseIds.has(exercise.id))
-        .filter(({ recoveryCost }) => !templateConsumesBudget(template) || (recoveryCost ?? 0) <= recoveryBudgetRemaining)
+        .filter(({ exercise }) => !templateConsumesBudget(template) || exercise.cns_load <= recoveryBudgetRemaining)
         .filter(({ exercise }) => matchesSectionTemplate(exercise, focus, template))
         .map(({ exercise, score, recoveryCost }) => {
             const history = exerciseHistory?.get(exercise.id);
@@ -1190,7 +1190,7 @@ export function buildSectionedWorkoutSession(input: BuildSectionedWorkoutInput):
         const exercises = chosen.map(({ exercise, score, recoveryCost }) => {
             usedExerciseIds.add(exercise.id);
             if (templateConsumesBudget(blueprint.template)) {
-                recoveryBudgetRemaining -= recoveryCost ?? 0;
+                recoveryBudgetRemaining -= exercise.cns_load;
             }
             return buildSectionExercise({
                 exercise,

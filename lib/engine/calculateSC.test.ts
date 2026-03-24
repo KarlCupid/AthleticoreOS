@@ -13,6 +13,7 @@ import {
     calculateWeeklyVolume,
     getWorkoutCompliance,
 } from './calculateSC.ts';
+import { EXERCISE_SEED } from '../data/exerciseSeed.ts';
 import type {
     ExerciseLibraryRow,
     ExerciseScoringContext,
@@ -90,6 +91,11 @@ const SPARRING_LIBRARY: ExerciseLibraryRow[] = [
     makeExercise({ id: 'ex-14', name: 'Banded Shoulder Flow', type: 'active_recovery', cns_load: 1, muscle_group: 'shoulders' }),
     makeExercise({ id: 'ex-15', name: 'Shadowboxing Rhythm', type: 'sport_specific', cns_load: 2, muscle_group: 'full_body' }),
 ];
+
+const SEEDED_LIBRARY: ExerciseLibraryRow[] = EXERCISE_SEED.map((exercise, index) => ({
+    ...exercise,
+    id: `seed-${index}`,
+}));
 
 // ─── determineFocus Tests ──────────────────────────────────────
 
@@ -435,6 +441,56 @@ console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
     assert('Sparring support yields 4-5 drills', sparringSupport.exercises.length >= 4 && sparringSupport.exercises.length <= 5);
     assert('Sparring support includes durability section', (sparringSupport.sessionTemplate ?? []).includes('durability'));
     assert('Sparring support stays 15-20 min', sparringSupport.estimatedDurationMin >= 15 && sparringSupport.estimatedDurationMin <= 20);
+})();
+
+(() => {
+    const conditioningDates = ['2026-03-31', '2026-04-07', '2026-04-14'];
+    const conditioningWorkouts = conditioningDates.map((trainingDate) => generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: SEEDED_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        trainingDate,
+        focus: 'conditioning',
+        weeklyPlanFocus: 'conditioning',
+        availableMinutes: 75,
+        exerciseHistory: new Map(),
+    }));
+    const conditioningTypes = conditioningWorkouts
+        .map((workout) => workout.decisionTrace.find((trace) => trace.startsWith('conditioning_type:'))?.split(':')[1] ?? null);
+
+    assert('Conditioning days stay conditioning workouts', conditioningWorkouts.every((workout) => workout.workoutType === 'conditioning'));
+    assert('Conditioning rotation reaches rowing', conditioningTypes.includes('rowing'));
+    assert('Conditioning rotation reaches assault bike', conditioningTypes.includes('assault_bike'));
+    assert('Conditioning workouts no longer inject heavy lifts', conditioningWorkouts.every((workout) =>
+        workout.exercises.every((exercise) => exercise.exercise.type !== 'heavy_lift')));
+})();
+
+(() => {
+    const fullBody = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        exerciseLibrary: SEEDED_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        trainingDate: '2026-03-24',
+        focus: 'full_body',
+        weeklyPlanFocus: 'full_body',
+        availableMinutes: 75,
+        exerciseHistory: new Map(),
+    });
+    const countedExercises = fullBody.exercises.filter((exercise) =>
+        !['activation', 'cooldown'].includes(exercise.sectionTemplate ?? ''),
+    );
+
+    assert('Full-body session keeps at least six counted exercises', countedExercises.length >= 6);
+    assert('Full-body session now retains support volume beyond anchors', (fullBody.sections ?? []).some((section) =>
+        section.template === 'durability' || section.template === 'accessory'));
 })();
 
 console.log(`\nPost-V2 Results: ${passed} passed, ${failed} failed\n`);
