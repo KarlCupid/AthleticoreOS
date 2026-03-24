@@ -262,9 +262,9 @@ console.log('\n── generateWorkout ──');
     assert('Depleted keeps scheduled focus', depleted.focus === 'upper_push');
     assert('Depleted → only mobility/recovery exercises',
         depleted.exercises.every(e => e.exercise.type === 'mobility' || e.exercise.type === 'active_recovery'));
-    assert('Depleted → max 3 exercises', depleted.exercises.length <= 3);
+    assert('Depleted → max 5 exercises', depleted.exercises.length <= 5);
 
-    // Caution → max 6 exercises
+    // Caution → expanded exercise cap
     const caution = generateWorkout({
         readinessState: 'Caution',
         phase: 'off-season',
@@ -275,7 +275,7 @@ console.log('\n── generateWorkout ──');
         fitnessLevel: 'intermediate',
         trainingDate: '2026-03-10', // Monday → upper_push
     });
-    assert('Caution → max 6 exercises', caution.exercises.length <= 6);
+    assert('Caution → max 9 exercises', caution.exercises.length <= 9);
 
     // Empty library → 0 exercises
     const empty = generateWorkout({
@@ -433,7 +433,7 @@ console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
     });
 
     assert('Sparring support yields 4-5 drills', sparringSupport.exercises.length >= 4 && sparringSupport.exercises.length <= 5);
-    assert('Sparring support includes durability section', sparringSupport.sessionTemplate.includes('durability'));
+    assert('Sparring support includes durability section', (sparringSupport.sessionTemplate ?? []).includes('durability'));
     assert('Sparring support stays 15-20 min', sparringSupport.estimatedDurationMin >= 15 && sparringSupport.estimatedDurationMin <= 20);
 })();
 

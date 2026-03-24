@@ -127,6 +127,26 @@ export type DailySimulationLog = {
       rounds: number;
       workIntervalSec: number;
       restIntervalSec: number;
+      format?: 'rounds' | 'emom' | 'amrap' | 'tabata' | 'for_time' | 'intervals';
+      timedWork?: {
+        format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
+        totalDurationSec: number;
+        workIntervalSec?: number;
+        restIntervalSec?: number;
+        roundCount?: number;
+        targetRounds?: number;
+      } | null;
+      circuitRound?: {
+        roundCount: number;
+        restBetweenRoundsSec: number;
+        movements: Array<{
+          exerciseId?: string;
+          exerciseName: string;
+          reps: number | null;
+          durationSec: number | null;
+          restSec: number;
+        }>;
+      } | null;
       intensityLabel: 'light' | 'moderate' | 'hard';
       message: string;
       cnsBudget: number;
@@ -137,6 +157,15 @@ export type DailySimulationLog = {
         reps: number | null;
         rounds: number;
         restSec: number;
+        format?: 'steady_state' | 'intervals' | 'emom' | 'tabata' | 'amrap' | 'for_time';
+        timedWork?: {
+          format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
+          totalDurationSec: number;
+          workIntervalSec?: number;
+          restIntervalSec?: number;
+          roundCount?: number;
+          targetRounds?: number;
+        } | null;
       }>;
     } | null;
     conditioningLog?: {

@@ -94,12 +94,13 @@ console.log('\n-- workoutRotation --');
       trainingDate: date,
     });
 
-    const mainExercise = result.sections.find((section) => section.template === 'main_strength')?.exercises[0];
+    const sections = result.sections ?? [];
+    const mainExercise = sections.find((section) => section.template === 'main_strength')?.exercises[0];
     if (mainExercise) {
       mainAnchors.push(mainExercise.exercise.name);
     }
 
-    result.sections
+    sections
       .filter((section) => ['accessory', 'durability', 'power'].includes(section.template))
       .flatMap((section) => section.exercises)
       .forEach((exercise) => nonAnchorUnique.add(exercise.exercise.name));

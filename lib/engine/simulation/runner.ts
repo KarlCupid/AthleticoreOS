@@ -308,6 +308,37 @@ function simulateExerciseLogs(input: {
   });
 }
 
+function getConditioningRoundTarget(prescription: any): number {
+  if (!prescription) return 0;
+  if (typeof prescription.rounds === 'number' && prescription.rounds > 0) return prescription.rounds;
+  if (typeof prescription.timedWork?.roundCount === 'number' && prescription.timedWork.roundCount > 0) {
+    return prescription.timedWork.roundCount;
+  }
+  if (typeof prescription.circuitRound?.roundCount === 'number' && prescription.circuitRound.roundCount > 0) {
+    return prescription.circuitRound.roundCount;
+  }
+  if (prescription.timedWork?.format === 'emom' && typeof prescription.timedWork.totalDurationSec === 'number') {
+    return Math.max(1, Math.round(prescription.timedWork.totalDurationSec / 60));
+  }
+  return 1;
+}
+
+function describeConditioningExercise(exercise: any): string {
+  if (exercise.timedWork?.format === 'emom') {
+    return `EMOM ${Math.round((exercise.timedWork.totalDurationSec ?? 0) / 60)}`;
+  }
+  if (exercise.timedWork?.format === 'for_time') {
+    return `for time (${Math.round((exercise.timedWork.totalDurationSec ?? 0) / 60)} min cap)`;
+  }
+  if (exercise.format === 'steady_state' && exercise.durationSec != null) {
+    return `${Math.round(exercise.durationSec / 60)} min steady`;
+  }
+  if (exercise.durationSec != null) {
+    return `${exercise.rounds ?? 1} rounds x ${exercise.durationSec}s`;
+  }
+  return `${exercise.rounds ?? 1} rounds x ${exercise.reps ?? 0} reps`;
+}
+
 function simulateConditioningLog(input: {
   prescription: any;
   trainingComplied: boolean;
@@ -324,17 +355,18 @@ function simulateConditioningLog(input: {
       ? 0.14
       : riskLevel === 'moderate'
         ? 0.08
-        : 0;
+      : 0;
 
   const completionBase = trainingComplied ? clamp(0.94 - riskPenalty, 0.45, 0.98) : 0.2;
+  const prescribedRounds = getConditioningRoundTarget(prescription);
   const completedRounds = Math.max(
     0,
     Math.min(
-      prescription.rounds,
-      Math.round(prescription.rounds * clamp(completionBase + ((random() - 0.5) * 0.18), 0, 1)),
+      prescribedRounds,
+      Math.round(prescribedRounds * clamp(completionBase + ((random() - 0.5) * 0.18), 0, 1)),
     ),
   );
-  const completionRate = prescription.rounds > 0 ? completedRounds / prescription.rounds : 0;
+  const completionRate = prescribedRounds > 0 ? completedRounds / prescribedRounds : 0;
   const completedDurationMin = Math.round(prescription.totalDurationMin * completionRate);
   const actualRpe = completedRounds > 0
     ? Number(clamp((prescription.intensityLabel === 'hard' ? 7.5 : prescription.intensityLabel === 'moderate' ? 6 : 4.5) + persona.rpeBias * 0.4 + ((random() - 0.5) * 1.2), 1, 10).toFixed(1))
@@ -343,11 +375,12 @@ function simulateConditioningLog(input: {
   const drillLogs = (prescription.exercises ?? []).map((drill: any, index: number) => {
     const drillCompletionChance = clamp(completionBase - (index * 0.03), 0.2, 0.98);
     const completed = random() < drillCompletionChance && completedRounds > 0;
-    const drillRounds = completed ? Math.max(1, Math.min(drill.rounds ?? prescription.rounds, completedRounds)) : 0;
+    const drillTargetRounds = drill.rounds ?? prescribedRounds;
+    const drillRounds = completed ? Math.max(1, Math.min(drillTargetRounds, completedRounds)) : 0;
     let note = 'Completed cleanly at the prescribed conditioning rhythm.';
     if (!completed) {
       note = 'Dropped from the simulated conditioning block before this drill was completed.';
-    } else if (drillRounds < (drill.rounds ?? prescription.rounds)) {
+    } else if (drillRounds < drillTargetRounds) {
       note = 'Only partial rounds were completed before the athlete faded.';
     } else if (actualRpe != null && actualRpe >= 8) {
       note = 'Logged as a hard effort with fatigue accumulating late.';
@@ -355,7 +388,7 @@ function simulateConditioningLog(input: {
 
     return {
       name: drill.name,
-      targetRounds: drill.rounds ?? prescription.rounds,
+      targetRounds: drillTargetRounds,
       completedRounds: drillRounds,
       durationSec: drill.durationSec ?? null,
       reps: drill.reps ?? null,
@@ -376,7 +409,7 @@ function simulateConditioningLog(input: {
 
   return {
     completedRounds,
-    prescribedRounds: prescription.rounds,
+    prescribedRounds,
     completedDurationMin,
     targetDurationMin: prescription.totalDurationMin,
     actualRpe,
@@ -816,10 +849,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       ).join(' | ')
       : fallbackConditioningPrescription
         ? fallbackConditioningPrescription.exercises.map((exercise: any) => {
-          const effort = exercise.durationSec != null
-            ? `${exercise.rounds} rounds x ${exercise.durationSec}s`
-            : `${exercise.rounds} rounds x ${exercise.reps ?? 0} reps`;
-          return `${exercise.name} (${effort})`;
+          return `${exercise.name} (${describeConditioningExercise(exercise)})`;
         }).join(' | ')
         : todayBoxing
           ? `${todayBoxing.name} (${todayBoxing.duration} min @ RPE ${todayBoxing.intensity})`

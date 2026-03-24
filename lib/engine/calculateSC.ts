@@ -52,9 +52,9 @@ import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseSc
  * Default exercise count by readiness state.
  */
 const EXERCISE_COUNT: Record<ReadinessState, number> = {
-    Prime: 10,
-    Caution: 7,
-    Depleted: 4,
+    Prime: 12,
+    Caution: 9,
+    Depleted: 5,
 };
 
 /**
@@ -853,10 +853,10 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     }
     baseCNSBudget = Math.round(baseCNSBudget * resolvedConstraintSet.volumeMultiplier);
     const rawCNSBudget = baseCNSBudget * resolvedPerformanceRisk.cnsMultiplier;
-    const minimumFloor = readinessState === 'Depleted' ? 0.6 : 0.7;
-    const minimumBudget = Math.max(8, Math.round(calibratedBaseBudget * minimumFloor));
+    const minimumFloor = readinessState === 'Depleted' ? 0.65 : 0.75;
+    const minimumBudget = Math.max(12, Math.round(calibratedBaseBudget * minimumFloor));
     const flooredBudget = Math.max(rawCNSBudget, minimumBudget);
-    const totalCNSBudget = Math.max(10, Math.round(flooredBudget));
+    const totalCNSBudget = Math.max(15, Math.round(flooredBudget));
 
     // Deload: reduce exercise count and intensity
     const baseExerciseCount = EXERCISE_COUNT[readinessState];

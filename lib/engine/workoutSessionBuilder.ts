@@ -122,6 +122,7 @@ const SESSION_ARCHETYPES: Record<WorkoutFocus, SectionBlueprint[]> = {
         { template: 'secondary_strength', title: 'Secondary Support', intent: 'Reinforce upper-back, hip, or anti-rotation patterns that carry directly into the ring.', restRule: 'Rest 75-120s between sets.', densityRule: null, role: 'secondary', loadingStrategy: 'straight_sets', maxExercises: 2, required: true },
         { template: 'accessory', title: 'Accessory', intent: 'Target grip, neck, or rotator cuff without accumulating excess fatigue before sparring.', restRule: '45-75s between paired movements.', densityRule: 'Pair complementary movements', role: 'accessory', loadingStrategy: 'straight_sets', maxExercises: 2, required: false },
         { template: 'durability', title: 'Durability', intent: 'Protect neck, trunk, and shoulders around boxing load.', restRule: '45-60s between movements.', densityRule: 'Controlled quality work', role: 'durability', loadingStrategy: 'straight_sets', maxExercises: 3, required: true },
+        { template: 'finisher', title: 'Finisher', intent: 'Close with a sharp conditioning touch only if readiness and time still allow it.', restRule: 'Keep the pace honest and stop before technique degrades.', densityRule: 'Short fight-transfer output block', role: 'finisher', loadingStrategy: 'intervals', maxExercises: 1, required: false },
         { template: 'cooldown', title: 'Cooldown', intent: 'Downshift before the next boxing demand.', restRule: 'Continuous easy flow.', densityRule: '1 easy round', role: 'recovery', loadingStrategy: 'recovery_flow', maxExercises: 1, required: true },
     ],
 };
@@ -429,6 +430,7 @@ function buildSetPrescription(
     readinessState: ReadinessState,
     blockContext: TrainingBlockContext | null,
     availableMinutes: number | undefined,
+    fitnessLevel: FitnessLevel,
 ): {
     targetSets: number;
     targetReps: number;
@@ -472,19 +474,38 @@ function buildSetPrescription(
         };
     }
 
-    if (template === 'main_strength' && focus === 'conditioning') {
-        const rounds = availableMinutes && availableMinutes <= 35 ? 6 : 8;
-        const workSeconds = blockContext?.phase === 'realize' ? 20 : 30;
-        const restSeconds = blockContext?.phase === 'accumulate' ? 45 : 60;
+    if (template === 'main_strength' && (focus === 'conditioning' || focus === 'sport_specific')) {
+        const emomMinutes = readinessState === 'Caution'
+            ? 8
+            : fitnessLevel === 'elite'
+                ? 12
+                : fitnessLevel === 'advanced'
+                    ? 11
+                    : fitnessLevel === 'intermediate'
+                        ? 10
+                        : 8;
+        const targetRPE = Math.min(readinessState === 'Caution' ? 7 : 8, rpeCap);
         return {
-            targetSets: rounds,
-            targetReps: 1,
-            targetRPE: Math.min(8, rpeCap),
-            restSeconds,
-            loadingStrategy: 'intervals',
-            setScheme: rounds + ' x ' + workSeconds + 's work / ' + restSeconds + 's rest',
-            loadingNotes: 'Stay on the prescribed work-rest rhythm. The goal is repeatable quality, not a death march.',
-            setPrescription: [{ label: 'Main set', sets: rounds, reps: workSeconds + 's', targetRPE: Math.min(8, rpeCap), restSeconds }],
+            targetSets: emomMinutes,
+            targetReps: 3,
+            targetRPE: targetRPE,
+            restSeconds: 0,
+            loadingStrategy: 'emom',
+            setScheme: `EMOM ${emomMinutes}: 3 reps every minute`,
+            loadingNotes: 'Own the first rep of every minute. Keep the load crisp and below the readiness cap.',
+            setPrescription: [{
+                label: 'EMOM main set',
+                sets: emomMinutes,
+                reps: '3 reps / min',
+                targetRPE: targetRPE,
+                restSeconds: 0,
+                timedWork: {
+                    format: 'emom',
+                    totalDurationSec: emomMinutes * 60,
+                    workIntervalSec: 60,
+                    roundCount: emomMinutes,
+                },
+            }],
         };
     }
 
@@ -530,13 +551,44 @@ function buildSetPrescription(
         const sets = template === 'durability' ? 3 : 4;
         const reps = template === 'durability' ? 10 : 8;
         const restSeconds = template === 'durability' ? 45 : 60;
-        const loadingStrategy = template === 'accessory' && focus === 'conditioning' ? 'density_block' : 'straight_sets';
+        const densityBlock = template === 'accessory' && (focus === 'conditioning' || focus === 'full_body');
+        if (densityBlock) {
+            const amrapMinutes = readinessState === 'Caution'
+                ? 8
+                : fitnessLevel === 'elite'
+                    ? 12
+                    : fitnessLevel === 'advanced'
+                        ? 11
+                        : 10;
+            const targetRPE = Math.min(7, rpeCap);
+            return {
+                targetSets: amrapMinutes,
+                targetReps: reps,
+                targetRPE: targetRPE,
+                restSeconds: 0,
+                loadingStrategy: 'amrap',
+                setScheme: `${amrapMinutes}-min AMRAP`,
+                loadingNotes: 'Accumulate repeatable support work for density, not failure. Keep transitions tight and mechanics clean.',
+                setPrescription: [{
+                    label: 'AMRAP density block',
+                    sets: amrapMinutes,
+                    reps,
+                    targetRPE: targetRPE,
+                    restSeconds: 0,
+                    timedWork: {
+                        format: 'amrap',
+                        totalDurationSec: amrapMinutes * 60,
+                        targetRounds: Math.max(3, Math.round(amrapMinutes / 2)),
+                    },
+                }],
+            };
+        }
         return {
             targetSets: sets,
             targetReps: reps,
             targetRPE: Math.min(template === 'durability' ? 6 : 7, rpeCap),
             restSeconds,
-            loadingStrategy,
+            loadingStrategy: 'straight_sets',
             setScheme: sets + ' x ' + reps,
             loadingNotes: template === 'durability'
                 ? 'Build tissue capacity and positional control. Nothing here should spike fatigue.'
@@ -546,6 +598,66 @@ function buildSetPrescription(
     }
 
     if (template === 'finisher') {
+        const intermediatePlus = fitnessLevel !== 'beginner';
+        if ((focus === 'conditioning' || focus === 'sport_specific') && intermediatePlus) {
+            const timeCapMin = fitnessLevel === 'elite' ? 16 : fitnessLevel === 'advanced' ? 14 : 12;
+            return {
+                targetSets: 3,
+                targetReps: 1,
+                targetRPE: Math.min(8, rpeCap),
+                restSeconds: 0,
+                loadingStrategy: 'for_time',
+                setScheme: `For time (${timeCapMin} min cap)`,
+                loadingNotes: 'Move continuously through the finisher and stop at the cap if quality breaks.',
+                setPrescription: [{
+                    label: 'For-time finisher',
+                    sets: 3,
+                    reps: 'task list',
+                    targetRPE: Math.min(8, rpeCap),
+                    restSeconds: 0,
+                    timedWork: {
+                        format: 'for_time',
+                        totalDurationSec: timeCapMin * 60,
+                    },
+                    circuitRound: {
+                        roundCount: 1,
+                        restBetweenRoundsSec: 0,
+                        movements: [
+                            { exerciseId: exercise.id, exerciseName: exercise.name, reps: 15, durationSec: null, restSec: 0 },
+                            { exerciseName: focus === 'sport_specific' ? 'Shadow Boxing Flurry' : 'Sprawls', reps: focus === 'sport_specific' ? null : 12, durationSec: focus === 'sport_specific' ? 60 : null, restSec: 0 },
+                            { exerciseName: 'V-Ups', reps: 20, durationSec: null, restSec: 0 },
+                        ],
+                    },
+                }],
+            };
+        }
+
+        if (intermediatePlus) {
+            return {
+                targetSets: 8,
+                targetReps: 1,
+                targetRPE: Math.min(8, rpeCap),
+                restSeconds: 10,
+                loadingStrategy: 'tabata',
+                setScheme: 'Tabata: 8 x 20s on / 10s off',
+                loadingNotes: 'Keep output violent but technical. The goal is speed repeatability, not sloppy survival.',
+                setPrescription: [{
+                    label: 'Tabata finisher',
+                    sets: 8,
+                    reps: '20s on',
+                    targetRPE: Math.min(8, rpeCap),
+                    restSeconds: 10,
+                    timedWork: {
+                        format: 'tabata',
+                        totalDurationSec: 240,
+                        workIntervalSec: 20,
+                        restIntervalSec: 10,
+                        roundCount: 8,
+                    },
+                }],
+            };
+        }
+
         const rounds = availableMinutes && availableMinutes <= 45 ? 4 : 6;
         return {
             targetSets: rounds,
@@ -573,15 +685,28 @@ function buildSetPrescription(
 
 function estimateExerciseTime(exercise: PrescribedExerciseV2): number {
     const restDefaults = getRestTimerDefaults();
+    const warmupMinutes = (exercise.warmupSets?.length ?? 0) * 1.25;
     if (exercise.setPrescription && exercise.setPrescription.length > 0) {
-        return exercise.setPrescription.reduce(
-            (total, entry) => total + (entry.sets * (0.75 + entry.restSeconds / 60)),
-            0,
-        ) + ((exercise.warmupSets?.length ?? 0) * 1.25);
+        const nonWarmupMinutes = exercise.setPrescription.reduce((total, entry) => {
+            if (entry.timedWork) {
+                return total + (entry.timedWork.totalDurationSec / 60);
+            }
+            if (entry.circuitRound) {
+                const perRoundSeconds = entry.circuitRound.movements.reduce((roundTotal, movement) =>
+                    roundTotal + (movement.durationSec ?? (movement.reps ?? 0) * 2.5) + movement.restSec,
+                0);
+                const totalSeconds = (perRoundSeconds * entry.circuitRound.roundCount)
+                    + (entry.circuitRound.restBetweenRoundsSec * Math.max(0, entry.circuitRound.roundCount - 1));
+                return total + (totalSeconds / 60);
+            }
+            return total + (entry.sets * (0.75 + entry.restSeconds / 60));
+        }, 0);
+        return warmupMinutes + (nonWarmupMinutes * 0.85);
     }
 
     const restSeconds = exercise.restSeconds ?? restDefaults[exercise.exercise.type]?.defaultSeconds ?? 90;
-    return ((exercise.warmupSets?.length ?? 0) * 1.25) + (exercise.targetSets * (1 + restSeconds / 60));
+    const nonWarmupMinutes = exercise.targetSets * (1 + restSeconds / 60);
+    return warmupMinutes + (nonWarmupMinutes * 0.85);
 }
 
 function estimateSectionTime(section: WorkoutSessionSection): number {
@@ -747,6 +872,11 @@ function trimSectionsToTime(sections: WorkoutSessionSection[], availableMinutes:
         }
 
         const exercise = adjustable.exercises[0];
+        const usesStructuredTiming = (exercise.setPrescription ?? []).some((entry) => entry.timedWork || entry.circuitRound);
+        if (usesStructuredTiming) {
+            trimmed = trimmed.filter(section => section.id !== adjustable.id);
+            continue;
+        }
         if (exercise.targetSets > 2) {
             exercise.targetSets -= 1;
             exercise.setScheme = exercise.targetSets + ' x ' + exercise.targetReps + ' @ RPE ' + exercise.targetRPE;
@@ -802,8 +932,11 @@ function addSetsToExercise(exercise: SectionExercisePrescription, extraSets: num
 }
 
 function getAdditionalSetCap(exercise: SectionExercisePrescription): number {
-    if (exercise.sectionTemplate === 'main_strength') return 2;
-    if (exercise.sectionTemplate === 'secondary_strength' || exercise.sectionTemplate === 'accessory' || exercise.sectionTemplate === 'durability') return 1;
+    const usesTimedBlock = (exercise.setPrescription ?? []).some((entry) => entry.timedWork || entry.circuitRound);
+    if (usesTimedBlock) return 0;
+    if (exercise.sectionTemplate === 'main_strength') return 3;
+    if (exercise.sectionTemplate === 'secondary_strength' || exercise.sectionTemplate === 'accessory') return 2;
+    if (exercise.sectionTemplate === 'durability') return 1;
     return 0;
 }
 
@@ -900,7 +1033,7 @@ function buildSectionExercise(input: {
         muscleGroupsSeen,
     } = input;
 
-    const loading = buildSetPrescription(template, focus, exercise, rpeCap, readinessState, blockContext, availableMinutes);
+    const loading = buildSetPrescription(template, focus, exercise, rpeCap, readinessState, blockContext, availableMinutes, fitnessLevel);
     const history = exerciseHistory?.get(exercise.id);
     let overloadSuggestion = undefined;
     let suggestedWeight = undefined;

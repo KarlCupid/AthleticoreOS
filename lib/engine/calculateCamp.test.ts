@@ -230,7 +230,7 @@ console.log('\n── getCampWeekProfile ──');
         assert('Week 1 campPhase = base', profile.campPhase === 'base');
         assert('Week 1 number = 1', profile.weekNumber === 1);
         assert('Week 1 roadWorkFocus = long_slow_distance', profile.roadWorkFocus === 'long_slow_distance');
-        assert('Week 1 conditioningFocus = circuit', profile.conditioningFocus === 'circuit');
+        assert('Week 1 conditioningFocus = rowing', profile.conditioningFocus === 'rowing');
         assert('Week 1 scFocus = upper_push', profile.scFocus === 'upper_push');
     }
 

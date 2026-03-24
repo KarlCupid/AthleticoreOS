@@ -245,10 +245,10 @@ export function getCampWeekProfile(
     };
 
     const conditioningFocusByPhase: Record<CampPhase, ConditioningType> = {
-        base: 'circuit',
+        base: 'rowing',
         build: 'heavy_bag_rounds',
-        peak: 'sport_specific_drill',
-        taper: 'agility_drills',
+        peak: 'interval_medley',
+        taper: 'bike_erg',
     };
 
     const scFocusByPhase: Record<CampPhase, WorkoutFocus> = {

@@ -64,28 +64,28 @@ console.log('\n── prescribeConditioning: base rounds ──');
     const p = prescribeConditioning(makeInput({
         fitnessLevel: 'beginner', phase: 'fight-camp', readinessState: 'Prime',
     }));
-    assert('Beginner heavy bag rounds = 3', p.type === 'heavy_bag_rounds' ? p.rounds === 3 : true);
+    assert('Beginner heavy bag rounds include Prime bonus = 5', p.type === 'heavy_bag_rounds' ? p.rounds === 5 : true);
 })();
 
 (() => {
     const p = prescribeConditioning(makeInput({
         fitnessLevel: 'intermediate', phase: 'fight-camp', readinessState: 'Prime',
     }));
-    assert('Intermediate heavy bag rounds = 5', p.type === 'heavy_bag_rounds' ? p.rounds === 5 : true);
+    assert('Intermediate heavy bag rounds include Prime bonus = 8', p.type === 'heavy_bag_rounds' ? p.rounds === 8 : true);
 })();
 
 (() => {
     const p = prescribeConditioning(makeInput({
         fitnessLevel: 'advanced', phase: 'fight-camp', readinessState: 'Prime',
     }));
-    assert('Advanced heavy bag rounds = 8', p.type === 'heavy_bag_rounds' ? p.rounds === 8 : true);
+    assert('Advanced heavy bag rounds include Prime bonus = 12', p.type === 'heavy_bag_rounds' ? p.rounds === 12 : true);
 })();
 
 (() => {
     const p = prescribeConditioning(makeInput({
         fitnessLevel: 'elite', phase: 'fight-camp', readinessState: 'Prime',
     }));
-    assert('Elite heavy bag rounds = 10', p.type === 'heavy_bag_rounds' ? p.rounds === 10 : true);
+    assert('Elite heavy bag rounds include Prime bonus = 14', p.type === 'heavy_bag_rounds' ? p.rounds === 14 : true);
 })();
 
 // ─── Work/rest intervals by fitness level ─────────────────────
@@ -150,7 +150,7 @@ console.log('\n── prescribeConditioning: phase priorities ──');
     const p = prescribeConditioning(makeInput({
         phase: 'camp-peak', readinessState: 'Prime', acwr: 1.0, sessionIndex: 0,
     }));
-    const allowed = ['heavy_bag_rounds', 'sport_specific_drill', 'agility_drills'];
+    const allowed = ['heavy_bag_rounds', 'sport_specific_drill', 'interval_medley'];
     assert('Camp-peak session 0 is sport-appropriate type', allowed.includes(p.type));
 })();
 
@@ -172,7 +172,14 @@ console.log('\n── prescribeConditioning: phase priorities ──');
     const p = prescribeConditioning(makeInput({
         phase: 'off-season', readinessState: 'Prime', acwr: 1.0, sessionIndex: 1,
     }));
-    assert('Off-season session 1 = jump_rope', p.type === 'jump_rope');
+    assert('Off-season session 1 = assault_bike', p.type === 'assault_bike');
+})();
+
+(() => {
+    const p = prescribeConditioning(makeInput({
+        phase: 'off-season', readinessState: 'Prime', acwr: 1.0, sessionIndex: 2,
+    }));
+    assert('Off-season session 2 = rowing', p.type === 'rowing');
 })();
 
 // ─── Depleted or high ACWR forces lighter type ───────────────
@@ -233,6 +240,42 @@ console.log('\n── prescribeConditioning: readiness/ACWR overrides ──');
 (() => {
     const jr = prescribeConditioning(makeInput({ readinessState: 'Depleted' }));
     assert('Estimated load = duration * CNS', jr.estimatedLoad === jr.totalDurationMin * jr.cnsBudget);
+})();
+
+// ─── New conditioning modalities + structured metadata ──────────────────────
+
+console.log('\n── prescribeConditioning: modalities + formats ──');
+
+(() => {
+    const p = prescribeConditioning(makeInput({
+        phase: 'off-season', readinessState: 'Prime', acwr: 1.0, sessionIndex: 0,
+    }));
+    assert('Circuit includes round metadata', p.circuitRound?.roundCount === p.rounds);
+    assert('Circuit exposes six movements for non-beginners', (p.circuitRound?.movements.length ?? 0) === 6);
+})();
+
+(() => {
+    const p = prescribeConditioning(makeInput({
+        phase: 'off-season', readinessState: 'Prime', acwr: 1.0, sessionIndex: 1,
+    }));
+    assert('Assault bike can prescribe EMOM', p.type === 'assault_bike' && p.format === 'emom');
+    assert('Assault bike EMOM includes timedWork', p.type === 'assault_bike' ? p.timedWork?.format === 'emom' : true);
+})();
+
+(() => {
+    const p = prescribeConditioning(makeInput({
+        phase: 'off-season', readinessState: 'Prime', acwr: 1.0, sessionIndex: 2,
+    }));
+    assert('Rowing prescription is available', p.type === 'rowing');
+    assert('Rowing carries timed interval metadata', p.type === 'rowing' ? p.timedWork != null : true);
+})();
+
+(() => {
+    const p = prescribeConditioning(makeInput({
+        phase: 'camp-taper', readinessState: 'Prime', acwr: 1.0, sessionIndex: 1,
+    }));
+    assert('Camp-taper session 1 = swimming', p.type === 'swimming');
+    assert('Swimming exposes timed work metadata', p.type === 'swimming' ? p.timedWork != null : true);
 })();
 
 // ─── getWeeklyConditioningPlan ────────────────────────────────

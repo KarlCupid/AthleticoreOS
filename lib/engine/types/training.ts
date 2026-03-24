@@ -409,14 +409,44 @@ export type ConditioningType =
   | 'jump_rope'
   | 'sled_work'
   | 'agility_drills'
-  | 'sport_specific_drill';
+  | 'sport_specific_drill'
+  | 'assault_bike'
+  | 'rowing'
+  | 'swimming'
+  | 'bike_erg'
+  | 'ski_erg'
+  | 'interval_medley';
+
+export interface TimedWorkPrescription {
+  format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
+  totalDurationSec: number;
+  workIntervalSec?: number;
+  restIntervalSec?: number;
+  roundCount?: number;
+  targetRounds?: number;
+}
+
+export interface CircuitRoundPrescription {
+  roundCount: number;
+  restBetweenRoundsSec: number;
+  movements: {
+    exerciseId?: string;
+    exerciseName: string;
+    reps: number | null;
+    durationSec: number | null;
+    restSec: number;
+  }[];
+}
 
 export interface ConditioningExercise {
+  exerciseId?: string;
   name: string;
   durationSec: number | null;
   reps: number | null;
   rounds: number;
   restSec: number;
+  timedWork?: TimedWorkPrescription;
+  format?: 'steady_state' | 'intervals' | 'emom' | 'tabata' | 'amrap' | 'for_time';
 }
 
 export interface ConditioningPrescription {
@@ -430,6 +460,9 @@ export interface ConditioningPrescription {
   message: string;
   cnsBudget: number;
   estimatedLoad: number;
+  format?: 'rounds' | 'emom' | 'amrap' | 'tabata' | 'for_time' | 'intervals';
+  circuitRound?: CircuitRoundPrescription;
+  timedWork?: TimedWorkPrescription;
 }
 
 export interface WeeklyConditioningInput {
@@ -522,7 +555,13 @@ export type LoadingStrategy =
   | 'straight_sets'
   | 'density_block'
   | 'intervals'
-  | 'recovery_flow';
+  | 'recovery_flow'
+  | 'emom'
+  | 'amrap'
+  | 'tabata'
+  | 'timed_sets'
+  | 'for_time'
+  | 'circuit_rounds';
 
 export interface ProgressionAnchor {
   key: string;
@@ -549,6 +588,8 @@ export interface ExerciseSetPrescription {
   targetRPE: number;
   restSeconds: number;
   intensityNote?: string;
+  timedWork?: TimedWorkPrescription;
+  circuitRound?: CircuitRoundPrescription;
 }
 
 export interface SectionExercisePrescription extends PrescribedExerciseV2 {
