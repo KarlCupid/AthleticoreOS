@@ -174,7 +174,7 @@ const ZOOM_OPTIONS: { size: ChartWindowSize; label: string }[] = [
 export function ReplayCharts({ chartData, chartWindowSize, onChangeWindowSize }: ReplayChartsProps) {
   if (chartData.length < 2) return null;
 
-  const readinessInsight = `Readiness moved ${formatSignedNumber(summarizeMetric(chartData, 'readiness').delta, 1)} points in this window. Lowest day here was ${formatNumber(findExtremePoint(chartData, 'readiness', 'min')?.readiness ?? 0, 1)}/10 on ${findExtremePoint(chartData, 'readiness', 'min')?.label ?? '--'}.`;
+  const readinessInsight = `Readiness moved ${formatSignedNumber(summarizeMetric(chartData, 'readiness').delta, 1)} points in this window. Lowest day here was ${formatNumber(findExtremePoint(chartData, 'readiness', 'min')?.readiness ?? 0, 1)}/5 on ${findExtremePoint(chartData, 'readiness', 'min')?.label ?? '--'}.`;
   const weightInsight = `Net weight change in this window was ${formatSignedNumber(summarizeMetric(chartData, 'weight').delta, 1, ' lb')}. Lowest weigh-in here was ${formatNumber(findExtremePoint(chartData, 'weight', 'min')?.weight ?? 0, 1, ' lb')} on ${findExtremePoint(chartData, 'weight', 'min')?.label ?? '--'}.`;
 
   return (
@@ -198,7 +198,7 @@ export function ReplayCharts({ chartData, chartWindowSize, onChangeWindowSize }:
         data={chartData}
         yKey="readiness"
         color={COLORS.chart.readiness}
-        valueSuffix="/10"
+        valueSuffix="/5"
         decimals={1}
         insight={readinessInsight}
       />

@@ -58,8 +58,8 @@ export type SimulationPersona = {
   rpeBias: number; // e.g., +1 means they always report 1 RPE higher than prescribed
   
   // Recovery traits
-  averageSleepQuality: number; // 1-10
-  averageReadiness: number; // 1-10
+  averageSleepQuality: number; // 1-5
+  averageReadiness: number; // 1-5
   readinessVolatility: number; // 0.0 (stable) to 1.0 (chaotic)
   
   // Nutrition traits

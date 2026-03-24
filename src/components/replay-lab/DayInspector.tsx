@@ -36,8 +36,8 @@ export function DayInspector({ day, tab, onChangeTab, workoutStats }: DayInspect
 
         {/* Recovery cluster */}
         <View style={styles.tagCluster}>
-          <Text style={shared.tag}>Ready {day.readinessLogged}/10</Text>
-          <Text style={shared.tag}>Sleep {day.sleepLogged}/10</Text>
+          <Text style={shared.tag}>Ready {day.readinessLogged}/5</Text>
+          <Text style={shared.tag}>Sleep {day.sleepLogged}/5</Text>
           <Text style={shared.tag}>Risk {day.riskLevel}</Text>
         </View>
 

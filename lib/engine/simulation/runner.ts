@@ -348,15 +348,15 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     // --- STEP 1: Simulate Morning State ---
     
     // Readiness is impacted by central fatigue
-    const fatiguePenalty = (simState.fatigue.centralFatigue / 20); // up to -5 points
+    const fatiguePenalty = (simState.fatigue.centralFatigue / 40); // up to -2.5 points on 1-5 scale
     const baseReadiness = persona.averageReadiness - fatiguePenalty;
-    const readinessLogged = Math.max(1, Math.min(10, Math.round(baseReadiness + (random() - 0.5) * persona.readinessVolatility * 10)));
-    
-    // Sleep is impacted by overtraining/fatigue spikes
-    const sleepPenalty = simState.fatigue.centralFatigue > 80 ? 2 : 0;
-    const sleepLogged = Math.max(1, Math.min(10, Math.round(persona.averageSleepQuality - sleepPenalty + (random() - 0.5) * persona.readinessVolatility * 10)));
+    const readinessLogged = Math.max(1, Math.min(5, Math.round(baseReadiness + (random() - 0.5) * persona.readinessVolatility * 10)));
 
-    if (readinessLogged <= 3) {
+    // Sleep is impacted by overtraining/fatigue spikes
+    const sleepPenalty = simState.fatigue.centralFatigue > 80 ? 1 : 0;
+    const sleepLogged = Math.max(1, Math.min(5, Math.round(persona.averageSleepQuality - sleepPenalty + (random() - 0.5) * persona.readinessVolatility * 10)));
+
+    if (readinessLogged <= 2) {
       simState.consecutiveDepletedDays++;
     } else {
       simState.consecutiveDepletedDays = 0;
@@ -364,12 +364,12 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
     // --- STEP 2: Engine Decision Loop ---
 
-    const prescribedIntensity = 5; // Lower baseline for mock variety
+    const prescribedIntensity = 7; // Moderate-high fallback when mission doesn't provide a cap
 
     // Compute ACWR based on simulated muscular damage (proxy for load)
     const mockACWR: ACWRResult = {
-      ratio: 1.0 + (simState.fatigue.muscularDamage / 100), // Simple proxy
-      status: simState.fatigue.muscularDamage > 80 ? 'redline' : simState.fatigue.muscularDamage > 50 ? 'caution' : 'safe',
+      ratio: 1.0 + (simState.fatigue.muscularDamage / 200), // Simple proxy — divided by 200 to prevent ACWR death spiral
+      status: simState.fatigue.muscularDamage > 100 ? 'redline' : simState.fatigue.muscularDamage > 60 ? 'caution' : 'safe',
       acute: simState.fatigue.muscularDamage,
       chronic: 50,
       acuteEWMA: 50,
@@ -760,8 +760,8 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     // C. Natural Recovery (Overnight)
     // Add Biological Variance (+/- 20% to recovery efficiency)
     const recoveryEfficiency = 0.8 + (random() * 0.4);
-    simState.fatigue.centralFatigue = Math.max(0, simState.fatigue.centralFatigue - (sleepLogged * 2.5 * recoveryEfficiency));
-    simState.fatigue.muscularDamage = Math.max(0, simState.fatigue.muscularDamage - (sleepLogged * 1.5 * recoveryEfficiency));
+    simState.fatigue.centralFatigue = Math.max(0, simState.fatigue.centralFatigue - (sleepLogged * 5.0 * recoveryEfficiency));
+    simState.fatigue.muscularDamage = Math.max(0, simState.fatigue.muscularDamage - (sleepLogged * 5.0 * recoveryEfficiency));
 
     const completedSession = trainingComplied ? {
       type: mission.trainingDirective.workoutType || 'unknown',
@@ -795,7 +795,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     if (mission.riskState.level === 'moderate' || mission.riskState.level === 'high' || mission.riskState.level === 'critical') {
       coachingInsight = `Engine detected high risk (${mission.riskState.level}): ${mission.riskState.drivers[0]}. Pulled back to ${mission.trainingDirective.sessionRole} role.`;
       athleteMonologue = `I'm feeling pretty beat up. My ${mission.riskState.drivers[0].toLowerCase()} is catching up to me. Glad the engine saw it.`;
-    } else if (readinessLogged > 8) {
+    } else if (readinessLogged >= 5) {
       coachingInsight = `Athlete is in Prime shape. Prescribing high-intensity ${mission.trainingDirective.focus} work to capitalize on readiness.`;
       athleteMonologue = `Feeling like a beast today. Ready to smash this session.`;
     } else {
