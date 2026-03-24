@@ -104,7 +104,11 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
                   <MetricTile label="Days" value={String(state.run.summary.totalDays)} />
                   <MetricTile label="Final Weight" value={`${state.run.summary.finalWeightLbs.toFixed(1)} lbs`} />
                   <MetricTile label="Interventions" value={String(state.run.summary.interventionDays)} tone={state.run.summary.interventionDays > 0 ? 'warning' : 'default'} />
-                  <MetricTile label="Danger Findings" value={String(state.run.summary.findingCounts.danger)} tone={state.run.summary.findingCounts.danger > 0 ? 'danger' : 'good'} />
+                  <MetricTile label="Engine Danger Days" value={String(state.run.summary.engineDangerDays)} tone={state.run.summary.engineDangerDays > 0 ? 'danger' : 'good'} />
+                  <MetricTile label="Athlete Override Days" value={String(state.run.summary.athleteOverrideDays)} tone={state.run.summary.athleteOverrideDays > 0 ? 'warning' : 'good'} />
+                  <MetricTile label="Scenario Pressure Days" value={String(state.run.summary.scenarioPressureDays)} tone={state.run.summary.scenarioPressureDays > 0 ? 'warning' : 'good'} />
+                  <MetricTile label="Pre-Cut Interventions" value={String(state.run.summary.preCutInterventionDays)} tone={state.run.summary.preCutInterventionDays > 0 ? 'warning' : 'default'} />
+                  <MetricTile label="Cut-Phase Interventions" value={String(state.run.summary.cutPhaseInterventionDays)} tone={state.run.summary.cutPhaseInterventionDays > 0 ? 'warning' : 'default'} />
                 </View>
               </Card>
 

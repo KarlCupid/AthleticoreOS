@@ -100,7 +100,7 @@ assert('training day: postSessionCue mentions 40g protein', result.postSessionCu
 console.log('\n── rest day ──');
 
 const restMission = makeMission({
-  trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'recover' },
+  trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'rest' },
   fuelDirective: { ...makeMission().fuelDirective, preSessionCarbsG: 0, intraSessionCarbsG: 0, postSessionProteinG: 0 },
 });
 const restResult = buildNutritionQuickActionViewModel(restMission, ZERO_TOTALS);
@@ -118,7 +118,7 @@ assert('third intent id = balanced_meal', result.quickIntentOptions[2].id === 'b
 
 // Rest day (no preSessionCarbsG): 2 intents (recovery_meal + balanced_meal, but label = Main meal)
 const restWithCals = makeMission({
-  trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'recover' },
+  trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'rest' },
   fuelDirective: { ...makeMission().fuelDirective, preSessionCarbsG: 0 },
 });
 const restIntents = buildNutritionQuickActionViewModel(restWithCals, ZERO_TOTALS);

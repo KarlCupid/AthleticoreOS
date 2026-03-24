@@ -38,9 +38,9 @@ async function main() {
     },
   });
 
-  const conditioningDays = simulation.dailyLogs.filter((log) =>
-    log.engineState.mission.trainingDirective.workoutType === 'conditioning'
-    || log.personaAction.conditioningPrescription != null,
+  const recoveryDays = simulation.dailyLogs.filter((log) =>
+    log.engineState.mission.trainingDirective.workoutType === 'recovery'
+    || log.engineState.mission.trainingDirective.sessionRole === 'recover',
   );
   const combatDays = simulation.dailyLogs.filter((log) =>
     (log.engineState.scheduledActivities ?? []).some((activity: any) =>
@@ -58,7 +58,7 @@ async function main() {
     && log.engineState.mission.trainingDirective.sessionRole !== 'spar_support',
   );
 
-  assert('Simulation yields conditioning days', conditioningDays.length > 0);
+  assert('Simulation yields recovery outputs', recoveryDays.length > 0);
   assert('Simulation yields boxing or sparring days', combatDays.length > 0);
   assert('Simulation yields non-low risk days', nonLowRiskDays.length > 0);
   assert('Simulation yields spar support on real sparring days', sparSupportDays.length > 0);
@@ -77,6 +77,17 @@ async function main() {
     && day.workoutType != null
     && day.workoutType !== 'recovery',
   );
+  const replayRestRiskMismatches = replayRun.days.filter((day) =>
+    day.sessionRole === 'rest'
+    && day.riskLevel !== 'low',
+  );
+  const replayConstrainedCombatLabels = replayRun.days.filter((day) =>
+    (day.sessionRole === 'recover' || day.sessionRole === 'cut_protect' || day.sessionRole === 'rest')
+    && (day.workoutType === 'practice' || day.workoutType === 'sparring'
+      || day.workoutTitle.toLowerCase().includes('sparring')
+      || day.workoutTitle.toLowerCase().includes('bag work')
+      || day.workoutTitle.toLowerCase().includes('pad work')),
+  );
   const replayHighCriticalDays = replayRun.days.filter((day) =>
     day.riskLevel === 'high' || day.riskLevel === 'critical',
   );
@@ -85,7 +96,22 @@ async function main() {
   assert('Replay exposes boxing or sparring workout types', replayCombatDays.length > 0);
   assert('Replay no longer shows every day as low risk', replayNonLowRiskDays.length > 0);
   assert('Recover days stay mapped to recovery output', replayRecoverMismatches.length === 0);
+  assert('Rest days stay low risk in replay', replayRestRiskMismatches.length === 0);
+  assert('Constrained roles do not inherit combat labels', replayConstrainedCombatLabels.length === 0);
   assert('High and critical risk days stay a minority of camp', replayHighCriticalDays.length <= Math.ceil(replayRun.days.length * 0.25));
+
+  console.log('\n--- Active cut replay semantics ---');
+
+  const activeCutRun = await buildEngineReplayRun('camp-active-cut');
+
+  assert('Active cut replay keeps intervention days reproducible', activeCutRun.summary.interventionDays > 0);
+  assert('Active cut replay surfaces pre-cut interventions separately', activeCutRun.summary.preCutInterventionDays > 0);
+  assert('Active cut replay reduces pre-cut interventions below the prior 27-day baseline', activeCutRun.summary.preCutInterventionDays < 27);
+  assert('Active cut replay reduces overall interventions below the prior 31-day baseline', activeCutRun.summary.interventionDays < 31);
+  assert('Active cut replay reduces high-risk days below the prior 24-day baseline', activeCutRun.summary.highRiskDays < 24);
+  assert('Active cut replay exposes engine danger days separately', activeCutRun.summary.engineDangerDays > 0);
+  assert('Active cut replay exposes athlete override days separately', activeCutRun.summary.athleteOverrideDays > 0);
+  assert('Athlete override days are not collapsed into engine danger days', activeCutRun.summary.athleteOverrideDays !== activeCutRun.summary.engineDangerDays);
 
   console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
   process.exit(failed > 0 ? 1 : 0);

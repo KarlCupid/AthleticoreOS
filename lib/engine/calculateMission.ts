@@ -11,6 +11,7 @@ import type {
   MissionRiskLevel,
   MissionRiskState,
   MissionScheduledActivity,
+  MissionProtectWindow,
   RecoveryDirective,
   TrainingDirective,
   TrainingSessionRole,
@@ -54,6 +55,42 @@ function inferWorkoutType(sessionType: string | null | undefined): WorkoutType |
   }
 }
 
+function inferFocusFromActivity(
+  activityType: MissionScheduledActivity['activity_type'] | null | undefined,
+): WorkoutFocus | null {
+  switch (activityType) {
+    case 'conditioning':
+    case 'road_work':
+    case 'running':
+      return 'conditioning';
+    case 'recovery':
+    case 'active_recovery':
+      return 'recovery';
+    default:
+      return null;
+  }
+}
+
+function getPrimaryScheduledActivity(input: BuildDailyMissionInput): MissionScheduledActivity | null {
+  const activeActivities = input.scheduledActivities.filter((activity) => activity.status !== 'skipped');
+  if (activeActivities.length === 0) return null;
+  return [...activeActivities].sort((a, b) => {
+    const rank = (activityType: MissionScheduledActivity['activity_type']) =>
+      activityType === 'sparring'
+        ? 0
+        : activityType === 'boxing_practice'
+          ? 1
+          : activityType === 'conditioning' || activityType === 'road_work' || activityType === 'running'
+            ? 2
+            : activityType === 'sc'
+              ? 3
+              : 4;
+    const rankDelta = rank(a.activity_type) - rank(b.activity_type);
+    if (rankDelta !== 0) return rankDelta;
+    return (b.expected_intensity ?? 0) - (a.expected_intensity ?? 0);
+  })[0] ?? null;
+}
+
 function mapActivityToSessionType(activityType: MissionScheduledActivity['activity_type']): SessionType {
   switch (activityType) {
     case 'sparring':
@@ -92,9 +129,72 @@ function inferSessionRole(input: {
   return 'develop';
 }
 
+function isCombatActivity(
+  activityType: MissionScheduledActivity['activity_type'] | null | undefined,
+): boolean {
+  return activityType === 'sparring' || activityType === 'boxing_practice';
+}
+
+function isHighRiskLevel(level: MissionRiskLevel | null | undefined): boolean {
+  return level === 'high' || level === 'critical';
+}
+
+function getUnderlyingRiskLevel(riskState: MissionRiskState): MissionRiskLevel {
+  return riskState.underlyingLevel ?? riskState.level;
+}
+
+export function deriveProtectWindowFromRecentMissions(
+  missions: Array<{
+    date: string;
+    trainingDirective: Pick<TrainingDirective, 'interventionState'>;
+    riskState: MissionRiskState;
+  }>,
+): MissionProtectWindow | null {
+  const recent = [...missions]
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .slice(-3);
+  const recentInterventionDays = recent.filter((mission) => mission.trainingDirective.interventionState !== 'none').length;
+  const recentHighRiskDays = recent.filter((mission) => isHighRiskLevel(getUnderlyingRiskLevel(mission.riskState))).length;
+
+  if (recentInterventionDays < 2 && recentHighRiskDays < 2) {
+    return null;
+  }
+
+  const reasons: string[] = [];
+  if (recentInterventionDays >= 2) {
+    reasons.push(`${recentInterventionDays} interventions landed in the last 3 days`);
+  }
+  if (recentHighRiskDays >= 2) {
+    reasons.push(`${recentHighRiskDays} high-risk days landed in the last 3 days`);
+  }
+
+  return {
+    active: true,
+    reason: `Protect window is active because ${reasons.join(' and ')}.`,
+    recentInterventionDays,
+    recentHighRiskDays,
+    sourceDates: recent.map((mission) => mission.date),
+  };
+}
+
+function resolveProtectWindowRole(input: {
+  protectWindow: MissionProtectWindow | null | undefined;
+  intensityCap: number | null;
+  isOnActiveCut: boolean;
+  hasCombatAnchor: boolean;
+}): TrainingSessionRole | null {
+  const { protectWindow, intensityCap, isOnActiveCut, hasCombatAnchor } = input;
+  if (!protectWindow?.active) return null;
+  if (isOnActiveCut && (intensityCap ?? 10) <= 4) return 'cut_protect';
+  if (hasCombatAnchor && (intensityCap ?? 10) > 4) return 'spar_support';
+  return isOnActiveCut ? 'cut_protect' : 'recover';
+}
+
 function getRoleIntent(role: TrainingSessionRole, objective: string, focus: WorkoutFocus | null): string {
   const focusLabel = focus ? titleize(focus) : 'Performance';
   switch (role) {
+    case 'rest':
+      return 'No training is scheduled today. Let the block absorb and protect tomorrow\'s quality.';
     case 'cut_protect':
       return `Protect output while keeping the cut on schedule. ${focusLabel} stays controlled today.`;
     case 'recover':
@@ -114,6 +214,8 @@ function getRoleIntent(role: TrainingSessionRole, objective: string, focus: Work
 function getKeyQualities(role: TrainingSessionRole, focus: WorkoutFocus | null): string[] {
   const base = focus ? [titleize(focus)] : ['Performance'];
   switch (role) {
+    case 'rest':
+      return ['Recovery', 'Baseline habits', 'Readiness'];
     case 'cut_protect':
       return [...base, 'Energy conservation', 'Quality reps'];
     case 'recover':
@@ -263,6 +365,8 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
     drivers: drivers.length > 0 ? drivers : ['No major risk drivers detected.'],
     flags: input.readinessProfile.flags,
     anchorSummary: anchorSummary || null,
+    underlyingLevel: null,
+    displayOverride: null,
   };
 }
 
@@ -273,20 +377,60 @@ function summarizeVolume(durationMin: number | null, exerciseCount: number): str
 }
 
 function buildTrainingDirective(input: BuildDailyMissionInput, riskState: MissionRiskState): TrainingDirective {
-  const plannedFocus = input.workoutPrescription?.focus ?? input.weeklyPlanEntry?.focus ?? null;
+  const primaryScheduledActivity = getPrimaryScheduledActivity(input);
+  const activeScheduledActivities = input.scheduledActivities.filter((activity) => activity.status !== 'skipped');
+  const hasCombatAnchor = activeScheduledActivities.some((activity) => isCombatActivity(activity.activity_type));
+  const plannedFocus = input.workoutPrescription?.focus
+    ?? input.weeklyPlanEntry?.focus
+    ?? inferFocusFromActivity(primaryScheduledActivity?.activity_type)
+    ?? null;
   const plannedWorkoutType = input.workoutPrescription?.workoutType
-    ?? inferWorkoutType(input.weeklyPlanEntry?.session_type);
+    ?? inferWorkoutType(input.weeklyPlanEntry?.session_type)
+    ?? inferWorkoutType(primaryScheduledActivity?.activity_type);
   const plannedDurationMin = input.weeklyPlanEntry?.estimated_duration_min
     ?? input.workoutPrescription?.estimatedDurationMin
+    ?? primaryScheduledActivity?.estimated_duration_min
     ?? null;
   const plannedIntensityCap = input.cutProtocol?.training_intensity_cap
     ?? input.constraintSet.hardCaps.intensityCap
     ?? input.weeklyPlanEntry?.target_intensity
+    ?? primaryScheduledActivity?.expected_intensity
     ?? null;
+  const isTrueRestDay = input.weeklyPlanEntry == null
+    && input.workoutPrescription == null
+    && activeScheduledActivities.length === 0;
   const intervention = checkInterventionStatus(riskState, plannedIntensityCap);
   const intensityCap = intervention.enforcedIntensityCap;
 
   const hasSparring = input.scheduledActivities.some((activity) => activity.activity_type === 'sparring');
+  const source: DirectiveSource = input.cutProtocol ? 'weight_cut_protocol'
+    : input.weeklyPlanEntry?.prescription_snapshot ? 'weekly_plan_snapshot'
+      : 'daily_engine';
+
+  if (isTrueRestDay) {
+    return {
+      sessionRole: 'rest',
+      interventionState: intervention.interventionState,
+      isMandatoryRecovery: intervention.isMandatoryRecovery,
+      focus: null,
+      workoutType: null,
+      intent: getRoleIntent('rest', input.macrocycleContext.performanceObjective.primaryOutcome, null),
+      reason: intervention.reason
+        ? `${intervention.reason} No training is scheduled today, so the engine is keeping the day fully off.`
+        : riskState.level === 'low'
+          ? 'No guided or scheduled training is assigned today. Keep the day truly restorative.'
+          : `No training is scheduled today, so the engine is protecting recovery while respecting ${riskState.drivers[0].toLowerCase()}`,
+      intensityCap: null,
+      durationMin: 0,
+      volumeTarget: 'No workout prescribed today.',
+      keyQualities: getKeyQualities('rest', null),
+      constraintSet: input.constraintSet,
+      medStatus: input.medStatus ?? null,
+      source,
+      prescription: null,
+    };
+  }
+
   const inferredRole = inferSessionRole({
     campPhase: input.macrocycleContext.campPhase,
     focus: plannedFocus,
@@ -294,16 +438,37 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     isOnActiveCut: input.macrocycleContext.isOnActiveCut,
     hasSparring,
   });
-  const sessionRole = intervention.forcedSessionRole ?? inferredRole;
-  const focus = sessionRole === 'recover' ? 'recovery' : plannedFocus;
-  const workoutType = sessionRole === 'recover' ? 'recovery' : plannedWorkoutType;
+  const protectWindowRole = intervention.interventionState === 'hard'
+    ? null
+    : resolveProtectWindowRole({
+        protectWindow: input.protectWindow,
+        intensityCap,
+        isOnActiveCut: input.macrocycleContext.isOnActiveCut,
+        hasCombatAnchor,
+      });
+  const softCombatRole = intervention.interventionState === 'soft' && hasCombatAnchor
+    ? (input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= 4
+      ? 'cut_protect'
+      : 'spar_support')
+    : null;
+  const sessionRole = intervention.forcedSessionRole ?? protectWindowRole ?? softCombatRole ?? inferredRole;
+  const isProtectCutWindow = sessionRole === 'cut_protect' && input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= 4;
+  const focus = sessionRole === 'recover' || isProtectCutWindow ? 'recovery' : plannedFocus;
+  const workoutType = sessionRole === 'recover' || isProtectCutWindow ? 'recovery' : plannedWorkoutType;
   const durationMin = sessionRole === 'recover'
     ? Math.min(plannedDurationMin ?? (intervention.isMandatoryRecovery ? 20 : 30), intervention.isMandatoryRecovery ? 20 : 30)
+    : sessionRole === 'cut_protect' && input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= 4
+      ? Math.max(20, Math.min(plannedDurationMin ?? 25, 30))
+      : sessionRole === 'spar_support' && (protectWindowRole === 'spar_support' || softCombatRole === 'spar_support')
+        ? Math.max(20, Math.min(plannedDurationMin ?? 30, 30))
     : plannedDurationMin;
-  const prescription = sessionRole === 'recover' ? null : input.workoutPrescription;
-  const source: DirectiveSource = input.cutProtocol ? 'weight_cut_protocol'
-    : input.weeklyPlanEntry?.prescription_snapshot ? 'weekly_plan_snapshot'
-      : 'daily_engine';
+  const prescription = sessionRole === 'recover' || isProtectCutWindow ? null : input.workoutPrescription;
+  const protectWindowReason = input.protectWindow?.active
+    ? `${input.protectWindow.reason} Today is being routed through ${sessionRole.replace(/_/g, ' ')} work to keep the block from escalating.`
+    : null;
+  const combatSupportReason = softCombatRole != null
+    ? 'Combat work is already anchored on the calendar, so elevated risk is being routed into support work instead of a normal build session.'
+    : null;
 
   return {
     sessionRole,
@@ -313,6 +478,8 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     workoutType,
     intent: getRoleIntent(sessionRole, input.macrocycleContext.performanceObjective.primaryOutcome, focus),
     reason: intervention.reason
+      ? `${intervention.reason}${combatSupportReason ? ` ${combatSupportReason}` : ''}`
+      : protectWindowReason
       ?? (input.readinessProfile.flags.length > 0
         ? `The engine is preserving training intent by swapping out the wrong stress for today's readiness profile.`
         : undefined)
@@ -330,6 +497,28 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
   };
 }
 
+function buildDisplayedRiskState(
+  input: BuildDailyMissionInput,
+  trainingDirective: TrainingDirective,
+  stateRisk: MissionRiskState,
+): MissionRiskState {
+  const activeScheduledActivities = input.scheduledActivities.filter((activity) => activity.status !== 'skipped');
+  const isTrueRestDay = trainingDirective.sessionRole === 'rest'
+    && trainingDirective.workoutType == null
+    && activeScheduledActivities.length === 0;
+
+  if (!isTrueRestDay) return stateRisk;
+
+  return {
+    ...stateRisk,
+    level: 'low',
+    score: Math.min(stateRisk.score, 15),
+    label: 'Recovery window',
+    underlyingLevel: stateRisk.level,
+    displayOverride: 'rest_day_recovery_window',
+  };
+}
+
 function buildFuelDirective(
   input: BuildDailyMissionInput,
   trainingDirective: TrainingDirective,
@@ -337,11 +526,22 @@ function buildFuelDirective(
 ): FuelDirective {
   const fuelState = input.nutritionTargets.fuelState;
   const demandScore = input.nutritionTargets.sessionDemandScore;
-  const sessionFuelingPlan = input.nutritionTargets.sessionFuelingPlan;
+  const isRestDay = trainingDirective.sessionRole === 'rest';
+  const sessionFuelingPlan = isRestDay
+    ? {
+        priority: 'recovery' as const,
+        priorityLabel: 'Rest day',
+        sessionLabel: 'Rest day',
+        preSession: { label: 'Before training', timing: 'No timed pre-session fueling needed', carbsG: 0, proteinG: 0, notes: [] },
+        intraSession: { fluidsOz: 0, electrolytesMg: null, carbsG: 0, notes: [] },
+        betweenSessions: null,
+        postSession: { label: 'Meals', timing: 'Use normal meals across the day', carbsG: 0, proteinG: 25, notes: [] },
+        hydrationNotes: [],
+        coachingNotes: [],
+      }
+    : input.nutritionTargets.sessionFuelingPlan;
   const hasMultipleSessions = input.scheduledActivities.filter((activity) => activity.status !== 'skipped').length > 1;
   const highDemand = trainingDirective.sessionRole === 'express' || demandScore >= 60 || sessionFuelingPlan.priority === 'double_session' || sessionFuelingPlan.priority === 'sparring';
-  const cutProtected = fuelState === 'cut_protect'
-    || (input.cutProtocol?.training_intensity_cap != null && input.cutProtocol.training_intensity_cap <= 4);
   const preSessionCarbsG = sessionFuelingPlan.preSession.carbsG;
   const intraSessionCarbsG = sessionFuelingPlan.intraSession.carbsG;
   const postSessionProteinG = sessionFuelingPlan.postSession.proteinG;
@@ -349,7 +549,7 @@ function buildFuelDirective(
 
   let compliancePriority: FuelDirective['compliancePriority'] = 'consistency';
   if (input.cutProtocol || input.macrocycleContext.weightCutState === 'driving') compliancePriority = 'weight';
-  else if (riskState.level === 'high' || riskState.level === 'critical') compliancePriority = 'recovery';
+  else if (!isRestDay && (riskState.level === 'high' || riskState.level === 'critical')) compliancePriority = 'recovery';
   else if (highDemand || hasMultipleSessions) compliancePriority = 'performance';
 
   const source: DirectiveSource = input.cutProtocol
@@ -358,7 +558,11 @@ function buildFuelDirective(
       ? 'weekly_plan_snapshot'
       : 'daily_engine';
   let message = input.cutProtocol
-    ? 'Cut protocol is leading intake today. Hit the exact macro and hydration targets to keep weight on line.'
+    ? (isRestDay
+      ? 'No training window is scheduled today. Hit the cut targets through normal meals and hydration to keep weight on line.'
+      : 'Cut protocol is leading intake today. Hit the exact macro and hydration targets to keep weight on line.')
+    : isRestDay
+      ? 'No training fueling window is needed today. Use normal meals and hydration to absorb the block.'
     : compliancePriority === 'performance'
       ? 'Fuel the key work first. Front-load carbs before training and keep recovery intake tight after the session.'
       : compliancePriority === 'recovery'
@@ -373,11 +577,11 @@ function buildFuelDirective(
   const hasDriftCorrection = weightDriftLbs != null && weightDriftLbs > 0.5;
 
   return {
-    state: fuelState,
-    prioritySession: input.nutritionTargets.prioritySession,
+    state: isRestDay ? 'rest' as const : fuelState,
+    prioritySession: isRestDay ? 'recovery' : input.nutritionTargets.prioritySession,
     deficitClass: input.nutritionTargets.deficitClass,
     recoveryNutritionFocus: input.nutritionTargets.recoveryNutritionFocus,
-    sessionDemandScore: demandScore,
+    sessionDemandScore: isRestDay ? 0 : demandScore,
     calories: (input.cutProtocol as any)?.prescribedCalories ?? (input.cutProtocol as any)?.prescribed_calories ?? input.nutritionTargets.adjustedCalories,
     protein: (input.cutProtocol as any)?.prescribedProtein ?? (input.cutProtocol as any)?.prescribed_protein ?? input.nutritionTargets.protein,
     carbs: (input.cutProtocol as any)?.prescribedCarbs ?? (input.cutProtocol as any)?.prescribed_carbs ?? input.nutritionTargets.carbs,
@@ -425,10 +629,11 @@ function buildRecoveryDirective(
   riskState: MissionRiskState,
   trainingDirective: TrainingDirective,
 ): RecoveryDirective {
+  const isRestDay = trainingDirective.sessionRole === 'rest';
   const restrictions: string[] = [];
   const modalities: string[] = ['10-minute cooldown walk', '5 minutes nasal breathing'];
 
-  if (riskState.level === 'high' || riskState.level === 'critical') {
+  if (!isRestDay && (riskState.level === 'high' || riskState.level === 'critical')) {
     restrictions.push('Cut optional volume.', 'Keep non-essential conditioning light.');
   }
   if (input.macrocycleContext.isTravelWindow) {
@@ -443,10 +648,18 @@ function buildRecoveryDirective(
   if (trainingDirective.isMandatoryRecovery) {
     restrictions.push('Do not swap in harder work or add extra volume.');
   }
+  if (isRestDay) {
+    modalities.push('Stay off the training floor', 'Use a light walk only if it helps you recover');
+    restrictions.push('Do not add make-up work just because the calendar looks open.');
+  }
 
   return {
-    emphasis: riskState.level === 'low'
-      ? 'Recover well so tomorrow can stay productive.'
+    emphasis: isRestDay
+      ? trainingDirective.isMandatoryRecovery
+        ? 'Rest day is locked in. Let the system calm down and do not add training.'
+        : 'No training today. Absorb the work already done and protect tomorrow.'
+      : riskState.level === 'low'
+        ? 'Recover well so tomorrow can stay productive.'
       : trainingDirective.isMandatoryRecovery
         ? 'Recovery is mandatory today. Do not negotiate with the redline.'
         : 'Recovery is part of today\'s workload. Treat it as mandatory.',
@@ -498,7 +711,9 @@ function buildDecisionTrace(
     trace.push({
       subsystem: 'training',
       title: 'Camp phase routing',
-      detail: `${titleize(input.macrocycleContext.campPhase)} phase shifted today toward ${trainingDirective.sessionRole.replace(/_/g, ' ')} work.`,
+      detail: trainingDirective.sessionRole === 'rest'
+        ? `${titleize(input.macrocycleContext.campPhase)} phase carries no planned training today, so the engine kept the day as rest.`
+        : `${titleize(input.macrocycleContext.campPhase)} phase shifted today toward ${trainingDirective.sessionRole.replace(/_/g, ' ')} work.`,
       humanInterpretation: trainingDirective.isMandatoryRecovery
         ? 'The engine has taken the keys for today. Recovery comes first.'
         : null,
@@ -528,7 +743,9 @@ function buildDecisionTrace(
     trace.push({
       subsystem: 'fuel',
       title: 'Fuel timing match',
-      detail: `${fuelDirective.sessionFuelingPlan?.priorityLabel ?? 'Training'} is supported with ${fuelDirective.preSessionCarbsG}g pre-session carbs, ${fuelDirective.intraSessionHydrationOz} oz fluids during training, and ${fuelDirective.postSessionProteinG}g protein after.`,
+      detail: trainingDirective.sessionRole === 'rest'
+        ? 'Rest day nutrition stays on baseline meals and hydration. No timed training fuel is required.'
+        : `${fuelDirective.sessionFuelingPlan?.priorityLabel ?? 'Training'} is supported with ${fuelDirective.preSessionCarbsG}g pre-session carbs, ${fuelDirective.intraSessionHydrationOz} oz fluids during training, and ${fuelDirective.postSessionProteinG}g protein after.`,
       humanInterpretation: depletionInterpretation,
       impact: 'adjusted',
     });
@@ -542,6 +759,16 @@ function buildDecisionTrace(
       humanInterpretation: input.nutritionTargets.safetyWarning === 'critical_energy_availability'
         ? 'Fuel was raised to avoid a dangerous low-energy state.'
         : null,
+      impact: 'restricted',
+    });
+  }
+
+  if (input.protectWindow?.active) {
+    trace.push({
+      subsystem: 'risk',
+      title: 'Protect window',
+      detail: input.protectWindow.reason,
+      humanInterpretation: 'The recent trend is unstable, so the engine is pulling stress down before it turns into another intervention cycle.',
       impact: 'restricted',
     });
   }
@@ -598,6 +825,11 @@ function buildDecisionTrace(
 
 function buildHeadline(trainingDirective: TrainingDirective, riskState: MissionRiskState): string {
   const roleLabel = titleize(trainingDirective.sessionRole);
+  if (trainingDirective.sessionRole === 'rest') {
+    if (trainingDirective.interventionState === 'hard') return 'Rest Day: mandatory recovery lock';
+    if (trainingDirective.interventionState === 'soft') return 'Rest Day: hold the line';
+    return 'Rest Day: absorb the block';
+  }
   if (trainingDirective.interventionState === 'hard') return `${roleLabel}: mandatory recovery lock`;
   if (trainingDirective.interventionState === 'soft') return `${roleLabel}: execute under intervention cap`;
   if (riskState.level === 'critical') return `${roleLabel}: protect freshness and make weight`;
@@ -606,13 +838,14 @@ function buildHeadline(trainingDirective: TrainingDirective, riskState: MissionR
 }
 
 export function buildDailyMission(input: BuildDailyMissionInput): DailyMission {
-  const riskState = buildRiskState(input);
-  const trainingDirective = buildTrainingDirective(input, riskState);
-  const fuelDirective = buildFuelDirective(input, trainingDirective, riskState);
+  const stateRisk = buildRiskState(input);
+  const trainingDirective = buildTrainingDirective(input, stateRisk);
+  const riskState = buildDisplayedRiskState(input, trainingDirective, stateRisk);
+  const fuelDirective = buildFuelDirective(input, trainingDirective, stateRisk);
   const hydrationDirective = buildHydrationDirective(input);
-  const recoveryDirective = buildRecoveryDirective(input, riskState, trainingDirective);
+  const recoveryDirective = buildRecoveryDirective(input, stateRisk, trainingDirective);
   const overrideState = buildOverrideState(input);
-  const decisionTrace = buildDecisionTrace(input, riskState, trainingDirective, fuelDirective);
+  const decisionTrace = buildDecisionTrace(input, stateRisk, trainingDirective, fuelDirective);
 
   return {
     date: input.date,

@@ -33,12 +33,14 @@ export function DayInspector({ day, tab, onChangeTab, workoutStats }: DayInspect
       <Card title="Selected Day" subtitle={`${day.date} | ${formatPhase(day.cutPhase)} | ${day.exerciseLogs.length} exercise logs`}>
         <Text style={styles.headline}>{day.headline}</Text>
         <Text style={shared.bodyText}>{day.summary}</Text>
+        {day.primaryCause ? <Text style={styles.primaryCause}>Primary cause: {day.primaryCause}</Text> : null}
 
         {/* Recovery cluster */}
         <View style={styles.tagCluster}>
           <Text style={shared.tag}>Ready {day.readinessLogged}/5</Text>
           <Text style={shared.tag}>Sleep {day.sleepLogged}/5</Text>
           <Text style={shared.tag}>Risk {day.riskLevel}</Text>
+          {day.riskDisplayOverride ? <Text style={shared.tag}>Display override {formatPhase(day.riskDisplayOverride)}</Text> : null}
         </View>
 
         {/* Session cluster */}
@@ -74,6 +76,11 @@ const styles = StyleSheet.create({
   headline: {
     ...TYPOGRAPHY_V2.plan.headline,
     color: COLORS.text.primary,
+  },
+  primaryCause: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.secondary,
+    marginTop: SPACING.xs,
   },
   tagCluster: {
     flexDirection: 'row',

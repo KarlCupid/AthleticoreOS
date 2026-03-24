@@ -175,6 +175,7 @@ console.log('\n── Session role inference ──');
         },
     }));
     assert('intensityCap<=4 + cut -> cut_protect', mission.trainingDirective.sessionRole === 'cut_protect');
+    assert('intensityCap<=4 + cut clamps duration into protect range', (mission.trainingDirective.durationMin ?? 0) >= 20 && (mission.trainingDirective.durationMin ?? 0) <= 30);
 })();
 
 (() => {
@@ -243,6 +244,36 @@ console.log('\n── Session role inference ──');
 })();
 
 (() => {
+    // no plan and no scheduled work -> rest day
+    const mission = buildDailyMission(makeInput({
+        scheduledActivities: [],
+        weeklyPlanEntry: null,
+        workoutPrescription: null,
+    }));
+    assert('No planned work -> rest', mission.trainingDirective.sessionRole === 'rest');
+    assert('No planned work -> workoutType null', mission.trainingDirective.workoutType === null);
+    assert('No planned work -> zero duration', mission.trainingDirective.durationMin === 0);
+    assert('No planned work -> no prescription', mission.trainingDirective.prescription == null);
+})();
+
+(() => {
+    // elevated strain on a true rest day should stay a low displayed session risk
+    const mission = buildDailyMission(makeInput({
+        scheduledActivities: [],
+        weeklyPlanEntry: null,
+        workoutPrescription: null,
+        readinessState: 'Depleted',
+        acwr: makeAcwr({ status: 'redline', ratio: 1.7 }),
+        riskScore: 40,
+    }));
+    assert('Rest day keeps session role = rest under strain', mission.trainingDirective.sessionRole === 'rest');
+    assert('Rest day displays low session risk', mission.riskState.level === 'low');
+    assert('Rest day retains underlying risk for replay', mission.riskState.underlyingLevel != null);
+    assert('Rest day exposes display override flag', mission.riskState.displayOverride === 'rest_day_recovery_window');
+    assert('Rest day reason still mentions no training scheduled', mission.trainingDirective.reason.toLowerCase().includes('no training is scheduled today'));
+})();
+
+(() => {
     // Soft intervention should cap output without auto-converting the day into recover
     const mission = buildDailyMission(makeInput({
         macrocycleContext: {
@@ -259,6 +290,28 @@ console.log('\n── Session role inference ──');
     }));
     assert('Soft intervention keeps planned role instead of auto-recover', mission.trainingDirective.sessionRole === 'develop');
     assert('Soft intervention still caps intensity', (mission.trainingDirective.intensityCap ?? 10) <= 4);
+})();
+
+(() => {
+    // Soft intervention on a combat day should downshift into support instead of preserving develop
+    const mission = buildDailyMission(makeInput({
+        macrocycleContext: {
+            ...makeInput().macrocycleContext,
+            campPhase: 'build',
+        },
+        scheduledActivities: [
+            { date: '2026-03-10', activity_type: 'boxing_practice', estimated_duration_min: 60, expected_intensity: 6, status: 'planned' },
+        ],
+        weeklyPlanEntry: {
+            session_type: 'sc',
+            focus: 'lower',
+            target_intensity: 7,
+            estimated_duration_min: 60,
+        },
+        riskScore: 58,
+    }));
+    assert('Soft intervention on combat day routes to spar_support', mission.trainingDirective.sessionRole === 'spar_support');
+    assert('Soft intervention on combat day clamps duration', (mission.trainingDirective.durationMin ?? 0) <= 30);
 })();
 
 // ─── Risk state scoring ──────────────────────────────────────

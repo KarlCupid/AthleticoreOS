@@ -461,6 +461,94 @@ console.log('\n── generateSmartWeekPlan ──');
 (() => {
     const { camp, weekStartDate } = makeCampPhaseContext('build');
     const result = generateSmartWeekPlan({
+        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
+        readinessState: 'Caution',
+        phase: 'fight-camp',
+        acwr: 1.3,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'boxing_skill',
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: camp,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate,
+        recurringActivities: [
+            makeRecurringActivity('boxing_practice', [1], {
+                estimated_duration_min: 60,
+                expected_intensity: 5,
+            }),
+        ],
+    });
+    const mondayGuided = getGuidedEntries(result).find((entry) => entry.day_of_week === 1) ?? null;
+    assert('Combat-anchor yellow risk keeps a guided support session', mondayGuided != null);
+    assert('Combat-anchor yellow risk routes guided work to recovery', mondayGuided?.focus === 'recovery');
+    assert('Combat-anchor yellow risk caps duration to 30', (mondayGuided?.estimated_duration_min ?? 99) <= 30);
+    assert('Combat-anchor yellow risk caps intensity to 4', (mondayGuided?.target_intensity ?? 99) <= 4);
+})();
+
+(() => {
+    const { camp, weekStartDate } = makeCampPhaseContext('build');
+    const result = generateSmartWeekPlan({
+        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
+        readinessState: 'Depleted',
+        phase: 'fight-camp',
+        acwr: 1.46,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'boxing_skill',
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: camp,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate,
+        recurringActivities: [
+            makeRecurringActivity('boxing_practice', [1], {
+                estimated_duration_min: 60,
+                expected_intensity: 6,
+            }),
+        ],
+    });
+    const mondayEntries = result.entries.filter((entry) => entry.day_of_week === 1);
+    assert('Combat-anchor orange/red risk skips guided work', mondayEntries.every((entry) => entry.focus == null));
+    assert('Combat-anchor orange/red risk keeps combat anchor', mondayEntries.some((entry) => entry.session_type === 'boxing_practice'));
+})();
+
+(() => {
+    const { camp, weekStartDate } = makeCampPhaseContext('build');
+    const result = generateSmartWeekPlan({
+        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
+        readinessState: 'Caution',
+        phase: 'fight-camp',
+        acwr: 1.18,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'boxing_skill',
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: camp,
+        activeCutPlan: {
+            weigh_in_date: '2026-02-10',
+        } as any,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate,
+        recurringActivities: [
+            makeRecurringActivity('boxing_practice', [1], {
+                estimated_duration_min: 60,
+                expected_intensity: 5,
+            }),
+        ],
+    });
+    const mondayEntries = result.entries.filter((entry) => entry.day_of_week === 1);
+    assert('Active cut + combat anchor blocks extra engine-created stack outside green window', mondayEntries.length === 1);
+    assert('Active cut + combat anchor keeps only combat entry when not green', mondayEntries[0]?.focus == null && mondayEntries[0]?.session_type === 'boxing_practice');
+})();
+
+(() => {
+    const { camp, weekStartDate } = makeCampPhaseContext('build');
+    const result = generateSmartWeekPlan({
         config: makeSmartConfig({ available_days: [1, 2, 3, 4, 5, 6] }),
         readinessState: 'Prime',
         phase: 'fight-camp',

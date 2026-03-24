@@ -32,6 +32,7 @@ import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut.ts';
 import type { CampRiskAssessment } from '../calculateCampRisk.ts';
 
 export type TrainingSessionRole =
+  | 'rest'
   | 'develop'
   | 'express'
   | 'recover'
@@ -103,6 +104,14 @@ export interface TrainingDirective {
   prescription: WorkoutPrescriptionV2 | null;
 }
 
+export interface MissionProtectWindow {
+  active: boolean;
+  reason: string;
+  recentInterventionDays: number;
+  recentHighRiskDays: number;
+  sourceDates: string[];
+}
+
 export interface FuelDirective {
   state: FuelState;
   prioritySession?: FuelPriority;
@@ -151,6 +160,8 @@ export interface MissionRiskState {
   drivers: string[];
   flags?: ReadinessFlag[];
   anchorSummary?: string | null;
+  underlyingLevel?: MissionRiskLevel | null;
+  displayOverride?: 'rest_day_recovery_window' | null;
 }
 
 export interface DecisionTraceItem {
@@ -221,6 +232,7 @@ export interface BuildDailyMissionInput {
   medStatus?: MEDStatus | null;
   riskScore?: number | null;
   riskDrivers?: string[];
+  protectWindow?: MissionProtectWindow | null;
 }
 
 export interface BuildMicrocyclePlanInput {

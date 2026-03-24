@@ -93,7 +93,7 @@ export function buildNutritionQuickActionViewModel(
 
   const { fuelDirective, trainingDirective } = mission;
   const isTrainingDay =
-    trainingDirective.sessionRole !== 'recover';
+    trainingDirective.sessionRole !== 'recover' && trainingDirective.sessionRole !== 'rest';
 
   return {
     fuelDirectiveHeadline: fuelDirective.message || 'Hit your targets today.',

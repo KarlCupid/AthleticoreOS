@@ -7,7 +7,7 @@ export { initFatigueState, processSetCompletion, findSubstituteExercise, getRest
 export { calculateNutritionTargets, computeMacroAdherence, resolveDailyNutritionTargets, resolveDailyMacros } from './calculateNutrition.ts';
 export { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight.ts';
 export { calculateCampRisk } from './calculateCampRisk.ts';
-export { DAILY_ENGINE_VERSION, buildDailyMission, buildMicrocyclePlan } from './calculateMission.ts';
+export { DAILY_ENGINE_VERSION, buildDailyMission, buildMicrocyclePlan, deriveProtectWindowFromRecentMissions } from './calculateMission.ts';
 export * from './calculateCamp.ts';
 export * from './calculateConditioning.ts';
 export * from './calculateDailyCoachDebrief.ts';

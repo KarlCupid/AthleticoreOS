@@ -18,6 +18,12 @@ export function severityColors(severity: EngineReplayFinding['severity']) {
   return { bg: COLORS.surfaceSecondary, fg: COLORS.text.secondary };
 }
 
+export function findingOriginLabel(origin: EngineReplayFinding['origin']) {
+  if (origin === 'engine') return 'Engine';
+  if (origin === 'athlete') return 'Athlete';
+  return 'Scenario';
+}
+
 export function riskColors(level: EngineReplayDay['riskLevel']) {
   if (level === 'critical') return { bg: COLORS.readiness.depletedLight, fg: COLORS.readiness.depleted };
   if (level === 'high') return { bg: '#FDE8E8', fg: COLORS.error };

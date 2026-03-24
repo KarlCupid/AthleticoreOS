@@ -1252,7 +1252,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 return (b.expected_intensity ?? 0) - (a.expected_intensity ?? 0);
             })[0] ?? null;
         const hasHighAnchor = scaledRecurringAnchors.some((activity) => activity.expected_intensity >= 7);
-        const allowDoubleOnDay = config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek);
+        const baseAllowDoubleOnDay = config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek);
+        let allowDoubleOnDay = baseAllowDoubleOnDay;
         const pmSessionBaseIntensity = isDeloadWeek ? 4 : 6;
         const pmSessionIntensity = isBoxingActivityType(config.pm_session_type)
             ? scaleBoxingIntensity(pmSessionBaseIntensity, {
@@ -1330,7 +1331,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         // Reserve sport_specific only for days with an actual sparring anchor.
         // Boxing practice days follow the normal periodised rotation so athletes
         // still get lower / upper_push / upper_pull / full_body sessions.
-        const focus = isSparringDay
+        let focus = isSparringDay
             ? 'sport_specific' as WorkoutFocus
             : nonSparFocuses[nonSparFocusIndex];
 
@@ -1433,9 +1434,34 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             daysOut,
             hasTechnicalSession: scaledRecurringAnchors.some((activity) => activity.activity_type === 'boxing_practice'),
         });
+        const activeCutAllowsDoubleStack = !activeCutPlan || (
+            readinessState === 'Prime'
+            && acwr < 1.2
+            && constraintSet.blockedStimuli.length === 0
+        );
+        allowDoubleOnDay = baseAllowDoubleOnDay && activeCutAllowsDoubleStack;
+
+        if (hasCombatAnchor && activeCutPlan && !activeCutAllowsDoubleStack) {
+            pushCombatEntry('single', 'Guided work skipped — active cut does not allow an extra engine-created stack unless readiness, ACWR, and stimulus constraints are fully green.');
+            continue;
+        }
+
+        if (hasCombatAnchor && performanceRisk.level === 'yellow') {
+            focus = isSparringDay ? 'sport_specific' as WorkoutFocus : 'recovery';
+            targetIntensity = Math.min(targetIntensity, 4);
+            duration = Math.min(duration, 30);
+            notes.push('Combat anchor + yellow risk — guided work was downgraded to low-cost support/recovery before finalizing the day.');
+        } else if (hasCombatAnchor && (performanceRisk.level === 'orange' || performanceRisk.level === 'red')) {
+            pushCombatEntry('single', `Guided work skipped — combat anchor plus ${performanceRisk.level} risk is being defused upstream.`);
+            continue;
+        }
         targetIntensity = Math.min(targetIntensity, performanceRisk.intensityCap);
         duration = Math.max(20, Math.round(duration * performanceRisk.volumeMultiplier));
         duration = Math.min(duration, guidedAvailability.maxMinutes || duration);
+        if (hasCombatAnchor && performanceRisk.level === 'yellow') {
+            targetIntensity = Math.min(targetIntensity, 4);
+            duration = Math.min(duration, 30);
+        }
         if (performanceRisk.level !== 'green') {
             notes.push(`Risk: ${performanceRisk.level}. ${performanceRisk.reasons.join('; ')}.`);
         }

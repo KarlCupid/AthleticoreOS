@@ -89,7 +89,8 @@ export function ReplayBrowser({
         {selectedWeek?.days.map((day) => {
           const risk = riskColors(day.riskLevel);
           const active = day.index === selectedDayIndex;
-          const hasDanger = day.findings?.some((f: any) => f.severity === 'danger') ?? false;
+          const hasEngineDanger = day.engineDangerDay;
+          const hasAthleteOverride = day.athleteOverrideDay;
 
           return (
             <AnimatedPressable
@@ -98,7 +99,8 @@ export function ReplayBrowser({
               style={[
                 styles.dayButton,
                 active && styles.dayButtonActive,
-                hasDanger && styles.dayButtonDanger,
+                hasEngineDanger && styles.dayButtonDanger,
+                !hasEngineDanger && hasAthleteOverride && styles.dayButtonOverride,
               ]}
               accessibilityRole="button"
               accessibilityLabel={`${formatDate(day.date)}, ${formatPhase(day.sessionRole)}, risk ${day.riskLevel}`}
@@ -179,6 +181,10 @@ const styles = StyleSheet.create({
   dayButtonDanger: {
     borderLeftWidth: 3,
     borderLeftColor: COLORS.readiness.depleted,
+  },
+  dayButtonOverride: {
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.readiness.caution,
   },
   dayDate: {
     ...TYPOGRAPHY_V2.plan.caption,

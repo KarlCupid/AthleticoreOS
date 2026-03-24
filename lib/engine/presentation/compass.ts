@@ -4,6 +4,7 @@ import type { CompassViewModel } from './types.ts';
 import { getPrimaryDecisionReason } from './decisionReason.ts';
 
 const SESSION_ROLE_LABELS: Record<TrainingSessionRole, string> = {
+  rest: 'Rest Day',
   develop: 'Development Session',
   express: 'Performance Expression',
   recover: 'Recovery Day',

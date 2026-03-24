@@ -6,6 +6,7 @@ import type {
 } from './types.ts';
 import { 
   buildDailyMission, 
+  deriveProtectWindowFromRecentMissions,
   deriveReadinessProfile,
   deriveStimulusConstraintSet,
   getGlobalReadinessState,
@@ -755,7 +756,12 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       weeklyPlanEntry: primaryPlanEntry as any,
       medStatus: null,
       riskScore: simulatedRiskScore,
-      riskDrivers: simulatedRiskDrivers
+      riskDrivers: simulatedRiskDrivers,
+      protectWindow: deriveProtectWindowFromRecentMissions(
+        dailyLogs
+          .slice(Math.max(0, dailyLogs.length - 3))
+          .map((log) => log.engineState.mission),
+      ),
     });
 
     const hasStructuredPrescription = Array.isArray(mission.trainingDirective.prescription?.exercises)
@@ -775,6 +781,12 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
           trainingIntensityCap: mission.trainingDirective.intensityCap,
         })
       : null;
+    const hasPlannedTraining = hasStructuredPrescription
+      || fallbackConditioningPrescription != null
+      || (
+        mission.trainingDirective.workoutType != null
+        && (mission.trainingDirective.durationMin ?? 0) > 0
+      );
 
     // --- STEP 2.5: Weight Cut & Fatigue Physics (Simulation 6.0) ---
     if (cutProtocol) {
@@ -799,7 +811,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     }
 
     const workoutBlueprint = hasStructuredPrescription
-      ? mission.trainingDirective.prescription.exercises.map((e: any) =>
+      ? mission.trainingDirective.prescription?.exercises.map((e: any) =>
         `${e.exercise.name} (${e.targetSets}x${e.targetReps} @ RPE ${e.targetRPE})`
       ).join(' | ')
       : fallbackConditioningPrescription
@@ -874,7 +886,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     }
 
     // B. Training (Simulation 5.0: Healing Physics)
-    const trainingComplied = random() < persona.workoutCompliance;
+    const trainingComplied = hasPlannedTraining && random() < persona.workoutCompliance;
     
     // Use the capped intensity from the mission as the limit
     const missionCap = mission.trainingDirective.intensityCap;
@@ -922,13 +934,13 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     simState.fatigue.centralFatigue = Math.max(0, simState.fatigue.centralFatigue - (sleepLogged * 5.0 * recoveryEfficiency));
     simState.fatigue.muscularDamage = Math.max(0, simState.fatigue.muscularDamage - (sleepLogged * 5.0 * recoveryEfficiency));
 
-    const completedSession = trainingComplied ? {
+    const completedSession = trainingComplied && hasPlannedTraining ? {
       type: mission.trainingDirective.workoutType || 'unknown',
       sessionName: fallbackConditioningPrescription?.message || mission.trainingDirective.focus || 'Strength & Conditioning',
       prescribedRpe: baseIntensity,
       actualRpe,
-      prescribedDuration: mission.trainingDirective.durationMin || fallbackConditioningPrescription?.totalDurationMin || 60,
-      actualDuration: mission.trainingDirective.durationMin || fallbackConditioningPrescription?.totalDurationMin || 60,
+      prescribedDuration: mission.trainingDirective.durationMin || fallbackConditioningPrescription?.totalDurationMin || 0,
+      actualDuration: mission.trainingDirective.durationMin || fallbackConditioningPrescription?.totalDurationMin || 0,
       tonnage: actualRpe * 1000 // Mock tonnage
     } : null;
     const exerciseLogs = simulateExerciseLogs({
@@ -954,6 +966,9 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     if (mission.riskState.level === 'moderate' || mission.riskState.level === 'high' || mission.riskState.level === 'critical') {
       coachingInsight = `Engine detected high risk (${mission.riskState.level}): ${mission.riskState.drivers[0]}. Pulled back to ${mission.trainingDirective.sessionRole} role.`;
       athleteMonologue = `I'm feeling pretty beat up. My ${mission.riskState.drivers[0].toLowerCase()} is catching up to me. Glad the engine saw it.`;
+    } else if (mission.trainingDirective.sessionRole === 'rest') {
+      coachingInsight = 'Planned rest day. No guided training was assigned.';
+      athleteMonologue = 'Glad to have a real off-day. Time to recover and get ready for the next push.';
     } else if (readinessLogged >= 5) {
       coachingInsight = `Athlete is in Prime shape. Prescribing high-intensity ${mission.trainingDirective.focus} work to capitalize on readiness.`;
       athleteMonologue = `Feeling like a beast today. Ready to smash this session.`;
@@ -1036,11 +1051,11 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       
       // Update Rolling History
       if (hasStructuredPrescription) {
-        const newlyDoneIds = mission.trainingDirective.prescription.exercises.map((e: any) => e.exercise.id);
+        const newlyDoneIds = mission.trainingDirective.prescription?.exercises.map((e: any) => e.exercise.id) || [];
         recentExerciseIds = [...newlyDoneIds, ...recentExerciseIds].slice(0, 20); // Keep last 20 IDs (~3 sessions)
         
         // Update Muscle Volume (approximate sets)
-        mission.trainingDirective.prescription.exercises.forEach((e: any) => {
+        mission.trainingDirective.prescription?.exercises.forEach((e: any) => {
           const mg = e.exercise.muscle_group;
           recentMuscleVolume[mg] = (recentMuscleVolume[mg] || 0) + e.targetSets;
         });

@@ -6,6 +6,7 @@ import {
   calculateNutritionTargets,
   calculateWeightCorrection,
   calculateWeightTrend,
+  deriveProtectWindowFromRecentMissions,
   deriveReadinessProfile,
   deriveStimulusConstraintSet,
   generateWorkoutV2,
@@ -730,6 +731,10 @@ async function resolveWorkoutPrescription(input: {
     return input.weeklyPlanEntry.prescription_snapshot;
   }
 
+  if (!input.weeklyPlanEntry) {
+    return null;
+  }
+
   if (hasCombatAnchor) {
     return null;
   }
@@ -918,6 +923,15 @@ export async function getDailyEngineState(
     acwrRatio: acwr.ratio,
     isTravelWindow: objectiveContext.isTravelWindow,
   });
+  const previousDates = [3, 2, 1].map((delta) => addDays(date, -delta));
+  const previousSnapshots = options.forceRefresh
+    ? new Map()
+    : await getDailyEngineSnapshotsForDates(userId, previousDates);
+  const protectWindow = deriveProtectWindowFromRecentMissions(
+    previousDates
+      .map((previousDate) => previousSnapshots.get(previousDate)?.mission_snapshot)
+      .filter((mission): mission is DailyMission => mission != null),
+  );
 
   const mission = buildDailyMission({
     date,
@@ -949,6 +963,7 @@ export async function getDailyEngineState(
     medStatus,
     riskScore: riskAssessment?.score ?? null,
     riskDrivers: riskAssessment?.drivers ?? [],
+    protectWindow,
   });
 
   await upsertDailyEngineSnapshot({

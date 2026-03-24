@@ -96,6 +96,10 @@ assert('hasPrescription reflects arg', result.hasPrescription === true);
 
 console.log('\n── Session role labels ──');
 
+const restMission = makeMission({ trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'rest' } });
+const restResult = buildCompassViewModel(restMission, false, true, false);
+assert('rest role: label = Rest Day', restResult.sessionRoleLabel === 'Rest Day');
+
 const recoverMission = makeMission({ trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'recover' } });
 const recoverResult = buildCompassViewModel(recoverMission, false, true, false);
 assert('recover role: label = Recovery Day', recoverResult.sessionRoleLabel === 'Recovery Day');

@@ -9,9 +9,11 @@ import type {
 } from './types.ts';
 
 export type EngineReplayFindingSeverity = 'info' | 'warning' | 'danger';
+export type EngineReplayFindingOrigin = 'engine' | 'athlete' | 'scenario';
 
 export interface EngineReplayFinding {
   severity: EngineReplayFindingSeverity;
+  origin: EngineReplayFindingOrigin;
   subsystem: 'training' | 'nutrition' | 'recovery' | 'weight' | 'system';
   title: string;
   detail: string;
@@ -104,6 +106,8 @@ export interface EngineReplayDay {
   sleepLogged: number;
   acwrRatio: number;
   riskLevel: string;
+  underlyingRiskLevel: string | null;
+  riskDisplayOverride: string | null;
   riskScore: number;
   sessionRole: string;
   interventionState: string;
@@ -138,6 +142,11 @@ export interface EngineReplayDay {
   bodyWeightEnd: number;
   prescribedLoad: number;
   actualLoad: number;
+  primaryCause: string | null;
+  contributingFactors: string[];
+  engineDangerDay: boolean;
+  athleteOverrideDay: boolean;
+  scenarioPressureDay: boolean;
   findings: EngineReplayFinding[];
 }
 
@@ -168,9 +177,15 @@ export interface EngineReplayRun {
     weightChangeLbs: number;
     avgReadiness: number;
     interventionDays: number;
+    preCutInterventionDays: number;
+    cutPhaseInterventionDays: number;
     mandatoryRecoveryDays: number;
     highRiskDays: number;
+    engineDangerDays: number;
+    athleteOverrideDays: number;
+    scenarioPressureDays: number;
     findingCounts: Record<EngineReplayFindingSeverity, number>;
+    findingOriginCounts: Record<EngineReplayFindingOrigin, number>;
   };
 }
 
@@ -282,6 +297,61 @@ function severityRank(severity: EngineReplayFindingSeverity): number {
   }
 }
 
+function originRank(origin: EngineReplayFindingOrigin): number {
+  switch (origin) {
+    case 'engine':
+      return 3;
+    case 'athlete':
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+function classifyDriverGroup(driver: string): number {
+  const normalized = driver.toLowerCase();
+  if (
+    normalized.includes('acute load')
+    || normalized.includes('readiness is')
+    || normalized.includes('central fatigue')
+    || normalized.includes('low-energy')
+    || normalized.includes('energy availability')
+    || normalized.includes('red readiness')
+  ) {
+    return 0;
+  }
+  if (
+    normalized.includes('weight cut')
+    || normalized.includes('fight-week cut')
+    || normalized.includes('glycogen')
+    || normalized.includes('dehydr')
+    || normalized.includes('sodium')
+    || normalized.includes('make weight')
+    || normalized.includes('drift')
+    || normalized.includes('cut ')
+  ) {
+    return 1;
+  }
+  if (
+    normalized.includes('double-session')
+    || normalized.includes('sparring is on the schedule')
+    || normalized.includes('hard sparring')
+    || normalized.includes('taper phase')
+    || normalized.includes('travel window')
+  ) {
+    return 2;
+  }
+  return 3;
+}
+
+function orderDrivers(drivers: string[]): string[] {
+  return [...drivers].sort((left, right) => {
+    const groupDelta = classifyDriverGroup(left) - classifyDriverGroup(right);
+    if (groupDelta !== 0) return groupDelta;
+    return left.localeCompare(right);
+  });
+}
+
 function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   const { engineState, personaAction, stateBefore, stateAfter } = log;
   const { mission } = engineState;
@@ -289,12 +359,23 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   const intensityCap = mission.trainingDirective.intensityCap;
   const cutCap = engineState.cutProtocol?.training_intensity_cap ?? null;
   const completedSessions = personaAction.sessionsCompleted ?? [];
+  const underlyingRiskLevel = mission.riskState.underlyingLevel ?? mission.riskState.level;
+  const isRestDayOverride = mission.riskState.displayOverride === 'rest_day_recovery_window';
 
-  if (mission.riskState.level === 'high' || mission.riskState.level === 'critical') {
+  if (isRestDayOverride && mission.trainingDirective.interventionState !== 'none') {
     findings.push({
-      severity: mission.riskState.level === 'critical' ? 'danger' : 'warning',
+      severity: 'warning',
+      origin: 'engine',
       subsystem: 'recovery',
-      title: `Risk ${mission.riskState.level}`,
+      title: 'Recovery day intervention',
+      detail: `Underlying risk reached ${underlyingRiskLevel}, but the engine kept the day as true recovery instead of treating it as a danger day.`,
+    });
+  } else if (underlyingRiskLevel === 'high' || underlyingRiskLevel === 'critical') {
+    findings.push({
+      severity: underlyingRiskLevel === 'critical' ? 'danger' : 'warning',
+      origin: 'engine',
+      subsystem: 'recovery',
+      title: `Risk ${underlyingRiskLevel}`,
       detail: mission.riskState.drivers[0] ?? 'Risk state elevated without a clear primary driver.',
     });
   }
@@ -305,6 +386,7 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   ) {
     findings.push({
       severity: 'danger',
+      origin: 'athlete',
       subsystem: 'training',
       title: 'Mandatory recovery overridden',
       detail: 'The engine locked the day to recovery, but simulated training still occurred.',
@@ -314,6 +396,7 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   if (intensityCap != null && completedSessions.some((session) => session.actualRpe > intensityCap)) {
     findings.push({
       severity: 'warning',
+      origin: 'athlete',
       subsystem: 'training',
       title: 'Actual effort exceeded mission cap',
       detail: `At least one completed session went above the mission intensity cap of ${intensityCap}.`,
@@ -323,6 +406,7 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   if (cutCap != null && completedSessions.some((session) => session.actualRpe > cutCap)) {
     findings.push({
       severity: 'danger',
+      origin: 'athlete',
       subsystem: 'weight',
       title: 'Actual effort exceeded cut cap',
       detail: `At least one completed session went above the cut protection cap of ${cutCap}.`,
@@ -332,6 +416,7 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   if (mission.fuelDirective.safetyWarning === 'critical_energy_availability') {
     findings.push({
       severity: 'danger',
+      origin: 'engine',
       subsystem: 'nutrition',
       title: 'Critical energy warning',
       detail: 'Fueling dropped into the critical energy-availability band for this day.',
@@ -339,6 +424,7 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   } else if (mission.fuelDirective.safetyWarning === 'low_energy_availability') {
     findings.push({
       severity: 'warning',
+      origin: 'engine',
       subsystem: 'nutrition',
       title: 'Low energy warning',
       detail: 'Fueling dropped below the preferred energy-availability floor for this day.',
@@ -353,6 +439,7 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   if (Math.abs(actualMacroCalories - personaAction.actualCalories) > 125) {
     findings.push({
       severity: 'warning',
+      origin: 'athlete',
       subsystem: 'nutrition',
       title: 'Actual calorie mismatch',
       detail: `Actual calorie total and macro-derived calories differ by ${Math.abs(actualMacroCalories - personaAction.actualCalories)} kcal.`,
@@ -362,6 +449,7 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   if (stateAfter.metabolism.currentWeightLbs > stateBefore.metabolism.currentWeightLbs + 1.5 && personaAction.isCheatDay) {
     findings.push({
       severity: 'info',
+      origin: 'athlete',
       subsystem: 'weight',
       title: 'Cheat-day rebound',
       detail: 'Weight jumped materially on a cheat day, which is useful for correction-logic review.',
@@ -371,13 +459,20 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   if (engineState.cutProtocol?.intervention_reason) {
     findings.push({
       severity: 'warning',
+      origin: 'scenario',
       subsystem: 'weight',
       title: 'Cut intervention applied',
       detail: engineState.cutProtocol.intervention_reason,
     });
   }
 
-  return findings.sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
+  return findings.sort((left, right) => {
+    const severityDelta = severityRank(right.severity) - severityRank(left.severity);
+    if (severityDelta !== 0) return severityDelta;
+    const originDelta = originRank(right.origin) - originRank(left.origin);
+    if (originDelta !== 0) return originDelta;
+    return left.title.localeCompare(right.title);
+  });
 }
 
 function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
@@ -388,14 +483,19 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     activity.activity_type === 'boxing_practice' || activity.activity_type === 'sparring',
   );
   const primaryCombatActivity = combatActivities[0] ?? null;
-  const derivedWorkoutType = mission.trainingDirective.workoutType === 'recovery'
-    ? 'recovery'
+  const preserveMissionLabel = mission.trainingDirective.sessionRole === 'rest'
+    || mission.trainingDirective.sessionRole === 'recover'
+    || mission.trainingDirective.sessionRole === 'cut_protect'
+    || mission.trainingDirective.workoutType === 'recovery'
+    || mission.trainingDirective.workoutType == null;
+  const derivedWorkoutType = preserveMissionLabel
+    ? mission.trainingDirective.workoutType
     : primaryCombatActivity?.activity_type === 'sparring'
       ? 'sparring'
       : primaryCombatActivity?.activity_type === 'boxing_practice'
         ? 'practice'
         : mission.trainingDirective.workoutType;
-  const derivedWorkoutTitle = mission.trainingDirective.workoutType === 'recovery'
+  const derivedWorkoutTitle = preserveMissionLabel
     ? (mission.trainingDirective.focus ?? mission.trainingDirective.intent)
     : primaryCombatActivity?.custom_label
       ?? mission.trainingDirective.focus
@@ -413,6 +513,18 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     (sum, session) => sum + (session.prescribedDuration * session.prescribedRpe),
     0,
   );
+  const findings = buildFindings(log);
+  const orderedDrivers = orderDrivers(mission.riskState.drivers ?? []);
+  const engineDangerDay = findings.some((finding) => finding.origin === 'engine' && finding.severity === 'danger');
+  const athleteOverrideDay = findings.some((finding) =>
+    finding.origin === 'athlete'
+    && (
+      finding.title === 'Mandatory recovery overridden'
+      || finding.title === 'Actual effort exceeded mission cap'
+      || finding.title === 'Actual effort exceeded cut cap'
+    ),
+  );
+  const scenarioPressureDay = findings.some((finding) => finding.origin === 'scenario');
 
   return {
     index,
@@ -424,6 +536,8 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     sleepLogged: personaAction.sleepLogged,
     acwrRatio: engineState.acwr.ratio,
     riskLevel: mission.riskState.level,
+    underlyingRiskLevel: mission.riskState.underlyingLevel ?? null,
+    riskDisplayOverride: mission.riskState.displayOverride ?? null,
     riskScore: mission.riskState.score,
     sessionRole: mission.trainingDirective.sessionRole,
     interventionState: mission.trainingDirective.interventionState,
@@ -523,7 +637,12 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     bodyWeightEnd: stateAfter.metabolism.currentWeightLbs,
     prescribedLoad,
     actualLoad,
-    findings: buildFindings(log),
+    primaryCause: orderedDrivers[0] ?? null,
+    contributingFactors: orderedDrivers.slice(1),
+    engineDangerDay,
+    athleteOverrideDay,
+    scenarioPressureDay,
+    findings,
   };
 }
 
@@ -533,10 +652,16 @@ function buildSummary(scenario: EngineReplayScenario, days: EngineReplayDay[]): 
     warning: 0,
     danger: 0,
   };
+  const findingOriginCounts: Record<EngineReplayFindingOrigin, number> = {
+    engine: 0,
+    athlete: 0,
+    scenario: 0,
+  };
 
   for (const day of days) {
     for (const finding of day.findings) {
       findingCounts[finding.severity] += 1;
+      findingOriginCounts[finding.origin] += 1;
     }
   }
 
@@ -549,9 +674,15 @@ function buildSummary(scenario: EngineReplayScenario, days: EngineReplayDay[]): 
     weightChangeLbs: (finalDay?.bodyWeightEnd ?? scenario.config.initialState.weightLbs) - (firstDay?.bodyWeightStart ?? scenario.config.initialState.weightLbs),
     avgReadiness: Number((days.reduce((sum, day) => sum + day.readinessLogged, 0) / Math.max(days.length, 1)).toFixed(1)),
     interventionDays: days.filter((day) => day.interventionState !== 'none').length,
+    preCutInterventionDays: days.filter((day) => day.interventionState !== 'none' && day.cutPhase === 'none').length,
+    cutPhaseInterventionDays: days.filter((day) => day.interventionState !== 'none' && day.cutPhase !== 'none').length,
     mandatoryRecoveryDays: days.filter((day) => day.isMandatoryRecovery).length,
     highRiskDays: days.filter((day) => day.riskLevel === 'high' || day.riskLevel === 'critical').length,
+    engineDangerDays: days.filter((day) => day.engineDangerDay).length,
+    athleteOverrideDays: days.filter((day) => day.athleteOverrideDay).length,
+    scenarioPressureDays: days.filter((day) => day.scenarioPressureDay).length,
     findingCounts,
+    findingOriginCounts,
   };
 }
 
