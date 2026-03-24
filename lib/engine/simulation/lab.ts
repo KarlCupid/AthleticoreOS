@@ -299,7 +299,10 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
     });
   }
 
-  if (mission.trainingDirective.isMandatoryRecovery && completedSessions.some((session) => session.actualRpe > 0)) {
+  if (
+    mission.trainingDirective.isMandatoryRecovery
+    && completedSessions.some((session) => session.actualRpe > 0 && session.type !== 'recovery')
+  ) {
     findings.push({
       severity: 'danger',
       subsystem: 'training',
@@ -381,6 +384,22 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
   const { engineState, personaAction, stateBefore, stateAfter } = log;
   const { mission } = engineState;
   const prescription = mission.trainingDirective.prescription;
+  const combatActivities = (engineState.scheduledActivities ?? []).filter((activity) =>
+    activity.activity_type === 'boxing_practice' || activity.activity_type === 'sparring',
+  );
+  const primaryCombatActivity = combatActivities[0] ?? null;
+  const derivedWorkoutType = mission.trainingDirective.workoutType === 'recovery'
+    ? 'recovery'
+    : primaryCombatActivity?.activity_type === 'sparring'
+      ? 'sparring'
+      : primaryCombatActivity?.activity_type === 'boxing_practice'
+        ? 'practice'
+        : mission.trainingDirective.workoutType;
+  const derivedWorkoutTitle = mission.trainingDirective.workoutType === 'recovery'
+    ? (mission.trainingDirective.focus ?? mission.trainingDirective.intent)
+    : primaryCombatActivity?.custom_label
+      ?? mission.trainingDirective.focus
+      ?? mission.trainingDirective.intent;
   const prescribedCalories = calculateCaloriesFromMacros(
     mission.fuelDirective.protein,
     mission.fuelDirective.carbs,
@@ -409,8 +428,8 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     sessionRole: mission.trainingDirective.sessionRole,
     interventionState: mission.trainingDirective.interventionState,
     isMandatoryRecovery: mission.trainingDirective.isMandatoryRecovery,
-    workoutType: mission.trainingDirective.workoutType ?? null,
-    workoutTitle: mission.trainingDirective.focus ?? mission.trainingDirective.intent,
+    workoutType: derivedWorkoutType,
+    workoutTitle: derivedWorkoutTitle,
     headline: mission.headline,
     summary: mission.summary,
     didWarmup: personaAction.didWarmup,

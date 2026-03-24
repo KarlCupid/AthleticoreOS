@@ -10,7 +10,8 @@ import {
   deriveStimulusConstraintSet,
   getGlobalReadinessState,
   getBoxingIntensityScalar,
-  generateWorkoutV2,
+  generateCampPlan,
+  generateSmartWeekPlan,
   prescribeConditioning,
   generateCutPlan,
   computeDailyCutProtocol
@@ -122,6 +123,90 @@ function normalizeCutProtocol(protocol: any) {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function getWeekStartDate(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  const day = date.getUTCDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  date.setUTCDate(date.getUTCDate() + delta);
+  return date.toISOString().split('T')[0];
+}
+
+function buildSimulationPlanConfig() {
+  const availableDays = [1, 2, 3, 4, 5, 6];
+  return {
+    id: 'sim-plan-config',
+    user_id: 'sim-user',
+    available_days: availableDays,
+    availability_windows: availableDays.map((dayOfWeek) => ({
+      dayOfWeek,
+      startTime: '08:00',
+      endTime: '20:00',
+    })),
+    session_duration_min: 60,
+    allow_two_a_days: false,
+    two_a_day_days: [],
+    am_session_type: 'sc',
+    pm_session_type: 'boxing_practice',
+    preferred_gym_profile_id: null,
+    auto_deload_interval_weeks: 4,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  } as const;
+}
+
+function buildSimulationRecurringActivities() {
+  return [
+    {
+      id: 'sim-boxing-mon',
+      user_id: 'sim-user',
+      activity_type: 'boxing_practice',
+      custom_label: 'Technical Bag Work',
+      start_time: '18:00:00',
+      estimated_duration_min: 60,
+      expected_intensity: 6,
+      session_components: [],
+      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [1] },
+      is_active: true,
+    },
+    {
+      id: 'sim-boxing-tue',
+      user_id: 'sim-user',
+      activity_type: 'boxing_practice',
+      custom_label: 'Pad Work & Drills',
+      start_time: '18:00:00',
+      estimated_duration_min: 45,
+      expected_intensity: 7,
+      session_components: [],
+      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [2] },
+      is_active: true,
+    },
+    {
+      id: 'sim-spar-thu',
+      user_id: 'sim-user',
+      activity_type: 'sparring',
+      custom_label: 'Hard Sparring',
+      start_time: '18:00:00',
+      estimated_duration_min: 60,
+      expected_intensity: 9,
+      session_components: [],
+      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [4] },
+      is_active: true,
+    },
+    {
+      id: 'sim-spar-fri',
+      user_id: 'sim-user',
+      activity_type: 'sparring',
+      custom_label: 'Technical Sparring',
+      start_time: '18:00:00',
+      estimated_duration_min: 45,
+      expected_intensity: 6,
+      session_components: [],
+      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [5] },
+      is_active: true,
+    },
+  ] as any[];
 }
 
 function simulateExerciseLogs(input: {
@@ -338,6 +423,16 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         targetWeight: initialState.targetWeight,
       })
     : null;
+  const simulationCampConfig = initialState.goalMode === 'fight_camp' && initialState.fightDate
+    ? generateCampPlan({
+        userId: 'sim-user',
+        campStartDate: startDate,
+        fightDate: initialState.fightDate,
+        hasConcurrentCut: simulationCutPlan != null,
+      })
+    : null;
+  const simulationPlanConfig = buildSimulationPlanConfig();
+  const simulationRecurringActivities = buildSimulationRecurringActivities();
 
   for (let i = 0; i < days; i++) {
     const dateStr = addIsoDays(startDate, i);
@@ -401,33 +496,11 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     const daysOut = Math.max(0, days - i);
     const isOnActiveCut = initialState.goalMode === 'fight_camp' && daysOut <= 14;
     const simulatedCampPhase = daysOut <= 7 ? 'taper' : daysOut <= 14 ? 'peak' : 'build';
-    const boxingScalar = getBoxingIntensityScalar({ isOnActiveCut, daysOut });
-    
-    // Boxing Template (Recurring Schedule)
-    const boxingTemplate = [
-      { day: 1, name: 'Technical Bag Work', type: 'boxing_practice', intensity: 6, duration: 60 },
-      { day: 2, name: 'Pad Work & Drills', type: 'boxing_practice', intensity: 7, duration: 45 },
-      { day: 4, name: 'Hard Sparring', type: 'sparring', intensity: 9, duration: 60 },
-      { day: 5, name: 'Technical Sparring', type: 'sparring', intensity: 6, duration: 45 },
-    ];
-
-    const todayBoxing = boxingTemplate.find(bt => bt.day === dayOfWeek);
-    const scheduledActivities: ScheduledActivityRow[] = [];
-    
-    if (todayBoxing) {
-      todayBoxing.intensity = Math.max(2, Math.round(todayBoxing.intensity * boxingScalar));
-      scheduledActivities.push({
-        id: `boxing-${i}`,
-        user_id: 'sim-user',
-        activity_type: todayBoxing.type as any,
-        name: todayBoxing.name,
-        expected_intensity: todayBoxing.intensity,
-        estimated_duration_min: todayBoxing.duration,
-        date: dateStr,
-        status: 'scheduled',
-        is_recurring: true
-      } as any);
-    }
+    const simulatedPerformanceGoalType = initialState.goalMode === 'fight_camp' ? 'boxing_skill' : 'strength';
+    const weekStartDate = getWeekStartDate(dateStr);
+    const simulatedPhase = initialState.goalMode === 'fight_camp'
+      ? (simulatedCampPhase === 'build' ? 'camp-build' : simulatedCampPhase === 'peak' ? 'camp-peak' : 'camp-taper')
+      : 'off-season';
 
     const readinessState = getGlobalReadinessState({
       sleep: sleepLogged,
@@ -436,9 +509,64 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       weightPenalty: 0 
     });
 
+    const weeklyPlan = generateSmartWeekPlan({
+      config: simulationPlanConfig as any,
+      readinessState,
+      phase: simulatedPhase as any,
+      acwr: mockACWR.ratio,
+      fitnessLevel: initialState.fitnessLevel as any,
+      performanceGoalType: simulatedPerformanceGoalType as any,
+      exerciseLibrary: currentExercises,
+      recentExerciseIds,
+      recentMuscleVolume: recentMuscleVolume as any,
+      campConfig: simulationCampConfig as any,
+      activeCutPlan: simulationCutPlan as any,
+      weeksSinceLastDeload: Math.max(0, Math.floor(i / 7) % 4),
+      gymProfile: null,
+      weekStartDate,
+      recurringActivities: simulationRecurringActivities as any,
+    });
+
+    const todaysPlanEntries = weeklyPlan.entries.filter((entry) => entry.date === dateStr);
+    const primaryPlanEntry = todaysPlanEntries.find((entry) => entry.focus != null || entry.prescription_snapshot != null)
+      ?? todaysPlanEntries[0]
+      ?? null;
+    const primaryEnginePlanEntry = todaysPlanEntries.find((entry) => entry.focus != null || entry.prescription_snapshot != null) ?? null;
+    const scheduledActivities: ScheduledActivityRow[] = todaysPlanEntries.map((entry, entryIndex) => ({
+      id: `sim-${dateStr}-${entryIndex}`,
+      recurring_activity_id: null,
+      user_id: 'sim-user',
+      date: dateStr,
+      activity_type: entry.session_type as any,
+      custom_label: entry.session_type === 'boxing_practice'
+        ? (dayOfWeek === 1 ? 'Technical Bag Work' : 'Pad Work & Drills')
+        : entry.session_type === 'sparring'
+          ? (dayOfWeek === 4 ? 'Hard Sparring' : 'Technical Sparring')
+          : entry.focus?.replace(/_/g, ' ') ?? entry.session_type,
+      start_time: entry.slot === 'pm' ? '18:00:00' : entry.slot === 'am' ? '08:00:00' : null,
+      estimated_duration_min: entry.estimated_duration_min,
+      session_components: [],
+      source: 'engine',
+      status: 'scheduled',
+      actual_duration_min: null,
+      actual_rpe: null,
+      notes: entry.engine_notes ?? null,
+      engine_recommendation: entry.engine_notes ?? null,
+      expected_intensity: entry.target_intensity ?? 5,
+    } as any));
+    const todayBoxingActivity = scheduledActivities.find((activity) =>
+      activity.activity_type === 'boxing_practice' || activity.activity_type === 'sparring',
+    ) ?? null;
+    const todayBoxing = todayBoxingActivity ? {
+      name: todayBoxingActivity.custom_label ?? todayBoxingActivity.activity_type,
+      type: todayBoxingActivity.activity_type,
+      intensity: todayBoxingActivity.expected_intensity,
+      duration: todayBoxingActivity.estimated_duration_min,
+    } : null;
+
     const performanceObjective: PerformanceObjective = {
       mode: initialState.goalMode,
-      goalType: 'strength',
+      goalType: simulatedPerformanceGoalType,
       primaryOutcome: initialState.goalMode === 'fight_camp' ? 'Fight Readiness' : 'Build Strength',
       secondaryConstraint: 'protect_recovery',
       goalLabel: 'Simulated Goal',
@@ -452,18 +580,15 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
     const macrocycleContext: MacrocycleContext = {
       date: dateStr,
-      phase: i < (days - 7) ? 'camp-build' : 'camp-peak',
+      phase: simulatedPhase as any,
       goalMode: initialState.goalMode,
-      performanceGoalType: 'strength',
+      performanceGoalType: simulatedPerformanceGoalType as any,
       performanceObjective,
       buildGoal: null,
-      camp: initialState.goalMode === 'fight_camp' ? {
-        id: 'sim-camp',
-        user_id: 'sim-user',
-        fightDate: initialState.fightDate || '',
+      camp: simulationCampConfig ? {
+        ...simulationCampConfig,
         targetWeight: initialState.targetWeight || 170,
         weightCutState: isOnActiveCut ? 'driving' : 'none',
-        totalWeeks: weeks,
         createdAt: '',
         updatedAt: ''
       } as any : null,
@@ -516,7 +641,22 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     }
 
     const simulatedRiskDrivers: string[] = [];
-    const simulatedRiskScore = Math.max(0, Math.round(simState.fatigue.centralFatigue - 45));
+    const combatLoad = scheduledActivities
+      .filter((activity) => activity.activity_type === 'boxing_practice' || activity.activity_type === 'sparring')
+      .reduce((sum, activity) => sum + ((activity.expected_intensity * activity.estimated_duration_min) / 10), 0);
+    const guidedLoad = scheduledActivities
+      .filter((activity) => activity.activity_type === 'sc' || activity.activity_type === 'conditioning')
+      .reduce((sum, activity) => sum + ((activity.expected_intensity * activity.estimated_duration_min) / 12), 0);
+    const simulatedRiskScore = Math.max(
+      0,
+      Math.round((simState.fatigue.centralFatigue - 39) + (combatLoad * 0.31) + (guidedLoad * 0.12) + (scheduledActivities.length >= 2 ? 4 : 0)),
+    );
+    if (scheduledActivities.length >= 2) {
+      simulatedRiskDrivers.push('Double-session day is stacking combat and S&C stress.');
+    }
+    if (scheduledActivities.some((activity) => activity.activity_type === 'sparring' && activity.expected_intensity >= 7)) {
+      simulatedRiskDrivers.push('Hard sparring is on the schedule today.');
+    }
     if (simState.fatigue.centralFatigue >= 85) {
       simulatedRiskDrivers.push('Central fatigue is above 85 and needs intervention.');
     }
@@ -556,7 +696,13 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         message: 'Base Simulation TDEE',
         source: 'base',
         fuelState: 'aerobic',
-        prioritySession: todayBoxing?.type === 'sparring' ? 'sparring' : todayBoxing?.type === 'boxing_practice' ? 'boxing_practice' : 'conditioning',
+        prioritySession: todayBoxing?.type === 'sparring'
+          ? 'sparring'
+          : todayBoxing?.type === 'boxing_practice'
+            ? 'boxing_practice'
+            : primaryPlanEntry?.session_type === 'conditioning'
+              ? 'conditioning'
+              : 'heavy_sc',
         deficitClass: initialState.goalMode === 'fight_camp' ? 'steady_cut' : 'steady_maintain',
         recoveryNutritionFocus: 'none',
         sessionDemandScore: 50,
@@ -568,9 +714,21 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
           notes: [],
         },
         sessionFuelingPlan: {
-          priority: todayBoxing?.type === 'sparring' ? 'sparring' : todayBoxing?.type === 'boxing_practice' ? 'boxing_practice' : 'conditioning',
-          priorityLabel: todayBoxing?.type === 'sparring' ? 'Sparring' : todayBoxing?.type === 'boxing_practice' ? 'Boxing practice' : 'Conditioning',
-          sessionLabel: todayBoxing?.name || 'Simulation training',
+          priority: todayBoxing?.type === 'sparring'
+            ? 'sparring'
+            : todayBoxing?.type === 'boxing_practice'
+              ? 'boxing_practice'
+              : primaryPlanEntry?.session_type === 'conditioning'
+                ? 'conditioning'
+                : 'heavy_sc',
+          priorityLabel: todayBoxing?.type === 'sparring'
+            ? 'Sparring'
+            : todayBoxing?.type === 'boxing_practice'
+              ? 'Boxing practice'
+              : primaryPlanEntry?.session_type === 'conditioning'
+                ? 'Conditioning'
+                : 'Heavy S&C',
+          sessionLabel: todayBoxing?.name || primaryPlanEntry?.focus?.replace(/_/g, ' ') || 'Simulation training',
           preSession: { label: 'Before training', timing: '60-90 min', carbsG: 40, proteinG: 20, notes: [] },
           intraSession: { fluidsOz: 20, electrolytesMg: 600, carbsG: 15, notes: [] },
           betweenSessions: null,
@@ -593,20 +751,8 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         expected_intensity: a.expected_intensity
       })),
       cutProtocol: cutProtocol as any,
-      workoutPrescription: generateWorkoutV2({
-        readinessState,
-        readinessProfile,
-        constraintSet,
-        phase: i < (days - 7) ? 'camp-build' : 'camp-peak',
-        acwr: mockACWR.ratio,
-        exerciseLibrary: currentExercises,
-        recentExerciseIds,
-        recentMuscleVolume: recentMuscleVolume as any,
-        trainingDate: dateStr,
-        fitnessLevel: initialState.fitnessLevel as any,
-        performanceGoalType: macrocycleContext.performanceGoalType,
-      }) as any,
-      weeklyPlanEntry: null,
+      workoutPrescription: primaryPlanEntry?.prescription_snapshot ?? null,
+      weeklyPlanEntry: primaryPlanEntry as any,
       medStatus: null,
       riskScore: simulatedRiskScore,
       riskDrivers: simulatedRiskDrivers
@@ -663,7 +809,9 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
             : `${exercise.rounds} rounds x ${exercise.reps ?? 0} reps`;
           return `${exercise.name} (${effort})`;
         }).join(' | ')
-        : 'Rest Day';
+        : todayBoxing
+          ? `${todayBoxing.name} (${todayBoxing.duration} min @ RPE ${todayBoxing.intensity})`
+          : 'Rest Day';
 
     // --- STEP 3: Persona Reaction & Biological Physics ---
 
@@ -757,6 +905,17 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       }
     }
 
+    if (todayBoxing && todayBoxing.intensity > 0) {
+      const boxingStressMultiplier = todayBoxing.type === 'sparring' ? 1.25 : 0.85;
+      const boxingFatigue = ((Math.pow(todayBoxing.intensity, 2) * (todayBoxing.duration / 60)) / 2) * boxingStressMultiplier;
+      simState.fatigue.centralFatigue = Math.min(100, simState.fatigue.centralFatigue + (boxingFatigue * 0.85));
+      simState.fatigue.muscularDamage = Math.min(100, simState.fatigue.muscularDamage + (boxingFatigue * (todayBoxing.type === 'sparring' ? 0.95 : 0.65)));
+      simState.metabolism.glycogenStores = Math.max(
+        0.1,
+        simState.metabolism.glycogenStores - (todayBoxing.type === 'sparring' ? 0.08 : 0.04),
+      );
+    }
+
     // C. Natural Recovery (Overnight)
     // Add Biological Variance (+/- 20% to recovery efficiency)
     const recoveryEfficiency = 0.8 + (random() * 0.4);
@@ -819,14 +978,14 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         readinessState,
         readinessProfile,
         constraintSet,
-        cutProtocol: null,
+        cutProtocol: cutProtocol as any,
         nutritionTargets: mission.fuelDirective as any,
         hydration: mission.hydrationDirective as any,
-        scheduledActivities: [],
-        weeklyPlanEntries: [],
-        primaryScheduledActivity: null,
-        primaryPlanEntry: null,
-        primaryEnginePlanEntry: null,
+        scheduledActivities: scheduledActivities as any,
+        weeklyPlanEntries: todaysPlanEntries as any,
+        primaryScheduledActivity: scheduledActivities[0] ?? null,
+        primaryPlanEntry: primaryPlanEntry as any,
+        primaryEnginePlanEntry: primaryEnginePlanEntry as any,
         workoutPrescription: mission.trainingDirective.prescription ?? null,
         mission,
         campRisk: null,

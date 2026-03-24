@@ -49,7 +49,9 @@
       "Bash(do echo:*)",
       "Read(//c/Users/karll/Documents/Athleticore OS/**)",
       "Bash(done)",
-      "Bash(grep -rn \"from ''\\\\.\\\\/\\\\.ts''\" lib/engine/ --include=\"*.test.ts\" -l)"
+      "Bash(grep -rn \"from ''\\\\.\\\\/\\\\.ts''\" lib/engine/ --include=\"*.test.ts\" -l)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

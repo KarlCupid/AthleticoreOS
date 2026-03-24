@@ -107,6 +107,199 @@ function createFallbackReadinessProfile(input: {
     });
 }
 
+type CampTemplateBucket = 'strength' | 'conditioning' | 'recovery';
+
+interface CampMicrocycleTemplateToken {
+    focus: WorkoutFocus;
+    required: boolean;
+    phase: CampPhase;
+    priority: number;
+    bucket: CampTemplateBucket;
+    fallbackFocus?: WorkoutFocus;
+    fallbackBucket?: CampTemplateBucket;
+}
+
+type CampMicrocycleTemplate = CampMicrocycleTemplateToken[];
+
+function isStrengthFocus(focus: WorkoutFocus): boolean {
+    return focus === 'lower'
+        || focus === 'upper_push'
+        || focus === 'upper_pull'
+        || focus === 'full_body';
+}
+
+function resolveRecurringAnchorsForDay(
+    recurringActivities: RecurringActivityRow[],
+    dayOfWeek: number,
+    entryDate: string,
+): RecurringActivityRow[] {
+    return recurringActivities.filter((activity) => {
+        if (!activity.is_active) return false;
+        if (activity.recurrence.frequency === 'daily') return true;
+        if (activity.recurrence.frequency === 'weekly') {
+            return activity.recurrence.days_of_week?.includes(dayOfWeek) ?? false;
+        }
+        return activity.recurrence.day_of_month === dateFromISO(entryDate).getDate();
+    });
+}
+
+function getCampStrengthFocusSequence(input: {
+    performanceGoalType: SmartWeekPlanInput['performanceGoalType'];
+    blockContext: ReturnType<typeof resolveTrainingBlockContext>;
+    isDeloadWeek: boolean;
+}): WorkoutFocus[] {
+    const { performanceGoalType = 'conditioning', blockContext, isDeloadWeek } = input;
+    const rotation = getGoalBasedFocusRotation({
+        performanceGoalType,
+        scDayCount: 4,
+        isDeloadWeek,
+        blockContext,
+    });
+    const fallbackByGoal: Record<NonNullable<SmartWeekPlanInput['performanceGoalType']>, WorkoutFocus[]> = {
+        strength: ['lower', 'upper_push', 'upper_pull', 'full_body'],
+        conditioning: ['lower', 'upper_pull', 'full_body', 'upper_push'],
+        boxing_skill: ['lower', 'upper_pull', 'upper_push', 'full_body'],
+        weight_class_prep: ['full_body', 'upper_pull', 'lower', 'upper_push'],
+    };
+    const ordered = [...rotation, ...fallbackByGoal[performanceGoalType]];
+    const seen = new Set<WorkoutFocus>();
+    const result: WorkoutFocus[] = [];
+
+    for (const focus of ordered) {
+        if (!isStrengthFocus(focus) || seen.has(focus)) continue;
+        seen.add(focus);
+        result.push(focus);
+    }
+
+    return result.length > 0
+        ? result
+        : ['full_body', 'lower', 'upper_push', 'upper_pull'];
+}
+
+function buildCampMicrocycleTemplate(input: {
+    campPhase: CampPhase;
+    performanceGoalType: SmartWeekPlanInput['performanceGoalType'];
+    blockContext: ReturnType<typeof resolveTrainingBlockContext>;
+    isDeloadWeek: boolean;
+    capacity: number;
+    sparringDayCount: number;
+    campModifiers: ReturnType<typeof getCampTrainingModifiers> | null;
+}): CampMicrocycleTemplate {
+    const {
+        campPhase,
+        performanceGoalType,
+        blockContext,
+        isDeloadWeek,
+        capacity,
+        sparringDayCount,
+        campModifiers,
+    } = input;
+    const remainingCapacity = Math.max(0, capacity - sparringDayCount);
+    if (remainingCapacity <= 0) return [];
+
+    const strengthFocuses = getCampStrengthFocusSequence({
+        performanceGoalType,
+        blockContext,
+        isDeloadWeek,
+    });
+    const makeToken = (
+        focus: WorkoutFocus,
+        bucket: CampTemplateBucket,
+        required: boolean,
+        priority: number,
+        fallbackFocus?: WorkoutFocus,
+        fallbackBucket?: CampTemplateBucket,
+    ): CampMicrocycleTemplateToken => ({
+        focus,
+        required,
+        phase: campPhase,
+        priority,
+        bucket,
+        fallbackFocus,
+        fallbackBucket,
+    });
+
+    const rawTemplate: CampMicrocycleTemplate = (() => {
+        if (campPhase === 'base') {
+            return [
+                makeToken(strengthFocuses[0] ?? 'lower', 'strength', true, 0),
+                makeToken(strengthFocuses[1] ?? 'upper_push', 'strength', true, 1),
+                makeToken('conditioning', 'conditioning', true, 2),
+                makeToken('full_body', 'strength', false, 3, 'recovery', 'recovery'),
+            ];
+        }
+
+        if (campPhase === 'build') {
+            return [
+                makeToken(strengthFocuses[0] ?? 'full_body', 'strength', true, 0),
+                makeToken(strengthFocuses[1] ?? 'upper_pull', 'strength', true, 1),
+                makeToken('conditioning', 'conditioning', true, 2),
+                makeToken('recovery', 'recovery', false, 3),
+            ];
+        }
+
+        if (campPhase === 'peak') {
+            return [
+                makeToken(strengthFocuses[0] ?? 'full_body', 'strength', true, 0),
+                makeToken('conditioning', 'conditioning', true, 1),
+                makeToken('recovery', 'recovery', false, 2),
+            ];
+        }
+
+        return [
+            makeToken('recovery', 'recovery', true, 0),
+            makeToken('recovery', 'recovery', false, 1),
+        ];
+    })();
+
+    const rawStrengthCount = rawTemplate.filter((token) => token.bucket === 'strength').length;
+    const rawConditioningCount = rawTemplate.filter((token) => token.bucket === 'conditioning').length;
+    const strengthCeiling = campPhase === 'taper'
+        ? 0
+        : Math.min(
+            rawStrengthCount,
+            Math.max(1, campModifiers?.scSessionsPerWeek ?? rawStrengthCount),
+        );
+    const conditioningCeiling = Math.min(
+        rawConditioningCount,
+        campModifiers?.conditioningSessionsPerWeek ?? rawConditioningCount,
+    );
+    const bucketCounts: Record<CampTemplateBucket, number> = {
+        strength: 0,
+        conditioning: 0,
+        recovery: 0,
+    };
+    const resolved: CampMicrocycleTemplate = [];
+
+    for (const token of rawTemplate) {
+        if (resolved.length >= remainingCapacity) break;
+
+        let candidate = token;
+        if (candidate.bucket === 'strength' && bucketCounts.strength >= strengthCeiling) {
+            if (candidate.fallbackFocus && candidate.fallbackBucket) {
+                candidate = {
+                    ...candidate,
+                    focus: candidate.fallbackFocus,
+                    bucket: candidate.fallbackBucket,
+                    fallbackFocus: undefined,
+                    fallbackBucket: undefined,
+                };
+            } else {
+                continue;
+            }
+        }
+
+        if (candidate.bucket === 'conditioning' && bucketCounts.conditioning >= conditioningCeiling) {
+            continue;
+        }
+
+        bucketCounts[candidate.bucket] += 1;
+        resolved.push(candidate);
+    }
+
+    return resolved;
+}
+
 /**
  * Given the user's recurring template, readiness, ACWR, phase, fitness level,
  * camp config, and weekly targets - produces a full weekly schedule including
@@ -955,18 +1148,17 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
 
     // ── 2. Resolve camp context ──
     let campPhase: CampPhase | null = null;
-    let sparringDaysThisWeek = 0;
+    let campModifiers: ReturnType<typeof getCampTrainingModifiers> | null = null;
     if (campConfig) {
         campPhase = determineCampPhase(campConfig, weekStartDate);
         if (campPhase) {
-            const mods = getCampTrainingModifiers(campPhase, fitnessLevel, campConfig.hasConcurrentCut);
-            sparringDaysThisWeek = mods.sparringDaysPerWeek;
+            campModifiers = getCampTrainingModifiers(campPhase, fitnessLevel, campConfig.hasConcurrentCut);
         }
     }
 
-    // ── 3. Determine available S&C days ──
+    // ── 3. Determine guided-session capacity ──
     const availableDays = config.available_days; // 0=Sun..6=Sat
-    const scDayCount = isDeloadWeek
+    const guidedCapacity = isDeloadWeek
         ? Math.min(availableDays.length, 3) // deload: max 3 sessions
         : availableDays.length;
     const blockContext = resolveTrainingBlockContext({
@@ -975,19 +1167,6 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         weeksSinceLastDeload,
         isDeloadWeek,
     });
-
-    // ── 4. Build focus rotation ──
-    const baseFocuses = getGoalBasedFocusRotation({
-        performanceGoalType,
-        scDayCount,
-        isDeloadWeek,
-        blockContext,
-    });
-
-    // ── 5. Map days to entries ──
-    const entries: WeeklyPlanEntryRow[] = [];
-    const weeklyFocusSplit: Partial<Record<WorkoutFocus, number>> = {};
-    let guidedEntryCount = 0;
 
     // Sort available days to place them chronologically starting from weekStartDate
     const weekStartDay = dateFromISO(weekStartDate).getDay();
@@ -999,6 +1178,37 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         if (bOffset < 0) bOffset += 7;
         return aOffset - bOffset;
     });
+
+    const actualSparringDaysThisWeek = sortedDays.filter((dayOfWeek) => {
+        let offset = dayOfWeek - weekStartDay;
+        if (offset < 0) offset += 7;
+        const entryDate = addDays(weekStartDate, offset);
+        const recurringAnchors = resolveRecurringAnchorsForDay(recurringActivities, dayOfWeek, entryDate);
+        return recurringAnchors.some((activity) => activity.activity_type === 'sparring');
+    }).length;
+
+    // ── 4. Build focus rotation or camp template ──
+    const nonSparFocuses = campPhase
+        ? buildCampMicrocycleTemplate({
+            campPhase,
+            performanceGoalType,
+            blockContext,
+            isDeloadWeek,
+            capacity: guidedCapacity,
+            sparringDayCount: actualSparringDaysThisWeek,
+            campModifiers,
+        }).map((token) => token.focus)
+        : getGoalBasedFocusRotation({
+            performanceGoalType,
+            scDayCount: guidedCapacity,
+            isDeloadWeek,
+            blockContext,
+        });
+
+    // ── 5. Map days to entries ──
+    const entries: WeeklyPlanEntryRow[] = [];
+    const weeklyFocusSplit: Partial<Record<WorkoutFocus, number>> = {};
+    let nonSparFocusIndex = 0;
 
     for (let i = 0; i < sortedDays.length; i++) {
 
@@ -1017,14 +1227,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             daysOut,
         });
 
-        const recurringAnchors = recurringActivities.filter((activity) => {
-            if (!activity.is_active) return false;
-            if (activity.recurrence.frequency === 'daily') return true;
-            if (activity.recurrence.frequency === 'weekly') {
-                return activity.recurrence.days_of_week?.includes(dayOfWeek) ?? false;
-            }
-            return activity.recurrence.day_of_month === dateFromISO(entryDate).getDate();
-        });
+        const recurringAnchors = resolveRecurringAnchorsForDay(recurringActivities, dayOfWeek, entryDate);
         const scaledRecurringAnchors = recurringAnchors.map((activity) =>
             isBoxingActivityType(activity.activity_type)
                 ? {
@@ -1057,11 +1260,6 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 daysOut,
             })
             : pmSessionBaseIntensity;
-        const _pmSessionNote = boxingScalar < 1 && isBoxingActivityType(config.pm_session_type)
-            ? 'Boxing taper active - PM session intensity reduced 40%.'
-            : isDeloadWeek
-                ? 'Deload â€” light PM session.'
-                : 'PM session.';
         const primaryCombatAnchorStart = parseTimeToMinutes(primaryCombatAnchor?.start_time ?? null);
         const primaryCombatAnchorEnd = primaryCombatAnchorStart != null && primaryCombatAnchor
             ? primaryCombatAnchorStart + primaryCombatAnchor.estimated_duration_min
@@ -1102,7 +1300,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             });
         };
 
-        if (guidedEntryCount >= scDayCount) {
+        if (!isSparringDay && nonSparFocusIndex >= nonSparFocuses.length) {
             if (primaryCombatAnchor) {
                 pushCombatEntry('single', 'Fixed combat session.');
             } else if (allowDoubleOnDay) {
@@ -1134,7 +1332,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         // still get lower / upper_push / upper_pull / full_body sessions.
         const focus = isSparringDay
             ? 'sport_specific' as WorkoutFocus
-            : baseFocuses[guidedEntryCount % baseFocuses.length];
+            : nonSparFocuses[nonSparFocusIndex];
 
         // Determine intensity
         let targetIntensity: number;
@@ -1243,7 +1441,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         }
         const hasWindowCapacity = guidedAvailability.maxMinutes >= MIN_GUIDED_DURATION_MIN;
         const hypotheticalSessionType = classifyGuidedSessionType({ focus });
-        const dayLoadValidation: any = hasWindowCapacity && duration >= MIN_GUIDED_DURATION_MIN
+        const dayLoadValidation: any = !isSparringDay && hasWindowCapacity && duration >= MIN_GUIDED_DURATION_MIN
             ? validateDayLoad([
                 ...scaledRecurringAnchors.map((activity) => ({
                     activity_type: activity.activity_type,
@@ -1305,7 +1503,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
 
         // Primary session entry
         entries.push({
-            id: `${weekStartDate}-${dayOfWeek}-guided-${guidedEntryCount}`,
+            id: `${weekStartDate}-${dayOfWeek}-guided-${isSparringDay ? `spar-${i}` : nonSparFocusIndex}`,
             user_id: config.user_id,
             week_start_date: weekStartDate,
             day_of_week: dayOfWeek,
@@ -1325,7 +1523,9 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         });
 
         weeklyFocusSplit[focus] = (weeklyFocusSplit[focus] ?? 0) + 1;
-        guidedEntryCount++;
+        if (!isSparringDay) {
+            nonSparFocusIndex++;
+        }
 
         if (primaryCombatAnchor) {
             pushCombatEntry(guidedSlot === 'am' ? 'pm' : 'am', 'Fixed combat session.');
@@ -1368,8 +1568,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         message = `Recovery week: ${guidedEntries.length} guided session${guidedEntries.length === 1 ? '' : 's'} (${scheduledDayNames}). ${deloadReason}`;
     } else if (campPhase) {
         message = `Camp ${campPhase} phase: ${guidedEntries.length} guided session${guidedEntries.length === 1 ? '' : 's'} (${scheduledDayNames}).`;
-        if (sparringDaysThisWeek > 0) {
-            message += ` ${sparringDaysThisWeek} sparring day(s) with activation-only S&C.`;
+        if (actualSparringDaysThisWeek > 0) {
+            message += ` ${actualSparringDaysThisWeek} sparring day(s) with activation-only S&C.`;
         }
     } else {
         message = `${guidedEntries.length}-day guided split (${scheduledDayNames}).`;

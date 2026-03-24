@@ -84,7 +84,7 @@ function inferSessionRole(input: {
     return isOnActiveCut ? 'cut_protect' : 'recover';
   }
   if (campPhase === 'taper') return 'taper_sharpen';
-  if (hasSparring || focus === 'sport_specific') return 'spar_support';
+  if (hasSparring) return 'spar_support';
   if (campPhase === 'peak') return 'express';
   if (campPhase === 'build' || campPhase === 'base') return 'develop';
   if ((intensityCap ?? 0) >= 8 && !isOnActiveCut) return 'express';
@@ -273,28 +273,34 @@ function summarizeVolume(durationMin: number | null, exerciseCount: number): str
 }
 
 function buildTrainingDirective(input: BuildDailyMissionInput, riskState: MissionRiskState): TrainingDirective {
-  const focus = input.workoutPrescription?.focus ?? input.weeklyPlanEntry?.focus ?? null;
-  const workoutType = input.workoutPrescription?.workoutType
+  const plannedFocus = input.workoutPrescription?.focus ?? input.weeklyPlanEntry?.focus ?? null;
+  const plannedWorkoutType = input.workoutPrescription?.workoutType
     ?? inferWorkoutType(input.weeklyPlanEntry?.session_type);
-  const durationMin = input.weeklyPlanEntry?.estimated_duration_min
+  const plannedDurationMin = input.weeklyPlanEntry?.estimated_duration_min
     ?? input.workoutPrescription?.estimatedDurationMin
     ?? null;
-  let intensityCap = input.cutProtocol?.training_intensity_cap
+  const plannedIntensityCap = input.cutProtocol?.training_intensity_cap
     ?? input.constraintSet.hardCaps.intensityCap
     ?? input.weeklyPlanEntry?.target_intensity
     ?? null;
-  const intervention = checkInterventionStatus(riskState, intensityCap);
-  intensityCap = intervention.enforcedIntensityCap;
+  const intervention = checkInterventionStatus(riskState, plannedIntensityCap);
+  const intensityCap = intervention.enforcedIntensityCap;
 
   const hasSparring = input.scheduledActivities.some((activity) => activity.activity_type === 'sparring');
   const inferredRole = inferSessionRole({
     campPhase: input.macrocycleContext.campPhase,
-    focus,
-    intensityCap,
+    focus: plannedFocus,
+    intensityCap: plannedIntensityCap,
     isOnActiveCut: input.macrocycleContext.isOnActiveCut,
     hasSparring,
   });
   const sessionRole = intervention.forcedSessionRole ?? inferredRole;
+  const focus = sessionRole === 'recover' ? 'recovery' : plannedFocus;
+  const workoutType = sessionRole === 'recover' ? 'recovery' : plannedWorkoutType;
+  const durationMin = sessionRole === 'recover'
+    ? Math.min(plannedDurationMin ?? (intervention.isMandatoryRecovery ? 20 : 30), intervention.isMandatoryRecovery ? 20 : 30)
+    : plannedDurationMin;
+  const prescription = sessionRole === 'recover' ? null : input.workoutPrescription;
   const source: DirectiveSource = input.cutProtocol ? 'weight_cut_protocol'
     : input.weeklyPlanEntry?.prescription_snapshot ? 'weekly_plan_snapshot'
       : 'daily_engine';
@@ -320,7 +326,7 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     constraintSet: input.constraintSet,
     medStatus: input.medStatus ?? null,
     source,
-    prescription: input.workoutPrescription,
+    prescription,
   };
 }
 

@@ -214,6 +214,24 @@ console.log('\n── Session role inference ──');
 })();
 
 (() => {
+    // boxing practice alone should not force spar_support
+    const mission = buildDailyMission(makeInput({
+        macrocycleContext: {
+            ...makeInput().macrocycleContext,
+            campPhase: 'build',
+        },
+        scheduledActivities: [
+            { date: '2026-03-10', activity_type: 'boxing_practice', estimated_duration_min: 60, expected_intensity: 6, status: 'planned' },
+        ],
+        weeklyPlanEntry: {
+            session_type: 'sc',
+            focus: 'sport_specific',
+        },
+    }));
+    assert('boxing_practice alone does not trigger spar_support', mission.trainingDirective.sessionRole === 'develop');
+})();
+
+(() => {
     // default with no special conditions -> develop
     const mission = buildDailyMission(makeInput({
         macrocycleContext: {
@@ -222,6 +240,25 @@ console.log('\n── Session role inference ──');
         },
     }));
     assert('Default -> develop', mission.trainingDirective.sessionRole === 'develop');
+})();
+
+(() => {
+    // Soft intervention should cap output without auto-converting the day into recover
+    const mission = buildDailyMission(makeInput({
+        macrocycleContext: {
+            ...makeInput().macrocycleContext,
+            campPhase: 'build',
+        },
+        weeklyPlanEntry: {
+            session_type: 'sc',
+            focus: 'lower',
+            target_intensity: 7,
+            estimated_duration_min: 60,
+        },
+        riskScore: 58,
+    }));
+    assert('Soft intervention keeps planned role instead of auto-recover', mission.trainingDirective.sessionRole === 'develop');
+    assert('Soft intervention still caps intensity', (mission.trainingDirective.intensityCap ?? 10) <= 4);
 })();
 
 // ─── Risk state scoring ──────────────────────────────────────
@@ -295,11 +332,26 @@ console.log('\n── Intervention thresholds ──');
             weightCutState: 'driving',
             isOnActiveCut: true,
         },
+        weeklyPlanEntry: {
+            session_type: 'sc',
+            focus: 'lower',
+            target_intensity: 8,
+            estimated_duration_min: 60,
+        },
+        workoutPrescription: {
+            focus: 'lower',
+            workoutType: 'strength',
+            estimatedDurationMin: 60,
+            summary: 'Heavy lower',
+            exercises: [],
+        },
     }));
     assert('Hard intervention state', mission.trainingDirective.interventionState === 'hard');
     assert('Mandatory recovery', mission.trainingDirective.isMandatoryRecovery === true);
     assert('Intensity cap = 2', mission.trainingDirective.intensityCap === 2);
     assert('Forced session role = recover', mission.trainingDirective.sessionRole === 'recover');
+    assert('Mandatory recovery rewrites workout type', mission.trainingDirective.workoutType === 'recovery');
+    assert('Mandatory recovery clears carried prescription', mission.trainingDirective.prescription == null);
 })();
 
 (() => {
