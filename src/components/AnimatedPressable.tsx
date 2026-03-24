@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Pressable, ViewStyle, StyleProp } from 'react-native';
+import { Pressable, PressableProps, ViewStyle, StyleProp } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -10,7 +10,7 @@ import { ANIMATION } from '../theme/theme';
 
 const AnimatedPressableView = Animated.createAnimatedComponent(Pressable);
 
-interface AnimatedPressableProps {
+interface AnimatedPressableProps extends Omit<PressableProps, 'onPress' | 'onLongPress' | 'onPressIn' | 'onPressOut' | 'disabled' | 'style' | 'children'> {
     children: ReactNode;
     onPress?: () => void;
     onLongPress?: () => void;
@@ -28,6 +28,7 @@ export function AnimatedPressable({
     style,
     disabled = false,
     activeScale = 0.97,
+    ...rest
 }: AnimatedPressableProps) {
     const scale = useSharedValue(1);
 
@@ -52,6 +53,7 @@ export function AnimatedPressable({
 
     return (
         <AnimatedPressableView
+            {...rest}
             onPress={handlePress}
             onLongPress={onLongPress}
             onPressIn={handlePressIn}

@@ -62,10 +62,23 @@ The repo now includes an internal `Engine Replay Lab` for deterministic engine i
 
 Primary files:
 
-- `src/components/EngineReplayLab.tsx`
+- `src/components/EngineReplayLab.tsx` (thin re-export)
+- `src/components/replay-lab/` (decomposed UI — shell, charts, browser, tabs, primitives)
 - `lib/engine/simulation/lab.ts`
 - `lib/engine/simulation/runner.ts`
 - `lib/engine/simulation/types.ts`
+
+Key files inside `src/components/replay-lab/`:
+
+- `EngineReplayLab.tsx` — shell: modal, header, scenario picker, loading/error states
+- `useReplayState.ts` — all state, derived values, and actions
+- `ReplayCharts.tsx` — 4 charts + zoom strip (no pan buttons)
+- `ReplayBrowser.tsx` — week/day picker + day navigator
+- `DayInspector.tsx` — day header + tab bar + tab dispatch
+- `tabs/` — OverviewTab, WorkoutTab (conditioning/strength split), FuelTab, DecisionsTab
+- `primitives/` — MetricTile, PillButton, ScenarioButton, ChartWidgets, FindingBadge, ExerciseRow, ConditioningDrillRow
+- `helpers.ts` — pure utility functions
+- `styles.ts` — shared styles + semantic tone constants
 
 Access:
 
@@ -74,18 +87,23 @@ Access:
 Current replay-lab capabilities:
 
 - deterministic seeded replay runs
-- week/day replay browsing
-- chart zoom windows: `7D`, `14D`, `28D`, `All`
-- chart pan and centering controls
+- week/day replay browsing with danger-day indicators
+- chart zoom windows: `7D`, `14D`, `28D`, `All` (auto-centers on selected day)
 - readiness, weight, calories, and load charts with summary stats
 - S&C prescribed-vs-logged comparisons
 - simulated exercise-level workout logs
 - dedicated conditioning prescription and simulated conditioning-log views
+- semantic MetricTile coloring (good/warning/danger)
+- decision trace grouped by subsystem with impact-based tinting
+- skeleton loading state and error+retry UX
+- accessibility labels/roles on all interactive elements
+- TYPOGRAPHY_V2.plan tokens throughout
 
 Important rule:
 
 - Do not create a second simulator path just for the UI.
 - Reuse engine/simulation outputs and extend adapter/view-model fields when needed.
+- Keep UI components in `src/components/replay-lab/` — do not re-monolith.
 
 ## Current testing reality
 
@@ -143,14 +161,14 @@ For replay work, a practical validation pass is:
 5. `lib/engine/index.ts`
 6. `lib/engine/simulation/runner.ts`
 7. `lib/engine/simulation/lab.ts`
-8. `src/components/EngineReplayLab.tsx`
+8. `src/components/replay-lab/` (decomposed replay UI)
 
 ## Practical workflow for replay or engine bugs
 
 1. Reproduce with a deterministic replay scenario.
 2. Inspect `runner.ts` for what the simulation actually emits.
 3. Inspect `lab.ts` for what the replay adapter exposes.
-4. Inspect `EngineReplayLab.tsx` for what the UI renders or hides.
+4. Inspect the relevant file in `src/components/replay-lab/` for what the UI renders or hides.
 5. Run `npm run test:engine`.
 6. Run a targeted replay smoke test for the specific day/scenario involved.
 
