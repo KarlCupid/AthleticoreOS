@@ -5,7 +5,7 @@
  */
 
 import { buildEngineReplayRun } from './lab.ts';
-import { ThePerfectStudent } from './personas.ts';
+import { TheCoachablePro } from './personas.ts';
 import { runSimulation } from './runner.ts';
 
 let passed = 0;
@@ -28,7 +28,7 @@ async function main() {
     startDate: '2026-02-02',
     weeks: 4,
     seed: 17,
-    persona: ThePerfectStudent,
+    persona: TheCoachablePro,
     initialState: {
       weightLbs: 185,
       fitnessLevel: 'advanced',
@@ -110,8 +110,8 @@ async function main() {
   assert('Active cut replay reduces overall interventions below the prior 31-day baseline', activeCutRun.summary.interventionDays < 31);
   assert('Active cut replay reduces high-risk days below the prior 24-day baseline', activeCutRun.summary.highRiskDays < 24);
   assert('Active cut replay exposes engine danger days separately', activeCutRun.summary.engineDangerDays > 0);
-  assert('Active cut replay exposes athlete override days separately', activeCutRun.summary.athleteOverrideDays > 0);
-  assert('Athlete override days are not collapsed into engine danger days', activeCutRun.summary.athleteOverrideDays !== activeCutRun.summary.engineDangerDays);
+  assert('Active cut replay keeps athlete override days low for a compliant athlete', activeCutRun.summary.athleteOverrideDays <= Math.ceil(activeCutRun.summary.totalDays * 0.1));
+  assert('Scenario pressure remains visible separately from athlete overrides', activeCutRun.summary.scenarioPressureDays > activeCutRun.summary.athleteOverrideDays);
 
   console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
   process.exit(failed > 0 ? 1 : 0);

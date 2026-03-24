@@ -81,6 +81,7 @@ export interface ExerciseScoringContext {
   allowHighImpact?: boolean;
   blockPhase?: TrainingBlockPhase;
   recoveryBudget?: number;
+  exerciseUsageSummary?: ExerciseUsageSummary;
 }
 
 export interface GenerateWorkoutInput {
@@ -220,6 +221,18 @@ export interface ExerciseHistoryEntry {
   totalVolume: number;
   workingSets: number;
   estimated1RM: number;
+}
+
+export interface ExerciseUsageEntry {
+  daysSinceLastUse: number | null;
+  uses7d: number;
+  uses14d: number;
+  uses28d: number;
+}
+
+export interface ExerciseUsageSummary {
+  byExerciseId: Record<string, ExerciseUsageEntry>;
+  uniqueExercisesByMuscle7d: Partial<Record<MuscleGroup, string[]>>;
 }
 
 export interface OverloadSuggestion {
@@ -436,6 +449,8 @@ export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
   availableMinutes?: number;
   gymEquipment?: EquipmentItem[];
   exerciseHistory?: Map<string, ExerciseHistoryEntry[]>;
+  scDayCount?: number;
+  recentFocuses7d?: WorkoutFocus[];
   isDeloadWeek?: boolean;
   weeklyPlanFocus?: WorkoutFocus;
   sparringDaysThisWeek?: number;

@@ -15,7 +15,7 @@ import {
     WeightCutPlanRow,
 } from '../engine/types';
 import { calculateWeeklyCompliance, getTrainingStreak, generateSmartWeekPlan, adaptDailySchedule } from '../engine/calculateSchedule';
-import { getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
+import { getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume, getExerciseHistoryBatch } from './scService';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getActiveFightCamp } from './fightCampService';
 import { getAthleteContext } from './athleteContextService';
@@ -869,6 +869,10 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
     }
 
     const engineState = await loadDailyEngineState(userId, today());
+    const exerciseHistory = await getExerciseHistoryBatch(
+        userId,
+        exerciseLibrary.map((exercise) => exercise.id),
+    );
 
     const result = generateSmartWeekPlan({
         config,
@@ -878,6 +882,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         fitnessLevel: athleteContext.fitnessLevel,
         performanceGoalType: athleteContext.performanceGoalType,
         exerciseLibrary,
+        exerciseHistory,
         recentExerciseIds,
         recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
         campConfig,

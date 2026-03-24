@@ -56,14 +56,14 @@ console.log('\n── assessPerformanceRisk: severity levels ──');
     const result = assessPerformanceRisk({ readinessState: 'Depleted', acwr: 1.0 });
     assert('Depleted readiness -> orange', result.level === 'orange');
     assert('Orange disallows high impact', result.allowHighImpact === false);
-    assert('Orange volumeMultiplier = 0.72', result.volumeMultiplier === 0.72);
+    assert('Orange volumeMultiplier = 0.82', result.volumeMultiplier === 0.82);
 })();
 
 (() => {
     // severity 3 -> red (ACWR >= 1.55)
     const result = assessPerformanceRisk({ readinessState: 'Prime', acwr: 1.6 });
     assert('ACWR >= 1.55 -> red', result.level === 'red');
-    assert('Red volumeMultiplier = 0.5', result.volumeMultiplier === 0.5);
+    assert('Red volumeMultiplier = 0.65', result.volumeMultiplier === 0.65);
     assert('Red disallows high impact', result.allowHighImpact === false);
 })();
 

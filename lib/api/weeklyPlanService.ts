@@ -734,6 +734,9 @@ export async function regenerateDayWorkout(
         import('./scService').then(m => m.getRecentExerciseIds(userId)),
         import('./scService').then(m => m.getRecentMuscleVolume(userId)),
     ]);
+    const exerciseHistory = await import('./scService').then((m) =>
+        m.getExerciseHistoryBatch(userId, exerciseLibrary.map((exercise) => exercise.id)),
+    );
 
     const { generateWorkoutV2 } = await import('../engine/calculateSC');
 
@@ -751,6 +754,7 @@ export async function regenerateDayWorkout(
         availableMinutes: entry.estimated_duration_min,
         trainingIntensityCap: engineState.cutProtocol?.training_intensity_cap ?? undefined,
         gymEquipment: gymProfile?.equipment ?? undefined,
+        exerciseHistory,
         isDeloadWeek: entry.is_deload,
         trainingDate: entry.date,
         performanceGoalType: engineState.objectiveContext.performanceGoalType,
@@ -773,5 +777,4 @@ export async function markRecommendationAccepted(entryId: string): Promise<void>
 
     if (error) throw error;
 }
-
 

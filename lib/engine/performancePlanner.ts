@@ -201,8 +201,8 @@ export function assessPerformanceRisk(input: PerformanceRiskInput): PerformanceR
       intensityCap: useConstraintCap
         ? clamp(resolvedConstraintSet.hardCaps.intensityCap ?? trainingIntensityCap ?? 6, 4, 6)
         : clamp(trainingIntensityCap ?? 6, 5, 6),
-      volumeMultiplier: 0.72,
-      cnsMultiplier: 0.7,
+      volumeMultiplier: 0.82,
+      cnsMultiplier: 0.82,
       allowHighImpact: resolvedConstraintSet.hardCaps.allowImpact,
       reasons,
       readinessProfile,
@@ -217,8 +217,8 @@ export function assessPerformanceRisk(input: PerformanceRiskInput): PerformanceR
     intensityCap: useConstraintCap
       ? clamp(resolvedConstraintSet.hardCaps.intensityCap ?? trainingIntensityCap ?? 4, 2, 4)
       : clamp(trainingIntensityCap ?? 4, 2, 4),
-    volumeMultiplier: 0.5,
-    cnsMultiplier: 0.45,
+    volumeMultiplier: 0.65,
+    cnsMultiplier: 0.6,
     allowHighImpact: false,
     reasons,
     readinessProfile,

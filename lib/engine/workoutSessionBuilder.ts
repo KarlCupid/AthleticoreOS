@@ -56,6 +56,7 @@ export interface BuildSectionedWorkoutInput {
     isDeloadWeek: boolean;
     targetExerciseCount: number;
     recoveryBudget?: number;
+    trainingDate?: string;
 }
 
 export interface BuildSectionedWorkoutResult {
@@ -127,13 +128,60 @@ const SESSION_ARCHETYPES: Record<WorkoutFocus, SectionBlueprint[]> = {
 
 const TEMPLATE_TRIM_ORDER: WorkoutSectionTemplate[] = [
     'finisher',
-    'cooldown',
     'accessory',
     'durability',
+    'power',
+    'secondary_strength',
+];
+
+const SECTION_BUILD_PRIORITY: WorkoutSectionTemplate[] = [
+    'activation',
+    'main_strength',
     'secondary_strength',
     'power',
-    'activation',
+    'accessory',
+    'durability',
+    'finisher',
+    'cooldown',
 ];
+
+function isSupportTemplate(template: WorkoutSectionTemplate): boolean {
+    return template === 'activation' || template === 'cooldown';
+}
+
+function templateCountsTowardExerciseCap(template: WorkoutSectionTemplate): boolean {
+    return !isSupportTemplate(template);
+}
+
+function templateConsumesBudget(template: WorkoutSectionTemplate): boolean {
+    return !isSupportTemplate(template);
+}
+
+function parseIsoDateToUtc(value: string): number | null {
+    const parsed = Date.parse(`${value}T00:00:00Z`);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function getDaysSinceLastUse(history: ExerciseHistoryEntry[] | undefined, trainingDate?: string): number | null {
+    if (!history || history.length === 0 || !trainingDate) return null;
+    const trainingUtc = parseIsoDateToUtc(trainingDate);
+    const lastUtc = parseIsoDateToUtc(history[0].date);
+    if (trainingUtc == null || lastUtc == null) return null;
+    return Math.max(0, Math.floor((trainingUtc - lastUtc) / 86400000));
+}
+
+function hashString(value: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function estimateAdditionalSetBudgetCost(exercise: ExerciseLibraryRow): number {
+    return Math.max(1, Math.round(exercise.cns_load / 2));
+}
 
 function clampNumber(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
@@ -574,21 +622,68 @@ function selectSectionExercises(
     maxExercises: number,
     usedExerciseIds: Set<string>,
     recoveryBudgetRemaining: number,
+    exerciseHistory: Map<string, ExerciseHistoryEntry[]> | undefined,
+    trainingDate: string | undefined,
+    seedKey: string,
 ): ScoredExercise[] {
-    return scoredExercises
+    const candidates = scoredExercises
         .filter(({ exercise }) => !usedExerciseIds.has(exercise.id))
-        .filter(({ recoveryCost }) => (recoveryCost ?? 0) <= recoveryBudgetRemaining)
+        .filter(({ recoveryCost }) => !templateConsumesBudget(template) || (recoveryCost ?? 0) <= recoveryBudgetRemaining)
         .filter(({ exercise }) => matchesSectionTemplate(exercise, focus, template))
-        .map(({ exercise, score, recoveryCost }) => ({
-            exercise,
-            score: getSectionSpecificScore(exercise, score, focus, template),
-            recoveryCost,
-        }))
+        .map(({ exercise, score, recoveryCost }) => {
+            const history = exerciseHistory?.get(exercise.id);
+            const daysSinceLastUse = getDaysSinceLastUse(history, trainingDate);
+            const uses14d = (history ?? [])
+                .map((entry) => trainingDate ? getDaysSinceLastUse([entry], trainingDate) : null)
+                .filter((value): value is number => value != null && value <= 13)
+                .length;
+            return {
+                exercise,
+                score: getSectionSpecificScore(exercise, score, focus, template),
+                recoveryCost,
+                daysSinceLastUse,
+                uses14d,
+                seededRank: hashString(`${seedKey}:${exercise.id}`),
+            };
+        })
         .sort((a, b) => {
+            if (Math.abs(b.score - a.score) > 5) return b.score - a.score;
+            if (a.seededRank !== b.seededRank) return a.seededRank - b.seededRank;
             if (b.score !== a.score) return b.score - a.score;
             return (a.recoveryCost ?? 0) - (b.recoveryCost ?? 0);
-        })
-        .slice(0, maxExercises);
+        });
+
+    if (template !== 'main_strength' && template !== 'activation' && template !== 'cooldown') {
+        const filtered = candidates.filter((candidate) => {
+            if (candidate.uses14d < 3) return true;
+            const alternative = candidates.find((other) =>
+                other.exercise.id !== candidate.exercise.id
+                && (other.exercise.muscle_group === candidate.exercise.muscle_group || other.exercise.type === candidate.exercise.type)
+                && other.score >= candidate.score - 10,
+            );
+            return alternative == null;
+        });
+        if (filtered.length > 0) {
+            return filtered.slice(0, maxExercises).map(({ exercise, score, recoveryCost }) => ({ exercise, score, recoveryCost }));
+        }
+    }
+
+    if (template === 'main_strength') {
+        const anchor = candidates.find((candidate) => candidate.daysSinceLastUse != null && candidate.daysSinceLastUse <= 6);
+        const challenger = anchor
+            ? candidates.find((candidate) =>
+                candidate.exercise.id !== anchor.exercise.id
+                && (candidate.daysSinceLastUse == null || candidate.daysSinceLastUse > 6)
+                && candidate.score >= anchor.score + 10,
+            )
+            : null;
+        if (anchor && !challenger) {
+            const reordered = [anchor, ...candidates.filter((candidate) => candidate.exercise.id !== anchor.exercise.id)];
+            return reordered.slice(0, maxExercises).map(({ exercise, score, recoveryCost }) => ({ exercise, score, recoveryCost }));
+        }
+    }
+
+    return candidates.slice(0, maxExercises).map(({ exercise, score, recoveryCost }) => ({ exercise, score, recoveryCost }));
 }
 
 function applySupersetsToExercises(exercises: SectionExercisePrescription[]): void {
@@ -641,7 +736,7 @@ function trimSectionsToTime(sections: WorkoutSessionSection[], availableMinutes:
 
     while (getTotal() > availableMinutes) {
         const adjustable = trimmed.find(section =>
-            ['activation', 'secondary_strength', 'accessory', 'durability', 'cooldown'].includes(section.template)
+            ['secondary_strength', 'accessory', 'durability', 'power', 'finisher'].includes(section.template)
             && section.exercises.length > 0,
         );
         if (!adjustable) break;
@@ -667,6 +762,88 @@ function trimSectionsToTime(sections: WorkoutSessionSection[], availableMinutes:
     }
 
     return trimmed.filter(section => section.exercises.length > 0);
+}
+
+function getExerciseCountTowardCap(sections: WorkoutSessionSection[]): number {
+    return sections.reduce((sum, section) =>
+        sum + (templateCountsTowardExerciseCap(section.template) ? section.exercises.length : 0), 0);
+}
+
+function getUsedCNS(sections: WorkoutSessionSection[]): number {
+    return sections.reduce((sum, section) =>
+        sum + (templateConsumesBudget(section.template)
+            ? section.exercises.reduce((sectionSum, exercise) => sectionSum + exercise.exercise.cns_load, 0)
+            : 0), 0);
+}
+
+function addSetsToExercise(exercise: SectionExercisePrescription, extraSets: number): void {
+    if (extraSets <= 0) return;
+
+    exercise.targetSets += extraSets;
+
+    if (exercise.sectionTemplate === 'main_strength' && exercise.setPrescription && exercise.setPrescription.length > 1) {
+        const backoffIndex = exercise.setPrescription.length - 1;
+        exercise.setPrescription = exercise.setPrescription.map((entry, index) =>
+            index === backoffIndex ? { ...entry, sets: entry.sets + extraSets } : entry,
+        );
+        const topSet = exercise.setPrescription[0];
+        const backoff = exercise.setPrescription[backoffIndex];
+        exercise.setScheme = `${topSet.sets} x ${topSet.reps} @ RPE ${topSet.targetRPE}, then ${backoff.sets} x ${backoff.reps} @ RPE ${backoff.targetRPE}`;
+        return;
+    }
+
+    if (exercise.setPrescription && exercise.setPrescription.length > 0) {
+        exercise.setPrescription = exercise.setPrescription.map((entry, index) =>
+            index === 0 ? { ...entry, sets: entry.sets + extraSets } : entry,
+        );
+    }
+
+    exercise.setScheme = `${exercise.targetSets} x ${exercise.targetReps} @ RPE ${exercise.targetRPE}`;
+}
+
+function getAdditionalSetCap(exercise: SectionExercisePrescription): number {
+    if (exercise.sectionTemplate === 'main_strength') return 2;
+    if (exercise.sectionTemplate === 'secondary_strength' || exercise.sectionTemplate === 'accessory' || exercise.sectionTemplate === 'durability') return 1;
+    return 0;
+}
+
+function getAdditionalSetTimeCost(exercise: SectionExercisePrescription): number {
+    if (exercise.sectionTemplate === 'main_strength') return 3;
+    if (exercise.sectionTemplate === 'secondary_strength') return 2;
+    if (exercise.sectionTemplate === 'accessory') return 1.5;
+    if (exercise.sectionTemplate === 'durability') return 1.25;
+    return 0;
+}
+
+function scaleExerciseVolume(
+    sections: WorkoutSessionSection[],
+    remainingBudget: number,
+    availableMinutes?: number,
+): void {
+    let budgetLeft = remainingBudget;
+    let minutesLeft = availableMinutes != null
+        ? Math.max(0, availableMinutes - estimateWorkoutDuration(sections))
+        : Number.POSITIVE_INFINITY;
+
+    const orderedTemplates: WorkoutSectionTemplate[] = ['main_strength', 'secondary_strength', 'accessory', 'durability'];
+    for (const template of orderedTemplates) {
+        const templateExercises = sections
+            .filter((section) => section.template === template)
+            .flatMap((section) => section.exercises);
+
+        for (const exercise of templateExercises) {
+            let remainingAdds = getAdditionalSetCap(exercise);
+            const setBudgetCost = estimateAdditionalSetBudgetCost(exercise.exercise);
+            const setTimeCost = getAdditionalSetTimeCost(exercise);
+
+            while (remainingAdds > 0 && budgetLeft >= setBudgetCost && minutesLeft >= setTimeCost) {
+                addSetsToExercise(exercise, 1);
+                budgetLeft -= setBudgetCost;
+                minutesLeft -= setTimeCost;
+                remainingAdds -= 1;
+            }
+        }
+    }
 }
 
 function buildSessionGoal(
@@ -806,100 +983,176 @@ export function buildSectionedWorkoutSession(input: BuildSectionedWorkoutInput):
         isDeloadWeek,
         targetExerciseCount,
         recoveryBudget,
+        trainingDate,
     } = input;
 
     const usedExerciseIds = new Set<string>();
     const muscleGroupsSeen = new Set<MuscleGroup>();
     let recoveryBudgetRemaining = recoveryBudget ?? Number.POSITIVE_INFINITY;
 
-    let sections = resolveSessionArchetype(focus, performanceRisk)
-        .map((blueprint, index) => {
-            const chosen = selectSectionExercises(
-                scoredExercises,
-                focus,
-                blueprint.template,
-                blueprint.maxExercises,
-                usedExerciseIds,
-                recoveryBudgetRemaining,
-            );
+    const archetype = resolveSessionArchetype(focus, performanceRisk);
+    const blueprintByTemplate = new Map(archetype.map((blueprint) => [blueprint.template, blueprint]));
+    const orderedBlueprints = [
+        ...SECTION_BUILD_PRIORITY.map((template) => blueprintByTemplate.get(template)).filter((value): value is SectionBlueprint => value != null),
+        ...archetype.filter((blueprint) => !SECTION_BUILD_PRIORITY.includes(blueprint.template)),
+    ];
+    const requiresSecondaryFloor = blueprintByTemplate.has('secondary_strength') && focus !== 'recovery';
+    let exerciseSlotsRemaining = targetExerciseCount;
+    let hasMainStrength = false;
+    let hasSecondaryStrength = !requiresSecondaryFloor;
+    let sectionIndex = 0;
 
-            const exercises = chosen.map(({ exercise, score, recoveryCost }) => {
-                usedExerciseIds.add(exercise.id);
+    let sections: WorkoutSessionSection[] = [];
+    for (const blueprint of orderedBlueprints) {
+        if (templateCountsTowardExerciseCap(blueprint.template) && exerciseSlotsRemaining <= 0) {
+            continue;
+        }
+
+        if (blueprint.template === 'power') {
+            const hasExplosiveWindow = performanceRisk.level !== 'orange' && performanceRisk.level !== 'red';
+            const minimumsFunded = hasMainStrength && hasSecondaryStrength;
+            const hasTime = availableMinutes == null || estimateWorkoutDuration(sections) + 8 <= availableMinutes;
+            if (!hasExplosiveWindow || !minimumsFunded || !hasTime) {
+                continue;
+            }
+        }
+
+        const reservedSlots = blueprint.template === 'main_strength' && requiresSecondaryFloor && !hasSecondaryStrength
+            ? 1
+            : 0;
+        const availableExerciseSlots = templateCountsTowardExerciseCap(blueprint.template)
+            ? Math.max(blueprint.template === 'main_strength' ? 1 : 0, exerciseSlotsRemaining - reservedSlots)
+            : blueprint.maxExercises;
+        const maxExercises = templateCountsTowardExerciseCap(blueprint.template)
+            ? Math.min(blueprint.maxExercises, availableExerciseSlots)
+            : blueprint.maxExercises;
+
+        if (maxExercises <= 0 && templateCountsTowardExerciseCap(blueprint.template)) {
+            continue;
+        }
+
+        const seedKey = `${trainingDate ?? 'no-date'}:${focus}:${blueprint.template}:${blockContext?.phase ?? 'none'}`;
+        const chosen = selectSectionExercises(
+            scoredExercises,
+            focus,
+            blueprint.template,
+            maxExercises,
+            usedExerciseIds,
+            recoveryBudgetRemaining,
+            exerciseHistory,
+            trainingDate,
+            seedKey,
+        );
+
+        const minimumRequired = blueprint.template === 'main_strength'
+            ? 1
+            : blueprint.template === 'secondary_strength' && requiresSecondaryFloor
+                ? 1
+                : 0;
+
+        if (chosen.length < minimumRequired) {
+            continue;
+        }
+
+        const exercises = chosen.map(({ exercise, score, recoveryCost }) => {
+            usedExerciseIds.add(exercise.id);
+            if (templateConsumesBudget(blueprint.template)) {
                 recoveryBudgetRemaining -= recoveryCost ?? 0;
-                return buildSectionExercise({
-                    exercise,
-                    score,
-                    focus,
-                    template: blueprint.template,
-                    role: blueprint.role,
-                    rpeCap,
-                    readinessState,
-                    blockContext,
-                    availableMinutes,
-                    fitnessLevel,
-                    exerciseHistory,
-                    progressionModel,
-                    isDeloadWeek,
-                    usableExerciseLibrary,
-                    muscleGroupsSeen,
-                });
-            });
-
-            return {
-                id: blueprint.template + '-' + (index + 1),
+            }
+            return buildSectionExercise({
+                exercise,
+                score,
+                focus,
                 template: blueprint.template,
-                title: blueprint.title,
-                intent: blueprint.intent,
-                timeCap: blueprint.template === 'main_strength'
-                    ? 18
-                    : blueprint.template === 'secondary_strength'
-                        ? 14
-                        : blueprint.template === 'accessory' || blueprint.template === 'durability'
-                            ? 10
-                            : blueprint.template === 'finisher'
+                role: blueprint.role,
+                rpeCap,
+                readinessState,
+                blockContext,
+                availableMinutes,
+                fitnessLevel,
+                exerciseHistory,
+                progressionModel,
+                isDeloadWeek,
+                usableExerciseLibrary,
+                muscleGroupsSeen,
+            });
+        });
+
+        if (exercises.length === 0) {
+            continue;
+        }
+
+        if (blueprint.template === 'main_strength') hasMainStrength = true;
+        if (blueprint.template === 'secondary_strength') hasSecondaryStrength = true;
+        if (templateCountsTowardExerciseCap(blueprint.template)) {
+            exerciseSlotsRemaining -= exercises.length;
+        }
+
+        sectionIndex += 1;
+        sections.push({
+            id: blueprint.template + '-' + sectionIndex,
+            template: blueprint.template,
+            title: blueprint.title,
+            intent: blueprint.intent,
+            timeCap: blueprint.template === 'main_strength'
+                ? 18
+                : blueprint.template === 'secondary_strength'
+                    ? 14
+                    : blueprint.template === 'accessory' || blueprint.template === 'durability'
+                        ? 10
+                        : blueprint.template === 'finisher'
+                            ? 8
+                            : blueprint.template === 'power'
                                 ? 8
                                 : 6,
-                restRule: blueprint.restRule,
-                densityRule: blueprint.densityRule,
-                exercises: exercises.map(exercise => ({
-                    ...exercise,
-                    sectionId: `${blueprint.template}-${index + 1}`,
-                    sectionTemplate: blueprint.template,
-                    sectionIntent: blueprint.intent,
-                })),
-                decisionTrace: [
-                    `template:${blueprint.template}`,
-                    `focus:${focus}`,
-                    `loading:${blueprint.loadingStrategy}`,
-                    ...exercises.slice(0, 2).map(exercise => `picked:${exercise.exercise.name}`),
-                ],
-                finisherReason: blueprint.template === 'finisher'
-                    ? 'Included because risk state, time budget, and block context all allow a short conditioning touch.'
-                    : null,
-            } as WorkoutSessionSection;
-        })
-        .filter(section => section.exercises.length > 0);
+            restRule: blueprint.restRule,
+            densityRule: blueprint.densityRule,
+            exercises: exercises.map(exercise => ({
+                ...exercise,
+                sectionId: `${blueprint.template}-${sectionIndex}`,
+                sectionTemplate: blueprint.template,
+                sectionIntent: blueprint.intent,
+            })),
+            decisionTrace: [
+                `template:${blueprint.template}`,
+                `focus:${focus}`,
+                `loading:${blueprint.loadingStrategy}`,
+                ...exercises.slice(0, 2).map(exercise => `picked:${exercise.exercise.name}`),
+            ],
+            finisherReason: blueprint.template === 'finisher'
+                ? 'Included because risk state, time budget, and block context all allow a short conditioning touch.'
+                : null,
+        });
+    }
 
     if (availableMinutes) {
         sections = trimSectionsToTime(sections, availableMinutes);
     }
 
+    const remainingBudget = Math.max(0, (recoveryBudget ?? Number.POSITIVE_INFINITY) - getUsedCNS(sections));
+    scaleExerciseVolume(sections, remainingBudget, availableMinutes);
+
     let exercises = flattenSections(sections);
-    if (performanceRisk.level !== 'green' && exercises.length > targetExerciseCount) {
-        exercises = exercises.slice(0, targetExerciseCount);
-        const allowedIds = new Set(exercises.map(exercise => exercise.exercise.id));
+    if (getExerciseCountTowardCap(sections) > targetExerciseCount) {
+        const countedExercises = exercises.filter((exercise) => templateCountsTowardExerciseCap(exercise.sectionTemplate ?? 'main_strength'));
+        const allowedIds = new Set(countedExercises.slice(0, targetExerciseCount).map((exercise) => exercise.exercise.id));
+        const supportIds = new Set(exercises
+            .filter((exercise) => !templateCountsTowardExerciseCap(exercise.sectionTemplate ?? 'main_strength'))
+            .map((exercise) => exercise.exercise.id));
         sections = sections
             .map(section => ({
                 ...section,
-                exercises: section.exercises.filter(exercise => allowedIds.has(exercise.exercise.id)),
+                exercises: section.exercises.filter(exercise =>
+                    supportIds.has(exercise.exercise.id) || allowedIds.has(exercise.exercise.id)),
             }))
             .filter(section => section.exercises.length > 0);
+        exercises = flattenSections(sections);
     }
 
     return {
         sections,
         exercises,
-        usedCNS: exercises.reduce((sum, exercise) => sum + exercise.exercise.cns_load, 0),
+        usedCNS: getUsedCNS(sections),
         estimatedDuration: estimateWorkoutDuration(sections),
         sessionGoal: buildSessionGoal(focus, performanceGoalType, blockContext),
     };

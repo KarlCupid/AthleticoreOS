@@ -1,6 +1,6 @@
 import { calculateCaloriesFromMacros } from '../../utils/nutrition.ts';
 import { getAllDecisionReasons } from '../presentation/decisionReason.ts';
-import { TheBinger, TheGrinder, ThePerfectStudent, TheSlacker } from './personas.ts';
+import { TheCoachablePro } from './personas.ts';
 import { runSimulation } from './runner.ts';
 import type {
   DailySimulationLog,
@@ -223,12 +223,12 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
   {
     id: 'build-baseline',
     label: 'Build Phase Baseline',
-    description: 'Stable build block with clean compliance. Good for checking training and nutrition progression without cut pressure.',
+    description: 'Stable build block with a realistically compliant athlete. Good for checking training and nutrition progression without cut pressure.',
     config: {
       startDate: '2026-01-05',
       weeks: 6,
       seed: 11,
-      persona: ThePerfectStudent,
+      persona: TheCoachablePro,
       initialState: {
         weightLbs: 185,
         fitnessLevel: 'advanced',
@@ -239,49 +239,49 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
   {
     id: 'camp-baseline',
     label: 'Fight Camp Baseline',
-    description: 'Eight-week camp with consistent execution. Best baseline for reading engine prescription logic block by block.',
+    description: 'Eight-week camp with a realistically compliant athlete. Best baseline for reading engine prescription logic block by block.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
       seed: 17,
       targetWeight: 170,
-      persona: ThePerfectStudent,
+      persona: TheCoachablePro,
     }),
   },
   {
     id: 'camp-active-cut',
     label: 'Camp Under Active Cut',
-    description: 'Fight camp with a tighter cut and aggressive behavior. Useful for checking intervention logic, fueling, and cut protection.',
+    description: 'Fight camp with a tighter cut and a realistically compliant athlete. Useful for checking intervention logic, fueling, and cut protection without confounding override behavior.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
       seed: 23,
       targetWeight: 168,
-      persona: TheGrinder,
+      persona: TheCoachablePro,
     }),
   },
   {
     id: 'stressed-low-compliance',
-    label: 'Stressed Low-Compliance Block',
-    description: 'Chaotic adherence and unstable recovery. Useful for validating whether the engine stays coherent when execution drifts.',
+    label: 'Camp Recovery Headwinds',
+    description: 'Same realistically compliant athlete under a noisier recovery trajectory. Useful for validating whether the engine stays coherent when readiness gets choppy.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
       seed: 29,
       targetWeight: 170,
-      persona: TheSlacker,
+      persona: TheCoachablePro,
     }),
   },
   {
     id: 'nutrition-chaos',
-    label: 'Nutrition Chaos',
-    description: 'Training stays high while cheat days blow up intake. Use this to inspect calorie correction and nutrition drift.',
+    label: 'Camp Tight Fueling Margin',
+    description: 'A tighter cut with a realistically compliant athlete. Use this to inspect calorie correction and nutrition drift without intentional binge behavior.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
       seed: 31,
-      targetWeight: 170,
-      persona: TheBinger,
+      targetWeight: 167,
+      persona: TheCoachablePro,
     }),
   },
 ];

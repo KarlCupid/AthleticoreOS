@@ -287,6 +287,7 @@ export interface SmartWeekPlanInput {
   fitnessLevel: FitnessLevel;
   performanceGoalType?: PerformanceGoalType;
   exerciseLibrary: ExerciseLibraryRow[];
+  exerciseHistory?: Map<string, import('./training.ts').ExerciseHistoryEntry[]>;
   recentExerciseIds?: string[];
   recentMuscleVolume: Record<MuscleGroup, number>;
   campConfig: CampConfig | null;

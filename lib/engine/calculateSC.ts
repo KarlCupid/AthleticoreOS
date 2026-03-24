@@ -13,7 +13,9 @@ import type {
 } from './types/fightCampV1.ts';
 import type {
     ExerciseLibraryRow,
+    ExerciseHistoryEntry,
     ExerciseScoringContext,
+    ExerciseUsageSummary,
     GenerateWorkoutInput,
     GenerateWorkoutInputV2,
     WorkoutPrescription,
@@ -33,7 +35,7 @@ import type {
     StimulusType,
 } from './types/readiness.ts';
 import { getRestTimerDefaults } from './adaptiveWorkout.ts';
-import { assessPerformanceRisk } from './performancePlanner.ts';
+import { assessPerformanceRisk, getGoalBasedFocusRotation } from './performancePlanner.ts';
 import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
 import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
 import { deriveStimulusConstraintSet } from './readiness/profile.ts';
@@ -50,9 +52,9 @@ import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseSc
  * Default exercise count by readiness state.
  */
 const EXERCISE_COUNT: Record<ReadinessState, number> = {
-    Prime: 8,
-    Caution: 6,
-    Depleted: 3,
+    Prime: 10,
+    Caution: 7,
+    Depleted: 4,
 };
 
 /**
@@ -115,6 +117,85 @@ function resolveDayOfWeek(trainingDate?: string): number {
     }
     return new Date().getDay();
 }
+
+function parseIsoDateToUtc(value: string): number | null {
+    const parsed = Date.parse(`${value}T00:00:00Z`);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function daysBetweenIsoDates(later: string, earlier: string): number | null {
+    const laterUtc = parseIsoDateToUtc(later);
+    const earlierUtc = parseIsoDateToUtc(earlier);
+    if (laterUtc == null || earlierUtc == null) return null;
+    return Math.max(0, Math.floor((laterUtc - earlierUtc) / 86400000));
+}
+
+function buildExerciseUsageSummary(
+    exerciseHistory: Map<string, ExerciseHistoryEntry[]> | undefined,
+    exerciseLibrary: ExerciseLibraryRow[],
+    trainingDate?: string,
+): ExerciseUsageSummary {
+    const byExerciseId: ExerciseUsageSummary['byExerciseId'] = {};
+    const uniqueExercisesByMuscle7d: ExerciseUsageSummary['uniqueExercisesByMuscle7d'] = {};
+    if (!exerciseHistory || !trainingDate) {
+        return { byExerciseId, uniqueExercisesByMuscle7d };
+    }
+
+    const muscleByExercise = new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise.muscle_group]));
+
+    for (const [exerciseId, history] of exerciseHistory.entries()) {
+        if (!history || history.length === 0) continue;
+        const dayOffsets = history
+            .map((entry) => daysBetweenIsoDates(trainingDate, entry.date))
+            .filter((value): value is number => value != null)
+            .sort((a, b) => a - b);
+
+        if (dayOffsets.length === 0) continue;
+
+        byExerciseId[exerciseId] = {
+            daysSinceLastUse: dayOffsets[0] ?? null,
+            uses7d: dayOffsets.filter((value) => value <= 6).length,
+            uses14d: dayOffsets.filter((value) => value <= 13).length,
+            uses28d: dayOffsets.filter((value) => value <= 27).length,
+        };
+
+        const muscleGroup = muscleByExercise.get(exerciseId);
+        if (muscleGroup && dayOffsets.some((value) => value <= 6)) {
+            const current = uniqueExercisesByMuscle7d[muscleGroup] ?? [];
+            uniqueExercisesByMuscle7d[muscleGroup] = current.includes(exerciseId)
+                ? current
+                : [...current, exerciseId];
+        }
+    }
+
+    return { byExerciseId, uniqueExercisesByMuscle7d };
+}
+
+function selectRotationFocus(
+    performanceGoalType: PerformanceGoalType,
+    scDayCount: number,
+    recentFocuses7d: WorkoutFocus[],
+    constraintSet?: StimulusConstraintSet | null,
+): WorkoutFocus {
+    const rotation = getGoalBasedFocusRotation({
+        performanceGoalType,
+        scDayCount,
+    });
+    const ranked = rotation
+        .map((focus, index) => ({
+            focus,
+            index,
+            recencyIndex: recentFocuses7d.indexOf(focus),
+        }))
+        .sort((a, b) => {
+            const aRank = a.recencyIndex === -1 ? Number.POSITIVE_INFINITY : a.recencyIndex;
+            const bRank = b.recencyIndex === -1 ? Number.POSITIVE_INFINITY : b.recencyIndex;
+            if (bRank !== aRank) return bRank - aRank;
+            return a.index - b.index;
+        });
+
+    return resolveFocusFromConstraints(ranked[0]?.focus ?? rotation[0] ?? 'full_body', constraintSet);
+}
 // ─── Focus Determination ───────────────────────────────────────
 
 /**
@@ -129,8 +210,15 @@ export function determineFocus(
     phase: Phase,
     overrideFocus?: WorkoutFocus,
     constraintSet?: StimulusConstraintSet | null,
+    performanceGoalType?: PerformanceGoalType,
+    scDayCount: number = 4,
+    recentFocuses7d: WorkoutFocus[] = [],
 ): WorkoutFocus {
     if (overrideFocus) return overrideFocus;
+
+    if (performanceGoalType) {
+        return selectRotationFocus(performanceGoalType, scDayCount, recentFocuses7d, constraintSet);
+    }
 
     // Fight camp adjustments: more sport-specific work
     if (phase === 'fight-camp') {
@@ -169,6 +257,8 @@ export function scoreExerciseForUser(
     let score = 50;
     const constraintSet = context.constraintSet ?? null;
     const stimuli = getExerciseStimuli(exercise);
+    const usage = context.exerciseUsageSummary?.byExerciseId[exercise.id];
+    const uniqueExercisesByMuscle7d = context.exerciseUsageSummary?.uniqueExercisesByMuscle7d[exercise.muscle_group] ?? [];
 
     // 1. Readiness × exercise type alignment
     if (context.readinessState === 'Depleted') {
@@ -244,8 +334,30 @@ export function scoreExerciseForUser(
     }
 
     // 3. Recency penalty — don't repeat the same exercise within 48h
-    if (context.recentExerciseIds.includes(exercise.id)) {
-        score -= 25;
+    if (usage?.daysSinceLastUse != null) {
+        if (usage.daysSinceLastUse <= 2) {
+            score -= 30;
+        } else if (usage.daysSinceLastUse <= 6) {
+            score -= 15;
+        } else if (usage.daysSinceLastUse <= 13) {
+            score += 4;
+        } else if (usage.daysSinceLastUse <= 20) {
+            score += 8;
+        } else {
+            score += 12;
+        }
+    } else if (context.recentExerciseIds.includes(exercise.id)) {
+        score -= 30;
+    }
+
+    if ((usage?.uses7d ?? 0) >= 2) {
+        score -= 8;
+    }
+    if ((usage?.uses14d ?? 0) >= 3) {
+        score -= 15;
+    }
+    if (context.exerciseUsageSummary && uniqueExercisesByMuscle7d.length < 3 && !uniqueExercisesByMuscle7d.includes(exercise.id)) {
+        score += 6;
     }
 
     // 4. Muscle balance — boost under-trained groups
@@ -649,6 +761,8 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         availableMinutes,
         gymEquipment,
         exerciseHistory,
+        scDayCount = 4,
+        recentFocuses7d = [],
         isDeloadWeek = false,
         weeklyPlanFocus,
         sparringDaysThisWeek,
@@ -661,6 +775,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         constraintSet,
         medStatus = null,
     } = input;
+    const resolvedPerformanceGoalType = performanceGoalType ?? 'conditioning';
 
     const resolvedConstraintSet = constraintSet ?? deriveStimulusConstraintSet(
         readinessProfile ?? {
@@ -691,11 +806,21 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
 
     // Use weekly plan focus if provided, otherwise determine from day
     const focusOverride = weeklyPlanFocus ?? overrideFocus;
+    const exerciseUsageSummary = buildExerciseUsageSummary(exerciseHistory, exerciseLibrary, trainingDate);
 
     // Weight cut fight week (cap <= 4): force recovery
     const effectiveFocus = (trainingIntensityCap != null && trainingIntensityCap <= 4 && resolvedConstraintSet.strengthBudget < 50)
         ? 'recovery' as WorkoutFocus
-        : determineFocus(dayOfWeek, readinessState, phase, focusOverride, resolvedConstraintSet);
+        : determineFocus(
+            dayOfWeek,
+            readinessState,
+            phase,
+            focusOverride,
+            resolvedConstraintSet,
+            resolvedPerformanceGoalType,
+            scDayCount,
+            recentFocuses7d,
+        );
 
     const resolvedPerformanceRisk = performanceRisk ?? assessPerformanceRisk({
         readinessState,
@@ -720,7 +845,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     }
     // Auto-taper CNS for sparring frequency
     if (sparringDaysThisWeek && sparringDaysThisWeek >= 2) {
-        const taperMult = Math.max(0.5, 1.0 - (sparringDaysThisWeek - 1) * 0.175);
+        const taperMult = Math.max(0.75, 1.0 - (sparringDaysThisWeek - 1) * 0.175);
         baseCNSBudget = Math.round(baseCNSBudget * taperMult);
     }
     if (resolvedBlockContext) {
@@ -728,7 +853,8 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     }
     baseCNSBudget = Math.round(baseCNSBudget * resolvedConstraintSet.volumeMultiplier);
     const rawCNSBudget = baseCNSBudget * resolvedPerformanceRisk.cnsMultiplier;
-    const minimumBudget = Math.max(8, Math.round(calibratedBaseBudget * 0.55));
+    const minimumFloor = readinessState === 'Depleted' ? 0.6 : 0.7;
+    const minimumBudget = Math.max(8, Math.round(calibratedBaseBudget * minimumFloor));
     const flooredBudget = Math.max(rawCNSBudget, minimumBudget);
     const totalCNSBudget = Math.max(10, Math.round(flooredBudget));
 
@@ -740,9 +866,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     if (resolvedPerformanceRisk.level === 'yellow') {
         targetExerciseCount = Math.max(3, targetExerciseCount - 1);
     } else if (resolvedPerformanceRisk.level === 'orange') {
-        targetExerciseCount = Math.max(2, targetExerciseCount - 2);
+        targetExerciseCount = Math.max(4, targetExerciseCount - 1);
     } else if (resolvedPerformanceRisk.level === 'red') {
-        targetExerciseCount = Math.min(2, targetExerciseCount);
+        targetExerciseCount = Math.min(3, targetExerciseCount);
     }
 
     const rpeCap = Math.min(
@@ -768,11 +894,12 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             recentMuscleVolume,
             cnsBudgetRemaining: totalCNSBudget,
             fitnessLevel,
-            performanceGoalType,
+            performanceGoalType: resolvedPerformanceGoalType,
             performanceRiskLevel: resolvedPerformanceRisk.level,
             allowHighImpact: resolvedPerformanceRisk.allowHighImpact,
             blockPhase: resolvedBlockContext?.phase,
             recoveryBudget: totalCNSBudget,
+            exerciseUsageSummary,
         }), {
             readinessState,
             readinessProfile,
@@ -783,11 +910,12 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             recentMuscleVolume,
             cnsBudgetRemaining: totalCNSBudget,
             fitnessLevel,
-            performanceGoalType,
+            performanceGoalType: resolvedPerformanceGoalType,
             performanceRiskLevel: resolvedPerformanceRisk.level,
             allowHighImpact: resolvedPerformanceRisk.allowHighImpact,
             blockPhase: resolvedBlockContext?.phase,
             recoveryBudget: totalCNSBudget,
+            exerciseUsageSummary,
         }),
     }))
         .filter(item => item.fitScore > 0 && item.recoveryCost <= totalCNSBudget)
@@ -801,7 +929,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         readinessState,
         rpeCap,
         performanceRisk: resolvedPerformanceRisk,
-        performanceGoalType,
+        performanceGoalType: resolvedPerformanceGoalType,
         blockContext: resolvedBlockContext,
         availableMinutes,
         fitnessLevel,
@@ -810,6 +938,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         isDeloadWeek,
         targetExerciseCount,
         recoveryBudget: totalCNSBudget,
+        trainingDate,
     });
 
     const finalExercises = sectionedSession.exercises.map((exercise) => ({
@@ -817,19 +946,19 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         recoveryCost: getExerciseRecoveryCost(exercise.exercise),
     }));
     const estimatedDuration = sectionedSession.estimatedDuration || estimateWorkoutTime(finalExercises);
-    const primaryAdaptation = resolvePrimaryAdaptation(effectiveFocus, performanceGoalType);
+    const primaryAdaptation = resolvePrimaryAdaptation(effectiveFocus, resolvedPerformanceGoalType);
     const sessionGoal = sectionedSession.sessionGoal;
     const sessionIntent = buildSessionIntent({
         focus: effectiveFocus,
         primaryAdaptation,
-        performanceGoalType,
+        performanceGoalType: resolvedPerformanceGoalType,
         performanceRisk: resolvedPerformanceRisk,
         blockContext: resolvedBlockContext,
         availableMinutes,
     });
     const decisionTrace = [
         `focus:${effectiveFocus}`,
-        `goal:${performanceGoalType ?? 'conditioning'}`,
+        `goal:${resolvedPerformanceGoalType}`,
         `risk:${resolvedPerformanceRisk.level}`,
         ...(resolvedBlockContext ? [`block:${resolvedBlockContext.phase}`] : []),
         `sections:${sectionedSession.sections.map(section => section.template).join('|')}`,
@@ -1004,37 +1133,49 @@ function buildSparringDayWorkout(
     );
     exercises = filterByEquipment(exercises, gymEquipment);
 
-    const activation: NonNullable<WorkoutPrescriptionV2['sections']>[number]['exercises'] = exercises.slice(0, 5).map((exercise, index) => ({
-        exercise,
-        targetSets: 2,
-        targetReps: exercise.type === 'sport_specific' ? 1 : 8,
-        targetRPE: 3,
-        supersetGroup: null,
-        score: 50,
-        restSeconds: 30,
-        formCues: exercise.cues || undefined,
-        role: index < 2 ? 'prep' : 'recovery',
-        loadingStrategy: 'recovery_flow',
-        progressionAnchor: null,
-        preferredExercise: exercise,
-        substitutions: [],
-        coachingCues: exercise.cues ? [exercise.cues] : ['Stay easy and leave the session fresh.'],
-        fatigueCost: 'low',
-        setScheme: exercise.type === 'sport_specific' ? '2 x 1 easy rounds' : '2 x 8 smooth reps',
-        loadingNotes: 'Keep the entire session low cost so sparring gets your best energy.',
-        setPrescription: [{
-            label: index < 2 ? 'Prep' : 'Recovery',
-            sets: 2,
-            reps: exercise.type === 'sport_specific' ? '1 round' : 8,
-            targetRPE: 3,
-            restSeconds: 30,
-        }],
-        sectionId: index < 2 ? 'activation-1' : 'cooldown-1',
-        sectionTemplate: index < 2 ? 'activation' : 'cooldown',
-        sectionIntent: index < 2
+    const selected = exercises.slice(0, 5);
+    const setTargets = [2, 2, 2, 2, 3];
+    const supportExercises: NonNullable<WorkoutPrescriptionV2['sections']>[number]['exercises'] = selected.map((exercise, index) => {
+        const sets = setTargets[index] ?? 2;
+        const sectionTemplate = index < 2 ? 'activation' : index < 4 ? 'durability' : 'cooldown';
+        const sectionIntent = sectionTemplate === 'activation'
             ? 'Prime rhythm and mobility without adding fatigue.'
-            : 'Downshift and recover for sparring.',
-    }));
+            : sectionTemplate === 'durability'
+                ? 'Build trunk, hip, and shoulder readiness that supports the ring without draining it.'
+                : 'Downshift and recover for sparring.';
+
+        return {
+            exercise,
+            targetSets: sets,
+            targetReps: exercise.type === 'sport_specific' ? 1 : 8,
+            targetRPE: 3,
+            supersetGroup: null,
+            score: 50,
+            restSeconds: 30,
+            formCues: exercise.cues || undefined,
+            role: sectionTemplate === 'activation' ? 'prep' : 'recovery',
+            loadingStrategy: 'recovery_flow',
+            progressionAnchor: null,
+            preferredExercise: exercise,
+            substitutions: [],
+            coachingCues: exercise.cues ? [exercise.cues] : ['Stay easy and leave the session fresh.'],
+            fatigueCost: 'low',
+            setScheme: exercise.type === 'sport_specific'
+                ? `${sets} x 1 easy rounds`
+                : `${sets} x 8 smooth reps`,
+            loadingNotes: 'Keep the session restorative so sparring gets your best energy.',
+            setPrescription: [{
+                label: sectionTemplate === 'activation' ? 'Prep' : sectionTemplate === 'durability' ? 'Support' : 'Recovery',
+                sets,
+                reps: exercise.type === 'sport_specific' ? '1 round' : 8,
+                targetRPE: 3,
+                restSeconds: 30,
+            }],
+            sectionId: sectionTemplate === 'activation' ? 'activation-1' : sectionTemplate === 'durability' ? 'durability-1' : 'cooldown-1',
+            sectionTemplate,
+            sectionIntent,
+        };
+    });
 
     const sections: NonNullable<WorkoutPrescriptionV2['sections']> = [
         {
@@ -1045,8 +1186,20 @@ function buildSparringDayWorkout(
             timeCap: 6,
             restRule: 'Keep it easy and controlled.',
             densityRule: '2 easy rounds',
-            exercises: activation.slice(0, Math.min(2, activation.length)),
+            exercises: supportExercises.filter((exercise) => exercise.sectionTemplate === 'activation'),
             decisionTrace: ['template:activation', 'sparring day support'],
+            finisherReason: null,
+        },
+        {
+            id: 'durability-1',
+            template: 'durability' as const,
+            title: 'Support Circuit',
+            intent: 'Build trunk, hip, and shoulder readiness that supports the ring without draining it.',
+            timeCap: 8,
+            restRule: 'Stay smooth and stop well short of fatigue.',
+            densityRule: 'Controlled support circuit',
+            exercises: supportExercises.filter((exercise) => exercise.sectionTemplate === 'durability'),
+            decisionTrace: ['template:durability', 'sparring day support'],
             finisherReason: null,
         },
         {
@@ -1054,10 +1207,10 @@ function buildSparringDayWorkout(
             template: 'cooldown' as const,
             title: 'Cooldown',
             intent: 'Downshift and recover for sparring.',
-            timeCap: 6,
+            timeCap: 4,
             restRule: 'Continuous easy flow.',
             densityRule: '1 easy round',
-            exercises: activation.slice(Math.min(2, activation.length)),
+            exercises: supportExercises.filter((exercise) => exercise.sectionTemplate === 'cooldown'),
             decisionTrace: ['template:cooldown', 'sparring day support'],
             finisherReason: null,
         },
@@ -1071,28 +1224,28 @@ function buildSparringDayWorkout(
     return {
         focus: 'recovery',
         workoutType: 'recovery',
-        exercises: activation,
+        exercises: supportExercises,
         payloadVersion: 'v3',
-        totalCNSBudget: 10,
-        usedCNS: activation.reduce((sum, e) => sum + e.exercise.cns_load, 0),
-        message: 'Sparring day — activation and mobility only. Save your energy for the ring.',
-        estimatedDurationMin: estimateWorkoutTime(activation),
+        totalCNSBudget: 22,
+        usedCNS: supportExercises.reduce((sum, e) => sum + e.exercise.cns_load, 0),
+        message: 'Sparring day - low-cost support work only. Prime positions, trunk, and breathing without draining the ring session.',
+        estimatedDurationMin: Math.max(15, Math.min(20, estimateWorkoutTime(supportExercises))),
         isDeloadWorkout: false,
         equipmentProfile: gymEquipment ? 'custom' : null,
         campPhaseContext,
         weeklyPlanDay: null,
         sparringDayGuidance: null,
         sessionTemplate: sections.map(section => section.template),
-        sessionGoal: 'Support sparring readiness with low-cost activation and recovery work only.',
+        sessionGoal: 'Support sparring readiness with low-cost prep, support, and recovery work.',
         sections,
-        sessionIntent: 'Support sparring with low-cost activation and mobility only.',
+        sessionIntent: 'Support sparring with low-cost prep, trunk support, and recovery only.',
         primaryAdaptation: 'recovery',
         performanceRisk: null,
         readinessProfile: readinessProfile ?? null,
         constraintSet: constraintSet ?? null,
         medStatus: medStatus ?? null,
         blockContext: null,
-        decisionTrace: ['focus:recovery', 'sparring day activation'],
+        decisionTrace: ['focus:recovery', 'sparring day support'],
     };
 }
 

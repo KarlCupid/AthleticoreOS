@@ -1,5 +1,18 @@
 import type { SimulationPersona } from './types.ts';
 
+export const TheCoachablePro: SimulationPersona = {
+  name: "The Coachable Pro",
+  description: "Generally follows the plan, logs normal day-to-day variance, and only drifts occasionally.",
+  workoutCompliance: 0.93,
+  rpeBias: 0,
+  averageSleepQuality: 4,
+  averageReadiness: 4,
+  readinessVolatility: 0.18,
+  nutritionCompliance: 0.9,
+  cheatDayProbability: 0.02,
+  cheatDayCalorieBurden: 700
+};
+
 export const ThePerfectStudent: SimulationPersona = {
   name: "The Perfect Student",
   description: "Follows every instruction perfectly. 100% compliance, stable recovery.",

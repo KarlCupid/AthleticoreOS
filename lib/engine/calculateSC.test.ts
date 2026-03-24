@@ -8,6 +8,7 @@ import {
     determineFocus,
     scoreExerciseForUser,
     generateWorkout,
+    generateWorkoutV2,
     calculateVolumeLoad,
     calculateWeeklyVolume,
     getWorkoutCompliance,
@@ -83,6 +84,13 @@ const MOCK_LIBRARY: ExerciseLibraryRow[] = [
     makeExercise({ id: 'ex-12', name: 'Sled Push', type: 'conditioning', cns_load: 7, muscle_group: 'quads' }),
 ];
 
+const SPARRING_LIBRARY: ExerciseLibraryRow[] = [
+    ...MOCK_LIBRARY,
+    makeExercise({ id: 'ex-13', name: 'Dead Bug', type: 'mobility', cns_load: 1, muscle_group: 'core' }),
+    makeExercise({ id: 'ex-14', name: 'Banded Shoulder Flow', type: 'active_recovery', cns_load: 1, muscle_group: 'shoulders' }),
+    makeExercise({ id: 'ex-15', name: 'Shadowboxing Rhythm', type: 'sport_specific', cns_load: 2, muscle_group: 'full_body' }),
+];
+
 // ─── determineFocus Tests ──────────────────────────────────────
 
 console.log('\n── determineFocus ──');
@@ -118,6 +126,9 @@ console.log('\n── determineFocus ──');
 
     // Caution uses normal weekly map (not forced to recovery like Depleted)
     assert('Caution Mon → upper_push (normal map)', determineFocus(1, 'Caution', 'off-season') === 'upper_push');
+
+    const rotated = determineFocus(1, 'Prime', 'off-season', undefined, null, 'strength', 4, ['lower', 'upper_push']);
+    assert('Goal rotation falls to least-recent valid focus', rotated === 'upper_pull');
 })();
 
 // ─── scoreExerciseForUser Tests ────────────────────────────────
@@ -179,7 +190,7 @@ console.log('\n── scoreExerciseForUser ──');
     const recentEx = makeExercise({ id: 'recent-1', type: 'heavy_lift', cns_load: 5 });
     const scoreRecent = scoreExerciseForUser(recentEx, makeScoringContext({ recentExerciseIds: ['recent-1'] }));
     const scoreNotRecent = scoreExerciseForUser(recentEx, makeScoringContext({ recentExerciseIds: [] }));
-    assert('Recently used exercise scores 25 less', scoreNotRecent - scoreRecent === 25);
+    assert('Recently used exercise scores 30 less', scoreNotRecent - scoreRecent === 30);
 
     // CNS budget exceeded → 0
     const overBudget = makeExercise({ type: 'conditioning', cns_load: 60 });
@@ -408,4 +419,23 @@ console.log('\n── getWorkoutCompliance ──');
 // ─── Summary ───────────────────────────────────────────────────
 
 console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
+(() => {
+    const sparringSupport = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'fight-camp',
+        acwr: 1.0,
+        exerciseLibrary: SPARRING_LIBRARY,
+        recentExerciseIds: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME },
+        fitnessLevel: 'intermediate',
+        trainingDate: '2026-03-11',
+        isSparringDay: true,
+    });
+
+    assert('Sparring support yields 4-5 drills', sparringSupport.exercises.length >= 4 && sparringSupport.exercises.length <= 5);
+    assert('Sparring support includes durability section', sparringSupport.sessionTemplate.includes('durability'));
+    assert('Sparring support stays 15-20 min', sparringSupport.estimatedDurationMin >= 15 && sparringSupport.estimatedDurationMin <= 20);
+})();
+
+console.log(`\nPost-V2 Results: ${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);
