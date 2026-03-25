@@ -9,6 +9,7 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { AnimatedPressable } from './AnimatedPressable';
+import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 
 interface Session {
   slot: 'am' | 'pm' | 'single';
@@ -99,6 +100,10 @@ function StatusBadge({ status }: { status: Session['status'] }) {
 function SessionRow({ session }: { session: Session }) {
   const isMuted =
     session.status === 'completed' || session.status === 'skipped';
+  const sessionLabel = getSessionFamilyLabel({
+    sessionType: session.sessionType,
+    focus: session.focus,
+  });
 
   return (
     <View style={[styles.sessionRow, isMuted && styles.sessionRowMuted]}>
@@ -115,7 +120,7 @@ function SessionRow({ session }: { session: Session }) {
             style={[styles.sessionType, isMuted && styles.textMuted]}
             numberOfLines={1}
           >
-            {session.focus ?? session.sessionType}
+            {sessionLabel}
           </Text>
           <View style={styles.sessionMeta}>
             <Text style={styles.sessionDuration}>

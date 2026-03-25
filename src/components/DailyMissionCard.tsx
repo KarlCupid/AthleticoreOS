@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { DailyMission } from '../../lib/engine/types';
+import { getSessionFamilyLabel, getSessionRoleLabel } from '../../lib/engine/sessionLabels';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
@@ -31,6 +32,12 @@ export function DailyMissionCard({ mission, compact = false }: DailyMissionCardP
     mission.fuelDirective.carbs,
     mission.fuelDirective.fat,
   );
+  const sessionLabel = getSessionFamilyLabel({
+    workoutType: mission.trainingDirective.workoutType,
+    focus: mission.trainingDirective.focus,
+    prescription: mission.trainingDirective.prescription,
+  });
+  const roleLabel = getSessionRoleLabel(mission.trainingDirective.sessionRole);
 
   return (
     <Card style={styles.card}>
@@ -53,7 +60,7 @@ export function DailyMissionCard({ mission, compact = false }: DailyMissionCardP
             <Text style={styles.sectionTitle}>Training</Text>
             <Text style={styles.sectionLine}>{mission.trainingDirective.intent}</Text>
             <Text style={styles.metaLine}>
-              {mission.trainingDirective.sessionRole.replace(/_/g, ' ')} · {mission.trainingDirective.volumeTarget}
+              {sessionLabel} · {roleLabel} · {mission.trainingDirective.volumeTarget}
             </Text>
           </View>
 

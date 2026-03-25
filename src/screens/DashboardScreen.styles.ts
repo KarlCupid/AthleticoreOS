@@ -433,6 +433,13 @@ export const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.semiBold,
         color: 'rgba(255,255,255,0.7)',
         letterSpacing: 1.2,
+    },
+    compassSessionRoleContext: {
+        fontSize: 10,
+        fontFamily: FONT_FAMILY.regular,
+        color: 'rgba(255,255,255,0.62)',
+        letterSpacing: 1,
+        marginTop: 2,
         marginBottom: SPACING.xs,
     },
     compassHeadline: {

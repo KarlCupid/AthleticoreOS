@@ -219,6 +219,15 @@ export interface NutritionDayAdjustment {
 
 export type PlanSlot = 'am' | 'pm' | 'single';
 export type PlanEntryStatus = 'planned' | 'completed' | 'skipped' | 'rescheduled';
+export type TrainingSessionFamily =
+  | 'sparring'
+  | 'boxing_skill'
+  | 'conditioning'
+  | 'strength'
+  | 'durability_core'
+  | 'recovery'
+  | 'rest';
+export type PlacementSource = 'locked' | 'generated' | 'carry_forward';
 
 export interface WeeklyPlanConfigRow {
   id: string;
@@ -245,6 +254,10 @@ export interface WeeklyPlanEntryRow {
   slot: PlanSlot;
   session_type: string;
   focus: WorkoutFocus | null;
+  session_family?: TrainingSessionFamily | null;
+  placement_source?: PlacementSource | null;
+  progression_intent?: string | null;
+  carry_forward_reason?: string | null;
   estimated_duration_min: number;
   target_intensity: number | null;
   status: PlanEntryStatus;
@@ -256,6 +269,47 @@ export interface WeeklyPlanEntryRow {
   engine_notes: string | null;
   is_deload: boolean;
   created_at: string;
+}
+
+export interface WeeklySessionTarget {
+  family: TrainingSessionFamily;
+  min: number;
+  target: number;
+  max: number;
+  scheduled: number;
+  completed: number;
+}
+
+export interface DailyTrainingPlacement {
+  date: string;
+  day_of_week: number;
+  slot: PlanSlot;
+  sessionFamily: TrainingSessionFamily;
+  sessionType: ActivityType | 'sc';
+  focus: WorkoutFocus | null;
+  durationMin: number;
+  targetIntensity: number | null;
+  source: PlacementSource;
+  locked: boolean;
+  progressionIntent: string | null;
+  notes: string | null;
+  recurringActivityId?: string | null;
+}
+
+export interface CarryForwardAdjustment {
+  family: TrainingSessionFamily;
+  fromDate: string | null;
+  suggestedDate: string | null;
+  reason: string;
+  status: 'moved' | 'deferred' | 'cancelled';
+}
+
+export interface WeeklyTrainingMixPlan {
+  weekStartDate: string;
+  weekIntent: string;
+  sessionTargets: WeeklySessionTarget[];
+  dailyPlacements: DailyTrainingPlacement[];
+  carryForwardAdjustments: CarryForwardAdjustment[];
 }
 
 export interface WeekPlanEntry
@@ -303,7 +357,24 @@ export interface SmartWeekPlanResult {
   isDeloadWeek: boolean;
   deloadReason: string | null;
   weeklyFocusSplit: Partial<Record<WorkoutFocus, number>>;
+  weeklyMixPlan: WeeklyTrainingMixPlan;
   message: string;
+}
+
+export interface GenerateBlockPlanInput extends Omit<SmartWeekPlanInput, 'weekStartDate'> {
+  startDate: string;
+  weeks: number;
+}
+
+export interface BlockTrainingWeekPlan {
+  weekStartDate: string;
+  isDeloadWeek: boolean;
+  deloadReason: string | null;
+  weeklyMixPlan: WeeklyTrainingMixPlan;
+}
+
+export interface BlockPlanResult {
+  weeks: BlockTrainingWeekPlan[];
 }
 
 export interface MissedDayRescheduleInput {

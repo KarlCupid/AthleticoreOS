@@ -11,6 +11,7 @@ import {
     adjustNutritionForDay,
     detectOvertrainingRisk,
     generateSmartWeekPlan,
+    generateBlockPlan,
     generateWeekPlan,
     getBoxingIntensityScalar,
 } from './calculateSchedule.ts';
@@ -116,11 +117,18 @@ function getGuidedEntries(result: ReturnType<typeof generateSmartWeekPlan>) {
 
 function countStrengthEntries(entries: ReturnType<typeof getGuidedEntries>) {
     return entries.filter((entry) =>
-        entry.focus === 'lower'
-        || entry.focus === 'upper_push'
-        || entry.focus === 'upper_pull'
-        || entry.focus === 'full_body'
+        entry.session_family !== 'durability_core'
+        && (
+            entry.focus === 'lower'
+            || entry.focus === 'upper_push'
+            || entry.focus === 'upper_pull'
+            || entry.focus === 'full_body'
+        )
     ).length;
+}
+
+function countDurabilityEntries(entries: ReturnType<typeof getGuidedEntries>) {
+    return entries.filter((entry) => entry.session_family === 'durability_core').length;
 }
 
 // ─── getRecoveryWindow ────────────────────────────────────────
@@ -386,16 +394,16 @@ console.log('\n── generateSmartWeekPlan ──');
         recurringActivities: [],
     });
     const guided = getGuidedEntries(result);
-    assert('Camp weeks treat availability as max capacity', guided.length === 4);
+    assert('Camp weeks keep guided work below full availability while still filling the optimizer mix', guided.length === 5);
     assert('Base phase does not auto-fill all available days', guided.length < 6);
 })();
 
 (() => {
-    const phases: Array<['base' | 'build' | 'peak' | 'taper', { guided: number; strength: number; conditioning: number; recovery: number }]> = [
-        ['base', { guided: 4, strength: 2, conditioning: 1, recovery: 1 }],
-        ['build', { guided: 4, strength: 2, conditioning: 1, recovery: 1 }],
-        ['peak', { guided: 3, strength: 1, conditioning: 1, recovery: 1 }],
-        ['taper', { guided: 2, strength: 0, conditioning: 0, recovery: 2 }],
+    const phases: Array<['base' | 'build' | 'peak' | 'taper', { guided: number; strength: number; conditioning: number; durability: number; recovery: number }]> = [
+        ['base', { guided: 5, strength: 2, conditioning: 1, durability: 1, recovery: 1 }],
+        ['build', { guided: 5, strength: 2, conditioning: 1, durability: 1, recovery: 1 }],
+        ['peak', { guided: 4, strength: 1, conditioning: 1, durability: 1, recovery: 1 }],
+        ['taper', { guided: 2, strength: 0, conditioning: 0, durability: 0, recovery: 2 }],
     ];
 
     for (const [campPhase, expected] of phases) {
@@ -419,11 +427,13 @@ console.log('\n── generateSmartWeekPlan ──');
         const guided = getGuidedEntries(result);
         const strengthCount = countStrengthEntries(guided);
         const conditioningCount = guided.filter((entry) => entry.focus === 'conditioning').length;
+        const durabilityCount = countDurabilityEntries(guided);
         const recoveryCount = guided.filter((entry) => entry.focus === 'recovery').length;
 
         assert(`${campPhase} phase guided-session ceiling`, guided.length === expected.guided);
         assert(`${campPhase} phase strength mix`, strengthCount === expected.strength);
         assert(`${campPhase} phase conditioning mix`, conditioningCount === expected.conditioning);
+        assert(`${campPhase} phase durability mix`, durabilityCount === expected.durability);
         assert(`${campPhase} phase recovery mix`, recoveryCount === expected.recovery);
     }
 })();
@@ -572,6 +582,77 @@ console.log('\n── generateSmartWeekPlan ──');
     assert('Sparring days stay sport_specific', sparSupportDays.every((entry) => entry.focus === 'sport_specific'));
     assert('Sparring support stays activation-only in duration', sparSupportDays.every((entry) => entry.estimated_duration_min <= 30));
     assert('Sparring support stays activation-only in intensity', sparSupportDays.every((entry) => (entry.target_intensity ?? 10) <= 5));
+})();
+
+(() => {
+    const result = generateSmartWeekPlan({
+        config: makeSmartConfig({ available_days: [1, 2, 4, 5] }),
+        readinessState: 'Prime',
+        phase: 'fight-camp',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'boxing_skill',
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-02',
+        recurringActivities: [],
+    });
+    const conditioningTarget = result.weeklyMixPlan.sessionTargets.find((target) => target.family === 'conditioning');
+    assert('Boxing-skill block keeps a conditioning target in weekly mix', (conditioningTarget?.target ?? 0) >= 1);
+    assert('Boxing-skill block still surfaces at least one conditioning guided session', getGuidedEntries(result).some((entry) => entry.focus === 'conditioning'));
+})();
+
+(() => {
+    const { camp, weekStartDate } = makeCampPhaseContext('build');
+    const result = generateSmartWeekPlan({
+        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
+        readinessState: 'Depleted',
+        phase: 'fight-camp',
+        acwr: 1.46,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'boxing_skill',
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: camp,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate,
+        recurringActivities: [
+            makeRecurringActivity('boxing_practice', [1], {
+                estimated_duration_min: 60,
+                expected_intensity: 6,
+            }),
+        ],
+    });
+    assert('Blocked combat-anchor guided work is recorded as carry-forward', result.weeklyMixPlan.carryForwardAdjustments.length > 0);
+    assert('Carry-forward records the move instead of silently dropping the session', result.weeklyMixPlan.carryForwardAdjustments.some((adjustment) => adjustment.status === 'moved'));
+})();
+
+(() => {
+    const block = generateBlockPlan({
+        config: makeSmartConfig({ available_days: [1, 2, 4, 5] }),
+        readinessState: 'Prime',
+        phase: 'fight-camp',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'boxing_skill',
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        recurringActivities: [],
+        startDate: '2026-03-02',
+        weeks: 2,
+    });
+    assert('Block optimizer returns the requested number of weeks', block.weeks.length === 2);
+    assert('Block optimizer exposes weekly mix plans', block.weeks.every((week) => week.weeklyMixPlan.sessionTargets.length > 0));
 })();
 
 console.log(`\n── Final Results: ${passed} passed, ${failed} failed ──\n`);

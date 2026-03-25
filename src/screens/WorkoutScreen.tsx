@@ -191,11 +191,9 @@ export function WorkoutScreen() {
                                             <Text style={styles.planEntryLabel}>
                                                 {isDeloadWeek ? 'Recovery Day' : 'Today\'s Plan'}
                                             </Text>
-                                            <Text style={styles.planEntryFocus}>
-                                                {todayPlanEntry.focus
-                                                    ? getWorkoutFocusLabel(todayPlanEntry.focus, todayPlanEntry.session_type)
-                                                    : todayPlanEntry.session_type}
-                                            </Text>
+                                                <Text style={styles.planEntryFocus}>
+                                                    {getWorkoutFocusLabel(todayPlanEntry.focus, todayPlanEntry.session_type, todayPlanEntry.prescription_snapshot)}
+                                                </Text>
                                         </View>
                                         <View style={styles.planEntryMeta}>
                                             <Text style={styles.planEntryDuration}>{todayPlanEntry.estimated_duration_min} min</Text>
@@ -348,7 +346,7 @@ export function WorkoutScreen() {
                                                             </Text>
                                                             <View style={styles.weekSessionCopy}>
                                                                 <Text style={styles.weekCardFocus}>
-                                                                    {session.is_deload ? 'Recovery' : getWorkoutFocusLabel(session.focus, session.session_type)}
+                                                                    {session.is_deload ? 'Recovery' : getWorkoutFocusLabel(session.focus, session.session_type, session.prescription_snapshot)}
                                                                 </Text>
                                                                 <Text style={styles.weekCardMeta}>
                                                                     {session.estimated_duration_min} min
@@ -823,5 +821,3 @@ const styles = StyleSheet.create({
         color: COLORS.text.tertiary,
     },
 });
-
-

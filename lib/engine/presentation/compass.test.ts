@@ -92,6 +92,7 @@ const result = buildCompassViewModel(mission, true, true, false);
 assert('headline from mission', result.headline === 'Strong training day');
 assert('summaryLine from mission summary', result.summaryLine === 'All systems green.');
 assert('riskLevel from mission.riskState.level', result.riskLevel === 'low');
+assert('sessionLabel derived from workout identity', result.sessionLabel === 'Strength');
 assert('hasPrescription reflects arg', result.hasPrescription === true);
 
 console.log('\n── Session role labels ──');
@@ -107,6 +108,18 @@ assert('recover role: label = Recovery Day', recoverResult.sessionRoleLabel === 
 const sparMission = makeMission({ trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'spar_support' } });
 const sparResult = buildCompassViewModel(sparMission, false, true, false);
 assert('spar_support role: label = Sparring Support', sparResult.sessionRoleLabel === 'Sparring Support');
+
+const conditioningMission = makeMission({
+  trainingDirective: {
+    ...makeMission().trainingDirective,
+    sessionRole: 'spar_support',
+    focus: 'conditioning' as any,
+    workoutType: 'conditioning' as any,
+  },
+});
+const conditioningResult = buildCompassViewModel(conditioningMission, false, true, false);
+assert('sessionLabel prioritizes session family over role label', conditioningResult.sessionLabel === 'Conditioning');
+assert('role label remains secondary context', conditioningResult.sessionRoleLabel === 'Sparring Support');
 
 const taperMission = makeMission({ trainingDirective: { ...makeMission().trainingDirective, sessionRole: 'taper_sharpen' } });
 const taperResult = buildCompassViewModel(taperMission, false, true, false);

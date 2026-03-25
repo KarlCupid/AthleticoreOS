@@ -191,6 +191,13 @@ export function useWeeklyPlan() {
       isDeloadWeek: nextIsDeload,
       deloadReason: null,
       weeklyFocusSplit: {},
+      weeklyMixPlan: {
+        weekStartDate: nextEntries[0]?.week_start_date ?? todayStr(),
+        weekIntent: weeklyMission.summary,
+        sessionTargets: [],
+        dailyPlacements: [],
+        carryForwardAdjustments: [],
+      },
       message: weeklyMission.summary,
     });
   }, []);

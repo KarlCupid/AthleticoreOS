@@ -718,12 +718,6 @@ async function resolveWorkoutPrescription(input: {
   objectiveContext: MacrocycleContext;
   medStatus: MEDStatus | null;
 }): Promise<WeeklyPlanEntryRow['prescription_snapshot']> {
-  const scheduledActivities = await getScheduledActivities(input.userId, input.date, input.date);
-  const activeScheduledActivities = scheduledActivities.filter((activity) => activity.status !== 'skipped');
-  const hasCombatAnchor = activeScheduledActivities.some((activity) =>
-    activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice',
-  );
-
   if (input.weeklyPlanEntry?.daily_mission_snapshot?.trainingDirective?.prescription) {
     return input.weeklyPlanEntry.daily_mission_snapshot.trainingDirective.prescription;
   }
@@ -732,10 +726,6 @@ async function resolveWorkoutPrescription(input: {
   }
 
   if (!input.weeklyPlanEntry) {
-    return null;
-  }
-
-  if (hasCombatAnchor) {
     return null;
   }
 

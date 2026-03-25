@@ -437,7 +437,10 @@ export function DashboardScreen() {
           colors={gradient as [string, string, ...string[]]}
           style={[styles.compassHeader, { paddingTop: insets.top + SPACING.lg }]}
         >
-          <Text style={styles.compassSessionRole}>{compassVM.sessionRoleLabel.toUpperCase()}</Text>
+          <Text style={styles.compassSessionRole}>{compassVM.sessionLabel.toUpperCase()}</Text>
+          {compassVM.sessionRoleLabel !== compassVM.sessionLabel ? (
+            <Text style={styles.compassSessionRoleContext}>{compassVM.sessionRoleLabel.toUpperCase()}</Text>
+          ) : null}
           <Text style={styles.compassHeadline}>{compassVM.headline}</Text>
           <Text style={styles.compassSummary}>{compassVM.summaryLine}</Text>
           <View style={styles.compassReasonRow}>

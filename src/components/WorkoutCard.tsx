@@ -8,6 +8,7 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, GRADIENTS, ANIMATION } f
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { IconFire, IconCheckCircle } from '../components/icons';
 import { ScheduledActivityRow, WorkoutPrescription } from '../../lib/engine/types';
+import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 
 interface WorkoutCardProps {
     prescription: WorkoutPrescription | null;
@@ -20,6 +21,11 @@ interface WorkoutCardProps {
 
 export function WorkoutCard({ prescription, primaryActivity = null, isCompleted, onPress, entering = false, enteringDelay = 0 }: WorkoutCardProps) {
     const { themeColor } = useReadinessTheme();
+    const prescriptionLabel = prescription ? getSessionFamilyLabel({
+        workoutType: (prescription as any).workoutType ?? null,
+        focus: prescription.focus,
+        prescription: prescription as any,
+    }) : null;
 
     const wrapWithEntering = (content: React.ReactNode) => {
         if (entering) {
@@ -69,12 +75,12 @@ export function WorkoutCard({ prescription, primaryActivity = null, isCompleted,
                 <View style={[styles.iconContainer, { backgroundColor: COLORS.success + '20' }]}>
                     <IconCheckCircle size={24} color={COLORS.success} />
                 </View>
-                <View style={styles.content}>
-                    <Text style={styles.title}>Workout Complete</Text>
-                    <Text style={styles.subtitle}>{prescription.focus?.replace(/_/g, ' ').toUpperCase()}</Text>
-                </View>
-            </Card>
-        );
+                    <View style={styles.content}>
+                        <Text style={styles.title}>Workout Complete</Text>
+                        <Text style={styles.subtitle}>{prescriptionLabel?.toUpperCase()}</Text>
+                    </View>
+                </Card>
+            );
     }
 
     // Exercise preview chips (first 3)
@@ -90,7 +96,7 @@ export function WorkoutCard({ prescription, primaryActivity = null, isCompleted,
                     <View style={styles.content}>
                         <Text style={styles.title}>Today's Workout</Text>
                         <View style={styles.statsRow}>
-                            <Text style={styles.focusBadge}>{prescription.focus?.replace(/_/g, ' ').toUpperCase()}</Text>
+                            <Text style={styles.focusBadge}>{prescriptionLabel?.toUpperCase()}</Text>
                             <Text style={styles.statDot}>{'\u00B7'}</Text>
                             <Text style={styles.statText}>{prescription.exercises.length} Exercises</Text>
                         </View>

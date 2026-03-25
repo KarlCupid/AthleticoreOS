@@ -1,4 +1,5 @@
 import type { DailyCheckin, TrainingSession } from '../../hooks/useWorkoutData';
+import { getSessionFamilyLabel } from '../../../lib/engine/sessionLabels';
 
 export const WORKOUT_TABS = ['today', 'plan', 'history', 'analytics'] as const;
 
@@ -40,10 +41,15 @@ export function buildTrainingLoadData(sessions: TrainingSession[]) {
   }));
 }
 
-export function getWorkoutFocusLabel(focus: string | null | undefined, sessionType: string): string {
-  if (!focus) {
-    return sessionType;
-  }
-
-  return FOCUS_LABELS[focus] ?? focus;
+export function getWorkoutFocusLabel(
+  focus: string | null | undefined,
+  sessionType: string,
+  prescription?: { sessionFamily?: string | null; workoutType?: string | null; focus?: string | null } | null,
+): string {
+  return getSessionFamilyLabel({
+    sessionType,
+    workoutType: (prescription?.workoutType as any) ?? null,
+    focus: (prescription?.focus as any) ?? focus,
+    prescription: prescription as any,
+  });
 }

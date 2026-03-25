@@ -23,6 +23,7 @@ import type {
     ExerciseSubstitution,
     ExerciseLibraryRow,
 } from '../../lib/engine/types';
+import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 type RouteProp = import('@react-navigation/native').RouteProp<PlanStackParamList, 'WorkoutDetail'>;
@@ -193,7 +194,11 @@ export function WorkoutDetailScreen() {
 
     const status = entry?.status ?? 'planned';
     const focus = entry?.focus ?? null;
-    const focusLabel = focus ? FOCUS_LABELS[focus] : 'Session';
+    const focusLabel = getSessionFamilyLabel({
+        sessionType: entry?.session_type ?? null,
+        focus,
+        prescription,
+    });
     const dayLabel = date ? formatDayLabel(date) : '';
     const durationMin = entry?.estimated_duration_min ?? 0;
     const intensity = entry?.target_intensity ?? null;

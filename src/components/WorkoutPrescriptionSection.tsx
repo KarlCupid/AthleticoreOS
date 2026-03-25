@@ -7,6 +7,7 @@ import { SectionHeader } from './SectionHeader';
 import { AnimatedPressable } from './AnimatedPressable';
 import { IconFire } from './icons';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
+import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 
 interface WorkoutPrescriptionSectionProps {
     prescription: any;
@@ -72,10 +73,15 @@ export function WorkoutPrescriptionSection({ prescription, themeColor, onStart }
 
     const renderStrengthAndConditioning = () => {
         const hasSections = Array.isArray(prescription.sections) && prescription.sections.length > 0;
+        const sessionLabel = getSessionFamilyLabel({
+            sessionType: prescription.workoutType,
+            focus: prescription.focus,
+            prescription,
+        });
 
         return (
             <>
-                <SectionHeader title={`Today's Workout - ${String(prescription.focus || '').replace(/_/g, ' ').toUpperCase()}`} />
+                <SectionHeader title={`Today's Workout - ${sessionLabel.toUpperCase()}`} />
                 <Card>
                     <View style={styles.prescriptionHeader}>
                         <View style={styles.prescriptionMeta}>

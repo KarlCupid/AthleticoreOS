@@ -103,6 +103,17 @@ const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
     'glutes', 'arms', 'core', 'full_body', 'neck', 'calves',
 ];
 
+function resolveSessionFamily(
+    focus: WorkoutFocus,
+    explicitSessionFamily?: GenerateWorkoutInputV2['sessionFamily'],
+): WorkoutPrescriptionV2['sessionFamily'] {
+    if (explicitSessionFamily) return explicitSessionFamily;
+    if (focus === 'conditioning') return 'conditioning';
+    if (focus === 'recovery') return 'recovery';
+    if (focus === 'sport_specific') return 'boxing_skill';
+    return 'strength';
+}
+
 function resolveTrainingAge(
     fitnessLevel: FitnessLevel,
     explicitTrainingAge?: 'novice' | 'intermediate' | 'advanced',
@@ -1020,6 +1031,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         readinessProfile,
         constraintSet,
         medStatus = null,
+        sessionFamily = null,
     } = input;
     const resolvedPerformanceGoalType = performanceGoalType ?? 'conditioning';
 
@@ -1045,7 +1057,15 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
 
     // Sparring day: return activation-only workout
     if (isSparringDay) {
-        return buildSparringDayWorkout(exerciseLibrary, gymEquipment, phase, readinessProfile ?? null, resolvedConstraintSet, medStatus);
+        return buildSparringDayWorkout(
+            exerciseLibrary,
+            gymEquipment,
+            phase,
+            readinessProfile ?? null,
+            resolvedConstraintSet,
+            medStatus,
+            sessionFamily,
+        );
     }
 
     const dayOfWeek = resolveDayOfWeek(trainingDate);
@@ -1223,6 +1243,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         recoveryCost: getExerciseRecoveryCost(exercise.exercise),
     }));
     const estimatedDuration = sectionedSession.estimatedDuration || estimateWorkoutTime(finalExercises);
+    const resolvedSessionFamily = resolveSessionFamily(effectiveFocus, sessionFamily);
     const primaryAdaptation = resolvePrimaryAdaptation(effectiveFocus, resolvedPerformanceGoalType);
     const sessionGoal = sectionedSession.sessionGoal;
     const sessionIntent = buildSessionIntent({
@@ -1268,6 +1289,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         workoutType,
         exercises: finalExercises,
         payloadVersion: 'v3',
+        sessionFamily: resolvedSessionFamily,
         totalCNSBudget,
         usedCNS: sectionedSession.usedCNS,
         message,
@@ -1397,6 +1419,7 @@ function buildSparringDayWorkout(
     readinessProfile?: ReadinessProfile | null,
     constraintSet?: StimulusConstraintSet | null,
     medStatus?: MEDStatus | null,
+    sessionFamily?: GenerateWorkoutInputV2['sessionFamily'],
 ): WorkoutPrescriptionV2 {
     let exercises = library.filter(e =>
         e.type === 'mobility' || e.type === 'active_recovery' ||
@@ -1497,6 +1520,7 @@ function buildSparringDayWorkout(
         workoutType: 'recovery',
         exercises: supportExercises,
         payloadVersion: 'v3',
+        sessionFamily: sessionFamily ?? 'durability_core',
         totalCNSBudget: 22,
         usedCNS: supportExercises.reduce((sum, e) => sum + e.exercise.cns_load, 0),
         message: 'Sparring day - low-cost support work only. Prime positions, trunk, and breathing without draining the ring session.',

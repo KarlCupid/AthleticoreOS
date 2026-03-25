@@ -9,6 +9,7 @@ export interface CompassViewModel {
   secondaryCTATarget: 'training' | 'plan' | 'checkin' | 'nutrition' | null;
   reasonSentence: string;
   riskLevel: 'low' | 'moderate' | 'high' | 'critical';
+  sessionLabel: string;
   sessionRoleLabel: string;
   hasPrescription: boolean;
 }

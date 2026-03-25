@@ -1,17 +1,8 @@
-import type { DailyMission, TrainingSessionRole } from '../types/mission.ts';
+import type { DailyMission } from '../types/mission.ts';
 import type { MissionRiskLevel } from '../types/mission.ts';
 import type { CompassViewModel } from './types.ts';
 import { getPrimaryDecisionReason } from './decisionReason.ts';
-
-const SESSION_ROLE_LABELS: Record<TrainingSessionRole, string> = {
-  rest: 'Rest Day',
-  develop: 'Development Session',
-  express: 'Performance Expression',
-  recover: 'Recovery Day',
-  spar_support: 'Sparring Support',
-  cut_protect: 'Cut Protection',
-  taper_sharpen: 'Taper & Sharpen',
-};
+import { getSessionFamilyLabel, getSessionRoleLabel } from '../sessionLabels.ts';
 
 const NULL_DEFAULT: CompassViewModel = {
   headline: 'Ready to train',
@@ -22,6 +13,7 @@ const NULL_DEFAULT: CompassViewModel = {
   secondaryCTATarget: null,
   reasonSentence: 'Log your readiness to generate today\'s recommendations.',
   riskLevel: 'low',
+  sessionLabel: 'Training Session',
   sessionRoleLabel: 'Training Session',
   hasPrescription: false,
 };
@@ -74,8 +66,12 @@ export function buildCompassViewModel(
     secondaryCTATarget,
     reasonSentence: reasonVM.sentence,
     riskLevel: (mission.riskState?.level ?? 'low') as MissionRiskLevel,
-    sessionRoleLabel:
-      SESSION_ROLE_LABELS[mission.trainingDirective.sessionRole] ?? 'Training Session',
+    sessionLabel: getSessionFamilyLabel({
+      workoutType: mission.trainingDirective.workoutType,
+      focus: mission.trainingDirective.focus,
+      prescription: mission.trainingDirective.prescription,
+    }),
+    sessionRoleLabel: getSessionRoleLabel(mission.trainingDirective.sessionRole),
     hasPrescription,
   };
 }

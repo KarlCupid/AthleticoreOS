@@ -493,6 +493,7 @@ export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
   performanceRisk?: PerformanceRiskState | null;
   blockContext?: TrainingBlockContext | null;
   medStatus?: MEDStatus | null;
+  sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
 }
 
 export interface PrescribedExerciseV2 extends PrescribedExercise {
@@ -646,6 +647,7 @@ export interface TrainingBlockContext {
 export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   exercises: PrescribedExerciseV2[];
   payloadVersion?: 'v2' | 'v3';
+  sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
   estimatedDurationMin: number;
   isDeloadWorkout: boolean;
   equipmentProfile: string | null;

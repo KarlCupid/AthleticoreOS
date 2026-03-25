@@ -31,6 +31,7 @@ export {
   detectOvertrainingRisk,
   generateWeekPlan,
   generateSmartWeekPlan,
+  generateBlockPlan,
   getBoxingIntensityScalar,
   calculateWeeklyCompliance,
   getTrainingStreak,
@@ -38,6 +39,7 @@ export {
 export * from './performancePlanner.ts';
 export * from './readiness/profile.ts';
 export * from './sessionOwnership.ts';
+export * from './sessionLabels.ts';
 export { 
   generateCutPlan, 
   determineCutPhase, 
