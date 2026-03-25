@@ -11,13 +11,13 @@ import { supabase } from '../../lib/supabase';
 import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
 import { createWeightCutPlan } from '../../lib/api/weightCutService';
 import { getEffectiveWeight } from '../../lib/api/weightService';
-import { PlanStackParamList } from '../navigation/types';
+import { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 import { CutPlanResult, CutSport } from '../../lib/engine/types';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';
 import { CutPlanPreviewStep } from '../components/CutPlanPreviewStep';
 
-type NavProp = NativeStackNavigationProp<PlanStackParamList, 'CutPlanSetup'>;
+type NavProp = NativeStackNavigationProp<FuelStackParamList, 'CutPlanSetup'>;
 
 // Step 1 = How It Works intro
 // Step 2 = Target Weight

@@ -68,17 +68,26 @@ export const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
         paddingBottom: SPACING.md,
     },
-    headerTitle: {
-        fontSize: 28,
-        fontFamily: FONT_FAMILY.black,
-        color: COLORS.text.primary,
-        letterSpacing: -0.5,
+    modeSwitch: {
+        flexDirection: 'row',
+        gap: SPACING.sm,
+        backgroundColor: COLORS.surfaceSecondary,
+        borderRadius: RADIUS.xl,
+        padding: 4,
     },
-    dateText: {
-        fontSize: 14,
-        fontFamily: FONT_FAMILY.regular,
+    modeChip: {
+        flex: 1,
+        paddingVertical: SPACING.sm,
+        borderRadius: RADIUS.lg,
+        alignItems: 'center',
+    },
+    modeChipText: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.secondary,
-        marginTop: 2,
+    },
+    modeChipTextActive: {
+        color: COLORS.text.inverse,
     },
     content: {
         padding: SPACING.lg,

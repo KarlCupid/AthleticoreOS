@@ -12,10 +12,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { PlanStackParamList } from '../navigation/types';
+import { TrainStackParamList } from '../navigation/types';
 
-type NavProp = NativeStackNavigationProp<PlanStackParamList>;
-type RoutePropType = RouteProp<PlanStackParamList, 'WorkoutSummary'>;
+type NavProp = NativeStackNavigationProp<TrainStackParamList>;
+type RoutePropType = RouteProp<TrainStackParamList, 'WorkoutSummary'>;
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ export function WorkoutSummaryScreen() {
     const fatigueMessage = getFatigueMessage(avgRPE);
 
     function handleBackToPlan() {
-        navigation.navigate('PlanHome');
+        navigation.getParent()?.navigate('Plan' as never);
     }
 
     function handleViewHistory() {

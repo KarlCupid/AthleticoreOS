@@ -12,16 +12,25 @@ import type {
 } from '../../lib/engine/types';
 
 
-export type PlanStackParamList = {
-  PlanHome: undefined;
-  WeeklyPlanSetup:
-    | {
-      initialGoalMode?: AthleteGoalMode;
-      initialPhaseKey?: 'objective' | 'availability' | 'commitments' | 'planner';
-      source?: 'dashboard' | 'plan';
-    }
-    | undefined;
+export type WeeklyPlanSetupParams =
+  | {
+    initialGoalMode?: AthleteGoalMode;
+    initialPhaseKey?: 'objective' | 'availability' | 'commitments' | 'planner';
+    source?: 'dashboard' | 'plan';
+  }
+  | undefined;
+
+export type TodayStackParamList = {
+  TodayHome: undefined;
+  Log: undefined;
+  DayDetail: { date: string };
+  ActivityLog: { activityId: string; date: string };
+};
+
+export type TrainStackParamList = {
   WorkoutHome: undefined;
+  WeeklyPlanSetup: WeeklyPlanSetupParams;
+  PlanHome: undefined;
   ExerciseSearch: { workoutLogId?: string };
   ExerciseDetail: { exercise: ExerciseLibraryRow; workoutLogId?: string };
   CustomExercise: undefined;
@@ -54,10 +63,35 @@ export type PlanStackParamList = {
     prExerciseName?: string;
   };
   GymProfiles: undefined;
+  WorkoutDetail: {
+    weeklyPlanEntryId: string;
+    date: string;
+    readinessState: ReadinessState;
+    phase: Phase;
+    fitnessLevel: FitnessLevel;
+    isDeloadWeek?: boolean;
+  };
+};
+
+export type PlanStackParamList = {
+  PlanHome: undefined;
+  WeeklyPlanSetup:
+    WeeklyPlanSetupParams;
   CalendarMain: undefined;
   DayDetail: { date: string };
   ActivityLog: { activityId: string; date: string };
   WeeklyReview: undefined;
+  WorkoutDetail: {
+    weeklyPlanEntryId: string;
+    date: string;
+    readinessState: ReadinessState;
+    phase: Phase;
+    fitnessLevel: FitnessLevel;
+    isDeloadWeek?: boolean;
+  };
+};
+
+export type FuelStackParamList = {
   NutritionHome: undefined;
   FoodSearch: { mealType?: MealType; date?: string };
   FoodDetail: { foodItem: FoodItemRow; mealType?: MealType; date?: string };
@@ -72,15 +106,25 @@ export type PlanStackParamList = {
     targetWeightLbs?: number;
   };
   CutHistory: undefined;
-  WorkoutDetail: {
-    weeklyPlanEntryId: string;
-    date: string;
-    readinessState: ReadinessState;
-    phase: Phase;
-    fitnessLevel: FitnessLevel;
-    isDeloadWeek?: boolean;
-  };
 };
+
+export type MeStackParamList = {
+  MeHome: undefined;
+};
+
+export type RootTabParamList = {
+  Today: undefined;
+  Train: undefined;
+  Plan: undefined;
+  Fuel: undefined;
+  Me: undefined;
+};
+
+export type AppRouteParamList = TodayStackParamList &
+  TrainStackParamList &
+  PlanStackParamList &
+  FuelStackParamList &
+  MeStackParamList;
 
 export type PlanStackScreenProps<T extends keyof PlanStackParamList> = NativeStackScreenProps<
   PlanStackParamList,

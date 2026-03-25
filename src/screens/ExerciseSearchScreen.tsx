@@ -19,10 +19,10 @@ import { searchExercises } from '../../lib/api/scService';
 import { ExerciseLibraryRow, ExerciseType, MuscleGroup } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 import { IconChevronLeft, IconPlus } from '../components/icons';
-import { PlanStackParamList } from '../navigation/types';
+import { TrainStackParamList } from '../navigation/types';
 
-type NavProp = NativeStackNavigationProp<PlanStackParamList>;
-type RouteParams = Pick<PlanStackParamList, 'ExerciseSearch'>;
+type NavProp = NativeStackNavigationProp<TrainStackParamList>;
+type RouteParams = Pick<TrainStackParamList, 'ExerciseSearch'>;
 
 const TYPE_FILTERS: { value: ExerciseType; label: string }[] = [
     { value: 'heavy_lift', label: 'Lifts' },

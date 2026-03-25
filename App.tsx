@@ -20,14 +20,14 @@ import { TabNavigator } from './src/navigation/TabNavigator';
 import { PlanningSetupStackNavigator } from './src/navigation/PlanningSetupStack';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
-import { COLORS } from './src/theme/theme';
+import { APP_CHROME, COLORS } from './src/theme/theme';
 import { logError } from './lib/utils/logger';
 
 const myTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: COLORS.background,
+    background: APP_CHROME.background,
   },
 };
 
@@ -175,7 +175,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: APP_CHROME.background,
   },
   centered: {
     justifyContent: 'center',

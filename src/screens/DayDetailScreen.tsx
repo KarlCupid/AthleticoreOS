@@ -112,7 +112,7 @@ export function DayDetailScreen() {
             if (!session?.user) return;
 
             const context = await getGuidedWorkoutContext(session.user.id, activity.date);
-            navigation.navigate('Plan', {
+            navigation.navigate('Train', {
                 screen: 'GuidedWorkout',
                 params: {
                     weeklyPlanEntryId: activity.weekly_plan_entry_id ?? undefined,

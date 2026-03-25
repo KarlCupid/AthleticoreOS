@@ -176,8 +176,16 @@ export function DashboardScreen() {
   ];
   const D = 50;
 
+  const openTrainScreen = React.useCallback((screen: string, params?: Record<string, unknown>) => {
+    navigation.navigate('Train', { screen, params });
+  }, [navigation]);
+
   const openPlanScreen = React.useCallback((screen: string, params?: Record<string, unknown>) => {
     navigation.navigate('Plan', { screen, params });
+  }, [navigation]);
+
+  const openFuelScreen = React.useCallback((screen: string, params?: Record<string, unknown>) => {
+    navigation.navigate('Fuel', { screen, params });
   }, [navigation]);
 
   const openTodayTraining = React.useCallback(async () => {
@@ -189,7 +197,7 @@ export function DashboardScreen() {
 
     if (todayPlanEntry) {
       const context = await getGuidedWorkoutContext(session.user.id, todayPlanEntry.date);
-      openPlanScreen('GuidedWorkout', {
+      openTrainScreen('GuidedWorkout', {
         weeklyPlanEntryId: todayPlanEntry.id,
         scheduledActivityId: todayPlanEntry.scheduled_activity_id ?? undefined,
         focus: todayPlanEntry.focus ?? undefined,
@@ -205,7 +213,7 @@ export function DashboardScreen() {
 
     if (primaryActivity && isGuidedEngineActivityType(primaryActivity.activity_type) && primaryActivity.weekly_plan_entry_id) {
       const context = await getGuidedWorkoutContext(session.user.id, primaryActivity.date);
-      openPlanScreen('GuidedWorkout', {
+      openTrainScreen('GuidedWorkout', {
         weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
         scheduledActivityId: primaryActivity.id,
         focus: primaryActivity.custom_label ?? undefined,
@@ -219,7 +227,7 @@ export function DashboardScreen() {
     }
 
     navigation.navigate('DayDetail', { date: todayLocalDate() });
-  }, [currentLevel, navigation, openPlanScreen, primaryActivity, todayPlanEntry]);
+  }, [currentLevel, navigation, openTrainScreen, primaryActivity, todayPlanEntry]);
 
   const openFightCampSetup = React.useCallback(() => {
     openPlanScreen('WeeklyPlanSetup', {
@@ -252,19 +260,19 @@ export function DashboardScreen() {
     switch (compassVM.primaryCTATarget) {
       case 'checkin': navigation.navigate('Log'); break;
       case 'training': void openTodayTraining(); break;
-      case 'nutrition': openPlanScreen('NutritionHome'); break;
+      case 'nutrition': openFuelScreen('NutritionHome'); break;
       case 'plan': openPlanningSurface(); break;
     }
-  }, [compassVM.primaryCTATarget, navigation, openPlanScreen, openPlanningSurface, openTodayTraining]);
+  }, [compassVM.primaryCTATarget, navigation, openFuelScreen, openPlanningSurface, openTodayTraining]);
 
   const handleCompassSecondaryCTA = React.useCallback(() => {
     switch (compassVM.secondaryCTATarget) {
       case 'checkin': navigation.navigate('Log'); break;
       case 'training': void openTodayTraining(); break;
-      case 'nutrition': openPlanScreen('NutritionHome'); break;
+      case 'nutrition': openFuelScreen('NutritionHome'); break;
       case 'plan': openPlanningSurface(); break;
     }
-  }, [compassVM.secondaryCTATarget, navigation, openPlanScreen, openPlanningSurface, openTodayTraining]);
+  }, [compassVM.secondaryCTATarget, navigation, openFuelScreen, openPlanningSurface, openTodayTraining]);
 
   const handleSwitchToBuildPhase = React.useCallback(() => {
     Alert.alert(
@@ -344,8 +352,8 @@ export function DashboardScreen() {
       return;
     }
 
-    openPlanScreen('NutritionHome');
-  }, [navigation, openPlanScreen, openTodayTraining]);
+    openFuelScreen('NutritionHome');
+  }, [navigation, openFuelScreen, openTodayTraining]);
 
   const checklistSteps = firstRunGuidance ? [
     {
@@ -598,8 +606,8 @@ export function DashboardScreen() {
           {contextualTodayActivities.length > 0 && (
             <Animated.View entering={FadeInDown.delay(D * 1.8).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
               <SectionHeader
-                title={todayPlanEntry ? "Also On Today's Schedule" : "Today's Schedule"}
-                actionLabel="Day View"
+                title={todayPlanEntry ? "Also on today's schedule" : "Today's schedule"}
+                actionLabel="View day"
                 onAction={() => navigation.navigate('DayDetail', { date: todayLocalDate() })}
               />
               {todayPlanEntry && (
@@ -650,13 +658,13 @@ export function DashboardScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(D * 4).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
-            <SectionHeader title="Training Load" />
+            <SectionHeader title="Training load" />
             <TrainingLoadChartCard trainingLoadData={trainingLoadData} acute={acute} chronic={chronic} acwr={acwr} />
           </Animated.View>
 
           {weightTrend && (
             <Animated.View entering={FadeInDown.delay(D * 4.5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
-              <SectionHeader title="Body Intelligence" />
+              <SectionHeader title="Body trends" />
               <WeightTrendCard
                 trend={weightTrend}
                 baseWeight={weightTrend.currentWeight - weightTrend.totalChangeLbs}
@@ -666,8 +674,8 @@ export function DashboardScreen() {
           )}
 
           <Animated.View entering={FadeInDown.delay(D * 5).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
-            <SectionHeader title="Nutrition" actionLabel="Details" onAction={() => openPlanScreen('NutritionHome')} />
-            <AnimatedPressable onPress={() => openPlanScreen('NutritionHome')}>
+            <SectionHeader title="Fuel" actionLabel="Details" onAction={() => openFuelScreen('NutritionHome')} />
+            <AnimatedPressable onPress={() => openFuelScreen('NutritionHome')}>
               <DashboardNutritionCard
                 actualNutrition={actualNutrition}
                 targets={{
@@ -683,7 +691,7 @@ export function DashboardScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(D * 7).duration(ANIMATION.slow).springify()} style={{ marginTop: SPACING.md }}>
-            <SectionHeader title="Quick Actions" />
+            <SectionHeader title="Today shortcuts" />
             <View style={styles.quickActionStrip}>
               <AnimatedPressable style={styles.quickActionPill} onPress={() => navigation.navigate('Log')}>
                 <View style={[styles.quickActionIconWrap, { backgroundColor: checkinDone ? COLORS.success + '18' : COLORS.accentLight }]}>
@@ -691,7 +699,7 @@ export function DashboardScreen() {
                     ? <IconActivity size={14} color={COLORS.success} />
                     : <IconActivity size={14} color={COLORS.accent} />}
                 </View>
-                <Text style={[styles.quickActionLabel, checkinDone && styles.quickActionLabelDone]}>Check-in</Text>
+                <Text style={[styles.quickActionLabel, checkinDone && styles.quickActionLabelDone]}>Check in</Text>
               </AnimatedPressable>
               <AnimatedPressable style={styles.quickActionPill} onPress={() => { void openTodayTraining(); }}>
                 <View style={[styles.quickActionIconWrap, { backgroundColor: sessionDone ? COLORS.success + '18' : COLORS.readiness.cautionLight }]}>
@@ -701,11 +709,11 @@ export function DashboardScreen() {
                 </View>
                 <Text style={[styles.quickActionLabel, sessionDone && styles.quickActionLabelDone]}>Train</Text>
               </AnimatedPressable>
-              <AnimatedPressable style={styles.quickActionPill} onPress={() => openPlanScreen('NutritionHome')}>
+              <AnimatedPressable style={styles.quickActionPill} onPress={() => openFuelScreen('NutritionHome')}>
                 <View style={[styles.quickActionIconWrap, { backgroundColor: COLORS.chart.protein + '18' }]}>
                   <IconRestaurant size={14} color={COLORS.chart.protein} />
                 </View>
-                <Text style={styles.quickActionLabel}>Eat</Text>
+                <Text style={styles.quickActionLabel}>Fuel</Text>
               </AnimatedPressable>
               <AnimatedPressable style={styles.quickActionPill} onPress={openPlanningSurface}>
                 <View style={[styles.quickActionIconWrap, { backgroundColor: COLORS.chart.readiness + '18' }]}>

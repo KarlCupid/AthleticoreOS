@@ -15,12 +15,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { computeRehydrationProtocol } from '../../lib/engine/calculateWeightCut';
 import { useWeightCutData } from '../hooks/useWeightCutData';
-import type { PlanStackParamList } from '../navigation/types';
+import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 
-type NavProp = NativeStackNavigationProp<PlanStackParamList>;
-type RouteProps = RouteProp<PlanStackParamList, 'RehydrationProtocol'>;
+type NavProp = NativeStackNavigationProp<FuelStackParamList>;
+type RouteProps = RouteProp<FuelStackParamList, 'RehydrationProtocol'>;
 
 type AthleteProfile = {
   biological_sex?: 'male' | 'female' | null;

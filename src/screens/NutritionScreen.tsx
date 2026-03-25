@@ -23,6 +23,7 @@ import { MealSection } from '../components/MealSection';
 import { HydrationTracker } from '../components/HydrationTracker';
 import { IconBarcode } from '../components/icons';
 import { styles } from './NutritionScreen.styles';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { supabase } from '../../lib/supabase';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import {
@@ -234,8 +235,30 @@ export function NutritionScreen() {
         entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}
         style={[styles.header, { paddingTop: insets.top + SPACING.md }]}
       >
-        <Text style={styles.headerTitle}>Nutrition</Text>
-        <Text style={styles.dateText}>{formatDate()}</Text>
+        <ScreenHeader
+          kicker="Fuel"
+          title="Today's fuel"
+          subtitle={formatDate()}
+        >
+          <View style={styles.modeSwitch}>
+            <AnimatedPressable
+              style={[styles.modeChip, nutritionMode === 'quick' && { backgroundColor: COLORS.accent }]}
+              onPress={() => setNutritionMode('quick')}
+            >
+              <Text style={[styles.modeChipText, nutritionMode === 'quick' && styles.modeChipTextActive]}>
+                Quick log
+              </Text>
+            </AnimatedPressable>
+            <AnimatedPressable
+              style={[styles.modeChip, nutritionMode === 'detailed' && { backgroundColor: COLORS.accent }]}
+              onPress={() => setNutritionMode('detailed')}
+            >
+              <Text style={[styles.modeChipText, nutritionMode === 'detailed' && styles.modeChipTextActive]}>
+                Full tracker
+              </Text>
+            </AnimatedPressable>
+          </View>
+        </ScreenHeader>
       </Animated.View>
 
       <ScrollView
@@ -298,7 +321,7 @@ export function NutritionScreen() {
                   {quickVM.quickIntentOptions.length > 0 ? (
                     <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}>
                       <Text style={{ fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: SPACING.sm, letterSpacing: 0.5 }}>
-                        QUICK LOG
+                        COACH-SUGGESTED LOG
                       </Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
                         {quickVM.quickIntentOptions.map((intent) => (
@@ -353,7 +376,7 @@ export function NutritionScreen() {
                   <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.slow).springify()} style={{ alignItems: 'center', marginTop: SPACING.lg }}>
                     <AnimatedPressable onPress={() => setNutritionMode('detailed')}>
                       <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: themeColor }}>
-                        Log Detailed Meal ›
+                        Open full tracker
                       </Text>
                     </AnimatedPressable>
                   </Animated.View>
@@ -367,7 +390,7 @@ export function NutritionScreen() {
                 <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
                   <AnimatedPressable onPress={() => setNutritionMode('quick')}>
                     <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: themeColor }}>
-                      ‹ Back to Quick View
+                      Back to quick log
                     </Text>
                   </AnimatedPressable>
                 </Animated.View>

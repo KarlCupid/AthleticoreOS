@@ -22,6 +22,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { StatCard } from '../components/StatCard';
+import { ScreenHeader } from '../components/ScreenHeader';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';

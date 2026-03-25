@@ -11,7 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 
 import { supabase } from '../../lib/supabase';
-import type { PlanStackParamList } from '../navigation/types';
+import type { AppRouteParamList } from '../navigation/types';
 import { COMMITMENT_DURATION_OPTIONS, SETUP_PHASES } from './weeklyPlanSetup/constants';
 import { AvailabilityPhase } from './weeklyPlanSetup/AvailabilityPhase';
 import { CommitmentsPhase } from './weeklyPlanSetup/CommitmentsPhase';
@@ -28,7 +28,7 @@ interface WeeklyPlanSetupScreenProps {
 export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps = {}) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const route = useRoute<RouteProp<PlanStackParamList, 'WeeklyPlanSetup'>>();
+  const route = useRoute<RouteProp<AppRouteParamList, 'WeeklyPlanSetup'>>();
 
   const controller = useWeeklyPlanSetupController({
     initialGoalMode: route.params?.initialGoalMode,

@@ -12,6 +12,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { EngineReplayLab } from '../components/EngineReplayLab';
 import { resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
 import { logError } from '../../lib/utils/logger';
+import { ScreenHeader } from '../components/ScreenHeader';
 
 interface AthleteProfile {
   biological_sex: string;
@@ -140,7 +141,11 @@ export function ProfileSettingsScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <ScreenHeader
+          kicker="Me"
+          title="Profile & settings"
+          subtitle="Account details, athlete profile, preferences, and setup tools."
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -242,6 +247,7 @@ export function ProfileSettingsScreen() {
         {profile && (
           <Animated.View entering={FadeInDown.delay(200).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
             <Card title="Nutrition Settings">
+              <DetailRow label="Phase" value={profile.phase ? formatPhase(profile.phase) : '--'} />
               <DetailRow label="Activity Level" value={formatActivityLevel(profile.activity_level)} />
               <DetailRow label="Nutrition Goal" value={formatNutritionGoal(profile.nutrition_goal)} />
               {profile.height_inches && (
@@ -293,13 +299,15 @@ export function ProfileSettingsScreen() {
           </Card>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(ANIMATION.normal).springify()}>
-          <AnimatedPressable
-            style={styles.signOutButton}
-            onPress={() => supabase.auth.signOut()}
-          >
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </AnimatedPressable>
+        <Animated.View entering={FadeInDown.delay(300).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+          <Card title="Account">
+            <AnimatedPressable
+              style={styles.signOutButton}
+              onPress={() => supabase.auth.signOut()}
+            >
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </AnimatedPressable>
+          </Card>
         </Animated.View>
 
         <AnimatedPressable onPress={handleVersionPress}>
@@ -453,12 +461,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.md,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontFamily: FONT_FAMILY.black,
-    color: COLORS.text.primary,
-    letterSpacing: -0.5,
-  },
   content: {
     padding: SPACING.lg,
   },
@@ -542,13 +544,11 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
   },
   signOutButton: {
-    marginTop: SPACING.xl,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md + 2,
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.readiness.depletedLight,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   signOutText: {
     fontSize: 16,

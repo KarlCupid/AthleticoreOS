@@ -15,7 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail';
-import type { PlanStackParamList } from '../navigation/types';
+import type { TrainStackParamList } from '../navigation/types';
 import type {
     WorkoutFocus,
     WorkoutSessionSection,
@@ -25,8 +25,8 @@ import type {
 } from '../../lib/engine/types';
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 
-type NavProp = NativeStackNavigationProp<PlanStackParamList>;
-type RouteProp = import('@react-navigation/native').RouteProp<PlanStackParamList, 'WorkoutDetail'>;
+type NavProp = NativeStackNavigationProp<TrainStackParamList>;
+type RouteProp = import('@react-navigation/native').RouteProp<TrainStackParamList, 'WorkoutDetail'>;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

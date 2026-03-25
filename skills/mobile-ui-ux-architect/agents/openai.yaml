@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mobile UI Architect"
+  short_description: "Mobile-first UI/UX + front-end implementation"
+  default_prompt: "Use $mobile-ui-ux-architect to design or implement a mobile screen or component that feels native, touch-friendly, accessible, and production-ready."

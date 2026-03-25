@@ -21,8 +21,9 @@ import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
 import { ActivityCard } from '../components/ActivityCard';
+import { ScreenHeader } from '../components/ScreenHeader';
 
-import { PlanStackParamList } from '../navigation/types';
+import { TrainStackParamList } from '../navigation/types';
 import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
@@ -38,7 +39,7 @@ import {
     type WorkoutTabKey,
 } from './workout/utils';
 
-type NavProp = NativeStackNavigationProp<PlanStackParamList>;
+type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 
 function groupWeekEntries(entries: WeeklyPlanEntryRow[]): Array<{
     date: string;
@@ -72,6 +73,7 @@ function groupWeekEntries(entries: WeeklyPlanEntryRow[]): Array<{
 export function WorkoutScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
+    const parentNavigation = navigation.getParent();
     const { themeColor, currentLevel } = useReadinessTheme();
 
     const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
@@ -138,36 +140,45 @@ export function WorkoutScreen() {
         <View style={styles.container}>
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
-                <View style={styles.headerRow}>
-                    <Text style={styles.headerTitle}>S&C</Text>
-                    <View style={styles.headerActions}>
-                        <Pressable
-                            style={styles.headerBtn}
-                            onPress={() => navigation.navigate('PlanHome')}
-                        >
-                            <Text style={styles.headerBtnText}>Plan</Text>
-                        </Pressable>
-                        <Pressable
-                            style={styles.headerBtn}
-                            onPress={() => navigation.navigate('GymProfiles')}
-                        >
-                            <Text style={styles.headerBtnText}>Gym</Text>
-                        </Pressable>
+                <ScreenHeader
+                    kicker="Train"
+                    title="Training"
+                    subtitle="Open today’s session fast, check the week, and review recent work."
+                    rightAction={(
+                        <View style={styles.headerActions}>
+                            <Pressable
+                                style={styles.headerBtn}
+                                onPress={() => parentNavigation?.navigate('Plan' as never)}
+                            >
+                                <Text style={styles.headerBtnText}>Plan</Text>
+                            </Pressable>
+                            <Pressable
+                                style={styles.headerBtn}
+                                onPress={() => navigation.navigate('GymProfiles')}
+                            >
+                                <Text style={styles.headerBtnText}>Gym</Text>
+                            </Pressable>
+                        </View>
+                    )}
+                >
+                    <View style={styles.tabBar}>
+                        {WORKOUT_TABS.map(tab => (
+                            <AnimatedPressable
+                                key={tab}
+                                style={[styles.tab, activeTab === tab && { backgroundColor: COLORS.accent }]}
+                                onPress={() => setActiveTab(tab)}
+                            >
+                                <Text style={[styles.tabText, activeTab === tab && { color: '#FFF' }]}>
+                                    {tab === 'plan'
+                                        ? 'Week'
+                                        : tab === 'analytics'
+                                            ? 'Insights'
+                                            : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </Text>
+                            </AnimatedPressable>
+                        ))}
                     </View>
-                </View>
-                <View style={styles.tabBar}>
-                    {WORKOUT_TABS.map(tab => (
-                        <AnimatedPressable
-                            key={tab}
-                            style={[styles.tab, activeTab === tab && { backgroundColor: themeColor }]}
-                            onPress={() => setActiveTab(tab)}
-                        >
-                            <Text style={[styles.tabText, activeTab === tab && { color: '#FFF' }]}>
-                                {tab === 'plan' ? 'Week' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            </Text>
-                        </AnimatedPressable>
-                    ))}
-                </View>
+                </ScreenHeader>
             </View>
 
             <ScrollView
@@ -417,13 +428,15 @@ const styles = StyleSheet.create({
         gap: SPACING.sm,
     },
     headerBtn: {
-        backgroundColor: COLORS.surfaceSecondary,
-        paddingHorizontal: SPACING.sm,
-        paddingVertical: SPACING.xs,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.xs + 2,
         borderRadius: RADIUS.full,
     },
     headerBtnText: {
-        fontSize: 12,
+        fontSize: 13,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.secondary,
     },
@@ -639,23 +652,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
         paddingBottom: SPACING.md,
     },
-    headerTitle: {
-        fontSize: 28,
-        fontFamily: FONT_FAMILY.black,
-        color: COLORS.text.primary,
-        letterSpacing: -0.5,
-        marginBottom: SPACING.md,
-    },
     tabBar: {
         flexDirection: 'row',
-        backgroundColor: COLORS.borderLight,
-        borderRadius: RADIUS.sm,
-        padding: 2,
+        backgroundColor: COLORS.surfaceSecondary,
+        borderRadius: RADIUS.lg,
+        padding: 4,
     },
     tab: {
         flex: 1,
-        paddingVertical: SPACING.xs + 2,
-        borderRadius: RADIUS.sm - 2,
+        paddingVertical: SPACING.sm,
+        borderRadius: RADIUS.md,
         alignItems: 'center',
     },
     tabText: {
@@ -665,6 +671,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: SPACING.lg,
+        paddingTop: SPACING.sm,
     },
     contextScheduleNote: {
         fontSize: 12,

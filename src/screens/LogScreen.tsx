@@ -685,7 +685,7 @@ export function LogScreen() {
       <View style={styles.trackerBox}>
         <View style={styles.trackerHeader}>
           <Text style={styles.subhead}>Nutrition snapshot ({nutritionFormatted})</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Plan', { screen: 'NutritionHome' })}>
+          <TouchableOpacity onPress={() => navigation.navigate('Fuel', { screen: 'NutritionHome' })}>
             <Text style={[styles.linkText, { color: themeColor }]}>Open tracker</Text>
           </TouchableOpacity>
         </View>
