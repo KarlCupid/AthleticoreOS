@@ -28,7 +28,7 @@ import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 
-import { PlanStackParamList } from '../navigation/types';
+import type { PlanStackParamList } from '../navigation/types';
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────

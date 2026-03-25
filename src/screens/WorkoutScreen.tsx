@@ -23,7 +23,7 @@ import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSec
 import { ActivityCard } from '../components/ActivityCard';
 import { ScreenHeader } from '../components/ScreenHeader';
 
-import { TrainStackParamList } from '../navigation/types';
+import type { TrainStackParamList } from '../navigation/types';
 import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';

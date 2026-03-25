@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
 import { createWeightCutPlan } from '../../lib/api/weightCutService';
 import { getEffectiveWeight } from '../../lib/api/weightService';
-import { FuelStackParamList } from '../navigation/types';
+import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 import { CutPlanResult, CutSport } from '../../lib/engine/types';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';

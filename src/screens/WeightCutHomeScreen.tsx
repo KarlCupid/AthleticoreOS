@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { useWeightCutData } from '../hooks/useWeightCutData';
-import { FuelStackParamList } from '../navigation/types';
+import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import {
   IconTarget, IconChevronRight, IconTrendDown, IconScale,

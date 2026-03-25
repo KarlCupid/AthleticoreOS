@@ -19,7 +19,7 @@ import { searchExercises } from '../../lib/api/scService';
 import { ExerciseLibraryRow, ExerciseType, MuscleGroup } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 import { IconChevronLeft, IconPlus } from '../components/icons';
-import { TrainStackParamList } from '../navigation/types';
+import type { TrainStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteParams = Pick<TrainStackParamList, 'ExerciseSearch'>;

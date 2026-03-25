@@ -30,7 +30,7 @@ import {
     getExerciseLibrary,
 } from '../../lib/api/scService';
 import { ExerciseLibraryRow, WorkoutSetLogRow } from '../../lib/engine/types';
-import { TrainStackParamList } from '../navigation/types';
+import type { TrainStackParamList } from '../navigation/types';
 import { logError } from '../../lib/utils/logger';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;

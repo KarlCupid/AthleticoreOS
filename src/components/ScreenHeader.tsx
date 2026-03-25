@@ -1,5 +1,7 @@
-import React, { ReactNode } from 'react';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
+import type { ViewStyle } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 
 interface ScreenHeaderProps {

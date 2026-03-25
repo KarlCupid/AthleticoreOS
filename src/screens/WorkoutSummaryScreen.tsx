@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { TrainStackParamList } from '../navigation/types';
+import type { TrainStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RoutePropType = RouteProp<TrainStackParamList, 'WorkoutSummary'>;
