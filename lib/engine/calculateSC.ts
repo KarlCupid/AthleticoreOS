@@ -28,8 +28,12 @@ import type {
     EquipmentItem,
     ConditioningPrescription,
     PerformanceRiskState,
+    SessionModulePlan,
     SectionExercisePrescription,
     TrainingBlockContext,
+    WorkoutDoseBucket,
+    WorkoutDoseCredit,
+    WorkoutModuleBlock,
     WorkoutSessionSection,
 } from './types/training.ts';
 import type {
@@ -839,6 +843,211 @@ function getConditioningSessionIndex(trainingDate?: string): number {
     return Math.floor(parsed / 86400000);
 }
 
+function focusToDoseBucket(focus: WorkoutFocus): WorkoutDoseBucket {
+    if (focus === 'conditioning') return 'conditioning';
+    if (focus === 'recovery') return 'recovery';
+    return 'strength';
+}
+
+function normalizeSessionModules(input: {
+    focus: WorkoutFocus;
+    sessionModules?: SessionModulePlan[] | null;
+}): SessionModulePlan[] {
+    if (input.sessionModules?.length) {
+        return input.sessionModules.map((module) => ({
+            preserveOnYellow: true,
+            ...module,
+        }));
+    }
+
+    return [{
+        bucket: focusToDoseBucket(input.focus),
+        focus: input.focus,
+        preserveOnYellow: true,
+    }];
+}
+
+function estimateSectionMinutes(section: WorkoutSessionSection): number {
+    if (section.timeCap > 0) return section.timeCap;
+    return Math.max(4, section.exercises.length * 4);
+}
+
+function clampModuleDuration(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function buildSecondaryConditioningSection(input: {
+    phase: Phase;
+    fitnessLevel: FitnessLevel;
+    readinessState: ReadinessState;
+    readinessProfile?: ReadinessProfile | null;
+    constraintSet: StimulusConstraintSet;
+    acwr: number;
+    trainingIntensityCap?: number;
+    availableMinutes?: number;
+    campPhaseContext: CampPhase | null;
+    performanceRisk: PerformanceRiskState;
+    blockContext: TrainingBlockContext | null;
+    medStatus?: MEDStatus | null;
+}): WorkoutSessionSection | null {
+    const {
+        phase,
+        fitnessLevel,
+        readinessState,
+        readinessProfile,
+        constraintSet,
+        acwr,
+        trainingIntensityCap,
+        availableMinutes,
+        campPhaseContext,
+        performanceRisk,
+        blockContext,
+        medStatus,
+    } = input;
+
+    if (performanceRisk.level === 'orange' || performanceRisk.level === 'red') {
+        return null;
+    }
+
+    const minimumDuration = performanceRisk.level === 'yellow' ? 12 : 16;
+    const maximumDuration = performanceRisk.level === 'yellow' ? 16 : 24;
+    const targetDuration = clampModuleDuration(
+        availableMinutes ?? (performanceRisk.level === 'yellow' ? 14 : 18),
+        minimumDuration,
+        maximumDuration,
+    );
+
+    const prescription = prescribeConditioning({
+        phase,
+        fitnessLevel,
+        readinessState,
+        readinessProfile,
+        constraintSet,
+        acwr,
+        sessionIndex: 0,
+        activeCutPlan: null,
+        trainingIntensityCap,
+    });
+
+    const addonWorkout = buildConditioningWorkoutV2({
+        prescription: {
+            ...prescription,
+            totalDurationMin: Math.min(targetDuration, prescription.totalDurationMin),
+        },
+        campPhaseContext,
+        availableMinutes: targetDuration,
+        readinessProfile,
+        constraintSet,
+        performanceRisk,
+        blockContext,
+        medStatus,
+    });
+
+    const section = addonWorkout.sections?.[0];
+    if (!section) return null;
+
+    const sectionId = 'conditioning-finisher-1';
+    return {
+        ...section,
+        id: sectionId,
+        template: 'finisher',
+        title: 'Conditioning Block',
+        intent: 'Preserve the weekly conditioning touch without splitting the day into a second guided session.',
+        timeCap: targetDuration,
+        densityRule: 'Short dedicated engine block',
+        finisherReason: 'Included to protect the weekly conditioning floor inside a combined training block.',
+        exercises: section.exercises.map((exercise) => ({
+            ...exercise,
+            sectionId,
+            sectionTemplate: 'finisher',
+            sectionIntent: 'Preserve the weekly conditioning touch without splitting the day into a second guided session.',
+        })),
+    };
+}
+
+function buildDoseOutputs(input: {
+    modules: SessionModulePlan[];
+    focus: WorkoutFocus;
+    sections: WorkoutSessionSection[];
+    performanceRisk: PerformanceRiskState;
+    estimatedDuration: number;
+}): {
+    plannedBucket: WorkoutDoseBucket | null;
+    realizedBucket: WorkoutDoseBucket | null;
+    secondaryAdaptations: WorkoutDoseBucket[];
+    moduleBlocks: WorkoutModuleBlock[];
+    doseCredits: WorkoutDoseCredit[];
+} {
+    const { modules, focus, sections, performanceRisk, estimatedDuration } = input;
+    const primaryModule = modules[0] ?? null;
+    const durabilityMinutes = sections
+        .filter((section) => section.template === 'durability')
+        .reduce((sum, section) => sum + estimateSectionMinutes(section), 0);
+    const conditioningMinutes = sections
+        .filter((section) => section.template === 'finisher' || (focus === 'conditioning' && section.template === 'main_strength'))
+        .reduce((sum, section) => sum + estimateSectionMinutes(section), 0);
+
+    const moduleBlocks: WorkoutModuleBlock[] = modules.map((module, index) => {
+        const bucket = module.bucket;
+        const durationMin = bucket === 'conditioning'
+            ? conditioningMinutes || (module.durationMin ?? estimatedDuration)
+            : bucket === 'durability'
+                ? durabilityMinutes || (module.durationMin ?? 10)
+                : index === 0
+                    ? Math.max(estimatedDuration - conditioningMinutes, module.durationMin ?? 0)
+                    : (module.durationMin ?? 0);
+        const countedTowardDose = bucket === 'conditioning'
+            ? conditioningMinutes >= 12 || focus === 'conditioning'
+            : bucket === 'durability'
+                ? durabilityMinutes >= 8
+                : bucket === 'strength'
+                    ? focus !== 'recovery' && focus !== 'conditioning'
+                    : focus === 'recovery';
+
+        return {
+            bucket,
+            title: bucket === 'conditioning'
+                ? 'Conditioning'
+                : bucket === 'durability'
+                    ? 'Durability'
+                    : bucket === 'recovery'
+                        ? 'Recovery'
+                        : 'Strength',
+            focus: module.focus ?? null,
+            durationMin: Math.max(0, durationMin),
+            countedTowardDose,
+        };
+    });
+
+    const doseCredits: WorkoutDoseCredit[] = moduleBlocks
+        .filter((block) => block.countedTowardDose)
+        .map((block) => ({
+            bucket: block.bucket,
+            credit: 1,
+            preservedBySubstitution: Boolean(
+                performanceRisk.level === 'yellow'
+                && modules.some((module) => module.bucket === block.bucket && module.preserveOnYellow !== false),
+            ),
+            reason: block.bucket === 'conditioning'
+                ? 'Dedicated conditioning work was kept inside the session.'
+                : block.bucket === 'durability'
+                    ? 'Durability work cleared its minimum support threshold.'
+                    : block.bucket === 'recovery'
+                        ? 'The day resolved as recovery.'
+                        : 'Strength work remained in the session.',
+        }));
+
+    const plannedBucket = primaryModule?.bucket ?? null;
+    const realizedBuckets = doseCredits.map((credit) => credit.bucket);
+    return {
+        plannedBucket,
+        realizedBucket: realizedBuckets[0] ?? plannedBucket,
+        secondaryAdaptations: realizedBuckets.filter((bucket) => bucket !== plannedBucket),
+        moduleBlocks,
+        doseCredits,
+    };
+}
+
 function buildConditioningWorkoutV2(input: {
     prescription: ConditioningPrescription;
     campPhaseContext: CampPhase | null;
@@ -955,6 +1164,23 @@ function buildConditioningWorkoutV2(input: {
         workoutType: 'conditioning',
         exercises,
         payloadVersion: 'v3',
+        sessionComposition: [{ bucket: 'conditioning', focus: 'conditioning', durationMin: estimatedDuration, preserveOnYellow: true }],
+        secondaryAdaptations: [],
+        plannedBucket: 'conditioning',
+        realizedBucket: 'conditioning',
+        moduleBlocks: [{
+            bucket: 'conditioning',
+            title: 'Conditioning',
+            focus: 'conditioning',
+            durationMin: estimatedDuration,
+            countedTowardDose: true,
+        }],
+        doseCredits: [{
+            bucket: 'conditioning',
+            credit: 1,
+            preservedBySubstitution: false,
+            reason: 'Dedicated conditioning session.',
+        }],
         totalCNSBudget: Math.max(prescription.cnsBudget, 15),
         usedCNS: prescription.cnsBudget,
         message: prescription.message,
@@ -1032,6 +1258,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         constraintSet,
         medStatus = null,
         sessionFamily = null,
+        sessionModules = null,
     } = input;
     const resolvedPerformanceGoalType = performanceGoalType ?? 'conditioning';
 
@@ -1087,6 +1314,10 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             scDayCount,
             recentFocuses7d,
         );
+    const resolvedSessionModules = normalizeSessionModules({
+        focus: effectiveFocus,
+        sessionModules,
+    });
 
     const resolvedPerformanceRisk = performanceRisk ?? assessPerformanceRisk({
         readinessState,
@@ -1238,11 +1469,38 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         trainingDate,
     });
 
-    const finalExercises = sectionedSession.exercises.map((exercise) => ({
+    const finalExercises: SectionExercisePrescription[] = sectionedSession.exercises.map((exercise) => ({
         ...exercise,
         recoveryCost: getExerciseRecoveryCost(exercise.exercise),
     }));
-    const estimatedDuration = sectionedSession.estimatedDuration || estimateWorkoutTime(finalExercises);
+    let sections = [...sectionedSession.sections];
+    let exercises: SectionExercisePrescription[] = [...finalExercises];
+    let estimatedDuration = sectionedSession.estimatedDuration || estimateWorkoutTime(finalExercises);
+    const conditioningSecondary = resolvedSessionModules.find((module, index) =>
+        index > 0 && module.bucket === 'conditioning',
+    ) ?? null;
+    if (conditioningSecondary) {
+        const addonSection = buildSecondaryConditioningSection({
+            phase,
+            fitnessLevel,
+            readinessState,
+            readinessProfile,
+            constraintSet: resolvedConstraintSet,
+            acwr,
+            trainingIntensityCap: trainingIntensityCap ?? undefined,
+            availableMinutes: conditioningSecondary.durationMin
+                ?? Math.max(14, (availableMinutes ?? (estimatedDuration + 18)) - estimatedDuration),
+            campPhaseContext,
+            performanceRisk: resolvedPerformanceRisk,
+            blockContext: resolvedBlockContext,
+            medStatus,
+        });
+        if (addonSection) {
+            sections.push(addonSection);
+            exercises = sections.flatMap((section) => section.exercises);
+            estimatedDuration += addonSection.timeCap;
+        }
+    }
     const resolvedSessionFamily = resolveSessionFamily(effectiveFocus, sessionFamily);
     const primaryAdaptation = resolvePrimaryAdaptation(effectiveFocus, resolvedPerformanceGoalType);
     const sessionGoal = sectionedSession.sessionGoal;
@@ -1254,12 +1512,19 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         blockContext: resolvedBlockContext,
         availableMinutes,
     });
+    const doseOutputs = buildDoseOutputs({
+        modules: resolvedSessionModules,
+        focus: effectiveFocus,
+        sections,
+        performanceRisk: resolvedPerformanceRisk,
+        estimatedDuration,
+    });
     const decisionTrace = [
         `focus:${effectiveFocus}`,
         `goal:${resolvedPerformanceGoalType}`,
         `risk:${resolvedPerformanceRisk.level}`,
         ...(resolvedBlockContext ? [`block:${resolvedBlockContext.phase}`] : []),
-        `sections:${sectionedSession.sections.map(section => section.template).join('|')}`,
+        `sections:${sections.map(section => section.template).join('|')}`,
         ...resolvedPerformanceRisk.reasons.slice(0, 3),
     ];
 
@@ -1281,17 +1546,26 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     }
 
     if (availableMinutes) {
-        message += ` ${finalExercises.length} exercises, ~${estimatedDuration} min.`;
+        message += ` ${exercises.length} exercises, ~${estimatedDuration} min.`;
     }
 
     return {
         focus: effectiveFocus,
         workoutType,
-        exercises: finalExercises,
+        exercises,
         payloadVersion: 'v3',
         sessionFamily: resolvedSessionFamily,
+        sessionComposition: resolvedSessionModules,
+        secondaryAdaptations: doseOutputs.secondaryAdaptations,
+        plannedBucket: doseOutputs.plannedBucket,
+        realizedBucket: doseOutputs.realizedBucket,
+        moduleBlocks: doseOutputs.moduleBlocks,
+        doseCredits: doseOutputs.doseCredits,
         totalCNSBudget,
-        usedCNS: sectionedSession.usedCNS,
+        usedCNS: sections.reduce(
+            (sum, section) => sum + section.exercises.reduce((sectionSum, exercise) => sectionSum + exercise.exercise.cns_load, 0),
+            0,
+        ),
         message,
         estimatedDurationMin: estimatedDuration,
         isDeloadWorkout: isDeloadWeek,
@@ -1299,9 +1573,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         campPhaseContext,
         weeklyPlanDay: null,
         sparringDayGuidance: null,
-        sessionTemplate: sectionedSession.sections.map(section => section.template),
+        sessionTemplate: sections.map(section => section.template),
         sessionGoal,
-        sections: sectionedSession.sections,
+        sections,
         sessionIntent,
         primaryAdaptation,
         performanceRisk: resolvedPerformanceRisk,
@@ -1521,6 +1795,23 @@ function buildSparringDayWorkout(
         exercises: supportExercises,
         payloadVersion: 'v3',
         sessionFamily: sessionFamily ?? 'durability_core',
+        sessionComposition: [{ bucket: 'durability', focus: 'sport_specific', durationMin: 16, preserveOnYellow: true }],
+        secondaryAdaptations: ['durability'],
+        plannedBucket: 'durability',
+        realizedBucket: 'durability',
+        moduleBlocks: [{
+            bucket: 'durability',
+            title: 'Spar Support',
+            focus: 'sport_specific',
+            durationMin: Math.max(15, Math.min(20, estimateWorkoutTime(supportExercises))),
+            countedTowardDose: true,
+        }],
+        doseCredits: [{
+            bucket: 'durability',
+            credit: 1,
+            preservedBySubstitution: true,
+            reason: 'Sparring-day support kept the durability touch alive.',
+        }],
         totalCNSBudget: 22,
         usedCNS: supportExercises.reduce((sum, e) => sum + e.exercise.cns_load, 0),
         message: 'Sparring day - low-cost support work only. Prime positions, trunk, and breathing without draining the ring session.',

@@ -512,12 +512,14 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     activity.activity_type === 'boxing_practice' || activity.activity_type === 'sparring',
   );
   const primaryCombatActivity = combatActivities[0] ?? null;
+  const hasGuidedPrescription = (prescription?.exercises?.length ?? 0) > 0
+    || personaAction.conditioningPrescription != null;
   const preserveMissionLabel = mission.trainingDirective.sessionRole === 'rest'
     || mission.trainingDirective.sessionRole === 'recover'
     || mission.trainingDirective.sessionRole === 'cut_protect'
     || mission.trainingDirective.workoutType === 'recovery'
     || mission.trainingDirective.workoutType == null;
-  const derivedWorkoutType = preserveMissionLabel
+  const derivedWorkoutType = preserveMissionLabel || hasGuidedPrescription
     ? mission.trainingDirective.workoutType
     : primaryCombatActivity?.activity_type === 'sparring'
       ? 'sparring'
@@ -526,6 +528,8 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
         : mission.trainingDirective.workoutType;
   const derivedWorkoutTitle = preserveMissionLabel
     ? (mission.trainingDirective.focus ?? mission.trainingDirective.intent)
+    : hasGuidedPrescription && primaryCombatActivity?.custom_label
+      ? `${mission.trainingDirective.focus ?? mission.trainingDirective.intent} paired with ${primaryCombatActivity.custom_label}`
     : primaryCombatActivity?.custom_label
       ?? mission.trainingDirective.focus
       ?? mission.trainingDirective.intent;
@@ -748,12 +752,24 @@ export function getEngineReplayScenarioById(id: string): EngineReplayScenario | 
   return ENGINE_REPLAY_SCENARIOS.find((scenario) => scenario.id === id) ?? null;
 }
 
-export async function buildEngineReplayRun(scenarioId: string): Promise<EngineReplayRun> {
+export async function buildEngineReplayRun(
+  scenarioId: string,
+  options?: { seedOverride?: number | null },
+): Promise<EngineReplayRun> {
   const scenario = getEngineReplayScenarioById(scenarioId);
   if (!scenario) {
     throw new Error(`Unknown engine replay scenario: ${scenarioId}`);
   }
 
-  const result = await runSimulation(scenario.config);
-  return mapSimulationResultToReplayRun(scenario, result);
+  const resolvedSeed = options?.seedOverride ?? scenario.config.seed ?? 42;
+  const runScenario: EngineReplayScenario = {
+    ...scenario,
+    config: {
+      ...scenario.config,
+      seed: resolvedSeed,
+    },
+  };
+
+  const result = await runSimulation(runScenario.config);
+  return mapSimulationResultToReplayRun(runScenario, result);
 }

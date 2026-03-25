@@ -302,18 +302,9 @@ export function useWeeklyPlanSetupController({
     const normalizedWindows = sortWindows(availabilityWindows);
     if (normalizedWindows.length === 0) {
       if (showAlerts) {
-        Alert.alert('Availability required', 'Add at least one training availability window so the planner knows when work can be scheduled.');
+        Alert.alert('Training days required', 'Select at least one day the planner can use when it builds the week.');
       }
       return false;
-    }
-
-    for (const window of normalizedWindows) {
-      if (!isValidTime(window.startTime) || !isValidTime(window.endTime) || window.endTime <= window.startTime) {
-        if (showAlerts) {
-          Alert.alert('Invalid availability', 'Each availability window needs valid HH:MM times, and the end time must be later than the start time.');
-        }
-        return false;
-      }
     }
 
     return true;
@@ -457,23 +448,16 @@ export function useWeeklyPlanSetupController({
     const parsedTargetValue = parseNumberInput(targetValue);
     const parsedTargetHorizonWeeks = targetHorizonWeeks.trim() === '' ? null : parseNumberInput(targetHorizonWeeks);
 
-    if (allowTwoADays && isGuidedEngineActivityType(amSessionType) && isGuidedEngineActivityType(pmSessionType)) {
-      Alert.alert('Two-a-day setup blocked', 'The centralized engine can only own one guided S&C or conditioning session per day. Pair it with boxing instead.');
-      return;
-    }
-
-    const normalizedSessionPair = normalizeTwoADayPair(amSessionType, pmSessionType);
-
     setSaving(true);
     try {
       const configPayload = {
         available_days: availableDays,
         availability_windows: normalizedWindows,
-        session_duration_min: sessionDuration,
-        allow_two_a_days: allowTwoADays,
-        two_a_day_days: sortDays(twoADayDays.filter((day) => availableDays.includes(day))),
-        am_session_type: normalizedSessionPair.amType,
-        pm_session_type: normalizedSessionPair.pmType,
+        session_duration_min: 75,
+        allow_two_a_days: false,
+        two_a_day_days: [],
+        am_session_type: 'sc',
+        pm_session_type: 'boxing_practice',
         preferred_gym_profile_id: null,
         auto_deload_interval_weeks: autoDeloadInterval,
       };

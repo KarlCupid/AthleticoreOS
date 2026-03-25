@@ -6,6 +6,7 @@ import type {
 } from './types.ts';
 import { 
   buildDailyMission, 
+  determineCampPhase,
   deriveProtectWindowFromRecentMissions,
   deriveReadinessProfile,
   deriveStimulusConstraintSet,
@@ -13,6 +14,7 @@ import {
   generateCampPlan,
   generateSmartWeekPlan,
   prescribeConditioning,
+  toCampEnginePhase,
   generateCutPlan,
   computeDailyCutProtocol
 } from '../index.ts';
@@ -526,14 +528,17 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
     // --- STEP 1: External Loads & Camp Context ---
     const dayOfWeek = (i % 7) + 1; // 1=Mon, 7=Sun
-    const isFightWeek = i >= (days - 7);
     const daysOut = Math.max(0, days - i);
-    const isOnActiveCut = initialState.goalMode === 'fight_camp' && daysOut <= 14;
-    const simulatedCampPhase = daysOut <= 7 ? 'taper' : daysOut <= 14 ? 'peak' : 'build';
+    const resolvedCampPhase = simulationCampConfig
+      ? determineCampPhase(simulationCampConfig as any, dateStr)
+      : null;
+    const isFightWeek = resolvedCampPhase === 'taper' && daysOut <= 7;
+    const isOnActiveCut = initialState.goalMode === 'fight_camp' && simulationCutPlan != null && daysOut <= 14;
+    const simulatedCampPhase = resolvedCampPhase ?? (daysOut <= 7 ? 'taper' : daysOut <= 14 ? 'peak' : 'build');
     const simulatedPerformanceGoalType = initialState.goalMode === 'fight_camp' ? 'boxing_skill' : 'strength';
     const weekStartDate = getWeekStartDate(dateStr);
-    const simulatedPhase = initialState.goalMode === 'fight_camp'
-      ? (simulatedCampPhase === 'build' ? 'camp-build' : simulatedCampPhase === 'peak' ? 'camp-peak' : 'camp-taper')
+    const simulatedPhase = initialState.goalMode === 'fight_camp' && simulatedCampPhase
+      ? toCampEnginePhase(simulatedCampPhase as any)
       : 'off-season';
 
     const readinessState = getGlobalReadinessState({
@@ -554,7 +559,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       recentExerciseIds,
       recentMuscleVolume: recentMuscleVolume as any,
       campConfig: simulationCampConfig as any,
-      activeCutPlan: simulationCutPlan as any,
+      activeCutPlan: isOnActiveCut ? simulationCutPlan as any : null,
       weeksSinceLastDeload: Math.max(0, Math.floor(i / 7) % 4),
       gymProfile: null,
       weekStartDate,

@@ -28,6 +28,12 @@ export function useReplayState(visible: boolean) {
   const [chartWindowSize, setChartWindowSize] = useState<ChartWindowSize>('all');
   const [chartWindowStart, setChartWindowStart] = useState(0);
 
+  const generateReplaySeed = useCallback(() => {
+    const timestampSeed = Date.now() >>> 0;
+    const jitter = Math.floor(Math.random() * 0xffffffff) >>> 0;
+    return (timestampSeed ^ jitter) >>> 0;
+  }, []);
+
   // ---- Actions ----
 
   const findPreferredDayIndex = useCallback((nextRun: EngineReplayRun): number => {
@@ -54,7 +60,9 @@ export function useReplayState(visible: boolean) {
     setChartWindowStart(0);
 
     try {
-      const nextRun = await buildEngineReplayRun(nextScenarioId);
+      const nextRun = await buildEngineReplayRun(nextScenarioId, {
+        seedOverride: generateReplaySeed(),
+      });
       setRun(nextRun);
       setSelectedDayIndex(findPreferredDayIndex(nextRun));
     } catch (runError) {
@@ -62,7 +70,7 @@ export function useReplayState(visible: boolean) {
     } finally {
       setLoading(false);
     }
-  }, [findPreferredDayIndex]);
+  }, [findPreferredDayIndex, generateReplaySeed]);
 
   useEffect(() => {
     if (visible) void executeReplay(scenarioId);

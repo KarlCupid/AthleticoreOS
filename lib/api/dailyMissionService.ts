@@ -402,6 +402,7 @@ function inferPowerTouch(entry: WeeklyPlanEntryRow): boolean {
 }
 
 function inferStrengthTouch(entry: WeeklyPlanEntryRow): boolean {
+  if (entry.prescription_snapshot?.doseCredits?.some((credit) => credit.bucket === 'strength' && credit.credit > 0)) return true;
   if (entry.prescription_snapshot?.primaryAdaptation === 'strength') return true;
   return entry.session_type === 'sc'
     || entry.focus === 'lower'
@@ -411,6 +412,7 @@ function inferStrengthTouch(entry: WeeklyPlanEntryRow): boolean {
 }
 
 function inferConditioningTouch(entry: WeeklyPlanEntryRow): boolean {
+  if (entry.prescription_snapshot?.doseCredits?.some((credit) => credit.bucket === 'conditioning' && credit.credit > 0)) return true;
   if (entry.prescription_snapshot?.primaryAdaptation === 'conditioning') return true;
   return entry.session_type === 'conditioning'
     || entry.session_type === 'road_work'

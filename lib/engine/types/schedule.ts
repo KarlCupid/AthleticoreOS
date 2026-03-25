@@ -20,6 +20,9 @@ import type {
   ExerciseLibraryRow,
   PrescribedExercise,
   RoadWorkPrescription,
+  SessionModulePlan,
+  WorkoutDoseBucket,
+  WorkoutDoseCredit,
   WorkoutPrescriptionV2,
 } from './training.ts';
 import type { CutPhase, WeightCutPlanRow } from './weight_cut.ts';
@@ -252,6 +255,7 @@ export interface WeeklyPlanEntryRow {
   day_of_week: number;
   date: string;
   slot: PlanSlot;
+  day_order?: number | null;
   session_type: string;
   focus: WorkoutFocus | null;
   session_family?: TrainingSessionFamily | null;
@@ -278,12 +282,18 @@ export interface WeeklySessionTarget {
   max: number;
   scheduled: number;
   completed: number;
+  floor?: number;
+  realized?: number;
+  debt?: number;
+  metBySubstitution?: number;
+  missReason?: string | null;
 }
 
 export interface DailyTrainingPlacement {
   date: string;
   day_of_week: number;
   slot: PlanSlot;
+  dayOrder?: number | null;
   sessionFamily: TrainingSessionFamily;
   sessionType: ActivityType | 'sc';
   focus: WorkoutFocus | null;
@@ -293,6 +303,9 @@ export interface DailyTrainingPlacement {
   locked: boolean;
   progressionIntent: string | null;
   notes: string | null;
+  sessionModules?: SessionModulePlan[] | null;
+  doseCredits?: WorkoutDoseCredit[];
+  realizedDoseBuckets?: WorkoutDoseBucket[];
   recurringActivityId?: string | null;
 }
 

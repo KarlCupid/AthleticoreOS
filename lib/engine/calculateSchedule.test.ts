@@ -14,9 +14,14 @@ import {
     generateBlockPlan,
     generateWeekPlan,
     getBoxingIntensityScalar,
+    updateRollingPlanContextFromPrescription,
 } from './calculateSchedule.ts';
+import { generateWorkoutV2 } from './calculateSC.ts';
 import { generateCampPlan } from './calculateCamp.ts';
 import type {
+    ExerciseHistoryEntry,
+    ExerciseLibraryRow,
+    MuscleGroup,
     NutritionTargets,
     RecurringActivityRow,
     WeeklyTargetsRow,
@@ -50,6 +55,44 @@ const EMPTY_VOLUME = {
     neck: 0,
     calves: 0,
 };
+
+function makeExercise(overrides: Partial<ExerciseLibraryRow> = {}): ExerciseLibraryRow {
+    return {
+        id: 'ex-' + Math.random().toString(36).slice(2, 8),
+        name: 'Test Exercise',
+        type: 'heavy_lift',
+        cns_load: 5,
+        muscle_group: 'quads',
+        equipment: 'barbell',
+        description: 'Test exercise',
+        cues: 'Own every rep.',
+        sport_tags: ['boxing'],
+        ...overrides,
+    };
+}
+
+const ROTATION_LIBRARY: ExerciseLibraryRow[] = [
+    makeExercise({ id: 'act-1', name: 'Hip Airplane', type: 'mobility', cns_load: 1, muscle_group: 'glutes' }),
+    makeExercise({ id: 'act-2', name: 'Ankle Rocks', type: 'mobility', cns_load: 1, muscle_group: 'calves' }),
+    makeExercise({ id: 'act-3', name: 'Breathing Reset', type: 'active_recovery', cns_load: 1, muscle_group: 'core' }),
+    makeExercise({ id: 'pow-1', name: 'Box Jump', type: 'power', cns_load: 4, muscle_group: 'quads', normalized_recovery_cost: 4 }),
+    makeExercise({ id: 'main-1', name: 'Back Squat', type: 'heavy_lift', cns_load: 8, muscle_group: 'quads', normalized_recovery_cost: 9 }),
+    makeExercise({ id: 'main-2', name: 'Front Squat', type: 'heavy_lift', cns_load: 7, muscle_group: 'quads', normalized_recovery_cost: 8 }),
+    makeExercise({ id: 'main-3', name: 'Trap Bar Deadlift', type: 'heavy_lift', cns_load: 8, muscle_group: 'glutes', normalized_recovery_cost: 9 }),
+    makeExercise({ id: 'sec-1', name: 'RDL', type: 'heavy_lift', cns_load: 6, muscle_group: 'hamstrings', normalized_recovery_cost: 6 }),
+    makeExercise({ id: 'sec-2', name: 'Bulgarian Split Squat', type: 'heavy_lift', cns_load: 4, muscle_group: 'glutes', normalized_recovery_cost: 5 }),
+    makeExercise({ id: 'sec-3', name: 'Step-Up', type: 'heavy_lift', cns_load: 3, muscle_group: 'quads', normalized_recovery_cost: 4 }),
+    makeExercise({ id: 'acc-1', name: 'Sled March', type: 'conditioning', cns_load: 4, muscle_group: 'quads', normalized_recovery_cost: 4 }),
+    makeExercise({ id: 'acc-2', name: 'Rotational Cable Punch', type: 'sport_specific', cns_load: 4, muscle_group: 'core', normalized_recovery_cost: 4 }),
+    makeExercise({ id: 'acc-3', name: 'Battle Rope Waves', type: 'conditioning', cns_load: 4, muscle_group: 'shoulders', normalized_recovery_cost: 4 }),
+    makeExercise({ id: 'acc-4', name: 'Medicine Ball Scoop Toss', type: 'sport_specific', cns_load: 4, muscle_group: 'core', normalized_recovery_cost: 4 }),
+    makeExercise({ id: 'acc-5', name: 'Tempo Bike', type: 'conditioning', cns_load: 4, muscle_group: 'full_body', normalized_recovery_cost: 4 }),
+    makeExercise({ id: 'dur-1', name: 'Pallof Press', type: 'mobility', cns_load: 2, muscle_group: 'core', normalized_recovery_cost: 2 }),
+    makeExercise({ id: 'dur-2', name: 'Copenhagen Plank', type: 'mobility', cns_load: 2, muscle_group: 'core', normalized_recovery_cost: 2 }),
+    makeExercise({ id: 'dur-3', name: 'Neck Harness Hold', type: 'active_recovery', cns_load: 2, muscle_group: 'neck', normalized_recovery_cost: 2 }),
+    makeExercise({ id: 'dur-4', name: 'Shoulder CARs', type: 'mobility', cns_load: 1, muscle_group: 'shoulders', normalized_recovery_cost: 1 }),
+    makeExercise({ id: 'fin-1', name: 'Assault Bike Sprint', type: 'conditioning', cns_load: 4, muscle_group: 'full_body', normalized_recovery_cost: 4 }),
+];
 
 function makeSmartConfig(overrides: Record<string, any> = {}) {
     const availableDays = overrides.available_days ?? [1, 2, 3, 4, 5, 6];
@@ -400,9 +443,9 @@ console.log('\n── generateSmartWeekPlan ──');
 
 (() => {
     const phases: Array<['base' | 'build' | 'peak' | 'taper', { guided: number; strength: number; conditioning: number; durability: number; recovery: number }]> = [
-        ['base', { guided: 5, strength: 2, conditioning: 1, durability: 1, recovery: 1 }],
-        ['build', { guided: 5, strength: 2, conditioning: 1, durability: 1, recovery: 1 }],
-        ['peak', { guided: 4, strength: 1, conditioning: 1, durability: 1, recovery: 1 }],
+        ['base', { guided: 5, strength: 2, conditioning: 2, durability: 1, recovery: 0 }],
+        ['build', { guided: 5, strength: 2, conditioning: 2, durability: 1, recovery: 0 }],
+        ['peak', { guided: 3, strength: 1, conditioning: 1, durability: 1, recovery: 0 }],
         ['taper', { guided: 2, strength: 0, conditioning: 0, durability: 0, recovery: 2 }],
     ];
 
@@ -493,8 +536,8 @@ console.log('\n── generateSmartWeekPlan ──');
     });
     const mondayGuided = getGuidedEntries(result).find((entry) => entry.day_of_week === 1) ?? null;
     assert('Combat-anchor yellow risk keeps a guided support session', mondayGuided != null);
-    assert('Combat-anchor yellow risk routes guided work to recovery', mondayGuided?.focus === 'recovery');
-    assert('Combat-anchor yellow risk caps duration to 30', (mondayGuided?.estimated_duration_min ?? 99) <= 30);
+    assert('Combat-anchor yellow risk preserves the planned physical touch', mondayGuided?.focus === 'conditioning');
+    assert('Combat-anchor yellow risk caps duration to 40', (mondayGuided?.estimated_duration_min ?? 99) <= 40);
     assert('Combat-anchor yellow risk caps intensity to 4', (mondayGuided?.target_intensity ?? 99) <= 4);
 })();
 
@@ -607,6 +650,44 @@ console.log('\n── generateSmartWeekPlan ──');
 })();
 
 (() => {
+    const result = generateSmartWeekPlan({
+        config: makeSmartConfig({
+            available_days: [1, 2, 4, 5],
+            availability_windows: [
+                { dayOfWeek: 1, startTime: '00:01', endTime: '00:15' },
+                { dayOfWeek: 2, startTime: '00:01', endTime: '00:15' },
+                { dayOfWeek: 4, startTime: '00:01', endTime: '00:15' },
+                { dayOfWeek: 5, startTime: '00:01', endTime: '00:15' },
+            ],
+            session_duration_min: 20,
+        }),
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'conditioning',
+        exerciseLibrary: ROTATION_LIBRARY,
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-02',
+        recurringActivities: [],
+    });
+    const guided = getGuidedEntries(result);
+    const comboSession = guided.find((entry) => (entry.prescription_snapshot?.sessionComposition?.length ?? 0) > 1) ?? null;
+    const conditioningTarget = result.weeklyMixPlan.sessionTargets.find((target) => target.family === 'conditioning');
+    const strengthTarget = result.weeklyMixPlan.sessionTargets.find((target) => target.family === 'strength');
+
+    assert('Planner ignores tiny availability windows when building day-based sessions', guided.length === 4);
+    assert('Four-day weeks can use a combo block to close dose', comboSession != null);
+    assert('Combo block carries both strength and conditioning dose credits', (comboSession?.prescription_snapshot?.doseCredits?.length ?? 0) >= 2);
+    assert('Combo block helps realize two conditioning touches across the week', (conditioningTarget?.realized ?? 0) >= 2);
+    assert('Combo block helps realize two strength touches across the week', (strengthTarget?.realized ?? 0) >= 2);
+})();
+
+(() => {
     const { camp, weekStartDate } = makeCampPhaseContext('build');
     const result = generateSmartWeekPlan({
         config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
@@ -653,6 +734,57 @@ console.log('\n── generateSmartWeekPlan ──');
     });
     assert('Block optimizer returns the requested number of weeks', block.weeks.length === 2);
     assert('Block optimizer exposes weekly mix plans', block.weeks.every((week) => week.weeklyMixPlan.sessionTargets.length > 0));
+})();
+
+(() => {
+    const recentExerciseIds: string[] = [];
+    const recentMuscleVolume = { ...EMPTY_VOLUME } as Record<MuscleGroup, number>;
+    const exerciseHistory = new Map<string, ExerciseHistoryEntry[]>();
+    const firstWorkout = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'advanced',
+        performanceGoalType: 'strength',
+        exerciseLibrary: ROTATION_LIBRARY,
+        recentExerciseIds,
+        recentMuscleVolume,
+        exerciseHistory,
+        weeklyPlanFocus: 'lower',
+        trainingDate: '2026-03-02',
+        availableMinutes: 60,
+    });
+    updateRollingPlanContextFromPrescription({
+        prescription: firstWorkout,
+        trainingDate: '2026-03-02',
+        recentExerciseIds,
+        recentMuscleVolume,
+        exerciseHistory,
+    });
+    const secondWorkout = generateWorkoutV2({
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'advanced',
+        performanceGoalType: 'strength',
+        exerciseLibrary: ROTATION_LIBRARY,
+        recentExerciseIds,
+        recentMuscleVolume,
+        exerciseHistory,
+        weeklyPlanFocus: 'lower',
+        trainingDate: '2026-03-05',
+        availableMinutes: 60,
+    });
+    const firstExerciseKey = firstWorkout.exercises
+        .filter((exercise) => exercise.sectionTemplate !== 'activation' && exercise.sectionTemplate !== 'cooldown')
+        .map((exercise) => exercise.exercise.id)
+        .join('|');
+    const secondExerciseKey = secondWorkout.exercises
+        .filter((exercise) => exercise.sectionTemplate !== 'activation' && exercise.sectionTemplate !== 'cooldown')
+        .map((exercise) => exercise.exercise.id)
+        .join('|');
+    assert('Rolling plan context stores the first workout in exercise history', exerciseHistory.size > 0);
+    assert('Rolling plan context changes the next same-focus workout selection', firstExerciseKey !== secondExerciseKey);
 })();
 
 console.log(`\n── Final Results: ${passed} passed, ${failed} failed ──\n`);

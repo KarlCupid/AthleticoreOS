@@ -88,22 +88,10 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     setRoundDurationSec,
     restDurationSec,
     setRestDurationSec,
-    availabilityWindows,
     toggleAvailabilityDay,
-    updateAvailabilityWindow,
     commitments,
     updateCommitment,
     removeCommitment,
-    sessionDuration,
-    setSessionDuration,
-    allowTwoADays,
-    handleAllowTwoADaysChange,
-    twoADayDays,
-    toggleTwoADay,
-    amSessionType,
-    setAmSessionType,
-    pmSessionType,
-    setPmSessionType,
     autoDeloadInterval,
     setAutoDeloadInterval,
     durationPickerCommitmentId,
@@ -171,9 +159,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         return (
           <AvailabilityPhase
             availableDays={availableDays}
-            availabilityWindows={availabilityWindows}
             toggleAvailabilityDay={toggleAvailabilityDay}
-            updateAvailabilityWindow={updateAvailabilityWindow}
           />
         );
       case 'commitments':
@@ -189,17 +175,6 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
       case 'planner':
         return (
           <PlannerPhase
-            sessionDuration={sessionDuration}
-            setSessionDuration={setSessionDuration}
-            allowTwoADays={allowTwoADays}
-            handleAllowTwoADaysChange={handleAllowTwoADaysChange}
-            twoADayDays={twoADayDays}
-            availableDays={availableDays}
-            toggleTwoADay={toggleTwoADay}
-            amSessionType={amSessionType}
-            setAmSessionType={setAmSessionType}
-            pmSessionType={pmSessionType}
-            setPmSessionType={setPmSessionType}
             autoDeloadInterval={autoDeloadInterval}
             setAutoDeloadInterval={setAutoDeloadInterval}
           />

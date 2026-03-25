@@ -478,6 +478,34 @@ export interface WeeklyConditioningInput {
   activeCutPlan: WeightCutPlanRow | null;
 }
 
+export type WorkoutDoseBucket =
+  | 'strength'
+  | 'conditioning'
+  | 'durability'
+  | 'recovery';
+
+export interface SessionModulePlan {
+  bucket: WorkoutDoseBucket;
+  focus?: WorkoutFocus | null;
+  durationMin?: number | null;
+  preserveOnYellow?: boolean;
+}
+
+export interface WorkoutDoseCredit {
+  bucket: WorkoutDoseBucket;
+  credit: number;
+  preservedBySubstitution: boolean;
+  reason: string;
+}
+
+export interface WorkoutModuleBlock {
+  bucket: WorkoutDoseBucket;
+  title: string;
+  focus: WorkoutFocus | null;
+  durationMin: number;
+  countedTowardDose: boolean;
+}
+
 export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
   availableMinutes?: number;
   gymEquipment?: EquipmentItem[];
@@ -494,6 +522,7 @@ export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
   blockContext?: TrainingBlockContext | null;
   medStatus?: MEDStatus | null;
   sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
+  sessionModules?: SessionModulePlan[] | null;
 }
 
 export interface PrescribedExerciseV2 extends PrescribedExercise {
@@ -648,6 +677,12 @@ export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   exercises: PrescribedExerciseV2[];
   payloadVersion?: 'v2' | 'v3';
   sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
+  sessionComposition?: SessionModulePlan[] | null;
+  secondaryAdaptations?: WorkoutDoseBucket[];
+  plannedBucket?: WorkoutDoseBucket | null;
+  realizedBucket?: WorkoutDoseBucket | null;
+  moduleBlocks?: WorkoutModuleBlock[];
+  doseCredits?: WorkoutDoseCredit[];
   estimatedDurationMin: number;
   isDeloadWorkout: boolean;
   equipmentProfile: string | null;

@@ -26,6 +26,11 @@ import type {
     DailyTrainingPlacement,
     CarryForwardAdjustment,
     TrainingSessionFamily,
+    ExerciseHistoryEntry,
+    MuscleGroup,
+    SessionModulePlan,
+    WorkoutDoseBucket,
+    WorkoutDoseCredit,
 } from './types.ts';
 import { getFitnessModifiers } from './calculateFitness.ts';
 import { getWeeklyRoadWorkPlan } from './calculateRoadWork.ts';
@@ -112,6 +117,75 @@ function createFallbackReadinessProfile(input: {
         hasTechnicalSessionScheduled,
         readinessHistory: [readinessSeed, readinessSeed, readinessSeed],
     });
+}
+
+function cloneRecentMuscleVolume(
+    recentMuscleVolume: Record<MuscleGroup, number>,
+): Record<MuscleGroup, number> {
+    return { ...recentMuscleVolume };
+}
+
+function cloneExerciseHistory(
+    exerciseHistory?: Map<string, ExerciseHistoryEntry[]>,
+): Map<string, ExerciseHistoryEntry[]> {
+    return new Map(
+        Array.from(exerciseHistory?.entries() ?? []).map(([exerciseId, history]) => [exerciseId, [...history]]),
+    );
+}
+
+function getDaysBetweenPlanDates(previousDate: string | null, nextDate: string): number {
+    if (!previousDate) return 0;
+    const previousUtc = Date.parse(`${previousDate}T00:00:00Z`);
+    const nextUtc = Date.parse(`${nextDate}T00:00:00Z`);
+    if (Number.isNaN(previousUtc) || Number.isNaN(nextUtc) || nextUtc <= previousUtc) {
+        return 0;
+    }
+    return Math.round((nextUtc - previousUtc) / (24 * 60 * 60 * 1000));
+}
+
+function decayPlanningMuscleVolume(
+    recentMuscleVolume: Record<MuscleGroup, number>,
+    daysElapsed: number,
+): void {
+    for (let day = 0; day < daysElapsed; day += 1) {
+        for (const muscleGroup of Object.keys(recentMuscleVolume) as MuscleGroup[]) {
+            recentMuscleVolume[muscleGroup] = Math.max(0, recentMuscleVolume[muscleGroup] * 0.8);
+        }
+    }
+}
+
+export function updateRollingPlanContextFromPrescription(input: {
+    prescription: WeeklyPlanEntryRow['prescription_snapshot'];
+    trainingDate: string;
+    recentExerciseIds: string[];
+    recentMuscleVolume: Record<MuscleGroup, number>;
+    exerciseHistory: Map<string, ExerciseHistoryEntry[]>;
+}): void {
+    const { prescription, trainingDate, recentExerciseIds, recentMuscleVolume, exerciseHistory } = input;
+    if (!prescription?.exercises?.length) return;
+
+    const countedExercises = prescription.exercises.filter((exercise) =>
+        exercise.sectionTemplate !== 'activation' && exercise.sectionTemplate !== 'cooldown',
+    );
+
+    for (const exercise of countedExercises) {
+        recentExerciseIds.unshift(exercise.exercise.id);
+        recentMuscleVolume[exercise.exercise.muscle_group] = (recentMuscleVolume[exercise.exercise.muscle_group] ?? 0) + exercise.targetSets;
+
+        const history = exerciseHistory.get(exercise.exercise.id) ?? [];
+        history.unshift({
+            date: trainingDate,
+            bestSetWeight: 0,
+            bestSetReps: exercise.targetReps,
+            bestSetRPE: exercise.targetRPE,
+            totalVolume: exercise.targetSets * exercise.targetReps,
+            workingSets: exercise.targetSets,
+            estimated1RM: 0,
+        });
+        exerciseHistory.set(exercise.exercise.id, history);
+    }
+
+    recentExerciseIds.splice(20);
 }
 
 type CampTemplateBucket = 'strength' | 'conditioning' | 'recovery';
@@ -311,6 +385,19 @@ interface GuidedSessionBlueprint {
     family: TrainingSessionFamily;
     focus: WorkoutFocus;
     progressionIntent: string;
+    sessionModules: SessionModulePlan[];
+    preferredDurationMin: number;
+}
+
+function mapDoseBucketToFamily(bucket: WorkoutDoseBucket): TrainingSessionFamily {
+    if (bucket === 'conditioning') return 'conditioning';
+    if (bucket === 'durability') return 'durability_core';
+    if (bucket === 'recovery') return 'recovery';
+    return 'strength';
+}
+
+function isComboBlueprint(blueprint: GuidedSessionBlueprint): boolean {
+    return blueprint.sessionModules.length > 1;
 }
 
 function getFamilyForFocus(focus: WorkoutFocus): TrainingSessionFamily {
@@ -366,10 +453,34 @@ function buildGuidedSessionBlueprints(input: {
 
     if (guidedCapacity <= 0) return [];
 
-    const pushBlueprint = (list: GuidedSessionBlueprint[], family: TrainingSessionFamily, focus: WorkoutFocus) => {
+    const strengthFocuses = getCampStrengthFocusSequence({
+        performanceGoalType,
+        blockContext,
+        isDeloadWeek,
+    });
+    const pushBlueprint = (
+        list: GuidedSessionBlueprint[],
+        family: TrainingSessionFamily,
+        focus: WorkoutFocus,
+        preferredDurationMin: number,
+        sessionModules?: SessionModulePlan[],
+    ) => {
         list.push({
             family,
             focus,
+            preferredDurationMin,
+            sessionModules: sessionModules ?? [{
+                bucket: family === 'conditioning'
+                    ? 'conditioning'
+                    : family === 'durability_core'
+                        ? 'durability'
+                        : family === 'recovery'
+                            ? 'recovery'
+                            : 'strength',
+                focus,
+                durationMin: preferredDurationMin,
+                preserveOnYellow: true,
+            }],
             progressionIntent: getProgressionIntent({
                 family,
                 focus,
@@ -379,95 +490,80 @@ function buildGuidedSessionBlueprints(input: {
         });
     };
 
-    let blueprints: GuidedSessionBlueprint[] = [];
+    const blueprints: GuidedSessionBlueprint[] = [];
 
-    if (campPhase) {
-        const template = buildCampMicrocycleTemplate({
-            campPhase,
-            performanceGoalType,
-            blockContext,
-            isDeloadWeek,
-            capacity: guidedCapacity,
-            sparringDayCount,
-            campModifiers,
-        });
-
-        for (const token of template) {
-            pushBlueprint(
-                blueprints,
-                token.bucket === 'strength'
-                    ? 'strength'
-                    : token.bucket === 'conditioning'
-                        ? 'conditioning'
-                        : 'recovery',
-                token.focus,
-            );
-        }
-    } else {
-        const rotation = getGoalBasedFocusRotation({
-            performanceGoalType,
-            scDayCount: guidedCapacity,
-            isDeloadWeek,
-            blockContext,
-        });
-
-        for (const focus of rotation.slice(0, guidedCapacity)) {
-            pushBlueprint(blueprints, getFamilyForFocus(focus), focus);
-        }
+    if (isDeloadWeek || campPhase === 'taper') {
+        pushBlueprint(blueprints, 'recovery', 'recovery', 35);
+        if (guidedCapacity >= 2) pushBlueprint(blueprints, 'recovery', 'recovery', 30);
+        return blueprints.slice(0, guidedCapacity);
     }
 
-    if (
-        guidedCapacity >= 4
-        && !isDeloadWeek
-        && !blueprints.some((blueprint) => blueprint.family === 'conditioning')
-        && (performanceGoalType === 'boxing_skill' || performanceGoalType === 'weight_class_prep')
-    ) {
-        blueprints.splice(Math.min(1, blueprints.length), 0, {
-            family: 'conditioning',
-            focus: 'conditioning',
-            progressionIntent: getProgressionIntent({
-                family: 'conditioning',
-                focus: 'conditioning',
-                campPhase,
-                performanceGoalType,
-            }),
-        });
+    if (campPhase === 'peak') {
+        pushBlueprint(blueprints, 'strength', strengthFocuses[0] ?? 'full_body', 70);
+        if (guidedCapacity >= 2) pushBlueprint(blueprints, 'conditioning', 'conditioning', 40);
+        if (guidedCapacity >= 3) pushBlueprint(blueprints, 'durability_core', 'full_body', 35);
+        return blueprints.slice(0, guidedCapacity);
     }
 
-    if (
-        guidedCapacity >= 4
-        && !isDeloadWeek
-        && !blueprints.some((blueprint) => blueprint.family === 'durability_core')
-    ) {
-        blueprints.push({
-            family: 'durability_core',
-            focus: 'full_body',
-            progressionIntent: getProgressionIntent({
-                family: 'durability_core',
-                focus: 'full_body',
-                campPhase,
-                performanceGoalType,
-            }),
-        });
+    if (guidedCapacity >= 5) {
+        pushBlueprint(blueprints, 'strength', strengthFocuses[0] ?? 'lower', 80);
+        pushBlueprint(blueprints, 'conditioning', 'conditioning', 45);
+        pushBlueprint(blueprints, 'strength', strengthFocuses[1] ?? 'upper_pull', 78);
+        pushBlueprint(blueprints, 'durability_core', 'full_body', 35);
+        pushBlueprint(blueprints, 'conditioning', 'conditioning', 42);
+        return blueprints.slice(0, guidedCapacity);
     }
 
-    if (campPhase === 'taper') {
-        blueprints = blueprints.map((blueprint, index) => index === 0
-            ? blueprint
-            : {
-                ...blueprint,
-                family: 'recovery',
-                focus: 'recovery',
-                progressionIntent: getProgressionIntent({
-                    family: 'recovery',
-                    focus: 'recovery',
-                    campPhase,
-                    performanceGoalType,
-                }),
-            });
+    if (guidedCapacity === 4) {
+        pushBlueprint(
+            blueprints,
+            'strength',
+            strengthFocuses[0] ?? 'full_body',
+            92,
+            [
+                { bucket: 'strength', focus: strengthFocuses[0] ?? 'full_body', durationMin: 68, preserveOnYellow: true },
+                { bucket: 'conditioning', focus: 'conditioning', durationMin: 18, preserveOnYellow: true },
+            ],
+        );
+        pushBlueprint(blueprints, 'strength', strengthFocuses[1] ?? 'upper_pull', 75);
+        pushBlueprint(blueprints, 'conditioning', 'conditioning', 42);
+        pushBlueprint(blueprints, 'durability_core', 'full_body', 35);
+        return blueprints;
     }
 
-    return blueprints.slice(0, guidedCapacity);
+    if (guidedCapacity === 3) {
+        pushBlueprint(
+            blueprints,
+            'strength',
+            strengthFocuses[0] ?? 'full_body',
+            90,
+            [
+                { bucket: 'strength', focus: strengthFocuses[0] ?? 'full_body', durationMin: 68, preserveOnYellow: true },
+                { bucket: 'conditioning', focus: 'conditioning', durationMin: 18, preserveOnYellow: true },
+            ],
+        );
+        pushBlueprint(blueprints, 'strength', strengthFocuses[1] ?? 'upper_pull', 70);
+        pushBlueprint(blueprints, 'conditioning', 'conditioning', 40);
+        return blueprints;
+    }
+
+    if (guidedCapacity === 2) {
+        pushBlueprint(
+            blueprints,
+            'strength',
+            strengthFocuses[0] ?? 'full_body',
+            88,
+            [
+                { bucket: 'strength', focus: strengthFocuses[0] ?? 'full_body', durationMin: 66, preserveOnYellow: true },
+                { bucket: 'conditioning', focus: 'conditioning', durationMin: 18, preserveOnYellow: true },
+            ],
+        );
+        pushBlueprint(blueprints, 'durability_core', 'full_body', 30);
+        return blueprints;
+    }
+
+    pushBlueprint(blueprints, 'strength', strengthFocuses[0] ?? 'full_body', 85);
+    return blueprints;
 }
 
 function pickBlueprintForDay(
@@ -476,18 +572,35 @@ function pickBlueprintForDay(
 ): GuidedSessionBlueprint | null {
     if (queue.length === 0) return null;
 
-    const priorities: TrainingSessionFamily[] = input.isSparringDay
-        ? ['durability_core', 'recovery', 'conditioning', 'strength', 'boxing_skill']
-        : input.hasCombatAnchor
-            ? ['conditioning', 'durability_core', 'strength', 'recovery', 'boxing_skill']
-            : ['strength', 'conditioning', 'durability_core', 'recovery', 'boxing_skill'];
+    const ranked = [...queue].sort((left, right) => {
+        const rank = (blueprint: GuidedSessionBlueprint): number => {
+            if (input.isSparringDay) {
+                if (blueprint.family === 'durability_core') return 0;
+                if (blueprint.family === 'recovery') return 1;
+                if (blueprint.family === 'conditioning') return 2;
+                return isComboBlueprint(blueprint) ? 5 : 4;
+            }
+            if (input.hasCombatAnchor) {
+                if (blueprint.family === 'conditioning') return 0;
+                if (blueprint.family === 'durability_core') return 1;
+                if (blueprint.family === 'strength' && !isComboBlueprint(blueprint)) return 2;
+                if (blueprint.family === 'recovery') return 3;
+                return isComboBlueprint(blueprint) ? 4 : 5;
+            }
+            if (isComboBlueprint(blueprint)) return 0;
+            if (blueprint.family === 'strength') return 1;
+            if (blueprint.family === 'conditioning') return 2;
+            if (blueprint.family === 'durability_core') return 3;
+            return 4;
+        };
 
-    for (const family of priorities) {
-        const match = queue.find((blueprint) => blueprint.family === family);
-        if (match) return match;
-    }
+        const leftRank = rank(left);
+        const rightRank = rank(right);
+        if (leftRank !== rightRank) return leftRank - rightRank;
+        return right.preferredDurationMin - left.preferredDurationMin;
+    });
 
-    return queue[0] ?? null;
+    return ranked[0] ?? null;
 }
 
 function consumeBlueprint(
@@ -534,13 +647,28 @@ function buildSessionTargets(input: {
     const families: TrainingSessionFamily[] = ['sparring', 'boxing_skill', 'conditioning', 'strength', 'durability_core', 'recovery', 'rest'];
     const blueprintCounts = new Map<TrainingSessionFamily, number>();
     const placementCounts = new Map<TrainingSessionFamily, number>();
+    const realizedCounts = new Map<TrainingSessionFamily, number>();
+    const substitutionCounts = new Map<TrainingSessionFamily, number>();
 
     for (const blueprint of input.blueprints) {
-        blueprintCounts.set(blueprint.family, (blueprintCounts.get(blueprint.family) ?? 0) + 1);
+        for (const module of blueprint.sessionModules) {
+            const family = mapDoseBucketToFamily(module.bucket);
+            blueprintCounts.set(family, (blueprintCounts.get(family) ?? 0) + 1);
+        }
+        blueprintCounts.set(blueprint.family, Math.max(blueprintCounts.get(blueprint.family) ?? 0, 1));
     }
 
     for (const placement of input.placements) {
         placementCounts.set(placement.sessionFamily, (placementCounts.get(placement.sessionFamily) ?? 0) + 1);
+        for (const bucket of placement.realizedDoseBuckets ?? []) {
+            const family = mapDoseBucketToFamily(bucket);
+            realizedCounts.set(family, (realizedCounts.get(family) ?? 0) + 1);
+        }
+        for (const credit of placement.doseCredits ?? []) {
+            if (!credit.preservedBySubstitution) continue;
+            const family = mapDoseBucketToFamily(credit.bucket);
+            substitutionCounts.set(family, (substitutionCounts.get(family) ?? 0) + 1);
+        }
     }
 
     const occupiedDays = new Set(input.placements.map((placement) => placement.date));
@@ -553,7 +681,8 @@ function buildSessionTargets(input: {
             : fixedFamily
                 ? (placementCounts.get(family) ?? 0)
                 : (blueprintCounts.get(family) ?? 0);
-        const scheduled = placementCounts.get(family) ?? 0;
+        const realized = fixedFamily ? (placementCounts.get(family) ?? 0) : (realizedCounts.get(family) ?? 0);
+        const scheduled = fixedFamily ? (placementCounts.get(family) ?? 0) : realized;
         const min = fixedFamily
             ? target
             : target === 0
@@ -570,6 +699,13 @@ function buildSessionTargets(input: {
             max,
             scheduled,
             completed: 0,
+            floor: min,
+            realized,
+            debt: Math.max(0, target - realized),
+            metBySubstitution: substitutionCounts.get(family) ?? 0,
+            missReason: target > 0 && realized < min
+                ? 'Realized dose stayed below the weekly floor.'
+                : null,
         };
     });
 }
@@ -592,6 +728,47 @@ function buildWeekIntent(input: {
     }
 
     return `Build-phase week. Bias ${goalLabel} without letting any one session family disappear from the mix.`;
+}
+
+function resolveGuidedDuration(input: {
+    blueprint: GuidedSessionBlueprint;
+    isDeloadWeek: boolean;
+    isSparringDay: boolean;
+    hasCombatAnchor: boolean;
+    performanceRisk: ReturnType<typeof assessPerformanceRisk>;
+    blockContext: ReturnType<typeof resolveTrainingBlockContext>;
+}): number {
+    const { blueprint, isDeloadWeek, isSparringDay, hasCombatAnchor, performanceRisk, blockContext } = input;
+    let duration = blueprint.preferredDurationMin;
+
+    if (isDeloadWeek) {
+        duration = Math.min(duration, 40);
+    } else if (isSparringDay) {
+        duration = Math.min(duration, 30);
+    } else if (hasCombatAnchor) {
+        duration = Math.min(duration, isComboBlueprint(blueprint) ? 55 : 40);
+    }
+
+    if (performanceRisk.level === 'yellow') {
+        duration = Math.min(duration, hasCombatAnchor ? 40 : duration);
+    } else if (performanceRisk.level === 'orange') {
+        duration = Math.min(duration, 30);
+    }
+
+    return Math.max(20, Math.round(duration * blockContext.volumeMultiplier * performanceRisk.volumeMultiplier));
+}
+
+function stripSecondaryModulesForYellow(
+    modules: SessionModulePlan[],
+    input: { hasCombatAnchor: boolean; performanceRisk: ReturnType<typeof assessPerformanceRisk> },
+): SessionModulePlan[] {
+    if (!input.hasCombatAnchor || input.performanceRisk.level !== 'yellow') return modules;
+    return modules.slice(0, 1).map((module) => ({
+        ...module,
+        durationMin: module.bucket === 'conditioning'
+            ? Math.min(module.durationMin ?? 35, 35)
+            : Math.min(module.durationMin ?? 40, 40),
+    }));
 }
 
 /**
@@ -1499,6 +1676,10 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
     const weeklyFocusSplit: Partial<Record<WorkoutFocus, number>> = {};
     const dailyPlacements: DailyTrainingPlacement[] = [];
     const carryForwardAdjustments: CarryForwardAdjustment[] = [];
+    const rollingRecentExerciseIds = [...(recentExerciseIds ?? [])];
+    const rollingRecentMuscleVolume = cloneRecentMuscleVolume(recentMuscleVolume);
+    const rollingExerciseHistory = cloneExerciseHistory(exerciseHistory);
+    let lastPlanningDate: string | null = null;
 
     for (let i = 0; i < sortedDays.length; i++) {
 
@@ -1507,6 +1688,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         let offset = dayOfWeek - weekStartDay;
         if (offset < 0) offset += 7;
         const entryDate = addDays(weekStartDate, offset);
+        decayPlanningMuscleVolume(rollingRecentMuscleVolume, getDaysBetweenPlanDates(lastPlanningDate, entryDate));
+        lastPlanningDate = entryDate;
         const daysOut = activeCutPlan
             ? Math.max(0, daysBetween(entryDate, activeCutPlan.weigh_in_date))
             : campConfig
@@ -1542,26 +1725,6 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 return (b.expected_intensity ?? 0) - (a.expected_intensity ?? 0);
             })[0] ?? null;
         const hasHighAnchor = scaledRecurringAnchors.some((activity) => activity.expected_intensity >= 7);
-        const baseAllowDoubleOnDay = config.allow_two_a_days && config.two_a_day_days.includes(dayOfWeek);
-        let allowDoubleOnDay = baseAllowDoubleOnDay;
-        const pmSessionBaseIntensity = isDeloadWeek ? 4 : 6;
-        const pmSessionIntensity = isBoxingActivityType(config.pm_session_type)
-            ? scaleBoxingIntensity(pmSessionBaseIntensity, {
-                isOnActiveCut: activeCutPlan != null,
-                daysOut,
-            })
-            : pmSessionBaseIntensity;
-        const primaryCombatAnchorStart = parseTimeToMinutes(primaryCombatAnchor?.start_time ?? null);
-        const primaryCombatAnchorEnd = primaryCombatAnchorStart != null && primaryCombatAnchor
-            ? primaryCombatAnchorStart + primaryCombatAnchor.estimated_duration_min
-            : null;
-        const guidedAvailability = resolveGuidedAvailability({
-            dayWindows: config.availability_windows,
-            dayOfWeek,
-            recurringAnchors,
-            primaryCombatAnchorStart,
-            primaryCombatAnchorEnd,
-        });
 
         // Only treat as a sparring day if there is an actual sparring anchor on this day.
         // The camp-estimation fallback (i < sparringDaysThisWeek) was mis-marking non-sparring
@@ -1572,7 +1735,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             isSparringDay,
         });
 
-        const pushCombatEntry = (slot: PlanSlot, note: string | null) => {
+        const pushCombatEntry = (slot: PlanSlot, note: string | null, dayOrder: number) => {
             if (!primaryCombatAnchor) return;
             entries.push({
                 id: `${weekStartDate}-${dayOfWeek}-combat`,
@@ -1581,6 +1744,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 day_of_week: dayOfWeek,
                 date: entryDate,
                 slot,
+                day_order: dayOrder,
                 session_type: primaryCombatAnchor.activity_type,
                 focus: null,
                 session_family: familyForRecurringActivity(primaryCombatAnchor),
@@ -1606,6 +1770,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 date: entryDate,
                 day_of_week: dayOfWeek,
                 slot,
+                dayOrder,
                 sessionFamily: familyForRecurringActivity(primaryCombatAnchor),
                 sessionType: primaryCombatAnchor.activity_type,
                 focus: null,
@@ -1615,52 +1780,16 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 locked: true,
                 progressionIntent: null,
                 notes: note,
+                sessionModules: null,
+                doseCredits: [],
+                realizedDoseBuckets: [],
                 recurringActivityId: primaryCombatAnchor.id,
             });
         };
 
         if (!blueprint) {
             if (primaryCombatAnchor) {
-                pushCombatEntry('single', 'Fixed combat session.');
-            } else if (allowDoubleOnDay) {
-                entries.push({
-                    id: `${weekStartDate}-${dayOfWeek}-pm`,
-                    user_id: config.user_id,
-                    week_start_date: weekStartDate,
-                    day_of_week: dayOfWeek,
-                    date: entryDate,
-                    slot: 'pm' as PlanSlot,
-                    session_type: config.pm_session_type,
-                    focus: null,
-                    session_family: config.pm_session_type === 'conditioning' ? 'conditioning' : 'boxing_skill',
-                    placement_source: 'locked',
-                    progression_intent: null,
-                    carry_forward_reason: null,
-                    estimated_duration_min: 60,
-                    target_intensity: pmSessionIntensity,
-                    status: 'planned',
-                    rescheduled_to: null,
-                    workout_log_id: null,
-                    prescription_snapshot: null,
-                    engine_notes: isDeloadWeek ? 'Deload — light PM session.' : 'PM session.',
-                    is_deload: isDeloadWeek,
-                    created_at: new Date().toISOString(),
-                });
-                dailyPlacements.push({
-                    date: entryDate,
-                    day_of_week: dayOfWeek,
-                    slot: 'pm',
-                    sessionFamily: config.pm_session_type === 'conditioning' ? 'conditioning' : 'boxing_skill',
-                    sessionType: config.pm_session_type,
-                    focus: null,
-                    durationMin: 60,
-                    targetIntensity: pmSessionIntensity,
-                    source: 'locked',
-                    locked: true,
-                    progressionIntent: null,
-                    notes: isDeloadWeek ? 'Deload â€” light PM session.' : 'PM session.',
-                    recurringActivityId: null,
-                });
+                pushCombatEntry('single', 'Fixed combat session.', 1);
             }
             continue;
         }
@@ -1671,13 +1800,14 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         let focus = isSparringDay
             ? 'sport_specific' as WorkoutFocus
             : blueprint.focus;
+        let sessionModules = blueprint.sessionModules;
 
         // Determine intensity
         let targetIntensity: number;
         if (isDeloadWeek) {
-            targetIntensity = 5; // deload cap
+            targetIntensity = 5;
         } else if (isSparringDay) {
-            targetIntensity = 4; // activation only on sparring days
+            targetIntensity = 4;
         } else if (readinessState === 'Depleted') {
             targetIntensity = 5;
         } else if (readinessState === 'Caution') {
@@ -1685,9 +1815,6 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         } else {
             targetIntensity = 7;
         }
-        // Only cap intensity when sparring is actually happening on this day.
-        // Capping on boxing_practice days was suppressing otherwise valid
-        // Prime-readiness S&C sessions to intensity 5-6.
         if (isSparringDay) {
             targetIntensity = Math.min(targetIntensity, hasHighAnchor ? 5 : 6);
         }
@@ -1703,7 +1830,6 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         targetIntensity += blockContext.intensityOffset;
         targetIntensity = Math.max(3, Math.min(9, targetIntensity));
 
-        // Apply weight cut cap
         if (activeCutPlan) {
             const cutCap = getDailyCutIntensityCap(activeCutPlan, entryDate);
             if (cutCap != null && targetIntensity > cutCap) {
@@ -1711,31 +1837,12 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             }
         }
 
-        // Determine session duration
-        let duration = config.session_duration_min;
-        if (guidedAvailability.maxMinutes > 0) {
-            duration = Math.min(duration, guidedAvailability.maxMinutes);
-        }
-        if (isDeloadWeek) {
-            duration = Math.min(duration, 45);
-        } else if (isSparringDay) {
-            duration = Math.min(duration, 30); // activation only
-        } else if (hasCombatAnchor) {
-            duration = Math.min(duration, 45);
-        }
-        if (blueprint.family === 'durability_core') {
-            duration = Math.min(duration, 40);
-        }
-        duration = Math.max(25, Math.round(duration * blockContext.volumeMultiplier));
-
-        // Build engine notes
         const notes: string[] = [];
-        if (boxingScalar < 1 && hasCombatAnchor) notes.push('Boxing taper active â€” combat intensity reduced 40%.');
-        if (isDeloadWeek) notes.push('Deload week — reduced volume and intensity.');
-        if (isSparringDay) notes.push('Sparring day — activation-only S&C.');
+        if (boxingScalar < 1 && hasCombatAnchor) notes.push('Boxing taper active - combat intensity reduced 40%.');
+        if (isDeloadWeek) notes.push('Deload week - reduced volume and intensity.');
+        if (isSparringDay) notes.push('Sparring day - activation-only S&C.');
         if (hasCombatAnchor) {
-            const placementLabel = guidedAvailability.placement === 'after' ? 'after' : 'before';
-            notes.push(`Fixed combat anchor on the day — guided work placed ${placementLabel} it inside the remaining availability window.`);
+            notes.push('Fixed combat anchor on the day - guided work is paired against the same training day without AM/PM slot locking.');
         }
         if (readinessState !== 'Prime') notes.push(`Readiness: ${readinessState}.`);
 
@@ -1778,14 +1885,13 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             daysOut,
             hasTechnicalSession: scaledRecurringAnchors.some((activity) => activity.activity_type === 'boxing_practice'),
         });
-        const activeCutAllowsDoubleStack = !activeCutPlan || (
+        const activeCutAllowsGuidedStack = !activeCutPlan || (
             readinessState === 'Prime'
             && acwr < 1.2
             && constraintSet.blockedStimuli.length === 0
         );
-        allowDoubleOnDay = baseAllowDoubleOnDay && activeCutAllowsDoubleStack;
 
-        if (hasCombatAnchor && activeCutPlan && !activeCutAllowsDoubleStack) {
+        if (hasCombatAnchor && activeCutPlan && !activeCutAllowsGuidedStack) {
             carryForwardAdjustments.push({
                 family: blueprint.family,
                 fromDate: entryDate,
@@ -1793,15 +1899,24 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 reason: 'Active cut did not allow an additional engine-created stack on this day.',
                 status: 'moved',
             });
-            pushCombatEntry('single', 'Guided work skipped — active cut does not allow an extra engine-created stack unless readiness, ACWR, and stimulus constraints are fully green.');
+            pushCombatEntry('single', 'Guided work skipped - active cut does not allow an additional engine-created stack unless readiness, ACWR, and stimulus constraints are fully green.', 1);
             continue;
         }
 
         if (hasCombatAnchor && performanceRisk.level === 'yellow') {
-            focus = isSparringDay ? 'sport_specific' as WorkoutFocus : 'recovery';
-            targetIntensity = Math.min(targetIntensity, 4);
-            duration = Math.min(duration, 30);
-            notes.push('Combat anchor + yellow risk — guided work was downgraded to low-cost support/recovery before finalizing the day.');
+            sessionModules = stripSecondaryModulesForYellow(sessionModules, {
+                hasCombatAnchor,
+                performanceRisk,
+            });
+            focus = isSparringDay
+                ? 'sport_specific' as WorkoutFocus
+                : (sessionModules[0]?.focus ?? focus);
+            const preservedBucket = sessionModules[0]?.bucket ?? 'conditioning';
+            notes.push(
+                preservedBucket === 'conditioning'
+                    ? 'Combat anchor + yellow risk - conditioning was preserved through a lower-cost engine block instead of a recovery swap.'
+                    : 'Combat anchor + yellow risk - the secondary module was stripped and the physical touch was preserved at low cost.',
+            );
         } else if (hasCombatAnchor && (performanceRisk.level === 'orange' || performanceRisk.level === 'red')) {
             carryForwardAdjustments.push({
                 family: blueprint.family,
@@ -1810,22 +1925,32 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 reason: `Combat anchor plus ${performanceRisk.level} risk forced the guided session to defer.`,
                 status: 'moved',
             });
-            pushCombatEntry('single', `Guided work skipped — combat anchor plus ${performanceRisk.level} risk is being defused upstream.`);
+            pushCombatEntry('single', `Guided work skipped - combat anchor plus ${performanceRisk.level} risk is being defused upstream.`, 1);
             continue;
         }
+
+        let duration = resolveGuidedDuration({
+            blueprint: {
+                ...blueprint,
+                sessionModules,
+            },
+            isDeloadWeek,
+            isSparringDay,
+            hasCombatAnchor,
+            performanceRisk,
+            blockContext,
+        });
+
         targetIntensity = Math.min(targetIntensity, performanceRisk.intensityCap);
-        duration = Math.max(20, Math.round(duration * performanceRisk.volumeMultiplier));
-        duration = Math.min(duration, guidedAvailability.maxMinutes || duration);
         if (hasCombatAnchor && performanceRisk.level === 'yellow') {
             targetIntensity = Math.min(targetIntensity, 4);
-            duration = Math.min(duration, 30);
+            duration = Math.min(duration, 40);
         }
         if (performanceRisk.level !== 'green') {
             notes.push(`Risk: ${performanceRisk.level}. ${performanceRisk.reasons.join('; ')}.`);
         }
-        const hasWindowCapacity = guidedAvailability.maxMinutes >= MIN_GUIDED_DURATION_MIN;
         const hypotheticalSessionType = classifyGuidedSessionType({ focus });
-        const dayLoadValidation: any = !isSparringDay && hasWindowCapacity && duration >= MIN_GUIDED_DURATION_MIN
+        const dayLoadValidation: any = !isSparringDay && duration >= MIN_GUIDED_DURATION_MIN
             ? validateDayLoad([
                 ...scaledRecurringAnchors.map((activity) => ({
                     activity_type: activity.activity_type,
@@ -1840,21 +1965,21 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             ] as any)
             : null;
 
-        if (!hasWindowCapacity || duration < MIN_GUIDED_DURATION_MIN || (dayLoadValidation && !dayLoadValidation.safe)) {
+        if (duration < MIN_GUIDED_DURATION_MIN || (dayLoadValidation && !dayLoadValidation.safe)) {
             carryForwardAdjustments.push({
                 family: blueprint.family,
                 fromDate: entryDate,
                 suggestedDate: null,
-                reason: !hasWindowCapacity || duration < MIN_GUIDED_DURATION_MIN
-                    ? 'No contiguous guided-work window was available around the anchor.'
+                reason: duration < MIN_GUIDED_DURATION_MIN
+                    ? 'Resolved guided block fell below the minimum viable dose after constraints were applied.'
                     : `Combined day load would have been unsafe (${dayLoadValidation.message}).`,
                 status: 'moved',
             });
             if (primaryCombatAnchor) {
-                const reason = !hasWindowCapacity || duration < MIN_GUIDED_DURATION_MIN
-                    ? 'Guided work skipped — no remaining contiguous availability window around the fixed combat session.'
-                    : `Guided work skipped — combined day load would be unsafe (${dayLoadValidation.message}).`;
-                pushCombatEntry('single', reason);
+                const reason = duration < MIN_GUIDED_DURATION_MIN
+                    ? 'Guided work skipped - resolved block fell below the minimum viable dose after constraints were applied.'
+                    : `Guided work skipped - combined day load would be unsafe (${dayLoadValidation.message}).`;
+                pushCombatEntry('single', reason, 1);
             }
             continue;
         }
@@ -1867,15 +1992,15 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 phase,
                 acwr,
                 exerciseLibrary,
-                recentExerciseIds: recentExerciseIds ?? [],
-                recentMuscleVolume,
+                recentExerciseIds: rollingRecentExerciseIds,
+                recentMuscleVolume: rollingRecentMuscleVolume,
                 focus,
                 trainingIntensityCap,
                 trainingDate: entryDate,
                 fitnessLevel,
                 availableMinutes: duration,
                 gymEquipment: gymProfile?.equipment ?? [],
-                exerciseHistory: exerciseHistory ?? new Map(),
+                exerciseHistory: rollingExerciseHistory,
                 isDeloadWeek,
                 weeklyPlanFocus: focus,
                 isSparringDay,
@@ -1883,19 +2008,20 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 performanceRisk,
                 blockContext,
                 sessionFamily: blueprint.family,
+                sessionModules,
             })
             : null;
         const sessionType = classifyGuidedSessionType({
             focus,
             prescription: prescriptionSnapshot,
         });
-        const guidedSlot: PlanSlot = primaryCombatAnchor
-            ? (guidedAvailability.placement === 'after' ? 'pm' : 'am')
-            : allowDoubleOnDay
-                ? 'am' as PlanSlot
-                : 'single' as PlanSlot;
+        const guidedSlot: PlanSlot = primaryCombatAnchor ? 'am' : 'single';
+        const realizedDoseBuckets = Array.from(new Set(
+            (prescriptionSnapshot?.doseCredits ?? [])
+                .filter((credit) => credit.credit > 0)
+                .map((credit) => credit.bucket),
+        ));
 
-        // Primary session entry
         entries.push({
             id: `${weekStartDate}-${dayOfWeek}-guided-${blueprint.family}-${i}`,
             user_id: config.user_id,
@@ -1903,6 +2029,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             day_of_week: dayOfWeek,
             date: entryDate,
             slot: guidedSlot,
+            day_order: 0,
             session_type: sessionType,
             focus,
             session_family: blueprint.family,
@@ -1920,12 +2047,11 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             created_at: new Date().toISOString(),
         });
 
-        weeklyFocusSplit[focus] = (weeklyFocusSplit[focus] ?? 0) + 1;
-        consumeBlueprint(remainingBlueprints, blueprint);
         dailyPlacements.push({
             date: entryDate,
             day_of_week: dayOfWeek,
             slot: guidedSlot,
+            dayOrder: 0,
             sessionFamily: blueprint.family,
             sessionType,
             focus,
@@ -1935,55 +2061,27 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             locked: false,
             progressionIntent: blueprint.progressionIntent,
             notes: notes.join(' ') || null,
+            sessionModules,
+            doseCredits: prescriptionSnapshot?.doseCredits ?? [],
+            realizedDoseBuckets,
             recurringActivityId: null,
         });
 
+        weeklyFocusSplit[focus] = (weeklyFocusSplit[focus] ?? 0) + 1;
+        consumeBlueprint(remainingBlueprints, blueprint);
+        updateRollingPlanContextFromPrescription({
+            prescription: prescriptionSnapshot,
+            trainingDate: entryDate,
+            recentExerciseIds: rollingRecentExerciseIds,
+            recentMuscleVolume: rollingRecentMuscleVolume,
+            exerciseHistory: rollingExerciseHistory,
+        });
+
         if (primaryCombatAnchor) {
-            pushCombatEntry(guidedSlot === 'am' ? 'pm' : 'am', 'Fixed combat session.');
+            pushCombatEntry('pm', 'Fixed combat session.', 1);
             continue;
         }
 
-        // Two-a-day PM session (boxing/conditioning)
-        if (allowDoubleOnDay) {
-            entries.push({
-                id: `${weekStartDate}-${dayOfWeek}-pm`,
-                user_id: config.user_id,
-                week_start_date: weekStartDate,
-                day_of_week: dayOfWeek,
-                date: entryDate,
-                slot: 'pm' as PlanSlot,
-                session_type: config.pm_session_type,
-                focus: null,
-                session_family: config.pm_session_type === 'conditioning' ? 'conditioning' : 'boxing_skill',
-                placement_source: 'locked',
-                progression_intent: null,
-                carry_forward_reason: null,
-                estimated_duration_min: 60,
-                    target_intensity: pmSessionIntensity,
-                status: 'planned',
-                rescheduled_to: null,
-                workout_log_id: null,
-                prescription_snapshot: null,
-                engine_notes: isDeloadWeek ? 'Deload — light PM session.' : 'PM session.',
-                is_deload: isDeloadWeek,
-                created_at: new Date().toISOString(),
-            });
-            dailyPlacements.push({
-                date: entryDate,
-                day_of_week: dayOfWeek,
-                slot: 'pm',
-                sessionFamily: config.pm_session_type === 'conditioning' ? 'conditioning' : 'boxing_skill',
-                sessionType: config.pm_session_type,
-                focus: null,
-                durationMin: 60,
-                targetIntensity: pmSessionIntensity,
-                source: 'locked',
-                locked: true,
-                progressionIntent: null,
-                notes: isDeloadWeek ? 'Deload â€” light PM session.' : 'PM session.',
-                recurringActivityId: null,
-            });
-        }
     }
 
     // ── 6. Build summary message ──
@@ -2201,6 +2299,8 @@ export function generateBlockPlan(input: GenerateBlockPlanInput): BlockPlanResul
 
     return { weeks };
 }
+
+
 
 
 

@@ -30,12 +30,6 @@ interface DayPlanCardProps {
   onReschedule?: () => void;
 }
 
-const SLOT_LABELS: Record<Session['slot'], string> = {
-  am: 'AM',
-  pm: 'PM',
-  single: '',
-};
-
 const STATUS_COLORS: Record<Session['status'], string> = {
   planned: COLORS.text.secondary,
   completed: COLORS.success,
@@ -108,13 +102,6 @@ function SessionRow({ session }: { session: Session }) {
   return (
     <View style={[styles.sessionRow, isMuted && styles.sessionRowMuted]}>
       <View style={styles.sessionLeft}>
-        {session.slot !== 'single' && (
-          <View style={styles.slotTag}>
-            <Text style={styles.slotTagText}>
-              {SLOT_LABELS[session.slot]}
-            </Text>
-          </View>
-        )}
         <View style={styles.sessionInfo}>
           <Text
             style={[styles.sessionType, isMuted && styles.textMuted]}
@@ -295,21 +282,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: SPACING.sm,
-  },
-  slotTag: {
-    backgroundColor: COLORS.surfaceSecondary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-    minWidth: 32,
-    alignItems: 'center',
-  },
-  slotTagText: {
-    fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 10,
-    color: COLORS.text.secondary,
-    letterSpacing: 0.5,
   },
   sessionInfo: {
     flex: 1,

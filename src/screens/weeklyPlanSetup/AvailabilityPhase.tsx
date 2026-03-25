@@ -1,30 +1,23 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
-import { TimePickerField } from '../../components/TimePickerField';
-import type { AvailabilityWindow } from '../../../lib/engine/types';
 import { DAY_OPTIONS } from './constants';
 import { FieldNote, Section } from './shared';
 import { styles } from './styles';
-import { sortWindows } from './utils';
 
 type AvailabilityPhaseProps = {
   availableDays: number[];
-  availabilityWindows: AvailabilityWindow[];
   toggleAvailabilityDay: (dayOfWeek: number) => void;
-  updateAvailabilityWindow: (dayOfWeek: number, field: 'startTime' | 'endTime', value: string) => void;
 };
 
 export function AvailabilityPhase({
   availableDays,
-  availabilityWindows,
   toggleAvailabilityDay,
-  updateAvailabilityWindow,
 }: AvailabilityPhaseProps) {
   return (
-    <Section label="Availability Windows" description="Show when supplemental work is actually allowed to happen.">
-      <FieldNote>Select only the days and time windows where the engine can safely place training.</FieldNote>
-      <FieldNote>Tap each boundary and choose the earliest start and latest finish instead of typing times manually.</FieldNote>
+    <Section label="Training Days" description="Choose the days the planner can use when it builds the week.">
+      <FieldNote>The planner is day-based now. It selects the best training mix for each available day instead of fitting work into time blocks.</FieldNote>
+      <FieldNote>Fixed boxing and sparring commitments still stay locked to their day, but guided work is no longer capped by setup-time duration windows.</FieldNote>
       <View style={styles.dayRow}>
         {DAY_OPTIONS.map((day) => {
           const selected = availableDays.includes(day.value);
@@ -35,25 +28,6 @@ export function AvailabilityPhase({
           );
         })}
       </View>
-      {sortWindows(availabilityWindows).map((window) => {
-        const dayLabel = DAY_OPTIONS.find((day) => day.value === window.dayOfWeek)?.label ?? 'Day';
-        return (
-          <View key={window.dayOfWeek} style={styles.windowCard}>
-            <Text style={styles.windowTitle}>{dayLabel}</Text>
-            <FieldNote>Enter the earliest start and latest end time the planner can use on this day.</FieldNote>
-            <View style={styles.inputRow}>
-              <View style={[styles.inlineField, { marginRight: 12 }]}>
-                <Text style={styles.subLabel}>Start</Text>
-                <TimePickerField label={`${dayLabel} Start`} value={window.startTime} onChange={(value) => updateAvailabilityWindow(window.dayOfWeek, 'startTime', value)} />
-              </View>
-              <View style={styles.inlineField}>
-                <Text style={styles.subLabel}>End</Text>
-                <TimePickerField label={`${dayLabel} End`} value={window.endTime} onChange={(value) => updateAvailabilityWindow(window.dayOfWeek, 'endTime', value)} />
-              </View>
-            </View>
-          </View>
-        );
-      })}
     </Section>
   );
 }

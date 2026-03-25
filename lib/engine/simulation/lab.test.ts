@@ -100,6 +100,26 @@ async function main() {
   assert('Constrained roles do not inherit combat labels', replayConstrainedCombatLabels.length === 0);
   assert('High and critical risk days stay a minority of camp', replayHighCriticalDays.length <= Math.ceil(replayRun.days.length * 0.25));
 
+  const replayRunSeedA = await buildEngineReplayRun('camp-baseline', { seedOverride: 101 });
+  const replayRunSeedB = await buildEngineReplayRun('camp-baseline', { seedOverride: 202 });
+  const replaySignatureA = JSON.stringify({
+    seed: replayRunSeedA.scenario.config.seed,
+    finalWeight: replayRunSeedA.summary.finalWeightLbs,
+    interventions: replayRunSeedA.summary.interventionDays,
+    firstDayCalories: replayRunSeedA.days[0]?.actualCalories ?? null,
+    firstDayWorkout: replayRunSeedA.days[0]?.prescribedExercises.map((exercise) => exercise.exerciseId).join('|') ?? '',
+  });
+  const replaySignatureB = JSON.stringify({
+    seed: replayRunSeedB.scenario.config.seed,
+    finalWeight: replayRunSeedB.summary.finalWeightLbs,
+    interventions: replayRunSeedB.summary.interventionDays,
+    firstDayCalories: replayRunSeedB.days[0]?.actualCalories ?? null,
+    firstDayWorkout: replayRunSeedB.days[0]?.prescribedExercises.map((exercise) => exercise.exerciseId).join('|') ?? '',
+  });
+
+  assert('Replay override seed is reflected in the run metadata', replayRunSeedA.scenario.config.seed === 101);
+  assert('Different replay seeds produce different replay outputs', replaySignatureA !== replaySignatureB);
+
   console.log('\n--- Active cut replay semantics ---');
 
   const activeCutRun = await buildEngineReplayRun('camp-active-cut');
