@@ -223,6 +223,25 @@ function roundExerciseLibrary(exercises: ConditioningExercise[], rounds: number)
   }));
 }
 
+function buildSteadySegment(name: string, durationMin: number): ConditioningExercise {
+  return {
+    name,
+    durationSec: durationMin * 60,
+    reps: null,
+    rounds: 1,
+    restSec: 0,
+    format: 'steady_state',
+  };
+}
+
+function formatSecondsLabel(seconds: number): string {
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return minutes === 1 ? '1 min' : `${minutes} min`;
+  }
+  return `${seconds}s`;
+}
+
 function buildCircuitRound(exercises: ConditioningExercise[], roundCount: number): CircuitRoundPrescription {
   return {
     roundCount,
@@ -451,8 +470,12 @@ function buildAssaultBike(
       rounds: roundCount,
       workIntervalSec: 60,
       restIntervalSec: 0,
-      totalDurationMin: Math.round(timedWork.totalDurationSec / 60),
-      exercises: roundExerciseLibrary(ASSAULT_BIKE_EMOM, roundCount),
+      totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 7,
+      exercises: [
+        buildSteadySegment('Assault Bike Build-Up', 4),
+        ...roundExerciseLibrary(ASSAULT_BIKE_EMOM, roundCount),
+        buildSteadySegment('Easy Spin Flush', 3),
+      ],
       format: 'emom',
       timedWork,
     };
@@ -475,8 +498,12 @@ function buildAssaultBike(
     rounds,
     workIntervalSec,
     restIntervalSec,
-    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 4,
-    exercises: roundExerciseLibrary(ASSAULT_BIKE_INTERVALS, rounds),
+    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 8,
+    exercises: [
+      buildSteadySegment('Assault Bike Ramp-Up', 4),
+      ...roundExerciseLibrary(ASSAULT_BIKE_INTERVALS, rounds),
+      buildSteadySegment('Easy Spin Flush', 4),
+    ],
     format: 'intervals',
     timedWork,
   };
@@ -501,12 +528,16 @@ function buildRowing(
       rounds: 1,
       workIntervalSec: totalDurationMin * 60,
       restIntervalSec: 0,
-      totalDurationMin,
-      exercises: ROWING_STEADY.map((exercise) => ({
-        ...exercise,
-        durationSec: totalDurationMin * 60,
-        timedWork,
-      })),
+      totalDurationMin: totalDurationMin + 9,
+      exercises: [
+        buildSteadySegment('Row Ramp-Up', 5),
+        ...ROWING_STEADY.map((exercise) => ({
+          ...exercise,
+          durationSec: totalDurationMin * 60,
+          timedWork,
+        })),
+        buildSteadySegment('Easy Row Flush', 4),
+      ],
       format: 'intervals',
       timedWork,
     };
@@ -526,8 +557,12 @@ function buildRowing(
     rounds,
     workIntervalSec,
     restIntervalSec,
-    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 4,
-    exercises: roundExerciseLibrary(ROWING_INTERVALS, rounds),
+    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 8,
+    exercises: [
+      buildSteadySegment('Row Primer', 4),
+      ...roundExerciseLibrary(ROWING_INTERVALS, rounds),
+      buildSteadySegment('Easy Row Flush', 4),
+    ],
     format: 'intervals',
     timedWork,
   };
@@ -608,8 +643,12 @@ function buildBikeErg(
       rounds: roundCount,
       workIntervalSec: 60,
       restIntervalSec: 0,
-      totalDurationMin: roundCount,
-      exercises: roundExerciseLibrary(BIKE_ERG_EMOM, roundCount),
+      totalDurationMin: roundCount + 7,
+      exercises: [
+        buildSteadySegment('Bike Erg Build-Up', 4),
+        ...roundExerciseLibrary(BIKE_ERG_EMOM, roundCount),
+        buildSteadySegment('Easy Spin Flush', 3),
+      ],
       format: 'emom',
       timedWork,
     };
@@ -632,8 +671,12 @@ function buildBikeErg(
     rounds,
     workIntervalSec,
     restIntervalSec,
-    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 4,
-    exercises: roundExerciseLibrary(BIKE_ERG_INTERVALS, rounds),
+    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 8,
+    exercises: [
+      buildSteadySegment('Bike Erg Ramp-Up', 4),
+      ...roundExerciseLibrary(BIKE_ERG_INTERVALS, rounds),
+      buildSteadySegment('Easy Spin Flush', 4),
+    ],
     format: 'intervals',
     timedWork,
   };
@@ -660,8 +703,12 @@ function buildSkiErg(
       rounds: roundCount,
       workIntervalSec: 60,
       restIntervalSec: 0,
-      totalDurationMin: roundCount,
-      exercises: roundExerciseLibrary(SKI_ERG_EMOM, roundCount),
+      totalDurationMin: roundCount + 7,
+      exercises: [
+        buildSteadySegment('Ski Erg Build-Up', 4),
+        ...roundExerciseLibrary(SKI_ERG_EMOM, roundCount),
+        buildSteadySegment('Breathing / Easy Flush', 3),
+      ],
       format: 'emom',
       timedWork,
     };
@@ -684,8 +731,12 @@ function buildSkiErg(
     rounds,
     workIntervalSec,
     restIntervalSec,
-    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 4,
-    exercises: roundExerciseLibrary(SKI_ERG_INTERVALS, rounds),
+    totalDurationMin: Math.round(timedWork.totalDurationSec / 60) + 8,
+    exercises: [
+      buildSteadySegment('Ski Erg Ramp-Up', 4),
+      ...roundExerciseLibrary(SKI_ERG_INTERVALS, rounds),
+      buildSteadySegment('Breathing / Easy Flush', 4),
+    ],
     format: 'intervals',
     timedWork,
   };
@@ -777,6 +828,11 @@ function formatSummaryLabel(prescription: ConditioningBuildResult): string {
   }
   if (prescription.timedWork?.format === 'tabata') {
     return 'Tabata';
+  }
+  if (prescription.timedWork?.roundCount && prescription.workIntervalSec > 0) {
+    const workLabel = formatSecondsLabel(prescription.workIntervalSec);
+    const restLabel = prescription.restIntervalSec > 0 ? ` / ${formatSecondsLabel(prescription.restIntervalSec)} easy` : '';
+    return `${prescription.timedWork.roundCount} x ${workLabel}${restLabel}`;
   }
   if (prescription.rounds <= 1 && prescription.totalDurationMin >= 15) {
     return `${prescription.totalDurationMin} min steady`;

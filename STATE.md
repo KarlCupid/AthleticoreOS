@@ -20,8 +20,10 @@
 - The internal `Engine Replay Lab` is available from Profile via a hidden version-tap entry and is now the main in-app inspection surface for deterministic replay analysis.
 - Replay lab coverage now includes:
   - deterministic seeded replay runs
-  - week/day replay browsing
-  - chart window zoom and pan controls
+  - a workout-first week/day rail with selected-week expansion
+  - chart window zoom controls inside a collapsed trends section
+  - selected-day workout hero with quick-context stats and nearby previous/next navigation
+  - sectioned workout blueprints with set-level targets, rest guidance, and simulated log detail
   - full prescribed-vs-logged S&C session inspection
   - dedicated conditioning prescription and simulated conditioning log views
 - Supabase migrations are present through `015_engine_v3_foundation.sql`.

@@ -159,56 +159,7 @@ function buildSimulationPlanConfig() {
 }
 
 function buildSimulationRecurringActivities() {
-  return [
-    {
-      id: 'sim-boxing-mon',
-      user_id: 'sim-user',
-      activity_type: 'boxing_practice',
-      custom_label: 'Technical Bag Work',
-      start_time: '18:00:00',
-      estimated_duration_min: 60,
-      expected_intensity: 6,
-      session_components: [],
-      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [1] },
-      is_active: true,
-    },
-    {
-      id: 'sim-boxing-tue',
-      user_id: 'sim-user',
-      activity_type: 'boxing_practice',
-      custom_label: 'Pad Work & Drills',
-      start_time: '18:00:00',
-      estimated_duration_min: 45,
-      expected_intensity: 7,
-      session_components: [],
-      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [2] },
-      is_active: true,
-    },
-    {
-      id: 'sim-spar-thu',
-      user_id: 'sim-user',
-      activity_type: 'sparring',
-      custom_label: 'Hard Sparring',
-      start_time: '18:00:00',
-      estimated_duration_min: 60,
-      expected_intensity: 9,
-      session_components: [],
-      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [4] },
-      is_active: true,
-    },
-    {
-      id: 'sim-spar-fri',
-      user_id: 'sim-user',
-      activity_type: 'sparring',
-      custom_label: 'Technical Sparring',
-      start_time: '18:00:00',
-      estimated_duration_min: 45,
-      expected_intensity: 6,
-      session_components: [],
-      recurrence: { frequency: 'weekly', interval: 1, days_of_week: [5] },
-      is_active: true,
-    },
-  ] as any[];
+  return [] as any[];
 }
 
 function simulateExerciseLogs(input: {
@@ -326,6 +277,9 @@ function getConditioningRoundTarget(prescription: any): number {
 }
 
 function describeConditioningExercise(exercise: any): string {
+  if (typeof exercise.setScheme === 'string' && exercise.setScheme.trim().length > 0) {
+    return exercise.setScheme;
+  }
   if (exercise.timedWork?.format === 'emom') {
     return `EMOM ${Math.round((exercise.timedWork.totalDurationSec ?? 0) / 60)}`;
   }
@@ -850,7 +804,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
 
     const workoutBlueprint = hasStructuredPrescription
       ? mission.trainingDirective.prescription?.exercises.map((e: any) =>
-        `${e.exercise.name} (${e.targetSets}x${e.targetReps} @ RPE ${e.targetRPE})`
+        `${e.exercise.name} (${describeConditioningExercise(e)}${e.targetRPE != null ? ` @ RPE ${e.targetRPE}` : ''})`
       ).join(' | ')
       : fallbackConditioningPrescription
         ? fallbackConditioningPrescription.exercises.map((exercise: any) => {

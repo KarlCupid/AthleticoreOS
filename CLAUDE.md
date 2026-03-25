@@ -72,11 +72,11 @@ Key files inside `src/components/replay-lab/`:
 
 - `EngineReplayLab.tsx` — shell: modal, header, scenario picker, loading/error states
 - `useReplayState.ts` — all state, derived values, and actions
-- `ReplayCharts.tsx` — 4 charts + zoom strip (no pan buttons)
-- `ReplayBrowser.tsx` — week/day picker + day navigator
-- `DayInspector.tsx` — day header + tab bar + tab dispatch
-- `tabs/` — OverviewTab, WorkoutTab (conditioning/strength split), FuelTab, DecisionsTab
-- `primitives/` — MetricTile, PillButton, ScenarioButton, ChartWidgets, FindingBadge, ExerciseRow, ConditioningDrillRow
+- `ReplayCharts.tsx` — collapsible block-trends section with 4 charts + zoom strip
+- `ReplayBrowser.tsx` — workout-first week/day rail with one expanded week at a time
+- `DayInspector.tsx` — selected-workout hero, quick-context strip, sequential nav, and collapsible secondary diagnostics
+- `tabs/` — content sections reused inside the section-based inspector (OverviewTab, WorkoutTab, FuelTab, DecisionsTab)
+- `primitives/` — MetricTile, PillButton, ScenarioButton, ChartWidgets, FindingBadge, ExerciseRow, ConditioningDrillRow, CollapsibleSection
 - `helpers.ts` — pure utility functions
 - `styles.ts` — shared styles + semantic tone constants
 
@@ -87,12 +87,16 @@ Access:
 Current replay-lab capabilities:
 
 - deterministic seeded replay runs
-- week/day replay browsing with danger-day indicators
+- workout-first week/day rail with danger, override, and mandatory-recovery indicators
 - chart zoom windows: `7D`, `14D`, `28D`, `All` (auto-centers on selected day)
+- charts live in a collapsed `Block Trends` section by default
 - readiness, weight, calories, and load charts with summary stats
+- selected-day hero with quick-context stats and nearby previous/next navigation
+- sectioned workout-session blueprint with rest rules, set-level targets, cues, and simulated logged outcome
 - S&C prescribed-vs-logged comparisons
 - simulated exercise-level workout logs
 - dedicated conditioning prescription and simulated conditioning-log views
+- risk, fuel, and decision diagnostics moved into collapsible secondary sections
 - semantic MetricTile coloring (good/warning/danger)
 - decision trace grouped by subsystem with impact-based tinting
 - skeleton loading state and error+retry UX

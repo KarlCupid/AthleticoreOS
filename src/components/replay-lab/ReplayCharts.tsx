@@ -4,6 +4,7 @@ import { Bar, CartesianChart, Line } from 'victory-native';
 import { COLORS, SPACING, TYPOGRAPHY_V2 } from '../../theme/theme';
 import { Card } from '../Card';
 import { ChartStat, ChartLegend, ChartDateAxis } from './primitives/ChartWidgets';
+import { CollapsibleSection } from './primitives/CollapsibleSection';
 import { PillButton } from './primitives/PillButton';
 import {
   formatNumber,
@@ -178,7 +179,11 @@ export function ReplayCharts({ chartData, chartWindowSize, onChangeWindowSize }:
   const weightInsight = `Net weight change in this window was ${formatSignedNumber(summarizeMetric(chartData, 'weight').delta, 1, ' lb')}. Lowest weigh-in here was ${formatNumber(findExtremePoint(chartData, 'weight', 'min')?.weight ?? 0, 1, ' lb')} on ${findExtremePoint(chartData, 'weight', 'min')?.label ?? '--'}.`;
 
   return (
-    <>
+    <CollapsibleSection
+      title="Block Trends"
+      subtitle="Charts stay available, but the workout canvas remains the primary focus."
+      defaultOpen={false}
+    >
       <View style={styles.zoomRow} accessibilityRole="toolbar" accessibilityLabel="Chart zoom controls">
         {ZOOM_OPTIONS.map((option) => (
           <PillButton
@@ -214,7 +219,7 @@ export function ReplayCharts({ chartData, chartWindowSize, onChangeWindowSize }:
       />
       <CaloriesChart data={chartData} />
       <LoadChart data={chartData} />
-    </>
+    </CollapsibleSection>
   );
 }
 

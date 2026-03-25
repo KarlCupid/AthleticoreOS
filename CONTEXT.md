@@ -89,12 +89,14 @@ Weekly plan entries can supply engine-owned prescriptions that flow into workout
 Current replay lab capabilities include:
 
 - deterministic seeded block replay
-- week/day browsing instead of a single long day list
-- chart focus controls with 7/14/28/all windows plus pan/center actions
+- a workout-first week/day rail instead of split week and day selectors
+- chart focus controls with 7/14/28/all windows inside a collapsed trends section
 - run-level readiness, weight, calories, and load charts with summary stats
-- selected-day inspection tabs for overview, workout, fuel, and decisions
+- selected-day workout hero with quick-context stats and previous/next navigation
+- sectioned replay workout blueprint with set-by-set targets, rest guidance, cues, and simulated logs
 - full prescribed-vs-logged S&C inspection
 - dedicated conditioning prescription and simulated conditioning log views
+- collapsible secondary sections for risk/findings, fuel, and decision trace
 
 If you change simulation output shape, you usually need to update both the replay adapter in `lib/engine/simulation/lab.ts` and the replay UI in `src/components/EngineReplayLab.tsx`.
 

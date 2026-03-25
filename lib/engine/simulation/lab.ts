@@ -42,17 +42,86 @@ export interface EngineReplayExerciseLog {
   note: string;
 }
 
+export interface EngineReplayExerciseSubstitution {
+  exerciseId: string;
+  exerciseName: string;
+  rationale: string;
+  rank: number;
+  preservesPattern: boolean;
+  preservesStimulus: boolean;
+  fatigueDelta: number;
+}
+
+export interface EngineReplaySetPrescription {
+  label: string;
+  sets: number;
+  reps: number | string;
+  targetRPE: number;
+  restSeconds: number;
+  intensityNote?: string;
+  timedWork?: {
+    format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
+    totalDurationSec: number;
+    workIntervalSec?: number;
+    restIntervalSec?: number;
+    roundCount?: number;
+    targetRounds?: number;
+  } | null;
+  circuitRound?: {
+    roundCount: number;
+    restBetweenRoundsSec: number;
+    movements: Array<{
+      exerciseId?: string;
+      exerciseName: string;
+      reps: number | null;
+      durationSec: number | null;
+      restSec: number;
+    }>;
+  } | null;
+}
+
 export interface EngineReplayPrescribedExercise {
   exerciseId: string;
   exerciseName: string;
   sectionTitle: string | null;
   sectionTemplate: string | null;
+  sectionId: string | null;
   setScheme: string | null;
   targetSets: number;
   targetReps: number;
   targetRpe: number;
   suggestedWeight: number | null;
   warmupSetCount: number;
+  restSeconds: number | null;
+  loadingNotes: string | null;
+  coachingCues: string[];
+  substitutions: EngineReplayExerciseSubstitution[];
+  setPrescription: EngineReplaySetPrescription[];
+}
+
+export interface EngineReplayWorkoutSection {
+  id: string;
+  template: string;
+  title: string;
+  intent: string;
+  timeCap: number;
+  restRule: string;
+  densityRule: string | null;
+  decisionTrace: string[];
+  finisherReason?: string | null;
+  exercises: EngineReplayPrescribedExercise[];
+}
+
+export interface EngineReplayWorkoutSession {
+  estimatedDurationMin: number;
+  sessionGoal: string | null;
+  sessionIntent: string | null;
+  primaryAdaptation: 'strength' | 'power' | 'conditioning' | 'recovery' | 'mixed';
+  activationGuidance: string | null;
+  expectedActivationRPE: number | null;
+  decisionTrace: string[];
+  interferenceWarnings: string[];
+  sections: EngineReplayWorkoutSection[];
 }
 
 export interface EngineReplayConditioningDrill {
@@ -152,6 +221,7 @@ export interface EngineReplayDay {
   coachingInsight: string;
   athleteMonologue: string;
   decisionReasons: EngineReplayDecisionReason[];
+  workoutSession: EngineReplayWorkoutSession | null;
   prescriptionPreview: string[];
   prescribedExercises: EngineReplayPrescribedExercise[];
   conditioningPrescription: EngineReplayConditioningPrescription | null;
@@ -591,18 +661,97 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
       sentence: reason.sentence,
       impact: reason.impact,
     })),
+    workoutSession: prescription ? {
+      estimatedDurationMin: prescription.estimatedDurationMin,
+      sessionGoal: prescription.sessionGoal ?? null,
+      sessionIntent: prescription.sessionIntent ?? null,
+      primaryAdaptation: prescription.primaryAdaptation,
+      activationGuidance: prescription.activationGuidance ?? null,
+      expectedActivationRPE: prescription.expectedActivationRPE ?? null,
+      decisionTrace: prescription.decisionTrace ?? [],
+      interferenceWarnings: prescription.interferenceWarnings ?? [],
+      sections: (prescription.sections ?? []).map((section) => ({
+        id: section.id,
+        template: section.template,
+        title: section.title,
+        intent: section.intent,
+        timeCap: section.timeCap,
+        restRule: section.restRule,
+        densityRule: section.densityRule ?? null,
+        decisionTrace: section.decisionTrace ?? [],
+        finisherReason: section.finisherReason ?? null,
+        exercises: section.exercises.map((exercise) => ({
+          exerciseId: exercise.exercise.id,
+          exerciseName: exercise.exercise.name,
+          sectionTitle: exercise.sectionIntent ?? null,
+          sectionTemplate: exercise.sectionTemplate ?? null,
+          sectionId: exercise.sectionId ?? null,
+          setScheme: exercise.setScheme ?? null,
+          targetSets: exercise.targetSets,
+          targetReps: exercise.targetReps,
+          targetRpe: exercise.targetRPE,
+          suggestedWeight: exercise.suggestedWeight ?? null,
+          warmupSetCount: Array.isArray(exercise.warmupSets) ? exercise.warmupSets.length : 0,
+          restSeconds: exercise.restSeconds ?? null,
+          loadingNotes: exercise.loadingNotes ?? null,
+          coachingCues: exercise.coachingCues ?? [],
+          substitutions: (exercise.substitutions ?? []).map((substitution) => ({
+            exerciseId: substitution.exerciseId,
+            exerciseName: substitution.exerciseName,
+            rationale: substitution.rationale,
+            rank: substitution.rank,
+            preservesPattern: substitution.preservesPattern,
+            preservesStimulus: substitution.preservesStimulus,
+            fatigueDelta: substitution.fatigueDelta,
+          })),
+          setPrescription: (exercise.setPrescription ?? []).map((setEntry) => ({
+            label: setEntry.label,
+            sets: setEntry.sets,
+            reps: setEntry.reps,
+            targetRPE: setEntry.targetRPE,
+            restSeconds: setEntry.restSeconds,
+            intensityNote: setEntry.intensityNote,
+            timedWork: setEntry.timedWork ?? null,
+            circuitRound: setEntry.circuitRound ?? null,
+          })),
+        })),
+      })),
+    } : null,
     prescriptionPreview: prescription?.exercises?.slice(0, 4).map((exercise) => exercise.exercise.name) ?? [],
     prescribedExercises: prescription?.exercises?.map((exercise) => ({
       exerciseId: exercise.exercise.id,
       exerciseName: exercise.exercise.name,
       sectionTitle: exercise.sectionIntent ?? null,
       sectionTemplate: exercise.sectionTemplate ?? null,
+      sectionId: exercise.sectionId ?? null,
       setScheme: exercise.setScheme ?? null,
       targetSets: exercise.targetSets,
       targetReps: exercise.targetReps,
       targetRpe: exercise.targetRPE,
       suggestedWeight: exercise.suggestedWeight ?? null,
       warmupSetCount: Array.isArray(exercise.warmupSets) ? exercise.warmupSets.length : 0,
+      restSeconds: exercise.restSeconds ?? null,
+      loadingNotes: exercise.loadingNotes ?? null,
+      coachingCues: exercise.coachingCues ?? [],
+      substitutions: (exercise.substitutions ?? []).map((substitution) => ({
+        exerciseId: substitution.exerciseId,
+        exerciseName: substitution.exerciseName,
+        rationale: substitution.rationale,
+        rank: substitution.rank,
+        preservesPattern: substitution.preservesPattern,
+        preservesStimulus: substitution.preservesStimulus,
+        fatigueDelta: substitution.fatigueDelta,
+      })),
+      setPrescription: (exercise.setPrescription ?? []).map((setEntry) => ({
+        label: setEntry.label,
+        sets: setEntry.sets,
+        reps: setEntry.reps,
+        targetRPE: setEntry.targetRPE,
+        restSeconds: setEntry.restSeconds,
+        intensityNote: setEntry.intensityNote,
+        timedWork: setEntry.timedWork ?? null,
+        circuitRound: setEntry.circuitRound ?? null,
+      })),
     })) ?? [],
     conditioningPrescription: personaAction.conditioningPrescription ? {
       type: personaAction.conditioningPrescription.type,

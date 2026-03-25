@@ -1,7 +1,6 @@
 import { COLORS } from '../../theme/theme';
 import type { EngineReplayDay, EngineReplayFinding, EngineReplayRun } from '../../../lib/engine/simulation/lab';
 
-export type ReplayTab = 'overview' | 'workout' | 'fuel' | 'decisions';
 export type ChartWindowSize = 7 | 14 | 28 | 'all';
 
 export function formatPhase(value: string) {

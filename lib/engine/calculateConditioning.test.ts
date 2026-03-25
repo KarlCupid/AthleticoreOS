@@ -260,6 +260,8 @@ console.log('\n── prescribeConditioning: modalities + formats ──');
     }));
     assert('Assault bike can prescribe EMOM', p.type === 'assault_bike' && p.format === 'emom');
     assert('Assault bike EMOM includes timedWork', p.type === 'assault_bike' ? p.timedWork?.format === 'emom' : true);
+    assert('Assault bike EMOM includes ramp-up and flush blocks', p.type === 'assault_bike' ? p.exercises.length >= 3 : true);
+    assert('Assault bike message exposes readable interval structure', p.type === 'assault_bike' ? p.message.includes('EMOM') : true);
 })();
 
 (() => {
@@ -268,6 +270,7 @@ console.log('\n── prescribeConditioning: modalities + formats ──');
     }));
     assert('Rowing prescription is available', p.type === 'rowing');
     assert('Rowing carries timed interval metadata', p.type === 'rowing' ? p.timedWork != null : true);
+    assert('Rowing prescription includes session structure beyond one line item', p.type === 'rowing' ? p.exercises.length >= 3 : true);
 })();
 
 (() => {

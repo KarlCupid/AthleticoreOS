@@ -1,8 +1,12 @@
-﻿import React from 'react';
+import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING, TYPOGRAPHY_V2 } from '../../../theme/theme';
-import type { EngineReplayExerciseLog, EngineReplayPrescribedExercise } from '../../../../lib/engine/simulation/lab';
-import { formatSignedNumber } from '../helpers';
+import type {
+  EngineReplayExerciseLog,
+  EngineReplayPrescribedExercise,
+  EngineReplaySetPrescription,
+} from '../../../../lib/engine/simulation/lab';
+import { formatPhase, formatSignedNumber } from '../helpers';
 import { shared } from '../styles';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +21,7 @@ export function ExerciseLogRow({ entry }: { entry: EngineReplayExerciseLog }) {
           <Text style={styles.name}>{entry.exerciseName}</Text>
           <Text style={styles.meta}>{entry.sectionTitle ?? 'session'} | {entry.completed ? 'logged' : 'skipped'}</Text>
         </View>
-        <Text style={[styles.status, !entry.completed && styles.statusMiss]}>{entry.completed ? 'Logged' : 'Skipped'}</Text>
+        <Text style={[styles.status, entry.completed ? styles.statusPositive : styles.statusMiss]}>{entry.completed ? 'Logged' : 'Skipped'}</Text>
       </View>
       <Text style={shared.bodyText}>Planned {entry.targetSets} x {entry.targetReps} @ RPE {entry.targetRpe}</Text>
       <Text style={shared.bodyText}>
@@ -42,16 +46,19 @@ export function PrescribedExerciseRow({ entry }: { entry: EngineReplayPrescribed
           <Text style={styles.name}>{entry.exerciseName}</Text>
           <Text style={styles.meta}>{entry.sectionTemplate ?? 'main'} | {entry.sectionTitle ?? 'No section intent recorded'}</Text>
         </View>
-        <Text style={styles.status}>Prescribed</Text>
+        <Text style={[styles.status, styles.statusNeutral]}>Prescribed</Text>
       </View>
       <Text style={shared.bodyText}>{entry.setScheme ?? `${entry.targetSets} x ${entry.targetReps} @ RPE ${entry.targetRpe}`}</Text>
       <View style={shared.inlineStatRow}>
         <Text style={shared.inlineStat}>Sets {entry.targetSets}</Text>
         <Text style={shared.inlineStat}>Reps {entry.targetReps}</Text>
         <Text style={shared.inlineStat}>RPE {entry.targetRpe}</Text>
+        {entry.restSeconds != null ? <Text style={shared.inlineStat}>{formatRest(entry.restSeconds)}</Text> : null}
         <Text style={shared.inlineStat}>{entry.suggestedWeight != null ? `${entry.suggestedWeight} lb` : 'Bodyweight/open load'}</Text>
       </View>
       {entry.warmupSetCount > 0 ? <Text style={shared.detailText}>Warmup sets: {entry.warmupSetCount}</Text> : null}
+      {entry.loadingNotes ? <Text style={shared.detailText}>{entry.loadingNotes}</Text> : null}
+      {entry.coachingCues.length > 0 ? <Text style={shared.detailText}>Cues: {entry.coachingCues.join(' • ')}</Text> : null}
     </View>
   );
 }
@@ -77,7 +84,7 @@ export function WorkoutComparisonRow({ prescribed, logged }: WorkoutComparisonRo
           <Text style={styles.name}>{prescribed.exerciseName}</Text>
           <Text style={styles.meta}>{prescribed.sectionTemplate ?? 'main'} | {prescribed.sectionTitle ?? 'No section intent recorded'}</Text>
         </View>
-        <Text style={[styles.status, (!logged || !logged.completed) && styles.statusMiss]}>
+        <Text style={[styles.status, logged?.completed ? styles.statusPositive : styles.statusMiss]}>
           {logged?.completed ? `${completionRate}% done` : 'Missed'}
         </Text>
       </View>
@@ -85,7 +92,11 @@ export function WorkoutComparisonRow({ prescribed, logged }: WorkoutComparisonRo
         <View style={styles.comparisonCell}>
           <Text style={styles.comparisonLabel}>Prescription</Text>
           <Text style={styles.comparisonValue}>{prescribed.targetSets} x {prescribed.targetReps}</Text>
-          <Text style={shared.detailText}>RPE {prescribed.targetRpe}{prescribed.suggestedWeight != null ? ` | ${prescribed.suggestedWeight} lb` : ''}</Text>
+          <Text style={shared.detailText}>
+            RPE {prescribed.targetRpe}
+            {prescribed.suggestedWeight != null ? ` | ${prescribed.suggestedWeight} lb` : ''}
+            {prescribed.restSeconds != null ? ` | ${formatRest(prescribed.restSeconds)}` : ''}
+          </Text>
         </View>
         <View style={styles.comparisonCell}>
           <Text style={styles.comparisonLabel}>Logged</Text>
@@ -107,15 +118,139 @@ export function WorkoutComparisonRow({ prescribed, logged }: WorkoutComparisonRo
 }
 
 // ---------------------------------------------------------------------------
+// Session blueprint primitives
+// ---------------------------------------------------------------------------
+
+export function ExerciseBlueprintCard({
+  entry,
+  logged,
+}: {
+  entry: EngineReplayPrescribedExercise;
+  logged: EngineReplayExerciseLog | null;
+}) {
+  return (
+    <View style={styles.blueprintCard}>
+      <View style={styles.header}>
+        <View style={styles.headerBody}>
+          <Text style={styles.name}>{entry.exerciseName}</Text>
+          <Text style={styles.meta}>{entry.sectionTemplate ?? 'main'} | {entry.sectionTitle ?? 'No section intent recorded'}</Text>
+        </View>
+        <Text style={[styles.status, logged?.completed ? styles.statusPositive : styles.statusNeutral]}>
+          {logged ? (logged.completed ? 'Logged' : 'Missed') : 'Blueprint'}
+        </Text>
+      </View>
+
+      <Text style={styles.schemeText}>{entry.setScheme ?? `${entry.targetSets} x ${entry.targetReps} @ RPE ${entry.targetRpe}`}</Text>
+
+      <View style={shared.inlineStatRow}>
+        <Text style={shared.inlineStat}>Target {entry.targetSets} x {entry.targetReps}</Text>
+        <Text style={shared.inlineStat}>RPE {entry.targetRpe}</Text>
+        {entry.restSeconds != null ? <Text style={shared.inlineStat}>{formatRest(entry.restSeconds)}</Text> : null}
+        <Text style={shared.inlineStat}>{entry.suggestedWeight != null ? `${entry.suggestedWeight} lb` : 'Bodyweight/open load'}</Text>
+        {entry.warmupSetCount > 0 ? <Text style={shared.inlineStat}>{entry.warmupSetCount} warmup sets</Text> : null}
+      </View>
+
+      {entry.setPrescription.length > 0 ? (
+        <View style={styles.blockList}>
+          {entry.setPrescription.map((setEntry, index) => (
+            <SetPrescriptionRow key={`${entry.exerciseId}-set-${index}`} entry={setEntry} />
+          ))}
+        </View>
+      ) : null}
+
+      {entry.loadingNotes ? <Text style={shared.detailText}>Loading: {entry.loadingNotes}</Text> : null}
+      {entry.coachingCues.length > 0 ? <Text style={shared.detailText}>Cues: {entry.coachingCues.join(' • ')}</Text> : null}
+      {entry.substitutions.length > 0 ? (
+        <Text style={shared.detailText}>
+          Alternatives: {entry.substitutions.slice(0, 3).map((sub) => sub.exerciseName).join(' • ')}
+        </Text>
+      ) : null}
+
+      {logged ? (
+        <View style={styles.loggedPanel}>
+          <Text style={styles.loggedTitle}>Simulated log</Text>
+          <Text style={shared.detailText}>
+            {logged.completed
+              ? `${logged.completedSets}/${logged.targetSets} sets | ${logged.actualReps} reps | ${logged.actualRpe != null ? `RPE ${logged.actualRpe}` : 'RPE --'}${logged.actualWeight != null ? ` | ${logged.actualWeight} lb` : ''}`
+              : 'Skipped in the simulated workout log.'}
+          </Text>
+          <Text style={shared.detailText}>{logged.note}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SetPrescriptionRow({ entry }: { entry: EngineReplaySetPrescription }) {
+  const repsLabel = typeof entry.reps === 'number' ? `${entry.reps} reps` : String(entry.reps);
+  return (
+    <View style={styles.setRow}>
+      <View style={styles.setRowHeader}>
+        <Text style={styles.setLabel}>{entry.label}</Text>
+        <Text style={styles.setTarget}>{entry.sets} x {repsLabel}</Text>
+      </View>
+      <Text style={styles.setMeta}>
+        Target RPE {entry.targetRPE}
+        {entry.restSeconds > 0 ? ` | ${formatRest(entry.restSeconds)}` : ''}
+        {entry.intensityNote ? ` | ${entry.intensityNote}` : ''}
+      </Text>
+      {entry.timedWork ? (
+        <Text style={shared.detailText}>
+          {formatPhase(entry.timedWork.format)}
+          {entry.timedWork.totalDurationSec ? ` | ${Math.round(entry.timedWork.totalDurationSec / 60)} min total` : ''}
+          {entry.timedWork.workIntervalSec ? ` | ${entry.timedWork.workIntervalSec}s work` : ''}
+          {entry.timedWork.restIntervalSec ? ` | ${entry.timedWork.restIntervalSec}s rest` : ''}
+          {entry.timedWork.roundCount ? ` | ${entry.timedWork.roundCount} rounds` : ''}
+        </Text>
+      ) : null}
+      {entry.circuitRound ? (
+        <View style={styles.circuitBlock}>
+          <Text style={shared.detailText}>
+            {entry.circuitRound.roundCount} rounds | {formatRest(entry.circuitRound.restBetweenRoundsSec)} between rounds
+          </Text>
+          {entry.circuitRound.movements.map((movement, index) => (
+            <Text key={`${movement.exerciseName}-${index}`} style={shared.detailText}>
+              {movement.exerciseName}
+              {movement.reps != null ? ` | ${movement.reps} reps` : ''}
+              {movement.durationSec != null ? ` | ${movement.durationSec}s work` : ''}
+              {movement.restSec ? ` | ${movement.restSec}s rest` : ''}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function formatRest(restSeconds: number) {
+  const minutes = Math.floor(restSeconds / 60);
+  const seconds = restSeconds % 60;
+  if (minutes > 0) {
+    return `${minutes}m${seconds > 0 ? ` ${seconds}s` : ''} rest`;
+  }
+  return `${restSeconds}s rest`;
+}
+
+// ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   exerciseRow: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.borderLight,
-    paddingBottom: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
     marginBottom: SPACING.md,
+  },
+  blueprintCard: {
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    gap: SPACING.sm,
   },
   header: {
     flexDirection: 'row',
@@ -138,13 +273,28 @@ const styles = StyleSheet.create({
   status: {
     fontSize: 10,
     fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.readiness.prime,
     textTransform: 'uppercase',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
   },
-  statusMiss: { color: COLORS.readiness.depleted },
+  statusPositive: {
+    color: COLORS.readiness.prime,
+    backgroundColor: COLORS.readiness.primeLight,
+  },
+  statusNeutral: {
+    color: COLORS.text.secondary,
+    backgroundColor: COLORS.surfaceSecondary,
+  },
+  statusMiss: {
+    color: COLORS.readiness.depleted,
+    backgroundColor: COLORS.readiness.depletedLight,
+  },
   comparisonCard: {
     borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#F8FBFC',
     padding: SPACING.md,
     marginBottom: SPACING.md,
   },
@@ -155,9 +305,12 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   comparisonCell: {
+    flexGrow: 1,
     flexBasis: '48%',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     padding: SPACING.sm,
   },
   comparisonLabel: {
@@ -172,5 +325,51 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.extraBold,
     color: COLORS.text.primary,
   },
+  schemeText: {
+    ...TYPOGRAPHY_V2.plan.body,
+    color: COLORS.text.primary,
+  },
+  blockList: {
+    gap: SPACING.sm,
+  },
+  setRow: {
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    padding: SPACING.sm,
+    gap: 4,
+  },
+  setRowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+    alignItems: 'center',
+  },
+  setLabel: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+  },
+  setTarget: {
+    ...TYPOGRAPHY_V2.plan.body,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  setMeta: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.secondary,
+  },
+  circuitBlock: {
+    gap: 2,
+  },
+  loggedPanel: {
+    borderRadius: RADIUS.md,
+    backgroundColor: '#F6FFFC',
+    padding: SPACING.sm,
+    gap: 2,
+  },
+  loggedTitle: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.accent,
+    textTransform: 'uppercase',
+  },
 });
-

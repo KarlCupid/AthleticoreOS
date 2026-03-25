@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
 import { ENGINE_REPLAY_SCENARIOS } from '../../../lib/engine/simulation/lab';
@@ -22,7 +22,9 @@ interface EngineReplayLabProps {
 export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
+  const { width } = useWindowDimensions();
   const state = useReplayState(visible);
+  const wideLayout = width >= 1100;
 
   return (
     <Modal visible={visible} animationType={reducedMotion ? 'none' : 'slide'} presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -107,33 +109,36 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
                   <MetricTile label="Engine Danger Days" value={String(state.run.summary.engineDangerDays)} tone={state.run.summary.engineDangerDays > 0 ? 'danger' : 'good'} />
                   <MetricTile label="Athlete Override Days" value={String(state.run.summary.athleteOverrideDays)} tone={state.run.summary.athleteOverrideDays > 0 ? 'warning' : 'good'} />
                   <MetricTile label="Scenario Pressure Days" value={String(state.run.summary.scenarioPressureDays)} tone={state.run.summary.scenarioPressureDays > 0 ? 'warning' : 'good'} />
-                  <MetricTile label="Pre-Cut Interventions" value={String(state.run.summary.preCutInterventionDays)} tone={state.run.summary.preCutInterventionDays > 0 ? 'warning' : 'default'} />
-                  <MetricTile label="Cut-Phase Interventions" value={String(state.run.summary.cutPhaseInterventionDays)} tone={state.run.summary.cutPhaseInterventionDays > 0 ? 'warning' : 'default'} />
                 </View>
               </Card>
+
+              <View style={[styles.workspace, wideLayout ? styles.workspaceWide : styles.workspaceStacked]}>
+                <View style={[styles.railColumn, wideLayout && styles.railColumnWide]}>
+                  <ReplayBrowser
+                    weeks={state.railWeeks}
+                    selectedDayIndex={state.selectedDayIndex}
+                    expandedWeekIndex={state.expandedWeekIndex}
+                    onSelectDay={state.selectDay}
+                    onExpandWeek={state.setExpandedWeekIndex}
+                  />
+                </View>
+
+                <View style={[styles.detailColumn, !wideLayout && styles.detailColumnStacked]}>
+                  <DayInspector
+                    day={state.selectedDay}
+                    workoutStats={state.workoutStats}
+                    quickStats={state.quickStats}
+                    onJumpDay={state.jumpDay}
+                    canGoPrevious={state.selectedDayIndex > 0}
+                    canGoNext={state.selectedDayIndex < state.run.days.length - 1}
+                  />
+                </View>
+              </View>
 
               <ReplayCharts
                 chartData={state.chartWindowData}
                 chartWindowSize={state.chartWindowSize}
                 onChangeWindowSize={state.setChartZoom}
-              />
-
-              <ReplayBrowser
-                weeks={state.weeks}
-                selectedDayIndex={state.selectedDayIndex}
-                selectedWeekIndex={state.selectedWeekIndex}
-                totalDays={state.run.days.length}
-                onSelectDay={state.selectDay}
-                onJumpDay={state.jumpDay}
-                selectedDay={state.selectedDay}
-                selectedWeek={state.selectedWeek}
-              />
-
-              <DayInspector
-                day={state.selectedDay}
-                tab={state.tab}
-                onChangeTab={state.setTab}
-                workoutStats={state.workoutStats}
               />
             </>
           ) : null}
@@ -184,6 +189,30 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: SPACING.lg,
     gap: SPACING.md,
+  },
+  workspace: {
+    gap: SPACING.md,
+    alignItems: 'flex-start',
+  },
+  workspaceStacked: {
+    flexDirection: 'column',
+  },
+  workspaceWide: {
+    flexDirection: 'row',
+  },
+  railColumn: {
+    width: '100%',
+  },
+  railColumnWide: {
+    width: 348,
+    flexShrink: 0,
+  },
+  detailColumn: {
+    flex: 1,
+    gap: SPACING.md,
+  },
+  detailColumnStacked: {
+    width: '100%',
   },
   runButton: {
     marginTop: SPACING.md,

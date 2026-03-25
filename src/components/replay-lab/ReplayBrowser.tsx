@@ -1,206 +1,212 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY_V2 } from '../../theme/theme';
+import { StyleSheet, Text, View } from 'react-native';
+import { COLORS, RADIUS, SEMANTIC_PALETTE, SPACING, TYPOGRAPHY_V2 } from '../../theme/theme';
 import { Card } from '../Card';
 import { AnimatedPressable } from '../AnimatedPressable';
-import { PillButton } from './primitives/PillButton';
-import { formatDate, formatPhase, riskColors } from './helpers';
-import type { EngineReplayDay } from '../../../lib/engine/simulation/lab';
+import { riskColors } from './helpers';
+import type { ReplayWeekRail } from './useReplayState';
 
 interface ReplayBrowserProps {
-  weeks: Array<{ index: number; days: EngineReplayDay[] }>;
+  weeks: ReplayWeekRail[];
   selectedDayIndex: number;
-  selectedWeekIndex: number;
-  totalDays: number;
+  expandedWeekIndex: number;
   onSelectDay: (index: number) => void;
-  onJumpDay: (delta: number) => void;
-  selectedDay: EngineReplayDay;
-  selectedWeek: { index: number; days: EngineReplayDay[] } | null;
+  onExpandWeek: (index: number) => void;
 }
 
 export function ReplayBrowser({
   weeks,
   selectedDayIndex,
-  selectedWeekIndex,
-  totalDays,
+  expandedWeekIndex,
   onSelectDay,
-  onJumpDay,
-  selectedDay,
-  selectedWeek,
+  onExpandWeek,
 }: ReplayBrowserProps) {
   return (
-    <Card title="Replay Browser" subtitle="Pick a week, then inspect the days inside that week.">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalRow}
-        accessibilityRole="toolbar"
-        accessibilityLabel="Week selector"
-      >
-        {weeks.map((week) => (
-          <AnimatedPressable
-            key={`week-${week.index}`}
-            onPress={() => onSelectDay(week.days[0]?.index ?? 0)}
-            style={[styles.weekButton, week.index === selectedWeekIndex && styles.weekButtonActive]}
-            accessibilityRole="button"
-            accessibilityLabel={`Week ${week.index + 1}, ${formatDate(week.days[0].date)} to ${formatDate(week.days[week.days.length - 1].date)}`}
-            accessibilityState={{ selected: week.index === selectedWeekIndex }}
-          >
-            <Text style={[styles.weekTitle, week.index === selectedWeekIndex && styles.weekTitleActive]}>
-              Week {week.index + 1}
-            </Text>
-            <Text style={styles.weekDate}>
-              {formatDate(week.days[0].date)} - {formatDate(week.days[week.days.length - 1].date)}
-            </Text>
-          </AnimatedPressable>
-        ))}
-      </ScrollView>
-
-      <View style={styles.dayNavRow}>
-        <PillButton
-          label="Previous"
-          active={false}
-          onPress={() => onJumpDay(-1)}
-          disabled={selectedDayIndex === 0}
-          size="sm"
-          accessibilityLabel="Previous day"
-        />
-        <View style={styles.dayNavCenter}>
-          <Text style={styles.dayNavTitle}>{formatDate(selectedDay.date)}</Text>
-          <Text style={styles.dayNavSubtitle}>{formatPhase(selectedDay.phase)} | {formatPhase(selectedDay.sessionRole)}</Text>
-        </View>
-        <PillButton
-          label="Next"
-          active={false}
-          onPress={() => onJumpDay(1)}
-          disabled={selectedDayIndex === totalDays - 1}
-          size="sm"
-          accessibilityLabel="Next day"
-        />
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalRow}
-        accessibilityRole="toolbar"
-        accessibilityLabel="Day selector"
-      >
-        {selectedWeek?.days.map((day) => {
-          const risk = riskColors(day.riskLevel);
-          const active = day.index === selectedDayIndex;
-          const hasEngineDanger = day.engineDangerDay;
-          const hasAthleteOverride = day.athleteOverrideDay;
+    <Card title="Workout Rail" subtitle="Browse the replay by week and open the generated workout for any day.">
+      <View style={styles.weekList}>
+        {weeks.map((week) => {
+          const expanded = week.index === expandedWeekIndex;
 
           return (
-            <AnimatedPressable
-              key={`day-${day.index}`}
-              onPress={() => onSelectDay(day.index)}
-              style={[
-                styles.dayButton,
-                active && styles.dayButtonActive,
-                hasEngineDanger && styles.dayButtonDanger,
-                !hasEngineDanger && hasAthleteOverride && styles.dayButtonOverride,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`${formatDate(day.date)}, ${formatPhase(day.sessionRole)}, risk ${day.riskLevel}`}
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.dayDate, active && styles.dayDateActive]}>{formatDate(day.date)}</Text>
-              <Text style={[styles.dayRole, day.sessionRole === 'recovery' && styles.dayRoleDimmed]} numberOfLines={1}>
-                {formatPhase(day.sessionRole)}
-              </Text>
-              <View style={[styles.riskChip, { backgroundColor: risk.bg }]}>
-                <Text style={[styles.riskChipText, { color: risk.fg }]}>{day.riskLevel}</Text>
-              </View>
-            </AnimatedPressable>
+            <View key={`week-${week.index}`} style={styles.weekSection}>
+              <AnimatedPressable
+                onPress={() => onExpandWeek(week.index)}
+                style={[styles.weekHeader, expanded && styles.weekHeaderExpanded]}
+                accessibilityRole="button"
+                accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${week.label}`}
+                accessibilityState={{ expanded }}
+              >
+                <View style={styles.weekHeaderBody}>
+                  <Text style={styles.weekTitle}>{week.label}</Text>
+                  <Text style={styles.weekSubtitle}>{week.rangeLabel}</Text>
+                  {week.flagsLabel ? <Text style={styles.weekFlags}>{week.flagsLabel}</Text> : null}
+                </View>
+                <View style={[styles.weekToggle, expanded && styles.weekToggleExpanded]}>
+                  <Text style={[styles.weekToggleText, expanded && styles.weekToggleTextExpanded]}>{expanded ? 'Shown' : 'View'}</Text>
+                </View>
+              </AnimatedPressable>
+
+              {expanded ? (
+                <View style={styles.dayList}>
+                  {week.days.map((day) => {
+                    const risk = riskColors(day.riskLevel);
+                    const selected = day.index === selectedDayIndex;
+
+                    return (
+                      <AnimatedPressable
+                        key={`day-${day.index}`}
+                        onPress={() => onSelectDay(day.index)}
+                        style={[
+                          styles.dayCard,
+                          selected && styles.dayCardSelected,
+                          day.engineDangerDay && styles.dayCardDanger,
+                          !day.engineDangerDay && day.athleteOverrideDay && styles.dayCardOverride,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${day.dateLabel}, ${day.title}, risk ${day.riskLevel}`}
+                        accessibilityState={{ selected }}
+                      >
+                        <View style={styles.dayHeader}>
+                          <Text style={[styles.dayDate, selected && styles.dayDateSelected]}>{day.dateLabel}</Text>
+                          <View style={[styles.riskChip, { backgroundColor: risk.bg }]}>
+                            <Text style={[styles.riskChipText, { color: risk.fg }]}>{day.riskLevel}</Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.dayTitle} numberOfLines={1}>{day.title}</Text>
+                        <Text style={styles.daySubtitle} numberOfLines={1}>{day.sessionLabel}</Text>
+                        <Text style={styles.dayPreview} numberOfLines={1}>{day.preview}</Text>
+
+                        <View style={styles.flagRow}>
+                          {day.engineDangerDay ? <FlagChip label="Engine danger" tone="danger" /> : null}
+                          {day.athleteOverrideDay ? <FlagChip label="Athlete override" tone="warning" /> : null}
+                          {day.isMandatoryRecovery ? <FlagChip label="Mandatory recovery" tone="good" /> : null}
+                        </View>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
           );
         })}
-      </ScrollView>
+      </View>
     </Card>
   );
 }
 
+function FlagChip({ label, tone }: { label: string; tone: 'good' | 'warning' | 'danger' }) {
+  const palette = tone === 'danger'
+    ? { bg: SEMANTIC_PALETTE.alert.tint, fg: SEMANTIC_PALETTE.alert.edge }
+    : tone === 'warning'
+      ? { bg: SEMANTIC_PALETTE.caution.tint, fg: SEMANTIC_PALETTE.caution.edge }
+      : { bg: SEMANTIC_PALETTE.positive.tint, fg: SEMANTIC_PALETTE.positive.edge };
+
+  return (
+    <View style={[styles.flagChip, { backgroundColor: palette.bg }]}>
+      <Text style={[styles.flagChipText, { color: palette.fg }]}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  horizontalRow: { gap: SPACING.sm },
-  weekButton: {
-    minWidth: 144,
-    minHeight: 44,
-    borderRadius: RADIUS.lg,
+  weekList: {
+    gap: SPACING.md,
+  },
+  weekSection: {
+    gap: SPACING.sm,
+  },
+  weekHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surfaceSecondary,
     padding: SPACING.md,
   },
-  weekButtonActive: {
+  weekHeaderExpanded: {
     borderColor: COLORS.accent,
     backgroundColor: COLORS.accentLight,
+  },
+  weekHeaderBody: {
+    flex: 1,
   },
   weekTitle: {
     ...TYPOGRAPHY_V2.plan.body,
     fontWeight: '600',
     color: COLORS.text.primary,
   },
-  weekTitleActive: { color: COLORS.accent },
-  weekDate: {
+  weekSubtitle: {
     marginTop: 4,
     ...TYPOGRAPHY_V2.plan.caption,
     color: COLORS.text.secondary,
   },
-  dayNavRow: {
+  weekFlags: {
+    marginTop: SPACING.xs,
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.accent,
+  },
+  weekToggle: {
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+  },
+  weekToggleExpanded: {
+    backgroundColor: COLORS.accent,
+  },
+  weekToggleText: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.primary,
+  },
+  weekToggleTextExpanded: {
+    color: COLORS.text.inverse,
+  },
+  dayList: {
+    gap: SPACING.sm,
+  },
+  dayCard: {
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    gap: SPACING.xs,
+  },
+  dayCardSelected: {
+    borderColor: COLORS.accent,
+    backgroundColor: '#F6FFFC',
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  dayCardDanger: {
+    borderLeftWidth: 4,
+    borderLeftColor: SEMANTIC_PALETTE.alert.edge,
+  },
+  dayCardOverride: {
+    borderLeftWidth: 4,
+    borderLeftColor: SEMANTIC_PALETTE.caution.edge,
+  },
+  dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.sm,
-    marginVertical: SPACING.md,
-  },
-  dayNavCenter: { flex: 1, alignItems: 'center' },
-  dayNavTitle: {
-    ...TYPOGRAPHY_V2.plan.body,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-  dayNavSubtitle: {
-    marginTop: 4,
-    ...TYPOGRAPHY_V2.plan.caption,
-    color: COLORS.text.secondary,
-  },
-  dayButton: {
-    width: 128,
-    minHeight: 44,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surfaceSecondary,
-    padding: SPACING.md,
-  },
-  dayButtonActive: {
-    borderColor: COLORS.accent,
-    backgroundColor: COLORS.accentLight,
-  },
-  dayButtonDanger: {
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.readiness.depleted,
-  },
-  dayButtonOverride: {
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.readiness.caution,
   },
   dayDate: {
     ...TYPOGRAPHY_V2.plan.caption,
-    color: COLORS.text.primary,
-  },
-  dayDateActive: { color: COLORS.accent },
-  dayRole: {
-    marginTop: 6,
-    fontSize: 11,
-    fontFamily: TYPOGRAPHY_V2.plan.caption.fontFamily,
     color: COLORS.text.secondary,
   },
-  dayRoleDimmed: { opacity: 0.6 },
+  dayDateSelected: {
+    color: COLORS.accent,
+  },
   riskChip: {
-    alignSelf: 'flex-start',
-    marginTop: SPACING.sm,
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
@@ -209,5 +215,33 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: TYPOGRAPHY_V2.plan.caption.fontFamily,
     textTransform: 'uppercase',
+  },
+  dayTitle: {
+    ...TYPOGRAPHY_V2.plan.body,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  daySubtitle: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.secondary,
+  },
+  dayPreview: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.tertiary,
+    lineHeight: 18,
+  },
+  flagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  flagChip: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+  },
+  flagChipText: {
+    ...TYPOGRAPHY_V2.plan.caption,
   },
 });
