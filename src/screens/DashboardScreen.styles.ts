@@ -8,6 +8,7 @@ export const styles = StyleSheet.create({
     },
     content: {
         padding: SPACING.lg,
+        paddingBottom: SPACING.xl,
     },
     contextScheduleNote: {
         fontSize: 12,
@@ -159,10 +160,12 @@ export const styles = StyleSheet.create({
     // Quick Action Strip (compact pill row replacing 2×2 grid)
     quickActionStrip: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: SPACING.sm,
     },
     quickActionPill: {
-        flex: 1,
+        flexGrow: 1,
+        flexBasis: '48%',
         flexDirection: 'row',
         alignItems: 'center',
         gap: SPACING.xs,
@@ -182,7 +185,7 @@ export const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     quickActionLabel: {
-        fontSize: 12,
+        fontSize: 11,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.primary,
         flexShrink: 1,
@@ -194,8 +197,9 @@ export const styles = StyleSheet.create({
     // Phase control
     phaseControlHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: SPACING.sm,
     },
     phaseControlEyebrow: {
         fontSize: 11,
@@ -207,13 +211,17 @@ export const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.tertiary,
+        flexShrink: 1,
+        maxWidth: '45%',
+        textAlign: 'right',
     },
     phaseControlTitle: {
         marginTop: SPACING.xs,
-        fontSize: 22,
+        fontSize: 20,
         fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
         letterSpacing: -0.3,
+        lineHeight: 26,
     },
     phaseControlDescription: {
         marginTop: SPACING.xs,
@@ -224,7 +232,7 @@ export const styles = StyleSheet.create({
     },
     phaseControlSummaryRow: {
         marginTop: SPACING.md,
-        flexDirection: 'row',
+        flexDirection: 'column',
         alignItems: 'stretch',
         borderWidth: 1,
         borderColor: COLORS.borderLight,
@@ -238,7 +246,8 @@ export const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
     },
     phaseControlSummaryDivider: {
-        width: StyleSheet.hairlineWidth,
+        width: '100%',
+        height: StyleSheet.hairlineWidth,
         backgroundColor: COLORS.borderLight,
     },
     phaseControlSummaryLabel: {
@@ -340,7 +349,8 @@ export const styles = StyleSheet.create({
     firstRunHeaderRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        gap: SPACING.sm,
     },
     firstRunKicker: {
         fontSize: 11,
@@ -352,6 +362,8 @@ export const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.tertiary,
+        flexShrink: 1,
+        textAlign: 'right',
     },
     firstRunTitle: {
         marginTop: SPACING.xs,
@@ -373,7 +385,7 @@ export const styles = StyleSheet.create({
     },
     firstRunStepRow: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         borderWidth: 1,
         borderColor: COLORS.borderLight,
         borderRadius: RADIUS.lg,
@@ -404,6 +416,7 @@ export const styles = StyleSheet.create({
     },
     firstRunStepCopy: {
         flex: 1,
+        flexShrink: 1,
     },
     firstRunStepTitle: {
         fontSize: 14,
@@ -421,6 +434,7 @@ export const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.accent,
+        alignSelf: 'center',
     },
 
     // Compass header (replaces HeroHeader above-fold)
@@ -443,11 +457,11 @@ export const styles = StyleSheet.create({
         marginBottom: SPACING.xs,
     },
     compassHeadline: {
-        fontSize: 28,
+        fontSize: 24,
         fontFamily: FONT_FAMILY.extraBold,
         color: '#FFFFFF',
         letterSpacing: -0.5,
-        lineHeight: 34,
+        lineHeight: 30,
     },
     compassSummary: {
         marginTop: SPACING.xs,

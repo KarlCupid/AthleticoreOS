@@ -273,6 +273,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         weight: number,
         rpe: number,
         isWarmup: boolean = false,
+        options?: { skipRestTimer?: boolean },
     ) => {
         if (!workoutLog || !currentExercise) return;
         const { data: { session } } = await supabase.auth.getSession();
@@ -373,7 +374,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         }));
 
         // Start rest timer (unless warmup)
-        if (!isWarmup) {
+        if (!isWarmup && !options?.skipRestTimer) {
             const restDuration = getRestDuration(
                 currentExercise.exercise.type,
                 fatigueState.fatigueLevel,
@@ -444,6 +445,46 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             setIsComplete(true);
         }
     }, [currentExercise, currentExerciseIndex, prescription]);
+
+    const completeSection = useCallback(() => {
+        if (!currentExercise || !prescription) {
+            completeExercise();
+            return;
+        }
+
+        const currentSectionId = currentExercise.sectionId ?? null;
+        if (!currentSectionId) {
+            completeExercise();
+            return;
+        }
+
+        const sectionExerciseIds = prescription.exercises
+            .filter((exercise) => exercise.sectionId === currentSectionId)
+            .map((exercise) => exercise.exercise.id);
+        const lastSectionExerciseIndex = prescription.exercises.reduce((lastIndex, exercise, index) => (
+            exercise.sectionId === currentSectionId ? index : lastIndex
+        ), currentExerciseIndex);
+
+        setExerciseProgress(prev => {
+            const next = { ...prev };
+            for (const exerciseId of sectionExerciseIds) {
+                if (next[exerciseId]) {
+                    next[exerciseId] = {
+                        ...next[exerciseId],
+                        isComplete: true,
+                    };
+                }
+            }
+            return next;
+        });
+        setAdaptationResult(null);
+
+        if (lastSectionExerciseIndex < prescription.exercises.length - 1) {
+            setCurrentExerciseIndex(lastSectionExerciseIndex + 1);
+        } else {
+            setIsComplete(true);
+        }
+    }, [completeExercise, currentExercise, currentExerciseIndex, prescription]);
 
     const goToPreviousExercise = useCallback(() => {
         if (currentExerciseIndex > 0) {
@@ -537,6 +578,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         logSet,
         toggleWarmupSet,
         completeExercise,
+        completeSection,
         goToPreviousExercise,
         finishWorkout,
         submitActivationRPE,

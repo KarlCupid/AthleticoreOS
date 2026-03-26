@@ -273,7 +273,7 @@ export function WorkoutDetailScreen() {
             {/* ── Scrollable content ── */}
             <ScrollView
                 style={styles.scroll}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + SPACING.xl }]}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Meta row */}
@@ -298,6 +298,43 @@ export function WorkoutDetailScreen() {
                         <Text style={styles.intentText}>{sessionGoal}</Text>
                     </Animated.View>
                 )}
+
+                <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
+                    <Text style={styles.actionLabel}>Session Actions</Text>
+                    {status === 'planned' || status === 'rescheduled' ? (
+                        <View style={styles.ctaRow}>
+                            <TouchableOpacity style={styles.skipBtn} onPress={handleSkipDay}>
+                                <Text style={styles.skipBtnText}>Skip Day</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.startBtn} onPress={handleStartWorkout}>
+                                <Text style={styles.startBtnText}>Start Workout →</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : status === 'completed' ? (
+                        <View style={styles.ctaRow}>
+                            <View style={styles.completedStats}>
+                                {entry.workout_log_id && (
+                                    <Text style={styles.completedHint}>Workout logged ✓</Text>
+                                )}
+                            </View>
+                            <TouchableOpacity
+                                style={styles.viewLogBtn}
+                                onPress={() => navigation.goBack()}
+                            >
+                                <Text style={styles.viewLogBtnText}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : status === 'skipped' ? (
+                        <View style={styles.ctaRow}>
+                            <TouchableOpacity style={styles.skipBtn} onPress={handleRestore}>
+                                <Text style={styles.skipBtnText}>Restore</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.startBtn} onPress={handleReschedule}>
+                                <Text style={styles.startBtnText}>Reschedule</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
+                </Animated.View>
 
                 {/* Sectioned exercises */}
                 {sections.length > 0 && sections.map((section, sIdx) => (
@@ -348,7 +385,8 @@ export function WorkoutDetailScreen() {
             </ScrollView>
 
             {/* ── Bottom CTA bar ── */}
-            <View style={[styles.ctaBar, { paddingBottom: insets.bottom + SPACING.sm }]}>
+            {false ? (
+                <View style={[styles.ctaBar, { paddingBottom: Math.max(insets.bottom - SPACING.xs, SPACING.xs) }]}>
                 {status === 'planned' || status === 'rescheduled' ? (
                     <View style={styles.ctaRow}>
                         <TouchableOpacity style={styles.skipBtn} onPress={handleSkipDay}>
@@ -361,7 +399,7 @@ export function WorkoutDetailScreen() {
                 ) : status === 'completed' ? (
                     <View style={styles.ctaRow}>
                         <View style={styles.completedStats}>
-                            {entry.workout_log_id && (
+                            {entry?.workout_log_id && (
                                 <Text style={styles.completedHint}>Workout logged ✓</Text>
                             )}
                         </View>
@@ -382,7 +420,8 @@ export function WorkoutDetailScreen() {
                         </TouchableOpacity>
                     </View>
                 ) : null}
-            </View>
+                </View>
+            ) : null}
         </View>
     );
 }
@@ -718,6 +757,23 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.regular,
         color: COLORS.text.primary,
         lineHeight: 20,
+    },
+
+    // Session actions
+    actionPanel: {
+        backgroundColor: COLORS.surface,
+        borderRadius: RADIUS.lg,
+        padding: SPACING.md,
+        marginBottom: SPACING.sm,
+        ...SHADOWS.sm,
+    },
+    actionLabel: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        letterSpacing: 0.6,
+        textTransform: 'uppercase',
+        marginBottom: SPACING.sm,
     },
 
     // Section

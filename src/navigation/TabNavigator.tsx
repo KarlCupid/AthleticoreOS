@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconActivity, IconBarChart, IconCalendar, IconPerson, IconRestaurant } from '../components/icons';
 import { TodayStackNavigator } from './TodayStack';
 import { TrainStackNavigator } from './TrainStack';
@@ -14,12 +16,17 @@ import { useInteractionMode } from '../context/InteractionModeContext';
 
 const Tab = createBottomTabNavigator();
 
+function shouldHideTabBar(route: Parameters<typeof getFocusedRouteNameFromRoute>[0]) {
+  const focusedRouteName = getFocusedRouteNameFromRoute(route) ?? 'WorkoutHome';
+  return focusedRouteName === 'GuidedWorkout' || focusedRouteName === 'WorkoutSummary';
+}
+
 function TabIcon({ focused, color, label, IconComponent }: { focused: boolean; color: string; label: string; IconComponent: any }) {
-  const scale = useSharedValue(focused ? 1.1 : 1);
+  const scale = useSharedValue(focused ? 1.05 : 1);
   const dotOpacity = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    scale.value = withSpring(focused ? 1.1 : 1, { damping: 12, stiffness: 200 });
+    scale.value = withSpring(focused ? 1.05 : 1, { damping: 12, stiffness: 200 });
     dotOpacity.value = withTiming(focused ? 1 : 0, { duration: ANIMATION.fast });
   }, [focused]);
 
@@ -35,7 +42,7 @@ function TabIcon({ focused, color, label, IconComponent }: { focused: boolean; c
   }));
 
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[animatedStyle, styles.tabIconWrap]}>
       <View style={[styles.iconChip, focused && { backgroundColor: `${APP_CHROME.accent}18` }]}>
         <IconComponent size={20} color={color} focused={focused} />
       </View>
@@ -48,38 +55,74 @@ function TabIcon({ focused, color, label, IconComponent }: { focused: boolean; c
 
 export function TabNavigator() {
   const { mode } = useInteractionMode();
+  const insets = useSafeAreaInsets();
+  const bottomInset = mode === 'gym-floor' ? 0 : insets.bottom;
+  const tabBarTopPadding = Platform.OS === 'ios' ? 16 : 12;
+  const tabBarBottomPadding = Platform.OS === 'ios' ? 0 : 2;
+  const tabBarHeight = (Platform.OS === 'ios' ? 50 : 56) + bottomInset;
+  const tabBarInnerHeight = tabBarHeight - tabBarTopPadding - tabBarBottomPadding;
+  const tabBarVisualTopInset = Platform.OS === 'ios' ? 8 : 3;
+  const baseTabBarStyle = {
+    position: 'absolute' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: tabBarHeight,
+    paddingBottom: tabBarBottomPadding,
+    paddingTop: tabBarTopPadding,
+    paddingHorizontal: 12,
+    borderTopWidth: 0,
+    borderTopLeftRadius: RADIUS.xxl,
+    borderTopRightRadius: RADIUS.xxl,
+    backgroundColor: Platform.OS === 'ios' ? 'transparent' : COLORS.surface,
+    ...SHADOWS.header,
+    display: mode === 'gym-floor' ? 'none' as const : 'flex' as const,
+  };
 
   return (
     <Tab.Navigator
       // @ts-expect-error sceneContainerStyle is passed successfully but causes TS issue
       sceneContainerStyle={{
-        paddingBottom: mode === 'gym-floor' ? 0 : (Platform.OS === 'ios' ? 70 : 60),
+        paddingBottom: mode === 'gym-floor' ? 0 : tabBarHeight,
       }}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 16 : 12,
-          left: SPACING.md,
-          right: SPACING.md,
-          height: Platform.OS === 'ios' ? 76 : 72,
-          paddingBottom: Platform.OS === 'ios' ? 12 : 10,
-          paddingTop: 10,
-          paddingHorizontal: 10,
-          borderTopWidth: 0,
-          borderRadius: RADIUS.xxl,
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : COLORS.surface,
-          ...SHADOWS.header,
-          display: mode === 'gym-floor' ? 'none' : 'flex',
+        tabBarStyle: baseTabBarStyle,
+        tabBarItemStyle: {
+          height: tabBarInnerHeight,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 0,
+          paddingTop: Platform.OS === 'ios' ? 10 : 5,
         },
         tabBarBackground: () => (
           Platform.OS === 'ios' ? (
-            <View style={{ ...StyleSheet.absoluteFillObject, overflow: 'hidden', borderRadius: RADIUS.xxl }}>
-              <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFill} />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.92)' }]} />
+            <View style={StyleSheet.absoluteFill}>
+              <View
+                style={{
+                  ...StyleSheet.absoluteFillObject,
+                  top: tabBarVisualTopInset,
+                  overflow: 'hidden',
+                  borderTopLeftRadius: RADIUS.xxl,
+                  borderTopRightRadius: RADIUS.xxl,
+                }}
+              >
+                <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFill} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.92)' }]} />
+              </View>
             </View>
-          ) : null
+          ) : (
+            <View
+              style={{
+                ...StyleSheet.absoluteFillObject,
+                top: tabBarVisualTopInset,
+                backgroundColor: COLORS.surface,
+                borderTopLeftRadius: RADIUS.xxl,
+                borderTopRightRadius: RADIUS.xxl,
+              }}
+            />
+          )
         ),
         tabBarActiveTintColor: APP_CHROME.accent,
         tabBarInactiveTintColor: COLORS.text.tertiary,
@@ -95,9 +138,12 @@ export function TabNavigator() {
       <Tab.Screen
         name="Train"
         component={TrainStackNavigator}
-        options={{
+        options={({ route }) => ({
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Train" IconComponent={IconActivity} />,
-        }}
+          tabBarStyle: shouldHideTabBar(route)
+            ? { display: 'none' }
+            : baseTabBarStyle,
+        })}
       />
       <Tab.Screen
         name="Plan"
@@ -125,19 +171,28 @@ export function TabNavigator() {
 }
 
 const styles = StyleSheet.create({
+  tabIconWrap: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    transform: [{ translateY: Platform.OS === 'ios' ? 12 : 6 }],
+  },
   iconChip: {
-    minWidth: 40,
-    height: 34,
-    paddingHorizontal: 10,
+    minWidth: 36,
+    height: 30,
+    paddingHorizontal: 8,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   label: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    lineHeight: 14,
+    lineHeight: 12,
+    textAlign: 'center',
   },
   activeDot: {
     opacity: 1,

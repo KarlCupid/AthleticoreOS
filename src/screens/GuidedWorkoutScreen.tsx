@@ -8,11 +8,6 @@ import {
     Alert,
     Vibration,
 } from 'react-native';
-import Animated, {
-    FadeInDown,
-    FadeOut,
-    SlideInRight,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,17 +18,11 @@ import {
     SPACING,
     RADIUS,
     SHADOWS,
-    ANIMATION,
 } from '../theme/theme';
 import { useGuidedWorkout } from '../hooks/useGuidedWorkout';
 import { useInteractionMode } from '../context/InteractionModeContext';
 import { buildTrainingFloorViewModel } from '../../lib/engine/presentation';
-import RPESelector from '../components/RPESelector';
-import WeightSuggestionBanner from '../components/WeightSuggestionBanner';
-import AdaptationBanner from '../components/AdaptationBanner';
-import WarmupSetsCard from '../components/WarmupSetsCard';
 import RestTimerOverlay from '../components/RestTimerOverlay';
-import FormCueCard from '../components/FormCueCard';
 import PRCelebration from '../components/PRCelebration';
 import { Card } from '../components/Card';
 import {
@@ -50,11 +39,12 @@ import {
     weightIncrement,
     mapPRType,
     LoadingSkeleton,
-    SetDots,
     ProgressBar,
-    NumberStepper,
     PrescriptionPreview,
 } from './guidedWorkout/ui';
+import { resolveRenderer } from './guidedWorkout/strategies';
+import { fromPrescriptionV2, fromExerciseProgress } from '../components/workout/adapters';
+import { SessionHeader } from '../components/workout';
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -91,6 +81,7 @@ export function GuidedWorkoutScreen() {
         logSet,
         toggleWarmupSet,
         completeExercise,
+        completeSection,
         goToPreviousExercise,
         finishWorkout,
         skipRest,
@@ -163,7 +154,28 @@ export function GuidedWorkoutScreen() {
     // â”€â”€ Gym-floor mode: hide tabs during workout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         setMode(isStarted ? 'gym-floor' : 'standard');
-    }, [isStarted]);
+    }, [isStarted, setMode]);
+
+    useEffect(() => {
+        const parent = navigation.getParent();
+        if (!parent) return;
+
+        if (isStarted) {
+            parent.setOptions({
+                tabBarStyle: { display: 'none' },
+            });
+        } else {
+            parent.setOptions({
+                tabBarStyle: undefined,
+            });
+        }
+
+        return () => {
+            parent.setOptions({
+                tabBarStyle: undefined,
+            });
+        };
+    }, [navigation, isStarted]);
 
     // â”€â”€ Navigate on complete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
@@ -227,7 +239,6 @@ export function GuidedWorkoutScreen() {
         ? currentProgress.setsLogged.filter(s => !s.isWarmup).length
         : 0;
     const targetSets = currentExercise?.targetSets ?? 0;
-    const allTargetSetsLogged = workingSetsLogged >= targetSets && targetSets > 0;
 
     const warmupSets = currentExercise?.warmupSets ?? [];
     const warmupChecked = currentProgress?.warmupChecked ?? [];
@@ -236,11 +247,47 @@ export function GuidedWorkoutScreen() {
 
     const nextExercise = prescription?.exercises[currentExerciseIndex + 1] ?? null;
     const isLastExercise = currentExerciseIndex >= totalExercises - 1;
-
-    const canLogSet = selectedRPE !== null && !isLoggingSet;
+    const activeWorkoutBottomPadding = Math.max(insets.bottom, SPACING.md) + 40;
 
     const overloadSuggestion = currentExercise?.overloadSuggestion ?? null;
     const showWeightBanner = overloadSuggestion !== null && workingSetsLogged === 0;
+
+
+    // ── Strategy renderer resolution ──────────────────────────────
+
+    const sessionVM = prescription ? fromPrescriptionV2(prescription, dailyMission ?? null) : null;
+
+    // Find current exercise's VM and resolve the correct renderer
+    const currentExerciseVM = sessionVM?.flatExercises[currentExerciseIndex] ?? null;
+    const currentSectionVM = currentExerciseVM?.sectionId
+        ? sessionVM?.sections.find(s => s.id === currentExerciseVM.sectionId) ?? null
+        : null;
+    const currentSectionIndex = currentSectionVM
+        ? sessionVM?.sections.indexOf(currentSectionVM) ?? 0
+        : 0;
+
+    const StrategyRenderer = currentExerciseVM
+        ? resolveRenderer(
+              currentExerciseVM.loadingStrategy,
+              sessionVM?.workoutType,
+              currentExerciseVM.sectionTemplate,
+          )
+        : null;
+
+    const currentProgressVM = currentProgress
+        ? fromExerciseProgress(currentProgress, targetSets)
+        : null;
+    const usesAutoRpeLogging = currentExercise?.loadingStrategy != null
+        && [
+            'emom',
+            'amrap',
+            'tabata',
+            'circuit_rounds',
+            'density_block',
+            'for_time',
+            'timed_sets',
+            'intervals',
+        ].includes(currentExercise.loadingStrategy);
 
     // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -249,15 +296,21 @@ export function GuidedWorkoutScreen() {
     };
 
     const handleLogSet = async () => {
-        if (!currentExercise || selectedRPE === null || isLoggingSet) return;
+        if (!currentExercise || isLoggingSet) return;
+        const effectiveRPE = selectedRPE
+            ?? (usesAutoRpeLogging
+                ? (currentExercise.targetRPE > 0 ? currentExercise.targetRPE : 6)
+                : null);
+        if (effectiveRPE === null) return;
         setIsLoggingSet(true);
         try {
             await logSet(
                 currentExercise.exercise.id,
                 selectedReps,
                 selectedWeight,
-                selectedRPE,
+                effectiveRPE,
                 false,
+                { skipRestTimer: usesAutoRpeLogging },
             );
             setSelectedRPE(null);
         } catch (_error) {
@@ -268,6 +321,10 @@ export function GuidedWorkoutScreen() {
     };
 
     const handleCompleteExercise = () => {
+        if (currentSectionVM?.template === 'activation' || currentSectionVM?.template === 'cooldown') {
+            completeSection();
+            return;
+        }
         completeExercise();
     };
 
@@ -337,6 +394,69 @@ export function GuidedWorkoutScreen() {
     const handleRepsIncrement = () => {
         setSelectedReps(prev => prev + 1);
     };
+    const strategyProps = sessionVM && currentExerciseVM && StrategyRenderer
+        ? {
+            session: sessionVM,
+            currentSection: currentSectionVM,
+            currentSectionIndex,
+            exercise: currentExerciseVM,
+            exerciseIndex: currentExerciseIndex,
+            totalExercises,
+            progress: currentProgressVM,
+            selectedWeight,
+            selectedReps,
+            selectedRPE,
+            isLoggingSet,
+            isGymFloor,
+            adaptationResult,
+            adaptationDismissed,
+            restSeconds,
+            restTotal,
+            onLogSet: handleLogSet,
+            onCompleteExercise: handleCompleteExercise,
+            onSkipExercise: handleSkipExercise,
+            onWeightDecrement: handleWeightDecrement,
+            onWeightIncrement: handleWeightIncrement,
+            onRepsDecrement: handleRepsDecrement,
+            onRepsIncrement: handleRepsIncrement,
+            onSelectRPE: setSelectedRPE,
+            onDismissAdaptation: () => setAdaptationDismissed(true),
+            onSkipRest: skipRest,
+            onExtendRest: extendRest,
+            onFinishWorkout: handleFinishWorkout,
+            warmupSets: warmupSetsWithState.map((set) => ({
+                setNumber: set.setNumber,
+                weight: set.weight,
+                reps: set.reps,
+                label: set.label,
+                isCompleted: set.isCompleted,
+            })),
+            allWarmupsDone,
+            onToggleWarmup: (setNumber: number) => {
+                if (currentExercise) {
+                    toggleWarmupSet(currentExercise.exercise.id, setNumber);
+                }
+            },
+            showWeightBanner,
+            overloadSuggestion: overloadSuggestion ? {
+                lastSessionWeight: overloadSuggestion.lastSessionWeight,
+                lastSessionReps: overloadSuggestion.lastSessionReps,
+                lastSessionRPE: overloadSuggestion.lastSessionRPE,
+                suggestedWeight: overloadSuggestion.suggestedWeight,
+                suggestedReps: overloadSuggestion.suggestedReps,
+                reasoning: overloadSuggestion.reasoning,
+                isDeloadSet: overloadSuggestion.isDeloadSet,
+            } : null,
+            onAcceptSuggestion: handleAcceptSuggestion,
+            onModifySuggestion: handleModifySuggestion,
+            formCues: currentExercise?.formCues ?? null,
+            formCueExpanded,
+            onToggleFormCue: () => setFormCueExpanded(v => !v),
+            isLastExercise,
+            nextExerciseName: nextExercise?.exercise.name ?? null,
+            formatWeight: formatDisplayWeight,
+        }
+        : null;
 
     // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -365,7 +485,7 @@ export function GuidedWorkoutScreen() {
                         onPress={() => setActivationCheckDone(true)}
                         activeOpacity={0.82}
                     >
-                        <Text style={styles.primaryButtonText}>Activation done â€” continue</Text>
+                        <Text style={styles.primaryButtonText}>Activation done - continue</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.skipLink}
@@ -414,7 +534,7 @@ export function GuidedWorkoutScreen() {
                                     (currentExerciseIndex === 0 || restSeconds !== null) && styles.backButtonDisabled,
                                 ]}
                             >
-                                â€¹
+                                {'<'}
                             </Text>
                         </TouchableOpacity>
 
@@ -437,7 +557,7 @@ export function GuidedWorkoutScreen() {
                     {/* Scrollable content */}
                     <ScrollView
                         style={styles.scrollView}
-                        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
+                        contentContainerStyle={[styles.scrollContent, { paddingBottom: activeWorkoutBottomPadding }]}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
@@ -447,178 +567,10 @@ export function GuidedWorkoutScreen() {
                             <Text style={styles.missionReason}>{floorVM.reasonSentence}</Text>
                         </Card>
 
-                        {/* Exercise name + muscle badge */}
-                        <Animated.View
-                            key={currentExercise.exercise.id}
-                            entering={SlideInRight.duration(ANIMATION.normal).springify()}
-                            style={styles.exerciseHeader}
-                        >
-                            <Text style={[styles.exerciseName, isGymFloor && { fontSize: 34 }]}>{currentExercise.exercise.name}</Text>
-                            <View style={styles.muscleBadge}>
-                                <Text style={styles.muscleBadgeText}>
-                                    {currentExercise.exercise.muscle_group.replace(/_/g, ' ')}
-                                </Text>
-                            </View>
-                        </Animated.View>
-
-                        {/* Set tracker */}
-                        <View style={styles.setTrackerRow}>
-                            <Text style={styles.setTrackerLabel}>
-                                Set {Math.min(workingSetsLogged + 1, targetSets)} of {targetSets}
-                            </Text>
-                            <SetDots
-                                total={targetSets}
-                                completed={workingSetsLogged}
-                            />
-                        </View>
-
-                        {/* Warmup sets card */}
-                        {warmupSets.length > 0 && !allWarmupsDone && (
-                            <Animated.View
-                                entering={FadeInDown.duration(ANIMATION.normal).springify()}
-                                style={styles.sectionGap}
-                            >
-                                <WarmupSetsCard
-                                    exerciseName={currentExercise.exercise.name}
-                                    sets={warmupSetsWithState}
-                                    onToggleSet={(setNumber) =>
-                                        toggleWarmupSet(currentExercise.exercise.id, setNumber)
-                                    }
-                                />
-                            </Animated.View>
-                        )}
-
-                        {/* Form cue card */}
-                        {currentExercise.formCues ? (
-                            <View style={styles.sectionGap}>
-                                <FormCueCard
-                                    exerciseName={currentExercise.exercise.name}
-                                    cues={currentExercise.formCues}
-                                    isExpanded={formCueExpanded}
-                                    onToggle={() => setFormCueExpanded(v => !v)}
-                                />
-                            </View>
+                        {sessionVM ? <SessionHeader session={sessionVM} /> : null}
+                        {StrategyRenderer && strategyProps ? (
+                            <StrategyRenderer {...strategyProps} />
                         ) : null}
-
-                        {/* Weight suggestion banner */}
-                        {showWeightBanner && overloadSuggestion && (
-                            <View style={styles.sectionGap}>
-                                <WeightSuggestionBanner
-                                    lastWeight={overloadSuggestion.lastSessionWeight}
-                                    lastReps={overloadSuggestion.lastSessionReps}
-                                    lastRPE={overloadSuggestion.lastSessionRPE}
-                                    suggestedWeight={overloadSuggestion.suggestedWeight}
-                                    suggestedReps={overloadSuggestion.suggestedReps}
-                                    reasoning={overloadSuggestion.reasoning}
-                                    onAccept={handleAcceptSuggestion}
-                                    onModify={handleModifySuggestion}
-                                    isDeload={overloadSuggestion.isDeloadSet}
-                                />
-                            </View>
-                        )}
-
-                        {/* Adaptation banner */}
-                        {adaptationResult && !adaptationDismissed && (
-                            <Animated.View
-                                entering={FadeInDown.duration(ANIMATION.normal)}
-                                exiting={FadeOut.duration(ANIMATION.fast)}
-                                style={styles.sectionGap}
-                            >
-                                <AdaptationBanner
-                                    message={adaptationResult.feedbackMessage}
-                                    severity={adaptationResult.feedbackSeverity}
-                                    onDismiss={() => setAdaptationDismissed(true)}
-                                />
-                                {adaptationResult.adjustments?.[0]?.reason ? (
-                                    <Text style={{ fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: SPACING.xs, paddingHorizontal: SPACING.xs, lineHeight: 17 }}>
-                                        {adaptationResult.adjustments[0].reason}
-                                    </Text>
-                                ) : null}
-                            </Animated.View>
-                        )}
-
-                        {/* Weight + Reps input row */}
-                        <View style={styles.inputRow}>
-                            <NumberStepper
-                                value={selectedWeight}
-                                onDecrement={handleWeightDecrement}
-                                onIncrement={handleWeightIncrement}
-                                label="lbs"
-                                formatValue={formatDisplayWeight}
-                            />
-
-                            <View style={styles.inputSeparator}>
-                                <Text style={styles.inputSeparatorText}>Ã—</Text>
-                            </View>
-
-                            <NumberStepper
-                                value={selectedReps}
-                                onDecrement={handleRepsDecrement}
-                                onIncrement={handleRepsIncrement}
-                                label="reps"
-                            />
-                        </View>
-
-                        {/* RPE selector */}
-                        <View style={styles.sectionGap}>
-                            <RPESelector
-                                value={selectedRPE}
-                                onChange={setSelectedRPE}
-                                disabled={isLoggingSet}
-                            />
-                        </View>
-
-                        {/* Log set / Complete exercise button */}
-                        <View style={styles.sectionGap}>
-                            {!allTargetSetsLogged ? (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.primaryButton,
-                                        !canLogSet && styles.primaryButtonDisabled,
-                                        isGymFloor && { paddingVertical: SPACING.lg },
-                                    ]}
-                                    onPress={handleLogSet}
-                                    disabled={!canLogSet}
-                                    activeOpacity={0.82}
-                                >
-                                    <Text style={[styles.primaryButtonText, isGymFloor && { fontSize: 19 }]}>
-                                        {isLoggingSet ? 'Logging...' : 'Log Set'}
-                                    </Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <TouchableOpacity
-                                    style={[styles.primaryButton, styles.completeButton]}
-                                    onPress={handleCompleteExercise}
-                                    activeOpacity={0.82}
-                                >
-                                    <Text style={styles.primaryButtonText}>
-                                        {isLastExercise ? 'Finish Workout' : 'Complete Exercise â†’'}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-
-                        {/* Skip exercise link */}
-                        {!allTargetSetsLogged && (
-                            <TouchableOpacity
-                                style={styles.skipLink}
-                                onPress={handleSkipExercise}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.skipLinkText}>Skip Exercise</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {/* Finish early link */}
-                        {workingSetsLogged > 0 && (
-                            <TouchableOpacity
-                                style={styles.finishEarlyLink}
-                                onPress={handleFinishWorkout}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.finishEarlyText}>Finish Workout Early</Text>
-                            </TouchableOpacity>
-                        )}
 
                     </ScrollView>
 
