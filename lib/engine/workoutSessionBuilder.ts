@@ -337,6 +337,50 @@ function parseCoachingCues(cues: string | undefined, fallback: string): string[]
     return parts.length > 0 ? parts.slice(0, 2) : [fallback];
 }
 
+function buildTopSetBackoffSetScheme(
+    topSetReps: number,
+    topSetRPE: number,
+    backoffSets: number,
+    backoffReps: number,
+    backoffRPE: number,
+): string {
+    return `Top set: 1 x ${topSetReps} @ RPE ${topSetRPE}. Backoff: ${backoffSets} x ${backoffReps} @ RPE ${backoffRPE}.`;
+}
+
+function buildTopSetBackoffLoadingNotes(backoffSets: number): string {
+    return `Work up to 1 hard but clean top set. Then reduce the load by 6-10% and complete ${backoffSets} backoff sets for extra volume without grinding.`;
+}
+
+function buildExerciseCoachingCues(
+    template: WorkoutSectionTemplate,
+    loadingStrategy: LoadingStrategy,
+    cues: string | undefined,
+): string[] {
+    const parsed = parseCoachingCues(
+        cues,
+        template === 'power' ? 'Stay crisp and fast.' : template === 'durability' ? 'Own position and tempo.' : 'Move with control and intent.',
+    );
+
+    if (loadingStrategy !== 'top_set_backoff') {
+        return parsed;
+    }
+
+    return [
+        'Build with small jumps until you hit one hard, clean top set at the target RPE.',
+        'After the top set, reduce the load by 6-10% and keep the backoff sets smooth. Stop early if form breaks.',
+        ...parsed,
+    ].slice(0, 3);
+}
+
+function formatExerciseSetScheme(exercise: Pick<SectionExercisePrescription, 'loadingStrategy' | 'setPrescription' | 'targetSets' | 'targetReps' | 'targetRPE'>): string {
+    if (exercise.loadingStrategy === 'top_set_backoff' && exercise.setPrescription.length > 1) {
+        const [topSet, backoff] = exercise.setPrescription;
+        return `Top set: ${topSet.sets} x ${topSet.reps} @ RPE ${topSet.targetRPE}. Backoff: ${backoff.sets} x ${backoff.reps} @ RPE ${backoff.targetRPE}.`;
+    }
+
+    return `${exercise.targetSets} x ${exercise.targetReps} @ RPE ${exercise.targetRPE}`;
+}
+
 function resolveFatigueCost(cnsLoad: number): 'low' | 'moderate' | 'high' {
     if (cnsLoad <= 3) return 'low';
     if (cnsLoad <= 6) return 'moderate';
@@ -522,11 +566,11 @@ function buildSetPrescription(
             targetRPE: backoffRPE,
             restSeconds,
             loadingStrategy: 'top_set_backoff',
-            setScheme: '1 x ' + topSetReps + ' @ RPE ' + topSetRPE + ', then ' + backoffSets + ' x ' + backoffReps + ' @ RPE ' + backoffRPE,
-            loadingNotes: 'Build to one high-quality top set, then strip 6-10% and complete the backoff work.',
+            setScheme: buildTopSetBackoffSetScheme(topSetReps, topSetRPE, backoffSets, backoffReps, backoffRPE),
+            loadingNotes: buildTopSetBackoffLoadingNotes(backoffSets),
             setPrescription: [
                 { label: 'Top set', sets: 1, reps: topSetReps, targetRPE: topSetRPE, restSeconds },
-                { label: 'Backoff', sets: backoffSets, reps: backoffReps, targetRPE: backoffRPE, restSeconds: Math.max(90, restSeconds - 30), intensityNote: 'Drop 6-10% from the top set load' },
+                { label: 'Backoff', sets: backoffSets, reps: backoffReps, targetRPE: backoffRPE, restSeconds: Math.max(90, restSeconds - 30), intensityNote: 'After the top set, reduce the load by 6-10% and keep every rep smooth.' },
             ],
         };
     }
@@ -879,13 +923,13 @@ function trimSectionsToTime(sections: WorkoutSessionSection[], availableMinutes:
         }
         if (exercise.targetSets > 2) {
             exercise.targetSets -= 1;
-            exercise.setScheme = exercise.targetSets + ' x ' + exercise.targetReps + ' @ RPE ' + exercise.targetRPE;
             if (exercise.setPrescription && exercise.setPrescription.length > 0) {
                 const lastIndex = exercise.setPrescription.length - 1;
                 exercise.setPrescription = exercise.setPrescription.map((entry, index) =>
                     index === lastIndex ? { ...entry, sets: Math.max(1, entry.sets - 1) } : entry,
                 );
             }
+            exercise.setScheme = formatExerciseSetScheme(exercise);
         } else {
             trimmed = trimmed.filter(section => section.id !== adjustable.id);
         }
@@ -916,9 +960,7 @@ function addSetsToExercise(exercise: SectionExercisePrescription, extraSets: num
         exercise.setPrescription = exercise.setPrescription.map((entry, index) =>
             index === backoffIndex ? { ...entry, sets: entry.sets + extraSets } : entry,
         );
-        const topSet = exercise.setPrescription[0];
-        const backoff = exercise.setPrescription[backoffIndex];
-        exercise.setScheme = `${topSet.sets} x ${topSet.reps} @ RPE ${topSet.targetRPE}, then ${backoff.sets} x ${backoff.reps} @ RPE ${backoff.targetRPE}`;
+        exercise.setScheme = formatExerciseSetScheme(exercise);
         return;
     }
 
@@ -928,7 +970,7 @@ function addSetsToExercise(exercise: SectionExercisePrescription, extraSets: num
         );
     }
 
-    exercise.setScheme = `${exercise.targetSets} x ${exercise.targetReps} @ RPE ${exercise.targetRPE}`;
+    exercise.setScheme = formatExerciseSetScheme(exercise);
 }
 
 function getAdditionalSetCap(exercise: SectionExercisePrescription): number {
@@ -1085,10 +1127,7 @@ function buildSectionExercise(input: {
         loadingStrategy: loading.loadingStrategy,
         progressionAnchor: buildProgressionAnchor(focus, template, exercise),
         substitutions: buildSubstitutions(exercise, usableExerciseLibrary, template),
-        coachingCues: parseCoachingCues(
-            exercise.cues,
-            template === 'power' ? 'Stay crisp and fast.' : template === 'durability' ? 'Own position and tempo.' : 'Move with control and intent.',
-        ),
+        coachingCues: buildExerciseCoachingCues(template, loading.loadingStrategy, exercise.cues),
         fatigueCost: resolveFatigueCost(exercise.cns_load),
         setScheme: loading.setScheme,
         loadingNotes: loading.loadingNotes,

@@ -36,7 +36,7 @@ export function LoadingPyramid({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Loading Scheme</Text>
+      <Text style={styles.title}>Top Set + Backoff Flow</Text>
       <View style={styles.pyramid}>
         {setPrescriptions.map((sp, i) => {
           const intensity = maxRPE > 0 ? sp.targetRPE / maxRPE : 0.5;

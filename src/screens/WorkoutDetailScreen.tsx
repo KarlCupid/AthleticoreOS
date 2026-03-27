@@ -507,8 +507,11 @@ function ExerciseRow({
     onToggle,
     onSwap,
 }: ExerciseRowProps) {
-    const { exercise, setScheme, coachingCues, substitutions, restSeconds } = ep;
-    const hasDetails = (coachingCues && coachingCues.length > 0) || (substitutions && substitutions.length > 0);
+    const { exercise, setScheme, coachingCues, loadingNotes, substitutions, restSeconds } = ep;
+    const hasDetails =
+        Boolean(loadingNotes && loadingNotes.trim().length > 0)
+        || (coachingCues && coachingCues.length > 0)
+        || (substitutions && substitutions.length > 0);
     const restMin = restSeconds ? Math.floor(restSeconds / 60) : null;
     const restSec = restSeconds ? restSeconds % 60 : null;
     const restLabel = restSeconds
@@ -548,6 +551,12 @@ function ExerciseRow({
 
             {isExpanded && (
                 <View style={styles.exerciseDetail}>
+                    {loadingNotes ? (
+                        <View style={styles.cuesBlock}>
+                            <Text style={styles.detailLabel}>HOW TO DO IT</Text>
+                            <Text style={styles.cueText}>{loadingNotes}</Text>
+                        </View>
+                    ) : null}
                     {coachingCues && coachingCues.length > 0 && (
                         <View style={styles.cuesBlock}>
                             <Text style={styles.detailLabel}>COACHING CUES</Text>

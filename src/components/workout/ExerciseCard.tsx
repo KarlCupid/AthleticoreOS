@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   COLORS,
   FONT_FAMILY,
@@ -9,43 +9,35 @@ import {
   TYPOGRAPHY_V2,
 } from '../../theme/theme';
 import type { ExerciseVM, ExerciseProgressVM, WorkoutRenderMode } from './types';
+import {
+  formatDisplayLabel,
+  getExerciseCardDisplayMeta,
+  getExerciseRoleMeta,
+  getLoadingStrategyMeta,
+  getSectionTemplateMeta,
+} from './metadata';
 
-// ---------------------------------------------------------------------------
-// Loading strategy visual badges
-// ---------------------------------------------------------------------------
-
-const STRATEGY_META: Record<string, { label: string; tone: string }> = {
-  straight_sets: { label: 'Straight Sets', tone: COLORS.accent },
-  top_set_backoff: { label: 'Top Set + Backoff', tone: COLORS.readiness.caution },
-  density_block: { label: 'Density Block', tone: COLORS.chart.fatigue },
-  intervals: { label: 'Intervals', tone: COLORS.chart.fitness },
-  recovery_flow: { label: 'Recovery Flow', tone: COLORS.readiness.prime },
-  emom: { label: 'EMOM', tone: COLORS.chart.fitness },
-  amrap: { label: 'AMRAP', tone: COLORS.readiness.caution },
-  tabata: { label: 'Tabata', tone: COLORS.readiness.depleted },
-  timed_sets: { label: 'Timed Sets', tone: COLORS.chart.fatigue },
-  for_time: { label: 'For Time', tone: COLORS.readiness.caution },
-  circuit_rounds: { label: 'Circuit', tone: COLORS.chart.fitness },
+const STRATEGY_TONES: Record<string, string> = {
+  straight_sets: COLORS.accent,
+  top_set_backoff: COLORS.readiness.caution,
+  density_block: COLORS.chart.fatigue,
+  intervals: COLORS.chart.fitness,
+  recovery_flow: COLORS.readiness.prime,
+  emom: COLORS.chart.fitness,
+  amrap: COLORS.readiness.caution,
+  tabata: COLORS.readiness.depleted,
+  timed_sets: COLORS.chart.fatigue,
+  for_time: COLORS.readiness.caution,
+  circuit_rounds: COLORS.chart.fitness,
 };
-
-function formatLabel(s: string | null): string {
-  if (!s) return '';
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-// ---------------------------------------------------------------------------
-// ExerciseCard — unified exercise display for both live and replay
-// ---------------------------------------------------------------------------
 
 interface ExerciseCardProps {
   exercise: ExerciseVM;
-  /** Index number for display (1-based) */
   index?: number;
-  /** Exercise progress (logged sets) — null in preview or replay */
   progress?: ExerciseProgressVM | null;
-  /** Render mode */
   mode?: WorkoutRenderMode;
-  /** Children rendered below the card (e.g. SetInputPanel, TimerDisplay) */
+  currentWeight?: number | null;
+  formatWeight?: (value: number) => string;
   children?: React.ReactNode;
 }
 
@@ -53,21 +45,48 @@ export function ExerciseCard({
   exercise,
   index,
   progress,
-  mode: _mode = 'readonly',
+  mode = 'readonly',
+  currentWeight,
+  formatWeight,
   children,
 }: ExerciseCardProps) {
-  const strategy = exercise.loadingStrategy
-    ? STRATEGY_META[exercise.loadingStrategy]
+  const [showHowItWorksDetails, setShowHowItWorksDetails] = useState(false);
+
+  useEffect(() => {
+    setShowHowItWorksDetails(false);
+  }, [exercise.id, mode]);
+
+  const strategyMeta = getLoadingStrategyMeta(exercise.loadingStrategy);
+  const strategy = strategyMeta
+    ? {
+        label: strategyMeta.label,
+        tone: STRATEGY_TONES[exercise.loadingStrategy ?? ''] ?? COLORS.accent,
+      }
     : null;
+  const sectionMeta = getSectionTemplateMeta(exercise.sectionTemplate);
+  const roleMeta = getExerciseRoleMeta(exercise.role);
+  const cardMeta = getExerciseCardDisplayMeta({
+    mode,
+    loadingStrategy: exercise.loadingStrategy,
+    loadingNotes: exercise.loadingNotes,
+    setPrescriptions: exercise.setPrescription,
+    currentWeight,
+    formatWeight,
+    coachingCues: exercise.coachingCues,
+  });
 
   const completionText =
     progress && progress.totalTargetSets > 0
       ? `${progress.setsCompleted}/${progress.totalTargetSets}`
       : null;
 
+  const canExpandHowItWorks =
+    mode === 'interactive'
+    && Boolean(cardMeta.howItWorksDetails)
+    && cardMeta.howItWorksDetails !== cardMeta.howItWorksSummary;
+
   return (
     <View style={styles.card}>
-      {/* Header row: index + name + muscle badge */}
       <View style={styles.header}>
         {index != null && (
           <View style={styles.indexCircle}>
@@ -80,14 +99,13 @@ export function ExerciseCard({
           </Text>
           {exercise.muscleGroup ? (
             <Text style={styles.muscleLabel}>
-              {formatLabel(exercise.muscleGroup)}
+              {formatDisplayLabel(exercise.muscleGroup)}
             </Text>
           ) : null}
         </View>
-        {/* Right side: strategy badge or completion */}
         <View style={styles.rightBadges}>
           {strategy && (
-            <View style={[styles.strategyBadge, { backgroundColor: strategy.tone + '18' }]}>
+            <View style={[styles.strategyBadge, { backgroundColor: `${strategy.tone}18` }]}>
               <Text style={[styles.strategyText, { color: strategy.tone }]}>
                 {strategy.label}
               </Text>
@@ -113,13 +131,12 @@ export function ExerciseCard({
         </View>
       </View>
 
-      {/* Set scheme + section info */}
       <View style={styles.detailRow}>
         {exercise.setScheme ? (
           <Text style={styles.setScheme}>{exercise.setScheme}</Text>
         ) : (
           <Text style={styles.setScheme}>
-            {exercise.targetSets} × {exercise.targetReps}
+            {exercise.targetSets} x {exercise.targetReps}
             {exercise.targetRPE > 0 ? ` @ RPE ${exercise.targetRPE}` : ''}
           </Text>
         )}
@@ -135,52 +152,83 @@ export function ExerciseCard({
         )}
       </View>
 
-      {/* Section template + role pill */}
       {(exercise.sectionTemplate || exercise.role) && (
         <View style={styles.tagRow}>
           {exercise.sectionTemplate && (
             <View style={styles.tag}>
               <Text style={styles.tagText}>
-                {formatLabel(exercise.sectionTemplate)}
+                {sectionMeta?.label ?? formatDisplayLabel(exercise.sectionTemplate)}
               </Text>
             </View>
           )}
           {exercise.role && (
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{formatLabel(exercise.role)}</Text>
+              <Text style={styles.tagText}>
+                {roleMeta?.label ?? formatDisplayLabel(exercise.role)}
+              </Text>
             </View>
           )}
         </View>
       )}
 
-      {/* Coaching cues */}
-      {exercise.coachingCues.length > 0 && (
+      {mode === 'interactive' && cardMeta.howItWorksLabel && cardMeta.howItWorksSummary ? (
+        <View style={styles.howItWorksBlock}>
+          <Text style={styles.infoLabel}>{cardMeta.howItWorksLabel}</Text>
+          <Text style={styles.infoText}>{cardMeta.howItWorksSummary}</Text>
+          {canExpandHowItWorks ? (
+            <>
+              {showHowItWorksDetails ? (
+                <View style={styles.infoDetailGroup}>
+                  <Text style={styles.infoDetailText}>{cardMeta.howItWorksDetails}</Text>
+                  {cardMeta.howItWorksLoggingInstruction ? (
+                    <Text style={styles.infoDetailText}>{cardMeta.howItWorksLoggingInstruction}</Text>
+                  ) : null}
+                  {cardMeta.howItWorksExample ? (
+                    <Text style={styles.infoExampleText}>{cardMeta.howItWorksExample}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+              <TouchableOpacity
+                onPress={() => setShowHowItWorksDetails((value) => !value)}
+                activeOpacity={0.7}
+                style={styles.learnMoreButton}
+              >
+                <Text style={styles.learnMoreText}>
+                  {showHowItWorksDetails ? 'Show less' : 'Learn more'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
+      {mode === 'interactive' && cardMeta.focusCueLabel && cardMeta.focusCue ? (
+        <View style={styles.focusCueRow}>
+          <Text style={styles.focusCueLabel}>{cardMeta.focusCueLabel}:</Text>
+          <Text style={styles.focusCueText}>{cardMeta.focusCue}</Text>
+        </View>
+      ) : null}
+
+      {mode !== 'interactive' && exercise.coachingCues.length > 0 && (
         <View style={styles.cuesContainer}>
           {exercise.coachingCues.map((cue, i) => (
-            <Text key={i} style={styles.cueText}>• {cue}</Text>
+            <Text key={i} style={styles.cueText}>- {cue}</Text>
           ))}
         </View>
       )}
 
-      {/* Loading notes */}
-      {exercise.loadingNotes ? (
+      {mode !== 'interactive' && exercise.loadingNotes ? (
         <Text style={styles.loadingNotes}>{exercise.loadingNotes}</Text>
       ) : null}
 
-      {/* Children (inputs, timers, etc.) */}
       {children && <View style={styles.childrenContainer}>{children}</View>}
     </View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Compact exercise row for previews and checklists
-// ---------------------------------------------------------------------------
-
 interface ExerciseRowCompactProps {
   exercise: ExerciseVM;
   index?: number;
-  /** Right-side accessory (checkbox, status badge, etc.) */
   accessory?: React.ReactNode;
 }
 
@@ -195,8 +243,7 @@ export function ExerciseRowCompact({ exercise, index, accessory }: ExerciseRowCo
       <View style={compactStyles.info}>
         <Text style={compactStyles.name} numberOfLines={1}>{exercise.name}</Text>
         <Text style={compactStyles.meta}>
-          {exercise.setScheme
-            ?? `${exercise.targetSets} × ${exercise.targetReps}`}
+          {exercise.setScheme ?? `${exercise.targetSets} x ${exercise.targetReps}`}
           {exercise.suggestedWeight ? ` | ${exercise.suggestedWeight} lb` : ''}
         </Text>
       </View>
@@ -204,10 +251,6 @@ export function ExerciseRowCompact({ exercise, index, accessory }: ExerciseRowCo
     </View>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   card: {
@@ -310,6 +353,7 @@ const styles = StyleSheet.create({
   tagRow: {
     flexDirection: 'row',
     gap: SPACING.xs,
+    flexWrap: 'wrap',
   },
   tag: {
     backgroundColor: COLORS.surfaceSecondary,
@@ -323,8 +367,70 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'capitalize',
   },
+  howItWorksBlock: {
+    gap: 4,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.sm,
+  },
+  infoLabel: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontSize: 10,
+  },
+  infoText: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  infoDetailText: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.secondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  infoDetailGroup: {
+    gap: 6,
+  },
+  infoExampleText: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.tertiary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  learnMoreButton: {
+    alignSelf: 'flex-start',
+    paddingTop: 2,
+  },
+  learnMoreText: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.accent,
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  focusCueRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  focusCueLabel: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.tertiary,
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  focusCueText: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.secondary,
+    fontSize: 12,
+    flexShrink: 1,
+  },
   cuesContainer: {
-    gap: 2,
+    gap: 4,
   },
   cueText: {
     ...TYPOGRAPHY_V2.plan.caption,

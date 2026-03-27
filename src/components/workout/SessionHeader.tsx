@@ -7,13 +7,15 @@ import {
   TYPOGRAPHY_V2,
 } from '../../theme/theme';
 import type { WorkoutSessionVM } from './types';
+import {
+  getCampPhaseLabel,
+  getFocusLabel,
+  getPrimaryAdaptationLabel,
+  getWorkoutTypeLabel,
+} from './metadata';
 
 interface SessionHeaderProps {
   session: WorkoutSessionVM;
-}
-
-function formatLabel(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 export function SessionHeader({ session }: SessionHeaderProps) {
@@ -23,12 +25,12 @@ export function SessionHeader({ session }: SessionHeaderProps) {
       <View style={styles.badgeRow}>
         <View style={styles.typeBadge}>
           <Text style={styles.typeBadgeText}>
-            {formatLabel(session.workoutType)}
+            {getWorkoutTypeLabel(session.workoutType)}
           </Text>
         </View>
         <View style={styles.adaptationBadge}>
           <Text style={styles.adaptationBadgeText}>
-            {formatLabel(session.primaryAdaptation)}
+            {getPrimaryAdaptationLabel(session.primaryAdaptation)}
           </Text>
         </View>
         {session.isDeload && (
@@ -39,7 +41,7 @@ export function SessionHeader({ session }: SessionHeaderProps) {
         {session.campPhase && (
           <View style={styles.campBadge}>
             <Text style={styles.campBadgeText}>
-              {formatLabel(session.campPhase)}
+              {getCampPhaseLabel(session.campPhase)}
             </Text>
           </View>
         )}
@@ -76,7 +78,7 @@ export function SessionHeader({ session }: SessionHeaderProps) {
         </View>
         <View style={styles.metaPill}>
           <Text style={styles.metaText}>
-            {formatLabel(session.focus === 'strength' ? 'full_body' : session.focus)}
+            {getFocusLabel(session.focus)}
           </Text>
         </View>
       </View>

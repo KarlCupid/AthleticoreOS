@@ -53,7 +53,7 @@ export function ForTimeRenderer(props: StrategyRendererProps) {
         />
       )}
 
-      <ExerciseCard exercise={exercise} progress={progress} />
+      <ExerciseCard exercise={exercise} progress={progress} mode="interactive" />
 
       {!finished ? (
         <TouchableOpacity

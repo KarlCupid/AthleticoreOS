@@ -11,7 +11,7 @@ let hasDailyMissionSnapshotColumn: boolean | null = null;
 function isMissingScheduledActivityIdColumnError(error: unknown): boolean {
     if (!error || typeof error !== 'object') return false;
     const maybe = error as { code?: string; message?: string };
-    return maybe.code === 'PGRST204'
+    return (maybe.code === 'PGRST204' || maybe.code === '42703')
         && typeof maybe.message === 'string'
         && maybe.message.includes('scheduled_activity_id')
         && maybe.message.includes('weekly_plan_entries');
@@ -777,4 +777,3 @@ export async function markRecommendationAccepted(entryId: string): Promise<void>
 
     if (error) throw error;
 }
-

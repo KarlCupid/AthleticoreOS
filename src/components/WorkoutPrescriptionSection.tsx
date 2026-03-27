@@ -19,6 +19,26 @@ function formatExerciseLine(exercise: any) {
     return exercise.setScheme ?? `${exercise.targetSets} x ${exercise.targetReps} @ RPE ${exercise.targetRPE}`;
 }
 
+function formatLoadingStrategy(strategy: string | null | undefined) {
+    if (!strategy) return 'Straight Sets';
+
+    const labels: Record<string, string> = {
+        straight_sets: 'Straight Sets',
+        top_set_backoff: 'Top Set + Backoff',
+        density_block: 'Density Block',
+        intervals: 'Intervals',
+        recovery_flow: 'Recovery Flow',
+        emom: 'EMOM',
+        amrap: 'AMRAP',
+        tabata: 'Tabata',
+        timed_sets: 'Timed Sets',
+        for_time: 'For Time',
+        circuit_rounds: 'Circuit',
+    };
+
+    return labels[strategy] ?? String(strategy).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function formatSubstitutions(exercise: any) {
     const substitutions = exercise.substitutions ?? [];
     if (substitutions.length === 0) return null;
@@ -51,7 +71,7 @@ function renderFlatExercise(exercise: any, index: number, total: number, themeCo
                 </Text>
                 {exercise.loadingStrategy ? (
                     <Text style={styles.exerciseDetail}>
-                        {String(exercise.loadingStrategy).replace(/_/g, ' ')}  ·  Rest {exercise.restSeconds ?? 0}s
+                        {formatLoadingStrategy(exercise.loadingStrategy)}  ·  Rest {exercise.restSeconds ?? 0}s
                     </Text>
                 ) : null}
                 {exercise.coachingCues?.length ? (
@@ -157,7 +177,7 @@ export function WorkoutPrescriptionSection({ prescription, themeColor, onStart }
                                                     {formatExerciseLine(exercise)}
                                                 </Text>
                                                 <Text style={styles.exerciseDetail}>
-                                                    {String(exercise.loadingStrategy || 'straight_sets').replace(/_/g, ' ')}  ·  Rest {exercise.restSeconds ?? 0}s
+                                                    {formatLoadingStrategy(exercise.loadingStrategy || 'straight_sets')}  ·  Rest {exercise.restSeconds ?? 0}s
                                                 </Text>
                                                 {exercise.loadingNotes ? (
                                                     <Text style={styles.exerciseDetail}>{exercise.loadingNotes}</Text>

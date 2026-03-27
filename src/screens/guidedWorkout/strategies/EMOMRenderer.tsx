@@ -67,7 +67,7 @@ export function EMOMRenderer(props: StrategyRendererProps) {
         ))}
       </View>
 
-      <ExerciseCard exercise={exercise} progress={progress} />
+      <ExerciseCard exercise={exercise} progress={progress} mode="interactive" />
 
       {!allDone ? (
         <TouchableOpacity

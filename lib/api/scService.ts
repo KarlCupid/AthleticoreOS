@@ -16,6 +16,50 @@ import { estimateE1RM } from '../engine/calculateOverload';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
+let hasWorkoutLogScheduledActivityIdColumn: boolean | null = null;
+
+function isMissingWorkoutLogScheduledActivityIdColumnError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const maybe = error as { code?: string; message?: string };
+    return maybe.code === 'PGRST204'
+        && typeof maybe.message === 'string'
+        && maybe.message.includes('scheduled_activity_id')
+        && maybe.message.includes('workout_log');
+}
+
+async function insertWorkoutLogWithCompat(
+    basePayload: Record<string, unknown>,
+    scheduledActivityId?: string | null,
+): Promise<WorkoutLogRow> {
+    const payload = hasWorkoutLogScheduledActivityIdColumn === false || typeof scheduledActivityId === 'undefined'
+        ? basePayload
+        : { ...basePayload, scheduled_activity_id: scheduledActivityId ?? null };
+
+    const { data, error } = await supabase
+        .from('workout_log')
+        .insert(payload)
+        .select()
+        .single();
+
+    if (error && isMissingWorkoutLogScheduledActivityIdColumnError(error)) {
+        hasWorkoutLogScheduledActivityIdColumn = false;
+
+        const retry = await supabase
+            .from('workout_log')
+            .insert(basePayload)
+            .select()
+            .single();
+
+        if (retry.error) throw retry.error;
+        return retry.data as WorkoutLogRow;
+    }
+
+    if (error) throw error;
+    if (typeof scheduledActivityId !== 'undefined') {
+        hasWorkoutLogScheduledActivityIdColumn = true;
+    }
+    return data as WorkoutLogRow;
+}
 
 // ─── Exercise Library ──────────────────────────────────────────
 
@@ -108,25 +152,17 @@ export async function startWorkout(
         date?: string;
     },
 ): Promise<WorkoutLogRow> {
-    const { data, error } = await supabase
-        .from('workout_log')
-        .insert({
-            user_id: userId,
-            date: params.date ?? today(),
-            workout_type: params.workoutType,
-            focus: params.focus,
-            scheduled_activity_id: params.scheduledActivityId ?? null,
-            total_volume: 0,
-            total_sets: 0,
-            session_rpe: null,
-            duration_minutes: null,
-            notes: null,
-        })
-        .select()
-        .single();
-
-    if (error) throw error;
-    return data as WorkoutLogRow;
+    return insertWorkoutLogWithCompat({
+        user_id: userId,
+        date: params.date ?? today(),
+        workout_type: params.workoutType,
+        focus: params.focus,
+        total_volume: 0,
+        total_sets: 0,
+        session_rpe: null,
+        duration_minutes: null,
+        notes: null,
+    }, params.scheduledActivityId);
 }
 
 /**
@@ -749,27 +785,19 @@ export async function startWorkoutV2(
         date?: string;
     },
 ): Promise<WorkoutLogRow> {
-    const { data, error } = await supabase
-        .from('workout_log')
-        .insert({
-            user_id: userId,
-            date: params.date ?? today(),
-            workout_type: params.workoutType,
-            focus: params.focus,
-            weekly_plan_entry_id: params.weeklyPlanEntryId ?? null,
-            scheduled_activity_id: params.scheduledActivityId ?? null,
-            gym_profile_id: params.gymProfileId ?? null,
-            total_volume: 0,
-            total_sets: 0,
-            session_rpe: null,
-            duration_minutes: null,
-            notes: null,
-        })
-        .select()
-        .single();
-
-    if (error) throw error;
-    return data as WorkoutLogRow;
+    return insertWorkoutLogWithCompat({
+        user_id: userId,
+        date: params.date ?? today(),
+        workout_type: params.workoutType,
+        focus: params.focus,
+        weekly_plan_entry_id: params.weeklyPlanEntryId ?? null,
+        gym_profile_id: params.gymProfileId ?? null,
+        total_volume: 0,
+        total_sets: 0,
+        session_rpe: null,
+        duration_minutes: null,
+        notes: null,
+    }, params.scheduledActivityId);
 }
 
 /**

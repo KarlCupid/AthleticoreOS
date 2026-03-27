@@ -51,7 +51,7 @@ export function AMRAPRenderer(props: StrategyRendererProps) {
       </View>
 
       {/* Exercise info */}
-      <ExerciseCard exercise={exercise} progress={progress} />
+      <ExerciseCard exercise={exercise} progress={progress} mode="interactive" />
 
       {/* Complete Round button */}
       {!finished ? (

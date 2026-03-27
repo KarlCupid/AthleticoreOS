@@ -12,6 +12,7 @@ import {
   TAP_TARGETS,
 } from '../../../theme/theme';
 import { ExerciseCard } from '../../../components/workout/ExerciseCard';
+import { getLoadingStrategyActionHint } from '../../../components/workout/metadata';
 import { SetDots, SetMiniTable } from '../../../components/workout/SetTracker';
 import { InputRow } from '../../../components/workout/SetInputPanel';
 import { LoadingPyramid } from '../../../components/workout/LoadingPyramid';
@@ -78,6 +79,11 @@ export function StrengthRenderer(props: StrategyRendererProps) {
   const allTargetSetsLogged = workingSetsLogged >= targetSets && targetSets > 0;
   const canLogSet = selectedRPE !== null && !isLoggingSet;
   const isBackoff = exercise.loadingStrategy === 'top_set_backoff';
+  const topSetBackoffActionHint = getLoadingStrategyActionHint({
+    loadingStrategy: exercise.loadingStrategy,
+    setPrescriptions: exercise.setPrescription,
+    workingSetsLogged,
+  });
   const mode: 'plan' | 'focus' = isGymFloor ? 'focus' : 'plan';
 
   return (
@@ -95,7 +101,13 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         key={exercise.id}
         entering={SlideInRight.duration(ANIMATION.normal).springify() as any}
       >
-        <ExerciseCard exercise={exercise} progress={progress}>
+        <ExerciseCard
+          exercise={exercise}
+          progress={progress}
+          mode="interactive"
+          currentWeight={selectedWeight}
+          formatWeight={formatWeight}
+        >
           {/* Loading pyramid for top_set_backoff */}
           {isBackoff && exercise.setPrescription.length > 0 && (
             <LoadingPyramid
@@ -104,6 +116,11 @@ export function StrengthRenderer(props: StrategyRendererProps) {
               loggedSets={progress?.setsLogged}
             />
           )}
+          {isBackoff && topSetBackoffActionHint ? (
+            <View style={styles.phaseStrip}>
+              <Text style={styles.phaseStripText}>{topSetBackoffActionHint}</Text>
+            </View>
+          ) : null}
         </ExerciseCard>
       </Animated.View>
 
@@ -272,6 +289,18 @@ const styles = StyleSheet.create({
   setLabelFocus: {
     ...TYPOGRAPHY_V2.focus.action,
     color: COLORS.text.primary,
+  },
+  phaseStrip: {
+    backgroundColor: COLORS.surfaceSecondary,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs + 2,
+  },
+  phaseStripText: {
+    ...TYPOGRAPHY_V2.plan.caption,
+    color: COLORS.text.secondary,
+    fontSize: 12,
+    lineHeight: 17,
   },
   primaryButton: {
     backgroundColor: COLORS.accent,
