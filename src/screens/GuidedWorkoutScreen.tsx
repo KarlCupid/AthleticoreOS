@@ -105,6 +105,8 @@ export function GuidedWorkoutScreen() {
     const [selectedReps, setSelectedReps] = useState(0);
     const [selectedRPE, setSelectedRPE] = useState<number | null>(null);
     const [isLoggingSet, setIsLoggingSet] = useState(false);
+    const [isAutoStarting, setIsAutoStarting] = useState(false);
+    const autoStartTriggeredRef = useRef(false);
 
     // Form cue expanded
     const [formCueExpanded, setFormCueExpanded] = useState(false);
@@ -150,6 +152,18 @@ export function GuidedWorkoutScreen() {
             if (elapsedRef.current) clearInterval(elapsedRef.current);
         };
     }, [isStarted, startTime]);
+
+    useEffect(() => {
+        if (!resolvedParams.autoStart || loading || !prescription || isStarted || autoStartTriggeredRef.current) {
+            return;
+        }
+
+        autoStartTriggeredRef.current = true;
+        setIsAutoStarting(true);
+        void startWorkout().finally(() => {
+            setIsAutoStarting(false);
+        });
+    }, [isStarted, loading, prescription, resolvedParams.autoStart, startWorkout]);
 
     // â”€â”€ Gym-floor mode: hide tabs during workout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
@@ -467,7 +481,7 @@ export function GuidedWorkoutScreen() {
             {loading && <LoadingSkeleton />}
 
             {/* â”€â”€ Not started: activation check (if required) â”€â”€â”€ */}
-            {!loading && prescription && !isStarted && floorVM.activationRequired && !activationCheckDone && (
+            {!loading && prescription && !isStarted && !resolvedParams.autoStart && floorVM.activationRequired && !activationCheckDone && (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
@@ -498,7 +512,7 @@ export function GuidedWorkoutScreen() {
             )}
 
             {/* â”€â”€ Not started: prescription preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            {!loading && prescription && !isStarted && (!floorVM.activationRequired || activationCheckDone) && (
+            {!loading && prescription && !isStarted && !resolvedParams.autoStart && (!floorVM.activationRequired || activationCheckDone) && (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
@@ -515,6 +529,20 @@ export function GuidedWorkoutScreen() {
                         onBegin={handleBeginWorkout}
                     />
                 </ScrollView>
+            )}
+
+            {!loading && prescription && !isStarted && resolvedParams.autoStart && (
+                <View style={styles.autoStartState}>
+                    <Card style={styles.autoStartCard}>
+                        <Text style={styles.missionKicker}>STARTING WORKOUT</Text>
+                        <Text style={styles.missionIntent}>
+                            {isAutoStarting ? 'Opening your live workout logger…' : 'Preparing your session…'}
+                        </Text>
+                        <Text style={styles.missionReason}>
+                            We are taking you straight to the active workout screen.
+                        </Text>
+                    </Card>
+                </View>
             )}
 
             {/* â”€â”€ Active workout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -835,6 +863,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: SPACING.xl,
+    },
+    autoStartState: {
+        flex: 1,
+        justifyContent: 'center',
+        paddingHorizontal: SPACING.md,
+    },
+    autoStartCard: {
+        paddingVertical: SPACING.lg,
     },
     emptyStateText: {
         fontFamily: FONT_FAMILY.regular,

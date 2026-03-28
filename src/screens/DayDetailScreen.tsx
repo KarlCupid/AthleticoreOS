@@ -55,13 +55,13 @@ export function DayDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (forceRefresh: boolean = false) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) { setLoading(false); return; }
         const userId = session.user.id;
 
         try {
-            const engineState = await getDailyEngineState(userId, dateParam, { forceRefresh: true });
+            const engineState = await getDailyEngineState(userId, dateParam, { forceRefresh });
             setActivities(engineState.scheduledActivities);
             setReadinessState(engineState.readinessState);
             setFuelDirectiveMessage(
@@ -91,7 +91,7 @@ export function DayDetailScreen() {
                 expected_intensity: 5,
             });
             setShowAddPicker(false);
-            loadData();
+            loadData(true);
         } catch (error) {
             logError('DayDetailScreen.handleAddActivity', error, { date: dateParam, type });
         }
@@ -123,6 +123,8 @@ export function DayDetailScreen() {
                     phase: context.phase,
                     fitnessLevel: context.fitnessLevel,
                     trainingDate: activity.date,
+                    autoStart: true,
+                    entrySource: 'day-detail',
                 },
             });
         } else {
@@ -134,7 +136,7 @@ export function DayDetailScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
         await skipActivity(session.user.id, activity.id);
-        loadData();
+        loadData(true);
     };
 
     const handleIntensityOverride = async (activity: ScheduledActivityRow, type: 'lighter' | 'harder') => {
@@ -143,7 +145,7 @@ export function DayDetailScreen() {
 
         try {
             await applySameDayOverride(session.user.id, activity, { type });
-            loadData();
+            loadData(true);
         } catch (error) {
             logError('DayDetailScreen.handleIntensityOverride', error, { date: dateParam, activityId: activity.id, type });
         }
@@ -174,7 +176,7 @@ export function DayDetailScreen() {
                 updateType
             );
             setEditingActivity(null);
-            loadData();
+            loadData(true);
         } catch (error) {
             logError('DayDetailScreen.handleSaveEdit', error, { date: dateParam, activityId: editingActivity.id, updateType });
         }
@@ -197,7 +199,7 @@ export function DayDetailScreen() {
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={themeColor} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(true); }} tintColor={themeColor} />}
             >
                 {loading ? (
                     <View style={{ paddingHorizontal: SPACING.lg }}>
@@ -326,7 +328,7 @@ export function DayDetailScreen() {
                     activity={gateActivity}
                     readinessState={readinessState}
                     onProceed={() => { void navigateToLogger(gateActivity); setGateActivity(null); }}
-                    onSwitch={() => { setGateActivity(null); loadData(); }}
+                    onSwitch={() => { setGateActivity(null); loadData(true); }}
                     onDismiss={() => setGateActivity(null)}
                 />
             )}

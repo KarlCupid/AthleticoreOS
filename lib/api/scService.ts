@@ -61,6 +61,39 @@ async function insertWorkoutLogWithCompat(
     return data as WorkoutLogRow;
 }
 
+export async function findOpenWorkoutLog(
+    userId: string,
+    params: {
+        date?: string;
+        weeklyPlanEntryId?: string;
+        scheduledActivityId?: string | null;
+    },
+): Promise<WorkoutLogRow | null> {
+    if (typeof params.scheduledActivityId === 'undefined' && !params.weeklyPlanEntryId) {
+        return null;
+    }
+
+    const targetDate = params.date ?? today();
+    let query = supabase
+        .from('workout_log')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', targetDate)
+        .is('session_rpe', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    if (typeof params.scheduledActivityId !== 'undefined' && params.scheduledActivityId !== null) {
+        query = query.eq('scheduled_activity_id', params.scheduledActivityId);
+    } else if (params.weeklyPlanEntryId) {
+        query = query.eq('weekly_plan_entry_id', params.weeklyPlanEntryId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return (data as WorkoutLogRow | null) ?? null;
+}
+
 // ─── Exercise Library ──────────────────────────────────────────
 
 /**
@@ -785,6 +818,16 @@ export async function startWorkoutV2(
         date?: string;
     },
 ): Promise<WorkoutLogRow> {
+    const openWorkout = await findOpenWorkoutLog(userId, {
+        date: params.date,
+        weeklyPlanEntryId: params.weeklyPlanEntryId,
+        scheduledActivityId: params.scheduledActivityId,
+    });
+
+    if (openWorkout) {
+        return openWorkout;
+    }
+
     return insertWorkoutLogWithCompat({
         user_id: userId,
         date: params.date ?? today(),

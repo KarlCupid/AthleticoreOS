@@ -207,6 +207,8 @@ export function DashboardScreen() {
         fitnessLevel: context.fitnessLevel,
         trainingDate: todayPlanEntry.date,
         isDeloadWeek: todayPlanEntry.is_deload,
+        autoStart: true,
+        entrySource: 'dashboard',
       });
       return;
     }
@@ -222,6 +224,8 @@ export function DashboardScreen() {
         phase: context.phase,
         fitnessLevel: context.fitnessLevel,
         trainingDate: primaryActivity.date,
+        autoStart: true,
+        entrySource: 'dashboard',
       });
       return;
     }

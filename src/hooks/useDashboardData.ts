@@ -94,11 +94,9 @@ export function useDashboardData() {
     const todayStr = todayLocalDate();
 
     try {
-      try {
-        await generateRollingSchedule(userId, 4);
-      } catch (error) {
+      void generateRollingSchedule(userId, 4).catch((error) => {
         logError('useDashboardData.generateRollingSchedule', error, { userId });
-      }
+      });
 
       const athleteContext = await getAthleteContext(userId);
       const profile = athleteContext.profile;
@@ -171,8 +169,18 @@ export function useDashboardData() {
       setNutritionTargets(engineState.nutritionTargets);
       setHydration(engineState.hydration);
       setPrescriptionMessage(engineState.mission.summary);
+      setLoading(false);
+      setRefreshing(false);
 
-      if (profile) {
+      void (async () => {
+        if (!profile) {
+          setBiology(null);
+          setHydration(null);
+          setNutritionTargets(null);
+          setActualNutrition(EMPTY_NUTRITION);
+          return;
+        }
+
         if (profile.biological_sex === 'female' && profile.cycle_tracking && cycleDay != null) {
           try {
             const bioResult = adjustForBiology({ cycleDay });
@@ -219,19 +227,13 @@ export function useDashboardData() {
           logError('useDashboardData.getDailyNutrition', error, { userId });
           setActualNutrition(EMPTY_NUTRITION);
         }
-      } else {
-        setBiology(null);
-        setHydration(null);
-        setNutritionTargets(null);
-        setActualNutrition(EMPTY_NUTRITION);
-      }
+      })();
     } catch (error) {
       logError('useDashboardData.loadDashboardData', error, { userId });
       setCampRisk(null);
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    setLoading(false);
-    setRefreshing(false);
   }, [setReadiness]);
 
   useEffect(() => {

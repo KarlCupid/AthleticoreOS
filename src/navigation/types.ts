@@ -51,6 +51,8 @@ export type TrainStackParamList = {
     fitnessLevel: FitnessLevel;
     trainingDate?: string;
     isDeloadWeek?: boolean;
+    autoStart?: boolean;
+    entrySource?: 'dashboard' | 'train' | 'day-detail' | 'plan';
   };
   WorkoutSummary: {
     workoutLogId?: string;

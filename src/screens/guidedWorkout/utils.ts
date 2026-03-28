@@ -10,6 +10,8 @@ export type GuidedWorkoutParams = {
   fitnessLevel: string;
   trainingDate?: string;
   isDeloadWeek?: boolean;
+  autoStart?: boolean;
+  entrySource?: 'dashboard' | 'train' | 'day-detail' | 'plan';
 };
 
 export type GuidedWorkoutStackParamList = {
@@ -34,6 +36,8 @@ export function resolveGuidedWorkoutParams(params: Partial<GuidedWorkoutParams> 
     availableMinutes: params?.availableMinutes,
     trainingDate: params?.trainingDate,
     isDeloadWeek: params?.isDeloadWeek,
+    autoStart: params?.autoStart ?? false,
+    entrySource: params?.entrySource,
   };
 }
 

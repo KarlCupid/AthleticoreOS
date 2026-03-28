@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  getExerciseLibrary,
   getWorkoutHistory,
 } from '../../lib/api/scService';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
@@ -12,7 +11,6 @@ import type {
   WorkoutPrescription,
   WorkoutLogRow,
   ScheduledActivityRow,
-  ExerciseLibraryRow,
   ReadinessState,
   DailyCutProtocolRow,
   DailyEngineState,
@@ -43,7 +41,6 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
   const [prescription, setPrescription] = useState<WorkoutPrescription | null>(null);
   const [todayActivities, setTodayActivities] = useState<ScheduledActivityRow[]>([]);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutLogRow[]>([]);
-  const [exerciseLibrary, setExerciseLibrary] = useState<ExerciseLibraryRow[]>([]);
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [userId, setUserId] = useState<string>('');
@@ -51,26 +48,43 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
   const [engineState, setEngineState] = useState<DailyEngineState | null>(null);
   const [weeklyEntries, setWeeklyEntries] = useState<WeeklyPlanEntryRow[]>([]);
   const [isDeloadWeek, setIsDeloadWeek] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-  const loadData = useCallback(async (forceRefresh: boolean = false) => {
-    const currentUserId = await getActiveUserId();
+  const loadHistoryData = useCallback(async (resolvedUserId?: string) => {
+    const currentUserId = resolvedUserId ?? userId ?? await getActiveUserId();
     if (!currentUserId) {
-      setLoading(false);
-      setRefreshing(false);
       return;
     }
 
+    setHistoryLoading(true);
+    try {
+      const history = await getWorkoutHistory(currentUserId, 20);
+      setWorkoutHistory(history);
+      setHistoryLoaded(true);
+    } catch (error) {
+      logError('useWorkoutData.loadHistoryData', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [userId]);
+
+  const loadAnalyticsData = useCallback(async (resolvedUserId?: string) => {
+    const currentUserId = resolvedUserId ?? userId ?? await getActiveUserId();
+    if (!currentUserId) {
+      return;
+    }
+
+    setAnalyticsLoading(true);
     const todayStr = todayLocalDate();
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - 30);
+    const sinceStr = formatLocalDate(sinceDate);
 
     try {
-      setUserId(currentUserId);
-      const sinceDate = new Date();
-      sinceDate.setDate(sinceDate.getDate() - 30);
-      const sinceStr = formatLocalDate(sinceDate);
-
-      const [library, engineState, { data: checkinsRes }, { data: sessionsRes }] = await Promise.all([
-        getExerciseLibrary(),
-        getDailyEngineState(currentUserId, todayStr, { forceRefresh }),
+      const [{ data: checkinsRes }, { data: sessionsRes }] = await Promise.all([
         supabase
           .from('daily_checkins')
           .select('date, morning_weight, sleep_quality, readiness')
@@ -84,23 +98,51 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
           .gte('date', sinceStr)
           .order('date'),
       ]);
+
+      if (checkinsRes) setCheckins(checkinsRes as DailyCheckin[]);
+      if (sessionsRes) setSessions(sessionsRes as TrainingSession[]);
+      setAnalyticsLoaded(true);
+    } catch (error) {
+      logError('useWorkoutData.loadAnalyticsData', error, { todayStr });
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [userId]);
+
+  const loadData = useCallback(async (forceRefresh: boolean = false) => {
+    const currentUserId = await getActiveUserId();
+    if (!currentUserId) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    try {
+      setUserId(currentUserId);
+      const todayStr = todayLocalDate();
+      const engineState = await getDailyEngineState(currentUserId, todayStr, { forceRefresh });
       const weekStart = engineState.primaryPlanEntry?.week_start_date
         ?? engineState.weeklyPlanEntries[0]?.week_start_date
         ?? todayStr;
       const weeklyMission = await getWeeklyMission(currentUserId, weekStart, { forceRefresh });
 
-      setExerciseLibrary(library);
       setEngineState(engineState);
       setTodayActivities(engineState.scheduledActivities ?? []);
       setWeeklyEntries(weeklyMission.entries ?? []);
       setIsDeloadWeek((weeklyMission.entries ?? []).some((entry) => entry.is_deload));
-      if (checkinsRes) setCheckins(checkinsRes as DailyCheckin[]);
-      if (sessionsRes) setSessions(sessionsRes as TrainingSession[]);
       setCutProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
       setPrescription((engineState.workoutPrescription as WorkoutPrescription | null) ?? null);
 
-      const history = await getWorkoutHistory(currentUserId, 20);
-      setWorkoutHistory(history);
+      const backgroundLoads: Array<Promise<void>> = [];
+      if (historyLoaded) {
+        backgroundLoads.push(loadHistoryData(currentUserId));
+      }
+      if (analyticsLoaded) {
+        backgroundLoads.push(loadAnalyticsData(currentUserId));
+      }
+      if (backgroundLoads.length > 0) {
+        await Promise.all(backgroundLoads);
+      }
     } catch (error) {
       logError('useWorkoutData.loadData', error);
     }
@@ -129,7 +171,6 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     prescription,
     todayActivities,
     workoutHistory,
-    exerciseLibrary,
     checkins,
     sessions,
     userId,
@@ -138,6 +179,12 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     todayPlanEntry: (engineState?.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
     weeklyEntries,
     isDeloadWeek,
+    historyLoaded,
+    analyticsLoaded,
+    historyLoading,
+    analyticsLoading,
+    loadHistoryData,
+    loadAnalyticsData,
     handleStartWorkout,
   };
 }

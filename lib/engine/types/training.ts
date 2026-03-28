@@ -105,6 +105,7 @@ export interface WorkoutLogRow {
   id: string;
   user_id: string;
   date: string;
+  created_at?: string | null;
   weekly_plan_entry_id?: string | null;
   scheduled_activity_id?: string | null;
   gym_profile_id?: string | null;

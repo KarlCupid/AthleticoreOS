@@ -9,6 +9,7 @@ import { autoregulateSession } from '../../lib/engine/sc/autoregulation';
 import { detectPR } from '../../lib/engine/calculateOverload';
 import {
     completeWorkout,
+    getWorkoutSetsForLog,
     logWorkoutSetV2,
     startWorkoutV2,
 } from '../../lib/api/scService';
@@ -16,7 +17,11 @@ import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
 import { todayLocalDate } from '../../lib/utils/date';
 import { markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
-import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
+import {
+    getDailyEngineState,
+    getWeeklyMission,
+    invalidateEngineDataCache,
+} from '../../lib/api/dailyMissionService';
 import { isGuidedEngineScheduledActivity } from '../../lib/engine/sessionOwnership';
 import type {
     DailyMission,
@@ -85,6 +90,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     const [restSeconds, setRestSeconds] = useState<number | null>(null);
     const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [restTotal, setRestTotal] = useState(0);
+    const sessionDateRef = useRef(todayLocalDate());
 
     const currentExercise = prescription?.exercises[currentExerciseIndex] ?? null;
     const currentProgress = currentExercise
@@ -116,6 +122,77 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         setEmptyStateMessage(message);
     }, []);
 
+    const hydrateWorkoutProgress = useCallback(async (
+        workout: WorkoutLogRow,
+        nextPrescription: WorkoutPrescriptionV2,
+    ) => {
+        const loggedSets = await getWorkoutSetsForLog(workout.id);
+        const exerciseOrder = new Map(nextPrescription.exercises.map((exercise, index) => [exercise.exercise.id, index]));
+        const nextProgress: Record<string, ExerciseProgress> = {};
+
+        for (const exercise of nextPrescription.exercises) {
+            nextProgress[exercise.exercise.id] = {
+                exerciseId: exercise.exercise.id,
+                setsLogged: [],
+                warmupChecked: [],
+                isComplete: false,
+                prResult: null,
+            };
+        }
+
+        for (const set of loggedSets) {
+            const exerciseId = set.exercise_library_id;
+            const existing = nextProgress[exerciseId];
+            if (!existing) {
+                continue;
+            }
+
+            existing.setsLogged.push({
+                exerciseId,
+                setNumber: set.set_number,
+                reps: set.reps,
+                weight: set.weight_lbs,
+                rpe: set.rpe,
+                isWarmup: set.is_warmup,
+                wasAdapted: false,
+                adaptationReason: null,
+                completedAt: new Date(),
+            });
+
+            if (set.is_warmup && !existing.warmupChecked.includes(set.set_number)) {
+                existing.warmupChecked.push(set.set_number);
+            }
+        }
+
+        for (const exercise of nextPrescription.exercises) {
+            const progress = nextProgress[exercise.exercise.id];
+            progress.setsLogged.sort((a, b) => a.setNumber - b.setNumber);
+            progress.warmupChecked.sort((a, b) => a - b);
+            progress.isComplete = progress.setsLogged.filter((set) => !set.isWarmup).length >= exercise.targetSets;
+        }
+
+        const nextIndex = nextPrescription.exercises.findIndex((exercise) => {
+            const progress = nextProgress[exercise.exercise.id];
+            return !progress.isComplete;
+        });
+        const fallbackIndex = loggedSets.reduce((highestIndex, set) => {
+            const index = exerciseOrder.get(set.exercise_library_id);
+            return typeof index === 'number' ? Math.max(highestIndex, index) : highestIndex;
+        }, 0);
+
+        setExerciseProgress(nextProgress);
+        setCurrentExerciseIndex(
+            nextIndex >= 0
+                ? nextIndex
+                : Math.min(fallbackIndex, Math.max(0, nextPrescription.exercises.length - 1)),
+        );
+        setStartTime(
+            workout.created_at
+                ? new Date(workout.created_at)
+                : new Date(),
+        );
+    }, []);
+
     // ── Load + Generate Prescription ──────────────────────────────
 
     const loadAndGenerate = useCallback(async (
@@ -133,13 +210,14 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             if (!session?.user) return;
             const userId = session.user.id;
             const sessionDate = trainingDate ?? todayLocalDate();
+            sessionDateRef.current = sessionDate;
 
             // Load gym profile
             const gym = await getDefaultGymProfile(userId);
             setGymProfile(gym);
             setEmptyStateMessage(null);
 
-            const engineState = await getDailyEngineState(userId, sessionDate, { forceRefresh: true });
+            const engineState = await getDailyEngineState(userId, sessionDate);
             let mission = engineState.mission;
 
             if (weeklyPlanEntryId) {
@@ -148,7 +226,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     ?? engineState.weeklyPlanEntries[0]?.week_start_date
                     ?? null;
                 const weeklyMission = weekStart
-                    ? await getWeeklyMission(userId, weekStart, { forceRefresh: true })
+                    ? await getWeeklyMission(userId, weekStart)
                     : null;
                 const matchingEntry = weeklyMission?.entries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
                     ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
@@ -243,6 +321,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 weeklyPlanEntryId,
                 scheduledActivityId,
                 gymProfileId: gym?.id,
+                date: sessionDateRef.current,
             });
 
             if (weeklyPlanEntryId) {
@@ -251,14 +330,18 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
             setWorkoutLog(log);
             setIsStarted(true);
-            setStartTime(new Date());
             setFatigueState(initFatigueState());
             setActivationRPE(null);
             setComplianceReason(null);
+            await hydrateWorkoutProgress(log, prescription);
+            invalidateEngineDataCache({
+                userId: session.user.id,
+                date: sessionDateRef.current,
+            });
         } catch (error) {
             logError('useGuidedWorkout.startWorkout', error, { weeklyPlanEntryId, scheduledActivityId });
         }
-    }, [prescription, weeklyPlanEntryId, scheduledActivityId, gymProfile]);
+    }, [gymProfile, hydrateWorkoutProgress, prescription, scheduledActivityId, weeklyPlanEntryId]);
 
     const submitActivationRPE = useCallback((rpe: number) => {
         setActivationRPE(rpe);
@@ -537,6 +620,10 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     activationRPE,
                 },
             );
+            invalidateEngineDataCache({
+                userId: session.user.id,
+                date: sessionDateRef.current,
+            });
         }
 
         setIsComplete(true);

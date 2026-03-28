@@ -7,6 +7,7 @@ import {
     RefreshControl,
     Pressable,
 } from 'react-native';
+import { useEffect } from 'react';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -87,7 +88,13 @@ export function WorkoutScreen() {
         todayPlanEntry,
         weeklyEntries,
         isDeloadWeek,
-        handleStartWorkout
+        handleStartWorkout,
+        historyLoaded,
+        analyticsLoaded,
+        historyLoading,
+        analyticsLoading,
+        loadHistoryData,
+        loadAnalyticsData,
     } = useWorkoutData(currentLevel);
     const displayedPrescription = prescription;
 
@@ -97,20 +104,38 @@ export function WorkoutScreen() {
         }, [loadData])
     );
 
-    const openGuidedWorkout = useCallback(async (entry: WeeklyPlanEntryRow) => {
+    const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
-        const context = await getGuidedWorkoutContext(session.user.id, entry.date);
-        navigation.navigate('WorkoutDetail', {
-            weeklyPlanEntryId: entry.id,
-            date: entry.date,
+        const trainingDate = entry?.date ?? todayLocalDate();
+        const context = await getGuidedWorkoutContext(session.user.id, trainingDate);
+        navigation.navigate('GuidedWorkout', {
+            weeklyPlanEntryId: entry?.id,
+            scheduledActivityId: entry?.scheduled_activity_id ?? undefined,
+            focus: entry?.focus ?? undefined,
+            availableMinutes: entry?.estimated_duration_min,
             readinessState: currentLevel ?? 'Prime',
             phase: context.phase,
             fitnessLevel: context.fitnessLevel,
-            isDeloadWeek: entry.is_deload,
+            trainingDate,
+            isDeloadWeek: entry?.is_deload,
+            autoStart: true,
+            entrySource: 'train',
         });
     }, [navigation, currentLevel]);
+
+    useEffect(() => {
+        if (activeTab === 'history' && !historyLoaded && !historyLoading) {
+            void loadHistoryData();
+        }
+    }, [activeTab, historyLoaded, historyLoading, loadHistoryData]);
+
+    useEffect(() => {
+        if (activeTab === 'analytics' && !analyticsLoaded && !analyticsLoading) {
+            void loadAnalyticsData();
+        }
+    }, [activeTab, analyticsLoaded, analyticsLoading, loadAnalyticsData]);
     if (loading) {
         return (
             <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -268,6 +293,10 @@ export function WorkoutScreen() {
                                     void openGuidedWorkout(todayPlanEntry);
                                     return;
                                 }
+                                if (displayedPrescription) {
+                                    void openGuidedWorkout(null);
+                                    return;
+                                }
                                 void handleStartWorkout(navigation);
                             }}
                         />
@@ -392,18 +421,32 @@ export function WorkoutScreen() {
                 )}
 
                 {activeTab === 'history' && (
-                    <WorkoutHistoryTab workoutHistory={workoutHistory} />
+                    historyLoading && !historyLoaded ? (
+                        <View style={styles.tabLoadingState}>
+                            <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
+                            <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.lg }} />
+                        </View>
+                    ) : (
+                        <WorkoutHistoryTab workoutHistory={workoutHistory} />
+                    )
                 )}
 
                 {activeTab === 'analytics' && (
-                    <WorkoutAnalyticsTab
-                        userId={userId}
-                        trainingLoadData={trainingLoadData}
-                        acwrData={acwrData}
-                        checkinDates={checkinDates}
-                        weightData={weightData}
-                        sleepData={sleepData}
-                    />
+                    analyticsLoading && !analyticsLoaded ? (
+                        <View style={styles.tabLoadingState}>
+                            <SkeletonLoader width="100%" height={180} shape="rect" style={{ borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
+                            <SkeletonLoader width="100%" height={180} shape="rect" style={{ borderRadius: RADIUS.lg }} />
+                        </View>
+                    ) : (
+                        <WorkoutAnalyticsTab
+                            userId={userId}
+                            trainingLoadData={trainingLoadData}
+                            acwrData={acwrData}
+                            checkinDates={checkinDates}
+                            weightData={weightData}
+                            sleepData={sleepData}
+                        />
+                    )
                 )}
 
                 <View style={{ height: SPACING.xxl }} />
@@ -672,6 +715,9 @@ const styles = StyleSheet.create({
     content: {
         padding: SPACING.lg,
         paddingTop: SPACING.sm,
+    },
+    tabLoadingState: {
+        gap: SPACING.md,
     },
     contextScheduleNote: {
         fontSize: 12,

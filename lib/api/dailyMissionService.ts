@@ -47,6 +47,55 @@ interface DailyMissionOptions {
   forceRefresh?: boolean;
 }
 
+const dailyEngineStateCache = new Map<string, DailyEngineState>();
+const dailyEngineStateInFlight = new Map<string, Promise<DailyEngineState>>();
+const weeklyMissionCache = new Map<string, WeeklyMissionPlan>();
+const weeklyMissionInFlight = new Map<string, Promise<WeeklyMissionPlan>>();
+
+function getDailyEngineStateCacheKey(userId: string, date: string): string {
+  return `${userId}::${date}`;
+}
+
+function getWeeklyMissionCacheKey(userId: string, weekStart: string): string {
+  return `${userId}::${weekStart}`;
+}
+
+function clearUserScopedKeys<T>(store: Map<string, T>, userId: string) {
+  const prefix = `${userId}::`;
+  for (const key of store.keys()) {
+    if (key.startsWith(prefix)) {
+      store.delete(key);
+    }
+  }
+}
+
+export function invalidateEngineDataCache(input: {
+  userId: string;
+  date?: string;
+  weekStart?: string;
+}) {
+  const { userId, date, weekStart } = input;
+
+  if (date) {
+    const dailyKey = getDailyEngineStateCacheKey(userId, date);
+    dailyEngineStateCache.delete(dailyKey);
+    dailyEngineStateInFlight.delete(dailyKey);
+  } else {
+    clearUserScopedKeys(dailyEngineStateCache, userId);
+    clearUserScopedKeys(dailyEngineStateInFlight, userId);
+  }
+
+  if (weekStart) {
+    const weeklyKey = getWeeklyMissionCacheKey(userId, weekStart);
+    weeklyMissionCache.delete(weeklyKey);
+    weeklyMissionInFlight.delete(weeklyKey);
+    return;
+  }
+
+  clearUserScopedKeys(weeklyMissionCache, userId);
+  clearUserScopedKeys(weeklyMissionInFlight, userId);
+}
+
 function daysBetween(start: string, end: string): number {
   const a = new Date(`${start}T00:00:00`).getTime();
   const b = new Date(`${end}T00:00:00`).getTime();
@@ -776,7 +825,7 @@ export async function getDailyMission(
   return state.mission;
 }
 
-export async function getDailyEngineState(
+async function computeDailyEngineState(
   userId: string,
   date: string,
   options: DailyMissionOptions = {},
@@ -992,7 +1041,42 @@ export async function getDailyEngineState(
   };
 }
 
-export async function getWeeklyMission(
+export async function getDailyEngineState(
+  userId: string,
+  date: string,
+  options: DailyMissionOptions = {},
+): Promise<DailyEngineState> {
+  const cacheKey = getDailyEngineStateCacheKey(userId, date);
+
+  if (!options.forceRefresh) {
+    const cached = dailyEngineStateCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const inFlight = dailyEngineStateInFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+  } else {
+    dailyEngineStateCache.delete(cacheKey);
+    dailyEngineStateInFlight.delete(cacheKey);
+  }
+
+  const request = computeDailyEngineState(userId, date, options)
+    .then((result) => {
+      dailyEngineStateCache.set(cacheKey, result);
+      return result;
+    })
+    .finally(() => {
+      dailyEngineStateInFlight.delete(cacheKey);
+    });
+
+  dailyEngineStateInFlight.set(cacheKey, request);
+  return request;
+}
+
+async function computeWeeklyMission(
   userId: string,
   weekStart: string,
   options: DailyMissionOptions = {},
@@ -1066,4 +1150,39 @@ export async function getWeeklyMission(
     headline: 'Weekly mission',
     summary: `${uniqueDates.length} daily missions aligned to the current block and saved for reuse.`,
   };
+}
+
+export async function getWeeklyMission(
+  userId: string,
+  weekStart: string,
+  options: DailyMissionOptions = {},
+): Promise<WeeklyMissionPlan> {
+  const cacheKey = getWeeklyMissionCacheKey(userId, weekStart);
+
+  if (!options.forceRefresh) {
+    const cached = weeklyMissionCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const inFlight = weeklyMissionInFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+  } else {
+    weeklyMissionCache.delete(cacheKey);
+    weeklyMissionInFlight.delete(cacheKey);
+  }
+
+  const request = computeWeeklyMission(userId, weekStart, options)
+    .then((result) => {
+      weeklyMissionCache.set(cacheKey, result);
+      return result;
+    })
+    .finally(() => {
+      weeklyMissionInFlight.delete(cacheKey);
+    });
+
+  weeklyMissionInFlight.set(cacheKey, request);
+  return request;
 }

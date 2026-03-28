@@ -345,7 +345,7 @@ export function LogScreen() {
             .maybeSingle(),
         ]);
 
-        const engineState = await getDailyEngineState(userId, logDate, { forceRefresh: true });
+        const engineState = await getDailyEngineState(userId, logDate);
         const acwr = {
           ratio: engineState.acwr.ratio,
           status: engineState.acwr.status,
