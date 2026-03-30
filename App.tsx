@@ -18,6 +18,7 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { TabNavigator } from './src/navigation/TabNavigator';
 import { PlanningSetupStackNavigator } from './src/navigation/PlanningSetupStack';
+import { appLinking } from './src/navigation/linking';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
 import { APP_CHROME, COLORS } from './src/theme/theme';
@@ -159,7 +160,7 @@ export default function App() {
       <SafeAreaProvider>
         <ReadinessThemeProvider>
           <InteractionModeProvider>
-            <NavigationContainer theme={myTheme}>
+            <NavigationContainer theme={myTheme} linking={appLinking}>
               <View style={styles.container}>
                 <StatusBar style="dark" />
                 {content}

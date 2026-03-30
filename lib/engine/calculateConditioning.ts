@@ -256,18 +256,6 @@ function buildCircuitRound(exercises: ConditioningExercise[], roundCount: number
   };
 }
 
-function roundCountFromTimedWork(timedWork: TimedWorkPrescription | undefined): number {
-  if (!timedWork) return 1;
-  if (timedWork.roundCount != null) return timedWork.roundCount;
-  if (timedWork.workIntervalSec != null && timedWork.restIntervalSec != null) {
-    return Math.max(1, Math.round(timedWork.totalDurationSec / (timedWork.workIntervalSec + timedWork.restIntervalSec)));
-  }
-  if (timedWork.format === 'emom') {
-    return Math.max(1, Math.round(timedWork.totalDurationSec / 60));
-  }
-  return 1;
-}
-
 function buildHeavyBag(
   fitnessLevel: FitnessLevel,
   readinessState: ReadinessState,

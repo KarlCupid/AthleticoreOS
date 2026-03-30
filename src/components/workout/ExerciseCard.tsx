@@ -142,18 +142,18 @@ export function ExerciseCard({
   formatWeight,
   children,
 }: ExerciseCardProps) {
-  // ── Interactive: bold gym-floor layout ──
-  if (mode === 'interactive') {
-    return <InteractiveExercise exercise={exercise}>{children}</InteractiveExercise>;
-  }
-
-  // ── Readonly: traditional card ──
   const [showHowItWorksDetails, setShowHowItWorksDetails] = useState(false);
 
   useEffect(() => {
     setShowHowItWorksDetails(false);
   }, [exercise.id, mode]);
 
+  // ── Interactive: bold gym-floor layout ──
+  if (mode === 'interactive') {
+    return <InteractiveExercise exercise={exercise}>{children}</InteractiveExercise>;
+  }
+
+  // ── Readonly: traditional card ──
   const strategyMeta = getLoadingStrategyMeta(exercise.loadingStrategy);
   const strategy = strategyMeta
     ? {

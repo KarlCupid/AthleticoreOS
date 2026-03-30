@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, Polyline, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Polyline, Line, Rect } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 export interface IconProps {
@@ -42,8 +42,15 @@ export const IconWaterDrop = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth
     </Svg>
 );
 
-export const IconRestaurant = ({ color = '#000', size = DEFAULT_SIZE, focused = false, style }: IconProps) => (
-    <Ionicons name={focused ? "nutrition" : "nutrition-outline"} size={size} color={color} style={style} />
+// Custom Athleticore Icon for Fuel / Nutrition
+export const IconRestaurant = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth = DEFAULT_STROKE, style }: IconProps) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style}>
+        <Path d="M12 2L20.66 7v10L12 22 3.34 17V7z" />
+        <Circle cx="12" cy="12" r="3" />
+        <Line x1="12" y1="2" x2="12" y2="9" />
+        <Line x1="20.66" y1="17" x2="14.5" y2="13.5" />
+        <Line x1="3.34" y1="17" x2="9.5" y2="13.5" />
+    </Svg>
 );
 
 export const IconCheckCircle = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth = DEFAULT_STROKE, style }: IconProps) => (
@@ -59,9 +66,11 @@ export const IconCircleOutline = ({ color = '#000', size = DEFAULT_SIZE, strokeW
     </Svg>
 );
 
+// Custom Athleticore Icon for Train / Fire
 export const IconFire = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth = DEFAULT_STROKE, style }: IconProps) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style}>
-        <Path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
+        <Path d="M12 2C12 2 17 8 17 13A5 5 0 0 1 7 13C7 8 12 2 12 2Z" />
+        <Path d="M12 10C12 10 14.5 13 14.5 15.5A2.5 2.5 0 0 1 9.5 15.5C9.5 13 12 10 12 10Z" />
     </Svg>
 );
 
@@ -71,8 +80,14 @@ export const IconLightning = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth
     </Svg>
 );
 
-export const IconActivity = ({ color = '#000', size = DEFAULT_SIZE, focused = false, style }: IconProps) => (
-    <Ionicons name={focused ? "barbell" : "barbell-outline"} size={size} color={color} style={style} />
+// Custom Athleticore Icon for Check-In / Activity Target
+export const IconActivity = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth = DEFAULT_STROKE, style }: IconProps) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style}>
+        <Line x1="4" y1="12" x2="20" y2="12" />
+        <Path d="M4 8v8 M20 8v8" />
+        <Path d="M7 6v12 M17 6v12" />
+        <Circle cx="12" cy="12" r="2.5" fill={color} />
+    </Svg>
 );
 
 export const IconChevronRight = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth = DEFAULT_STROKE, style }: IconProps) => (
@@ -108,8 +123,15 @@ export const IconTrendDown = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth
     </Svg>
 );
 
-export const IconCalendar = ({ color = '#000', size = DEFAULT_SIZE, focused = false, style }: IconProps) => (
-    <Ionicons name={focused ? "calendar" : "calendar-outline"} size={size} color={color} style={style} />
+// Custom Athleticore Icon for Calendar / Setup
+export const IconCalendar = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth = DEFAULT_STROKE, style }: IconProps) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style}>
+        <Rect x="3" y="4" width="18" height="16" rx="2" ry="2" />
+        <Line x1="3" y1="10" x2="21" y2="10" />
+        <Line x1="8" y1="2" x2="8" y2="6" />
+        <Line x1="16" y1="2" x2="16" y2="6" />
+        <Path d="M7 14h2 M11 14h2 M15 14h2 M7 18h2 M11 18h2" />
+    </Svg>
 );
 
 export const IconTarget = ({ color = '#000', size = DEFAULT_SIZE, strokeWidth = DEFAULT_STROKE, style }: IconProps) => (

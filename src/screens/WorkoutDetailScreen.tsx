@@ -193,6 +193,7 @@ export function WorkoutDetailScreen() {
     // ─── Derived display data ─────────────────────────────────────────────────
 
     const status = entry?.status ?? 'planned';
+    const showBottomCtaBar = false as boolean;
     const focus = entry?.focus ?? null;
     const focusLabel = getSessionFamilyLabel({
         sessionType: entry?.session_type ?? null,
@@ -385,7 +386,7 @@ export function WorkoutDetailScreen() {
             </ScrollView>
 
             {/* ── Bottom CTA bar ── */}
-            {false ? (
+            {showBottomCtaBar ? (
                 <View style={[styles.ctaBar, { paddingBottom: Math.max(insets.bottom - SPACING.xs, SPACING.xs) }]}>
                 {status === 'planned' || status === 'rescheduled' ? (
                     <View style={styles.ctaRow}>

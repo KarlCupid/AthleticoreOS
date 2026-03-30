@@ -105,7 +105,7 @@ export default function WarmupSetsCard({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Warmup</Text>
+        <Text style={styles.title}>{exerciseName ? `Warmup · ${exerciseName}` : 'Warmup'}</Text>
         <Text style={styles.counter}>
           {completedCount}/{totalCount}
         </Text>

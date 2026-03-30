@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { COLORS, FONT_FAMILY } from '../theme/theme';
 
@@ -25,6 +25,18 @@ export function ProgressRing({
     const radius = (size - strokeWidth) / 2;
     const center = size / 2;
     const clampedProgress = Math.min(Math.max(progress, 0), 1);
+
+    if (Platform.OS === 'web') {
+        return (
+            <View style={[styles.container, { width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: trackColor, alignItems: 'center', justifyContent: 'center' }]}>
+                {label !== undefined && (
+                    <Text style={[styles.label, labelStyle]} numberOfLines={1}>
+                        {label}
+                    </Text>
+                )}
+            </View>
+        );
+    }
 
     // Track path (full circle)
     const trackPath = Skia.Path.Make();

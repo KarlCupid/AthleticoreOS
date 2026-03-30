@@ -4,6 +4,7 @@
 
 import { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadinessPenalty } from './calculateWeight.ts';
 import type { WeightTrendResult } from './types.ts';
+import { addDays, todayLocalDate } from '../utils/date.ts';
 
 let passed = 0;
 let failed = 0;
@@ -352,11 +353,12 @@ console.log('\n-- calculateWeightCorrection --');
 
 // Deadline boost
 (() => {
+  const deadlineDate = addDays(todayLocalDate(), 7);
   const r = calculateWeightCorrection({
     weightTrend: makeTrend({ status: 'behind', remainingLbs: 5 }),
     phase: 'fight-camp',
     currentTDEE: 2500,
-    deadlineDate: '2026-03-25',
+    deadlineDate,
   });
   assert('Deadline boost: correction > base 300', r.correctionDeficitCal > 300);
   assert('Deadline boost: capped at 500', r.correctionDeficitCal <= 500);
@@ -364,11 +366,12 @@ console.log('\n-- calculateWeightCorrection --');
 
 // Global cap
 (() => {
+  const deadlineDate = addDays(todayLocalDate(), 7);
   const r = calculateWeightCorrection({
     weightTrend: makeTrend({ status: 'gaining', remainingLbs: 10 }),
     phase: 'fight-camp',
     currentTDEE: 2500,
-    deadlineDate: '2026-03-25',
+    deadlineDate,
   });
   assert('Correction capped at 1000', r.correctionDeficitCal <= 1000);
 })();

@@ -1227,6 +1227,7 @@ export function buildSectionedWorkoutSession(input: BuildSectionedWorkoutInput):
         }
 
         const exercises = chosen.map(({ exercise, score, recoveryCost }) => {
+            void recoveryCost;
             usedExerciseIds.add(exercise.id);
             if (templateConsumesBudget(blueprint.template)) {
                 recoveryBudgetRemaining -= exercise.cns_load;

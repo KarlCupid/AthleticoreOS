@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { CartesianChart, Bar } from 'victory-native';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
@@ -15,38 +15,44 @@ export function TrainingLoadChartCard({ trainingLoadData, acute, chronic, acwr }
     return (
         <Card>
             <View style={styles.chartContainer}>
-                <CartesianChart
-                    data={trainingLoadData}
-                    xKey="x"
-                    yKeys={["fitness", "fatigue", "readiness"]}
-                    domainPadding={{ left: 40, right: 40, top: 20 }}
-                >
-                    {({ points, chartBounds }) => (
-                        <>
-                            <Bar
-                                points={points.fitness}
-                                chartBounds={chartBounds}
-                                color={COLORS.chart.fitness}
-                                roundedCorners={{ topLeft: 8, topRight: 8 }}
-                                barWidth={40}
-                            />
-                            <Bar
-                                points={points.fatigue}
-                                chartBounds={chartBounds}
-                                color={acute > chronic * 1.2 ? COLORS.readiness.depleted : COLORS.chart.fatigue}
-                                roundedCorners={{ topLeft: 8, topRight: 8 }}
-                                barWidth={40}
-                            />
-                            <Bar
-                                points={points.readiness}
-                                chartBounds={chartBounds}
-                                color={COLORS.chart.readiness}
-                                roundedCorners={{ topLeft: 8, topRight: 8 }}
-                                barWidth={40}
-                            />
-                        </>
-                    )}
-                </CartesianChart>
+                {Platform.OS === 'web' ? (
+                    <View style={styles.webFallback}>
+                        <Text style={styles.webFallbackText}>Chart not supported on web preview.</Text>
+                    </View>
+                ) : (
+                    <CartesianChart
+                        data={trainingLoadData}
+                        xKey="x"
+                        yKeys={["fitness", "fatigue", "readiness"]}
+                        domainPadding={{ left: 40, right: 40, top: 20 }}
+                    >
+                        {({ points, chartBounds }) => (
+                            <>
+                                <Bar
+                                    points={points.fitness}
+                                    chartBounds={chartBounds}
+                                    color={COLORS.chart.fitness}
+                                    roundedCorners={{ topLeft: 8, topRight: 8 }}
+                                    barWidth={40}
+                                />
+                                <Bar
+                                    points={points.fatigue}
+                                    chartBounds={chartBounds}
+                                    color={acute > chronic * 1.2 ? COLORS.readiness.depleted : COLORS.chart.fatigue}
+                                    roundedCorners={{ topLeft: 8, topRight: 8 }}
+                                    barWidth={40}
+                                />
+                                <Bar
+                                    points={points.readiness}
+                                    chartBounds={chartBounds}
+                                    color={COLORS.chart.readiness}
+                                    roundedCorners={{ topLeft: 8, topRight: 8 }}
+                                    barWidth={40}
+                                />
+                            </>
+                        )}
+                    </CartesianChart>
+                )}
             </View>
             <View style={styles.chartLegend}>
                 <View style={styles.legendItem}>
@@ -107,4 +113,16 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: SPACING.sm,
     },
+    webFallback: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: COLORS.surfaceSecondary,
+        borderRadius: 8,
+    },
+    webFallbackText: {
+        color: COLORS.text.tertiary,
+        fontFamily: FONT_FAMILY.regular,
+        fontSize: 12,
+    }
 });

@@ -11,7 +11,7 @@ import { TrainStackNavigator } from './TrainStack';
 import { PlanStackNavigator } from './PlanStack';
 import { FuelStackNavigator } from './FuelStack';
 import { MeStackNavigator } from './MeStack';
-import { ANIMATION, APP_CHROME, COLORS, RADIUS, SHADOWS, SPACING } from '../theme/theme';
+import { ANIMATION, APP_CHROME, COLORS, RADIUS, SHADOWS } from '../theme/theme';
 import { useInteractionMode } from '../context/InteractionModeContext';
 
 const Tab = createBottomTabNavigator();

@@ -30,7 +30,6 @@ import type {
     MuscleGroup,
     SessionModulePlan,
     WorkoutDoseBucket,
-    WorkoutDoseCredit,
 } from './types.ts';
 import { getFitnessModifiers } from './calculateFitness.ts';
 import { getWeeklyRoadWorkPlan } from './calculateRoadWork.ts';
@@ -257,7 +256,7 @@ function getCampStrengthFocusSequence(input: {
         : ['full_body', 'lower', 'upper_push', 'upper_pull'];
 }
 
-function buildCampMicrocycleTemplate(input: {
+export function buildCampMicrocycleTemplate(input: {
     campPhase: CampPhase;
     performanceGoalType: SmartWeekPlanInput['performanceGoalType'];
     blockContext: ReturnType<typeof resolveTrainingBlockContext>;
@@ -400,7 +399,7 @@ function isComboBlueprint(blueprint: GuidedSessionBlueprint): boolean {
     return blueprint.sessionModules.length > 1;
 }
 
-function getFamilyForFocus(focus: WorkoutFocus): TrainingSessionFamily {
+export function getFamilyForFocus(focus: WorkoutFocus): TrainingSessionFamily {
     if (focus === 'conditioning') return 'conditioning';
     if (focus === 'recovery') return 'recovery';
     if (focus === 'sport_specific') return 'boxing_skill';
@@ -450,6 +449,8 @@ function buildGuidedSessionBlueprints(input: {
         sparringDayCount,
         campModifiers,
     } = input;
+    void sparringDayCount;
+    void campModifiers;
 
     if (guidedCapacity <= 0) return [];
 
@@ -1498,7 +1499,7 @@ function buildBlockedRanges(activities: RecurringActivityRow[]): TimeRange[] {
     return mergeTimeRanges(blocked);
 }
 
-function resolveGuidedAvailability(input: {
+export function resolveGuidedAvailability(input: {
     dayWindows: SmartWeekPlanInput['config']['availability_windows'];
     dayOfWeek: number;
     recurringAnchors: RecurringActivityRow[];

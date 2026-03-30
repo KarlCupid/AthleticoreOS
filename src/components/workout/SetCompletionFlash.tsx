@@ -6,7 +6,6 @@ import Animated, {
   withTiming,
   withSequence,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import { COLORS } from '../../theme/theme';
 

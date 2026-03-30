@@ -85,7 +85,7 @@ assert(
 );
 assert(
   'straight_sets details teach repeatable quality',
-  straightSetEducation?.details.includes('repeatable quality') === true,
+  straightSetEducation?.details?.includes('repeatable quality') === true,
 );
 
 console.log('\n-- workout metadata: exercise card meta --');

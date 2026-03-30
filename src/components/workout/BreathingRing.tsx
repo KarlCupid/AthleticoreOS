@@ -1,12 +1,6 @@
 import React, { useEffect } from 'react';
 import { Circle } from '@shopify/react-native-skia';
-import Animated, {
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import { useSharedValue, withRepeat, withSequence, withTiming, Easing } from 'react-native-reanimated';
 import { TIMER_DIMENSIONS } from '../../theme/theme';
 
 interface BreathingRingProps {
@@ -20,18 +14,18 @@ interface BreathingRingProps {
  * ease-in-out cycle, giving the rest timer an organic, living feel.
  */
 export function BreathingRing({ cx, cy }: BreathingRingProps) {
-  const radius = useSharedValue(TIMER_DIMENSIONS.breathingRadiusMin);
+  const radius = useSharedValue<number>(TIMER_DIMENSIONS.breathingRadiusMin);
 
   useEffect(() => {
     radius.value = withRepeat(
       withSequence(
         withTiming(TIMER_DIMENSIONS.breathingRadiusMax, {
           duration: TIMER_DIMENSIONS.breathingDuration / 2,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
         }),
         withTiming(TIMER_DIMENSIONS.breathingRadiusMin, {
           duration: TIMER_DIMENSIONS.breathingDuration / 2,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
         }),
       ),
       -1,

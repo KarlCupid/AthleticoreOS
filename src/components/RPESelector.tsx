@@ -12,7 +12,7 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 
 interface RPESelectorProps {
   value: number | null;

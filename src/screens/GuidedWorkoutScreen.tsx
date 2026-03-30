@@ -249,7 +249,6 @@ export function GuidedWorkoutScreen() {
     // â”€â”€ Derived values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const totalExercises = prescription?.exercises.length ?? 0;
-    const overallProgress = totalExercises > 0 ? currentExerciseIndex / totalExercises : 0;
 
     const workingSetsLogged = currentProgress
         ? currentProgress.setsLogged.filter(s => !s.isWarmup).length
