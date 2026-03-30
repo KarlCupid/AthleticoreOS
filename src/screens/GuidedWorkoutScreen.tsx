@@ -22,7 +22,11 @@ import {
 import { useGuidedWorkout } from '../hooks/useGuidedWorkout';
 import { useInteractionMode } from '../context/InteractionModeContext';
 import { buildTrainingFloorViewModel } from '../../lib/engine/presentation';
-import RestTimerOverlay from '../components/RestTimerOverlay';
+import { SkiaRestTimer } from '../components/workout/SkiaRestTimer';
+import { WorkoutProgressArc } from '../components/workout/WorkoutProgressArc';
+import { ProgressRing } from '../components/ProgressRing';
+import { AnimatedPressable } from '../components/AnimatedPressable';
+import { LinearGradient } from 'expo-linear-gradient';
 import PRCelebration from '../components/PRCelebration';
 import { Card } from '../components/Card';
 import {
@@ -39,12 +43,10 @@ import {
     weightIncrement,
     mapPRType,
     LoadingSkeleton,
-    ProgressBar,
     PrescriptionPreview,
 } from './guidedWorkout/ui';
 import { resolveRenderer } from './guidedWorkout/strategies';
 import { fromPrescriptionV2, fromExerciseProgress } from '../components/workout/adapters';
-import { SessionHeader } from '../components/workout';
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -365,6 +367,29 @@ export function GuidedWorkoutScreen() {
         );
     };
 
+    const handleLeaveWorkout = useCallback(() => {
+        if (!isStarted) {
+            navigation.goBack();
+            return;
+        }
+
+        Alert.alert(
+            'Leave workout?',
+            'Your progress is saved. You can come back and resume this session later.',
+            [
+                { text: 'Stay', style: 'cancel' },
+                {
+                    text: 'Leave',
+                    style: 'default',
+                    onPress: () => {
+                        skipRest();
+                        navigation.goBack();
+                    },
+                },
+            ],
+        );
+    }, [isStarted, navigation, skipRest]);
+
     const handleSkipExercise = () => {
         Alert.alert(
             'Skip Exercise?',
@@ -541,6 +566,13 @@ export function GuidedWorkoutScreen() {
                         <Text style={styles.missionReason}>
                             We are taking you straight to the active workout screen.
                         </Text>
+                        <TouchableOpacity
+                            style={styles.autoStartBackButton}
+                            onPress={handleLeaveWorkout}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.autoStartBackText}>Back</Text>
+                        </TouchableOpacity>
                     </Card>
                 </View>
             )}
@@ -550,11 +582,12 @@ export function GuidedWorkoutScreen() {
                 <>
                     {/* Header */}
                     <View style={styles.header}>
-                        <TouchableOpacity
+                        <AnimatedPressable
                             style={styles.backButton}
                             onPress={goToPreviousExercise}
                             disabled={currentExerciseIndex === 0 || restSeconds !== null}
-                            activeOpacity={0.7}
+                            haptic
+                            activeScale={0.88}
                         >
                             <Text
                                 style={[
@@ -562,24 +595,50 @@ export function GuidedWorkoutScreen() {
                                     (currentExerciseIndex === 0 || restSeconds !== null) && styles.backButtonDisabled,
                                 ]}
                             >
-                                {'<'}
+                                {'‹'}
                             </Text>
-                        </TouchableOpacity>
+                        </AnimatedPressable>
 
                         <View style={styles.headerCenter}>
                             <Text style={styles.headerTimer}>{formatElapsed(elapsedSeconds)}</Text>
+                            <Text style={styles.headerTimerLabel}>elapsed</Text>
                         </View>
 
-                        <View style={styles.headerRight}>
-                            <Text style={styles.exerciseCounter}>
-                                {currentExerciseIndex + 1} / {totalExercises}
-                            </Text>
+                        <View style={styles.headerRingContainer}>
+                            <ProgressRing
+                                progress={totalExercises > 0 ? (currentExerciseIndex + 1) / totalExercises : 0}
+                                size={36}
+                                strokeWidth={3}
+                                color={COLORS.accent}
+                                label={`${currentExerciseIndex + 1}/${totalExercises}`}
+                                labelStyle={styles.ringLabel}
+                            />
                         </View>
+
+                        <TouchableOpacity
+                            style={styles.leaveButton}
+                            onPress={handleLeaveWorkout}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.leaveButtonText}>Leave</Text>
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Progress bar */}
+                    {/* Accent gradient line */}
+                    <LinearGradient
+                        colors={['transparent', COLORS.accent + '40', 'transparent']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.headerAccentLine}
+                    />
+
+                    {/* Segmented progress arc */}
                     <View style={styles.progressBarContainer}>
-                        <ProgressBar progress={overallProgress} />
+                        <WorkoutProgressArc
+                            exerciseCount={totalExercises}
+                            currentIndex={currentExerciseIndex}
+                            currentSetProgress={targetSets > 0 ? workingSetsLogged / targetSets : 0}
+                        />
                     </View>
 
                     {/* Scrollable content */}
@@ -589,22 +648,14 @@ export function GuidedWorkoutScreen() {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        <Card style={styles.missionCard}>
-                            <Text style={styles.missionKicker}>WHY THIS SESSION</Text>
-                            <Text style={styles.missionIntent}>{floorVM.sessionGoal}</Text>
-                            <Text style={styles.missionReason}>{floorVM.reasonSentence}</Text>
-                        </Card>
-
-                        {sessionVM ? <SessionHeader session={sessionVM} /> : null}
                         {StrategyRenderer && strategyProps ? (
                             <StrategyRenderer {...strategyProps} />
                         ) : null}
-
                     </ScrollView>
 
                     {/* Rest timer overlay */}
                     {restSeconds !== null && (
-                        <RestTimerOverlay
+                        <SkiaRestTimer
                             totalSeconds={restTotal}
                             remainingSeconds={restSeconds}
                             exerciseType={currentExercise.exercise.type}
@@ -671,23 +722,21 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm,
-        backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-        ...SHADOWS.sm,
+        paddingTop: SPACING.sm,
+        paddingBottom: SPACING.sm,
+        backgroundColor: COLORS.background,
     },
     backButton: {
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         alignItems: 'center',
         justifyContent: 'center',
     },
     backButtonText: {
         fontFamily: FONT_FAMILY.extraBold,
-        fontSize: 28,
+        fontSize: 32,
         color: COLORS.accent,
-        lineHeight: 32,
+        lineHeight: 36,
     },
     backButtonDisabled: {
         color: COLORS.text.tertiary,
@@ -695,29 +744,57 @@ const styles = StyleSheet.create({
     headerCenter: {
         flex: 1,
         alignItems: 'center',
+        gap: 2,
     },
     headerTimer: {
         fontFamily: FONT_FAMILY.extraBold,
-        fontSize: 22,
+        fontSize: 28,
         color: COLORS.text.primary,
-        letterSpacing: 1,
+        letterSpacing: 2,
+        includeFontPadding: false,
+    },
+    headerTimerLabel: {
+        fontFamily: FONT_FAMILY.regular,
+        fontSize: 10,
+        letterSpacing: 1.5,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
     },
     headerRight: {
         width: 56,
         alignItems: 'flex-end',
     },
-    exerciseCounter: {
+    headerRingContainer: {
+        marginRight: SPACING.xs,
+    },
+    ringLabel: {
+        fontSize: 9,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.secondary,
+    },
+    headerAccentLine: {
+        height: 1.5,
+        backgroundColor: 'transparent',
+    },
+    leaveButton: {
+        minWidth: 64,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: SPACING.sm,
+        paddingVertical: SPACING.xs,
+    },
+    leaveButtonText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 14,
-        color: COLORS.text.secondary,
+        color: COLORS.accent,
     },
 
     // â”€â”€ Progress bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     progressBarContainer: {
         paddingHorizontal: SPACING.md,
-        paddingTop: SPACING.sm,
-        paddingBottom: SPACING.xs,
-        backgroundColor: COLORS.surface,
+        paddingTop: SPACING.xs,
+        paddingBottom: SPACING.sm,
+        backgroundColor: COLORS.background,
     },
 
     // â”€â”€ Scroll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -726,7 +803,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: SPACING.md,
-        paddingTop: SPACING.lg,
+        paddingTop: SPACING.md,
     },
     missionCard: {
         marginBottom: SPACING.md,
@@ -871,6 +948,19 @@ const styles = StyleSheet.create({
     },
     autoStartCard: {
         paddingVertical: SPACING.lg,
+    },
+    autoStartBackButton: {
+        alignSelf: 'flex-start',
+        marginTop: SPACING.md,
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        borderRadius: RADIUS.full,
+        backgroundColor: COLORS.surfaceSecondary,
+    },
+    autoStartBackText: {
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 13,
+        color: COLORS.text.secondary,
     },
     emptyStateText: {
         fontFamily: FONT_FAMILY.regular,

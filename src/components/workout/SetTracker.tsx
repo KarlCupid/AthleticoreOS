@@ -1,16 +1,26 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  interpolateColor,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import {
   COLORS,
   FONT_FAMILY,
   SPACING,
   RADIUS,
   TYPOGRAPHY_V2,
+  ANIMATION,
 } from '../../theme/theme';
 import type { SetLogVM } from './types';
 
 // ---------------------------------------------------------------------------
-// SetDots — filled/empty indicator for current set progress
+// SetDots — animated filled/empty indicator for current set progress
 // ---------------------------------------------------------------------------
 
 interface SetDotsProps {
@@ -20,18 +30,58 @@ interface SetDotsProps {
   size?: 'plan' | 'focus';
 }
 
+interface AnimatedDotProps {
+  filled: boolean;
+  dotSize: number;
+}
+
+function AnimatedDot({ filled, dotSize }: AnimatedDotProps) {
+  const prevFilledRef = useRef(filled);
+  const scale = useSharedValue(1);
+  const colorProgress = useSharedValue(filled ? 1 : 0);
+
+  useEffect(() => {
+    if (filled && !prevFilledRef.current) {
+      // Newly completed — bounce + haptic
+      scale.value = withSequence(
+        withSpring(1.35, { damping: 8, stiffness: 300 }),
+        withSpring(1.0, ANIMATION.spring),
+      );
+      colorProgress.value = withTiming(1, { duration: 200 });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (!filled && prevFilledRef.current) {
+      colorProgress.value = withTiming(0, { duration: 100 });
+    }
+    prevFilledRef.current = filled;
+  }, [filled]);
+
+  const dotStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: interpolateColor(
+      colorProgress.value,
+      [0, 1],
+      [COLORS.border, COLORS.accent],
+    ),
+    borderWidth: filled ? 0 : 1.5,
+    borderColor: COLORS.accent + '60',
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        { width: dotSize, height: dotSize, borderRadius: RADIUS.full },
+        dotStyle,
+      ]}
+    />
+  );
+}
+
 export function SetDots({ total, completed, size = 'plan' }: SetDotsProps) {
   const dotSize = size === 'focus' ? 14 : 10;
   return (
     <View style={dotStyles.row}>
       {Array.from({ length: total }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            { width: dotSize, height: dotSize, borderRadius: RADIUS.full },
-            i < completed ? dotStyles.dotFilled : dotStyles.dotEmpty,
-          ]}
-        />
+        <AnimatedDot key={i} filled={i < completed} dotSize={dotSize} />
       ))}
     </View>
   );
@@ -42,14 +92,6 @@ const dotStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-  },
-  dotFilled: {
-    backgroundColor: COLORS.accent,
-  },
-  dotEmpty: {
-    backgroundColor: COLORS.border,
-    borderWidth: 1.5,
-    borderColor: COLORS.accent + '60',
   },
 });
 

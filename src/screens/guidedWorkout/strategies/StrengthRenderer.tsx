@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Animated, { FadeInDown, FadeOut, SlideInRight } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import {
   COLORS,
   FONT_FAMILY,
@@ -13,24 +13,19 @@ import {
 } from '../../../theme/theme';
 import { ExerciseCard } from '../../../components/workout/ExerciseCard';
 import { getLoadingStrategyActionHint } from '../../../components/workout/metadata';
-import { SetDots, SetMiniTable } from '../../../components/workout/SetTracker';
+import { SetDots } from '../../../components/workout/SetTracker';
 import { InputRow } from '../../../components/workout/SetInputPanel';
 import { LoadingPyramid } from '../../../components/workout/LoadingPyramid';
-import { TimerDisplay } from '../../../components/workout/TimerDisplay';
 import { SectionRail } from '../../../components/workout/SectionRail';
 import RPESelector from '../../../components/RPESelector';
 import WeightSuggestionBanner from '../../../components/WeightSuggestionBanner';
-import AdaptationBanner from '../../../components/AdaptationBanner';
 import WarmupSetsCard from '../../../components/WarmupSetsCard';
-import FormCueCard from '../../../components/FormCueCard';
+import { GymFloorPressable } from '../../../components/training/GymFloorPressable';
+import { SetCompletionFlash } from '../../../components/workout/SetCompletionFlash';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 // ---------------------------------------------------------------------------
 // StrengthRenderer — handles straight_sets and top_set_backoff
-//
-// Layout:
-//   SectionRail → ExerciseCard → LoadingPyramid (backoff) or SetDots (straight)
-//   → SetMiniTable → InputRow + RPE → Log Set / Complete → inline rest timer
 // ---------------------------------------------------------------------------
 
 export function StrengthRenderer(props: StrategyRendererProps) {
@@ -44,10 +39,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
     selectedRPE,
     isLoggingSet,
     isGymFloor,
-    adaptationResult,
-    adaptationDismissed,
     restSeconds,
-    restTotal,
     onLogSet,
     onCompleteExercise,
     onSkipExercise,
@@ -56,9 +48,6 @@ export function StrengthRenderer(props: StrategyRendererProps) {
     onRepsDecrement,
     onRepsIncrement,
     onSelectRPE,
-    onDismissAdaptation,
-    onSkipRest,
-    onExtendRest,
     onFinishWorkout,
     warmupSets,
     allWarmupsDone,
@@ -67,12 +56,12 @@ export function StrengthRenderer(props: StrategyRendererProps) {
     overloadSuggestion,
     onAcceptSuggestion,
     onModifySuggestion,
-    formCues,
-    formCueExpanded,
-    onToggleFormCue,
     isLastExercise,
     formatWeight,
   } = props;
+
+  const [showFlash, setShowFlash] = useState(false);
+  const prevSetsRef = useRef(0);
 
   const workingSetsLogged = progress?.setsLogged.filter(s => !s.isWarmup).length ?? 0;
   const targetSets = exercise.targetSets;
@@ -86,6 +75,14 @@ export function StrengthRenderer(props: StrategyRendererProps) {
   });
   const mode: 'plan' | 'focus' = isGymFloor ? 'focus' : 'plan';
 
+  // Flash line when a set is logged
+  useEffect(() => {
+    if (workingSetsLogged > prevSetsRef.current) {
+      setShowFlash(true);
+    }
+    prevSetsRef.current = workingSetsLogged;
+  }, [workingSetsLogged]);
+
   return (
     <View style={styles.container}>
       {/* Section rail (if session has sections) */}
@@ -96,10 +93,11 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         />
       )}
 
-      {/* Exercise card */}
+      {/* Exercise identity */}
       <Animated.View
         key={exercise.id}
-        entering={SlideInRight.duration(ANIMATION.normal).springify() as any}
+        entering={FadeInDown.duration(300).springify().damping(14)}
+        exiting={FadeOutUp.duration(200)}
       >
         <ExerciseCard
           exercise={exercise}
@@ -117,27 +115,29 @@ export function StrengthRenderer(props: StrategyRendererProps) {
             />
           )}
           {isBackoff && topSetBackoffActionHint ? (
-            <View style={styles.phaseStrip}>
-              <Text style={styles.phaseStripText}>{topSetBackoffActionHint}</Text>
-            </View>
+            <Text style={styles.phaseHint}>{topSetBackoffActionHint}</Text>
           ) : null}
         </ExerciseCard>
       </Animated.View>
 
-      {/* Set tracker */}
-      <View style={styles.setRow}>
+      {/* Set tracker — tight to exercise */}
+      <Animated.View
+        style={styles.setRow}
+        entering={FadeInDown.delay(60).duration(280).springify().damping(16)}
+      >
         <Text style={[styles.setLabel, isGymFloor && styles.setLabelFocus]}>
           Set {Math.min(workingSetsLogged + 1, targetSets)} of {targetSets}
         </Text>
         <SetDots total={targetSets} completed={workingSetsLogged} size={mode} />
-      </View>
+      </Animated.View>
 
-      {/* Logged sets mini table */}
-      {progress && progress.setsLogged.length > 0 && (
-        <SetMiniTable sets={progress.setsLogged} />
-      )}
+      {/* Set completion flash */}
+      <SetCompletionFlash
+        visible={showFlash}
+        onDone={() => setShowFlash(false)}
+      />
 
-      {/* Warmup sets card */}
+      {/* Warmup sets */}
       {warmupSets.length > 0 && !allWarmupsDone && (
         <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()}>
           <WarmupSetsCard
@@ -148,17 +148,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         </Animated.View>
       )}
 
-      {/* Form cues */}
-      {formCues ? (
-        <FormCueCard
-          exerciseName={exercise.name}
-          cues={formCues}
-          isExpanded={formCueExpanded}
-          onToggle={onToggleFormCue}
-        />
-      ) : null}
-
-      {/* Weight suggestion banner */}
+      {/* Weight suggestion banner (first set only) */}
       {showWeightBanner && overloadSuggestion && (
         <WeightSuggestionBanner
           lastWeight={overloadSuggestion.lastSessionWeight}
@@ -173,45 +163,20 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         />
       )}
 
-      {/* Adaptation banner */}
-      {adaptationResult && !adaptationDismissed && (
-        <Animated.View
-          entering={FadeInDown.duration(ANIMATION.normal)}
-          exiting={FadeOut.duration(ANIMATION.fast)}
-        >
-          <AdaptationBanner
-            message={adaptationResult.feedbackMessage}
-            severity={adaptationResult.feedbackSeverity}
-            onDismiss={onDismissAdaptation}
-          />
-        </Animated.View>
-      )}
-
-      {/* Inline rest timer (between sets) */}
-      {restSeconds !== null && (
-        <TimerDisplay
-          mode="countdown"
-          totalSeconds={restTotal}
-          running={true}
-          label="Rest"
-          onSkip={onSkipRest}
-          onExtend={onExtendRest}
-          size="inline"
-        />
-      )}
-
       {/* Weight + Reps input */}
       {!allTargetSetsLogged && restSeconds === null && (
-        <InputRow
-          weight={selectedWeight}
-          reps={selectedReps}
-          onWeightDecrement={onWeightDecrement}
-          onWeightIncrement={onWeightIncrement}
-          onRepsDecrement={onRepsDecrement}
-          onRepsIncrement={onRepsIncrement}
-          formatWeight={formatWeight}
-          mode={mode}
-        />
+        <Animated.View entering={FadeInDown.delay(120).duration(280).springify().damping(16)}>
+          <InputRow
+            weight={selectedWeight}
+            reps={selectedReps}
+            onWeightDecrement={onWeightDecrement}
+            onWeightIncrement={onWeightIncrement}
+            onRepsDecrement={onRepsDecrement}
+            onRepsIncrement={onRepsIncrement}
+            formatWeight={formatWeight}
+            mode={mode}
+          />
+        </Animated.View>
       )}
 
       {/* RPE selector */}
@@ -225,22 +190,30 @@ export function StrengthRenderer(props: StrategyRendererProps) {
 
       {/* Log Set / Complete Exercise button */}
       {!allTargetSetsLogged ? (
-        <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            !canLogSet && styles.primaryButtonDisabled,
-            isGymFloor && styles.primaryButtonFocus,
-          ]}
-          onPress={onLogSet}
-          disabled={!canLogSet}
-          activeOpacity={0.82}
-          accessibilityLabel="Log set"
-          accessibilityRole="button"
-        >
-          <Text style={[styles.primaryButtonText, isGymFloor && styles.primaryButtonTextFocus]}>
-            {isLoggingSet ? 'Logging...' : 'Log Set'}
-          </Text>
-        </TouchableOpacity>
+        isGymFloor ? (
+          <GymFloorPressable
+            label={isLoggingSet ? 'Logging...' : 'Log Set'}
+            onPress={onLogSet}
+            disabled={!canLogSet}
+            variant="primary"
+          />
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              !canLogSet && styles.primaryButtonDisabled,
+            ]}
+            onPress={onLogSet}
+            disabled={!canLogSet}
+            activeOpacity={0.82}
+            accessibilityLabel="Log set"
+            accessibilityRole="button"
+          >
+            <Text style={styles.primaryButtonText}>
+              {isLoggingSet ? 'Logging...' : 'Log Set'}
+            </Text>
+          </TouchableOpacity>
+        )
       ) : (
         <TouchableOpacity
           style={[styles.primaryButton, styles.completeButton]}
@@ -255,18 +228,21 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         </TouchableOpacity>
       )}
 
-      {/* Skip exercise link */}
+      {/* Footer links — skip / finish early */}
       {!allTargetSetsLogged && (
-        <TouchableOpacity onPress={onSkipExercise} activeOpacity={0.7} style={styles.link}>
-          <Text style={styles.linkText}>Skip Exercise</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Finish early link */}
-      {workingSetsLogged > 0 && !allTargetSetsLogged && (
-        <TouchableOpacity onPress={onFinishWorkout} activeOpacity={0.7} style={styles.link}>
-          <Text style={styles.finishEarlyText}>Finish Workout Early</Text>
-        </TouchableOpacity>
+        <View style={styles.footerLinks}>
+          <TouchableOpacity onPress={onSkipExercise} activeOpacity={0.7} style={styles.footerLink}>
+            <Text style={styles.linkText}>Skip Exercise</Text>
+          </TouchableOpacity>
+          {workingSetsLogged > 0 && (
+            <>
+              <Text style={styles.footerDivider}>·</Text>
+              <TouchableOpacity onPress={onFinishWorkout} activeOpacity={0.7} style={styles.footerLink}>
+                <Text style={styles.finishEarlyText}>End Workout</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       )}
     </View>
   );
@@ -274,33 +250,29 @@ export function StrengthRenderer(props: StrategyRendererProps) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: SPACING.md,
+    gap: SPACING.sm,
   },
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: -SPACING.xs,
   },
   setLabel: {
-    ...TYPOGRAPHY_V2.plan.body,
-    fontFamily: FONT_FAMILY.semiBold,
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 18,
     color: COLORS.text.primary,
+    letterSpacing: -0.3,
   },
   setLabelFocus: {
     ...TYPOGRAPHY_V2.focus.action,
     color: COLORS.text.primary,
   },
-  phaseStrip: {
-    backgroundColor: COLORS.surfaceSecondary,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs + 2,
-  },
-  phaseStripText: {
-    ...TYPOGRAPHY_V2.plan.caption,
-    color: COLORS.text.secondary,
-    fontSize: 12,
-    lineHeight: 17,
+  phaseHint: {
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 13,
+    color: COLORS.accent,
+    letterSpacing: 0.2,
   },
   primaryButton: {
     backgroundColor: COLORS.accent,
@@ -315,28 +287,32 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
     ...SHADOWS.sm,
   },
-  primaryButtonFocus: {
-    paddingVertical: SPACING.lg,
-    minHeight: TAP_TARGETS.focusPrimary.min,
-  },
   primaryButtonText: {
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 17,
     color: COLORS.text.inverse,
     letterSpacing: 0.3,
   },
-  primaryButtonTextFocus: {
-    fontSize: 19,
-  },
   completeButton: {
     backgroundColor: COLORS.readiness.prime,
     ...SHADOWS.colored.prime,
   },
-  link: {
+  footerLinks: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  footerLink: {
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
     minHeight: TAP_TARGETS.plan.min,
     justifyContent: 'center',
+  },
+  footerDivider: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 14,
+    color: COLORS.text.tertiary,
   },
   linkText: {
     fontFamily: FONT_FAMILY.semiBold,

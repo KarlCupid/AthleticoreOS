@@ -1,3 +1,6 @@
+/**
+ * @deprecated Use SkiaRestTimer from src/components/workout/SkiaRestTimer.tsx instead.
+ */
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, {

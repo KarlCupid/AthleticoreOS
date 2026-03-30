@@ -41,6 +41,98 @@ interface ExerciseCardProps {
   children?: React.ReactNode;
 }
 
+// ---------------------------------------------------------------------------
+// Interactive mode — bold, cardless, gym floor
+// ---------------------------------------------------------------------------
+
+function InteractiveExercise({
+  exercise,
+  children,
+}: {
+  exercise: ExerciseVM;
+  children?: React.ReactNode;
+}) {
+  const strategyMeta = getLoadingStrategyMeta(exercise.loadingStrategy);
+  const tone = STRATEGY_TONES[exercise.loadingStrategy ?? ''] ?? COLORS.accent;
+
+  const scheme =
+    exercise.setScheme ??
+    `${exercise.targetSets} × ${exercise.targetReps}${exercise.targetRPE > 0 ? `  @RPE ${exercise.targetRPE}` : ''}`;
+
+  return (
+    <View style={ix.container}>
+      {/* Exercise name — dominant */}
+      <Text style={ix.name} numberOfLines={2}>
+        {exercise.name}
+      </Text>
+
+      {/* Scheme + strategy on one line */}
+      <View style={ix.metaRow}>
+        <Text style={ix.scheme}>{scheme}</Text>
+        {strategyMeta && (
+          <View style={[ix.strategyChip, { backgroundColor: `${tone}15` }]}>
+            <Text style={[ix.strategyLabel, { color: tone }]}>{strategyMeta.label}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Accent divider */}
+      <View style={ix.divider} />
+
+      {/* Children: LoadingPyramid, phase strip, etc. */}
+      {children ? <View style={ix.childArea}>{children}</View> : null}
+    </View>
+  );
+}
+
+const ix = StyleSheet.create({
+  container: {
+    gap: SPACING.sm,
+  },
+  name: {
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 26,
+    lineHeight: 32,
+    color: COLORS.text.primary,
+    letterSpacing: -0.5,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  scheme: {
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 17,
+    color: COLORS.text.secondary,
+    letterSpacing: 0.3,
+  },
+  strategyChip: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 3,
+  },
+  strategyLabel: {
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  divider: {
+    height: 2,
+    backgroundColor: COLORS.accent,
+    opacity: 0.25,
+    borderRadius: 1,
+  },
+  childArea: {
+    gap: SPACING.sm,
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Readonly mode — the traditional card (unchanged)
+// ---------------------------------------------------------------------------
+
 export function ExerciseCard({
   exercise,
   index,
@@ -50,6 +142,12 @@ export function ExerciseCard({
   formatWeight,
   children,
 }: ExerciseCardProps) {
+  // ── Interactive: bold gym-floor layout ──
+  if (mode === 'interactive') {
+    return <InteractiveExercise exercise={exercise}>{children}</InteractiveExercise>;
+  }
+
+  // ── Readonly: traditional card ──
   const [showHowItWorksDetails, setShowHowItWorksDetails] = useState(false);
 
   useEffect(() => {
@@ -81,8 +179,7 @@ export function ExerciseCard({
       : null;
 
   const canExpandHowItWorks =
-    mode === 'interactive'
-    && Boolean(cardMeta.howItWorksDetails)
+    Boolean(cardMeta.howItWorksDetails)
     && cardMeta.howItWorksDetails !== cardMeta.howItWorksSummary;
 
   return (
@@ -171,7 +268,7 @@ export function ExerciseCard({
         </View>
       )}
 
-      {mode === 'interactive' && cardMeta.howItWorksLabel && cardMeta.howItWorksSummary ? (
+      {cardMeta.howItWorksLabel && cardMeta.howItWorksSummary ? (
         <View style={styles.howItWorksBlock}>
           <Text style={styles.infoLabel}>{cardMeta.howItWorksLabel}</Text>
           <Text style={styles.infoText}>{cardMeta.howItWorksSummary}</Text>
@@ -202,14 +299,7 @@ export function ExerciseCard({
         </View>
       ) : null}
 
-      {mode === 'interactive' && cardMeta.focusCueLabel && cardMeta.focusCue ? (
-        <View style={styles.focusCueRow}>
-          <Text style={styles.focusCueLabel}>{cardMeta.focusCueLabel}:</Text>
-          <Text style={styles.focusCueText}>{cardMeta.focusCue}</Text>
-        </View>
-      ) : null}
-
-      {mode !== 'interactive' && exercise.coachingCues.length > 0 && (
+      {exercise.coachingCues.length > 0 && (
         <View style={styles.cuesContainer}>
           {exercise.coachingCues.map((cue, i) => (
             <Text key={i} style={styles.cueText}>- {cue}</Text>
@@ -217,7 +307,7 @@ export function ExerciseCard({
         </View>
       )}
 
-      {mode !== 'interactive' && exercise.loadingNotes ? (
+      {exercise.loadingNotes ? (
         <Text style={styles.loadingNotes}>{exercise.loadingNotes}</Text>
       ) : null}
 
@@ -225,6 +315,10 @@ export function ExerciseCard({
     </View>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Compact row (used in prescription preview lists)
+// ---------------------------------------------------------------------------
 
 interface ExerciseRowCompactProps {
   exercise: ExerciseVM;
@@ -252,6 +346,10 @@ export function ExerciseRowCompact({ exercise, index, accessory }: ExerciseRowCo
   );
 }
 
+// ---------------------------------------------------------------------------
+// Readonly card styles (traditional)
+// ---------------------------------------------------------------------------
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surface,
@@ -260,6 +358,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
+    overflow: 'hidden',
     ...SHADOWS.card,
   },
   header: {
@@ -411,23 +510,6 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 12,
     fontFamily: FONT_FAMILY.semiBold,
-  },
-  focusCueRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  focusCueLabel: {
-    ...TYPOGRAPHY_V2.plan.caption,
-    color: COLORS.text.tertiary,
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-  },
-  focusCueText: {
-    ...TYPOGRAPHY_V2.plan.caption,
-    color: COLORS.text.secondary,
-    fontSize: 12,
-    flexShrink: 1,
   },
   cuesContainer: {
     gap: 4,

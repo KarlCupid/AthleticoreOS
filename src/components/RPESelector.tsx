@@ -11,7 +11,8 @@ import Animated, {
   withSpring,
   FadeInDown,
 } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import * as Haptics from 'expo-haptics';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
 
 interface RPESelectorProps {
   value: number | null;
@@ -53,9 +54,9 @@ const RPECircle: React.FC<RPECircleProps> = ({
   const color = RPE_COLORS[rpeValue];
 
   React.useEffect(() => {
-    scale.value = withSpring(isSelected ? 1.15 : 1, {
+    scale.value = withSpring(isSelected ? 1.18 : 1, {
       damping: 12,
-      stiffness: 180,
+      stiffness: 200,
     });
   }, [isSelected, scale]);
 
@@ -65,6 +66,7 @@ const RPECircle: React.FC<RPECircleProps> = ({
 
   const handlePress = useCallback(() => {
     if (!disabled) {
+      Haptics.selectionAsync();
       onPress(rpeValue);
     }
   }, [disabled, onPress, rpeValue]);
@@ -77,7 +79,7 @@ const RPECircle: React.FC<RPECircleProps> = ({
         styles.circle,
         isSelected
           ? { backgroundColor: color, borderColor: color }
-          : { backgroundColor: 'transparent', borderColor: color },
+          : { backgroundColor: 'transparent', borderColor: COLORS.border },
         disabled && styles.circleDisabled,
         animatedStyle,
       ]}
@@ -85,7 +87,7 @@ const RPECircle: React.FC<RPECircleProps> = ({
       <Text
         style={[
           styles.circleText,
-          { color: isSelected ? '#FFFFFF' : color },
+          { color: isSelected ? '#FFFFFF' : COLORS.text.secondary },
           disabled && styles.textDisabled,
         ]}
       >
@@ -103,7 +105,7 @@ const RPESelector: React.FC<RPESelectorProps> = ({
   return (
     <Animated.View entering={FadeInDown.duration(400)} style={styles.container}>
       <Text style={[styles.label, disabled && styles.textDisabled]}>
-        Rate Your Effort (RPE)
+        RPE
       </Text>
       <View style={styles.row}>
         {RPE_VALUES.map((rpe) => (
@@ -120,17 +122,19 @@ const RPESelector: React.FC<RPESelectorProps> = ({
   );
 };
 
-const CIRCLE_SIZE = 32;
+const CIRCLE_SIZE = 38;
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.xs,
   },
   label: {
     fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 14,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.md,
+    fontSize: 12,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginBottom: SPACING.sm,
   },
   row: {
     flexDirection: 'row',
@@ -141,13 +145,13 @@ const styles = StyleSheet.create({
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: RADIUS.full,
-    borderWidth: 2,
+    borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   circleText: {
-    fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 12,
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 14,
   },
   circleDisabled: {
     opacity: 0.4,

@@ -282,3 +282,27 @@ export const SEMANTIC_PALETTE = {
 } as const;
 
 export type SemanticTier = keyof typeof SEMANTIC_PALETTE;
+
+// Timer design tokens — used by SkiaRestTimer and related components
+export const TIMER_COLORS = {
+    calm:        '#0FA888',               // mint — full rest
+    caution:     '#D97706',               // amber — ~30% remaining
+    urgent:      '#DC2626',               // red — ~15% remaining
+    glow:        'rgba(15, 168, 136, 0.35)',
+    glowUrgent:  'rgba(220, 38, 38, 0.35)',
+    overlay:     'rgba(10, 12, 20, 0.92)',
+    track:       'rgba(255, 255, 255, 0.06)',
+    particle:    'rgba(15, 168, 136, 0.22)',
+} as const;
+
+export const TIMER_DIMENSIONS = {
+    ringSize:              280,
+    ringStroke:            10,
+    glowStroke:            18,
+    glowSigmaCalm:         8,
+    glowSigmaUrgent:       14,
+    breathingRadiusMin:    130,
+    breathingRadiusMax:    140,
+    breathingDuration:     4000,
+    endCapRadius:          6,
+} as const;

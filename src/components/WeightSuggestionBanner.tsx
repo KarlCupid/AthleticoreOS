@@ -1,12 +1,13 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import * as Haptics from 'expo-haptics';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { AnimatedPressable } from './AnimatedPressable';
 
 interface WeightSuggestionBannerProps {
   lastWeight: number;
@@ -33,43 +34,49 @@ const WeightSuggestionBanner: React.FC<WeightSuggestionBannerProps> = ({
 }) => {
   const rpeDisplay = lastRPE !== null ? ` @ RPE ${lastRPE}` : '';
 
+  const handleAccept = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onAccept();
+  };
+
   return (
     <Animated.View
-      entering={FadeInDown.duration(500).springify()}
-      style={[styles.container, SHADOWS.card]}
+      entering={FadeInDown.duration(400).springify()}
+      style={styles.container}
     >
-      {isDeload && (
-        <View style={styles.deloadBadge}>
-          <Text style={styles.deloadBadgeText}>Deload</Text>
-        </View>
-      )}
+      <View style={styles.topRow}>
+        {isDeload && (
+          <View style={styles.deloadChip}>
+            <Text style={styles.deloadChipText}>DELOAD</Text>
+          </View>
+        )}
+        <Text style={styles.lastLine}>
+          Last: {lastWeight}×{lastReps}{rpeDisplay}
+        </Text>
+      </View>
 
-      <Text style={styles.lastLine}>
-        Last: {lastWeight}x{lastReps}{rpeDisplay}
+      <Text style={styles.suggestion}>
+        Try {suggestedWeight} × {suggestedReps}
       </Text>
 
-      <Text style={styles.suggestionLine}>
-        Try {suggestedWeight}x{suggestedReps}
-      </Text>
-
-      <Text style={styles.reasoningText}>{reasoning}</Text>
+      <Text style={styles.reasoning}>{reasoning}</Text>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity
-          onPress={onAccept}
-          activeOpacity={0.7}
+        <AnimatedPressable
+          onPress={handleAccept}
+          activeScale={0.94}
           style={styles.acceptButton}
         >
-          <Text style={styles.acceptButtonText}>Accept</Text>
-        </TouchableOpacity>
+          <Text style={styles.acceptText}>Accept</Text>
+        </AnimatedPressable>
 
-        <TouchableOpacity
+        <AnimatedPressable
           onPress={onModify}
-          activeOpacity={0.7}
+          activeScale={0.94}
           style={styles.modifyButton}
         >
-          <Text style={styles.modifyButtonText}>Modify</Text>
-        </TouchableOpacity>
+          <Text style={styles.modifyText}>Modify</Text>
+        </AnimatedPressable>
       </View>
     </Animated.View>
   );
@@ -77,47 +84,49 @@ const WeightSuggestionBanner: React.FC<WeightSuggestionBannerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.accent,
+    paddingLeft: SPACING.md,
+    gap: SPACING.xs,
   },
-  deloadBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#166534',
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  deloadChip: {
+    backgroundColor: COLORS.accent,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
-    marginBottom: SPACING.sm,
   },
-  deloadBadgeText: {
-    fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 11,
+  deloadChipText: {
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 10,
     color: '#FFFFFF',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   lastLine: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 13,
-    color: COLORS.text.secondary,
-    marginBottom: SPACING.xs,
+    color: COLORS.text.tertiary,
   },
-  suggestionLine: {
+  suggestion: {
     fontFamily: FONT_FAMILY.extraBold,
-    fontSize: 22,
+    fontSize: 24,
     color: COLORS.text.primary,
-    marginBottom: SPACING.xs,
+    letterSpacing: -0.3,
   },
-  reasoningText: {
+  reasoning: {
     fontFamily: FONT_FAMILY.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.text.secondary,
-    lineHeight: 18,
-    marginBottom: SPACING.md,
+    lineHeight: 19,
   },
   buttonRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   acceptButton: {
     flex: 1,
@@ -127,27 +136,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  acceptButtonText: {
-    fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 14,
+  acceptText: {
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 15,
     color: '#FFFFFF',
   },
   modifyButton: {
     flex: 1,
     backgroundColor: 'transparent',
     borderRadius: RADIUS.md,
-    borderWidth: 1.5,
-    borderColor: COLORS.accent,
+    borderWidth: 2,
+    borderColor: COLORS.border,
     paddingVertical: SPACING.sm + 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modifyButtonText: {
-    fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 14,
-    color: COLORS.accent,
+  modifyText: {
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 15,
+    color: COLORS.text.secondary,
   },
 });
 
 export default WeightSuggestionBanner;
-
