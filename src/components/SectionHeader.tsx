@@ -59,9 +59,11 @@ const styles = StyleSheet.create({
         gap: SPACING.sm,
     },
     title: {
-        fontSize: 18,
-        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 22,
+        fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
+        letterSpacing: -0.5,
+        textTransform: 'uppercase',
     },
     badge: {
         backgroundColor: COLORS.accentLight,

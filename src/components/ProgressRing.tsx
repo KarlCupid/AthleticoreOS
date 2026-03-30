@@ -11,6 +11,7 @@ interface ProgressRingProps {
     trackColor?: string;
     label?: string;
     labelStyle?: any;
+    textColor?: string;
 }
 
 export function ProgressRing({
@@ -21,6 +22,7 @@ export function ProgressRing({
     trackColor = COLORS.borderLight,
     label,
     labelStyle,
+    textColor = COLORS.text.primary,
 }: ProgressRingProps) {
     const radius = (size - strokeWidth) / 2;
     const center = size / 2;
@@ -30,7 +32,7 @@ export function ProgressRing({
         return (
             <View style={[styles.container, { width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: trackColor, alignItems: 'center', justifyContent: 'center' }]}>
                 {label !== undefined && (
-                    <Text style={[styles.label, labelStyle]} numberOfLines={1}>
+                    <Text style={[styles.label, { color: textColor }, labelStyle]} numberOfLines={1}>
                         {label}
                     </Text>
                 )}
@@ -78,7 +80,7 @@ export function ProgressRing({
             </Canvas>
             {label !== undefined && (
                 <View style={styles.labelContainer}>
-                    <Text style={[styles.label, labelStyle]} numberOfLines={1}>
+                    <Text style={[styles.label, { color: textColor }, labelStyle]} numberOfLines={1}>
                         {label}
                     </Text>
                 </View>

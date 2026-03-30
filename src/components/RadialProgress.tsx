@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 
@@ -12,6 +12,7 @@ interface RadialProgressProps {
     label?: string;
     sublabel?: string;
     icon?: React.ReactNode;
+    textColor?: string;
 }
 
 export function RadialProgress({
@@ -23,6 +24,7 @@ export function RadialProgress({
     label,
     sublabel,
     icon,
+    textColor = COLORS.text.primary,
 }: RadialProgressProps) {
     const radius = (size - strokeWidth) / 2;
     const center = size / 2;
@@ -44,6 +46,29 @@ export function RadialProgress({
             radius * 2
         );
         progressPath.addArc(rect, startAngle, sweepAngle);
+    }
+
+    if (Platform.OS === 'web') {
+        return (
+            <View style={[styles.container, { width: size }]}>
+                <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: trackColor, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={styles.centerContent}>
+                        {icon ? (
+                            icon
+                        ) : label ? (
+                            <Text style={[styles.centerLabel, { color: textColor }]} numberOfLines={1}>
+                                {label}
+                            </Text>
+                        ) : null}
+                    </View>
+                </View>
+                {sublabel && (
+                    <Text style={styles.sublabel} numberOfLines={1}>
+                        {sublabel}
+                    </Text>
+                )}
+            </View>
+        );
     }
 
     return (
@@ -71,14 +96,14 @@ export function RadialProgress({
                     {icon ? (
                         icon
                     ) : label ? (
-                        <Text style={styles.centerLabel} numberOfLines={1}>
+                        <Text style={[styles.centerLabel, { color: textColor }]} numberOfLines={1}>
                             {label}
                         </Text>
                     ) : null}
                 </View>
             </View>
             {sublabel && (
-                <Text style={styles.sublabel} numberOfLines={1}>
+                <Text style={[styles.sublabel, { color: 'rgba(255,255,255,0.7)' }]} numberOfLines={1}>
                     {sublabel}
                 </Text>
             )}

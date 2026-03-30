@@ -4,7 +4,7 @@ import { Card } from './Card';
 import { AnimatedNumber } from './AnimatedNumber';
 import { ProgressRing } from './ProgressRing';
 import { IconWaterDrop } from './icons';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { DailyCutProtocolRow } from '../../lib/engine/types';
 
 interface DashboardNutritionCardProps {
@@ -59,7 +59,9 @@ export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }
                         size={56}
                         strokeWidth={5}
                         color={COLORS.chart.protein}
+                        trackColor="rgba(255,255,255,0.1)"
                         label={`${Math.round(actualNutrition.protein)}`}
+                        textColor="#FFF"
                     />
                     <Text style={styles.macroRingLabel}>Protein</Text>
                     <Text style={styles.macroRingSub}>{targets.protein}g</Text>
@@ -70,7 +72,9 @@ export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }
                         size={56}
                         strokeWidth={5}
                         color={COLORS.chart.carbs}
+                        trackColor="rgba(255,255,255,0.1)"
                         label={`${Math.round(actualNutrition.carbs)}`}
+                        textColor="#FFF"
                     />
                     <Text style={styles.macroRingLabel}>Carbs</Text>
                     <Text style={styles.macroRingSub}>{targets.carbs}g</Text>
@@ -81,7 +85,9 @@ export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }
                         size={56}
                         strokeWidth={5}
                         color={COLORS.chart.fat}
+                        trackColor="rgba(255,255,255,0.1)"
                         label={`${Math.round(actualNutrition.fat)}`}
+                        textColor="#FFF"
                     />
                     <Text style={styles.macroRingLabel}>Fat</Text>
                     <Text style={styles.macroRingSub}>{targets.fat}g</Text>
@@ -162,7 +168,11 @@ export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }
 
 const styles = StyleSheet.create({
     nutritionCard: {
-        padding: SPACING.lg,
+        padding: SPACING.xl,
+        backgroundColor: '#18181B', // Zinc 900
+        borderRadius: RADIUS.xxl,
+        borderWidth: 0,
+        ...SHADOWS.md,
     },
     calorieHero: {
         flexDirection: 'row',
@@ -171,15 +181,15 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.lg,
     },
     calorieValue: {
-        fontSize: 36,
+        fontSize: 48,
         fontFamily: FONT_FAMILY.black,
-        color: COLORS.text.primary,
-        letterSpacing: -0.8,
+        color: '#FFF',
+        letterSpacing: -1.5,
     },
     calorieTarget: {
-        fontSize: 16,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
+        fontSize: 18,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.7)',
         marginLeft: SPACING.xs,
     },
     macroRingsRow: {
@@ -191,15 +201,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     macroRingLabel: {
-        fontSize: 12,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-        marginTop: SPACING.sm,
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: '#FFF',
+        marginTop: SPACING.md,
     },
     macroRingSub: {
         fontSize: 11,
         fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
+        color: 'rgba(255,255,255,0.6)',
         marginTop: 1,
     },
     hydrationRow: {
@@ -207,8 +217,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: SPACING.sm,
         paddingTop: SPACING.sm,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: COLORS.border,
+        borderTopWidth: 2,
+        borderTopColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 1, // To give the thin line soft edges
     },
     hydrationBarWrap: {
         flex: 1,
@@ -216,7 +227,7 @@ const styles = StyleSheet.create({
     hydrationBarBg: {
         height: 6,
         borderRadius: 3,
-        backgroundColor: COLORS.borderLight,
+        backgroundColor: 'rgba(255,255,255,0.1)',
         overflow: 'hidden',
     },
     hydrationBarFill: {
@@ -227,14 +238,15 @@ const styles = StyleSheet.create({
     hydrationText: {
         fontSize: 12,
         fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.secondary,
+        color: '#FFF',
     },
     // Cut specific styles
     cutProtocolContainer: {
         marginTop: SPACING.lg,
         paddingTop: SPACING.md,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: COLORS.border,
+        borderTopWidth: 2,
+        borderTopColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 1,
         gap: SPACING.sm,
     },
     cutTagsRow: {
@@ -244,13 +256,13 @@ const styles = StyleSheet.create({
     },
     sodiumBlock: {
         alignItems: 'center',
-        backgroundColor: COLORS.surfaceSecondary,
+        backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: RADIUS.md,
         paddingVertical: 6,
         paddingHorizontal: 10,
     },
-    sodiumValue: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.text.primary },
-    sodiumLabel: { fontFamily: FONT_FAMILY.regular, fontSize: 9, color: COLORS.text.secondary },
+    sodiumValue: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#FFF' },
+    sodiumLabel: { fontFamily: FONT_FAMILY.regular, fontSize: 9, color: 'rgba(255,255,255,0.6)' },
     refeedBadge: {
         backgroundColor: 'rgba(251,191,36,0.15)',
         paddingHorizontal: 8,
@@ -261,7 +273,7 @@ const styles = StyleSheet.create({
     sodiumInstruction: {
         fontFamily: FONT_FAMILY.regular,
         fontSize: 12,
-        color: COLORS.text.secondary,
+        color: 'rgba(255,255,255,0.7)',
         fontStyle: 'italic',
         marginTop: 2,
     },
@@ -269,11 +281,11 @@ const styles = StyleSheet.create({
         marginTop: SPACING.sm,
         marginBottom: SPACING.xs,
     },
-    expandText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: COLORS.text.primary, letterSpacing: 0.5, textTransform: 'uppercase' },
+    expandText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: '#FFF', letterSpacing: 0.5, textTransform: 'uppercase' },
     scheduleBlock: { gap: SPACING.sm },
     scheduleRow: { flexDirection: 'row', gap: SPACING.xs },
     scheduleIcon: { fontSize: 16 },
     scheduleTextBlock: { flex: 1 },
-    scheduleLabel: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: COLORS.text.primary },
-    scheduleBody: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, marginTop: 1 },
+    scheduleLabel: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: '#FFF' },
+    scheduleBody: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
 });

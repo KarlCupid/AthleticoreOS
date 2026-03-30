@@ -7,11 +7,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
-  Inter_400Regular,
-  Inter_600SemiBold,
-  Inter_800ExtraBold,
-  Inter_900Black,
-} from '@expo-google-fonts/inter';
+  Outfit_400Regular,
+  Outfit_600SemiBold,
+  Outfit_800ExtraBold,
+  Outfit_900Black,
+} from '@expo-google-fonts/outfit';
 import { supabase } from './lib/supabase';
 import { getPlanningSetupStatus } from './lib/api/planningSetupService';
 import { AuthScreen } from './src/screens/AuthScreen';
@@ -39,10 +39,10 @@ export default function App() {
   const [checkingProfile, setCheckingProfile] = useState(false);
 
   const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_600SemiBold,
-    Inter_800ExtraBold,
-    Inter_900Black,
+    Outfit_400Regular,
+    Outfit_600SemiBold,
+    Outfit_800ExtraBold,
+    Outfit_900Black,
   });
 
   useEffect(() => {

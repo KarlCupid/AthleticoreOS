@@ -1,10 +1,12 @@
+import { StyleSheet } from 'react-native';
+
 export const COLORS = {
-    background: '#F0F4F5',
+    background: '#F9FAFB', // Lighter, cleaner background
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
-    surfaceSecondary: '#E8EEF1',
-    border: '#D0DAE0',
-    borderLight: '#E4ECEF',
+    surfaceSecondary: '#F3F6F8', // Lighter secondary background
+    border: '#E8ECF0',
+    borderLight: '#F0F3F5',
 
     // Accent palette — premium mint
     accent: '#0FA888',
@@ -56,28 +58,28 @@ export const GRADIENTS = {
     prime: ['#0FA888', '#0D8A70', '#0B7860'] as const,
     caution: ['#D97706', '#B45309', '#92400E'] as const,
     depleted: ['#DC2626', '#B91C1C', '#991B1B'] as const,
-    card: ['#FFFFFF', '#F5F8FA'] as const,
+    card: ['#FFFFFF', '#FDFEFE'] as const,
     accent: ['#0FA888', '#0D8A70'] as const,
 };
 
 export const BORDERS = {
-    card: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)' },
-    elevated: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.10)' },
-    accent: { borderWidth: 1, borderColor: 'rgba(15,168,136,0.25)' },
+    card: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.05)' },
+    elevated: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.08)' },
+    accent: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(15,168,136,0.30)' },
     glow: { borderWidth: 1, borderColor: 'rgba(15,168,136,0.40)' },
 } as const;
 
 export const FONT_FAMILY = {
-    regular: 'Inter_400Regular',
-    semiBold: 'Inter_600SemiBold',
-    extraBold: 'Inter_800ExtraBold',
-    black: 'Inter_900Black',
+    regular: 'Outfit_400Regular',
+    semiBold: 'Outfit_600SemiBold',
+    extraBold: 'Outfit_800ExtraBold',
+    black: 'Outfit_900Black',
 } as const;
 
 // V1 — retained for backward compatibility during migration
 export const TYPOGRAPHY_LEGACY = {
     // Legacy compat
-    sans: 'Inter_400Regular',
+    sans: 'Outfit_400Regular',
 
     display: {
         fontSize: 36,
@@ -191,68 +193,68 @@ export const RADIUS = {
 } as const;
 
 export const SHADOWS = {
-    sm: {
-        shadowColor: '#000',
+    sm: { // Subtler glassy feel
+        shadowColor: '#1C2B3A',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
+        shadowOpacity: 0.03,
+        shadowRadius: 3,
         elevation: 1,
     },
-    card: {
+    card: { // The new default subtle glassy elevation
         shadowColor: '#1C2B3A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 16,
         elevation: 2,
     },
     md: {
         shadowColor: '#1C2B3A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 16,
         elevation: 2,
     },
     cardElevated: {
         shadowColor: '#1C2B3A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.10,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 24,
         elevation: 4,
     },
     lg: {
         shadowColor: '#1C2B3A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.10,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 24,
         elevation: 4,
     },
     xl: {
         shadowColor: '#1C2B3A',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.14,
-        shadowRadius: 28,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 32,
         elevation: 6,
     },
     header: {
         shadowColor: '#1C2B3A',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 20,
+        shadowOpacity: 0.06,
+        shadowRadius: 24,
         elevation: 8,
     },
     colored: {
         prime: {
             shadowColor: COLORS.readiness.prime,
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.30,
-            shadowRadius: 12,
+            shadowOpacity: 0.15,
+            shadowRadius: 16,
             elevation: 4,
         },
         accent: {
             shadowColor: COLORS.accent,
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.30,
-            shadowRadius: 12,
+            shadowOpacity: 0.15,
+            shadowRadius: 16,
             elevation: 4,
         },
     },

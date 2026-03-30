@@ -96,6 +96,7 @@ export function DailyMissionCard({ mission, compact = false }: DailyMissionCardP
 const styles = StyleSheet.create({
   card: {
     gap: SPACING.md,
+    padding: SPACING.lg,
   },
   headerRow: {
     flexDirection: 'row',
@@ -113,30 +114,32 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontFamily: FONT_FAMILY.black,
-    fontSize: 20,
+    fontSize: 24,
+    letterSpacing: -0.5,
     color: COLORS.text.primary,
   },
   headlineCompact: {
     fontFamily: FONT_FAMILY.extraBold,
-    fontSize: 16,
+    fontSize: 18,
     color: COLORS.text.primary,
     lineHeight: 22,
   },
   summary: {
     fontFamily: FONT_FAMILY.regular,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.text.secondary,
     lineHeight: 20,
   },
   riskChip: {
     alignSelf: 'flex-start',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
     borderRadius: RADIUS.full,
   },
   riskChipText: {
-    fontFamily: FONT_FAMILY.semiBold,
-    fontSize: 11,
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   section: {
     gap: SPACING.xs,

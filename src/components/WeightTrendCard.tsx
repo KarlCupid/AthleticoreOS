@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { AnimatedPressable } from './AnimatedPressable';
 import { Card } from './Card';
 import type { WeightTrendResult, WeightCutStatus } from '../../lib/engine/types';
@@ -123,7 +123,11 @@ export function WeightTrendCard({ trend, baseWeight, targetWeight, onPress }: We
 
 const styles = StyleSheet.create({
     card: {
-        padding: SPACING.lg,
+        padding: SPACING.xl,
+        backgroundColor: '#18181B', // Zinc 900 dark mode
+        borderRadius: RADIUS.xxl,
+        borderWidth: 0,
+        ...SHADOWS.md,
     },
     headerRow: {
         flexDirection: 'row',
@@ -133,8 +137,9 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 16,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
+        fontFamily: FONT_FAMILY.black,
+        letterSpacing: 0.5,
+        color: '#FFF',
     },
     statusBadge: {
         paddingHorizontal: SPACING.sm + 4,
@@ -155,20 +160,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     statValue: {
-        fontSize: 20,
-        fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.primary,
+        fontSize: 32,
+        fontFamily: FONT_FAMILY.black,
+        color: '#FFF',
+        letterSpacing: -1,
     },
     statLabel: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.6)',
         marginTop: 2,
     },
     divider: {
-        width: 1,
+        width: 2,
         height: 28,
-        backgroundColor: COLORS.border,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 1,
     },
     velocityRow: {
         flexDirection: 'row',
@@ -176,8 +183,8 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     arrow: {
-        fontSize: 18,
-        fontFamily: FONT_FAMILY.extraBold,
+        fontSize: 24,
+        fontFamily: FONT_FAMILY.black,
     },
     progressSection: {
         marginBottom: SPACING.sm,
@@ -188,45 +195,45 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.xs,
     },
     progressLabel: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.7)',
     },
     progressPct: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.secondary,
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.black,
+        color: '#FFF',
     },
     progressTrack: {
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: COLORS.borderLight,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'rgba(255,255,255,0.1)',
         overflow: 'hidden',
     },
     progressFill: {
         height: '100%',
-        borderRadius: 3,
+        borderRadius: 4,
     },
     projectionRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: SPACING.xs,
-        marginBottom: SPACING.sm,
+        marginBottom: SPACING.md,
     },
     projectionLabel: {
         fontSize: 12,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.6)',
     },
     projectionDate: {
-        fontSize: 12,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.black,
+        color: '#FFF',
     },
     message: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.secondary,
-        lineHeight: 18,
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: 'rgba(255,255,255,0.8)',
+        lineHeight: 20,
     },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { CartesianChart, Bar } from 'victory-native';
+import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 
@@ -31,24 +32,27 @@ export function TrainingLoadChartCard({ trainingLoadData, acute, chronic, acwr }
                                 <Bar
                                     points={points.fitness}
                                     chartBounds={chartBounds}
-                                    color={COLORS.chart.fitness}
-                                    roundedCorners={{ topLeft: 8, topRight: 8 }}
-                                    barWidth={40}
-                                />
+                                    roundedCorners={{ topLeft: 12, topRight: 12, bottomLeft: 4, bottomRight: 4 }}
+                                    barWidth={28}
+                                >
+                                    <LinearGradient start={vec(0, chartBounds.bottom)} end={vec(0, chartBounds.top)} colors={[COLORS.chart.fitness + '40', COLORS.chart.fitness]} />
+                                </Bar>
                                 <Bar
                                     points={points.fatigue}
                                     chartBounds={chartBounds}
-                                    color={acute > chronic * 1.2 ? COLORS.readiness.depleted : COLORS.chart.fatigue}
-                                    roundedCorners={{ topLeft: 8, topRight: 8 }}
-                                    barWidth={40}
-                                />
+                                    roundedCorners={{ topLeft: 12, topRight: 12, bottomLeft: 4, bottomRight: 4 }}
+                                    barWidth={28}
+                                >
+                                    <LinearGradient start={vec(0, chartBounds.bottom)} end={vec(0, chartBounds.top)} colors={[(acute > chronic * 1.2 ? COLORS.readiness.depleted : COLORS.chart.fatigue) + '40', acute > chronic * 1.2 ? COLORS.readiness.depleted : COLORS.chart.fatigue]} />
+                                </Bar>
                                 <Bar
                                     points={points.readiness}
                                     chartBounds={chartBounds}
-                                    color={COLORS.chart.readiness}
-                                    roundedCorners={{ topLeft: 8, topRight: 8 }}
-                                    barWidth={40}
-                                />
+                                    roundedCorners={{ topLeft: 12, topRight: 12, bottomLeft: 4, bottomRight: 4 }}
+                                    barWidth={28}
+                                >
+                                    <LinearGradient start={vec(0, chartBounds.bottom)} end={vec(0, chartBounds.top)} colors={[COLORS.chart.readiness + '40', COLORS.chart.readiness]} />
+                                </Bar>
                             </>
                         )}
                     </CartesianChart>

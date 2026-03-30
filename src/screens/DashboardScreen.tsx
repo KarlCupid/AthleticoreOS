@@ -33,6 +33,8 @@ import { PrescriptionCard } from "../components/PrescriptionCard";
 import { WeightTrendCard } from "../components/WeightTrendCard";
 import { SafetyStatusIndicator } from "../components/SafetyStatusIndicator";
 import { ActivityCard } from "../components/ActivityCard";
+import { ActiveCampBanner } from "../components/ActiveCampBanner";
+import { RadialProgress } from "../components/RadialProgress";
 
 import type {
   DailyCutProtocolRow,
@@ -592,10 +594,16 @@ export function DashboardScreen() {
             <View style={styles.heroMetricsBlock}>
                 <View style={styles.readinessMain}>
                     <Text style={styles.readinessLabel}>READINESS</Text>
-                    <Text style={[styles.readinessScoreValue, { color: getReadinessColor(homeState.training.readinessScore) }]}>
-                        {Math.round(homeState.training.readinessScore)}
-                    </Text>
-                    <Text style={styles.readinessLevel}>{currentLevel}</Text>
+                    <RadialProgress 
+                        progress={homeState.training.readinessScore / 100}
+                        size={120}
+                        strokeWidth={12}
+                        color={getReadinessColor(homeState.training.readinessScore)}
+                        trackColor="rgba(255,255,255,0.1)"
+                        label={Math.round(homeState.training.readinessScore).toString()}
+                        sublabel={currentLevel}
+                        textColor="#FFF"
+                    />
                 </View>
                 
                 <View style={styles.secondaryMetricsList}>
@@ -652,100 +660,62 @@ export function DashboardScreen() {
             </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={styles.quickActionStrip}>
+        <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={styles.quickActionGrid}>
             <AnimatedPressable
-                style={styles.quickActionPill}
+                style={[styles.quickActionBlock, { backgroundColor: COLORS.accent }]}
                 onPress={() => navigation.navigate("Log")}
             >
-                <View
-                style={[
-                    styles.quickActionIconWrap,
-                    {
-                    backgroundColor: checkinDone
-                        ? COLORS.success + "18"
-                        : COLORS.accentLight,
-                    },
-                ]}
-                >
-                {checkinDone ? (
-                    <IconActivity size={14} color={COLORS.success} />
-                ) : (
-                    <IconActivity size={14} color={COLORS.accent} />
-                )}
+                <View style={styles.quickActionIconContainer}>
+                   <IconActivity size={24} color="#FFF" />
                 </View>
-                <Text
-                style={[
-                    styles.quickActionLabel,
-                    checkinDone && styles.quickActionLabelDone,
-                ]}
-                >
-                Check in
+                <Text style={[styles.quickActionLabelBlock, checkinDone && styles.quickActionLabelDoneBlock]}>
+                   Check In
                 </Text>
             </AnimatedPressable>
+            
             <AnimatedPressable
-                style={styles.quickActionPill}
-                onPress={() => {
-                void openTodayTraining();
-                }}
+                style={[styles.quickActionBlock, { backgroundColor: COLORS.chart.protein }]} // using dark orange/red as a proxy for train/fire, let's use a nice custom hex or use Protein color
+                onPress={() => void openTodayTraining()}
             >
-                <View
-                style={[
-                    styles.quickActionIconWrap,
-                    {
-                    backgroundColor: sessionDone
-                        ? COLORS.success + "18"
-                        : COLORS.readiness.cautionLight,
-                    },
-                ]}
-                >
-                {sessionDone ? (
-                    <IconFire size={14} color={COLORS.success} />
-                ) : (
-                    <IconFire size={14} color={COLORS.chart.accent} />
-                )}
+                <View style={styles.quickActionIconContainer}>
+                   <IconFire size={24} color="#FFF" />
                 </View>
-                <Text
-                style={[
-                    styles.quickActionLabel,
-                    sessionDone && styles.quickActionLabelDone,
-                ]}
-                >
-                Train
+                <Text style={[styles.quickActionLabelBlock, sessionDone && styles.quickActionLabelDoneBlock]}>
+                   Train
                 </Text>
             </AnimatedPressable>
+
             <AnimatedPressable
-                style={styles.quickActionPill}
+                style={[styles.quickActionBlock, { backgroundColor: '#F59E0B' }]} // vivid amber for Fuel
                 onPress={() => openFuelScreen("NutritionHome")}
             >
-                <View
-                style={[
-                    styles.quickActionIconWrap,
-                    { backgroundColor: COLORS.chart.protein + "18" },
-                ]}
-                >
-                <IconRestaurant size={14} color={COLORS.chart.protein} />
+                <View style={styles.quickActionIconContainer}>
+                   <IconRestaurant size={24} color="#FFF" />
                 </View>
-                <Text style={styles.quickActionLabel}>Fuel</Text>
+                <Text style={styles.quickActionLabelBlock}>
+                   Fuel
+                </Text>
             </AnimatedPressable>
+
             <AnimatedPressable
-                style={styles.quickActionPill}
+                style={[styles.quickActionBlock, { backgroundColor: '#3B82F6' }]} // vivid blue for Calendar/Setup
                 onPress={openPlanningSurface}
             >
-                <View
-                style={[
-                    styles.quickActionIconWrap,
-                    { backgroundColor: COLORS.chart.readiness + "18" },
-                ]}
-                >
-                <IconCalendar size={14} color={COLORS.chart.readiness} />
+                <View style={styles.quickActionIconContainer}>
+                   <IconCalendar size={24} color="#FFF" />
                 </View>
-                <Text style={styles.quickActionLabel}>
-                {homeState.schedule.hasLivePlanningState
-                    ? "Calendar"
-                    : "Setup"}
+                <Text style={styles.quickActionLabelBlock}>
+                   {homeState.schedule.hasLivePlanningState ? "Calendar" : "Setup"}
                 </Text>
             </AnimatedPressable>
         </Animated.View>
+
+        {/* The New Active Camp Banner positioned right below the grid */}
+        {hasActiveFightCamp && (
+            <Animated.View entering={FadeInDown.delay(D * 1.5).duration(ANIMATION.slow).springify()}>
+                <ActiveCampBanner goalMode={goalMode} />
+            </Animated.View>
+        )}
 
         <View style={styles.content}>
           {showWhyToday && dailyMission ? (
@@ -889,65 +859,6 @@ export function DashboardScreen() {
             </AnimatedPressable>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.delay(D * 7)
-              .duration(ANIMATION.slow)
-              .springify()}
-            style={{ marginTop: SPACING.xl }}
-          >
-            <Card>
-              <View style={styles.phaseControlHeader}>
-                <Text style={styles.phaseControlEyebrow}>PHASE CONTROL</Text>
-                <Text style={styles.phaseControlCurrentMode}>
-                  {phaseControl.currentModeLabel}
-                </Text>
-              </View>
-              <Text style={styles.phaseControlTitle}>{phaseControl.title}</Text>
-              <Text style={styles.phaseControlDescription}>
-                {phaseControl.description}
-              </Text>
-
-              <View style={styles.phaseControlSummaryRow}>
-                <View style={styles.phaseControlSummaryBlock}>
-                  <Text style={styles.phaseControlSummaryLabel}>
-                    Current Mode
-                  </Text>
-                  <Text style={styles.phaseControlSummaryValue}>
-                    {phaseControl.currentModeLabel}
-                  </Text>
-                </View>
-                <View style={styles.phaseControlSummaryDivider} />
-                <View style={styles.phaseControlSummaryBlock}>
-                  <Text style={styles.phaseControlSummaryLabel}>
-                    Current Phase
-                  </Text>
-                  <Text style={styles.phaseControlSummaryValue}>
-                    {campStatusLabel}
-                  </Text>
-                </View>
-              </View>
-
-              <AnimatedPressable
-                style={styles.phaseControlPrimaryButton}
-                onPress={openFightCampSetup}
-              >
-                <Text style={styles.phaseControlPrimaryText}>
-                  {phaseControl.primaryLabel}
-                </Text>
-              </AnimatedPressable>
-
-              {phaseControl.secondaryLabel ? (
-                <AnimatedPressable
-                  style={styles.phaseControlSecondaryButton}
-                  onPress={handleSwitchToBuildPhase}
-                >
-                  <Text style={styles.phaseControlSecondaryText}>
-                    {phaseControl.secondaryLabel}
-                  </Text>
-                </AnimatedPressable>
-              ) : null}
-            </Card>
-          </Animated.View>
 
           {shouldShowFirstRunChecklist && firstRunGuidance ? (
             <Animated.View
