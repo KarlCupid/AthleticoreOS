@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS, ANIMATION } from '../theme/theme';
@@ -11,7 +11,7 @@ interface PrescriptionCardProps {
     enteringDelay?: number;
 }
 
-export function PrescriptionCard({ message, entering = false, enteringDelay = 0 }: PrescriptionCardProps) {
+export const PrescriptionCard = memo(function PrescriptionCard({ message, entering = false, enteringDelay = 0 }: PrescriptionCardProps) {
     const { themeColor } = useReadinessTheme();
 
     if (!message) return null;
@@ -38,7 +38,7 @@ export function PrescriptionCard({ message, entering = false, enteringDelay = 0 
     }
 
     return content;
-}
+});
 
 const styles = StyleSheet.create({
     card: {

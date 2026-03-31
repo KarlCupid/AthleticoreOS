@@ -75,9 +75,11 @@ export function StatCard({
 const styles = StyleSheet.create({
     card: {
         width: '47%',
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderRadius: RADIUS.xl,
         padding: SPACING.md,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         ...SHADOWS.card,
     },
     header: {

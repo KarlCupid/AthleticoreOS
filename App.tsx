@@ -1,7 +1,7 @@
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,12 +23,14 @@ import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
 import { APP_CHROME, COLORS } from './src/theme/theme';
 import { logError } from './lib/utils/logger';
+import { AuroraBackground } from './src/components/AuroraBackground';
+import { OceanLoader } from './src/components/OceanLoader';
 
 const myTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: APP_CHROME.background,
+    background: 'transparent',
   },
 };
 
@@ -136,7 +138,7 @@ export default function App() {
   if (!fontsLoaded) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={COLORS.text.primary} />
+        <OceanLoader color={COLORS.text.primary} />
       </View>
     );
   }
@@ -145,7 +147,7 @@ export default function App() {
     <AuthScreen />
   ) : checkingProfile || hasProfile === null || (hasProfile && hasPlanningSetup === null) ? (
     <View style={[styles.container, styles.centered]}>
-      <ActivityIndicator size="large" color={COLORS.readiness.prime} />
+      <OceanLoader color={COLORS.readiness.prime} />
     </View>
   ) : !hasProfile ? (
     <OnboardingScreen onComplete={() => { setHasProfile(true); setHasPlanningSetup(false); }} />
@@ -162,6 +164,7 @@ export default function App() {
           <InteractionModeProvider>
             <NavigationContainer theme={myTheme} linking={appLinking}>
               <View style={styles.container}>
+                <AuroraBackground />
                 <StatusBar style="dark" />
                 {content}
               </View>

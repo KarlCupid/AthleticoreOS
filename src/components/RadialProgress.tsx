@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
@@ -15,7 +15,7 @@ interface RadialProgressProps {
     textColor?: string;
 }
 
-export function RadialProgress({
+export const RadialProgress = memo(function RadialProgress({
     progress,
     size = 100,
     strokeWidth = 8,
@@ -63,22 +63,28 @@ export function RadialProgress({
     }
 
     // Track path (full circle) - only run on native
-    const trackPath = Skia.Path.Make();
-    trackPath.addCircle(center, center, radius);
+    const trackPath = useMemo(() => {
+        const p = Skia.Path.Make();
+        p.addCircle(center, center, radius);
+        return p;
+    }, [center, radius]);
 
     // Progress arc path
-    const progressPath = Skia.Path.Make();
-    if (clampedProgress > 0) {
-        const startAngle = -90;
-        const sweepAngle = clampedProgress * 360;
-        const rect = Skia.XYWHRect(
-            center - radius,
-            center - radius,
-            radius * 2,
-            radius * 2
-        );
-        progressPath.addArc(rect, startAngle, sweepAngle);
-    }
+    const progressPath = useMemo(() => {
+        const p = Skia.Path.Make();
+        if (clampedProgress > 0) {
+            const startAngle = -90;
+            const sweepAngle = clampedProgress * 360;
+            const rect = Skia.XYWHRect(
+                center - radius,
+                center - radius,
+                radius * 2,
+                radius * 2
+            );
+            p.addArc(rect, startAngle, sweepAngle);
+        }
+        return p;
+    }, [center, radius, clampedProgress]);
 
     return (
         <View style={[styles.container, { width: size }]}>
@@ -118,7 +124,7 @@ export function RadialProgress({
             )}
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     container: {

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TYPOGRAPHY_V2 } from '../theme/theme';
 import { Card } from '../components/Card';
 import { IconPerson } from '../components/icons';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { ScreenWrapper } from '../components/ScreenWrapper';
 import { supabase } from '../../lib/supabase';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 
@@ -55,30 +57,39 @@ export function ProfileScreen() {
         phase.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
     return (
-        <View style={styles.container}>
-            <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
-                <Text style={styles.headerTitle}>Profile</Text>
+        <ScreenWrapper useSafeArea={true}>
+            <View style={styles.header}>
+                <ScreenHeader
+                    kicker="Me"
+                    title="Athlete Profile"
+                    subtitle={email}
+                />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.xxl }]} 
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Avatar & Name */}
                 <View style={styles.avatarSection}>
-                    <View style={[styles.avatar, { backgroundColor: themeColor + '20' }]}>
-                        <IconPerson size={40} color={themeColor} />
+                    <View style={styles.avatarGlassRing}>
+                        <View style={[styles.avatar, { backgroundColor: COLORS.surface }]}>
+                            <IconPerson size={44} color={COLORS.accent} />
+                        </View>
                     </View>
                     <Text style={styles.name}>Athlete</Text>
-                    <Text style={styles.email}>{email}</Text>
+                    <Text style={styles.statusBadge}>{profile?.fight_status ? profile.fight_status.toUpperCase() : 'ACTIVE'}</Text>
                 </View>
 
                 {/* Stats Row */}
-                <View style={styles.statsRow}>
+                <Card style={styles.statsRow} noPadding>
                     <View style={styles.statBox}>
                         <Text style={styles.statValue}>{totalSessions}</Text>
                         <Text style={styles.statLabel}>Sessions</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statBox}>
-                        <Text style={[styles.statValue, { color: themeColor }]}>{currentLevel}</Text>
+                        <Text style={[styles.statValue, { color: COLORS.accent }]}>{currentLevel}</Text>
                         <Text style={styles.statLabel}>Readiness</Text>
                     </View>
                     <View style={styles.statDivider} />
@@ -86,22 +97,21 @@ export function ProfileScreen() {
                         <Text style={styles.statValue}>{profile?.phase ? formatPhase(profile.phase) : '--'}</Text>
                         <Text style={styles.statLabel}>Phase</Text>
                     </View>
-                </View>
+                </Card>
 
                 {/* Details */}
                 {profile && (
-                    <Card title="Details">
+                    <Card variant="glass" style={{ marginBottom: SPACING.lg }}>
+                        <Text style={styles.sectionTitle}>Training Details</Text>
                         <DetailRow label="Fight Status" value={profile.fight_status.charAt(0).toUpperCase() + profile.fight_status.slice(1)} />
                         <DetailRow label="Biological Sex" value={profile.biological_sex.charAt(0).toUpperCase() + profile.biological_sex.slice(1)} />
 
-                        {/* Target Weight: Show Cut target with a tag if active, otherwise standard profile target */}
                         {activeCut ? (
                             <DetailRow label="Target Weight" value={`${activeCut.target_weight} lbs (Active Cut)`} />
                         ) : profile.target_weight ? (
                             <DetailRow label="Target Weight" value={`${profile.target_weight} lbs`} />
                         ) : null}
 
-                        {/* Fight Date: Show Weigh-in date with a tag if active, otherwise standard profile fight date */}
                         {activeCut ? (
                             <DetailRow label="Fight Date" value={`${new Date(activeCut.weigh_in_date).toLocaleDateString()} (Active Cut)`} />
                         ) : profile.fight_date ? (
@@ -112,10 +122,8 @@ export function ProfileScreen() {
                         <DetailRow label="Cycle Tracking" value={profile.cycle_tracking ? 'Enabled' : 'Disabled'} isLast />
                     </Card>
                 )}
-
-                <View style={{ height: SPACING.xxl }} />
             </ScrollView>
-        </View>
+        </ScreenWrapper>
     );
 }
 
@@ -133,91 +141,103 @@ const detailStyles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: SPACING.sm + 2,
+        paddingVertical: SPACING.md,
     },
     border: {
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomWidth: 1,
         borderBottomColor: COLORS.borderLight,
     },
     label: {
-        fontSize: 15,
+        fontSize: 14,
         fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.primary,
+        color: COLORS.text.secondary,
     },
     value: {
-        fontSize: 15,
+        fontSize: 14,
         fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.secondary,
+        color: COLORS.text.primary,
     },
 });
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
     header: {
-        paddingHorizontal: SPACING.lg,
-        paddingBottom: SPACING.md,
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontFamily: FONT_FAMILY.black,
-        color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        paddingHorizontal: SPACING.md,
+        paddingBottom: SPACING.sm,
     },
     content: {
-        padding: SPACING.lg,
+        padding: SPACING.md,
     },
     avatarSection: {
         alignItems: 'center',
         marginBottom: SPACING.xl,
+        marginTop: SPACING.md,
     },
-    avatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
+    avatarGlassRing: {
+        padding: 4,
+        borderRadius: 50,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         marginBottom: SPACING.md,
     },
-    name: {
-        fontSize: 22,
-        fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.primary,
+    avatar: {
+        width: 84,
+        height: 84,
+        borderRadius: 42,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    email: {
-        fontSize: 14,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.secondary,
-        marginTop: 2,
+    name: {
+        fontSize: 24,
+        fontFamily: FONT_FAMILY.black,
+        color: COLORS.text.primary,
+        letterSpacing: -0.5,
+    },
+    statusBadge: {
+        fontSize: 10,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.accent,
+        backgroundColor: COLORS.accent + '15',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: RADIUS.sm,
+        marginTop: SPACING.xs,
+        letterSpacing: 1,
     },
     statsRow: {
         flexDirection: 'row',
-        backgroundColor: COLORS.surface,
-        borderRadius: RADIUS.xl,
-        padding: SPACING.lg,
+        padding: SPACING.md,
         marginBottom: SPACING.lg,
-        ...SHADOWS.card,
+        alignItems: 'center',
     },
     statBox: {
         flex: 1,
         alignItems: 'center',
     },
     statValue: {
-        fontSize: 16,
+        fontSize: 18,
         fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
         marginBottom: 2,
     },
     statLabel: {
         fontSize: 11,
-        fontFamily: FONT_FAMILY.regular,
+        fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     statDivider: {
         width: 1,
+        height: 30,
         backgroundColor: COLORS.borderLight,
-        marginVertical: SPACING.xs,
+    },
+    sectionTitle: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: SPACING.sm,
     },
 });

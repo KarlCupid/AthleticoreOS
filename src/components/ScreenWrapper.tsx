@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { AuroraBackground } from './AuroraBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ScreenWrapperProps {
@@ -10,7 +9,7 @@ interface ScreenWrapperProps {
   useSafeArea?: boolean;
 }
 
-export function ScreenWrapper({
+export const ScreenWrapper = memo(function ScreenWrapper({
   children,
   style,
   contentContainerStyle,
@@ -20,9 +19,6 @@ export function ScreenWrapper({
 
   return (
     <View style={[styles.container, style]}>
-      {/* The Global OS Background */}
-      <AuroraBackground />
-      
       <View 
         style={[
           styles.content, 
@@ -34,12 +30,12 @@ export function ScreenWrapper({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A', // Slate 900 base fallback
+    backgroundColor: 'transparent', // Root background handles the fallback color
   },
   content: {
     flex: 1,

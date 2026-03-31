@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Alert,
+  InteractionManager,
   Modal,
   RefreshControl,
   ScrollView,
@@ -79,33 +80,38 @@ export function DashboardScreen() {
   const [showFirstRunModal, setShowFirstRunModal] = React.useState(false);
 
   React.useEffect(() => {
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    let isActive = true;
+    InteractionManager.runAfterInteractions(() => {
+      (async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (!session?.user) return;
+        if (!session?.user || !isActive) return;
 
-      const today = todayLocalDate();
-      const { data: plan } = await supabase
-        .from("weight_cut_plans")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .eq("status", "active")
-        .maybeSingle();
-
-      setActiveCutPlan(plan ?? null);
-
-      if (plan) {
-        const { data: proto } = await supabase
-          .from("daily_cut_protocols")
+        const today = todayLocalDate();
+        const { data: plan } = await supabase
+          .from("weight_cut_plans")
           .select("*")
-          .eq("plan_id", plan.id)
-          .eq("date", today)
+          .eq("user_id", session.user.id)
+          .eq("status", "active")
           .maybeSingle();
-        setTodayCutProtocol(proto ?? null);
-      }
-    })();
+
+        if (!isActive) return;
+        setActiveCutPlan(plan ?? null);
+
+        if (plan) {
+          const { data: proto } = await supabase
+            .from("daily_cut_protocols")
+            .select("*")
+            .eq("plan_id", plan.id)
+            .eq("date", today)
+            .maybeSingle();
+          if (isActive) setTodayCutProtocol(proto ?? null);
+        }
+      })();
+    });
+    return () => { isActive = false; };
   }, []);
 
   const loadFirstRunGuidance = React.useCallback(async () => {
@@ -126,7 +132,13 @@ export function DashboardScreen() {
   }, []);
 
   React.useEffect(() => {
-    void loadFirstRunGuidance();
+    let isActive = true;
+    InteractionManager.runAfterInteractions(() => {
+      if (isActive) {
+        void loadFirstRunGuidance();
+      }
+    });
+    return () => { isActive = false; };
   }, [loadFirstRunGuidance]);
 
   useFocusEffect(
@@ -163,11 +175,15 @@ export function DashboardScreen() {
   } = useDashboardData();
 
   const [showWhyToday, setShowWhyToday] = React.useState(false);
-  const compassVM = buildCompassViewModel(
-    dailyMission,
-    Boolean(workoutPrescription || todayPlanEntry),
-    checkinDone,
-    sessionDone,
+  const compassVM = React.useMemo(
+    () =>
+      buildCompassViewModel(
+        dailyMission,
+        Boolean(workoutPrescription || todayPlanEntry),
+        checkinDone,
+        sessionDone,
+      ),
+    [dailyMission, workoutPrescription, todayPlanEntry, checkinDone, sessionDone],
   );
 
   const homeState = React.useMemo(

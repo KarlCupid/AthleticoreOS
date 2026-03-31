@@ -6,9 +6,13 @@ import {
   Text,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInRight } from 'react-native-reanimated';
 
 import { supabase } from '../../lib/supabase';
 import type { AppRouteParamList } from '../navigation/types';
@@ -20,6 +24,7 @@ import { PlannerPhase } from './weeklyPlanSetup/PlannerPhase';
 import { styles } from './weeklyPlanSetup/styles';
 import { useWeeklyPlanSetupController } from './weeklyPlanSetup/useWeeklyPlanSetupController';
 import { getSetupPhaseIndex } from './weeklyPlanSetup/utils';
+import { GRADIENTS, COLORS } from '../theme/theme';
 
 interface WeeklyPlanSetupScreenProps {
   onComplete?: () => void;
@@ -92,6 +97,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     commitments,
     updateCommitment,
     removeCommitment,
+    addCommitment,
     autoDeloadInterval,
     setAutoDeloadInterval,
     durationPickerCommitmentId,
@@ -100,7 +106,6 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     handleNextPhase,
     handleBackPhase,
     handleSave,
-    addCommitment,
   } = controller;
 
   function renderCurrentPhase() {
@@ -187,58 +192,75 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#16A34A" />
+        <ActivityIndicator size="large" color={COLORS.accent} />
       </View>
     );
   }
 
+  const isLastPhase = phaseIndex === SETUP_PHASES.length - 1;
+  const proceedDisabled = isLastPhase ? saving : !canProceedPhase(phaseIndex);
+
   return (
-    <SafeAreaView style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBackPhase} style={styles.backButton} activeOpacity={0.75}>
-          <Text style={styles.backButtonText}>{phaseIndex > 0 || navigation.canGoBack() ? 'Back' : ''}</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Planning Setup</Text>
-        {navigation.canGoBack() ? (
-          <View style={styles.headerRight} />
-        ) : (
-          <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.headerRight} activeOpacity={0.75}>
-            <Text style={styles.backButtonText}>Sign Out</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View style={styles.progressShell}>
-        <View style={styles.progressHeaderRow}>
-          <Text style={styles.progressEyebrow}>{currentPhase.eyebrow}</Text>
-          <Text style={styles.progressCount}>{phaseIndex + 1} of {SETUP_PHASES.length}</Text>
-        </View>
-        <Text style={styles.phaseTitle}>{currentPhase.title}</Text>
-        <Text style={styles.phaseDescription}>{currentPhase.description}</Text>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${((phaseIndex + 1) / SETUP_PHASES.length) * 100}%` }]} />
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.root}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {renderCurrentPhase()}
-      </ScrollView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBackPhase} style={styles.backButton} activeOpacity={0.75}>
+            <Text style={styles.backButtonText}>{phaseIndex > 0 || navigation.canGoBack() ? 'Back' : ''}</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Planning Setup</Text>
+          {navigation.canGoBack() ? (
+            <View style={styles.headerRight} />
+          ) : (
+            <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.headerRight} activeOpacity={0.75}>
+              <Text style={styles.backButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-      <View style={[styles.saveBar, { paddingBottom: insets.bottom + 16 }]}>
-        {phaseIndex < SETUP_PHASES.length - 1 ? (
-          <TouchableOpacity style={[styles.saveButton, !canProceedPhase(phaseIndex) && styles.saveButtonDisabled]} onPress={handleNextPhase} activeOpacity={0.8}>
-            <Text style={styles.saveButtonText}>Continue</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} activeOpacity={0.8} disabled={saving}>
-            {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Save Planning Setup</Text>}
-          </TouchableOpacity>
-        )}
-      </View>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, { flexGrow: 1, paddingBottom: 100 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.progressShell}>
+            <View style={styles.progressHeaderRow}>
+              <Text style={styles.progressEyebrow}>{currentPhase.eyebrow}</Text>
+              <Text style={styles.progressCount}>{phaseIndex + 1} of {SETUP_PHASES.length}</Text>
+            </View>
+            <Text style={styles.phaseTitle}>{currentPhase.title}</Text>
+            <Text style={styles.phaseDescription}>{currentPhase.description}</Text>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${((phaseIndex + 1) / SETUP_PHASES.length) * 100}%` }]} />
+            </View>
+          </View>
+
+          <Animated.View key={currentPhase.key} entering={FadeInRight.duration(350).springify()} style={{ flex: 1 }}>
+            {renderCurrentPhase()}
+          </Animated.View>
+
+          <View style={styles.saveBarContainer}>
+            <TouchableOpacity 
+              style={[styles.saveButtonWrap, proceedDisabled && styles.saveButtonDisabled]} 
+              onPress={isLastPhase ? handleSave : handleNextPhase} 
+              activeOpacity={0.8} 
+              disabled={proceedDisabled}
+            >
+              <LinearGradient
+                colors={[...GRADIENTS.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.saveButtonBg}
+              >
+                 {saving ? <ActivityIndicator color="#000000" /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Save Planning Setup' : 'Continue'}</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={Boolean(durationPickerCommitmentId)}
@@ -261,6 +283,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                     updateCommitment(durationPickerCommitmentId, { durationMin: String(minutes) });
                     setDurationPickerCommitmentId(null);
                   }}
+                  activeOpacity={0.7}
                 >
                   <Text style={[styles.durationPickerOptionText, selected && styles.durationPickerOptionTextSelected]}>
                     {minutes} min

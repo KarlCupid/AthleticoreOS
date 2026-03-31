@@ -28,9 +28,23 @@ export function ProgressRing({
     const center = size / 2;
     const clampedProgress = Math.min(Math.max(progress, 0), 1);
 
+    // Web Fallback: Render a simple CSS circle to avoid Skia crashes
     if (Platform.OS === 'web') {
         return (
             <View style={[styles.container, { width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: trackColor, alignItems: 'center', justifyContent: 'center' }]}>
+                {clampedProgress > 0 && (
+                    <View 
+                        style={[
+                            StyleSheet.absoluteFillObject, 
+                            { 
+                                borderRadius: size / 2, 
+                                borderWidth: strokeWidth, 
+                                borderColor: color,
+                                opacity: clampedProgress, // Simple visual representation of progress
+                            }
+                        ]} 
+                    />
+                )}
                 {label !== undefined && (
                     <Text style={[styles.label, { color: textColor }, labelStyle]} numberOfLines={1}>
                         {label}

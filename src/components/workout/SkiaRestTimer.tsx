@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useDerivedValue,
@@ -125,6 +125,46 @@ export function SkiaRestTimer({
 }: SkiaRestTimerProps) {
   // Haptic milestones
   useTimerHaptics({ remainingSeconds, totalSeconds });
+
+  // Web Fallback: Render a simplified timer to avoid Skia crashes
+  if (Platform.OS === 'web') {
+    const isUrgentWeb = remainingSeconds <= 10 && remainingSeconds > 0;
+    return (
+      <View style={styles.overlay}>
+        <View style={styles.ringContainer}>
+          <View 
+            style={[
+              styles.webRingFallback, 
+              { 
+                borderColor: isUrgentWeb ? COLORS.error : '#0FA888',
+                borderWidth: STROKE,
+                borderRadius: SIZE / 2,
+                width: SIZE,
+                height: SIZE,
+              }
+            ]} 
+          />
+          <View style={styles.centerContent} pointerEvents="none">
+             <View style={styles.timeRow}>
+                <Text style={[styles.digitText, isUrgentWeb && styles.digitTextUrgent]}>
+                  {Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')}
+                </Text>
+             </View>
+            <Text style={styles.restLabel}>REST</Text>
+            <Text style={styles.exerciseLabel} numberOfLines={1}>
+              {exerciseType}
+            </Text>
+          </View>
+        </View>
+
+        <RestTimerActions
+          onSkip={onSkip}
+          onExtend={onExtend}
+          nextExerciseName={nextExerciseName}
+        />
+      </View>
+    );
+  }
 
   // Core sweep angle (degrees, 360 = full, 0 = done)
   const sweepAngle = useSharedValue(360);
@@ -318,6 +358,11 @@ const styles = StyleSheet.create({
     width: SIZE,
     height: SIZE,
     position: 'relative',
+  },
+  webRingFallback: {
+    ...StyleSheet.absoluteFillObject,
+    borderStyle: 'solid',
+    opacity: 0.3,
   },
   centerContent: {
     ...StyleSheet.absoluteFillObject,

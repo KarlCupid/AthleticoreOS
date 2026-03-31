@@ -38,7 +38,7 @@ export function ScreenHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: SPACING.md,
+    gap: SPACING.sm, // Tighter gap
   },
   topRow: {
     flexDirection: 'row',
@@ -50,25 +50,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kicker: {
-    fontSize: 12,
+    fontSize: 11, // Slightly smaller
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.accent,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: 4, // Tighter
   },
   title: {
-    fontSize: 30,
+    fontSize: 26, // Reduced from 30
     fontFamily: FONT_FAMILY.black,
     color: COLORS.text.primary,
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
   subtitle: {
-    marginTop: 4,
-    fontSize: 14,
+    marginTop: 2, // Reduced from 4
+    fontSize: 13, // Slightly smaller
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
-    lineHeight: 20,
+    lineHeight: 18, // Tighter
   },
   action: {
     alignSelf: 'center',

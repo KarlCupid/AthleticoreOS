@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { CartesianChart, Bar } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
@@ -12,7 +12,7 @@ interface TrainingLoadChartCardProps {
     acwr: any;
 }
 
-export function TrainingLoadChartCard({ trainingLoadData, acute, chronic, acwr }: TrainingLoadChartCardProps) {
+export const TrainingLoadChartCard = memo(function TrainingLoadChartCard({ trainingLoadData, acute, chronic, acwr }: TrainingLoadChartCardProps) {
     return (
         <Card>
             <View style={styles.chartContainer}>
@@ -83,7 +83,7 @@ export function TrainingLoadChartCard({ trainingLoadData, acute, chronic, acwr }
             )}
         </Card>
     );
-}
+});
 
 const styles = StyleSheet.create({
     chartContainer: {

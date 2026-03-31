@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconActivity, IconBarChart, IconCalendar, IconPerson, IconRestaurant } from '../components/icons';
 import { TodayStackNavigator } from './TodayStack';
@@ -22,24 +23,16 @@ function shouldHideTabBar(route: Parameters<typeof getFocusedRouteNameFromRoute>
 }
 
 function TabIcon({ focused, color, label, IconComponent }: { focused: boolean; color: string; label: string; IconComponent: any }) {
-  const scale = useSharedValue(focused ? 1.05 : 1);
-  const dotOpacity = useSharedValue(focused ? 1 : 0);
-
-  useEffect(() => {
-    scale.value = withSpring(focused ? 1.05 : 1, { damping: 12, stiffness: 200 });
-    dotOpacity.value = withTiming(focused ? 1 : 0, { duration: ANIMATION.fast });
-  }, [focused]);
-
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: withSpring(focused ? 1.05 : 1, { damping: 12, stiffness: 200 }) }],
     alignItems: 'center',
     justifyContent: 'center',
-  }));
+  }), [focused]);
 
   const dotStyle = useAnimatedStyle(() => ({
-    opacity: dotOpacity.value,
-    transform: [{ scale: dotOpacity.value }],
-  }));
+    opacity: withTiming(focused ? 1 : 0, { duration: ANIMATION.fast }),
+    transform: [{ scale: withTiming(focused ? 1 : 0, { duration: ANIMATION.fast }) }],
+  }), [focused]);
 
   return (
     <Animated.View style={[animatedStyle, styles.tabIconWrap]}>
@@ -61,7 +54,7 @@ export function TabNavigator() {
   const tabBarBottomPadding = Platform.OS === 'ios' ? 0 : 2;
   const tabBarHeight = (Platform.OS === 'ios' ? 50 : 56) + bottomInset;
   const tabBarInnerHeight = tabBarHeight - tabBarTopPadding - tabBarBottomPadding;
-  const tabBarVisualTopInset = Platform.OS === 'ios' ? 8 : 3;
+  const tabBarVisualTopInset = 0;
   const baseTabBarStyle = {
     position: 'absolute' as const,
     bottom: 0,
@@ -74,7 +67,7 @@ export function TabNavigator() {
     borderTopWidth: 0,
     borderTopLeftRadius: RADIUS.xxl,
     borderTopRightRadius: RADIUS.xxl,
-    backgroundColor: Platform.OS === 'ios' ? 'transparent' : COLORS.surface,
+    backgroundColor: '#0F172A', // Midnight Slate (Solid base to prevent sub-pixel gaps)
     ...SHADOWS.header,
     display: mode === 'gym-floor' ? 'none' as const : 'flex' as const,
   };
@@ -84,6 +77,11 @@ export function TabNavigator() {
       // @ts-expect-error sceneContainerStyle is passed successfully but causes TS issue
       sceneContainerStyle={{
         paddingBottom: mode === 'gym-floor' ? 0 : tabBarHeight,
+      }}
+      screenListeners={{
+        tabPress: () => {
+          Haptics.selectionAsync();
+        },
       }}
       screenOptions={{
         headerShown: false,
@@ -102,7 +100,7 @@ export function TabNavigator() {
               <View
                 style={{
                   ...StyleSheet.absoluteFillObject,
-                  top: tabBarVisualTopInset,
+                  top: -1, // Slight overlap to ensure no gap against screen content
                   overflow: 'hidden',
                   borderTopLeftRadius: RADIUS.xxl,
                   borderTopRightRadius: RADIUS.xxl,
@@ -111,15 +109,15 @@ export function TabNavigator() {
                 }}
               >
                 <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(59, 66, 159, 0.7)' }]} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.8)' }]} />
               </View>
             </View>
           ) : (
             <View
               style={{
                 ...StyleSheet.absoluteFillObject,
-                top: tabBarVisualTopInset,
-                backgroundColor: '#3b429f', // Ocean Twilight
+                top: -1,
+                backgroundColor: '#0F172A', // Midnight Slate
                 borderTopLeftRadius: RADIUS.xxl,
                 borderTopRightRadius: RADIUS.xxl,
                 borderTopWidth: 1,

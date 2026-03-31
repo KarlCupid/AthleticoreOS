@@ -5,6 +5,7 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -157,7 +158,15 @@ export function NutritionScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      let isActive = true;
+      InteractionManager.runAfterInteractions(() => {
+        if (isActive) {
+          loadData();
+        }
+      });
+      return () => {
+        isActive = false;
+      };
     }, [loadData])
   );
 
@@ -231,7 +240,7 @@ export function NutritionScreen() {
   );
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper useSafeArea={true}>
       <Animated.View
         entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}
         style={styles.header}

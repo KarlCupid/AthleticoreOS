@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS } from '../theme/theme';
 import type { ScheduledActivityRow } from '../../lib/engine/types';
@@ -32,7 +32,7 @@ interface ActivityCardProps {
   showActions?: boolean;
 }
 
-export function ActivityCard({ activity, onPress, onSkip, onEdit, onLighter, onHarder, onLog, showActions }: ActivityCardProps) {
+export const ActivityCard = memo(function ActivityCard({ activity, onPress, onSkip, onEdit, onLighter, onHarder, onLog, showActions }: ActivityCardProps) {
   const icon = ACTIVITY_ICONS[activity.activity_type] ?? 'GEN';
   const label = activity.custom_label ?? activity.activity_type.replace(/_/g, ' ');
   const statusColor = STATUS_COLORS[activity.status] ?? COLORS.text.tertiary;
@@ -119,7 +119,7 @@ export function ActivityCard({ activity, onPress, onSkip, onEdit, onLighter, onH
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 function formatTime(time: string): string {
   const [h, m] = time.split(':').map(Number);

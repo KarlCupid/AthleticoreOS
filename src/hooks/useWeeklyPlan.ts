@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { InteractionManager } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { generateSmartWeekPlan, handleMissedDay } from '../../lib/engine/calculateSchedule';
 import {
@@ -354,7 +355,15 @@ export function useWeeklyPlan() {
   }, [activeWeekStart, config, gymProfile, loadPlan]);
 
   useEffect(() => {
-    loadPlan();
+    let isActive = true;
+    InteractionManager.runAfterInteractions(() => {
+        if (isActive) {
+            void loadPlan();
+        }
+    });
+    return () => {
+        isActive = false;
+    };
   }, [loadPlan]);
 
   return {

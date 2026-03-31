@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from './Card';
 import { AnimatedNumber } from './AnimatedNumber';
@@ -31,7 +31,7 @@ const SECTION_ICONS: Record<string, string> = {
     Evening: '🌙',
 };
 
-export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }: DashboardNutritionCardProps) {
+export const DashboardNutritionCard = memo(function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }: DashboardNutritionCardProps) {
     const proteinProgress = targets.protein > 0 ? actualNutrition.protein / targets.protein : 0;
     const carbsProgress = targets.carbs > 0 ? actualNutrition.carbs / targets.carbs : 0;
     const fatProgress = targets.fat > 0 ? actualNutrition.fat / targets.fat : 0;
@@ -164,7 +164,7 @@ export function DashboardNutritionCard({ actualNutrition, targets, cutProtocol }
             )}
         </Card>
     );
-}
+});
 
 const styles = StyleSheet.create({
     nutritionCard: {

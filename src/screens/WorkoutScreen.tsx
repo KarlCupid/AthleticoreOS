@@ -6,6 +6,7 @@ import {
     StyleSheet,
     RefreshControl,
     Pressable,
+    InteractionManager,
 } from 'react-native';
 import { useEffect } from 'react';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -101,7 +102,11 @@ export function WorkoutScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            loadData();
+            let isActive = true;
+            InteractionManager.runAfterInteractions(() => {
+                if (isActive) loadData();
+            });
+            return () => { isActive = false; };
         }, [loadData])
     );
 
@@ -163,7 +168,7 @@ export function WorkoutScreen() {
     const checkinDates = new Set(checkins.map(c => c.date));
 
     return (
-        <ScreenWrapper>
+        <ScreenWrapper useSafeArea={true}>
             <View style={styles.header}>
                 <ScreenHeader
                     kicker="Train"
@@ -215,6 +220,19 @@ export function WorkoutScreen() {
             >
                 {activeTab === 'today' && (
                     <>
+                        {groupedWeeklyEntries.length === 0 ? (
+                            <Animated.View entering={FadeInDown.delay(50).duration(300).springify()} style={styles.emptyPlan}>
+                                <Text style={styles.emptyPlanTitle}>No weekly plan yet</Text>
+                                <Text style={styles.emptyPlanSub}>Set up your training days, session length, and preferences to get a smart weekly plan.</Text>
+                                <Pressable
+                                    style={styles.setupBtn}
+                                    onPress={() => navigation.navigate('WeeklyPlanSetup')}
+                                >
+                                    <Text style={styles.setupBtnText}>Set Up Weekly Plan</Text>
+                                </Pressable>
+                            </Animated.View>
+                        ) : (
+                            <>
                         {/* Today's Weekly Plan Entry */}
                         {todayPlanEntry && (
                             <Animated.View entering={FadeInDown.delay(0).duration(300).springify()}>
@@ -327,6 +345,8 @@ export function WorkoutScreen() {
                                     />
                                 ))}
                             </View>
+                        )}
+                            </>
                         )}
                     </>
                 )}
@@ -691,8 +711,8 @@ const styles = StyleSheet.create({
         lineHeight: 18,
     },
     header: {
-        paddingHorizontal: SPACING.lg,
-        paddingBottom: SPACING.md,
+        paddingHorizontal: SPACING.md, // Reduced from lg for small screens
+        paddingBottom: SPACING.sm, // Reduced from md
     },
     tabBar: {
         flexDirection: 'row',
@@ -714,8 +734,8 @@ const styles = StyleSheet.create({
         color: COLORS.text.secondary,
     },
     content: {
-        padding: SPACING.lg,
-        paddingTop: SPACING.sm,
+        padding: SPACING.md, // Reduced from lg
+        paddingTop: SPACING.xs, // Tighter top
     },
     tabLoadingState: {
         gap: SPACING.md,

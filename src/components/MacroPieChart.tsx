@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 
@@ -27,7 +27,10 @@ function createArcPath(
     r: number,
     startAngle: number,
     endAngle: number
-): ReturnType<typeof Skia.Path.Make> {
+): any {
+    // Only execute Skia logic on native
+    if (Platform.OS === 'web') return null;
+
     const path = Skia.Path.Make();
     const startRad = (startAngle - 90) * (Math.PI / 180);
     const startX = cx + r * Math.cos(startRad);
@@ -36,7 +39,6 @@ function createArcPath(
     path.moveTo(startX, startY);
 
     const sweep = endAngle - startAngle;
-    // Use conic to approximate arc
     const segments = Math.ceil(Math.abs(sweep) / 90);
 
     let currentAngle = startAngle;
@@ -49,7 +51,6 @@ function createArcPath(
         const segEndX = cx + r * Math.cos(segEndRad);
         const segEndY = cy + r * Math.sin(segEndRad);
 
-        // Control point for quadratic bezier approximation
         const midA = (currentAngle + segEnd) / 2;
         const midRad = (midA - 90) * (Math.PI / 180);
         const controlDist = r / Math.cos((step / 2) * (Math.PI / 180));
@@ -82,9 +83,58 @@ export function MacroPieChart({ protein, carbs, fat, calories }: MacroPieChartPr
 
     const proteinPct = Math.round((proteinCal / totalMacroCal) * 100);
     const carbsPct = Math.round((carbsCal / totalMacroCal) * 100);
-    const fatPct = 100 - proteinPct - carbsPct; // ensure they sum to 100
+    const fatPct = 100 - proteinPct - carbsPct;
 
-    const GAP = 3; // degrees gap between segments
+    const segments = [
+        { color: MACRO_COLORS.protein, pct: proteinPct, label: 'Protein' },
+        { color: MACRO_COLORS.carbs, pct: carbsPct, label: 'Carbs' },
+        { color: MACRO_COLORS.fat, pct: fatPct, label: 'Fat' },
+    ];
+
+    // Web Fallback: Render a beautiful horizontal distribution bar 
+    // instead of a complex Skia pie chart to avoid crashes.
+    if (Platform.OS === 'web') {
+        return (
+            <View style={styles.container}>
+                <View style={styles.webChartWrapper}>
+                    <View style={styles.webBarContainer}>
+                        {segments.map((seg, i) => (
+                            <View 
+                                key={i} 
+                                style={[
+                                    styles.webBarSegment, 
+                                    { 
+                                        backgroundColor: seg.color, 
+                                        width: `${seg.pct}%`,
+                                        borderTopLeftRadius: i === 0 ? 8 : 0,
+                                        borderBottomLeftRadius: i === 0 ? 8 : 0,
+                                        borderTopRightRadius: i === segments.length - 1 ? 8 : 0,
+                                        borderBottomRightRadius: i === segments.length - 1 ? 8 : 0,
+                                    }
+                                ]} 
+                            />
+                        ))}
+                    </View>
+                    <View style={styles.centerText}>
+                        <Text style={styles.centerCalories}>{Math.round(calories)}</Text>
+                        <Text style={styles.centerLabel}>total cal</Text>
+                    </View>
+                </View>
+
+                <View style={styles.legendRow}>
+                    {segments.map((seg) => (
+                        <View key={seg.label} style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
+                            <Text style={styles.legendLabel}>{seg.label}</Text>
+                            <Text style={styles.legendValue}>{seg.pct}%</Text>
+                        </View>
+                    ))}
+                </View>
+            </View>
+        );
+    }
+
+    const GAP = 3; 
     const TOTAL_GAP = GAP * 3;
     const AVAILABLE = 360 - TOTAL_GAP;
 
@@ -92,14 +142,12 @@ export function MacroPieChart({ protein, carbs, fat, calories }: MacroPieChartPr
     const carbsSweep = (carbsPct / 100) * AVAILABLE;
     const fatSweep = AVAILABLE - proteinSweep - carbsSweep;
 
-    const segments = [
-        { color: MACRO_COLORS.protein, sweep: proteinSweep, pct: proteinPct, label: 'Protein' },
-        { color: MACRO_COLORS.carbs, sweep: carbsSweep, pct: carbsPct, label: 'Carbs' },
-        { color: MACRO_COLORS.fat, sweep: fatSweep, pct: fatPct, label: 'Fat' },
-    ];
-
     let currentAngle = 0;
-    const paths = segments.map((seg) => {
+    const paths = [
+        { ...segments[0], sweep: proteinSweep },
+        { ...segments[1], sweep: carbsSweep },
+        { ...segments[2], sweep: fatSweep },
+    ].map((seg) => {
         const start = currentAngle;
         const end = currentAngle + seg.sweep;
         currentAngle = end + GAP;
@@ -125,14 +173,12 @@ export function MacroPieChart({ protein, carbs, fat, calories }: MacroPieChartPr
                     ))}
                 </Canvas>
 
-                {/* Center text */}
                 <View style={styles.centerText}>
                     <Text style={styles.centerCalories}>{Math.round(calories)}</Text>
                     <Text style={styles.centerLabel}>cal</Text>
                 </View>
             </View>
 
-            {/* Legend row */}
             <View style={styles.legendRow}>
                 {segments.map((seg) => (
                     <View key={seg.label} style={styles.legendItem}>
@@ -157,8 +203,25 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    webChartWrapper: {
+        width: CHART_SIZE * 1.5,
+        alignItems: 'center',
+        paddingVertical: SPACING.md,
+    },
+    webBarContainer: {
+        height: 12,
+        width: '100%',
+        flexDirection: 'row',
+        backgroundColor: COLORS.borderLight,
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginBottom: SPACING.md,
+    },
+    webBarSegment: {
+        height: '100%',
+    },
     centerText: {
-        position: 'absolute',
+        position: Platform.OS === 'web' ? 'relative' : 'absolute',
         alignItems: 'center',
     },
     centerCalories: {

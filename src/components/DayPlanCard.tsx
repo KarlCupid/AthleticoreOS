@@ -204,19 +204,22 @@ export default function DayPlanCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Glassy base
     borderRadius: RADIUS.xl,
     padding: SPACING.lg - 4,
     marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)', // Subtle glass edge
     ...SHADOWS.card,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
   },
   cardToday: {
-    borderLeftColor: COLORS.accent,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)', // Glassy Blue/Accent for today
+    borderColor: COLORS.accent + '40',
+    borderWidth: 1.5,
   },
   cardCompleted: {
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)', // Even more subtle for completed
+    opacity: 0.8,
   },
   header: {
     flexDirection: 'row',
@@ -345,5 +348,3 @@ const styles = StyleSheet.create({
     color: COLORS.warning,
   },
 });
-
-

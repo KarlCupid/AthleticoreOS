@@ -8,9 +8,9 @@ export const COLORS = {
     border: 'rgba(255, 255, 255, 0.15)', // Light-catching edge
     borderLight: 'rgba(255, 255, 255, 0.1)',
 
-    // Accent palette — Spicy Burnt Tangerine
-    accent: '#e3170a',
-    accentLight: 'rgba(227, 23, 10, 0.15)',
+    // Accent palette — Electric Cyan / Teal
+    accent: '#00E5FF',
+    accentLight: 'rgba(0, 229, 255, 0.15)',
 
     // Semantic colors
     success: '#4ADE80', // Brighter for dark mode
@@ -59,14 +59,14 @@ export const GRADIENTS = {
     caution: ['#D97706', '#B45309', '#92400E'] as const,
     depleted: ['#DC2626', '#B91C1C', '#991B1B'] as const,
     card: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)'] as const,
-    accent: ['#e3170a', '#e16036'] as const,
+    accent: ['#00E5FF', '#00B0FF'] as const,
 };
 
 export const BORDERS = {
     card: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }, // Glass Edge
     elevated: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
-    accent: { borderWidth: 1, borderColor: 'rgba(227,23,10,0.30)' },
-    glow: { borderWidth: 1, borderColor: 'rgba(227,23,10,0.40)' },
+    accent: { borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.30)' },
+    glow: { borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.40)' },
 } as const;
 
 export const FONT_FAMILY = {
@@ -251,7 +251,7 @@ export const SHADOWS = {
             elevation: 4,
         },
         accent: {
-            shadowColor: COLORS.accent,
+            shadowColor: '#00E5FF',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.15,
             shadowRadius: 16,

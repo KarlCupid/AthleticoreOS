@@ -277,19 +277,19 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
             <FieldNote>Use the actual fight format when you know it.</FieldNote>
             <View style={styles.pillRow}>
               {ROUND_OPTIONS.map((value) => (
-                <OptionPill key={value} selected={roundCount === value} label={String(value)} onPress={() => setRoundCount(value)} />
+                <OptionPill compact key={value} selected={roundCount === value} label={String(value)} onPress={() => setRoundCount(value)} />
               ))}
             </View>
             <Text style={styles.subLabel}>Round Duration</Text>
             <View style={styles.pillRow}>
               {ROUND_DURATION_OPTIONS.map((value) => (
-                <OptionPill key={value} selected={roundDurationSec === value} label={`${Math.round(value / 60)}m`} onPress={() => setRoundDurationSec(value)} />
+                <OptionPill compact key={value} selected={roundDurationSec === value} label={`${Math.round(value / 60)}m`} onPress={() => setRoundDurationSec(value)} />
               ))}
             </View>
             <Text style={styles.subLabel}>Rest Duration</Text>
             <View style={styles.pillRow}>
               {REST_DURATION_OPTIONS.map((value) => (
-                <OptionPill key={value} selected={restDurationSec === value} label={`${value}s`} onPress={() => setRestDurationSec(value)} />
+                <OptionPill compact key={value} selected={restDurationSec === value} label={`${value}s`} onPress={() => setRestDurationSec(value)} />
               ))}
             </View>
             <View style={styles.previewCard}>

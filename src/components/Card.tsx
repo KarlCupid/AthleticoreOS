@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, memo } from 'react';
 import { View, Text, StyleSheet, ViewStyle, Pressable } from 'react-native';
 import Animated, {
     FadeInDown,
@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS, ANIMATION } from '../theme/theme';
 
-type CardVariant = 'default' | 'elevated' | 'outlined' | 'filled';
+type CardVariant = 'default' | 'elevated' | 'outlined' | 'filled' | 'glass';
 
 interface CardProps {
     children: ReactNode;
@@ -26,7 +26,7 @@ interface CardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function Card({
+export const Card = memo(function Card({
     children,
     title,
     subtitle,
@@ -104,7 +104,7 @@ export function Card({
             {children}
         </View>
     );
-}
+});
 
 const variantMap: Record<CardVariant, ViewStyle> = {
     default: {
@@ -124,6 +124,11 @@ const variantMap: Record<CardVariant, ViewStyle> = {
     },
     filled: {
         backgroundColor: COLORS.surfaceSecondary,
+    },
+    glass: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
 };
 

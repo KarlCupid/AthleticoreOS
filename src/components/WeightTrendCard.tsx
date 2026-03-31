@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { AnimatedPressable } from './AnimatedPressable';
@@ -21,7 +21,7 @@ const STATUS_CONFIG: Record<WeightCutStatus, { label: string; color: string; bg:
     no_target: { label: 'No Target', color: COLORS.text.tertiary, bg: COLORS.surfaceSecondary },
 };
 
-export function WeightTrendCard({ trend, baseWeight, targetWeight, onPress }: WeightTrendCardProps) {
+export const WeightTrendCard = memo(function WeightTrendCard({ trend, baseWeight, targetWeight, onPress }: WeightTrendCardProps) {
     const statusConfig = STATUS_CONFIG[trend.status];
     const velocityAbs = Math.abs(trend.weeklyVelocityLbs);
     const arrow = trend.weeklyVelocityLbs < -0.1 ? '↓' : trend.weeklyVelocityLbs > 0.1 ? '↑' : '→';
@@ -119,7 +119,7 @@ export function WeightTrendCard({ trend, baseWeight, targetWeight, onPress }: We
     }
 
     return content;
-}
+});
 
 const styles = StyleSheet.create({
     card: {

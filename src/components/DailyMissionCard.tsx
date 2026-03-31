@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { DailyMission } from '../../lib/engine/types';
@@ -25,7 +25,7 @@ function getRiskColor(level: DailyMission['riskState']['level']): string {
   }
 }
 
-export function DailyMissionCard({ mission, compact = false }: DailyMissionCardProps) {
+export const DailyMissionCard = memo(function DailyMissionCard({ mission, compact = false }: DailyMissionCardProps) {
   const riskColor = getRiskColor(mission.riskState.level);
   const missionCalories = calculateCaloriesFromMacros(
     mission.fuelDirective.protein,
@@ -91,7 +91,7 @@ export function DailyMissionCard({ mission, compact = false }: DailyMissionCardP
       )}
     </Card>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

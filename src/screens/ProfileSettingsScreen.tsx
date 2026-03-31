@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Switch, Alert, InteractionManager } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { Card } from '../components/Card';
-import { IconPerson } from '../components/icons';
+import { 
+  IconPerson, 
+  IconScale, 
+  IconTarget, 
+  IconCalendar, 
+  IconBarChart, 
+  IconActivity, 
+  IconShieldCheck,
+  IconTrendUp,
+  IconSettings,
+  IconClose
+} from '../components/icons';
 import { supabase } from '../../lib/supabase';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { AnimatedNumber } from '../components/AnimatedNumber';
@@ -13,6 +25,7 @@ import { EngineReplayLab } from '../components/EngineReplayLab';
 import { resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
 import { logError } from '../../lib/utils/logger';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { ScreenWrapper } from '../components/ScreenWrapper';
 
 interface AthleteProfile {
   biological_sex: string;
@@ -42,9 +55,19 @@ export function ProfileSettingsScreen() {
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [lastVersionTapAt, setLastVersionTapAt] = useState(0);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      InteractionManager.runAfterInteractions(() => {
+        if (isActive) {
+          loadProfile();
+        }
+      });
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   async function loadProfile() {
     const {
@@ -139,7 +162,7 @@ export function ProfileSettingsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenWrapper>
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
         <ScreenHeader
           kicker="Me"
@@ -149,78 +172,57 @@ export function ProfileSettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Avatar Section */}
-        <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.normal).springify()} style={styles.avatarSection}>
-          <View style={[styles.avatar, { backgroundColor: themeColor + '20' }]}>
-            <IconPerson size={40} color={themeColor} />
-          </View>
-          <Text style={styles.name}>Athlete</Text>
-          <Text style={styles.email}>{email}</Text>
+        {/* Identity Hero */}
+        <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.normal).springify()}>
+          <Card variant="glass" style={styles.heroCard} noPadding>
+            <View style={styles.heroContent}>
+              <View style={[styles.avatarGlow, { borderColor: themeColor + '80' }]}>
+                <View style={[styles.avatar, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                  <IconPerson size={44} color={themeColor} />
+                </View>
+              </View>
+              <View style={styles.heroIdentity}>
+                <Text style={styles.name}>Athlete</Text>
+                <Text style={styles.email}>{email}</Text>
+                <View style={[styles.badge, { backgroundColor: themeColor + '20' }]}>
+                  <Text style={[styles.badgeText, { color: themeColor }]}>{currentLevel?.toUpperCase()}</Text>
+                </View>
+              </View>
+            </View>
+          </Card>
         </Animated.View>
 
-        {/* Stats Row */}
-        <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()} style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <AnimatedNumber value={totalSessions} style={styles.statValue} />
-            <Text style={styles.statLabel}>Sessions</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: themeColor }]}>{currentLevel}</Text>
-            <Text style={styles.statLabel}>Readiness</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>
-              {profile?.phase ? formatPhase(profile.phase) : '--'}
-            </Text>
-            <Text style={styles.statLabel}>Phase</Text>
-          </View>
+        {/* Stats Mosaic */}
+        <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+          <Card variant="glass" style={styles.statsMosaic} noPadding>
+            <View style={styles.statBox}>
+              <AnimatedNumber value={totalSessions} style={styles.statValue} />
+              <Text style={styles.statLabel}>SESSIONS</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={[styles.statValue, { color: themeColor }]}>{currentLevel}</Text>
+              <Text style={styles.statLabel}>READINESS</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>
+                {profile?.phase ? formatPhase(profile.phase) : '--'}
+              </Text>
+              <Text style={styles.statLabel}>PHASE</Text>
+            </View>
+          </Card>
         </Animated.View>
 
         {/* Athletic Profile */}
         {profile && (
-          <Animated.View entering={FadeInDown.delay(150).duration(ANIMATION.normal).springify()}>
-            <Card title="Athletic Profile">
-              <DetailRow label="Fight Status" value={profile.fight_status.charAt(0).toUpperCase() + profile.fight_status.slice(1)} />
-              <DetailRow label="Biological Sex" value={profile.biological_sex.charAt(0).toUpperCase() + profile.biological_sex.slice(1)} />
+          <Animated.View entering={FadeInDown.delay(150).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+            <Card variant="glass" title="Athletic Strategy">
+              <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Fight Status" value={profile.fight_status.charAt(0).toUpperCase() + profile.fight_status.slice(1)} />
+              <DetailRow icon={<IconPerson size={18} color={themeColor} />} label="Biological Sex" value={profile.biological_sex.charAt(0).toUpperCase() + profile.biological_sex.slice(1)} />
+              <DetailRow icon={<IconBarChart size={18} color={themeColor} />} label="Phase" value={profile.phase ? formatPhase(profile.phase) : '--'} />
               <EditableRow
-                label="Target Weight"
-                value={profile.target_weight ? `${profile.target_weight} lbs` : '--'}
-                isEditing={editingField === 'target_weight'}
-                editValue={editValue}
-                onEdit={() => {
-                  setEditingField('target_weight');
-                  setEditValue(profile.target_weight?.toString() || '');
-                }}
-                onChangeText={setEditValue}
-                onSave={async () => {
-                  const val = editValue ? parseFloat(editValue) : null;
-                  await updateField('target_weight', val);
-                  setProfile({ ...profile, target_weight: val });
-                  setEditingField(null);
-                }}
-                onCancel={() => setEditingField(null)}
-              />
-              <EditableRow
-                label="Base Weight"
-                value={profile.base_weight ? `${profile.base_weight} lbs` : '--'}
-                isEditing={editingField === 'base_weight'}
-                editValue={editValue}
-                onEdit={() => {
-                  setEditingField('base_weight');
-                  setEditValue(profile.base_weight?.toString() || '');
-                }}
-                onChangeText={setEditValue}
-                onSave={async () => {
-                  const val = editValue ? parseFloat(editValue) : null;
-                  await updateField('base_weight', val);
-                  setProfile({ ...profile, base_weight: val });
-                  setEditingField(null);
-                }}
-                onCancel={() => setEditingField(null)}
-              />
-              <EditableRow
+                icon={<IconCalendar size={18} color={themeColor} />}
                 label="Fight Date"
                 value={profile.fight_date || '--'}
                 isEditing={editingField === 'fight_date'}
@@ -243,30 +245,73 @@ export function ProfileSettingsScreen() {
           </Animated.View>
         )}
 
-        {/* Nutrition Settings */}
+        {/* Physical Profile */}
         {profile && (
           <Animated.View entering={FadeInDown.delay(200).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-            <Card title="Nutrition Settings">
-              <DetailRow label="Phase" value={profile.phase ? formatPhase(profile.phase) : '--'} />
-              <DetailRow label="Activity Level" value={formatActivityLevel(profile.activity_level)} />
-              <DetailRow label="Nutrition Goal" value={formatNutritionGoal(profile.nutrition_goal)} />
-              {profile.height_inches && (
-                <DetailRow
-                  label="Height"
-                  value={`${Math.floor(profile.height_inches / 12)}'${profile.height_inches % 12}"`}
-                />
-              )}
-              {profile.age && <DetailRow label="Age" value={`${profile.age}`} />}
+            <Card variant="glass" title="Physical Profile">
+              <EditableRow
+                icon={<IconScale size={18} color={themeColor} />}
+                label="Base Weight"
+                value={profile.base_weight ? `${profile.base_weight} lbs` : '--'}
+                isEditing={editingField === 'base_weight'}
+                editValue={editValue}
+                onEdit={() => {
+                  setEditingField('base_weight');
+                  setEditValue(profile.base_weight?.toString() || '');
+                }}
+                onChangeText={setEditValue}
+                onSave={async () => {
+                  const val = editValue ? parseFloat(editValue) : null;
+                  await updateField('base_weight', val);
+                  setProfile({ ...profile, base_weight: val });
+                  setEditingField(null);
+                }}
+                onCancel={() => setEditingField(null)}
+              />
+              <EditableRow
+                icon={<IconTarget size={18} color={themeColor} />}
+                label="Target Weight"
+                value={profile.target_weight ? `${profile.target_weight} lbs` : '--'}
+                isEditing={editingField === 'target_weight'}
+                editValue={editValue}
+                onEdit={() => {
+                  setEditingField('target_weight');
+                  setEditValue(profile.target_weight?.toString() || '');
+                }}
+                onChangeText={setEditValue}
+                onSave={async () => {
+                  const val = editValue ? parseFloat(editValue) : null;
+                  await updateField('target_weight', val);
+                  setProfile({ ...profile, target_weight: val });
+                  setEditingField(null);
+                }}
+                onCancel={() => setEditingField(null)}
+              />
+              <DetailRow icon={<IconTrendUp size={18} color={themeColor} />} label="Height" value={profile.height_inches ? `${Math.floor(profile.height_inches / 12)}'${profile.height_inches % 12}"` : '--'} />
+              <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Age" value={profile.age ? `${profile.age}` : '--'} />
+            </Card>
+          </Animated.View>
+        )}
+
+        {/* Nutrition Settings */}
+        {profile && (
+          <Animated.View entering={FadeInDown.delay(250).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+            <Card variant="glass" title="Nutrition Settings">
+              <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Activity Level" value={formatActivityLevel(profile.activity_level)} />
+              <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Nutrition Goal" value={formatNutritionGoal(profile.nutrition_goal)} />
             </Card>
           </Animated.View>
         )}
 
         {/* Preferences */}
-        <Animated.View entering={FadeInDown.delay(250).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-          <Card title="Preferences">
+        <Animated.View entering={FadeInDown.delay(290).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+          <Card variant="glass" title="Preferences">
             {profile && (
               <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>Cycle Tracking</Text>
+                <View style={styles.settingLabelGroup}>
+                  <IconSettings size={18} color={themeColor} />
+                  <Text style={styles.settingLabel}>Cycle Tracking</Text>
+                </View>
                 <Switch
                   onValueChange={async (val) => {
                     const { data: { session } } = await supabase.auth.getSession();
@@ -286,25 +331,28 @@ export function ProfileSettingsScreen() {
           </Card>
         </Animated.View>
 
-        {/* Sign Out */}
-        <Animated.View entering={FadeInDown.delay(290).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-          <Card title="Setup Guide">
+        {/* Account & Security */}
+        <Animated.View entering={FadeInDown.delay(330).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+          <Card variant="glass" title="Account & Security">
             <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Status</Text>
-              <Text style={styles.settingValue}>{guidanceStatus === 'completed' ? 'Completed' : 'In progress'}</Text>
+               <View style={styles.settingLabelGroup}>
+                 <IconShieldCheck size={18} color={themeColor} />
+                 <Text style={styles.settingLabel}>Status</Text>
+               </View>
+               <Text style={styles.settingValue}>{guidanceStatus === 'completed' ? 'Elite Athlete' : 'In Training'}</Text>
             </View>
+            
             <AnimatedPressable style={styles.replayGuideButton} onPress={handleReplaySetupGuide}>
               <Text style={styles.replayGuideButtonText}>Replay setup guide</Text>
             </AnimatedPressable>
-          </Card>
-        </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-          <Card title="Account">
+            <View style={styles.cardDivider} />
+
             <AnimatedPressable
               style={styles.signOutButton}
               onPress={() => supabase.auth.signOut()}
             >
+              <IconClose size={18} color={COLORS.readiness.depleted} />
               <Text style={styles.signOutText}>Sign Out</Text>
             </AnimatedPressable>
           </Card>
@@ -317,26 +365,32 @@ export function ProfileSettingsScreen() {
       </ScrollView>
 
       <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} />
-    </View>
+    </ScreenWrapper>
   );
 }
 
 function DetailRow({
+  icon,
   label,
   value,
 }: {
+  icon?: React.ReactNode;
   label: string;
   value: string;
 }) {
   return (
     <View style={detailStyles.row}>
-      <Text style={detailStyles.label}>{label}</Text>
+      <View style={detailStyles.labelGroup}>
+        {icon}
+        <Text style={detailStyles.label}>{label}</Text>
+      </View>
       <Text style={detailStyles.value}>{value}</Text>
     </View>
   );
 }
 
 function EditableRow({
+  icon,
   label,
   value,
   isEditing,
@@ -347,6 +401,7 @@ function EditableRow({
   onCancel,
   placeholder,
 }: {
+  icon?: React.ReactNode;
   label: string;
   value: string;
   isEditing: boolean;
@@ -360,7 +415,10 @@ function EditableRow({
   if (isEditing) {
     return (
       <View style={detailStyles.editRow}>
-        <Text style={detailStyles.label}>{label}</Text>
+        <View style={detailStyles.labelGroup}>
+          {icon}
+          <Text style={detailStyles.label}>{label}</Text>
+        </View>
         <View style={detailStyles.editActions}>
           <TextInput
             style={detailStyles.editInput}
@@ -384,7 +442,10 @@ function EditableRow({
 
   return (
     <TouchableOpacity style={detailStyles.row} onPress={onEdit}>
-      <Text style={detailStyles.label}>{label}</Text>
+      <View style={detailStyles.labelGroup}>
+        {icon}
+        <Text style={detailStyles.label}>{label}</Text>
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.xs }}>
         <Text style={detailStyles.value}>{value}</Text>
         <Text style={{ fontSize: 11, color: COLORS.text.tertiary }}>✎</Text>
@@ -398,9 +459,14 @@ const detailStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.sm + 2,
+    paddingVertical: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.borderLight,
+  },
+  labelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   editRow: {
     flexDirection: 'row',
@@ -455,7 +521,6 @@ const detailStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   header: {
     paddingHorizontal: SPACING.lg,
@@ -464,51 +529,72 @@ const styles = StyleSheet.create({
   content: {
     padding: SPACING.lg,
   },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+  heroCard: {
     marginBottom: SPACING.md,
   },
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  avatarGlow: {
+    padding: 3,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderStyle: 'solid',
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroIdentity: {
+    flex: 1,
+    gap: 2,
+  },
   name: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: FONT_FAMILY.extraBold,
     color: COLORS.text.primary,
   },
   email: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
-    marginTop: 2,
+    marginBottom: 4,
   },
-  statsRow: {
+  badge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: FONT_FAMILY.black,
+    letterSpacing: 0.5,
+  },
+  statsMosaic: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-    ...SHADOWS.card,
+    paddingVertical: SPACING.md,
   },
   statBox: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: FONT_FAMILY.extraBold,
     color: COLORS.text.primary,
-    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 11,
-    fontFamily: FONT_FAMILY.regular,
+    fontSize: 10,
+    fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.tertiary,
+    letterSpacing: 0.5,
   },
   statDivider: {
     width: 1,
@@ -519,7 +605,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.sm + 2,
+    paddingVertical: SPACING.md,
+  },
+  settingLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   settingLabel: {
     fontSize: 15,
@@ -527,9 +618,15 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
   settingValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.secondary,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: COLORS.borderLight,
+    marginVertical: SPACING.md,
+    opacity: 0.5,
   },
   replayGuideButton: {
     marginTop: SPACING.sm,
@@ -544,14 +641,14 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
   },
   signOutButton: {
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.readiness.depletedLight,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
   },
   signOutText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.readiness.depleted,
   },
@@ -563,4 +660,3 @@ const styles = StyleSheet.create({
     color: COLORS.text.tertiary,
   },
 });
-

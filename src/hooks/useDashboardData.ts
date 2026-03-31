@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { InteractionManager } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
@@ -237,7 +238,15 @@ export function useDashboardData() {
   }, [setReadiness]);
 
   useEffect(() => {
-    loadDashboardData();
+    let isActive = true;
+    InteractionManager.runAfterInteractions(() => {
+      if (isActive) {
+        void loadDashboardData();
+      }
+    });
+    return () => {
+      isActive = false;
+    };
   }, [loadDashboardData]);
 
   const onRefresh = useCallback(() => {

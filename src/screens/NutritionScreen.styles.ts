@@ -66,8 +66,8 @@ export const styles = StyleSheet.create({
         marginTop: SPACING.xs,
     },
     header: {
-        paddingHorizontal: SPACING.lg,
-        paddingBottom: SPACING.md,
+        paddingHorizontal: SPACING.md, // Reduced from lg
+        paddingBottom: SPACING.sm, // Reduced from md
     },
     modeSwitch: {
         flexDirection: 'row',
@@ -93,12 +93,12 @@ export const styles = StyleSheet.create({
         color: COLORS.text.inverse,
     },
     content: {
-        padding: SPACING.lg,
-        paddingTop: SPACING.sm,
+        padding: SPACING.md, // Reduced from lg
+        paddingTop: SPACING.xs, // Tighter top gap
     },
     calorieHero: {
         alignItems: 'center',
-        marginBottom: SPACING.lg,
+        marginBottom: SPACING.md, // Reduced from lg
     },
     calorieNumber: {
         ...TYPOGRAPHY.display,

@@ -7,6 +7,7 @@ import {
     RefreshControl,
     TouchableOpacity,
     Alert,
+    InteractionManager,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { StatCard } from '../components/StatCard';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
@@ -93,7 +95,15 @@ export function WeeklyPlanScreen() {
     // Reload whenever the tab/screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            loadPlan();
+            let isActive = true;
+            InteractionManager.runAfterInteractions(() => {
+                if (isActive) {
+                    loadPlan();
+                }
+            });
+            return () => {
+                isActive = false;
+            };
         }, [loadPlan]),
     );
 
@@ -175,16 +185,16 @@ export function WeeklyPlanScreen() {
 
     if (loading) {
         return (
-            <View style={[styles.container, { paddingTop: insets.top }]}>
-                <View style={[styles.header, { paddingBottom: SPACING.md }]}>
+            <ScreenWrapper useSafeArea={true}>
+                <View style={styles.header}>
                     <SkeletonLoader width="60%" height={32} shape="text" style={{ marginBottom: SPACING.md }} />
                 </View>
-                <View style={[styles.scrollContent, { paddingHorizontal: SPACING.lg }]}>
+                <View style={styles.scrollContent}>
                    <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
                    <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
                    <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
                 </View>
-            </View>
+            </ScreenWrapper>
         );
     }
 
@@ -192,82 +202,89 @@ export function WeeklyPlanScreen() {
 
     if (!loading && entries.length === 0) {
         return (
-            <View style={[styles.emptyContainer, { paddingTop: insets.top }]}>
-                <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
-                    <Card style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}>
-                        <Text style={styles.emptyTitle}>No Plan Yet</Text>
-                        <Text style={styles.emptySubtitle}>
-                            {activeWeekStart && !isCurrentWeek 
-                                ? `Generate your training plan for the week of ${new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.` 
-                                : 'Set up your weekly training plan to get smart daily recommendations tailored to your goals.'}
-                        </Text>
-                        {activeWeekStart && !isCurrentWeek ? (
-                            <AnimatedPressable style={styles.setupButton} onPress={generateActiveWeek}>
-                                <Text style={styles.setupButtonText}>Generate Plan</Text>
-                            </AnimatedPressable>
-                        ) : (
-                            <AnimatedPressable style={styles.setupButton} onPress={handleSetupPress}>
-                                <Text style={styles.setupButtonText}>Set Up Weekly Plan</Text>
-                            </AnimatedPressable>
-                        )}
-                        
-                        {/* Always allow returning to previous/current weeks even if empty */}
-                        <View style={{ flexDirection: 'row', marginTop: SPACING.xl, gap: SPACING.xl }}>
-                            <TouchableOpacity onPress={goToPrevWeek}>
-                                <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>« Prev Week</Text>
-                            </TouchableOpacity>
-                            {!isCurrentWeek && (
-                                <TouchableOpacity onPress={() => loadPlan()}>
-                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent }}>Today</Text>
-                                </TouchableOpacity>
+            <ScreenWrapper useSafeArea={true}>
+                <View style={styles.header}>
+                    <ScreenHeader
+                        kicker="Plan"
+                        title="No Plan Yet"
+                        subtitle="Start your journey with a tailored schedule."
+                    />
+                </View>
+                <View style={styles.scrollContent}>
+                    <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
+                        <Card variant="glass" style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}>
+                            <Text style={styles.emptyTitle}>No Plan Found</Text>
+                            <Text style={styles.emptySubtitle}>
+                                {activeWeekStart && !isCurrentWeek 
+                                    ? `Generate your training plan for the week of ${new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.` 
+                                    : 'Set up your weekly training plan to get smart daily recommendations tailored to your goals.'}
+                            </Text>
+                            {activeWeekStart && !isCurrentWeek ? (
+                                <AnimatedPressable style={styles.setupButton} onPress={generateActiveWeek}>
+                                    <Text style={styles.setupButtonText}>Generate Plan</Text>
+                                </AnimatedPressable>
+                            ) : (
+                                <AnimatedPressable style={styles.setupButton} onPress={handleSetupPress}>
+                                    <Text style={styles.setupButtonText}>Set Up Weekly Plan</Text>
+                                </AnimatedPressable>
                             )}
-                            <TouchableOpacity onPress={goToNextWeek}>
-                                <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>Next Week »</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </Card>
-                </Animated.View>
-            </View>
+                            
+                            <View style={{ flexDirection: 'row', marginTop: SPACING.xl, gap: SPACING.xl }}>
+                                <TouchableOpacity onPress={goToPrevWeek}>
+                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>« Prev Week</Text>
+                                </TouchableOpacity>
+                                {!isCurrentWeek && (
+                                    <TouchableOpacity onPress={() => loadPlan()}>
+                                        <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent }}>Today</Text>
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity onPress={goToNextWeek}>
+                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>Next Week »</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </Card>
+                    </Animated.View>
+                </View>
+            </ScreenWrapper>
         );
     }
 
     // ─── Main render ───
 
     return (
-        <ScreenWrapper>
-            {/* ─── Page Header ─── */}
+        <ScreenWrapper useSafeArea={true}>
             <View style={styles.header}>
-                {!loading && entries.length > 0 && (
-                    <TouchableOpacity
-                        onPress={handleOptionsPress}
-                        style={[styles.headerOptionsBtn, { position: 'absolute', top: SPACING.md, right: SPACING.md, zIndex: 10 }]}
-                    >
-                        <Text style={styles.headerOptionsIcon}>⋮</Text>
-                    </TouchableOpacity>
-                )}
-                <View style={[styles.headerRow, { justifyContent: 'space-between' }]}>
-                    <TouchableOpacity onPress={goToPrevWeek} style={{ padding: SPACING.xs }}>
-                        <Text style={{ fontSize: 24, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.secondary }}>«</Text>
-                    </TouchableOpacity>
-                    
-                    <View style={{ alignItems: 'center' }}>
-                        <Text style={styles.headerTitle}>{isCurrentWeek ? 'This Week' : 'Planned Week'}</Text>
-                        {activeWeekStart && !isCurrentWeek && (
-                            <Text style={styles.headerSubtitle}>
-                                Week of {new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </Text>
+                <ScreenHeader
+                    kicker="Plan"
+                    title={isCurrentWeek ? 'This Week' : 'Planned Week'}
+                    subtitle={activeWeekStart && !isCurrentWeek 
+                        ? `Week of ${new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` 
+                        : isDeloadWeek ? 'Recovery & Deload' : 'Your smart training schedule'}
+                    rightAction={!loading && entries.length > 0 ? (
+                        <TouchableOpacity
+                            onPress={handleOptionsPress}
+                            style={styles.headerOptionsBtn}
+                        >
+                            <Text style={styles.headerOptionsIcon}>⋮</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                >
+                    <View style={styles.weekNavRow}>
+                        <AnimatedPressable onPress={goToPrevWeek} style={styles.navBtn}>
+                            <Text style={styles.navBtnText}>Prev</Text>
+                        </AnimatedPressable>
+                        
+                        {!isCurrentWeek && (
+                            <AnimatedPressable onPress={() => loadPlan()} style={[styles.navBtn, styles.navBtnToday]}>
+                                <Text style={[styles.navBtnText, { color: COLORS.text.inverse }]}>Today</Text>
+                            </AnimatedPressable>
                         )}
-                        {isDeloadWeek && (
-                            <Animated.View entering={FadeInDown.duration(300)} style={styles.deloadBadge}>
-                                <Text style={styles.deloadBadgeText}>Recovery Week</Text>
-                            </Animated.View>
-                        )}
-                    </View>
 
-                    <TouchableOpacity onPress={goToNextWeek} style={{ padding: SPACING.xs }}>
-                        <Text style={{ fontSize: 24, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.secondary }}>»</Text>
-                    </TouchableOpacity>
-                </View>
+                        <AnimatedPressable onPress={goToNextWeek} style={styles.navBtn}>
+                            <Text style={styles.navBtnText}>Next</Text>
+                        </AnimatedPressable>
+                    </View>
+                </ScreenHeader>
             </View>
 
             <ScrollView
@@ -289,9 +306,11 @@ export function WeeklyPlanScreen() {
                 {/* ─── Plan Summary Card ─── */}
                 {weekPlan?.message ? (
                     <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.slow).springify()} style={{ marginBottom: SPACING.sm }}>
-                        <Card variant="filled" style={styles.summaryCard} noPadding>
-                            <Text style={styles.summaryIcon}>📋</Text>
-                            <Text style={styles.summaryText}>{weekPlan.message}</Text>
+                        <Card variant="glass" style={styles.summaryCard} noPadding>
+                            <View style={styles.summaryCardInner}>
+                                <Text style={styles.summaryIcon}>📋</Text>
+                                <Text style={styles.summaryText}>{weekPlan.message}</Text>
+                            </View>
                         </Card>
                     </Animated.View>
                 ) : null}
@@ -300,7 +319,7 @@ export function WeeklyPlanScreen() {
                 {missedEntries.length > 0 && (
                     <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.slow).springify()} style={{ marginBottom: SPACING.sm }}>
                         <AnimatedPressable onPress={handleMissedBannerPress}>
-                            <Card style={styles.cautionBanner} noPadding>
+                            <Card variant="glass" style={styles.cautionBanner} noPadding>
                                 <View style={styles.cautionBannerInner}>
                                     <View style={styles.cautionIconBox}>
                                         <Text style={styles.cautionIconText}>!</Text>
@@ -316,7 +335,7 @@ export function WeeklyPlanScreen() {
                     </Animated.View>
                 )}
 
-                {/* ─── Day Cards ─── */}
+                {/* ─── Metrics ─── */}
                 <View style={{ marginTop: SPACING.md }}>
                     <SectionHeader title="Weekly Overview" />
                 </View>
@@ -344,6 +363,7 @@ export function WeeklyPlanScreen() {
                     />
                 </View>
 
+                {/* ─── Day Cards ─── */}
                 <View style={{ marginTop: SPACING.xl }}>
                     <SectionHeader title="Sessions" />
                 </View>
@@ -353,7 +373,6 @@ export function WeeklyPlanScreen() {
                         (s) => s.status === 'skipped' || s.status === 'rescheduled',
                     );
 
-                    // Map WeeklyPlanEntryRow[] → DayPlanCard session props
                     const sessionProps = group.sessions.map((entry) => ({
                         slot: entry.slot,
                         sessionType: entry.session_type,
@@ -375,7 +394,6 @@ export function WeeklyPlanScreen() {
                                 isToday={isToday(group.date)}
                                 isDeload={isDeloadWeek}
                                 onPress={() => {
-                                    // Navigate using the first entry for the day
                                     if (group.sessions.length > 0) {
                                         handleDayPress(group.sessions[0]);
                                     }
@@ -407,25 +425,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    loadingContainer: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: SPACING.md,
-    },
-    loadingText: {
-        fontFamily: FONT_FAMILY.regular,
-        fontSize: 14,
-        color: COLORS.text.secondary,
-    },
-    emptyContainer: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: SPACING.xl,
-    },
     emptyTitle: {
         fontFamily: FONT_FAMILY.extraBold,
         fontSize: 24,
@@ -454,64 +453,57 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: COLORS.text.inverse,
     },
-
-    // Header
     header: {
-        paddingHorizontal: SPACING.lg,
-        paddingVertical: SPACING.lg,
-        paddingBottom: SPACING.md,
-        backgroundColor: 'transparent',
+        paddingHorizontal: SPACING.md,
+        paddingBottom: SPACING.sm,
     },
-    headerRow: {
+    weekNavRow: {
         flexDirection: 'row',
-        alignItems: 'center',
         gap: SPACING.sm,
+        marginTop: SPACING.sm,
     },
-    headerTitle: {
-        fontFamily: FONT_FAMILY.black,
-        fontSize: 32,
-        color: COLORS.text.primary,
-        letterSpacing: -1,
+    navBtn: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        paddingVertical: 8,
+        borderRadius: RADIUS.lg,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
-    headerSubtitle: {
+    navBtnToday: {
+        backgroundColor: COLORS.accent,
+        borderColor: COLORS.accent,
+    },
+    navBtnText: {
+        fontSize: 13,
         fontFamily: FONT_FAMILY.semiBold,
-        fontSize: 14,
         color: COLORS.text.secondary,
-        marginTop: -4,
-        marginBottom: 4,
     },
     headerOptionsBtn: {
-        padding: SPACING.sm,
-        marginRight: -SPACING.sm,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     headerOptionsIcon: {
-        fontSize: 24,
+        fontSize: 18,
         fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.secondary,
-        textAlign: 'center',
+        color: COLORS.text.primary,
+        marginTop: -2,
     },
-    deloadBadge: {
-        backgroundColor: '#F3E8FF',
-        paddingHorizontal: SPACING.sm + 2,
-        paddingVertical: 4,
-    },
-    deloadBadgeText: {
-        fontFamily: FONT_FAMILY.semiBold,
-        fontSize: 12,
-        color: '#166534',
-        letterSpacing: 0.2,
-    },
-
-    // ScrollView
     scroll: {
         flex: 1,
     },
     scrollContent: {
-        paddingHorizontal: SPACING.lg,
+        paddingHorizontal: SPACING.md,
         paddingTop: SPACING.xs,
-        gap: SPACING.xs,
+        gap: SPACING.sm,
     },
-
     metricsRow: {
         flexDirection: 'row',
         gap: SPACING.md,
@@ -521,16 +513,14 @@ const styles = StyleSheet.create({
         flex: 1,
         width: 'auto',
     },
-
-    // Summary info card
     summaryCard: {
+        marginBottom: SPACING.sm,
+    },
+    summaryCardInner: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         padding: SPACING.md,
         gap: SPACING.sm,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     summaryIcon: {
         fontSize: 16,
@@ -539,15 +529,14 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: FONT_FAMILY.regular,
         fontSize: 13,
-        color: COLORS.accent,
+        color: '#C7D2FE', // Electric Indigo text for clarity
         lineHeight: 19,
     },
-
-    // Missed sessions caution banner
     cautionBanner: {
         backgroundColor: COLORS.warning + '18',
         borderWidth: 1,
         borderColor: COLORS.warning + '30',
+        borderRadius: RADIUS.lg,
     },
     cautionBannerInner: {
         flexDirection: 'row',
