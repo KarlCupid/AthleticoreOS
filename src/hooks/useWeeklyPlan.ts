@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { generateSmartWeekPlan, handleMissedDay } from '../../lib/engine/calculateSchedule';
 import {
   getWeeklyPlanConfig,
+  getActiveWeekPlan,
   saveWeekPlan,
   markDayCompleted,
   markDaySkipped,
@@ -18,6 +19,7 @@ import { getExerciseLibrary, getRecentExerciseIds, getRecentMuscleVolume } from 
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate, addDays } from '../../lib/utils/date';
 import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
+import { resolveWeeklyPlanWeekStart } from '../../lib/engine/weeklyPlanWeekStart';
 import type {
   WeeklyPlanConfigRow,
   WeeklyPlanEntryRow,
@@ -227,15 +229,23 @@ export function useWeeklyPlan() {
         return;
       }
 
-      const gym = await getDefaultGymProfile(userId);
+      const [gym, engineState, latestGeneratedEntries] = await Promise.all([
+        getDefaultGymProfile(userId),
+        getDailyEngineState(userId, todayStr(), { forceRefresh: Boolean(forceStartDate) }),
+        getActiveWeekPlan(userId),
+      ]);
       setGymProfile(gym);
 
-      const engineState = await getDailyEngineState(userId, todayStr(), { forceRefresh: Boolean(forceStartDate) });
-      const weekStart = forceStartDate
-        ?? activeWeekStart
-        ?? engineState.primaryPlanEntry?.week_start_date
+      const todayEngineWeekStart = engineState.primaryPlanEntry?.week_start_date
         ?? engineState.weeklyPlanEntries[0]?.week_start_date
         ?? null;
+      const latestGeneratedWeekStart = latestGeneratedEntries[0]?.week_start_date ?? null;
+      const weekStart = resolveWeeklyPlanWeekStart({
+        forceStartDate,
+        activeWeekStart,
+        todayEngineWeekStart,
+        latestGeneratedWeekStart,
+      });
 
       if (!weekStart) {
         setWeekPlan(null);

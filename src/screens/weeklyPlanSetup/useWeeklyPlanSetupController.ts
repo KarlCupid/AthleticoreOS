@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { getDefaultGymProfile } from '../../../lib/api/gymProfileService';
 import { getWeeklyPlanConfig, saveWeeklyPlanConfig } from '../../../lib/api/weeklyPlanService';
 import { generateAndSaveWeeklyPlan } from '../../hooks/useWeeklyPlan';
+import { invalidateEngineDataCache } from '../../../lib/api/dailyMissionService';
 import { getActiveFightCamp, setupFightCamp } from '../../../lib/api/fightCampService';
 import { getActiveBuildPhaseGoal, setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { getRecurringActivities, replaceRecurringActivities } from '../../../lib/api/scheduleService';
@@ -463,6 +464,10 @@ export function useWeeklyPlanSetupController({
       };
 
       const savedConfig = await saveWeeklyPlanConfig(userId, configPayload as never);
+      console.info('[WeeklyPlanSetupScreen.saveSetup] config saved', {
+        userId,
+        availableDays: savedConfig.available_days.length,
+      });
 
       await replaceRecurringActivities(
         userId,
@@ -510,9 +515,24 @@ export function useWeeklyPlanSetupController({
           targetHorizonWeeks: showAdvancedOverride ? parsedTargetHorizonWeeks : buildRecommendation.targetHorizonWeeks,
         });
       }
+      console.info('[WeeklyPlanSetupScreen.saveSetup] goal/camp saved', {
+        userId,
+        goalMode,
+      });
 
       const gym = await getDefaultGymProfile(userId);
-      await generateAndSaveWeeklyPlan(userId, savedConfig as never, gym, startDate);
+      const generatedWeek = await generateAndSaveWeeklyPlan(userId, savedConfig as never, gym, startDate);
+      if (generatedWeek.entries.length === 0) {
+        throw new Error('Weekly plan generation completed without entries.');
+      }
+
+      console.info('[WeeklyPlanSetupScreen.saveSetup] week generated', {
+        userId,
+        weekStart: generatedWeek.entries[0]?.week_start_date ?? startDate,
+        entryCount: generatedWeek.entries.length,
+      });
+
+      invalidateEngineDataCache({ userId });
 
       onComplete?.();
       if (navigation.canGoBack()) {

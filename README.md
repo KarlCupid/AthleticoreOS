@@ -1,30 +1,63 @@
 # Athleticore OS
 
-Athleticore OS is an Expo + React Native athlete operating system for combat-sports training. It combines onboarding, planning, daily readiness, nutrition, hydration, weight-cut management, and guided training into one app backed by Supabase and a deterministic engine in `lib/engine`.
+Athleticore OS is an Expo + React Native athlete operating system for combat-sports training. It combines onboarding, planning, readiness, nutrition, hydration, weight-cut workflows, and guided training into one app backed by Supabase and a deterministic engine in `lib/engine`.
 
-## What the app does
+## Product overview
 
-- Gates users through auth, onboarding, and planning setup before they enter the main app.
-- Builds a daily engine state that drives mission, nutrition, hydration, risk, and workout recommendations.
-- Supports both `build_phase` and `fight_camp` modes.
-- Persists mission and engine snapshots so the dashboard and weekly plan can reuse the same state.
-- Uses simulation-backed engine tests for the deterministic layer.
+- The app is centered on a shared daily mission, not a standalone workout planner.
+- Goal modes are `build_phase` and `fight_camp`.
+- The runtime combines readiness, workload, nutrition, hydration, risk, and prescription into one engine-backed operating state.
+- Engine snapshots are persisted and reused across dashboard and planning flows.
+
+## App shell
+
+`App.tsx` gates users through:
+
+1. `AuthScreen`
+2. `OnboardingScreen`
+3. `PlanningSetupStackNavigator`
+4. `TabNavigator`
+
+The main app shell is a five-tab experience:
+
+- `Today`: dashboard, day detail, logging, and activity history.
+- `Train`: workout discovery, exercise detail, active workouts, guided workouts, and workout summaries.
+- `Plan`: weekly plan, calendar, weekly review, and workout detail.
+- `Fuel`: nutrition, food search, barcode scan, weight-cut home, cut-plan setup, and fight-week protocols.
+- `Me`: profile and settings, plus the hidden replay-lab entry path.
+
+## Theme and design system
+
+The current UI is built around a fixed dark chrome with selective accents rather than readiness-tinted full-screen themes.
+
+- Root chrome uses `APP_CHROME` and the shared `AuroraBackground`.
+- Most surfaces use dark translucent cards from `Card` and theme tokens in `src/theme/theme.ts`.
+- `TYPOGRAPHY_V2` is the preferred typography system for all new UI.
+- Readiness colors are scoped to readiness-specific accents and feedback, not app-wide chrome.
+- `GlassCard` is deprecated and should not be used for new work.
+
+See `DESIGN_SYSTEM.md` for contributor guidance on palette, surfaces, typography, interaction modes, and design rules.
 
 ## Tech stack
 
 - Expo 54
-- React Native 0.81 / React 19
+- React Native 0.81
+- React 19
 - TypeScript
 - React Navigation
 - Supabase
+- React Native Reanimated
+- React Native Skia
 
 ## Project layout
 
-- `App.tsx`: root app gate and provider setup.
+- `App.tsx`: root gate, providers, aurora shell, and navigation container.
 - `src/navigation`: tab and stack navigation.
 - `src/screens`: product surfaces.
-- `src/components`: reusable UI components.
+- `src/components`: reusable UI components and internal replay-lab UI.
 - `src/hooks`: screen orchestration hooks.
+- `src/theme`: theme tokens, typography, spacing, interaction sizes, and readiness accent helpers.
+- `src/context`: shared runtime UI contexts such as interaction mode.
 - `lib/api`: Supabase-facing services and orchestration.
 - `lib/engine`: deterministic training, readiness, mission, nutrition, weight, and presentation logic.
 - `lib/engine/simulation`: persona-based simulation runner and reporting.
@@ -37,7 +70,7 @@ Athleticore OS is an Expo + React Native athlete operating system for combat-spo
 
 - Node.js 20+ recommended
 - npm
-- Expo tooling for local mobile/web development
+- Expo tooling for local mobile or web development
 - A Supabase project with the schema in `supabase/migrations`
 
 ### Environment variables
@@ -78,6 +111,7 @@ Notes:
 
 - `npm run test:engine` runs the custom TypeScript test harness in `scripts/run-engine-tests.js`.
 - `npm run quality` is the main repo health check.
+- Full repo typecheck can still surface pre-existing noise, so engine and targeted checks are often the most trustworthy regression gate.
 
 ## Simulation tooling
 
@@ -87,7 +121,7 @@ The deterministic engine can be stress-tested with persona simulations through `
 npx tsx scripts/run-simulation.ts perfect 8
 ```
 
-Outputs are written to `sim_results/`. `tsx` is not currently declared as a project script or dependency, so use whatever TS execution flow you already use locally.
+Outputs are written to `sim_results/`. `tsx` is not currently declared as a project script or dependency, so use your preferred local TS execution flow.
 
 Other simulation utilities:
 
@@ -95,23 +129,6 @@ Other simulation utilities:
 - `scripts/simulate_weight_cut.ts`
 
 ## Runtime architecture
-
-### App shell
-
-`App.tsx` decides between:
-
-1. `AuthScreen`
-2. `OnboardingScreen`
-3. `PlanningSetupStackNavigator`
-4. `TabNavigator`
-
-That gate depends on Supabase auth, the existence of `athlete_profiles`, and planning setup completion from `lib/api/planningSetupService.ts`.
-
-### Navigation
-
-- `Home` tab: dashboard, day detail, logs.
-- `Plan` tab: weekly plan, workouts, nutrition, calendar, weight cut, weekly review.
-- `Profile` tab: settings/profile surface.
 
 ### Daily engine flow
 
@@ -129,16 +146,26 @@ That gate depends on Supabase auth, the existence of `athlete_profiles`, and pla
 
 It then persists snapshots through `daily_engine_snapshots` and mirrors mission snapshots into weekly plan entries.
 
+### Data ownership
+
+- `lib/engine/*`: deterministic calculations and domain rules.
+- `lib/api/*`: Supabase access plus orchestration around engine inputs and outputs.
+- `src/hooks/*`: screen-oriented assembly of service results and UI state.
+- `src/screens/*`: final product surfaces.
+
 ## Working rules
 
 - Keep business logic in `lib/engine` pure and synchronous.
 - Prefer service or engine fixes over UI-only patches when behavior spans multiple screens.
 - When changing mission shape or snapshot-backed fields, verify persistence contracts as well as UI consumption.
 - If you touch deterministic behavior, add or update engine tests before changing screens.
+- When updating UI, follow `DESIGN_SYSTEM.md` and keep docs aligned with the visual system in the same pass.
 
 ## Key files
 
 - `App.tsx`
+- `src/navigation/TabNavigator.tsx`
+- `src/theme/theme.ts`
 - `lib/api/dailyMissionService.ts`
 - `src/hooks/useDashboardData.ts`
 - `lib/api/weeklyPlanService.ts`
@@ -147,6 +174,8 @@ It then persists snapshots through `daily_engine_snapshots` and mirrors mission 
 
 ## Additional repo docs
 
+- `DESIGN_SYSTEM.md`: current theme and design rules.
 - `STATE.md`: current direction, priorities, and risks.
 - `CONTEXT.md`: product and architecture overview.
 - `AGENT.md`: concise implementation guidance for coding agents.
+- `CLAUDE.md`: practical repo workflow notes.

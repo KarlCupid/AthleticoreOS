@@ -268,6 +268,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
       performance_goal_type: input.performanceGoalType ?? athleteContext.profile?.performance_goal_type ?? 'conditioning',
       fight_date: input.fightDate,
       target_weight: input.targetWeight ?? athleteContext.profile?.target_weight ?? null,
+      planning_setup_version: 1,
       phase: phaseForToday ? toCampEnginePhase(phaseForToday) : 'fight-camp',
     })
     .eq('user_id', userId);

@@ -1,19 +1,57 @@
-# Athleticore OS - Architecture & Product Context
+# Athleticore OS - Architecture, Product, and Design Context
 
-Read `STATE.md` first for the current direction. This file explains how the codebase is organized today.
+Read `STATE.md` first for the current direction. This file explains how the codebase is organized today and how the product is meant to feel.
 
 Athleticore OS is an athlete operating system for combat-sports training. The product is built around a shared daily engine state that turns planning, readiness, nutrition, hydration, workload, and weight-management data into one actionable mission.
 
 ## Product shape
 
-- Primary experience: authenticated athlete dashboard plus planning and execution flows.
+- Primary experience: authenticated athlete dashboard plus planning, fueling, and execution flows.
 - Goal modes: `build_phase` and `fight_camp`.
-- Core loop: auth -> onboarding -> planning setup -> rolling schedule + daily engine -> dashboard and plan execution -> logs and snapshots.
+- Core loop: auth -> onboarding -> planning setup -> rolling schedule plus daily engine -> dashboard and plan execution -> logs and snapshots.
 - Main surfaces:
-  - `Home`: dashboard, day detail, activity log, logging.
-  - `Plan`: weekly plan, workouts, calendar, nutrition, weight-cut, review.
-  - `Profile`: settings/profile.
-  - Internal-only replay inspection: `Engine Replay Lab` from the hidden Profile version-tap entry.
+  - `Today`: dashboard, day detail, logging, and activity history.
+  - `Train`: workout home, active training, guided sessions, exercise discovery, and summaries.
+  - `Plan`: weekly plan, calendar, weekly review, and workout detail.
+  - `Fuel`: nutrition, food search, barcode scanning, weight-cut home, cut-plan setup, fight-week protocol, and rehydration.
+  - `Me`: profile and settings.
+  - Internal-only replay inspection: `Engine Replay Lab` from the hidden Me/Profile version-tap entry.
+
+## Current design system
+
+The visual system now has a clear separation between app chrome, content surfaces, and stateful accents.
+
+### App chrome is fixed
+
+- The root shell uses `APP_CHROME.background` with `AuroraBackground` rendered once behind the app.
+- Navigation is transparent over the root background rather than each screen painting its own full-screen theme.
+- The bottom tab shell uses a dark, elevated treatment with `APP_CHROME.accent` for the active state.
+
+### Surfaces are dark and layered
+
+- The default surface language is dark translucent cards using `COLORS.surface`, `COLORS.surfaceElevated`, and border tokens from `src/theme/theme.ts`.
+- `Card` is the preferred content surface component.
+- `GlassCard` is deprecated and should be migrated away from rather than copied into new features.
+
+### Readiness is scoped, not global
+
+- Screen chrome should not shift by readiness level.
+- Readiness colors are reserved for readiness-specific components, charts, and intervention cues.
+- Semantic feedback for notes and coaching states should prefer `SEMANTIC_PALETTE` over painting entire surfaces with readiness colors.
+
+### Typography is mode-aware
+
+- `TYPOGRAPHY_V2.plan` is the preferred system for planning, review, replay, and general product reading.
+- `TYPOGRAPHY_V2.focus` is for larger, arm's-length workout and gym-floor interactions.
+- Legacy `TYPOGRAPHY` remains for backward compatibility, but new UI should not expand its footprint.
+
+### Interaction modes matter
+
+- `InteractionModeContext` exposes `standard`, `focus`, and `gym-floor` behavior.
+- Gym-floor mode hides bottom navigation and uses larger tap targets and denser action affordances.
+- Tap-target guidance lives in `TAP_TARGETS` inside `src/theme/theme.ts`.
+
+For the practical contributor rules, read `DESIGN_SYSTEM.md`.
 
 ## Current architecture
 
@@ -30,15 +68,18 @@ That decision depends on Supabase auth, the existence of an athlete profile, and
 
 ### Navigation
 
-- `src/navigation/HomeStack.tsx`: dashboard and logging flows.
-- `src/navigation/PlanStack.tsx`: weekly plan, workouts, nutrition, calendar, weight-cut, and review flows.
+- `src/navigation/TodayStack.tsx`: dashboard, day detail, logs, and quick logging flows.
+- `src/navigation/TrainStack.tsx`: training home, active workouts, guided workouts, exercise search, and summaries.
+- `src/navigation/PlanStack.tsx`: weekly planning, calendar, review, and workout detail flows.
+- `src/navigation/FuelStack.tsx`: nutrition and weight-cut flows.
+- `src/navigation/MeStack.tsx`: profile and settings.
 - `src/navigation/PlanningSetupStack.tsx`: setup gate before the main app.
 - `src/navigation/TabNavigator.tsx`: bottom-tab shell.
 
 ### Data ownership
 
 - `lib/engine/*`: deterministic calculations and domain rules.
-- `lib/api/*`: Supabase access plus orchestration around engine inputs/outputs.
+- `lib/api/*`: Supabase access plus orchestration around engine inputs and outputs.
 - `src/hooks/*`: screen-oriented assembly of service results and UI state.
 - `src/screens/*`: final product surfaces.
 
@@ -68,46 +109,46 @@ Legacy usage can satisfy the gate for older accounts.
 - camp risk
 - final mission
 
-This state is what powers the dashboard and much of the planning UI.
+This state powers the dashboard and much of the planning, fueling, and training UI.
 
 ### Snapshot persistence is part of the contract
 
-Engine outputs are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot`. If mission or engine shapes change, you need to consider persistence and reuse paths, not just the local caller.
+Engine outputs are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot`. If mission or engine shapes change, consider persistence and reuse paths, not just the local caller.
 
 ### Intervention logic is engine-driven
 
-There is no separate `interventionService` at the moment. Safety and intervention behavior are embedded in the mission engine and related cut/risk calculations, especially in `lib/engine/calculateMission.ts`, `lib/engine/calculateWeightCut.ts`, and the orchestration in `lib/api/dailyMissionService.ts`.
+There is no separate `interventionService` at the moment. Safety and intervention behavior are embedded in the mission engine and related cut or risk calculations, especially in `lib/engine/calculateMission.ts`, `lib/engine/calculateWeightCut.ts`, and the orchestration in `lib/api/dailyMissionService.ts`.
 
 ### Guided sessions have ownership rules
 
 Weekly plan entries can supply engine-owned prescriptions that flow into workout execution. The ownership rules live in `lib/engine/sessionOwnership.ts`.
 
-### Replay lab is now a first-class internal debugging surface
+### Replay lab is a first-class internal debugging surface
 
 `src/components/EngineReplayLab.tsx` is the current internal inspection tool for understanding how the engine behaves over a full block. It reuses `lib/engine/simulation/lab.ts` and `lib/engine/simulation/runner.ts` rather than a separate visualization-only simulator.
 
-Current replay lab capabilities include:
+Current replay-lab capabilities include:
 
 - deterministic seeded block replay
 - a workout-first week/day rail instead of split week and day selectors
-- chart focus controls with 7/14/28/all windows inside a collapsed trends section
+- chart focus controls with `7D`, `14D`, `28D`, and `All` windows inside a collapsed trends section
 - run-level readiness, weight, calories, and load charts with summary stats
-- selected-day workout hero with quick-context stats and previous/next navigation
+- selected-day workout hero with quick-context stats and previous or next navigation
 - sectioned replay workout blueprint with set-by-set targets, rest guidance, cues, and simulated logs
-- full prescribed-vs-logged S&C inspection
+- full prescribed-vs-logged S and C inspection
 - dedicated conditioning prescription and simulated conditioning log views
-- collapsible secondary sections for risk/findings, fuel, and decision trace
+- collapsible secondary sections for risk, findings, fuel, and decision trace
 
-If you change simulation output shape, you usually need to update both the replay adapter in `lib/engine/simulation/lab.ts` and the replay UI in `src/components/EngineReplayLab.tsx`.
+If you change simulation output shape, you usually need to update both the replay adapter in `lib/engine/simulation/lab.ts` and the replay UI in `src/components/replay-lab/`.
 
 ## Directory guide
 
 - `src/screens`: user-visible surfaces.
-- `src/components`: shared UI blocks.
-- `src/components/EngineReplayLab.tsx`: internal replay and engine inspection surface.
+- `src/components`: shared UI blocks and replay-lab UI.
+- `src/components/replay-lab`: decomposed internal replay inspector.
 - `src/navigation`: tab and stack definitions.
 - `src/hooks`: orchestration hooks like `useDashboardData`, `useWeeklyPlan`, and workout hooks.
-- `src/theme`: theme tokens and readiness-aware theming.
+- `src/theme`: theme tokens, typography, spacing, semantic palettes, and readiness accent helpers.
 - `src/context`: shared runtime UI contexts.
 - `lib/api`: service layer for athlete context, planning, mission, schedules, nutrition, fight camp, weight, and weight cut.
 - `lib/engine`: deterministic business logic.
@@ -118,16 +159,20 @@ If you change simulation output shape, you usually need to update both the repla
 ## Files that matter most
 
 1. `App.tsx`
-   Entry gate and provider tree.
-2. `lib/api/dailyMissionService.ts`
+   Entry gate, provider tree, and root visual shell.
+2. `src/navigation/TabNavigator.tsx`
+   Five-tab shell and gym-floor navigation behavior.
+3. `src/theme/theme.ts`
+   Color, spacing, typography, semantic, and interaction tokens.
+4. `lib/api/dailyMissionService.ts`
    Main daily engine orchestration path.
-3. `src/hooks/useDashboardData.ts`
+5. `src/hooks/useDashboardData.ts`
    Dashboard state assembly and refresh behavior.
-4. `lib/api/weeklyPlanService.ts` and `src/screens/WeeklyPlanScreen.tsx`
+6. `lib/api/weeklyPlanService.ts` and `src/screens/WeeklyPlanScreen.tsx`
    Weekly planning, mission reuse, and plan execution entry points.
-5. `lib/engine/index.ts` and `lib/engine/types.ts`
+7. `lib/engine/index.ts` and `lib/engine/types.ts`
    Export surface and shared engine contracts.
-6. `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/EngineReplayLab.tsx`
+8. `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/replay-lab/`
    Deterministic replay generation, replay view-model mapping, and internal engine inspection UI.
 
 ## Editing guidance
@@ -135,9 +180,10 @@ If you change simulation output shape, you usually need to update both the repla
 - Prefer fixing behavior in the engine or service layer when multiple screens depend on it.
 - Reuse shared engine types instead of redefining API or UI-only variants.
 - Treat snapshots and mirrored mission fields as public contracts inside the app.
-- Preserve the auth/profile/planning gate unless the task explicitly targets it.
+- Preserve the auth, profile, and planning gate unless the task explicitly targets it.
 - If the code path is mode-sensitive, check both `build_phase` and `fight_camp`.
-- For replay-lab work, do not fork engine logic for visualization. Reuse engine outputs and add adapter/view-model fields instead.
+- For replay-lab work, do not fork engine logic for visualization. Reuse engine outputs and add adapter or view-model fields instead.
+- For UI work, keep the fixed chrome plus scoped-accent model intact instead of reintroducing full-screen readiness tinting or new glassmorphism primitives.
 
 ## Validation guidance
 

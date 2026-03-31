@@ -1,12 +1,14 @@
 # Project State
 
-**Last Updated:** 2026-03-23
+**Last Updated:** 2026-03-31
 
 ## Current direction
 
 - The product is centered on a daily engine state, not a standalone workout planner flow.
 - `build_phase` and `fight_camp` both feed the same mission-driven runtime.
 - The repo is optimized around a deterministic engine plus a Supabase service layer.
+- The app shell is now documented and built as a five-tab experience: `Today`, `Train`, `Plan`, `Fuel`, and `Me`.
+- The visual system is intentionally fixed-chrome and dark-surface based, with readiness color used as a scoped accent rather than a full-screen theme.
 - Validation is expected to start with engine tests and, for higher-risk changes, simulation.
 
 ## What is in place
@@ -16,23 +18,30 @@
 - Daily engine orchestration is implemented in `lib/api/dailyMissionService.ts`.
 - Weekly plan entries can reuse stored daily mission snapshots and engine-owned prescriptions.
 - Snapshot persistence exists for `daily_engine_snapshots` and weekly plan mission mirrors.
-- Engine modules cover readiness, ACWR, mission construction, nutrition, hydration, weight trend, cut protocols, interference modeling, S&C autoregulation, presentation mapping, and simulation.
-- The internal `Engine Replay Lab` is available from Profile via a hidden version-tap entry and is now the main in-app inspection surface for deterministic replay analysis.
+- Engine modules cover readiness, ACWR, mission construction, nutrition, hydration, weight trend, cut protocols, interference modeling, S and C autoregulation, presentation mapping, and simulation.
+- The internal `Engine Replay Lab` is available from Me/Profile via a hidden version-tap entry and is now the main in-app inspection surface for deterministic replay analysis.
 - Replay lab coverage now includes:
   - deterministic seeded replay runs
   - a workout-first week/day rail with selected-week expansion
   - chart window zoom controls inside a collapsed trends section
-  - selected-day workout hero with quick-context stats and nearby previous/next navigation
+  - selected-day workout hero with quick-context stats and nearby previous or next navigation
   - sectioned workout blueprints with set-level targets, rest guidance, and simulated log detail
-  - full prescribed-vs-logged S&C session inspection
+  - full prescribed-vs-logged S and C session inspection
   - dedicated conditioning prescription and simulated conditioning log views
+- The design system direction is codified in `DESIGN_SYSTEM.md`, centered on:
+  - `APP_CHROME` plus `AuroraBackground` for root chrome
+  - `Card` and tokenized dark surfaces for primary content
+  - `TYPOGRAPHY_V2` for new UI work
+  - scoped readiness accents and semantic feedback palettes
+  - interaction-mode aware sizing for gym-floor and focus contexts
 - Supabase migrations are present through `015_engine_v3_foundation.sql`.
 
 ## Current priorities
 
-- Keep documentation and architecture notes aligned with the actual code, especially around engine orchestration and persistence contracts.
+- Keep documentation and architecture notes aligned with the actual code, especially around engine orchestration, navigation, persistence contracts, and the design system.
 - Continue improving intervention behavior inside the mission and cut logic without fragmenting the ownership model.
 - Maintain confidence in ACWR, readiness, and workload-sensitive prescriptions.
+- Keep new UI work aligned with the fixed chrome plus scoped accent model and avoid reintroducing deprecated glassmorphism patterns.
 - Add or preserve engine-level coverage whenever deterministic behavior changes.
 - Keep the replay lab aligned with actual engine outputs so internal debugging does not drift into a parallel simulation UI with different logic.
 
@@ -43,8 +52,9 @@
 - The app still has legacy fallback behavior in some flows, especially around planning completion and reused mission data.
 - Weekly plan entries and scheduled activities both influence the daily mission, so precedence bugs are easy to introduce.
 - Simulation tooling exists, but its usage is still discipline-dependent rather than enforced by the toolchain.
-- Full repo typecheck remains noisy from pre-existing issues; `npm run test:engine` is currently the reliable regression gate for engine/replay changes.
-- Replay data for conditioning and exercise logs is UI-facing now, so replay model changes need coordination between `lib/engine/simulation/*` and `src/components/EngineReplayLab.tsx`.
+- Full repo typecheck remains noisy from pre-existing issues; `npm run test:engine` is currently the reliable regression gate for engine and replay changes.
+- Replay data for conditioning and exercise logs is UI-facing now, so replay model changes need coordination between `lib/engine/simulation/*` and `src/components/replay-lab/`.
+- Legacy theme usage still exists in parts of the app, including compatibility tokens and older surface primitives, so contributors need to actively follow `DESIGN_SYSTEM.md` during UI changes.
 
 ## Working assumptions
 
@@ -52,5 +62,6 @@
 - Treat the daily engine and its persisted snapshots as the operational source of truth.
 - Before changing UI summaries, verify whether the real fix belongs in engine logic or service orchestration.
 - When documentation drifts from the code, update the docs in the same pass as the code change.
-- For engine/replay debugging work, check `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/EngineReplayLab.tsx` together.
+- For engine or replay debugging work, check `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/replay-lab/` together.
 - For replay regressions, validate with `npm run test:engine` first, then run a targeted replay smoke test if the issue is simulation- or UI-shape-related.
+- For theme or layout changes, use `src/theme/theme.ts`, `src/context/InteractionModeContext.tsx`, and `DESIGN_SYSTEM.md` as the primary source of truth.
