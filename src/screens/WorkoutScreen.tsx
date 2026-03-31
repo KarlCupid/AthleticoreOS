@@ -1,897 +1,456 @@
-import React, { useState, useCallback } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    StyleSheet,
-    RefreshControl,
-    Pressable,
-    InteractionManager,
-} from 'react-native';
-import { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { AnimatedPressable } from '../components/AnimatedPressable';
-import { SkeletonLoader } from '../components/SkeletonLoader';
-import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { SectionHeader } from '../components/SectionHeader';
-import { PrescriptionCard } from '../components/PrescriptionCard';
-import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
-import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
-import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
-import { ActivityCard } from '../components/ActivityCard';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { ScreenWrapper } from '../components/ScreenWrapper';
-
-import type { TrainStackParamList } from '../navigation/types';
-import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
+import { buildTrainingFloorViewModel } from '../../lib/engine/presentation';
+import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
-import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
-import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
+import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
+import type { ScheduledActivityRow, WeeklyPlanEntryRow } from '../../lib/engine/types';
+import type { TrainStackParamList } from '../navigation/types';
+import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
+import { AnimatedPressable } from '../components/AnimatedPressable';
+import { Card } from '../components/Card';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { ScreenWrapper } from '../components/ScreenWrapper';
+import { SkeletonLoader } from '../components/SkeletonLoader';
+import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
+import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
+import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import {
-    buildSleepData,
-    buildTrainingLoadData,
-    buildWeightData,
-    getWorkoutFocusLabel,
-    WORKOUT_TABS,
-    type WorkoutTabKey,
+  buildSleepData,
+  buildTrainTodaySummary,
+  buildTrainingLoadData,
+  buildWeightData,
+  formatWorkoutTabLabel,
+  getWorkoutFocusLabel,
+  WORKOUT_TABS,
+  type WorkoutTabKey,
 } from './workout/utils';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 
-function groupWeekEntries(entries: WeeklyPlanEntryRow[]): Array<{
-    date: string;
-    dayOfWeek: number;
-    sessions: WeeklyPlanEntryRow[];
-}> {
-    const groups = new Map<string, { date: string; dayOfWeek: number; sessions: WeeklyPlanEntryRow[] }>();
+function groupWeekEntries(entries: WeeklyPlanEntryRow[]) {
+  const groups = new Map<string, { date: string; dayOfWeek: number; sessions: WeeklyPlanEntryRow[] }>();
+  for (const entry of entries) {
+    const existing = groups.get(entry.date);
+    if (existing) existing.sessions.push(entry);
+    else groups.set(entry.date, { date: entry.date, dayOfWeek: entry.day_of_week, sessions: [entry] });
+  }
+  return Array.from(groups.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((group) => ({ ...group, sessions: [...group.sessions].sort((a, b) => a.slot.localeCompare(b.slot)) }));
+}
 
-    for (const entry of entries) {
-        const existing = groups.get(entry.date);
-        if (existing) {
-            existing.sessions.push(entry);
-            continue;
-        }
+function formatActivityTime(time: string | null | undefined) {
+  if (!time) return null;
+  const [hourRaw, minuteRaw] = time.split(':').map(Number);
+  const suffix = hourRaw >= 12 ? 'PM' : 'AM';
+  return `${hourRaw % 12 || 12}:${String(minuteRaw).padStart(2, '0')} ${suffix}`;
+}
 
-        groups.set(entry.date, {
-            date: entry.date,
-            dayOfWeek: entry.day_of_week,
-            sessions: [entry],
-        });
-    }
+function formatActivityLabel(activity: ScheduledActivityRow) {
+  const label = activity.custom_label ?? activity.activity_type.replace(/_/g, ' ');
+  return label.replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
-    return Array.from(groups.values())
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((group) => ({
-            ...group,
-            sessions: [...group.sessions].sort((a, b) => a.slot.localeCompare(b.slot)),
-        }));
+function getHeroToneStyles(tone: 'calm' | 'steady' | 'push' | 'caution') {
+  if (tone === 'caution') return { borderColor: COLORS.warning, badgeBackground: `${COLORS.warning}20`, badgeColor: COLORS.warning, effortBackground: `${COLORS.warning}14` };
+  if (tone === 'push') return { borderColor: COLORS.accent, badgeBackground: COLORS.accentLight, badgeColor: COLORS.accent, effortBackground: `${COLORS.accent}14` };
+  if (tone === 'calm') return { borderColor: COLORS.success, badgeBackground: `${COLORS.success}20`, badgeColor: COLORS.success, effortBackground: `${COLORS.success}14` };
+  return { borderColor: COLORS.border, badgeBackground: COLORS.surfaceSecondary, badgeColor: COLORS.text.secondary, effortBackground: COLORS.surfaceSecondary };
+}
+
+function getWeekStatus(group: { date: string; sessions: WeeklyPlanEntryRow[] }) {
+  const allCompleted = group.sessions.every((session) => session.status === 'completed');
+  const allSkipped = group.sessions.every((session) => session.status === 'skipped');
+  if (allCompleted) return { label: 'Done', tone: 'success' as const };
+  if (allSkipped) return { label: 'Skipped', tone: 'warning' as const };
+  if (group.date === todayLocalDate()) return { label: 'Today', tone: 'accent' as const };
+  return { label: 'Planned', tone: 'neutral' as const };
+}
+
+function getChipStyles(tone: 'success' | 'warning' | 'accent' | 'neutral') {
+  if (tone === 'success') return { backgroundColor: `${COLORS.success}20`, color: COLORS.success };
+  if (tone === 'warning') return { backgroundColor: `${COLORS.warning}20`, color: COLORS.warning };
+  if (tone === 'accent') return { backgroundColor: COLORS.accentLight, color: COLORS.accent };
+  return { backgroundColor: COLORS.surfaceSecondary, color: COLORS.text.secondary };
+}
+
+function StateCard({
+  title,
+  body,
+  actionLabel,
+  onPress,
+}: {
+  title: string;
+  body: string;
+  actionLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <Card>
+      <View style={styles.stateCard}>
+        <Text style={styles.stateTitle}>{title}</Text>
+        <Text style={styles.stateBody}>{body}</Text>
+        <AnimatedPressable style={styles.stateActionButton} onPress={onPress}>
+          <Text style={styles.stateActionButtonText}>{actionLabel}</Text>
+        </AnimatedPressable>
+      </View>
+    </Card>
+  );
+}
+
+function EmptyPlanCard({ onPress }: { onPress: () => void }) {
+  return (
+    <StateCard
+      title="Set up your week once, then Train stays simple"
+      body="Add your training days, session length, and preferences so we can show one clear plan for each day."
+      actionLabel="Set Up Weekly Plan"
+      onPress={onPress}
+    />
+  );
 }
 
 export function WorkoutScreen() {
-    const insets = useSafeAreaInsets();
-    const navigation = useNavigation<NavProp>();
-    const parentNavigation = navigation.getParent();
-    const { themeColor, currentLevel } = useReadinessTheme();
+  const navigation = useNavigation<NavProp>();
+  const parentNavigation = navigation.getParent();
+  const { themeColor, currentLevel } = useReadinessTheme();
+  const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
+  const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
+  const {
+    loading, refreshing, loadData, onRefresh, prescription, todayActivities, workoutHistory,
+    checkins, sessions, userId, cutProtocol, dailyMission, todayPlanEntry, weeklyEntries,
+    historyLoaded, analyticsLoaded, historyLoading, analyticsLoading, initialLoadError,
+    historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
+  } = useWorkoutData();
 
-    const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
+  useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
+  useEffect(() => { if (activeTab === 'history' && !historyLoaded && !historyLoading) void loadHistoryData(); }, [activeTab, historyLoaded, historyLoading, loadHistoryData]);
+  useEffect(() => { if (activeTab === 'analytics' && !analyticsLoaded && !analyticsLoading) void loadAnalyticsData(); }, [activeTab, analyticsLoaded, analyticsLoading, loadAnalyticsData]);
+  useEffect(() => { setShowWorkoutDetails(false); }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
 
-    // Workout data hook
-    const {
-        loading, refreshing, loadData, onRefresh,
-        prescription, todayActivities, workoutHistory,
-        checkins, sessions, userId,
-        cutProtocol,
-        todayPlanEntry,
-        weeklyEntries,
-        isDeloadWeek,
-        handleStartWorkout,
-        historyLoaded,
-        analyticsLoaded,
-        historyLoading,
-        analyticsLoading,
-        loadHistoryData,
-        loadAnalyticsData,
-    } = useWorkoutData(currentLevel);
-    const displayedPrescription = prescription;
+  const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const trainingDate = entry?.date ?? todayLocalDate();
+    const context = await getGuidedWorkoutContext(session.user.id, trainingDate);
+    navigation.navigate('GuidedWorkout', {
+      weeklyPlanEntryId: entry?.id,
+      scheduledActivityId: entry?.scheduled_activity_id ?? undefined,
+      focus: entry?.focus ?? undefined,
+      availableMinutes: entry?.estimated_duration_min,
+      readinessState: currentLevel ?? 'Prime',
+      phase: context.phase,
+      fitnessLevel: context.fitnessLevel,
+      trainingDate,
+      isDeloadWeek: entry?.is_deload,
+      autoStart: true,
+      entrySource: 'train',
+    });
+  }, [navigation, currentLevel]);
 
-    useFocusEffect(
-        useCallback(() => {
-            let isActive = true;
-            InteractionManager.runAfterInteractions(() => {
-                if (isActive) loadData();
-            });
-            return () => { isActive = false; };
-        }, [loadData])
-    );
+  const openWorkoutDetail = useCallback(async (entry: WeeklyPlanEntryRow) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const context = await getGuidedWorkoutContext(session.user.id, entry.date);
+    navigation.navigate('WorkoutDetail', {
+      weeklyPlanEntryId: entry.id,
+      date: entry.date,
+      readinessState: currentLevel ?? 'Prime',
+      phase: context.phase,
+      fitnessLevel: context.fitnessLevel,
+      isDeloadWeek: entry.is_deload,
+    });
+  }, [navigation, currentLevel]);
 
-    const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
+  const groupedWeeklyEntries = useMemo(() => groupWeekEntries(weeklyEntries), [weeklyEntries]);
+  const contextualTodayActivities = useMemo(() => todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type)), [todayActivities]);
+  const weightData = useMemo(() => buildWeightData(checkins), [checkins]);
+  const sleepData = useMemo(() => buildSleepData(checkins), [checkins]);
+  const trainingLoadData = useMemo(() => buildTrainingLoadData(sessions), [sessions]);
+  const acwrData = useMemo(() => computeACWRTimeSeries(sessions), [sessions]);
+  const checkinDates = useMemo(() => new Set(checkins.map((checkin) => checkin.date)), [checkins]);
+  const floorVM = useMemo(() => buildTrainingFloorViewModel(prescription as any, dailyMission), [prescription, dailyMission]);
 
-        const trainingDate = entry?.date ?? todayLocalDate();
-        const context = await getGuidedWorkoutContext(session.user.id, trainingDate);
-        navigation.navigate('GuidedWorkout', {
-            weeklyPlanEntryId: entry?.id,
-            scheduledActivityId: entry?.scheduled_activity_id ?? undefined,
-            focus: entry?.focus ?? undefined,
-            availableMinutes: entry?.estimated_duration_min,
-            readinessState: currentLevel ?? 'Prime',
-            phase: context.phase,
-            fitnessLevel: context.fitnessLevel,
-            trainingDate,
-            isDeloadWeek: entry?.is_deload,
-            autoStart: true,
-            entrySource: 'train',
-        });
-    }, [navigation, currentLevel]);
+  const todaySessionLabel = useMemo(() => {
+    if (todayPlanEntry) return getWorkoutFocusLabel(todayPlanEntry.focus, todayPlanEntry.session_type, todayPlanEntry.prescription_snapshot);
+    if (prescription) return getSessionFamilyLabel({ workoutType: prescription.workoutType, focus: prescription.focus, prescription: prescription as any });
+    if (contextualTodayActivities.length > 0) return formatActivityLabel(contextualTodayActivities[0]);
+    return null;
+  }, [todayPlanEntry, prescription, contextualTodayActivities]);
 
-    useEffect(() => {
-        if (activeTab === 'history' && !historyLoaded && !historyLoading) {
-            void loadHistoryData();
-        }
-    }, [activeTab, historyLoaded, historyLoading, loadHistoryData]);
+  const todaySummary = useMemo(() => buildTrainTodaySummary({
+    floorVM,
+    sessionLabel: todaySessionLabel,
+    cutProtocol,
+    targetIntensity: todayPlanEntry?.target_intensity ?? null,
+    durationMin: todayPlanEntry?.estimated_duration_min ?? prescription?.estimatedDurationMin ?? null,
+  }), [floorVM, todaySessionLabel, cutProtocol, todayPlanEntry?.target_intensity, todayPlanEntry?.estimated_duration_min, prescription?.estimatedDurationMin]);
 
-    useEffect(() => {
-        if (activeTab === 'analytics' && !analyticsLoaded && !analyticsLoading) {
-            void loadAnalyticsData();
-        }
-    }, [activeTab, analyticsLoaded, analyticsLoading, loadAnalyticsData]);
-    if (loading) {
-        return (
-            <View style={[styles.container, { paddingTop: insets.top }]}>
-                <View style={[styles.header, { paddingTop: SPACING.md }]}>
-                    <SkeletonLoader width={60} height={28} shape="rect" style={{ borderRadius: RADIUS.sm }} />
-                    <SkeletonLoader width="100%" height={36} shape="rect" style={{ marginTop: SPACING.md, borderRadius: RADIUS.sm }} />
-                </View>
-                <View style={{ padding: SPACING.lg }}>
-                    <SkeletonLoader width="100%" height={60} shape="rect" style={{ borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
-                    <SkeletonLoader width="100%" height={200} shape="rect" style={{ borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
-                    <SkeletonLoader width="100%" height={48} shape="rect" style={{ borderRadius: RADIUS.lg }} />
-                </View>
-            </View>
-        );
+  const heroToneStyles = getHeroToneStyles(todaySummary.effortTone);
+  const hasStructuredToday = Boolean(todayPlanEntry || prescription);
+  const showEmptyPlan = !hasStructuredToday && contextualTodayActivities.length === 0 && groupedWeeklyEntries.length === 0;
+  const primaryActionLabel = todayPlanEntry?.status === 'completed'
+    ? 'View workout details'
+    : todayPlanEntry?.status === 'skipped'
+      ? 'Review today\'s plan'
+      : hasStructuredToday
+        ? 'Start workout'
+        : groupedWeeklyEntries.length === 0
+          ? 'Set up weekly plan'
+          : 'Open training';
+
+  const handlePrimaryAction = useCallback(() => {
+    if (todayPlanEntry) {
+      if (todayPlanEntry.status === 'completed' || todayPlanEntry.status === 'skipped') { void openWorkoutDetail(todayPlanEntry); return; }
+      void openGuidedWorkout(todayPlanEntry); return;
     }
+    if (prescription) { void openGuidedWorkout(null); return; }
+    if (groupedWeeklyEntries.length === 0) { navigation.navigate('WeeklyPlanSetup'); return; }
+    void handleStartWorkout(navigation);
+  }, [todayPlanEntry, prescription, groupedWeeklyEntries.length, navigation, handleStartWorkout, openGuidedWorkout, openWorkoutDetail]);
 
-    const weightData = buildWeightData(checkins);
-    const sleepData = buildSleepData(checkins);
-    const trainingLoadData = buildTrainingLoadData(sessions);
-    const contextualTodayActivities = todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type));
-    const groupedWeeklyEntries = groupWeekEntries(weeklyEntries);
-
-    const acwrData = computeACWRTimeSeries(sessions);
-    const checkinDates = new Set(checkins.map(c => c.date));
-
+  if (loading) {
     return (
-        <ScreenWrapper useSafeArea={true}>
-            <View style={styles.header}>
-                <ScreenHeader
-                    kicker="Train"
-                    title="Training"
-                    subtitle="Open today’s session fast, check the week, and review recent work."
-                    rightAction={(
-                        <View style={styles.headerActions}>
-                            <Pressable
-                                style={styles.headerBtn}
-                                onPress={() => parentNavigation?.navigate('Plan' as never)}
-                            >
-                                <Text style={styles.headerBtnText}>Plan</Text>
-                            </Pressable>
-                            <Pressable
-                                style={styles.headerBtn}
-                                onPress={() => navigation.navigate('GymProfiles')}
-                            >
-                                <Text style={styles.headerBtnText}>Gym</Text>
-                            </Pressable>
-                        </View>
-                    )}
-                >
-                    <View style={styles.tabBar}>
-                        {WORKOUT_TABS.map(tab => (
-                            <AnimatedPressable
-                                key={tab}
-                                style={[styles.tab, activeTab === tab && { backgroundColor: COLORS.accent }]}
-                                onPress={() => setActiveTab(tab)}
-                            >
-                                <Text style={[styles.tabText, activeTab === tab && { color: '#FFF' }]}>
-                                    {tab === 'plan'
-                                        ? 'Week'
-                                        : tab === 'analytics'
-                                            ? 'Insights'
-                                            : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                                </Text>
-                            </AnimatedPressable>
-                        ))}
-                    </View>
-                </ScreenHeader>
-            </View>
-
-            <ScrollView
-                contentContainerStyle={styles.content}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} />
-                }
-            >
-                {activeTab === 'today' && (
-                    <>
-                        {groupedWeeklyEntries.length === 0 ? (
-                            <Animated.View entering={FadeInDown.delay(50).duration(300).springify()} style={styles.emptyPlan}>
-                                <Text style={styles.emptyPlanTitle}>No weekly plan yet</Text>
-                                <Text style={styles.emptyPlanSub}>Set up your training days, session length, and preferences to get a smart weekly plan.</Text>
-                                <Pressable
-                                    style={styles.setupBtn}
-                                    onPress={() => navigation.navigate('WeeklyPlanSetup')}
-                                >
-                                    <Text style={styles.setupBtnText}>Set Up Weekly Plan</Text>
-                                </Pressable>
-                            </Animated.View>
-                        ) : (
-                            <>
-                        {/* Today's Weekly Plan Entry */}
-                        {todayPlanEntry && (
-                            <Animated.View entering={FadeInDown.delay(0).duration(300).springify()}>
-                                <Pressable
-                                    style={[styles.planEntryCard, isDeloadWeek && styles.planEntryDeload]}
-                                    onPress={() => { void openGuidedWorkout(todayPlanEntry); }}
-                                >
-                                    <View style={styles.planEntryHeader}>
-                                        <View>
-                                            <Text style={styles.planEntryLabel}>
-                                                {isDeloadWeek ? 'Recovery Day' : 'Today\'s Plan'}
-                                            </Text>
-                                                <Text style={styles.planEntryFocus}>
-                                                    {getWorkoutFocusLabel(todayPlanEntry.focus, todayPlanEntry.session_type, todayPlanEntry.prescription_snapshot)}
-                                                </Text>
-                                        </View>
-                                        <View style={styles.planEntryMeta}>
-                                            <Text style={styles.planEntryDuration}>{todayPlanEntry.estimated_duration_min} min</Text>
-                                            {todayPlanEntry.target_intensity && (
-                                                <Text style={styles.planEntryRPE}>RPE {todayPlanEntry.target_intensity}</Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                    <Text style={styles.planEntryAction}>
-                                        {todayPlanEntry.status === 'completed' ? 'Completed' : 'Start Guided Workout ->'}
-                                    </Text>
-                                </Pressable>
-                            </Animated.View>
-                        )}
-
-                        {/* Weight Cut Intensity Cap Banner */}
-                        {cutProtocol && (
-                            <Animated.View
-                                entering={FadeInDown.delay(0).duration(300).springify()}
-                                style={[
-                                    styles.cutBanner,
-                                    {
-                                        borderColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
-                                            ? '#F59E0B'
-                                            : '#16A34A',
-                                        backgroundColor: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
-                                            ? '#FFFBEB'
-                                            : '#DCFCE7',
-                                    }
-                                ]}
-                            >
-                                <Text style={[
-                                    styles.cutBannerTitle,
-                                    {
-                                        color: cutProtocol.training_intensity_cap !== null && cutProtocol.training_intensity_cap <= 4
-                                            ? '#D97706'
-                                            : '#4F46E5'
-                                    }
-                                ]}>
-                                    WEIGHT CUT - Intensity Cap: {cutProtocol.training_intensity_cap !== null
-                                        ? `${cutProtocol.training_intensity_cap}/10 RPE`
-                                        : 'No cap'}
-                                </Text>
-                                {cutProtocol.training_recommendation && (
-                                    <Text style={styles.cutBannerBody}>{cutProtocol.training_recommendation}</Text>
-                                )}
-                            </Animated.View>
-                        )}
-
-                        {/* Prescription Card */}
-                        {displayedPrescription && (
-                            <PrescriptionCard message={displayedPrescription.message} />
-                        )}
-
-                        {/* Workout Prescription */}
-                        <WorkoutPrescriptionSection
-                            prescription={displayedPrescription}
-                            themeColor={themeColor}
-                            onStart={() => {
-                                if (todayPlanEntry) {
-                                    void openGuidedWorkout(todayPlanEntry);
-                                    return;
-                                }
-                                if (displayedPrescription) {
-                                    void openGuidedWorkout(null);
-                                    return;
-                                }
-                                void handleStartWorkout(navigation);
-                            }}
-                        />
-
-                        {/* Today's schedule */}
-                        {contextualTodayActivities.length > 0 && (
-                            <View style={{ marginTop: SPACING.lg }}>
-                                <SectionHeader title={todayPlanEntry ? "Also On Today's Schedule" : "Today's Schedule"} />
-                                {todayPlanEntry && (
-                                    <Text style={styles.contextScheduleNote}>
-                                        Your guided workout above is the S&C prescription. These items are the rest of today's training schedule.
-                                    </Text>
-                                )}
-                                {contextualTodayActivities.map((activity) => (
-                                    <ActivityCard
-                                        key={activity.id}
-                                        activity={activity}
-                                        onPress={() => {
-                                            if (isGuidedEngineActivityType(activity.activity_type) && todayPlanEntry) {
-                                                void openGuidedWorkout(todayPlanEntry);
-                                            }
-                                        }}
-                                        onLog={() => {
-                                            if (isGuidedEngineActivityType(activity.activity_type) && todayPlanEntry) {
-                                                void openGuidedWorkout(todayPlanEntry);
-                                            }
-                                        }}
-                                    />
-                                ))}
-                            </View>
-                        )}
-                            </>
-                        )}
-                    </>
-                )}
-
-                {activeTab === 'plan' && (
-                    <Animated.View entering={FadeInDown.delay(50).duration(300).springify()}>
-                        {/* Week overview cards */}
-                        {isDeloadWeek && (
-                            <View style={styles.deloadBanner}>
-                                <Text style={styles.deloadBannerText}>Recovery Week - Reduced volume to rebuild</Text>
-                            </View>
-                        )}
-                        {groupedWeeklyEntries.length === 0 ? (
-                            <View style={styles.emptyPlan}>
-                                <Text style={styles.emptyPlanTitle}>No weekly plan yet</Text>
-                                <Text style={styles.emptyPlanSub}>Set up your training days, session length, and preferences to get a smart weekly plan.</Text>
-                                <Pressable
-                                    style={styles.setupBtn}
-                                    onPress={() => navigation.navigate('WeeklyPlanSetup')}
-                                >
-                                    <Text style={styles.setupBtnText}>Set Up Weekly Plan</Text>
-                                </Pressable>
-                            </View>
-                        ) : (
-                            groupedWeeklyEntries.map((group, idx) => {
-                                    const today = todayLocalDate();
-                                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                                    const primaryEntry = group.sessions.find((session) => session.status !== 'completed') ?? group.sessions[0];
-                                    const isGroupCompleted = group.sessions.every((session) => session.status === 'completed');
-                                    const isGroupSkipped = group.sessions.every((session) => session.status === 'skipped');
-                                    return (
-                                        <Animated.View
-                                            key={group.date}
-                                            entering={FadeInDown.delay(idx * 60).duration(280).springify()}
-                                        >
-                                            <Pressable
-                                                style={[
-                                                    styles.weekCard,
-                                                    group.date === today && styles.weekCardToday,
-                                                    isGroupCompleted && styles.weekCardDone,
-                                                ]}
-                                                onPress={() => {
-                                                    if (primaryEntry && !isGroupCompleted) {
-                                                        void openGuidedWorkout(primaryEntry);
-                                                    }
-                                                }}
-                                            >
-                                                <View style={styles.weekCardLeft}>
-                                                    <Text style={styles.weekCardDay}>{dayNames[group.dayOfWeek]}</Text>
-                                                    <Text style={styles.weekCardDate}>{group.date.slice(5).replace('-', '/')}</Text>
-                                                </View>
-                                                <View style={styles.weekCardCenter}>
-                                                    {group.sessions.map((session) => (
-                                                        <View key={session.id} style={styles.weekSessionRow}>
-                                                            <Text style={styles.weekSessionSlot}>
-                                                                {session.slot === 'single' ? 'DAY' : session.slot.toUpperCase()}
-                                                            </Text>
-                                                            <View style={styles.weekSessionCopy}>
-                                                                <Text style={styles.weekCardFocus}>
-                                                                    {session.is_deload ? 'Recovery' : getWorkoutFocusLabel(session.focus, session.session_type, session.prescription_snapshot)}
-                                                                </Text>
-                                                                <Text style={styles.weekCardMeta}>
-                                                                    {session.estimated_duration_min} min
-                                                                    {session.target_intensity ? ` | RPE ${session.target_intensity}` : ''}
-                                                                </Text>
-                                                            </View>
-                                                        </View>
-                                                    ))}
-                                                </View>
-                                                <View style={styles.weekCardRight}>
-                                                    {isGroupCompleted && <Text style={styles.weekCardDoneIcon}>Done</Text>}
-                                                    {isGroupSkipped && <Text style={styles.weekCardSkipIcon}>Skip</Text>}
-                                                    {!isGroupCompleted && group.date === today && (
-                                                        <Text style={styles.weekCardTodayBadge}>Today</Text>
-                                                    )}
-                                                    {!isGroupCompleted && group.date > today && (
-                                                        <Text style={styles.weekCardChevron}>{'>'}</Text>
-                                                    )}
-                                                </View>
-                                            </Pressable>
-                                        </Animated.View>
-                                    );
-                                })
-                        )}
-                        <Pressable
-                            style={styles.planSettingsBtn}
-                            onPress={() => navigation.navigate('WeeklyPlanSetup')}
-                        >
-                            <Text style={styles.planSettingsBtnText}>Adjust Weekly Plan</Text>
-                        </Pressable>
-                    </Animated.View>
-                )}
-
-                {activeTab === 'history' && (
-                    historyLoading && !historyLoaded ? (
-                        <View style={styles.tabLoadingState}>
-                            <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
-                            <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.lg }} />
-                        </View>
-                    ) : (
-                        <WorkoutHistoryTab workoutHistory={workoutHistory} />
-                    )
-                )}
-
-                {activeTab === 'analytics' && (
-                    analyticsLoading && !analyticsLoaded ? (
-                        <View style={styles.tabLoadingState}>
-                            <SkeletonLoader width="100%" height={180} shape="rect" style={{ borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
-                            <SkeletonLoader width="100%" height={180} shape="rect" style={{ borderRadius: RADIUS.lg }} />
-                        </View>
-                    ) : (
-                        <WorkoutAnalyticsTab
-                            userId={userId}
-                            trainingLoadData={trainingLoadData}
-                            acwrData={acwrData}
-                            checkinDates={checkinDates}
-                            weightData={weightData}
-                            sleepData={sleepData}
-                        />
-                    )
-                )}
-
-                <View style={{ height: SPACING.xxl }} />
-            </ScrollView>
-        </ScreenWrapper>
+      <View style={styles.loadingScreen}>
+        <View style={styles.header}>
+          <SkeletonLoader width={70} height={20} shape="rect" style={{ borderRadius: RADIUS.sm }} />
+          <SkeletonLoader width="100%" height={42} shape="rect" style={{ marginTop: SPACING.md, borderRadius: RADIUS.lg }} />
+        </View>
+        <View style={styles.content}>
+          <SkeletonLoader width="100%" height={260} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.md }} />
+          <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.xl }} />
+        </View>
+      </View>
     );
+  }
+
+  return (
+    <ScreenWrapper useSafeArea={true}>
+      <View style={styles.header}>
+        <ScreenHeader
+          kicker="Train"
+          title="Training"
+          subtitle="See today in plain English, check the week, and track your progress without the clutter."
+          rightAction={(
+            <View style={styles.headerActions}>
+              <Pressable style={styles.headerBtn} onPress={() => parentNavigation?.navigate('Plan' as never)}><Text style={styles.headerBtnText}>Plan</Text></Pressable>
+              <Pressable style={styles.headerBtn} onPress={() => navigation.navigate('GymProfiles')}><Text style={styles.headerBtnText}>Gym</Text></Pressable>
+            </View>
+          )}
+        >
+          <View style={styles.tabBar}>
+            {WORKOUT_TABS.map((tab) => (
+              <AnimatedPressable key={tab} style={[styles.tab, activeTab === tab && styles.tabActive]} onPress={() => setActiveTab(tab)}>
+                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{formatWorkoutTabLabel(tab)}</Text>
+              </AnimatedPressable>
+            ))}
+          </View>
+        </ScreenHeader>
+      </View>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} />}
+      >
+        {activeTab === 'today' && (
+          <View style={styles.tabStack}>
+            {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}
+            {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
+            {!initialLoadError && hasStructuredToday ? (
+              <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}>
+                <Card style={[styles.heroCard, { borderColor: heroToneStyles.borderColor }]}>
+                  <View style={styles.heroTopRow}>
+                    <View style={[styles.heroBadge, { backgroundColor: heroToneStyles.badgeBackground }]}><Text style={[styles.heroBadgeText, { color: heroToneStyles.badgeColor }]}>{todayPlanEntry?.status === 'completed' ? 'Done today' : floorVM.isDeload ? 'Lighter day' : 'Today'}</Text></View>
+                    {todaySummary.durationLabel ? <Text style={styles.heroDuration}>{todaySummary.durationLabel}</Text> : null}
+                  </View>
+                  <Text style={styles.heroSessionLabel}>{todaySummary.sessionLabel}</Text>
+                  <Text style={styles.heroGoal}>{todaySummary.goal}</Text>
+                  <Text style={styles.heroReason}>{todaySummary.reason}</Text>
+                  <View style={[styles.effortCard, { backgroundColor: heroToneStyles.effortBackground }]}>
+                    <Text style={styles.effortLabel}>How hard to go</Text>
+                    <Text style={styles.effortTitle}>{todaySummary.effortTitle}</Text>
+                    <Text style={styles.effortBody}>{todaySummary.effortDetail}</Text>
+                  </View>
+                  {todaySummary.guardrails.length > 0 && (
+                    <View style={styles.guardrailsCard}>
+                      <Text style={styles.guardrailsTitle}>Know before you train</Text>
+                      {todaySummary.guardrails.map((item) => (
+                        <View key={item} style={styles.guardrailRow}>
+                          <View style={styles.guardrailDot} />
+                          <Text style={styles.guardrailText}>{item}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  <AnimatedPressable style={styles.primaryButton} onPress={handlePrimaryAction}><Text style={styles.primaryButtonText}>{primaryActionLabel}</Text></AnimatedPressable>
+                  {prescription ? <AnimatedPressable style={styles.secondaryLink} onPress={() => setShowWorkoutDetails((value) => !value)}><Text style={styles.secondaryLinkText}>{showWorkoutDetails ? 'Hide workout details' : 'View workout details'}</Text></AnimatedPressable> : null}
+                </Card>
+              </Animated.View>
+            ) : null}
+            {!initialLoadError && showWorkoutDetails && prescription ? (
+              <Animated.View entering={FadeInDown.delay(60).duration(280).springify()}>
+                <WorkoutPrescriptionSection prescription={prescription} themeColor={themeColor} showStartButton={false} />
+              </Animated.View>
+            ) : null}
+            {!initialLoadError && contextualTodayActivities.length > 0 && (
+              <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
+                <Card title="Also today" subtitle="Other sessions on your schedule">
+                  <View style={styles.alsoTodayList}>
+                    {contextualTodayActivities.map((activity, index) => (
+                      <View key={activity.id} style={[styles.alsoTodayRow, index === contextualTodayActivities.length - 1 && styles.alsoTodayRowLast]}>
+                        <View style={styles.alsoTodayTimeColumn}><Text style={styles.alsoTodayTime}>{formatActivityTime(activity.start_time) ?? 'Any time'}</Text></View>
+                        <View style={styles.alsoTodayCopy}>
+                          <Text style={styles.alsoTodayLabel}>{formatActivityLabel(activity)}</Text>
+                          <Text style={styles.alsoTodayMeta}>{activity.estimated_duration_min} min{activity.actual_rpe ?? activity.expected_intensity ? `  |  Effort ${activity.actual_rpe ?? activity.expected_intensity}/10` : ''}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </Card>
+              </Animated.View>
+            )}
+          </View>
+        )}
+        {activeTab === 'plan' && (
+          <View style={styles.tabStack}>
+            {initialLoadError ? <StateCard title="We couldn't load your week" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : groupedWeeklyEntries.length === 0 ? <EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /> : (
+              <>
+                {groupedWeeklyEntries.map((group, index) => {
+                  const primaryEntry = group.sessions.find((session) => session.status !== 'completed') ?? group.sessions[0];
+                  const extraSessions = Math.max(0, group.sessions.length - 1);
+                  const status = getWeekStatus(group);
+                  const chipStyles = getChipStyles(status.tone);
+                  const sessionLabel = getWorkoutFocusLabel(primaryEntry.focus, primaryEntry.session_type, primaryEntry.prescription_snapshot);
+                  const handlePress = () => {
+                    if (group.date === todayLocalDate() && primaryEntry.status === 'planned') { void openGuidedWorkout(primaryEntry); return; }
+                    void openWorkoutDetail(primaryEntry);
+                  };
+                  return (
+                    <Animated.View key={group.date} entering={FadeInDown.delay(index * 45).duration(260).springify()}>
+                      <AnimatedPressable style={styles.weekCard} onPress={handlePress}>
+                        <View style={styles.weekCardLeft}>
+                          <Text style={styles.weekCardDay}>{new Date(`${group.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' })}</Text>
+                          <Text style={styles.weekCardDate}>{new Date(`${group.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+                        </View>
+                        <View style={styles.weekCardCenter}>
+                          <View style={styles.weekCardTitleRow}>
+                            <Text style={styles.weekCardFocus}>{sessionLabel}</Text>
+                            {extraSessions > 0 ? <Text style={styles.weekCardMore}>+{extraSessions} more</Text> : null}
+                          </View>
+                          <Text style={styles.weekCardMeta}>{primaryEntry.estimated_duration_min} min{primaryEntry.target_intensity ? `  |  Effort ${primaryEntry.target_intensity}/10` : ''}</Text>
+                          {group.sessions.some((session) => session.is_deload) ? <Text style={styles.weekCardNote}>Recovery emphasis this day.</Text> : null}
+                        </View>
+                        <View style={[styles.weekStatusChip, { backgroundColor: chipStyles.backgroundColor }]}><Text style={[styles.weekStatusChipText, { color: chipStyles.color }]}>{status.label}</Text></View>
+                      </AnimatedPressable>
+                    </Animated.View>
+                  );
+                })}
+                <AnimatedPressable style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust weekly plan</Text></AnimatedPressable>
+              </>
+            )}
+          </View>
+        )}
+        {activeTab === 'history' && (
+          <View style={styles.tabStack}>
+            {historyLoading && !historyLoaded ? (
+              <View style={styles.tabLoadingState}>
+                <SkeletonLoader width="100%" height={110} shape="rect" style={{ borderRadius: RADIUS.xl }} />
+                <SkeletonLoader width="100%" height={110} shape="rect" style={{ borderRadius: RADIUS.xl }} />
+              </View>
+            ) : historyError ? (
+              <StateCard title="We couldn't load your recent sessions" body={historyError} actionLabel="Try again" onPress={() => { void loadHistoryData(); }} />
+            ) : <WorkoutHistoryTab workoutHistory={workoutHistory} />}
+          </View>
+        )}
+        {activeTab === 'analytics' && (
+          <View style={styles.tabStack}>
+            {analyticsLoading && !analyticsLoaded ? (
+              <View style={styles.tabLoadingState}>
+                <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.xl }} />
+                <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.xl }} />
+                <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.xl }} />
+              </View>
+            ) : analyticsError ? (
+              <StateCard title="We couldn't load your progress" body={analyticsError} actionLabel="Try again" onPress={() => { void loadAnalyticsData(); }} />
+            ) : (
+              <WorkoutAnalyticsTab userId={userId} trainingLoadData={trainingLoadData} acwrData={acwrData} checkinDates={checkinDates} weightData={weightData} sleepData={sleepData} />
+            )}
+          </View>
+        )}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+    </ScreenWrapper>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: SPACING.md,
-    },
-    headerActions: {
-        flexDirection: 'row',
-        gap: SPACING.sm,
-    },
-    headerBtn: {
-        backgroundColor: COLORS.surface,
-        borderWidth: 1,
-        borderColor: COLORS.borderLight,
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.xs + 2,
-        borderRadius: RADIUS.full,
-    },
-    headerBtnText: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.secondary,
-    },
-    // Today plan entry card
-    planEntryCard: {
-        backgroundColor: COLORS.accentLight,
-        borderRadius: RADIUS.xl,
-        padding: SPACING.md,
-        marginBottom: SPACING.md,
-        borderWidth: 1,
-        borderColor: COLORS.accent + '30',
-    },
-    planEntryDeload: {
-        backgroundColor: '#F5F3FF',
-        borderColor: '#15803D' + '30',
-    },
-    planEntryHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: SPACING.xs,
-    },
-    planEntryLabel: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.accent,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    planEntryFocus: {
-        fontSize: 18,
-        fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.primary,
-        marginTop: 2,
-    },
-    planEntryMeta: {
-        alignItems: 'flex-end',
-    },
-    planEntryDuration: {
-        fontSize: 15,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-    },
-    planEntryRPE: {
-        fontSize: 12,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.secondary,
-        marginTop: 2,
-    },
-    planEntryAction: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.accent,
-        marginTop: SPACING.xs,
-    },
-    // Plan tab styles
-    deloadBanner: {
-        backgroundColor: '#F5F3FF',
-        borderRadius: RADIUS.lg,
-        padding: SPACING.md,
-        marginBottom: SPACING.md,
-        borderWidth: 1,
-        borderColor: '#15803D' + '40',
-    },
-    deloadBannerText: {
-        fontFamily: FONT_FAMILY.semiBold,
-        fontSize: 14,
-        color: '#166534',
-        textAlign: 'center',
-    },
-    emptyPlan: {
-        alignItems: 'center',
-        paddingVertical: SPACING.xxl,
-        paddingHorizontal: SPACING.lg,
-    },
-    emptyPlanTitle: {
-        fontSize: 20,
-        fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.primary,
-        marginBottom: SPACING.sm,
-    },
-    emptyPlanSub: {
-        fontSize: 14,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.secondary,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: SPACING.lg,
-    },
-    setupBtn: {
-        backgroundColor: COLORS.accent,
-        paddingHorizontal: SPACING.xl,
-        paddingVertical: SPACING.md,
-        borderRadius: RADIUS.full,
-    },
-    setupBtnText: {
-        fontSize: 15,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
-    },
-    weekCard: {
-        backgroundColor: COLORS.surface,
-        borderRadius: RADIUS.xl,
-        padding: SPACING.md,
-        marginBottom: SPACING.sm,
-        flexDirection: 'row',
-        alignItems: 'center',
-        ...SHADOWS.card,
-    },
-    weekCardToday: {
-        borderLeftWidth: 3,
-        borderLeftColor: COLORS.accent,
-    },
-    weekCardDone: {
-        opacity: 0.7,
-    },
-    weekCardLeft: {
-        width: 44,
-        alignItems: 'center',
-        marginRight: SPACING.md,
-    },
-    weekCardDay: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.secondary,
-    },
-    weekCardDate: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
-    },
-    weekCardCenter: {
-        flex: 1,
-    },
-    weekCardFocus: {
-        fontSize: 15,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-    },
-    weekCardMeta: {
-        fontSize: 12,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.secondary,
-        marginTop: 2,
-    },
-    weekCardRight: {
-        alignItems: 'flex-end',
-    },
-    weekSessionRow: {
-        flexDirection: 'row',
-        gap: SPACING.sm,
-        marginBottom: SPACING.xs,
-    },
-    weekSessionSlot: {
-        width: 28,
-        fontSize: 10,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.tertiary,
-        textTransform: 'uppercase',
-    },
-    weekSessionCopy: {
-        flex: 1,
-    },
-    weekCardDoneIcon: {
-        fontSize: 18,
-    },
-    weekCardSkipIcon: {
-        fontSize: 18,
-    },
-    weekCardTodayBadge: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.accent,
-        backgroundColor: COLORS.accentLight,
-        paddingHorizontal: SPACING.xs,
-        paddingVertical: 2,
-        borderRadius: RADIUS.sm,
-    },
-    weekCardChevron: {
-        fontSize: 22,
-        color: COLORS.text.tertiary,
-    },
-    planSettingsBtn: {
-        alignItems: 'center',
-        paddingVertical: SPACING.md,
-        marginTop: SPACING.sm,
-    },
-    planSettingsBtnText: {
-        fontSize: 14,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.secondary,
-    },
-    cutBanner: {
-        marginHorizontal: SPACING.lg,
-        marginBottom: SPACING.sm,
-        borderRadius: RADIUS.xl,
-        borderWidth: 1.5,
-        padding: SPACING.md,
-        gap: 4,
-    },
-    cutBannerTitle: {
-        fontFamily: FONT_FAMILY.semiBold,
-        fontSize: 13,
-        letterSpacing: 0.3,
-    },
-    cutBannerBody: {
-        fontFamily: FONT_FAMILY.regular,
-        fontSize: 13,
-        color: COLORS.text.secondary,
-        lineHeight: 18,
-    },
-    header: {
-        paddingHorizontal: SPACING.md, // Reduced from lg for small screens
-        paddingBottom: SPACING.sm, // Reduced from md
-    },
-    tabBar: {
-        flexDirection: 'row',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: RADIUS.lg,
-        padding: 4,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: SPACING.sm,
-        borderRadius: RADIUS.md,
-        alignItems: 'center',
-    },
-    tabText: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.secondary,
-    },
-    content: {
-        padding: SPACING.md, // Reduced from lg
-        paddingTop: SPACING.xs, // Tighter top
-    },
-    tabLoadingState: {
-        gap: SPACING.md,
-    },
-    contextScheduleNote: {
-        fontSize: 12,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.secondary,
-        marginBottom: SPACING.sm,
-        lineHeight: 18,
-    },
-    prescriptionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginBottom: SPACING.md,
-        paddingBottom: SPACING.md,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: COLORS.borderLight,
-    },
-    prescriptionMeta: {
-        alignItems: 'center',
-    },
-    metaLabel: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.tertiary,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    metaValue: {
-        fontSize: 18,
-        fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.primary,
-        marginTop: 2,
-    },
-    exerciseRow: {
-        paddingVertical: SPACING.sm + 2,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: COLORS.borderLight,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    supersetRow: {
-        borderLeftWidth: 3,
-        borderLeftColor: COLORS.chart.accent,
-        paddingLeft: SPACING.sm,
-    },
-    exerciseInfo: {
-        flex: 1,
-    },
-    exerciseNameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: SPACING.xs,
-    },
-    exerciseName: {
-        fontSize: 15,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-    },
-    exerciseSub: {
-        fontSize: 12,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.secondary,
-        marginTop: 2,
-    },
-    supersetBadge: {
-        paddingHorizontal: 5,
-        paddingVertical: 1,
-        borderRadius: 4,
-    },
-    supersetBadgeText: {
-        fontSize: 9,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
-    },
-    cnsChip: {
-        backgroundColor: COLORS.readiness.depleted,
-        paddingHorizontal: SPACING.sm,
-        paddingVertical: 3,
-        borderRadius: RADIUS.sm,
-    },
-    cnsChipText: {
-        fontSize: 10,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
-    },
-    startButtonWrapper: {
-        marginTop: SPACING.lg,
-        borderRadius: RADIUS.lg,
-        overflow: 'hidden',
-        ...SHADOWS.colored.accent,
-    },
-    startButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: SPACING.sm,
-        paddingVertical: SPACING.md + 2,
-        borderRadius: RADIUS.lg,
-    },
-    startButtonText: {
-        fontSize: 16,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
-    },
-    emptyState: {
-        alignItems: 'center',
-        paddingVertical: SPACING.xl,
-        gap: SPACING.sm,
-    },
-    emptyText: {
-        fontSize: 16,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-    },
-    emptySubtext: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
-        textAlign: 'center',
-    },
-    historyHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    historyDate: {
-        fontSize: 15,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-    },
-    historyFocus: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.tertiary,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        marginTop: 2,
-    },
-    historyStats: {
-        flexDirection: 'row',
-        gap: SPACING.md,
-    },
-    historyStatItem: {
-        alignItems: 'center',
-    },
-    historyStatValue: {
-        fontSize: 16,
-        fontFamily: FONT_FAMILY.extraBold,
-        color: COLORS.text.primary,
-    },
-    historyStatLabel: {
-        fontSize: 10,
-        fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.tertiary,
-    },
+  loadingScreen: { flex: 1, backgroundColor: 'transparent' },
+  header: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
+  headerActions: { flexDirection: 'row', gap: SPACING.sm },
+  headerBtn: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2, borderRadius: RADIUS.full },
+  headerBtnText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  tabBar: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.lg, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  tab: { flex: 1, paddingVertical: SPACING.sm, borderRadius: RADIUS.md, alignItems: 'center' },
+  tabActive: { backgroundColor: COLORS.accent },
+  tabText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  tabTextActive: { color: '#FFFFFF' },
+  content: { padding: SPACING.md, paddingTop: SPACING.xs },
+  tabStack: { gap: SPACING.md },
+  heroCard: { borderWidth: 1.5 },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  heroBadge: { borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm + 2, paddingVertical: 5 },
+  heroBadgeText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  heroDuration: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  heroSessionLabel: { fontSize: 24, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, lineHeight: 30 },
+  heroGoal: { fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 24, marginTop: SPACING.sm },
+  heroReason: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 20, marginTop: SPACING.xs },
+  effortCard: { borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
+  effortLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
+  effortTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  effortBody: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19, marginTop: 4 },
+  guardrailsCard: { backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md, gap: SPACING.sm },
+  guardrailsTitle: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.6 },
+  guardrailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
+  guardrailDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 6 },
+  guardrailText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
+  primaryButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.lg, alignItems: 'center', paddingVertical: SPACING.md, marginTop: SPACING.md },
+  primaryButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#001A23' },
+  secondaryLink: { alignItems: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.xs },
+  secondaryLinkText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
+  alsoTodayList: { marginTop: SPACING.xs },
+  alsoTodayRow: { flexDirection: 'row', gap: SPACING.md, paddingVertical: SPACING.sm + 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight },
+  alsoTodayRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  alsoTodayTimeColumn: { width: 74 },
+  alsoTodayTime: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
+  alsoTodayCopy: { flex: 1 },
+  alsoTodayLabel: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  alsoTodayMeta: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
+  weekCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.borderLight },
+  weekCardLeft: { width: 64 },
+  weekCardDay: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  weekCardDate: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 2 },
+  weekCardCenter: { flex: 1 },
+  weekCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  weekCardFocus: { flex: 1, fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
+  weekCardMore: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
+  weekCardMeta: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 3 },
+  weekCardNote: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 4 },
+  weekStatusChip: { borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm + 2, paddingVertical: 6 },
+  weekStatusChipText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  planSettingsButton: { alignItems: 'center', paddingVertical: SPACING.sm },
+  planSettingsButtonText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  tabLoadingState: { gap: SPACING.md },
+  stateCard: { alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.sm },
+  stateTitle: { fontSize: 20, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, textAlign: 'center', lineHeight: 26 },
+  stateBody: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, textAlign: 'center', lineHeight: 20 },
+  stateActionButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.sm },
+  stateActionButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: '#001A23' },
+  bottomSpacer: { height: SPACING.xxl },
 });

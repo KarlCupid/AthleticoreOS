@@ -8,12 +8,12 @@ import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
 import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
 import type {
-  WorkoutPrescription,
+  WorkoutPrescriptionV2,
   WorkoutLogRow,
   ScheduledActivityRow,
-  ReadinessState,
   DailyCutProtocolRow,
   DailyEngineState,
+  DailyMission,
   WeeklyPlanEntryRow,
 } from '../../lib/engine/types';
 import type { ACWRTrainingSession } from './workout/computeACWRTimeSeries';
@@ -34,11 +34,11 @@ interface WorkoutNavigation {
   navigate: (screen: string, params: Record<string, unknown>) => void;
 }
 
-export function useWorkoutData(currentLevel: ReadinessState | null) {
+export function useWorkoutData() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [prescription, setPrescription] = useState<WorkoutPrescription | null>(null);
+  const [prescription, setPrescription] = useState<WorkoutPrescriptionV2 | null>(null);
   const [todayActivities, setTodayActivities] = useState<ScheduledActivityRow[]>([]);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutLogRow[]>([]);
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
@@ -46,12 +46,16 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
   const [userId, setUserId] = useState<string>('');
   const [cutProtocol, setCutProtocol] = useState<DailyCutProtocolRow | null>(null);
   const [engineState, setEngineState] = useState<DailyEngineState | null>(null);
+  const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
   const [weeklyEntries, setWeeklyEntries] = useState<WeeklyPlanEntryRow[]>([]);
   const [isDeloadWeek, setIsDeloadWeek] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   const loadHistoryData = useCallback(async (resolvedUserId?: string) => {
     const currentUserId = resolvedUserId ?? userId ?? await getActiveUserId();
@@ -59,6 +63,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       return;
     }
 
+    setHistoryError(null);
     setHistoryLoading(true);
     try {
       const history = await getWorkoutHistory(currentUserId, 20);
@@ -66,6 +71,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       setHistoryLoaded(true);
     } catch (error) {
       logError('useWorkoutData.loadHistoryData', error);
+      setHistoryError('Could not load your recent sessions.');
     } finally {
       setHistoryLoading(false);
     }
@@ -77,6 +83,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       return;
     }
 
+    setAnalyticsError(null);
     setAnalyticsLoading(true);
     const todayStr = todayLocalDate();
     const sinceDate = new Date();
@@ -104,6 +111,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       setAnalyticsLoaded(true);
     } catch (error) {
       logError('useWorkoutData.loadAnalyticsData', error, { todayStr });
+      setAnalyticsError('Could not load your progress right now.');
     } finally {
       setAnalyticsLoading(false);
     }
@@ -118,6 +126,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     }
 
     try {
+      setInitialLoadError(null);
       setUserId(currentUserId);
       const todayStr = todayLocalDate();
       const engineState = await getDailyEngineState(currentUserId, todayStr, { forceRefresh });
@@ -127,11 +136,12 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       const weeklyMission = await getWeeklyMission(currentUserId, weekStart, { forceRefresh });
 
       setEngineState(engineState);
+      setDailyMission(engineState.mission);
       setTodayActivities(engineState.scheduledActivities ?? []);
       setWeeklyEntries(weeklyMission.entries ?? []);
       setIsDeloadWeek((weeklyMission.entries ?? []).some((entry) => entry.is_deload));
       setCutProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
-      setPrescription((engineState.workoutPrescription as WorkoutPrescription | null) ?? null);
+      setPrescription((engineState.workoutPrescription as WorkoutPrescriptionV2 | null) ?? null);
 
       const backgroundLoads: Array<Promise<void>> = [];
       if (historyLoaded) {
@@ -145,11 +155,12 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
       }
     } catch (error) {
       logError('useWorkoutData.loadData', error);
+      setInitialLoadError('Could not load your training screen.');
     }
 
     setLoading(false);
     setRefreshing(false);
-  }, [currentLevel]);
+  }, [analyticsLoaded, historyLoaded, loadAnalyticsData, loadHistoryData]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -176,6 +187,7 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     userId,
     cutProtocol,
     engineState,
+    dailyMission,
     todayPlanEntry: (engineState?.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
     weeklyEntries,
     isDeloadWeek,
@@ -183,6 +195,9 @@ export function useWorkoutData(currentLevel: ReadinessState | null) {
     analyticsLoaded,
     historyLoading,
     analyticsLoading,
+    initialLoadError,
+    historyError,
+    analyticsError,
     loadHistoryData,
     loadAnalyticsData,
     handleStartWorkout,
