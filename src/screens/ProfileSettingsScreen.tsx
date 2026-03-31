@@ -1,131 +1,312 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Switch, Alert, InteractionManager } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  InteractionManager,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
-import { Card } from '../components/Card';
-import { 
-  IconPerson, 
-  IconScale, 
-  IconTarget, 
-  IconCalendar, 
-  IconBarChart, 
-  IconActivity, 
-  IconShieldCheck,
-  IconTrendUp,
-  IconSettings,
-  IconClose
-} from '../components/icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+
 import { supabase } from '../../lib/supabase';
-import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { AnimatedNumber } from '../components/AnimatedNumber';
-import { AnimatedPressable } from '../components/AnimatedPressable';
-import { EngineReplayLab } from '../components/EngineReplayLab';
-import { resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
+import { getActiveBuildPhaseGoal } from '../../lib/api/buildPhaseService';
+import { getAndSyncFirstRunGuidanceState, resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
+import { getFightCampStatus } from '../../lib/api/fightCampService';
+import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
+import { getPlanningSetupStatus } from '../../lib/api/planningSetupService';
+import { getLatestWeight } from '../../lib/api/weightService';
+import { getWeeklyPlanConfig } from '../../lib/api/weeklyPlanService';
+import { getActiveWeightCutPlan } from '../../lib/api/weightCutService';
+import { getAthleteProfile, type AthleteProfileRow } from '../../lib/api/athleteContextService';
+import type { BuildPhaseGoalRow, FightCampStatus, WeeklyPlanConfigRow } from '../../lib/engine/types';
+import type { GymProfileRow } from '../../lib/engine/types/training';
+import type { WeightCutPlanRow } from '../../lib/engine/types/weight_cut';
+import type { FirstRunGuidanceState } from '../../lib/api/firstRunGuidanceService';
+import type { PlanningSetupStatus } from '../../lib/api/planningSetupService';
 import { logError } from '../../lib/utils/logger';
+import { AnimatedPressable } from '../components/AnimatedPressable';
+import { Card } from '../components/Card';
+import { EngineReplayLab } from '../components/EngineReplayLab';
+import {
+  IconActivity,
+  IconBarChart,
+  IconCalendar,
+  IconCheck,
+  IconChevronRight,
+  IconClose,
+  IconPerson,
+  IconScale,
+  IconSettings,
+  IconShieldCheck,
+  IconTarget,
+  IconTrendUp,
+} from '../components/icons';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
+import { useReadinessTheme } from '../theme/ReadinessThemeContext';
+import { ANIMATION, COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
-interface AthleteProfile {
-  biological_sex: string;
-  fight_status: string;
-  phase: string;
-  target_weight: number | null;
-  base_weight: number | null;
-  cycle_tracking: boolean;
-  height_inches: number | null;
-  age: number | null;
-  activity_level: string | null;
-  nutrition_goal: string | null;
-  fight_date: string | null;
-  first_run_guidance_status: 'pending' | 'completed' | null;
+type EditableField = 'base_weight' | 'target_weight' | 'fight_date';
+
+interface MeSnapshot {
+  email: string;
+  profile: AthleteProfileRow | null;
+  totalSessions: number;
+  latestWeight: { weight: number; date: string } | null;
+  planningStatus: PlanningSetupStatus;
+  activeCutPlan: WeightCutPlanRow | null;
+  fightCampStatus: FightCampStatus;
+  buildGoal: BuildPhaseGoalRow | null;
+  defaultGymProfile: GymProfileRow | null;
+  weeklyPlanConfig: WeeklyPlanConfigRow | null;
+  guidanceState: FirstRunGuidanceState;
+}
+
+function formatTitleCase(value: string | null | undefined, fallback = '--') {
+  if (!value) return fallback;
+  return value
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatGoalMode(value: 'fight_camp' | 'build_phase' | null | undefined) {
+  return value === 'fight_camp' ? 'Fight Camp' : 'Build Phase';
+}
+
+function formatCampPhase(value: FightCampStatus['campPhase']) {
+  return value ? `${formatTitleCase(value)} Phase` : '--';
+}
+
+function formatDateLabel(value: string | null | undefined) {
+  if (!value) return '--';
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatWeightLabel(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return '--';
+  return `${Number(value).toFixed(1)} lbs`;
+}
+
+function formatHeightLabel(heightInches: number | null | undefined) {
+  if (heightInches == null || !Number.isFinite(heightInches)) return '--';
+  const feet = Math.floor(heightInches / 12);
+  const inches = heightInches % 12;
+  return `${feet}'${inches}"`;
+}
+
+function formatAvailabilitySummary(config: WeeklyPlanConfigRow | null) {
+  if (!config) return 'Not set up';
+  const availableDays = config.availability_windows?.length
+    ? config.availability_windows.length
+    : config.available_days?.length ?? 0;
+  if (!availableDays) return 'Not set up';
+  const sessionLabel = config.session_duration_min ? `${config.session_duration_min} min sessions` : 'Session length not set';
+  return `${availableDays} day${availableDays === 1 ? '' : 's'} - ${sessionLabel}`;
+}
+
+function formatGuidanceStatus(guidanceState: FirstRunGuidanceState) {
+  return guidanceState.status === 'completed' ? 'Completed' : 'Pending';
+}
+
+function getManagedSourceLabel(activeCutPlan: WeightCutPlanRow | null, fightCampStatus: FightCampStatus) {
+  if (activeCutPlan) return 'Managed by active cut';
+  if (fightCampStatus.camp) return 'Managed by fight camp';
+  return 'Stored on profile';
 }
 
 export function ProfileSettingsScreen() {
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { themeColor, currentLevel } = useReadinessTheme();
-  const [email, setEmail] = useState('');
-  const [profile, setProfile] = useState<AthleteProfile | null>(null);
-  const [totalSessions, setTotalSessions] = useState(0);
-  const [editingField, setEditingField] = useState<string | null>(null);
+  const { themeColor } = useReadinessTheme();
+
+  const [snapshot, setSnapshot] = useState<MeSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [guidanceStatus, setGuidanceStatus] = useState<'pending' | 'completed'>('pending');
   const [engineReplayVisible, setEngineReplayVisible] = useState(false);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [lastVersionTapAt, setLastVersionTapAt] = useState(0);
+  const hasLoadedRef = useRef(false);
+
+  const loadSnapshot = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    if (mode === 'initial') setLoading(true);
+    else setRefreshing(true);
+    setError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        setSnapshot(null);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const userId = session.user.id;
+      const [
+        profile,
+        sessionsRes,
+        latestWeight,
+        planningStatus,
+        activeCutPlan,
+        fightCampStatus,
+        buildGoal,
+        defaultGymProfile,
+        weeklyPlanConfig,
+        guidanceState,
+      ] = await Promise.all([
+        getAthleteProfile(userId),
+        supabase.from('training_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+        getLatestWeight(userId),
+        getPlanningSetupStatus(userId),
+        getActiveWeightCutPlan(userId),
+        getFightCampStatus(userId),
+        getActiveBuildPhaseGoal(userId),
+        getDefaultGymProfile(userId),
+        getWeeklyPlanConfig(userId),
+        getAndSyncFirstRunGuidanceState(userId),
+      ]);
+
+      setSnapshot({
+        email: session.user.email ?? '',
+        profile,
+        totalSessions: sessionsRes.count ?? 0,
+        latestWeight,
+        planningStatus,
+        activeCutPlan,
+        fightCampStatus,
+        buildGoal,
+        defaultGymProfile,
+        weeklyPlanConfig,
+        guidanceState,
+      });
+    } catch (loadError) {
+      logError('ProfileSettingsScreen.loadSnapshot', loadError);
+      setError('Could not load your profile data right now.');
+    } finally {
+      hasLoadedRef.current = true;
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       let isActive = true;
-      InteractionManager.runAfterInteractions(() => {
-        if (isActive) {
-          loadProfile();
-        }
+      const task = InteractionManager.runAfterInteractions(() => {
+        if (isActive) void loadSnapshot(hasLoadedRef.current ? 'refresh' : 'initial');
       });
+
       return () => {
         isActive = false;
+        task.cancel();
       };
-    }, [])
+    }, [loadSnapshot])
   );
 
-  async function loadProfile() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session?.user) return;
+  const profile = snapshot?.profile ?? null;
+  const latestWeight = snapshot?.latestWeight ?? null;
+  const goalMode = snapshot?.planningStatus.goalMode ?? 'build_phase';
+  const resolvedFightDate = snapshot?.activeCutPlan?.fight_date
+    ?? snapshot?.fightCampStatus.camp?.fightDate
+    ?? profile?.fight_date
+    ?? null;
+  const resolvedTargetWeight = snapshot?.activeCutPlan?.target_weight
+    ?? snapshot?.fightCampStatus.camp?.targetWeight
+    ?? profile?.target_weight
+    ?? null;
+  const isFightDateManaged = Boolean(snapshot?.activeCutPlan || snapshot?.fightCampStatus.camp);
+  const isTargetWeightManaged = Boolean(snapshot?.activeCutPlan || snapshot?.fightCampStatus.camp);
+  const phaseLabel = snapshot?.fightCampStatus.camp
+    ? formatCampPhase(snapshot.fightCampStatus.campPhase)
+    : formatTitleCase(profile?.phase);
+  const weightTileLabel = latestWeight ? 'CURRENT WT' : profile?.base_weight != null ? 'BASE WT' : 'WEIGHT';
+  const weightTileValue = latestWeight?.weight ?? profile?.base_weight ?? null;
+  const latestWeightNote = latestWeight
+    ? `Last check-in ${formatDateLabel(latestWeight.date)}`
+    : profile?.base_weight != null
+      ? 'No recent weigh-in, using profile baseline'
+      : 'Add a weigh-in from Log to personalize training';
+  const profileTargetsNote = getManagedSourceLabel(
+    snapshot?.activeCutPlan ?? null,
+    snapshot?.fightCampStatus ?? { camp: null, campPhase: null, daysOut: null, label: 'Build Phase', weightCutState: 'none' },
+  );
+  const setupSummary = formatAvailabilitySummary(snapshot?.weeklyPlanConfig ?? null);
+  const guideProgress = snapshot?.guidanceState.progress.completedCount ?? 0;
+  const guideTotal = snapshot?.guidanceState.progress.totalCount ?? 3;
 
-    setEmail(session.user.email || '');
-
-    const [profileRes, sessionsRes] = await Promise.all([
-      supabase
-        .from('athlete_profiles')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single(),
-      supabase
-        .from('training_sessions')
-        .select('id', { count: 'exact' })
-        .eq('user_id', session.user.id),
-    ]);
-
-    if (profileRes.data) {
-      const nextProfile = profileRes.data as AthleteProfile;
-      setProfile(nextProfile);
-      setGuidanceStatus(nextProfile.first_run_guidance_status === 'completed' ? 'completed' : 'pending');
-    }
-    setTotalSessions(sessionsRes.count || 0);
-  }
-
-  const formatPhase = (phase: string) =>
-    phase
-      .split('-')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
-
-  const formatActivityLevel = (level: string | null) => {
-    if (!level) return 'Moderate';
-    return level
-      .split('_')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
-  };
-
-  const formatNutritionGoal = (goal: string | null) => {
-    if (!goal) return 'Maintain';
-    return goal.charAt(0).toUpperCase() + goal.slice(1);
-  };
-
-  async function updateField(field: string, value: any) {
+  async function updateField(field: EditableField | 'cycle_tracking', value: string | number | boolean | null) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
-    const { error } = await supabase
+
+    const { error: updateError } = await supabase
       .from('athlete_profiles')
       .update({ [field]: value })
       .eq('user_id', session.user.id);
-    if (error) {
-      Alert.alert('Error', 'Failed to update field');
-      throw error;
+
+    if (updateError) {
+      Alert.alert('Update failed', 'Could not save that change right now.');
+      throw updateError;
+    }
+  }
+
+  async function handleSaveEdit(field: EditableField) {
+    const trimmed = editValue.trim();
+
+    try {
+      if (field === 'fight_date') {
+        if (trimmed.length > 0 && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+          Alert.alert('Invalid date', 'Use the format YYYY-MM-DD.');
+          return;
+        }
+        const nextValue = trimmed.length > 0 ? trimmed : null;
+        await updateField(field, nextValue);
+        setSnapshot((current) => current && current.profile
+          ? { ...current, profile: { ...current.profile, fight_date: nextValue } }
+          : current);
+      } else {
+        const nextValue = trimmed.length > 0 ? Number.parseFloat(trimmed) : null;
+        if (trimmed.length > 0 && !Number.isFinite(nextValue)) {
+          Alert.alert('Invalid number', 'Enter a valid numeric value.');
+          return;
+        }
+        await updateField(field, nextValue);
+        setSnapshot((current) => current && current.profile
+          ? { ...current, profile: { ...current.profile, [field]: nextValue } }
+          : current);
+      }
+
+      setEditingField(null);
+      setEditValue('');
+    } catch (saveError) {
+      logError('ProfileSettingsScreen.handleSaveEdit', saveError, { field });
+    }
+  }
+
+  async function handleCycleTrackingChange(nextValue: boolean) {
+    if (!profile) return;
+
+    try {
+      await updateField('cycle_tracking', nextValue);
+      setSnapshot((current) => current && current.profile
+        ? { ...current, profile: { ...current.profile, cycle_tracking: nextValue } }
+        : current);
+    } catch (toggleError) {
+      logError('ProfileSettingsScreen.handleCycleTrackingChange', toggleError);
     }
   }
 
@@ -135,16 +316,13 @@ export function ProfileSettingsScreen() {
 
     try {
       await resetFirstRunGuidance(session.user.id);
-      setGuidanceStatus('pending');
-      setProfile((prev) => (
-        prev
-          ? { ...prev, first_run_guidance_status: 'pending' }
-          : prev
-      ));
-      Alert.alert('Setup guide reset', 'Your first-run guide will appear again on Dashboard.');
-    } catch (error) {
-      logError('ProfileSettingsScreen.replaySetupGuide', error);
-      Alert.alert('Error', 'Could not reset setup guide right now.');
+      setSnapshot((current) => current
+        ? { ...current, guidanceState: { ...current.guidanceState, status: 'pending', introSeenAt: null } }
+        : current);
+      Alert.alert('Setup guide reset', 'The guide will appear again on Dashboard.');
+    } catch (resetError) {
+      logError('ProfileSettingsScreen.handleReplaySetupGuide', resetError);
+      Alert.alert('Error', 'Could not reset the setup guide right now.');
     }
   }
 
@@ -161,197 +339,308 @@ export function ProfileSettingsScreen() {
     }
   }
 
+  function openWeeklySetup() {
+    navigation.getParent()?.navigate('Train', { screen: 'WeeklyPlanSetup' });
+  }
+
+  function openGymProfiles() {
+    navigation.getParent()?.navigate('Train', { screen: 'GymProfiles' });
+  }
+
+  function openWeightCut() {
+    navigation.getParent()?.navigate('Fuel', {
+      screen: snapshot?.activeCutPlan ? 'WeightCutHome' : 'CutPlanSetup',
+    });
+  }
+
+  function openCheckIn() {
+    navigation.getParent()?.navigate('Today', { screen: 'Log' });
+  }
+
+  if (loading && !snapshot) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color={themeColor} />
+          <Text style={styles.loadingText}>Connecting your profile, planner, and weight-cut data...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  if (!snapshot) {
+    return (
+      <ScreenWrapper>
+        <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
+          <ScreenHeader
+            kicker="Me"
+            title="Profile & settings"
+            subtitle="Account details, athlete profile, preferences, and setup tools."
+          />
+        </View>
+        <View style={styles.emptyState}>
+          <Card variant="glass">
+            <Text style={styles.emptyTitle}>We couldn't load your profile.</Text>
+            <Text style={styles.emptyBody}>{error ?? 'Try refreshing this screen in a moment.'}</Text>
+            <AnimatedPressable style={styles.primaryButton} onPress={() => void loadSnapshot('initial')}>
+              <Text style={styles.primaryButtonText}>Retry</Text>
+            </AnimatedPressable>
+          </Card>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   return (
     <ScreenWrapper>
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
         <ScreenHeader
           kicker="Me"
           title="Profile & settings"
-          subtitle="Account details, athlete profile, preferences, and setup tools."
+          subtitle="Connected athlete data, planning inputs, and account tools."
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Identity Hero */}
-        <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.normal).springify()}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadSnapshot('refresh')} tintColor={themeColor} />}
+      >
+        <Animated.View entering={FadeInDown.delay(40).duration(ANIMATION.normal).springify()}>
           <Card variant="glass" style={styles.heroCard} noPadding>
             <View style={styles.heroContent}>
               <View style={[styles.avatarGlow, { borderColor: themeColor + '80' }]}>
-                <View style={[styles.avatar, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                <View style={styles.avatar}>
                   <IconPerson size={44} color={themeColor} />
                 </View>
               </View>
               <View style={styles.heroIdentity}>
                 <Text style={styles.name}>Athlete</Text>
-                <Text style={styles.email}>{email}</Text>
-                <View style={[styles.badge, { backgroundColor: themeColor + '20' }]}>
-                  <Text style={[styles.badgeText, { color: themeColor }]}>{currentLevel?.toUpperCase()}</Text>
+                <Text style={styles.email}>{snapshot.email || 'Signed in'}</Text>
+                <View style={styles.heroBadges}>
+                  <View style={[styles.badge, { backgroundColor: themeColor + '20' }]}>
+                    <Text style={[styles.badgeText, { color: themeColor }]}>{formatGoalMode(goalMode)}</Text>
+                  </View>
+                  {snapshot.activeCutPlan ? (
+                    <View style={[styles.badge, styles.badgeMuted]}>
+                      <Text style={styles.badgeMutedText}>Active Cut</Text>
+                    </View>
+                  ) : null}
                 </View>
+                <Text style={styles.heroSummary}>
+                  {snapshot.activeCutPlan
+                    ? `Cut target ${formatWeightLabel(snapshot.activeCutPlan.target_weight)} by ${formatDateLabel(snapshot.activeCutPlan.weigh_in_date)}.`
+                    : snapshot.fightCampStatus.camp
+                      ? snapshot.fightCampStatus.label
+                      : snapshot.buildGoal?.goal_statement ?? 'Build phase profile is active.'}
+                </Text>
               </View>
             </View>
           </Card>
         </Animated.View>
 
-        {/* Stats Mosaic */}
-        <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
+        <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
           <Card variant="glass" style={styles.statsMosaic} noPadding>
             <View style={styles.statBox}>
-              <AnimatedNumber value={totalSessions} style={styles.statValue} />
+              <Text style={styles.statValue}>{snapshot.totalSessions}</Text>
               <Text style={styles.statLabel}>SESSIONS</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: themeColor }]}>{currentLevel}</Text>
-              <Text style={styles.statLabel}>READINESS</Text>
+              <Text style={styles.statValue}>{weightTileValue != null ? Number(weightTileValue).toFixed(1) : '--'}</Text>
+              <Text style={styles.statLabel}>{weightTileLabel}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>
-                {profile?.phase ? formatPhase(profile.phase) : '--'}
-              </Text>
-              <Text style={styles.statLabel}>PHASE</Text>
+              <Text style={styles.statValue}>{snapshot.weeklyPlanConfig?.available_days?.length ?? 0}</Text>
+              <Text style={styles.statLabel}>PLAN DAYS</Text>
             </View>
           </Card>
         </Animated.View>
 
-        {/* Athletic Profile */}
-        {profile && (
-          <Animated.View entering={FadeInDown.delay(150).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-            <Card variant="glass" title="Athletic Strategy">
-              <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Fight Status" value={profile.fight_status.charAt(0).toUpperCase() + profile.fight_status.slice(1)} />
-              <DetailRow icon={<IconPerson size={18} color={themeColor} />} label="Biological Sex" value={profile.biological_sex.charAt(0).toUpperCase() + profile.biological_sex.slice(1)} />
-              <DetailRow icon={<IconBarChart size={18} color={themeColor} />} label="Phase" value={profile.phase ? formatPhase(profile.phase) : '--'} />
-              <EditableRow
-                icon={<IconCalendar size={18} color={themeColor} />}
-                label="Fight Date"
-                value={profile.fight_date || '--'}
-                isEditing={editingField === 'fight_date'}
-                editValue={editValue}
-                onEdit={() => {
-                  setEditingField('fight_date');
-                  setEditValue(profile.fight_date || '');
-                }}
-                onChangeText={setEditValue}
-                placeholder="YYYY-MM-DD"
-                onSave={async () => {
-                  const val = editValue || null;
-                  await updateField('fight_date', val);
-                  setProfile({ ...profile, fight_date: val });
-                  setEditingField(null);
-                }}
-                onCancel={() => setEditingField(null)}
-              />
-            </Card>
-          </Animated.View>
-        )}
+        <Animated.View entering={FadeInDown.delay(130).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
+          <Card variant="glass" title="Current Program" subtitle="This card uses the same planning and cut sources that drive the rest of the app.">
+            <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Mode" value={formatGoalMode(goalMode)} />
+            <DetailRow icon={<IconBarChart size={18} color={themeColor} />} label="Phase" value={phaseLabel} />
+            <DetailRow
+              icon={<IconCalendar size={18} color={themeColor} />}
+              label="Fight Date"
+              value={formatDateLabel(resolvedFightDate)}
+              note={profileTargetsNote}
+            />
+            <DetailRow
+              icon={<IconScale size={18} color={themeColor} />}
+              label="Target Weight"
+              value={formatWeightLabel(resolvedTargetWeight)}
+              note={profileTargetsNote}
+            />
+            <DetailRow
+              icon={<IconTrendUp size={18} color={themeColor} />}
+              label="Weight Context"
+              value={formatWeightLabel(latestWeight?.weight ?? profile?.base_weight ?? null)}
+              note={latestWeightNote}
+              isLast
+            />
 
-        {/* Physical Profile */}
-        {profile && (
-          <Animated.View entering={FadeInDown.delay(200).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-            <Card variant="glass" title="Physical Profile">
+            <View style={styles.actionRow}>
+              <ActionButton label={snapshot.activeCutPlan ? 'Open Cut' : 'Start Cut'} onPress={openWeightCut} />
+              <ActionButton label="Weekly Setup" onPress={openWeeklySetup} variant="secondary" />
+              <ActionButton label="Log Check-in" onPress={openCheckIn} variant="secondary" />
+            </View>
+          </Card>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(170).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
+          <Card variant="glass" title="Training Setup" subtitle="Planner and gym settings that affect recommendations across Train and Plan.">
+            <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Weekly Planner" value={setupSummary} />
+            <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Default Gym" value={snapshot.defaultGymProfile?.name ?? 'Not set'} />
+            <DetailRow
+              icon={<IconShieldCheck size={18} color={themeColor} />}
+              label="Planning Setup"
+              value={snapshot.planningStatus.isComplete ? 'Connected' : 'Needs attention'}
+              note={snapshot.planningStatus.isComplete ? 'Planner inputs are connected.' : 'Finish setup to personalize scheduling.'}
+              isLast
+            />
+
+            <View style={styles.actionRow}>
+              <ActionButton label="Gym Profiles" onPress={openGymProfiles} />
+              <ActionButton label="Weekly Setup" onPress={openWeeklySetup} variant="secondary" />
+            </View>
+          </Card>
+        </Animated.View>
+
+        {profile ? (
+          <Animated.View entering={FadeInDown.delay(210).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
+            <Card variant="glass" title="Profile Inputs" subtitle="Only fields that still live on the athlete profile are editable here.">
+              <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Fight Status" value={formatTitleCase(profile.fight_status)} />
+              <DetailRow icon={<IconPerson size={18} color={themeColor} />} label="Biological Sex" value={formatTitleCase(profile.biological_sex)} />
               <EditableRow
                 icon={<IconScale size={18} color={themeColor} />}
                 label="Base Weight"
-                value={profile.base_weight ? `${profile.base_weight} lbs` : '--'}
+                value={formatWeightLabel(profile.base_weight)}
                 isEditing={editingField === 'base_weight'}
                 editValue={editValue}
                 onEdit={() => {
                   setEditingField('base_weight');
-                  setEditValue(profile.base_weight?.toString() || '');
+                  setEditValue(profile.base_weight?.toString() ?? '');
                 }}
                 onChangeText={setEditValue}
-                onSave={async () => {
-                  const val = editValue ? parseFloat(editValue) : null;
-                  await updateField('base_weight', val);
-                  setProfile({ ...profile, base_weight: val });
+                onSave={() => void handleSaveEdit('base_weight')}
+                onCancel={() => {
                   setEditingField(null);
+                  setEditValue('');
                 }}
-                onCancel={() => setEditingField(null)}
+                placeholder="155.0"
               />
-              <EditableRow
-                icon={<IconTarget size={18} color={themeColor} />}
-                label="Target Weight"
-                value={profile.target_weight ? `${profile.target_weight} lbs` : '--'}
-                isEditing={editingField === 'target_weight'}
-                editValue={editValue}
-                onEdit={() => {
-                  setEditingField('target_weight');
-                  setEditValue(profile.target_weight?.toString() || '');
-                }}
-                onChangeText={setEditValue}
-                onSave={async () => {
-                  const val = editValue ? parseFloat(editValue) : null;
-                  await updateField('target_weight', val);
-                  setProfile({ ...profile, target_weight: val });
-                  setEditingField(null);
-                }}
-                onCancel={() => setEditingField(null)}
-              />
-              <DetailRow icon={<IconTrendUp size={18} color={themeColor} />} label="Height" value={profile.height_inches ? `${Math.floor(profile.height_inches / 12)}'${profile.height_inches % 12}"` : '--'} />
-              <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Age" value={profile.age ? `${profile.age}` : '--'} />
+              {isTargetWeightManaged ? (
+                <DetailRow
+                  icon={<IconTarget size={18} color={themeColor} />}
+                  label="Target Weight"
+                  value={formatWeightLabel(resolvedTargetWeight)}
+                  note={profileTargetsNote}
+                />
+              ) : (
+                <EditableRow
+                  icon={<IconTarget size={18} color={themeColor} />}
+                  label="Target Weight"
+                  value={formatWeightLabel(profile.target_weight)}
+                  isEditing={editingField === 'target_weight'}
+                  editValue={editValue}
+                  onEdit={() => {
+                    setEditingField('target_weight');
+                    setEditValue(profile.target_weight?.toString() ?? '');
+                  }}
+                  onChangeText={setEditValue}
+                  onSave={() => void handleSaveEdit('target_weight')}
+                  onCancel={() => {
+                    setEditingField(null);
+                    setEditValue('');
+                  }}
+                  placeholder="145.0"
+                />
+              )}
+              {isFightDateManaged ? (
+                <DetailRow
+                  icon={<IconCalendar size={18} color={themeColor} />}
+                  label="Fight Date"
+                  value={formatDateLabel(resolvedFightDate)}
+                  note={profileTargetsNote}
+                />
+              ) : (
+                <EditableRow
+                  icon={<IconCalendar size={18} color={themeColor} />}
+                  label="Fight Date"
+                  value={formatDateLabel(profile.fight_date)}
+                  isEditing={editingField === 'fight_date'}
+                  editValue={editValue}
+                  onEdit={() => {
+                    setEditingField('fight_date');
+                    setEditValue(profile.fight_date ?? '');
+                  }}
+                  onChangeText={setEditValue}
+                  onSave={() => void handleSaveEdit('fight_date')}
+                  onCancel={() => {
+                    setEditingField(null);
+                    setEditValue('');
+                  }}
+                  placeholder="YYYY-MM-DD"
+                  keyboardType="default"
+                />
+              )}
+              <DetailRow icon={<IconTrendUp size={18} color={themeColor} />} label="Height" value={formatHeightLabel(profile.height_inches)} />
+              <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Age" value={profile.age != null ? String(profile.age) : '--'} isLast />
             </Card>
           </Animated.View>
-        )}
+        ) : null}
 
-        {/* Nutrition Settings */}
-        {profile && (
-          <Animated.View entering={FadeInDown.delay(250).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-            <Card variant="glass" title="Nutrition Settings">
-              <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Activity Level" value={formatActivityLevel(profile.activity_level)} />
-              <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Nutrition Goal" value={formatNutritionGoal(profile.nutrition_goal)} />
-            </Card>
-          </Animated.View>
-        )}
-
-        {/* Preferences */}
-        <Animated.View entering={FadeInDown.delay(290).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-          <Card variant="glass" title="Preferences">
-            {profile && (
-              <View style={styles.settingRow}>
+        {profile ? (
+          <Animated.View entering={FadeInDown.delay(250).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
+            <Card variant="glass" title="Nutrition & recovery inputs" subtitle="These values shape nutrition targets and biology-aware readiness logic.">
+              <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Activity Level" value={formatTitleCase(profile.activity_level, 'Moderate')} />
+              <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Nutrition Goal" value={formatTitleCase(profile.nutrition_goal, 'Maintain')} />
+              <View style={[styles.settingRow, styles.detailRowLast]}>
                 <View style={styles.settingLabelGroup}>
                   <IconSettings size={18} color={themeColor} />
                   <Text style={styles.settingLabel}>Cycle Tracking</Text>
                 </View>
                 <Switch
-                  onValueChange={async (val) => {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session?.user) return;
-                    await supabase
-                      .from('athlete_profiles')
-                      .update({ cycle_tracking: val })
-                      .eq('user_id', session.user.id);
-                    setProfile({ ...profile, cycle_tracking: val });
-                  }}
-                  value={profile.cycle_tracking}
+                  value={Boolean(profile.cycle_tracking)}
+                  onValueChange={(nextValue) => void handleCycleTrackingChange(nextValue)}
                   trackColor={{ true: themeColor, false: COLORS.border }}
                   thumbColor="#FFF"
                 />
               </View>
-            )}
+            </Card>
+          </Animated.View>
+        ) : null}
+
+        <Animated.View entering={FadeInDown.delay(290).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
+          <Card variant="glass" title="Setup Guide" subtitle="Guide status plus the milestones the app has actually seen you complete.">
+            <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Guide Status" value={formatGuidanceStatus(snapshot.guidanceState)} />
+            <DetailRow
+              icon={<IconCheck size={18} color={themeColor} />}
+              label="Milestones"
+              value={`${guideProgress}/${guideTotal}`}
+              note="Check-in, workout, and nutrition logging"
+              isLast
+            />
+
+            <View style={styles.progressRow}>
+              <ProgressPill label="Check-in" complete={snapshot.guidanceState.progress.checkinDone} />
+              <ProgressPill label="Workout" complete={snapshot.guidanceState.progress.workoutDone} />
+              <ProgressPill label="Nutrition" complete={snapshot.guidanceState.progress.nutritionDone} />
+            </View>
+
+            <AnimatedPressable style={styles.replayGuideButton} onPress={() => void handleReplaySetupGuide()}>
+              <Text style={styles.replayGuideButtonText}>Replay setup guide</Text>
+            </AnimatedPressable>
           </Card>
         </Animated.View>
 
-        {/* Account & Security */}
-        <Animated.View entering={FadeInDown.delay(330).duration(ANIMATION.normal).springify()} style={{ marginTop: SPACING.md }}>
-          <Card variant="glass" title="Account & Security">
-            <View style={styles.settingRow}>
-               <View style={styles.settingLabelGroup}>
-                 <IconShieldCheck size={18} color={themeColor} />
-                 <Text style={styles.settingLabel}>Status</Text>
-               </View>
-               <Text style={styles.settingValue}>{guidanceStatus === 'completed' ? 'Elite Athlete' : 'In Training'}</Text>
-            </View>
-            
-            <AnimatedPressable style={styles.replayGuideButton} onPress={handleReplaySetupGuide}>
-              <Text style={styles.replayGuideButtonText}>Replay setup guide</Text>
-            </AnimatedPressable>
-
-            <View style={styles.cardDivider} />
-
-            <AnimatedPressable
-              style={styles.signOutButton}
-              onPress={() => supabase.auth.signOut()}
-            >
+        <Animated.View entering={FadeInDown.delay(330).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
+          <Card variant="glass" title="Account" subtitle={snapshot.email || 'Signed in'}>
+            {error ? <Text style={styles.inlineError}>{error}</Text> : null}
+            <AnimatedPressable style={styles.signOutButton} onPress={() => void supabase.auth.signOut()}>
               <IconClose size={18} color={COLORS.readiness.depleted} />
               <Text style={styles.signOutText}>Sign Out</Text>
             </AnimatedPressable>
@@ -369,71 +658,78 @@ export function ProfileSettingsScreen() {
   );
 }
 
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
+function DetailRow(props: {
   icon?: React.ReactNode;
   label: string;
   value: string;
+  note?: string;
+  isLast?: boolean;
 }) {
+  const { icon, label, value, note, isLast = false } = props;
+
   return (
-    <View style={detailStyles.row}>
-      <View style={detailStyles.labelGroup}>
+    <View style={[styles.detailRow, isLast && styles.detailRowLast]}>
+      <View style={styles.detailLabelGroup}>
         {icon}
-        <Text style={detailStyles.label}>{label}</Text>
+        <Text style={styles.settingLabel}>{label}</Text>
       </View>
-      <Text style={detailStyles.value}>{value}</Text>
+      <View style={styles.detailValueGroup}>
+        <Text style={styles.settingValue}>{value}</Text>
+        {note ? <Text style={styles.detailNote}>{note}</Text> : null}
+      </View>
     </View>
   );
 }
 
-function EditableRow({
-  icon,
-  label,
-  value,
-  isEditing,
-  editValue,
-  onEdit,
-  onChangeText,
-  onSave,
-  onCancel,
-  placeholder,
-}: {
+function EditableRow(props: {
   icon?: React.ReactNode;
   label: string;
   value: string;
   isEditing: boolean;
   editValue: string;
   onEdit: () => void;
-  onChangeText: (text: string) => void;
+  onChangeText: (value: string) => void;
   onSave: () => void;
   onCancel: () => void;
-  placeholder?: string;
+  placeholder: string;
+  keyboardType?: 'default' | 'numeric';
 }) {
+  const {
+    icon,
+    label,
+    value,
+    isEditing,
+    editValue,
+    onEdit,
+    onChangeText,
+    onSave,
+    onCancel,
+    placeholder,
+    keyboardType = 'numeric',
+  } = props;
+
   if (isEditing) {
     return (
-      <View style={detailStyles.editRow}>
-        <View style={detailStyles.labelGroup}>
+      <View style={styles.editRow}>
+        <View style={styles.detailLabelGroup}>
           {icon}
-          <Text style={detailStyles.label}>{label}</Text>
+          <Text style={styles.settingLabel}>{label}</Text>
         </View>
-        <View style={detailStyles.editActions}>
+        <View style={styles.editActions}>
           <TextInput
-            style={detailStyles.editInput}
+            style={styles.editInput}
             value={editValue}
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor={COLORS.text.tertiary}
             autoFocus
-            keyboardType={placeholder ? 'default' : 'numeric'}
+            keyboardType={keyboardType}
           />
-          <TouchableOpacity onPress={onSave} style={detailStyles.saveBtn}>
-            <Text style={detailStyles.saveBtnText}>Save</Text>
+          <TouchableOpacity onPress={onSave} style={styles.saveButton}>
+            <Text style={styles.saveButtonText}>Save</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onCancel}>
-            <Text style={detailStyles.cancelBtnText}>✕</Text>
+          <TouchableOpacity onPress={onCancel} hitSlop={10}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -441,108 +737,106 @@ function EditableRow({
   }
 
   return (
-    <TouchableOpacity style={detailStyles.row} onPress={onEdit}>
-      <View style={detailStyles.labelGroup}>
+    <TouchableOpacity style={styles.detailRow} onPress={onEdit} activeOpacity={0.8}>
+      <View style={styles.detailLabelGroup}>
         {icon}
-        <Text style={detailStyles.label}>{label}</Text>
+        <Text style={styles.settingLabel}>{label}</Text>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.xs }}>
-        <Text style={detailStyles.value}>{value}</Text>
-        <Text style={{ fontSize: 11, color: COLORS.text.tertiary }}>✎</Text>
+      <View style={styles.detailValueGroup}>
+        <Text style={styles.settingValue}>{value}</Text>
+        <Text style={styles.detailNote}>Tap to edit</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
-const detailStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.borderLight,
-  },
-  labelGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  editRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.borderLight,
-  },
-  editActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  editInput: {
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.accent,
-    paddingVertical: SPACING.xs,
-    minWidth: 70,
-    textAlign: 'right',
-  },
-  saveBtn: {
-    backgroundColor: COLORS.accent,
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-  },
-  saveBtnText: {
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.inverse,
-  },
-  cancelBtnText: {
-    fontSize: 16,
-    color: COLORS.text.tertiary,
-  },
-  label: {
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.primary,
-  },
-  value: {
-    fontSize: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.secondary,
-  },
-});
+function ActionButton(props: {
+  label: string;
+  onPress: () => void;
+  variant?: 'primary' | 'secondary';
+}) {
+  const { label, onPress, variant = 'primary' } = props;
+  const isPrimary = variant === 'primary';
+
+  return (
+    <AnimatedPressable
+      style={[styles.actionButton, isPrimary ? styles.actionButtonPrimary : styles.actionButtonSecondary]}
+      onPress={onPress}
+    >
+      <Text style={[styles.actionButtonText, !isPrimary && styles.actionButtonTextSecondary]}>{label}</Text>
+      <IconChevronRight size={16} color={isPrimary ? COLORS.text.inverse : COLORS.text.primary} />
+    </AnimatedPressable>
+  );
+}
+
+function ProgressPill(props: { label: string; complete: boolean }) {
+  const { label, complete } = props;
+
+  return (
+    <View style={[styles.progressPill, complete ? styles.progressPillComplete : styles.progressPillPending]}>
+      <Text style={[styles.progressPillText, complete ? styles.progressPillTextComplete : styles.progressPillTextPending]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
-  container: {
+  loadingState: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+    gap: SPACING.md,
+  },
+  loadingText: {
+    fontSize: 15,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  emptyState: {
+    flex: 1,
+    paddingHorizontal: SPACING.lg,
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  emptyBody: {
+    marginTop: SPACING.sm,
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 22,
   },
   header: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.md,
   },
   content: {
-    padding: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.lg,
+  },
+  sectionSpacing: {
+    marginTop: SPACING.md,
   },
   heroCard: {
-    marginBottom: SPACING.md,
+    marginTop: SPACING.xs,
   },
   heroContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
+    alignItems: 'flex-start',
     gap: SPACING.md,
+    padding: SPACING.md,
   },
   avatarGlow: {
     padding: 3,
-    borderRadius: 999,
+    borderRadius: RADIUS.full,
     borderWidth: 2,
-    borderStyle: 'solid',
   },
   avatar: {
     width: 60,
@@ -550,10 +844,10 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   heroIdentity: {
     flex: 1,
-    gap: 2,
   },
   name: {
     fontSize: 20,
@@ -561,21 +855,40 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
   email: {
+    marginTop: 2,
     fontSize: 13,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
-    marginBottom: 4,
+  },
+  heroBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
   },
   badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  badgeMuted: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   badgeText: {
-    fontSize: 10,
-    fontFamily: FONT_FAMILY.black,
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  badgeMutedText: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  heroSummary: {
+    marginTop: SPACING.sm,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 20,
   },
   statsMosaic: {
     flexDirection: 'row',
@@ -584,6 +897,13 @@ const styles = StyleSheet.create({
   statBox: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.sm,
+  },
+  statDivider: {
+    width: 1,
+    marginVertical: SPACING.xs,
+    backgroundColor: COLORS.borderLight,
   },
   statValue: {
     fontSize: 18,
@@ -591,26 +911,46 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
   statLabel: {
+    marginTop: 4,
     fontSize: 10,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.tertiary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: COLORS.borderLight,
-    marginVertical: SPACING.xs,
-  },
-  settingRow: {
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
     paddingVertical: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.borderLight,
+  },
+  detailRowLast: {
+    borderBottomWidth: 0,
+  },
+  detailLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flex: 1,
+  },
+  detailValueGroup: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  detailNote: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    textAlign: 'right',
   },
   settingLabelGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+    flex: 1,
   },
   settingLabel: {
     fontSize: 15,
@@ -621,31 +961,159 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.secondary,
+    textAlign: 'right',
   },
-  cardDivider: {
-    height: 1,
-    backgroundColor: COLORS.borderLight,
-    marginVertical: SPACING.md,
-    opacity: 0.5,
+  editRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.borderLight,
   },
-  replayGuideButton: {
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.accentLight,
+  editActions: {
+    alignItems: 'flex-end',
+    gap: SPACING.sm,
+  },
+  editInput: {
+    minWidth: 118,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.accent,
+    fontSize: 15,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    textAlign: 'right',
+  },
+  saveButton: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.accent,
+  },
+  saveButtonText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.inverse,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+  },
+  actionRow: {
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  actionButton: {
+    minHeight: 48,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actionButtonPrimary: {
+    backgroundColor: COLORS.accent,
+  },
+  actionButtonSecondary: {
+    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.inverse,
+  },
+  actionButtonTextSecondary: {
+    color: COLORS.text.primary,
+  },
+  primaryButton: {
+    marginTop: SPACING.md,
+    minHeight: 48,
     borderRadius: RADIUS.md,
     alignItems: 'center',
-    paddingVertical: SPACING.sm + 2,
+    justifyContent: 'center',
+    backgroundColor: COLORS.accent,
+  },
+  primaryButtonText: {
+    fontSize: 15,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.inverse,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.borderLight,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  progressPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+  },
+  progressPillComplete: {
+    backgroundColor: 'rgba(74, 222, 128, 0.14)',
+    borderColor: 'rgba(74, 222, 128, 0.35)',
+  },
+  progressPillPending: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: COLORS.borderLight,
+  },
+  progressPillText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  progressPillTextComplete: {
+    color: COLORS.success,
+  },
+  progressPillTextPending: {
+    color: COLORS.text.secondary,
+  },
+  replayGuideButton: {
+    marginTop: SPACING.md,
+    minHeight: 48,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accentLight,
   },
   replayGuideButtonText: {
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.accent,
   },
+  inlineError: {
+    marginBottom: SPACING.md,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.error,
+    lineHeight: 20,
+  },
   signOutButton: {
+    minHeight: 48,
+    borderRadius: RADIUS.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
+    backgroundColor: 'rgba(251, 113, 133, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 113, 133, 0.25)',
   },
   signOutText: {
     fontSize: 15,
@@ -653,10 +1121,10 @@ const styles = StyleSheet.create({
     color: COLORS.readiness.depleted,
   },
   version: {
-    textAlign: 'center',
     marginTop: SPACING.lg,
     fontSize: 12,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.tertiary,
+    textAlign: 'center',
   },
 });
