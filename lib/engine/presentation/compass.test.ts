@@ -90,7 +90,7 @@ console.log('\n── Mission fields passed through ──');
 
 const result = buildCompassViewModel(mission, true, true, false);
 assert('headline from mission', result.headline === 'Strong training day');
-assert('summaryLine from mission summary', result.summaryLine === 'All systems green.');
+assert('summaryLine from mission summary', result.summaryLine === 'You are good to train today.');
 assert('riskLevel from mission.riskState.level', result.riskLevel === 'low');
 assert('sessionLabel derived from workout identity', result.sessionLabel === 'Strength');
 assert('hasPrescription reflects arg', result.hasPrescription === true);

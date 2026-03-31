@@ -1,5 +1,6 @@
 import type { DecisionTraceItem } from '../types/mission.ts';
 import type { DecisionReasonViewModel } from './types.ts';
+import { humanizeCoachSentence } from './coachCopy.ts';
 
 const IMPACT_PRIORITY: Record<DecisionReasonViewModel['impact'], number> = {
   escalated: 4,
@@ -11,13 +12,12 @@ const IMPACT_PRIORITY: Record<DecisionReasonViewModel['impact'], number> = {
 const FALLBACK: DecisionReasonViewModel = {
   subsystem: 'training',
   title: 'Plan on track',
-  sentence: 'Following the scheduled plan.',
+  sentence: 'This fits your plan today.',
   impact: 'kept',
 };
 
 function toSentence(raw: string): string {
-  const first = raw.split('. ')[0].trim();
-  return first.endsWith('.') ? first : `${first}.`;
+  return humanizeCoachSentence(raw, FALLBACK.sentence);
 }
 
 function itemToViewModel(item: DecisionTraceItem): DecisionReasonViewModel {

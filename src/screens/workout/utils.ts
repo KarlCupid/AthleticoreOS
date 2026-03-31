@@ -98,7 +98,7 @@ function getEffortGuidance(input: {
     if (cap <= 4) {
       return {
         effortTitle: 'Keep it easy today',
-        effortDetail: `Stay at RPE ${cap}/10 or lower and leave the session feeling better than you started.`,
+        effortDetail: `Stay at RPE ${cap}/10 or lower. You should finish feeling better than when you started.`,
         effortTone: 'caution',
       };
     }
@@ -106,14 +106,14 @@ function getEffortGuidance(input: {
     if (cap <= 6) {
       return {
         effortTitle: 'Stay smooth and controlled',
-        effortDetail: `Work up to about RPE ${cap}/10, but do not turn this into a grinder.`,
+        effortDetail: `Work up to about RPE ${cap}/10 and keep every rep smooth.`,
         effortTone: 'steady',
       };
     }
 
     return {
       effortTitle: 'Push with control',
-      effortDetail: `You can work up to about RPE ${cap}/10 today. Keep the reps sharp and stop before form slips.`,
+      effortDetail: `You can work up to about RPE ${cap}/10 today. Push, but shut it down before form slips.`,
       effortTone: 'push',
     };
   }
@@ -121,7 +121,7 @@ function getEffortGuidance(input: {
   if (targetIntensity == null) {
     return {
       effortTitle: 'Train with clean reps',
-      effortDetail: 'Move with control, finish the session strong, and leave a little in the tank if your form starts to fade.',
+      effortDetail: 'Move well, finish strong, and leave a little in the tank if your form starts to fade.',
       effortTone: 'steady',
     };
   }
@@ -129,14 +129,14 @@ function getEffortGuidance(input: {
   if (targetIntensity <= 4) {
     return {
       effortTitle: 'Keep it easy today',
-      effortDetail: `This is a lighter session. Stay around RPE ${targetIntensity}/10 and focus on quality.`,
+      effortDetail: `This is a lighter workout. Stay around RPE ${targetIntensity}/10 and focus on clean reps.`,
       effortTone: 'calm',
     };
   }
 
   if (targetIntensity <= 6) {
     return {
-      effortTitle: 'Build steady work today',
+      effortTitle: 'Settle into good work',
       effortDetail: `Aim for about RPE ${targetIntensity}/10. You should feel challenged, but never rushed or sloppy.`,
       effortTone: 'steady',
     };
@@ -182,8 +182,8 @@ export function buildTrainTodaySummary(input: {
   durationMin: number | null;
 }): TrainTodaySummary {
   const { floorVM, sessionLabel, cutProtocol, targetIntensity, durationMin } = input;
-  const goal = floorVM?.sessionGoal?.trim() || 'Complete today\'s session.';
-  const reason = floorVM?.reasonSentence?.trim() || 'Follow today\'s plan and keep the work controlled.';
+  const goal = floorVM?.sessionGoal?.trim() || 'Get good work done today.';
+  const reason = floorVM?.reasonSentence?.trim() || 'Stick with today\'s plan and keep it clean.';
   const resolvedDuration = durationMin ?? floorVM?.estimatedDurationMin ?? 0;
 
   return {
@@ -227,7 +227,7 @@ function buildConsistencyCard(input: {
       key: 'consistency',
       title: 'Consistency',
       headline: 'You are getting started',
-      body: `You have ${trainingDays} logged training day${trainingDays === 1 ? '' : 's'} so far. Another session or two will make the trend easier to read.`,
+      body: `You have ${trainingDays} logged training day${trainingDays === 1 ? '' : 's'} so far. A couple more workouts will make the pattern clearer.`,
       tone: 'neutral',
     };
   }
@@ -237,7 +237,7 @@ function buildConsistencyCard(input: {
       key: 'consistency',
       title: 'Consistency',
       headline: 'You are checking in, but not logging training yet',
-      body: 'Start logging your sessions here so Train can show your rhythm and progress.',
+      body: 'Start logging your workouts here so Train can show your rhythm and progress.',
       tone: 'warning',
     };
   }
@@ -259,7 +259,7 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
       key: 'load_balance',
       title: 'Load Balance',
       headline: 'Need a little more history',
-      body: 'Once you log enough training days, this will show whether your workload looks balanced or is climbing too fast.',
+      body: 'Once you log a bit more training, this will show whether your workload looks balanced or is climbing too fast.',
       tone: 'neutral',
     };
   }
@@ -269,7 +269,7 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
       key: 'load_balance',
       title: 'Load Balance',
       headline: 'Your load is lighter than your normal',
-      body: `Recent load ratio: ${latestRatio.toFixed(2)}. This can be useful for recovery, but you may want to rebuild gradually if this lasts.`,
+      body: `Workload trend: ${latestRatio.toFixed(2)}. This can help recovery, but rebuild gradually if it lasts.`,
       tone: 'neutral',
     };
   }
@@ -279,7 +279,7 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
       key: 'load_balance',
       title: 'Load Balance',
       headline: 'Your load looks well balanced',
-      body: `Recent load ratio: ${latestRatio.toFixed(2)}. Keep the same steady build instead of forcing extra work.`,
+      body: `Workload trend: ${latestRatio.toFixed(2)}. Keep building this way instead of forcing extra work.`,
       tone: 'success',
     };
   }
@@ -289,7 +289,7 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
       key: 'load_balance',
       title: 'Load Balance',
       headline: 'Your load is climbing',
-      body: `Recent load ratio: ${latestRatio.toFixed(2)}. Push with control and pay attention to recovery this week.`,
+      body: `Workload trend: ${latestRatio.toFixed(2)}. Push with control and pay attention to recovery this week.`,
       tone: 'warning',
     };
   }
@@ -298,7 +298,7 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
     key: 'load_balance',
     title: 'Load Balance',
     headline: 'Your load is running hot',
-    body: `Recent load ratio: ${latestRatio.toFixed(2)}. This is a good time to respect caps, shorten sessions, or take the lighter option.`,
+    body: `Workload trend: ${latestRatio.toFixed(2)}. This is a good time to respect caps, shorten workouts, or take the lighter option.`,
     tone: 'warning',
   };
 }
@@ -332,7 +332,7 @@ function buildRecoveryCard(sleepData: Array<{ x: number; y: number }>): Progress
       key: 'recovery',
       title: 'Recovery Trend',
       headline: 'Recovery is holding, but not great',
-      body: `Average sleep quality is ${averageSleep.toFixed(1)}/5. A lighter day or earlier bedtime would likely help.`,
+      body: `Average sleep quality is ${averageSleep.toFixed(1)}/5. A lighter day or earlier night would likely help.`,
       tone: 'neutral',
     };
   }

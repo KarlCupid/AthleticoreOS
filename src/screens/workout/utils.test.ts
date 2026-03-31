@@ -28,10 +28,10 @@ const fallbackSummary = buildTrainTodaySummary({
 });
 
 assert('uses default session label', fallbackSummary.sessionLabel === "Today's training");
-assert('uses default goal', fallbackSummary.goal === "Complete today's session.");
+assert('uses default goal', fallbackSummary.goal === 'Get good work done today.');
 assert(
   'uses default reason',
-  fallbackSummary.reason === 'Follow today\'s plan and keep the work controlled.',
+  fallbackSummary.reason === 'Stick with today\'s plan and keep it clean.',
 );
 
 console.log('\n-- train today summary effort guidance --');

@@ -59,14 +59,6 @@ import { styles } from "./DashboardScreen.styles";
 import { getGuidedWorkoutContext } from "../../lib/api/fightCampService";
 import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
 
-type DashboardPhaseControlState = {
-  currentModeLabel: string;
-  title: string;
-  description: string;
-  primaryLabel: string;
-  secondaryLabel?: string;
-};
-
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -167,7 +159,6 @@ export function DashboardScreen() {
     nutritionTargets,
     actualNutrition,
     currentLedger,
-    campStatusLabel,
     campRisk,
     dailyMission,
     goalMode,
@@ -305,14 +296,6 @@ export function DashboardScreen() {
     todayPlanEntry,
   ]);
 
-  const openFightCampSetup = React.useCallback(() => {
-    openPlanScreen("WeeklyPlanSetup", {
-      initialGoalMode: "fight_camp",
-      initialPhaseKey: "objective",
-      source: "dashboard",
-    });
-  }, [openPlanScreen]);
-
   const openBuildPhaseSetup = React.useCallback(() => {
     openPlanScreen("WeeklyPlanSetup", {
       initialGoalMode: "build_phase",
@@ -379,17 +362,6 @@ export function DashboardScreen() {
     openPlanningSurface,
     openTodayTraining,
   ]);
-
-  const handleSwitchToBuildPhase = React.useCallback(() => {
-    Alert.alert(
-      "Switch to Build Phase?",
-      "This opens build-phase setup so you can confirm the next goal before ending the current camp.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Continue", onPress: openBuildPhaseSetup },
-      ],
-    );
-  }, [openBuildPhaseSetup]);
 
   const handleRefresh = React.useCallback(() => {
     onRefresh();
@@ -483,11 +455,11 @@ export function DashboardScreen() {
     ? [
         {
           id: "checkin" as const,
-          title: "Log your first check-in",
-          subtitle:
-            "Set today's readiness baseline so recommendations make sense.",
-          done: firstRunGuidance.progress.checkinDone,
-        },
+            title: "Log your first check-in",
+            subtitle:
+              "Check in once so today's plan fits how you feel.",
+            done: firstRunGuidance.progress.checkinDone,
+          },
         {
           id: "workout" as const,
           title: "Complete your first training session",
@@ -504,10 +476,6 @@ export function DashboardScreen() {
     : [];
 
   const shouldShowFirstRunChecklist = firstRunGuidance?.status === "pending";
-  const phaseControl = React.useMemo(
-    () => getDashboardPhaseControlState({ goalMode, hasActiveFightCamp }),
-    [goalMode, hasActiveFightCamp],
-  );
 
   if (loading) {
     return (
@@ -1009,40 +977,6 @@ function getReadinessColor(score: number): string {
     if (score >= 70) return COLORS.readiness.prime;
     if (score >= 40) return COLORS.readiness.caution;
     return COLORS.readiness.depleted;
-}
-
-function getDashboardPhaseControlState(input: {
-  goalMode: "fight_camp" | "build_phase";
-  hasActiveFightCamp: boolean;
-}): DashboardPhaseControlState {
-  if (input.hasActiveFightCamp) {
-    return {
-      currentModeLabel: "Fight Camp",
-      title: "Fight camp is active",
-      description:
-        "Update camp timing, travel, or target weight from here without rebuilding your setup from scratch.",
-      primaryLabel: "Update Camp Setup",
-      secondaryLabel: "Switch to Build Phase",
-    };
-  }
-
-  if (input.goalMode === "fight_camp") {
-    return {
-      currentModeLabel: "Build Phase",
-      title: "Fight camp is not active yet",
-      description:
-        "Enter fight camp to lock the fight date and target weight, then rebuild the weekly plan around camp timing.",
-      primaryLabel: "Enter Fight Camp",
-    };
-  }
-
-  return {
-    currentModeLabel: "Build Phase",
-    title: "Build phase is active",
-    description:
-      "When a fight is booked, move into fight camp from the dashboard and reuse your current planning setup.",
-    primaryLabel: "Enter Fight Camp",
-  };
 }
 
 function getGreeting(): string {

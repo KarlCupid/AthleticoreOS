@@ -1,6 +1,7 @@
 import type { DailyMission } from '../types/mission.ts';
 import type { WorkoutPrescriptionV2 } from '../types/training.ts';
 import type { TrainingFloorViewModel } from './types.ts';
+import { humanizeCoachCopy, humanizeCoachSentence } from './coachCopy.ts';
 
 export function buildTrainingFloorViewModel(
   prescription: WorkoutPrescriptionV2 | null,
@@ -8,11 +9,16 @@ export function buildTrainingFloorViewModel(
 ): TrainingFloorViewModel {
   return {
     sessionGoal:
-      prescription?.sessionGoal ??
-      mission?.trainingDirective.intent ??
-      "Complete today's session",
+      humanizeCoachCopy(
+        prescription?.sessionGoal ??
+        mission?.trainingDirective.intent ??
+        "Complete today's workout",
+      ) || "Complete today's workout",
     reasonSentence:
-      mission?.trainingDirective.reason ?? 'Following the scheduled training plan.',
+      humanizeCoachSentence(
+        mission?.trainingDirective.reason,
+        'This fits your plan today.',
+      ),
     activationRequired: prescription?.activationGuidance != null,
     activationGuidance: prescription?.activationGuidance ?? null,
     isDeload: prescription?.isDeloadWorkout ?? false,

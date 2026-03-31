@@ -1,30 +1,31 @@
 import type { DailyMission } from '../types/mission.ts';
 import type { NutritionSafetyWarning } from '../types/nutrition.ts';
 import type { NutritionQuickActionViewModel, QuickFuelIntent } from './types.ts';
+import { humanizeCoachCopy } from './coachCopy.ts';
 
 const SAFETY_WARNING_MESSAGES: Record<NutritionSafetyWarning, string | null> = {
   none: null,
   fueling_floor_applied:
-    'Your calorie target was raised to meet the minimum for your training load.',
+    "We bumped calories up so you have enough for today's workload.",
   low_energy_availability:
-    'Your calorie target is below the safe minimum for this training level.',
+    'Your calories are too low for the work you are doing right now.',
   critical_energy_availability:
-    'Critical: energy availability is too low — fueling is required today.',
+    'You are under-fueled right now. Eat enough before you train.',
 };
 
 function buildPreSessionCue(carbsG: number): string | null {
   if (!carbsG) return null;
-  return `Have ${carbsG}g carbs 60–90 min before your session.`;
+  return `Have ${carbsG}g of carbs 60-90 min before training.`;
 }
 
 function buildIntraSessionCue(carbsG: number): string | null {
   if (!carbsG) return null;
-  return `${carbsG}g carbs during your session if it runs over 60 min.`;
+  return `Have ${carbsG}g of carbs during training if it runs longer than 60 min.`;
 }
 
 function buildPostSessionCue(proteinG: number): string | null {
   if (!proteinG) return null;
-  return `Get ${proteinG}g protein within 30 min of finishing.`;
+  return `Get ${proteinG}g of protein within 30 min after training.`;
 }
 
 function buildQuickIntents(
@@ -81,7 +82,7 @@ export function buildNutritionQuickActionViewModel(
 ): NutritionQuickActionViewModel {
   if (!mission) {
     return {
-      fuelDirectiveHeadline: 'Hit your targets today.',
+      fuelDirectiveHeadline: 'Stay on top of your food today.',
       preSessionCue: null,
       postSessionCue: null,
       intraSessionCue: null,
@@ -96,7 +97,9 @@ export function buildNutritionQuickActionViewModel(
     trainingDirective.sessionRole !== 'recover' && trainingDirective.sessionRole !== 'rest';
 
   return {
-    fuelDirectiveHeadline: fuelDirective.message || 'Hit your targets today.',
+    fuelDirectiveHeadline: humanizeCoachCopy(
+      fuelDirective.message || 'Stay on top of your food today.',
+    ),
     preSessionCue: buildPreSessionCue(fuelDirective.preSessionCarbsG),
     intraSessionCue: buildIntraSessionCue(fuelDirective.intraSessionCarbsG),
     postSessionCue: buildPostSessionCue(fuelDirective.postSessionProteinG),

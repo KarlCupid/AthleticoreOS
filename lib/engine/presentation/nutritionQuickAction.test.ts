@@ -91,11 +91,11 @@ const result = buildNutritionQuickActionViewModel(mission, ZERO_TOTALS);
 assert('training day: isTrainingDay = true', result.isTrainingDay === true);
 assert('training day: fuelDirectiveHeadline from message', result.fuelDirectiveHeadline === 'Fuel up for performance.');
 assert('training day: preSessionCue present (preSessionCarbsG > 0)', result.preSessionCue !== null);
-assert('training day: preSessionCue mentions carbs', result.preSessionCue!.includes('60g carbs'));
+assert('training day: preSessionCue mentions carbs', result.preSessionCue!.includes('60g of carbs'));
 assert('training day: intraSessionCue present (intraSessionCarbsG > 0)', result.intraSessionCue !== null);
-assert('training day: intraSessionCue mentions 30g', result.intraSessionCue!.includes('30g carbs'));
+assert('training day: intraSessionCue mentions 30g', result.intraSessionCue!.includes('30g of carbs'));
 assert('training day: postSessionCue present (postSessionProteinG > 0)', result.postSessionCue !== null);
-assert('training day: postSessionCue mentions 40g protein', result.postSessionCue!.includes('40g protein'));
+assert('training day: postSessionCue mentions 40g protein', result.postSessionCue!.includes('40g of protein'));
 
 console.log('\n── rest day ──');
 

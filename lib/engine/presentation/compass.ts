@@ -3,15 +3,16 @@ import type { MissionRiskLevel } from '../types/mission.ts';
 import type { CompassViewModel } from './types.ts';
 import { getPrimaryDecisionReason } from './decisionReason.ts';
 import { getSessionFamilyLabel, getSessionRoleLabel } from '../sessionLabels.ts';
+import { humanizeCoachCopy } from './coachCopy.ts';
 
 const NULL_DEFAULT: CompassViewModel = {
   headline: 'Ready to train',
-  summaryLine: 'Complete your check-in to unlock today\'s plan.',
+  summaryLine: 'Complete your check-in to see today\'s plan.',
   primaryCTALabel: 'Log Check-in',
   primaryCTATarget: 'checkin',
   secondaryCTALabel: null,
   secondaryCTATarget: null,
-  reasonSentence: 'Log your readiness to generate today\'s recommendations.',
+  reasonSentence: 'Check in so we can show today\'s plan.',
   riskLevel: 'low',
   sessionLabel: 'Training Session',
   sessionRoleLabel: 'Training Session',
@@ -58,8 +59,8 @@ export function buildCompassViewModel(
   const reasonVM = getPrimaryDecisionReason(mission.decisionTrace ?? []);
 
   return {
-    headline: mission.headline,
-    summaryLine: mission.summary,
+    headline: humanizeCoachCopy(mission.headline),
+    summaryLine: humanizeCoachCopy(mission.summary),
     primaryCTALabel,
     primaryCTATarget,
     secondaryCTALabel,
