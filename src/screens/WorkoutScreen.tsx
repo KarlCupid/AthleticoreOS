@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -23,6 +23,7 @@ import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
 import { ActivityCard } from '../components/ActivityCard';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { ScreenWrapper } from '../components/ScreenWrapper';
 
 import type { TrainStackParamList } from '../navigation/types';
 import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
@@ -162,9 +163,8 @@ export function WorkoutScreen() {
     const checkinDates = new Set(checkins.map(c => c.date));
 
     return (
-        <View style={styles.container}>
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
+        <ScreenWrapper>
+            <View style={styles.header}>
                 <ScreenHeader
                     kicker="Train"
                     title="Training"
@@ -451,14 +451,13 @@ export function WorkoutScreen() {
 
                 <View style={{ height: SPACING.xxl }} />
             </ScrollView>
-        </View>
+        </ScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
     },
     headerRow: {
         flexDirection: 'row',
@@ -697,9 +696,11 @@ const styles = StyleSheet.create({
     },
     tabBar: {
         flexDirection: 'row',
-        backgroundColor: COLORS.surfaceSecondary,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         borderRadius: RADIUS.lg,
         padding: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     tab: {
         flex: 1,

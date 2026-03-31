@@ -1,30 +1,30 @@
 import { StyleSheet } from 'react-native';
 
 export const COLORS = {
-    background: '#F9FAFB', // Lighter, cleaner background
-    surface: '#FFFFFF',
-    surfaceElevated: '#FFFFFF',
-    surfaceSecondary: '#F3F6F8', // Lighter secondary background
-    border: '#E8ECF0',
-    borderLight: '#F0F3F5',
+    background: '#3b429f', // Ocean Twilight - Primary Cosmic Base
+    surface: 'rgba(255, 255, 255, 0.08)', // Default Glass Surface
+    surfaceElevated: 'rgba(255, 255, 255, 0.12)', // Brighter Glass for elevation
+    surfaceSecondary: 'rgba(59, 66, 159, 0.4)', // Deep Ocean Glass
+    border: 'rgba(255, 255, 255, 0.15)', // Light-catching edge
+    borderLight: 'rgba(255, 255, 255, 0.1)',
 
-    // Accent palette — premium mint
-    accent: '#0FA888',
-    accentLight: '#E0F5F1',
+    // Accent palette — Spicy Burnt Tangerine
+    accent: '#e3170a',
+    accentLight: 'rgba(227, 23, 10, 0.15)',
 
     // Semantic colors
-    success: '#16A34A',
-    warning: '#D97706',
-    error: '#DC2626',
+    success: '#4ADE80', // Brighter for dark mode
+    warning: '#FBBF24',
+    error: '#FB7185',
 
     // Overlay
-    overlay: 'rgba(0,0,0,0.4)',
+    overlay: 'rgba(15, 23, 42, 0.6)',
 
     text: {
-        primary: '#1C2B3A',
-        secondary: '#5A7080',
-        tertiary: '#90A4AE',
-        inverse: '#FFFFFF',
+        primary: '#FFFFFF',
+        secondary: 'rgba(255, 255, 255, 0.7)',
+        tertiary: 'rgba(255, 255, 255, 0.5)',
+        inverse: '#1C2B3A',
     },
 
     readiness: {
@@ -58,15 +58,15 @@ export const GRADIENTS = {
     prime: ['#0FA888', '#0D8A70', '#0B7860'] as const,
     caution: ['#D97706', '#B45309', '#92400E'] as const,
     depleted: ['#DC2626', '#B91C1C', '#991B1B'] as const,
-    card: ['#FFFFFF', '#FDFEFE'] as const,
-    accent: ['#0FA888', '#0D8A70'] as const,
+    card: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)'] as const,
+    accent: ['#e3170a', '#e16036'] as const,
 };
 
 export const BORDERS = {
-    card: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.05)' },
-    elevated: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.08)' },
-    accent: { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(15,168,136,0.30)' },
-    glow: { borderWidth: 1, borderColor: 'rgba(15,168,136,0.40)' },
+    card: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }, // Glass Edge
+    elevated: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
+    accent: { borderWidth: 1, borderColor: 'rgba(227,23,10,0.30)' },
+    glow: { borderWidth: 1, borderColor: 'rgba(227,23,10,0.40)' },
 } as const;
 
 export const FONT_FAMILY = {
@@ -200,10 +200,10 @@ export const SHADOWS = {
         shadowRadius: 3,
         elevation: 1,
     },
-    card: { // The new default subtle glassy elevation
-        shadowColor: '#1C2B3A',
+    card: { // Subtle glow for dark glass
+        shadowColor: 'rgba(255, 255, 255, 0.05)',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
+        shadowOpacity: 0.1,
         shadowRadius: 16,
         elevation: 2,
     },
@@ -269,9 +269,9 @@ export const ANIMATION = {
 
 // Fixed chrome palette — never shifts with readiness level
 export const APP_CHROME = {
-    background: COLORS.background, // Always #F0F4F5
-    accent:     '#0FA888',          // Always Mint
-    text:       COLORS.text.primary,
+    background: '#3b429f', // Ocean Twilight - Matches our new Aurora base
+    accent:     '#fcca46', // Golden Pollen - High contrast for navigation
+    text:       '#FFFFFF', // Light text for the dark theme
 } as const;
 
 // Semantic palette for AttentionCards and coaching notes

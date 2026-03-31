@@ -35,11 +35,12 @@ const styles = StyleSheet.create({
         width: '47%',
     },
     actionGridCard: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(255, 255, 255, 0.7)', // Glassy White
         borderRadius: RADIUS.xl,
         padding: SPACING.md,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
         ...SHADOWS.card,
-        ...BORDERS.card,
         minHeight: 120,
     },
     actionGridIcon: {

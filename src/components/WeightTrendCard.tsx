@@ -124,9 +124,10 @@ export function WeightTrendCard({ trend, baseWeight, targetWeight, onPress }: We
 const styles = StyleSheet.create({
     card: {
         padding: SPACING.xl,
-        backgroundColor: '#18181B', // Zinc 900 dark mode
+        backgroundColor: 'rgba(24, 24, 27, 0.9)', // Glassy Zinc 900
         borderRadius: RADIUS.xxl,
-        borderWidth: 0,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         ...SHADOWS.md,
     },
     headerRow: {

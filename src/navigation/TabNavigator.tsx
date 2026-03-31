@@ -106,10 +106,12 @@ export function TabNavigator() {
                   overflow: 'hidden',
                   borderTopLeftRadius: RADIUS.xxl,
                   borderTopRightRadius: RADIUS.xxl,
+                  borderTopWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.15)', // Light-catching edge
                 }}
               >
-                <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFill} />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.92)' }]} />
+                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(59, 66, 159, 0.7)' }]} />
               </View>
             </View>
           ) : (
@@ -117,9 +119,11 @@ export function TabNavigator() {
               style={{
                 ...StyleSheet.absoluteFillObject,
                 top: tabBarVisualTopInset,
-                backgroundColor: COLORS.surface,
+                backgroundColor: '#3b429f', // Ocean Twilight
                 borderTopLeftRadius: RADIUS.xxl,
                 borderTopRightRadius: RADIUS.xxl,
+                borderTopWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
               }}
             />
           )

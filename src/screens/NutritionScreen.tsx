@@ -24,6 +24,7 @@ import { HydrationTracker } from '../components/HydrationTracker';
 import { IconBarcode } from '../components/icons';
 import { styles } from './NutritionScreen.styles';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { ScreenWrapper } from '../components/ScreenWrapper';
 import { supabase } from '../../lib/supabase';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import {
@@ -230,10 +231,10 @@ export function NutritionScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <ScreenWrapper>
       <Animated.View
         entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}
-        style={[styles.header, { paddingTop: insets.top + SPACING.md }]}
+        style={styles.header}
       >
         <ScreenHeader
           kicker="Fuel"
@@ -568,6 +569,6 @@ export function NutritionScreen() {
           </>
         )}
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 }

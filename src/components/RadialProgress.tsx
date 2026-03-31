@@ -30,28 +30,19 @@ export function RadialProgress({
     const center = size / 2;
     const clampedProgress = Math.min(Math.max(progress, 0), 1);
 
-    // Track path (full circle)
-    const trackPath = Skia.Path.Make();
-    trackPath.addCircle(center, center, radius);
-
-    // Progress arc path
-    const progressPath = Skia.Path.Make();
-    if (clampedProgress > 0) {
-        const startAngle = -90;
-        const sweepAngle = clampedProgress * 360;
-        const rect = Skia.XYWHRect(
-            center - radius,
-            center - radius,
-            radius * 2,
-            radius * 2
-        );
-        progressPath.addArc(rect, startAngle, sweepAngle);
-    }
-
     if (Platform.OS === 'web') {
         return (
             <View style={[styles.container, { width: size }]}>
-                <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: trackColor, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    borderWidth: strokeWidth,
+                    borderColor: trackColor,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative'
+                }}>
                     <View style={styles.centerContent}>
                         {icon ? (
                             icon
@@ -69,6 +60,24 @@ export function RadialProgress({
                 )}
             </View>
         );
+    }
+
+    // Track path (full circle) - only run on native
+    const trackPath = Skia.Path.Make();
+    trackPath.addCircle(center, center, radius);
+
+    // Progress arc path
+    const progressPath = Skia.Path.Make();
+    if (clampedProgress > 0) {
+        const startAngle = -90;
+        const sweepAngle = clampedProgress * 360;
+        const rect = Skia.XYWHRect(
+            center - radius,
+            center - radius,
+            radius * 2,
+            radius * 2
+        );
+        progressPath.addArc(rect, startAngle, sweepAngle);
     }
 
     return (

@@ -22,6 +22,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { StatCard } from '../components/StatCard';
+import { ScreenWrapper } from '../components/ScreenWrapper';
 import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
 import { todayLocalDate } from '../../lib/utils/date';
 import { supabase } from '../../lib/supabase';
@@ -233,7 +234,7 @@ export function WeeklyPlanScreen() {
     // ─── Main render ───
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScreenWrapper>
             {/* ─── Page Header ─── */}
             <View style={styles.header}>
                 {!loading && entries.length > 0 && (
@@ -396,7 +397,7 @@ export function WeeklyPlanScreen() {
                     );
                 })}
             </ScrollView>
-        </View >
+        </ScreenWrapper>
     );
 }
 
@@ -405,7 +406,6 @@ export function WeeklyPlanScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
     },
     loadingContainer: {
         flex: 1,
@@ -460,8 +460,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
         paddingVertical: SPACING.lg,
         paddingBottom: SPACING.md,
-        backgroundColor: COLORS.background,
-        position: 'relative',
+        backgroundColor: 'transparent',
     },
     headerRow: {
         flexDirection: 'row',
@@ -527,9 +526,11 @@ const styles = StyleSheet.create({
     summaryCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.accentLight,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         padding: SPACING.md,
         gap: SPACING.sm,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     summaryIcon: {
         fontSize: 16,

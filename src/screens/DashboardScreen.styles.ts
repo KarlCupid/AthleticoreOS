@@ -4,7 +4,7 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background, // F9FAFB style light theme
+    backgroundColor: 'transparent', 
   },
   content: {
     paddingHorizontal: SPACING.lg,
@@ -17,7 +17,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
     paddingBottom: SPACING.xl,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   heroGreetingRow: {
     flexDirection: 'row',
@@ -44,10 +44,12 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0F172A', // Slate 900 dark tactical mode
+    backgroundColor: 'rgba(15, 23, 42, 0.9)', // Glassy Slate 900
     borderRadius: RADIUS.xxl,
     padding: SPACING.xl,
     marginTop: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     ...SHADOWS.md,
   },
   readinessMain: {
@@ -97,9 +99,11 @@ export const styles = StyleSheet.create({
   // Compass Action Block (Inside Hero)
   compassCard: {
     marginTop: SPACING.lg,
-    backgroundColor: '#0F172A',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Slightly more opaque glass
     borderRadius: RADIUS.xxl,
     padding: SPACING.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     ...SHADOWS.md,
   },
   compassSessionRole: {

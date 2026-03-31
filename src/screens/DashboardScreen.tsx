@@ -35,6 +35,7 @@ import { SafetyStatusIndicator } from "../components/SafetyStatusIndicator";
 import { ActivityCard } from "../components/ActivityCard";
 import { ActiveCampBanner } from "../components/ActiveCampBanner";
 import { RadialProgress } from "../components/RadialProgress";
+import { ScreenWrapper } from "../components/ScreenWrapper";
 
 import type {
   DailyCutProtocolRow,
@@ -534,7 +535,7 @@ export function DashboardScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenWrapper>
       <Modal
         visible={showFirstRunModal}
         transparent
@@ -662,7 +663,7 @@ export function DashboardScreen() {
 
         <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={styles.quickActionGrid}>
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: COLORS.accent }]}
+                style={[styles.quickActionBlock, { backgroundColor: 'rgba(15, 168, 136, 0.7)' }]} // Glassy Mint
                 onPress={() => navigation.navigate("Log")}
             >
                 <View style={styles.quickActionIconContainer}>
@@ -674,7 +675,7 @@ export function DashboardScreen() {
             </AnimatedPressable>
             
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: COLORS.chart.protein }]} // using dark orange/red as a proxy for train/fire, let's use a nice custom hex or use Protein color
+                style={[styles.quickActionBlock, { backgroundColor: 'rgba(99, 102, 241, 0.7)' }]} // Glassy Indigo/Violet
                 onPress={() => void openTodayTraining()}
             >
                 <View style={styles.quickActionIconContainer}>
@@ -686,7 +687,7 @@ export function DashboardScreen() {
             </AnimatedPressable>
 
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: '#F59E0B' }]} // vivid amber for Fuel
+                style={[styles.quickActionBlock, { backgroundColor: 'rgba(245, 158, 11, 0.7)' }]} // Glassy Amber
                 onPress={() => openFuelScreen("NutritionHome")}
             >
                 <View style={styles.quickActionIconContainer}>
@@ -698,7 +699,7 @@ export function DashboardScreen() {
             </AnimatedPressable>
 
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: '#3B82F6' }]} // vivid blue for Calendar/Setup
+                style={[styles.quickActionBlock, { backgroundColor: 'rgba(59, 130, 246, 0.7)' }]} // Glassy Blue
                 onPress={openPlanningSurface}
             >
                 <View style={styles.quickActionIconContainer}>
@@ -966,7 +967,7 @@ export function DashboardScreen() {
           <View style={{ height: SPACING.xxl }} />
         </View>
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 }
 

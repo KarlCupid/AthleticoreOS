@@ -4,14 +4,15 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../th
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
     },
     cutBanner: {
-        backgroundColor: '#1E1B4B',
+        backgroundColor: 'rgba(59, 66, 159, 0.4)', // Ocean Twilight Glass
         borderRadius: RADIUS.xl,
         padding: SPACING.md,
         marginBottom: SPACING.sm,
         gap: SPACING.xs,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
     },
     cutBannerTop: {
         flexDirection: 'row',
@@ -71,9 +72,11 @@ export const styles = StyleSheet.create({
     modeSwitch: {
         flexDirection: 'row',
         gap: SPACING.sm,
-        backgroundColor: COLORS.surfaceSecondary,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         borderRadius: RADIUS.xl,
         padding: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     modeChip: {
         flex: 1,

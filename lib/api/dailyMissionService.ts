@@ -356,24 +356,50 @@ async function resolveReadinessProfile(input: {
   const historyStart = addDays(date, -6);
   const recentActivityStart = addDays(date, -1);
 
-  const [checkinsResult, recentActivities, activationResult] = await Promise.all([
-    supabase
-      .from('daily_checkins')
-      .select('date, sleep_quality, readiness, stress_level, soreness_level, confidence_level, external_heart_rate_load, cognitive_score, urine_color, body_temp_f')
-      .eq('user_id', userId)
-      .gte('date', historyStart)
-      .lte('date', date)
-      .order('date'),
-    getScheduledActivities(userId, recentActivityStart, date),
-    supabase
-      .from('workout_log')
-      .select('date, activation_rpe')
-      .eq('user_id', userId)
-      .not('activation_rpe', 'is', null)
-      .lte('date', date)
-      .order('date', { ascending: false })
-      .limit(1),
-  ]);
+  let checkinsResult: any = { data: [] };
+  let recentActivities: any[] = [];
+  let activationResult: any = { data: [] };
+
+  try {
+    const [cRes, rAct, aRes] = await Promise.all([
+      supabase
+        .from('daily_checkins')
+        .select('date, sleep_quality, readiness, stress_level, soreness_level, confidence_level, external_heart_rate_load, cognitive_score, urine_color, body_temp_f')
+        .eq('user_id', userId)
+        .gte('date', historyStart)
+        .lte('date', date)
+        .order('date'),
+      getScheduledActivities(userId, recentActivityStart, date),
+      supabase
+        .from('workout_log')
+        .select('date, activation_rpe')
+        .eq('user_id', userId)
+        .not('activation_rpe', 'is', null)
+        .lte('date', date)
+        .order('date', { ascending: false })
+        .limit(1),
+    ]);
+    checkinsResult = cRes;
+    recentActivities = rAct;
+    activationResult = aRes;
+
+    if (cRes.error) throw cRes.error;
+    if (aRes.error) throw aRes.error;
+  } catch (error) {
+    console.error('Error resolving readiness data (check columns exist?):', error);
+    // Fallback: If queries fail (e.g. missing columns), try a minimal checkin fetch
+    try {
+      const fallbackCheckins = await supabase
+        .from('daily_checkins')
+        .select('date, readiness, sleep_quality')
+        .eq('user_id', userId)
+        .gte('date', historyStart)
+        .lte('date', date);
+      checkinsResult = fallbackCheckins;
+    } catch (fallbackError) {
+      console.error('Readiness fallback failed:', fallbackError);
+    }
+  }
 
   const checkins = ((checkinsResult.data ?? []) as Array<{
     date: string;
