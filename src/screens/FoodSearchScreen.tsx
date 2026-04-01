@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
-  FlatList,
+  ScrollView,
   StyleSheet,
   Keyboard,
 } from 'react-native';
@@ -14,18 +14,20 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../the
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { FoodSearchItem } from '../components/FoodSearchItem';
-import { searchFoods } from '../../lib/api/openFoodFacts';
-import {
-  searchLocalFoods,
-  getRecentFoods,
-} from '../../lib/api/nutritionService';
+import { FoodSearchMode, FoodSearchResult, MealType } from '../../lib/engine/types';
+import { classifyFoodQuery, FoodSearchSection, searchFoodCatalog } from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
-import { FoodItemRow, MealType } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 import { IconChevronLeft, IconBarcode } from '../components/icons';
 
 type RouteParams = {
   FoodSearch: { mealType: MealType; date?: string };
+};
+
+const SEARCH_MODE_LABELS: Record<FoodSearchMode, string> = {
+  recent: 'Recent',
+  ingredients: 'Ingredients',
+  packaged: 'Packaged',
 };
 
 const MEAL_LABELS: Record<MealType, string> = {
@@ -42,110 +44,165 @@ export function FoodSearchScreen() {
   const { mealType, date } = route.params;
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<(FoodItemRow | Omit<FoodItemRow, 'id'>)[]>([]);
-  const [recentFoods, setRecentFoods] = useState<FoodItemRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [sections, setSections] = useState<FoodSearchSection[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searched, setSearched] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchMode, setSearchMode] = useState<FoodSearchMode>('recent');
+  const [manualModeOverride, setManualModeOverride] = useState(false);
 
-  useEffect(() => {
-    loadRecentFoods();
-  }, []);
-
-  async function loadRecentFoods() {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      const foods = await getRecentFoods(session.user.id, 10);
-      setRecentFoods(foods);
-    } catch (err) {
-      logError('FoodSearchScreen.loadRecentFoods', err);
+  const activeMode = useMemo<FoodSearchMode>(() => {
+    if (query.trim().length < 2) {
+      return 'recent';
     }
-  }
 
-  const handleSearch = useCallback(
-    async (text: string) => {
-      setQuery(text);
-      if (text.trim().length < 2) {
-        setResults([]);
-        setSearched(false);
-        return;
-      }
+    return searchMode;
+  }, [query, searchMode]);
 
+  const loadSections = useCallback(
+    async (nextQuery: string, nextMode: FoodSearchMode) => {
       setLoading(true);
-      setSearched(true);
+      setSearched(nextQuery.trim().length >= 2);
 
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        const userId = session?.user?.id ?? '';
-
-        // Search local DB and OFF API in parallel
-        const [localResults, offResults] = await Promise.all([
-          searchLocalFoods(userId, text.trim(), 10),
-          searchFoods(text.trim(), 1).catch(() => ({ items: [], totalCount: 0, hasMore: false })),
-        ]);
-
-        // Merge: local first, then OFF, deduped by barcode
-        const seen = new Set<string>();
-        const merged: (FoodItemRow | Omit<FoodItemRow, 'id'>)[] = [];
-
-        for (const item of localResults) {
-          if (item.off_barcode) seen.add(item.off_barcode);
-          merged.push(item);
+        if (!session?.user) {
+          setSections([]);
+          return;
         }
 
-        for (const item of offResults.items) {
-          if (item.off_barcode && seen.has(item.off_barcode)) continue;
-          if (item.off_barcode) seen.add(item.off_barcode);
-          merged.push(item);
+        const result = await searchFoodCatalog({
+          userId: session.user.id,
+          query: nextQuery,
+          mode: nextMode,
+        });
+
+        if (!manualModeOverride && nextQuery.trim().length >= 2) {
+          const suggestedMode: FoodSearchMode =
+            result.classifier === 'ingredient' ? 'ingredients' : 'packaged';
+          if (suggestedMode !== nextMode) {
+            setSearchMode(suggestedMode);
+            const refined = await searchFoodCatalog({
+              userId: session.user.id,
+              query: nextQuery,
+              mode: suggestedMode,
+            });
+            setSections(refined.sections);
+            return;
+          }
         }
 
-        setResults(merged);
-      } catch (err) {
-        logError('FoodSearchScreen.search', err, { query: text.trim() });
+        setSections(result.sections);
+      } catch (error) {
+        logError('FoodSearchScreen.loadSections', error, { query: nextQuery, mode: nextMode });
+        setSections([]);
       } finally {
         setLoading(false);
       }
     },
-    []
+    [manualModeOverride]
   );
 
-  // Debounced search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (query.trim().length >= 2) {
-        handleSearch(query);
-      }
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [query]);
+    const timeout = setTimeout(() => {
+      loadSections(query, activeMode);
+    }, query.trim().length >= 2 ? 300 : 0);
 
-  const handleSelectFood = (item: FoodItemRow | Omit<FoodItemRow, 'id'>) => {
+    return () => clearTimeout(timeout);
+  }, [activeMode, loadSections, query]);
+
+  const handleSelectFood = (item: FoodSearchResult) => {
     Keyboard.dismiss();
     navigation.navigate('FoodDetail', { foodItem: item, mealType, date });
   };
 
-  const showRecent = !searched && query.trim().length < 2 && recentFoods.length > 0;
+  const handleChangeQuery = (text: string) => {
+    setQuery(text);
 
-  const renderItem = ({ item, index }: { item: FoodItemRow | Omit<FoodItemRow, 'id'>; index: number }) => (
-    <Animated.View entering={FadeInDown.delay(index * 30).duration(ANIMATION.normal).springify()}>
-      <FoodSearchItem item={item} onSelect={handleSelectFood} />
-    </Animated.View>
-  );
+    if (text.trim().length < 2) {
+      setManualModeOverride(false);
+      setSearchMode('recent');
+      return;
+    }
 
-  const renderRecentItem = ({ item, index }: { item: FoodItemRow; index: number }) => (
-    <Animated.View entering={FadeInDown.delay(index * 30).duration(ANIMATION.normal).springify()}>
-      <FoodSearchItem item={item} onSelect={handleSelectFood} />
-    </Animated.View>
-  );
+    if (!manualModeOverride) {
+      const suggestedMode: FoodSearchMode =
+        classifyFoodQuery(text) === 'ingredient' ? 'ingredients' : 'packaged';
+      setSearchMode(suggestedMode);
+    }
+  };
+
+  const handleSelectMode = (mode: FoodSearchMode) => {
+    setManualModeOverride(true);
+    setSearchMode(mode);
+  };
+
+  const renderSections = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          {[1, 2, 3, 4].map((item) => (
+            <SkeletonLoader
+              key={item}
+              width="100%"
+              height={76}
+              shape="rect"
+              style={{
+                marginBottom: SPACING.sm,
+                marginHorizontal: SPACING.lg,
+                borderRadius: RADIUS.lg,
+              }}
+            />
+          ))}
+        </View>
+      );
+    }
+
+    if (sections.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {searched ? 'No foods found' : 'Search to start logging'}
+          </Text>
+          <Text style={styles.emptySubtext}>
+            {searched
+              ? activeMode === 'ingredients'
+                ? 'Try a simpler ingredient like banana, rice, or chicken breast.'
+                : 'Try a brand name, product name, or scan the barcode.'
+              : 'Use ingredients for whole foods or packaged for branded products.'}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.resultsContent}
+      >
+        {sections.map((section, sectionIndex) => (
+          <Animated.View
+            key={section.id}
+            entering={FadeInDown.delay(sectionIndex * 40).duration(ANIMATION.normal).springify()}
+            style={styles.section}
+          >
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View style={styles.sectionCard}>
+              {section.items.map((item) => (
+                <FoodSearchItem key={item.key} item={item} onSelect={handleSelectFood} />
+              ))}
+            </View>
+          </Animated.View>
+        ))}
+      </ScrollView>
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
         <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
           <IconChevronLeft size={24} color={COLORS.text.primary} />
@@ -153,19 +210,17 @@ export function FoodSearchScreen() {
         <Text style={styles.title}>Add to {MEAL_LABELS[mealType]}</Text>
       </View>
 
-      {/* Search Bar + Barcode */}
       <View style={styles.searchContainer}>
         <View style={styles.searchRow}>
           <TextInput
             style={[
               styles.searchInput,
-              { flex: 1 },
               searchFocused && { borderColor: COLORS.accent, ...SHADOWS.sm },
             ]}
             placeholder="Search foods..."
             placeholderTextColor={COLORS.text.tertiary}
             value={query}
-            onChangeText={setQuery}
+            onChangeText={handleChangeQuery}
             autoFocus
             returnKeyType="search"
             clearButtonMode="while-editing"
@@ -179,53 +234,26 @@ export function FoodSearchScreen() {
             <IconBarcode size={22} color={COLORS.text.primary} />
           </AnimatedPressable>
         </View>
+
+        <View style={styles.modeRow}>
+          {(['recent', 'ingredients', 'packaged'] as FoodSearchMode[]).map((mode) => {
+            const active = activeMode === mode;
+            return (
+              <AnimatedPressable
+                key={mode}
+                style={[styles.modeChip, active && styles.modeChipActive]}
+                onPress={() => handleSelectMode(mode)}
+              >
+                <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>
+                  {SEARCH_MODE_LABELS[mode]}
+                </Text>
+              </AnimatedPressable>
+            );
+          })}
+        </View>
       </View>
 
-      {/* Skeleton Loading */}
-      {loading && (
-        <View style={styles.loadingContainer}>
-          {[1, 2, 3, 4].map(i => (
-            <SkeletonLoader
-              key={i}
-              width="100%"
-              height={60}
-              shape="rect"
-              style={{ marginBottom: SPACING.sm, marginHorizontal: SPACING.lg, borderRadius: RADIUS.lg }}
-            />
-          ))}
-        </View>
-      )}
-
-      {showRecent && (
-        <View>
-          <Text style={styles.sectionTitle}>Recent</Text>
-          <FlatList
-            data={recentFoods}
-            keyExtractor={(item) => item.id}
-            renderItem={renderRecentItem}
-            keyboardShouldPersistTaps="handled"
-          />
-        </View>
-      )}
-
-      {!showRecent && !loading && (
-        <FlatList
-          data={results}
-          keyExtractor={(item, index) =>
-            'id' in item ? item.id : item.off_barcode ?? `off-${index}`
-          }
-          renderItem={renderItem}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            searched && !loading ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No foods found</Text>
-                <Text style={styles.emptySubtext}>Try a different search term</Text>
-              </View>
-            ) : null
-          }
-        />
-      )}
+      {renderSections()}
     </View>
   );
 }
@@ -260,6 +288,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   searchInput: {
+    flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
@@ -280,20 +309,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  modeRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  modeChip: {
+    flex: 1,
+    borderRadius: RADIUS.full,
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modeChipActive: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+  modeChipText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  modeChipTextActive: {
+    color: COLORS.text.inverse,
+  },
+  loadingContainer: {
+    paddingTop: SPACING.md,
+  },
+  resultsContent: {
+    paddingBottom: SPACING.xxl,
+  },
+  section: {
+    marginBottom: SPACING.md,
+  },
   sectionTitle: {
     fontSize: 13,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.tertiary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
+    paddingBottom: SPACING.sm,
   },
-  loadingContainer: {
-    paddingTop: SPACING.md,
+  sectionCard: {
+    marginHorizontal: SPACING.lg,
+    borderRadius: RADIUS.xl,
+    backgroundColor: COLORS.surface,
+    overflow: 'hidden',
   },
   emptyContainer: {
-    padding: SPACING.xxl,
+    paddingHorizontal: SPACING.xxl,
+    paddingTop: SPACING.xxl,
     alignItems: 'center',
   },
   emptyText: {
@@ -306,5 +374,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.tertiary,
     marginTop: SPACING.xs,
+    textAlign: 'center',
+    lineHeight: 19,
   },
 });

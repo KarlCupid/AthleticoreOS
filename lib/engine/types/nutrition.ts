@@ -11,6 +11,77 @@ export type ActivityLevel =
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
 
+export type FoodDataSource = 'usda' | 'open_food_facts' | 'custom';
+
+export type FoodSourceType = 'ingredient' | 'packaged' | 'custom';
+
+export type FoodSearchMode = 'recent' | 'ingredients' | 'packaged';
+
+export type FoodSearchBadge =
+  | 'Ingredient'
+  | 'Packaged'
+  | 'Custom'
+  | 'Recent'
+  | 'Favorite'
+  | 'Verified';
+
+export interface FoodPortionOption {
+  id: string;
+  label: string;
+  amount: number;
+  unit: string;
+  grams: number;
+  isDefault?: boolean;
+}
+
+export interface FoodSearchResult {
+  key: string;
+  id?: string;
+  user_id: string | null;
+  source: FoodDataSource;
+  sourceType: FoodSourceType;
+  external_id: string | null;
+  verified: boolean;
+  searchRank: number;
+  off_barcode: string | null;
+  name: string;
+  brand: string | null;
+  image_url: string | null;
+  baseAmount: number;
+  baseUnit: string;
+  gramsPerPortion: number | null;
+  portionOptions: FoodPortionOption[];
+  serving_size_g: number;
+  serving_label: string;
+  calories_per_serving: number;
+  protein_per_serving: number;
+  carbs_per_serving: number;
+  fat_per_serving: number;
+  is_supplement: boolean;
+  badges: FoodSearchBadge[];
+}
+
+export interface FoodNutritionSnapshot {
+  source: FoodDataSource;
+  sourceType: FoodSourceType;
+  external_id: string | null;
+  verified: boolean;
+  name: string;
+  brand: string | null;
+  image_url: string | null;
+  baseAmount: number;
+  baseUnit: string;
+  gramsPerPortion: number | null;
+  portionOptions: FoodPortionOption[];
+  serving_size_g: number;
+  serving_label: string;
+  calories_per_serving: number;
+  protein_per_serving: number;
+  carbs_per_serving: number;
+  fat_per_serving: number;
+  is_supplement: boolean;
+}
+
 export interface MacroLedgerRow {
   id: string;
   user_id: string;
@@ -162,9 +233,17 @@ export interface MacroAdherenceResult {
 export interface FoodItemRow {
   id: string;
   user_id: string | null;
+  source: FoodDataSource;
+  source_type: FoodSourceType;
+  external_id: string | null;
+  verified: boolean;
   off_barcode: string | null;
   name: string;
   brand: string | null;
+  base_amount: number;
+  base_unit: string;
+  grams_per_portion: number | null;
+  portion_options: FoodPortionOption[] | null;
   serving_size_g: number;
   serving_label: string;
   calories_per_serving: number;
@@ -182,6 +261,11 @@ export interface FoodLogRow {
   date: string;
   meal_type: MealType;
   servings: number;
+  amount_value?: number | null;
+  amount_unit?: string | null;
+  grams?: number | null;
+  source?: FoodDataSource | null;
+  nutrition_snapshot?: FoodNutritionSnapshot | null;
   logged_calories: number;
   logged_protein: number;
   logged_carbs: number;

@@ -150,9 +150,17 @@ CREATE POLICY "Athletes can manage their own macros"
 CREATE TABLE public.food_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.Users(id),
+    source TEXT NOT NULL DEFAULT 'custom' CHECK (source IN ('usda', 'open_food_facts', 'custom')),
+    source_type TEXT NOT NULL DEFAULT 'custom' CHECK (source_type IN ('ingredient', 'packaged', 'custom')),
+    external_id TEXT,
+    verified BOOLEAN NOT NULL DEFAULT FALSE,
     off_barcode TEXT,
     name TEXT NOT NULL,
     brand TEXT,
+    base_amount NUMERIC NOT NULL DEFAULT 1,
+    base_unit TEXT NOT NULL DEFAULT 'serving',
+    grams_per_portion NUMERIC,
+    portion_options JSONB NOT NULL DEFAULT '[]'::jsonb,
     serving_size_g NUMERIC NOT NULL DEFAULT 100,
     serving_label TEXT DEFAULT '100g',
     calories_per_serving NUMERIC NOT NULL DEFAULT 0,
@@ -165,6 +173,10 @@ CREATE TABLE public.food_items (
     UNIQUE(off_barcode)
 );
 
+CREATE UNIQUE INDEX food_items_source_external_id_key
+    ON public.food_items (source, external_id)
+    WHERE external_id IS NOT NULL;
+
 -- Food Log: individual food entries per meal
 CREATE TABLE public.food_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -173,6 +185,11 @@ CREATE TABLE public.food_log (
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     meal_type TEXT NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snacks')),
     servings NUMERIC NOT NULL DEFAULT 1,
+    amount_value NUMERIC NOT NULL DEFAULT 1,
+    amount_unit TEXT NOT NULL DEFAULT 'serving',
+    grams NUMERIC,
+    source TEXT CHECK (source IN ('usda', 'open_food_facts', 'custom')),
+    nutrition_snapshot JSONB,
     logged_calories NUMERIC NOT NULL,
     logged_protein NUMERIC NOT NULL,
     logged_carbs NUMERIC NOT NULL,

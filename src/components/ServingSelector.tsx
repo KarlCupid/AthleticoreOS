@@ -1,56 +1,87 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { FoodPortionOption } from '../../lib/engine/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 
 interface ServingSelectorProps {
-  servings: number;
-  setServings: (val: number) => void;
-  servingLabel: string;
+  amountValue: number;
+  setAmountValue: (value: number) => void;
+  selectedPortion: FoodPortionOption;
+  setSelectedPortion: (portion: FoodPortionOption) => void;
+  portionOptions: FoodPortionOption[];
 }
 
-const PRESETS = [0.5, 1, 1.5, 2];
+function formatPresetValue(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+}
 
 export function ServingSelector({
-  servings,
-  setServings,
-  servingLabel,
+  amountValue,
+  setAmountValue,
+  selectedPortion,
+  setSelectedPortion,
+  portionOptions,
 }: ServingSelectorProps) {
+  const quantityPresets = selectedPortion.unit === 'g'
+    ? [50, 100, 150, 200]
+    : [0.5, 1, 1.5, 2];
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Servings</Text>
-      <Text style={styles.servingLabel}>{servingLabel}</Text>
+      <Text style={styles.label}>Amount</Text>
+      <Text style={styles.helperText}>Choose a portion, then set the amount you actually ate.</Text>
+
+      <View style={styles.portionGrid}>
+        {portionOptions.map((portion) => {
+          const active = portion.id === selectedPortion.id;
+          return (
+            <TouchableOpacity
+              key={portion.id}
+              style={[styles.portionButton, active && styles.portionButtonActive]}
+              onPress={() => setSelectedPortion(portion)}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.portionText, active && styles.portionTextActive]}>
+                {portion.label}
+              </Text>
+              <Text style={[styles.portionSubtext, active && styles.portionTextActive]}>
+                {Math.round(portion.grams)}g
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       <View style={styles.presetRow}>
-        {PRESETS.map((preset) => (
-          <TouchableOpacity
-            key={preset}
-            style={[
-              styles.presetButton,
-              servings === preset && styles.presetActive,
-            ]}
-            onPress={() => setServings(preset)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.presetText,
-                servings === preset && styles.presetTextActive,
-              ]}
+        {quantityPresets.map((preset) => {
+          const active = amountValue === preset;
+          return (
+            <TouchableOpacity
+              key={`${selectedPortion.id}-${preset}`}
+              style={[styles.presetButton, active && styles.presetActive]}
+              onPress={() => setAmountValue(preset)}
+              activeOpacity={0.75}
             >
-              {preset}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text style={[styles.presetText, active && styles.presetTextActive]}>
+                {formatPresetValue(preset)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.customRow}>
-        <Text style={styles.customLabel}>Custom</Text>
+        <Text style={styles.customLabel}>
+          {selectedPortion.unit === 'g' ? 'Custom grams' : 'Custom quantity'}
+        </Text>
         <TextInput
           style={styles.input}
-          value={String(servings)}
+          value={String(amountValue)}
           onChangeText={(text) => {
-            const num = parseFloat(text);
-            if (!isNaN(num) && num > 0) setServings(num);
+            const parsed = parseFloat(text);
+            if (!Number.isNaN(parsed) && parsed > 0) {
+              setAmountValue(parsed);
+            }
           }}
           keyboardType="decimal-pad"
           selectTextOnFocus
@@ -70,11 +101,44 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     marginBottom: SPACING.xs,
   },
-  servingLabel: {
+  helperText: {
     fontSize: 13,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.tertiary,
     marginBottom: SPACING.md,
+  },
+  portionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  portionButton: {
+    minWidth: 96,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.borderLight,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  portionButtonActive: {
+    backgroundColor: COLORS.text.primary,
+    borderColor: COLORS.text.primary,
+  },
+  portionText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  portionSubtext: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    marginTop: 2,
+  },
+  portionTextActive: {
+    color: COLORS.text.inverse,
   },
   presetRow: {
     flexDirection: 'row',
@@ -89,12 +153,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   presetActive: {
-    backgroundColor: COLORS.text.primary,
+    backgroundColor: COLORS.accent,
   },
   presetText: {
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.secondary,
+    color: COLORS.text.primary,
   },
   presetTextActive: {
     color: COLORS.text.inverse,

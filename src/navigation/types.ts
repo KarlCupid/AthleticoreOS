@@ -2,7 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type {
   ExerciseLibraryRow,
   FitnessLevel,
-  FoodItemRow,
+  FoodSearchResult,
   MealType,
   AthleteGoalMode,
   Phase,
@@ -95,10 +95,10 @@ export type PlanStackParamList = {
 
 export type FuelStackParamList = {
   NutritionHome: undefined;
-  FoodSearch: { mealType?: MealType; date?: string };
-  FoodDetail: { foodItem: FoodItemRow; mealType?: MealType; date?: string };
+  FoodSearch: { mealType: MealType; date?: string };
+  FoodDetail: { foodItem: FoodSearchResult; mealType: MealType; date?: string };
   CustomFood: undefined;
-  BarcodeScan: { mealType?: MealType; date?: string };
+  BarcodeScan: { mealType: MealType; date?: string };
   WeightCutHome: undefined;
   CutPlanSetup: undefined;
   FightWeekProtocol: undefined;

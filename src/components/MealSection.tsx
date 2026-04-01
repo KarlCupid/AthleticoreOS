@@ -8,8 +8,7 @@ interface FoodEntry {
   id: string;
   food_name: string;
   food_brand?: string | null;
-  servings: number;
-  serving_label: string;
+  amount_label: string;
   logged_calories: number;
 }
 
@@ -82,8 +81,7 @@ export function MealSection({
                   {food.food_name}
                 </Text>
                 <Text style={styles.foodDetail}>
-                  {food.servings !== 1 ? `${food.servings}x ` : ''}
-                  {food.serving_label}
+                  {food.amount_label}
                   {food.food_brand ? ` \u2022 ${food.food_brand}` : ''}
                 </Text>
               </View>

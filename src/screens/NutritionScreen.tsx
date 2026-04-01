@@ -10,7 +10,6 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS, ANIMATION, GRADIENTS, FONT_FAMILY } from '../theme/theme';
 import { buildNutritionQuickActionViewModel } from '../../lib/engine/presentation';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
@@ -42,8 +41,30 @@ import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks'];
 const STAGGER_DELAY = 50;
 
+function formatAmountLabel(entry: any): string {
+  const amountValue = entry.amount_value ?? entry.servings ?? 1;
+  const amountUnit = entry.amount_unit ?? 'serving';
+  const roundedValue = Number.isInteger(amountValue)
+    ? String(amountValue)
+    : Number(amountValue).toFixed(1).replace(/\.0$/, '');
+
+  if (amountUnit === 'g') {
+    return `${roundedValue}g`;
+  }
+
+  if (amountUnit === 'serving') {
+    const servingLabel = entry.nutrition_snapshot?.serving_label ?? entry.food_items?.serving_label ?? 'serving';
+    return `${roundedValue} × ${servingLabel}`;
+  }
+
+  if (amountUnit === 'portion') {
+    return `${roundedValue} × ${entry.nutrition_snapshot?.serving_label ?? 'portion'}`;
+  }
+
+  return `${roundedValue} × ${amountUnit}`;
+}
+
 export function NutritionScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { themeColor } = useReadinessTheme();
   const [nutritionMode, setNutritionMode] = useState<'quick' | 'detailed'>('quick');
@@ -122,10 +143,9 @@ export function NutritionScreen() {
         if (grouped[mt]) {
           grouped[mt].push({
             id: entry.id,
-            food_name: entry.food_items?.name ?? 'Unknown',
-            food_brand: entry.food_items?.brand ?? null,
-            servings: entry.servings,
-            serving_label: entry.food_items?.serving_label ?? '',
+            food_name: entry.nutrition_snapshot?.name ?? entry.food_items?.name ?? 'Unknown',
+            food_brand: entry.nutrition_snapshot?.brand ?? entry.food_items?.brand ?? null,
+            amount_label: formatAmountLabel(entry),
             logged_calories: entry.logged_calories,
           });
         }
@@ -134,14 +154,13 @@ export function NutritionScreen() {
 
       const t = data.foodLog.reduce(
         (acc: any, entry: any) => ({
+          calories: acc.calories + (entry.logged_calories ?? 0),
           protein: acc.protein + (entry.logged_protein ?? 0),
           carbs: acc.carbs + (entry.logged_carbs ?? 0),
           fat: acc.fat + (entry.logged_fat ?? 0),
-          calories: 0,
         }),
         { calories: 0, protein: 0, carbs: 0, fat: 0 }
       );
-      t.calories = calculateCaloriesFromMacros(t.protein, t.carbs, t.fat);
       setTotals(t);
 
       const waterTotal = data.hydrationLog.reduce(

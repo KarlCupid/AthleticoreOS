@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,21 +11,38 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { ProgressRing } from '../components/ProgressRing';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { ServingSelector } from '../components/ServingSelector';
 import { IconChevronLeft } from '../components/icons';
-import { FoodItemRow, MealType } from '../../lib/engine/types';
-import { upsertFoodItem, logFoodEntry } from '../../lib/api/nutritionService';
+import {
+  FoodPortionOption,
+  FoodSearchResult,
+  MealType,
+} from '../../lib/engine/types';
+import {
+  hydrateFoodSearchResult,
+  logFoodEntry,
+  toggleFavorite,
+  upsertFoodItem,
+} from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
 import { todayLocalDate } from '../../lib/utils/date';
+import {
+  COLORS,
+  FONT_FAMILY,
+  SPACING,
+  RADIUS,
+  SHADOWS,
+  ANIMATION,
+  GRADIENTS,
+} from '../theme/theme';
 
 type RouteParams = {
   FoodDetail: {
-    foodItem: FoodItemRow | Omit<FoodItemRow, 'id'>;
+    foodItem: FoodSearchResult;
     mealType: MealType;
     date?: string;
   };
@@ -38,23 +55,84 @@ const MEAL_LABELS: Record<MealType, string> = {
   snacks: 'Snacks',
 };
 
+function getDefaultPortion(food: FoodSearchResult): FoodPortionOption {
+  return food.portionOptions.find((option) => option.isDefault) ?? food.portionOptions[0];
+}
+
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
 export function FoodDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'FoodDetail'>>();
-  const { foodItem, mealType, date } = route.params;
+  const { mealType, date } = route.params;
   const today = date ?? todayLocalDate();
 
-  const [servings, setServings] = useState(1);
+  const [foodItem, setFoodItem] = useState(route.params.foodItem);
+  const [selectedPortion, setSelectedPortion] = useState<FoodPortionOption>(() =>
+    getDefaultPortion(route.params.foodItem)
+  );
+  const [amountValue, setAmountValue] = useState(route.params.foodItem.baseUnit === 'g' ? 100 : 1);
   const [saving, setSaving] = useState(false);
+  const [hydrating, setHydrating] = useState(route.params.foodItem.source === 'usda');
+  const [favoriteOnSave, setFavoriteOnSave] = useState(false);
 
-  const cal = Math.round(foodItem.calories_per_serving * servings);
-  const protein = Math.round(foodItem.protein_per_serving * servings * 10) / 10;
-  const carbs = Math.round(foodItem.carbs_per_serving * servings * 10) / 10;
-  const fat = Math.round(foodItem.fat_per_serving * servings * 10) / 10;
+  useEffect(() => {
+    let mounted = true;
 
-  // Calculate progress for rings (based on reasonable daily targets)
-  const proteinProgress = Math.min(protein / 50, 1); // 50g per serving is max
+    if (route.params.foodItem.source !== 'usda') {
+      setHydrating(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    hydrateFoodSearchResult(route.params.foodItem)
+      .then((hydrated) => {
+        if (!mounted) {
+          return;
+        }
+
+        setFoodItem(hydrated);
+        setSelectedPortion(getDefaultPortion(hydrated));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (mounted) {
+          setHydrating(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [route.params.foodItem]);
+
+  const selectedGrams = useMemo(() => {
+    if (selectedPortion.unit === 'g') {
+      return amountValue;
+    }
+
+    if (selectedPortion.amount > 0) {
+      return roundToTenth((amountValue / selectedPortion.amount) * selectedPortion.grams);
+    }
+
+    return roundToTenth(amountValue * selectedPortion.grams);
+  }, [amountValue, selectedPortion]);
+
+  const multiplier = useMemo(() => {
+    const baseGrams = foodItem.serving_size_g > 0 ? foodItem.serving_size_g : 100;
+    return selectedGrams / baseGrams;
+  }, [foodItem.serving_size_g, selectedGrams]);
+
+  const calories = Math.round(foodItem.calories_per_serving * multiplier);
+  const protein = roundToTenth(foodItem.protein_per_serving * multiplier);
+  const carbs = roundToTenth(foodItem.carbs_per_serving * multiplier);
+  const fat = roundToTenth(foodItem.fat_per_serving * multiplier);
+
+  const proteinProgress = Math.min(protein / 50, 1);
   const carbsProgress = Math.min(carbs / 80, 1);
   const fatProgress = Math.min(fat / 30, 1);
 
@@ -69,16 +147,26 @@ export function FoodDetailScreen() {
         return;
       }
 
-      // Upsert food item to DB (ensures it has an id)
-      const savedItem = await upsertFoodItem(foodItem as Omit<FoodItemRow, 'id'>);
+      const savedItem = await upsertFoodItem(foodItem);
+      await logFoodEntry(
+        session.user.id,
+        {
+          foodItem: savedItem,
+          amountValue,
+          amountUnit: selectedPortion.unit === 'portion' ? selectedPortion.label : selectedPortion.unit,
+          grams: selectedGrams,
+        },
+        mealType,
+        today
+      );
 
-      // Log the food entry
-      await logFoodEntry(session.user.id, savedItem, mealType, servings, today);
+      if (favoriteOnSave) {
+        await toggleFavorite(session.user.id, savedItem.id);
+      }
 
-      // Go back to NutritionScreen
       navigation.navigate('NutritionHome');
-    } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to add food');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message ?? 'Failed to add food');
     } finally {
       setSaving(false);
     }
@@ -86,7 +174,6 @@ export function FoodDetailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
         <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
           <IconChevronLeft size={24} color={COLORS.text.primary} />
@@ -96,12 +183,8 @@ export function FoodDetailScreen() {
         </Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>
-          {/* Food Info */}
           <View style={styles.foodInfoRow}>
             {foodItem.image_url ? (
               <Image source={{ uri: foodItem.image_url }} style={styles.foodImage} />
@@ -112,32 +195,43 @@ export function FoodDetailScreen() {
                 </Text>
               </View>
             )}
+
             <View style={styles.foodInfo}>
+              <View style={styles.badgeRow}>
+                {foodItem.badges.map((badge) => (
+                  <View key={badge} style={styles.badge}>
+                    <Text style={styles.badgeText}>{badge}</Text>
+                  </View>
+                ))}
+              </View>
               <Text style={styles.foodName}>{foodItem.name}</Text>
-              {foodItem.brand && (
-                <Text style={styles.foodBrand}>{foodItem.brand}</Text>
-              )}
+              <Text style={styles.foodBrand}>
+                {foodItem.brand ? `${foodItem.brand} • ` : ''}
+                {foodItem.serving_label}
+              </Text>
             </View>
           </View>
 
-          {/* Serving Selector */}
           <ServingSelector
-            servings={servings}
-            setServings={setServings}
-            servingLabel={foodItem.serving_label}
+            amountValue={amountValue}
+            setAmountValue={setAmountValue}
+            selectedPortion={selectedPortion}
+            setSelectedPortion={setSelectedPortion}
+            portionOptions={foodItem.portionOptions}
           />
 
-          {/* Live Macro Preview with ProgressRings */}
           <Card style={{ marginTop: SPACING.md }}>
-            <Text style={styles.previewTitle}>Nutrition for {servings} serving{servings !== 1 ? 's' : ''}</Text>
+            <Text style={styles.previewTitle}>Nutrition for this amount</Text>
 
-            {/* Calorie display */}
             <View style={styles.calorieRow}>
-              <AnimatedNumber value={cal} style={styles.calorieValue} />
+              <AnimatedNumber value={calories} style={styles.calorieValue} />
               <Text style={styles.calorieUnit}> cal</Text>
             </View>
 
-            {/* Macro ProgressRings */}
+            <Text style={styles.gramCaption}>
+              {Math.round(selectedGrams)}g logged to {MEAL_LABELS[mealType].toLowerCase()}
+            </Text>
+
             <View style={styles.macroRingGrid}>
               <View style={styles.macroRingItem}>
                 <ProgressRing
@@ -171,15 +265,29 @@ export function FoodDetailScreen() {
               </View>
             </View>
           </Card>
+
+          <Card style={{ marginTop: SPACING.md }}>
+            <Text style={styles.favoriteTitle}>Quick access</Text>
+            <AnimatedPressable
+              style={[styles.favoriteChip, favoriteOnSave && styles.favoriteChipActive]}
+              onPress={() => setFavoriteOnSave((current) => !current)}
+            >
+              <Text style={[styles.favoriteChipText, favoriteOnSave && styles.favoriteChipTextActive]}>
+                {favoriteOnSave ? 'Will save to Favorites' : 'Save to Favorites'}
+              </Text>
+            </AnimatedPressable>
+            {hydrating ? (
+              <Text style={styles.loadingText}>Loading ingredient portion options…</Text>
+            ) : null}
+          </Card>
         </Animated.View>
       </ScrollView>
 
-      {/* Add Button */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
         <AnimatedPressable
-          style={[styles.addButtonWrapper, saving && { opacity: 0.6 }]}
+          style={[styles.addButtonWrapper, (saving || hydrating) && { opacity: 0.6 }]}
           onPress={handleAdd}
-          disabled={saving}
+          disabled={saving || hydrating}
         >
           <LinearGradient
             colors={[...GRADIENTS.accent]}
@@ -188,7 +296,7 @@ export function FoodDetailScreen() {
             style={styles.addButtonGradient}
           >
             <Text style={styles.addButtonText}>
-              {saving ? 'Adding...' : `Add to ${MEAL_LABELS[mealType]}`}
+              {saving ? 'Adding…' : hydrating ? 'Loading…' : `Add to ${MEAL_LABELS[mealType]}`}
             </Text>
           </LinearGradient>
         </AnimatedPressable>
@@ -244,6 +352,26 @@ const styles = StyleSheet.create({
   foodInfo: {
     flex: 1,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  badge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.xs + 2,
+    paddingVertical: 3,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+    textTransform: 'uppercase',
+  },
   foodName: {
     fontSize: 18,
     fontFamily: FONT_FAMILY.extraBold,
@@ -265,7 +393,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
   calorieValue: {
     fontSize: 28,
@@ -276,6 +404,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.tertiary,
+  },
+  gramCaption: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
   },
   macroRingGrid: {
     flexDirection: 'row',
@@ -291,6 +426,39 @@ const styles = StyleSheet.create({
     color: COLORS.text.tertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  favoriteTitle: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.sm,
+  },
+  favoriteChip: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.surface,
+  },
+  favoriteChipActive: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+  favoriteChipText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  favoriteChipTextActive: {
+    color: COLORS.text.inverse,
+  },
+  loadingText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    marginTop: SPACING.sm,
   },
   bottomBar: {
     paddingHorizontal: SPACING.lg,
@@ -315,4 +483,3 @@ const styles = StyleSheet.create({
     color: COLORS.text.inverse,
   },
 });
-

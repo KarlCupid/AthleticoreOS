@@ -1,4 +1,4 @@
-import { FoodItemRow } from '../engine/types';
+import { FoodSearchResult } from '../engine/types';
 
 const BASE_URL = 'https://world.openfoodfacts.org';
 const SEARCH_FIELDS = 'code,product_name,brands,serving_size,nutriments,image_small_url,serving_quantity';
@@ -27,45 +27,61 @@ interface OFFProduct {
 interface OFFSearchResponse {
   products?: OFFProduct[];
   count?: number;
-  page?: number;
-  page_size?: number;
 }
 
-function normalizeOFFProduct(product: OFFProduct): Omit<FoodItemRow, 'id'> {
-  const n = product.nutriments ?? {};
+function normalizeOFFProduct(product: OFFProduct, searchRank: number): FoodSearchResult {
+  const nutriments = product.nutriments ?? {};
   const hasServingData =
-    n['energy-kcal_serving'] != null && n['energy-kcal_serving'] > 0;
+    nutriments['energy-kcal_serving'] != null &&
+    nutriments['energy-kcal_serving'] > 0 &&
+    product.serving_quantity != null &&
+    product.serving_quantity > 0;
 
-  let calories: number;
-  let protein: number;
-  let carbs: number;
-  let fat: number;
-  let servingSizeG: number;
-  let servingLabel: string;
+  const servingSizeG = hasServingData ? Number(product.serving_quantity) : 100;
+  const servingLabel = hasServingData
+    ? product.serving_size?.trim() || `${servingSizeG}g`
+    : '100g';
 
-  if (hasServingData && product.serving_quantity) {
-    // Use per-serving data
-    calories = Math.round(n['energy-kcal_serving'] ?? 0);
-    protein = Math.round((n.proteins_serving ?? 0) * 10) / 10;
-    carbs = Math.round((n.carbohydrates_serving ?? 0) * 10) / 10;
-    fat = Math.round((n.fat_serving ?? 0) * 10) / 10;
-    servingSizeG = product.serving_quantity;
-    servingLabel = product.serving_size ?? `${servingSizeG}g`;
-  } else {
-    // Fall back to per-100g
-    calories = Math.round(n['energy-kcal_100g'] ?? 0);
-    protein = Math.round((n.proteins_100g ?? 0) * 10) / 10;
-    carbs = Math.round((n.carbohydrates_100g ?? 0) * 10) / 10;
-    fat = Math.round((n.fat_100g ?? 0) * 10) / 10;
-    servingSizeG = 100;
-    servingLabel = '100g';
-  }
+  const calories = Math.round(
+    hasServingData
+      ? nutriments['energy-kcal_serving'] ?? 0
+      : nutriments['energy-kcal_100g'] ?? 0
+  );
+  const protein = Math.round(
+    ((hasServingData ? nutriments.proteins_serving : nutriments.proteins_100g) ?? 0) * 10
+  ) / 10;
+  const carbs = Math.round(
+    ((hasServingData ? nutriments.carbohydrates_serving : nutriments.carbohydrates_100g) ?? 0) * 10
+  ) / 10;
+  const fat = Math.round(
+    ((hasServingData ? nutriments.fat_serving : nutriments.fat_100g) ?? 0) * 10
+  ) / 10;
 
   return {
+    key: `off:${product.code ?? product.product_name ?? searchRank}`,
     user_id: null,
+    source: 'open_food_facts',
+    sourceType: 'packaged',
+    external_id: product.code ?? null,
+    verified: Boolean(product.code),
+    searchRank,
     off_barcode: product.code ?? null,
-    name: product.product_name ?? 'Unknown Product',
-    brand: product.brands ?? null,
+    name: product.product_name?.trim() || 'Unknown product',
+    brand: product.brands?.trim() || null,
+    image_url: product.image_small_url ?? null,
+    baseAmount: 1,
+    baseUnit: 'serving',
+    gramsPerPortion: servingSizeG,
+    portionOptions: [
+      {
+        id: 'serving',
+        label: servingLabel,
+        amount: 1,
+        unit: 'serving',
+        grams: servingSizeG,
+        isDefault: true,
+      },
+    ],
     serving_size_g: servingSizeG,
     serving_label: servingLabel,
     calories_per_serving: calories,
@@ -73,19 +89,22 @@ function normalizeOFFProduct(product: OFFProduct): Omit<FoodItemRow, 'id'> {
     carbs_per_serving: carbs,
     fat_per_serving: fat,
     is_supplement: false,
-    image_url: product.image_small_url ?? null,
+    badges: [
+      'Packaged',
+      ...(product.code ? (['Verified'] as const) : []),
+    ],
   };
 }
 
-export async function searchFoods(
+export async function searchPackagedFoods(
   query: string,
   page: number = 1
 ): Promise<{
-  items: Omit<FoodItemRow, 'id'>[];
+  items: FoodSearchResult[];
   totalCount: number;
   hasMore: boolean;
 }> {
-  const pageSize = 24;
+  const pageSize = 12;
   const url = `${BASE_URL}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page=${page}&page_size=${pageSize}&fields=${SEARCH_FIELDS}`;
 
   const response = await fetch(url, {
@@ -93,7 +112,7 @@ export async function searchFoods(
   });
 
   if (!response.ok) {
-    throw new Error(`OFF search failed: ${response.status}`);
+    throw new Error(`Open Food Facts search failed: ${response.status}`);
   }
 
   const data: OFFSearchResponse = await response.json();
@@ -101,8 +120,8 @@ export async function searchFoods(
   const totalCount = data.count ?? 0;
 
   const items = products
-    .filter((p) => p.product_name && p.product_name.trim() !== '')
-    .map(normalizeOFFProduct);
+    .filter((product) => product.product_name && product.product_name.trim() !== '')
+    .map((product, index) => normalizeOFFProduct(product, 100 + index));
 
   return {
     items,
@@ -113,7 +132,7 @@ export async function searchFoods(
 
 export async function lookupBarcode(
   barcode: string
-): Promise<Omit<FoodItemRow, 'id'> | null> {
+): Promise<FoodSearchResult | null> {
   const url = `${BASE_URL}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${SEARCH_FIELDS}`;
 
   const response = await fetch(url, {
@@ -129,5 +148,5 @@ export async function lookupBarcode(
     return null;
   }
 
-  return normalizeOFFProduct(data.product);
+  return normalizeOFFProduct(data.product as OFFProduct, 10);
 }

@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { FoodSearchResult } from '../../lib/engine/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
-import { FoodItemRow } from '../../lib/engine/types';
 import { IconPlus } from './icons';
 
 interface FoodSearchItemProps {
-  item: FoodItemRow | Omit<FoodItemRow, 'id'>;
-  onSelect: (item: FoodItemRow | Omit<FoodItemRow, 'id'>) => void;
+  item: FoodSearchResult;
+  onSelect: (item: FoodSearchResult) => void;
 }
 
 export function FoodSearchItem({ item, onSelect }: FoodSearchItemProps) {
@@ -16,7 +16,7 @@ export function FoodSearchItem({ item, onSelect }: FoodSearchItemProps) {
     <TouchableOpacity
       style={styles.container}
       onPress={() => onSelect(item)}
-      activeOpacity={0.7}
+      activeOpacity={0.75}
     >
       {item.image_url ? (
         <Image source={{ uri: item.image_url }} style={styles.image} />
@@ -29,13 +29,20 @@ export function FoodSearchItem({ item, onSelect }: FoodSearchItemProps) {
       )}
 
       <View style={styles.info}>
+        <View style={styles.badgeRow}>
+          {item.badges.slice(0, 3).map((badge) => (
+            <View key={`${item.key}-${badge}`} style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          ))}
+        </View>
         <Text style={styles.name} numberOfLines={1}>
           {item.name}
         </Text>
         <Text style={styles.detail} numberOfLines={1}>
-          {item.brand ? `${item.brand} \u2022 ` : ''}
+          {item.brand ? `${item.brand} • ` : ''}
           {item.serving_label}
-          {!hasNutrition ? ' \u2022 No nutrition data' : ''}
+          {!hasNutrition ? ' • No nutrition data' : ''}
         </Text>
       </View>
 
@@ -91,6 +98,26 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
     marginRight: SPACING.sm,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  badge: {
+    paddingHorizontal: SPACING.xs + 2,
+    paddingVertical: 3,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+    textTransform: 'uppercase',
   },
   name: {
     fontSize: 15,
