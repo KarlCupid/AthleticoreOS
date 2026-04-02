@@ -86,6 +86,8 @@ export const appLinking: LinkingOptions<any> = {
       Me: {
         screens: {
           MeHome: 'me',
+          LegalSupport: 'me/legal',
+          DeleteAccount: 'me/delete-account',
         },
       },
     },

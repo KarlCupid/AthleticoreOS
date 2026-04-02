@@ -26,6 +26,9 @@ type AthleteProfile = {
   biological_sex?: 'male' | 'female' | null;
 };
 
+const HEALTH_GUIDANCE_NOTE =
+  'Rehydration guidance is coaching-oriented and educational. It does not replace licensed medical advice, diagnosis, or emergency support.';
+
 export function RehydrationProtocolScreen() {
   const nav = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
@@ -174,7 +177,9 @@ export function RehydrationProtocolScreen() {
         </View>
 
         <View style={styles.coachNote}>
-          <Text style={styles.coachNoteText}>{protocol.message}</Text>
+          <Text style={styles.coachNoteText}>
+            {HEALTH_GUIDANCE_NOTE} {protocol.message}
+          </Text>
         </View>
 
         {userId && (

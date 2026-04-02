@@ -7,9 +7,29 @@ import {
   StyleProp,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { AnimatedPressable } from './AnimatedPressable';
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
+
+function getSessionIcon(sessionType: string): keyof typeof MaterialCommunityIcons.glyphMap {
+  const t = sessionType.toLowerCase();
+  if (t.includes('sparring') || t.includes('boxing') || t.includes('striking')) return 'boxing-glove';
+  if (t === 'sc' || t.includes('strength')) return 'dumbbell';
+  if (t.includes('conditioning') || t.includes('run')) return 'shoe-print';
+  if (t.includes('recovery')) return 'spa';
+  if (t.includes('grappling')) return 'mixed-martial-arts';
+  return 'flash';
+}
+
+function getIntensityConfig(intensity: number | null): { label: string; color: string; bg: string } {
+  if (intensity === null) return { label: 'Unrated', color: COLORS.text.tertiary, bg: 'transparent' };
+  
+  if (intensity <= 3) return { label: 'Recovery', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' };
+  if (intensity <= 6) return { label: 'Moderate', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
+  if (intensity <= 8) return { label: 'Hard', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' };
+  return { label: 'Max Effort', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)' };
+}
 
 interface Session {
   slot: 'am' | 'pm' | 'single';
@@ -44,20 +64,12 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function IntensityDots({ intensity }: { intensity: number | null }) {
+function IntensityBadge({ intensity }: { intensity: number | null }) {
   if (intensity === null) return null;
-  const filled = Math.max(0, Math.min(5, Math.round((intensity / 10) * 5)));
+  const config = getIntensityConfig(intensity);
   return (
-    <View style={styles.dotsRow}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <View
-          key={i}
-          style={[
-            styles.dot,
-            { backgroundColor: i <= filled ? COLORS.accent : COLORS.border },
-          ]}
-        />
-      ))}
+    <View style={[styles.intensityBadge, { backgroundColor: config.bg, borderColor: config.color + '30', borderWidth: 1 }]}>
+      <Text style={[styles.intensityText, { color: config.color }]}>{config.label}</Text>
     </View>
   );
 }
@@ -99,21 +111,34 @@ function SessionRow({ session }: { session: Session }) {
     focus: session.focus,
   });
 
+  const iconName = getSessionIcon(session.sessionType);
+
   return (
     <View style={[styles.sessionRow, isMuted && styles.sessionRowMuted]}>
       <View style={styles.sessionLeft}>
+        <View style={[styles.iconContainer, isMuted && { opacity: 0.5 }]}>
+          <MaterialCommunityIcons name={iconName} size={22} color={isMuted ? COLORS.text.tertiary : COLORS.text.primary} />
+        </View>
         <View style={styles.sessionInfo}>
-          <Text
-            style={[styles.sessionType, isMuted && styles.textMuted]}
-            numberOfLines={1}
-          >
-            {sessionLabel}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text
+              style={[styles.sessionType, isMuted && styles.textMuted]}
+              numberOfLines={1}
+            >
+              {sessionLabel}
+            </Text>
+            {session.slot !== 'single' && (
+              <View style={styles.slotBadge}>
+                <Text style={styles.slotText}>{session.slot.toUpperCase()}</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.sessionMeta}>
             <Text style={styles.sessionDuration}>
               {formatDuration(session.duration)}
             </Text>
-            <IntensityDots intensity={session.intensity} />
+            <View style={styles.metaDot} />
+            <IntensityBadge intensity={session.intensity} />
           </View>
         </View>
       </View>
@@ -175,9 +200,17 @@ export default function DayPlanCard({
           </View>
         </View>
 
-        {/* Sessions */}
+        {/* Sessions or Rest Day */}
         {sessions.length === 0 ? (
-          <Text style={styles.restDay}>Rest Day</Text>
+          <View style={styles.restDayContainer}>
+            <View style={styles.restIconBox}>
+                <MaterialCommunityIcons name="spa-outline" size={20} color={COLORS.text.tertiary} />
+            </View>
+            <View>
+                <Text style={styles.restDayTitle}>Rest & Recovery</Text>
+                <Text style={styles.restDaySubtitle}>Focus on sleep and hydration</Text>
+            </View>
+          </View>
         ) : (
           <View style={styles.sessionsList}>
             {sessions.map((session, idx) => (
@@ -204,21 +237,23 @@ export default function DayPlanCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Glassy base
+    backgroundColor: 'rgba(255, 255, 255, 0.04)', // Deeper Glass
     borderRadius: RADIUS.xl,
-    padding: SPACING.lg - 4,
+    padding: SPACING.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)', // Subtle glass edge
-    ...SHADOWS.card,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    ...SHADOWS.md,
   },
   cardToday: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)', // Glassy Blue/Accent for today
-    borderColor: COLORS.accent + '40',
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(59, 130, 246, 0.12)', // Glassy Blue/Accent for today
+    borderColor: COLORS.accent + '50',
+    borderWidth: 1,
+    ...SHADOWS.colored.accent,
   },
   cardCompleted: {
     backgroundColor: 'rgba(255, 255, 255, 0.02)', // Even more subtle for completed
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     opacity: 0.8,
   },
   header: {
@@ -289,34 +324,64 @@ const styles = StyleSheet.create({
   sessionInfo: {
     flex: 1,
   },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  slotBadge: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+  },
+  slotText: {
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 10,
+    color: COLORS.text.secondary,
+  },
   sessionType: {
-    fontFamily: FONT_FAMILY.regular,
-    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 15,
     color: COLORS.text.primary,
   },
   textMuted: {
-    color: COLORS.text.tertiary,
+    color: COLORS.text.secondary,
   },
   sessionMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    marginTop: 2,
+    marginTop: 4,
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: COLORS.text.tertiary,
   },
   sessionDuration: {
     fontFamily: FONT_FAMILY.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.text.tertiary,
   },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 3,
-    alignItems: 'center',
+  intensityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  intensityText: {
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 10,
   },
   statusBadge: {
     paddingHorizontal: SPACING.sm,
@@ -327,12 +392,33 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 11,
   },
-  restDay: {
-    fontFamily: FONT_FAMILY.regular,
-    fontSize: 13,
-    color: COLORS.text.tertiary,
-    fontStyle: 'italic',
+  restDayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
     paddingVertical: SPACING.xs,
+    paddingHorizontal: 2,
+    opacity: 0.7,
+  },
+  restIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  restDayTitle: {
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 14,
+    color: COLORS.text.secondary,
+  },
+  restDaySubtitle: {
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    color: COLORS.text.tertiary,
   },
   rescheduleBtn: {
     marginTop: SPACING.sm,

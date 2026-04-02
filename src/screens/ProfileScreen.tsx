@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TYPOGRAPHY_V2 } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { IconPerson } from '../components/icons';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -26,7 +26,7 @@ interface ActiveCutInfo {
 
 export function ProfileScreen() {
     const insets = useSafeAreaInsets();
-    const { themeColor, currentLevel } = useReadinessTheme();
+    const { currentLevel } = useReadinessTheme();
     const [email, setEmail] = useState('');
     const [profile, setProfile] = useState<AthleteProfile | null>(null);
     const [activeCut, setActiveCut] = useState<ActiveCutInfo | null>(null);

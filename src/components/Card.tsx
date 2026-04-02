@@ -1,5 +1,5 @@
 import React, { ReactNode, memo } from 'react';
-import { View, Text, StyleSheet, ViewStyle, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, Pressable, StyleProp } from 'react-native';
 import Animated, {
     FadeInDown,
     useSharedValue,
@@ -18,7 +18,7 @@ interface CardProps {
     variant?: CardVariant;
     pressable?: boolean;
     onPress?: () => void;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
     noPadding?: boolean;
     entering?: boolean;
     enteringDelay?: number;

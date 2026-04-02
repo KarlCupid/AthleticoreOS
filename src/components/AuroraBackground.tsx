@@ -1,4 +1,4 @@
-import React, { useEffect, memo } from 'react';
+import React, { memo, useEffect } from 'react';
 import { StyleSheet, useWindowDimensions, View, Platform, AppState } from 'react-native';
 import { Canvas, Circle, Blur, Rect } from '@shopify/react-native-skia';
 import {
@@ -19,54 +19,47 @@ interface AuroraBackgroundProps {
   baseColor?: string;
 }
 
-export const AuroraBackground = memo(function AuroraBackground({
+const PALETTE = ['#e3170a', '#e16036', '#fcca46', '#3b429f', '#aa7dce', '#e3170a'] as const;
+
+export const AuroraBackground = memo(function AuroraBackground(props: AuroraBackgroundProps) {
+  if (Platform.OS === 'web') {
+    return <AuroraBackgroundWeb {...props} />;
+  }
+
+  return <AuroraBackgroundNative {...props} />;
+});
+
+function AuroraBackgroundWeb({ baseColor = '#3b429f' }: AuroraBackgroundProps) {
+  return (
+    <View style={StyleSheet.absoluteFillObject}>
+      <LinearGradient
+        colors={[baseColor, '#aa7dce', '#3b429f', '#1a1c3d']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(59, 66, 159, 0.45)' }]} />
+    </View>
+  );
+}
+
+function AuroraBackgroundNative({
   color1: propColor1,
   color2: propColor2,
   color3: propColor3,
-  baseColor = '#3b429f', // Ocean Twilight Base
+  baseColor = '#3b429f',
 }: AuroraBackgroundProps) {
   const dimensions = useWindowDimensions();
   const width = dimensions.width || 375;
   const height = dimensions.height || 812;
-
-  // Web Fallback: Render a beautiful static gradient if on web
-  // to avoid Skia initialization crashes.
-  if (Platform.OS === 'web') {
-    return (
-      <View style={StyleSheet.absoluteFillObject}>
-        <LinearGradient
-          colors={[baseColor, '#aa7dce', '#3b429f', '#1a1c3d']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <View 
-          style={[
-            StyleSheet.absoluteFillObject, 
-            { backgroundColor: 'rgba(59, 66, 159, 0.45)' }
-          ]} 
-        />
-      </View>
-    );
-  }
-
-  // INFINITE ENGINE: 0 -> 1 linear clock with NO reverse.
-  // This prevents the "turn-around" jankiness of Easing.inOut.
   const time = useSharedValue(0);
-  
+
   useEffect(() => {
     const startAnimation = () => {
-      time.value = withRepeat(
-        withTiming(1, { 
-          duration: 15000, // Longer 15s cycle for grace
-          easing: Easing.linear // Linear velocity means NO speed jumps or stops
-        }),
-        -1,
-        false // Circular loop, no reverse
-      );
+      time.value = withRepeat(withTiming(1, { duration: 15000, easing: Easing.linear }), -1, false);
     };
 
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         startAnimation();
       } else {
@@ -80,104 +73,78 @@ export const AuroraBackground = memo(function AuroraBackground({
       subscription.remove();
       cancelAnimation(time);
     };
-  }, []);
+  }, [time]);
 
-  // SEAMLESS CIRCULAR PALETTE
-  // By adding the first color to the end, the 1 -> 0 jump becomes invisible.
-  const PALETTE = [
-    '#e3170a', // Burnt Tangerine
-    '#e16036', // Spicy Paprika
-    '#fcca46', // Golden Pollen
-    '#3b429f', // Ocean Twilight
-    '#aa7dce', // Bright Lavender
-    '#e3170a', // Circular Fix: Loop back to Burnt Tangerine
-  ];
+  const derivedColor1 = useSmoothColor(time, 0);
+  const derivedColor2 = useSmoothColor(time, 0.2);
+  const derivedColor3 = useSmoothColor(time, 0.4);
+  const derivedColor4 = useSmoothColor(time, 0.7);
 
-  const getSmoothColor = (offset: number) => {
-    return useDerivedValue(() => {
-      // Circular interpolation logic
-      const progress = (time.value + offset) % 1;
-      return interpolateColor(
-        progress,
-        [0, 0.2, 0.4, 0.6, 0.8, 1],
-        PALETTE
-      );
-    });
-  };
-
-  const c1 = propColor1 || getSmoothColor(0);
-  const c2 = propColor2 || getSmoothColor(0.2);
-  const c3 = propColor3 || getSmoothColor(0.4);
-  const c4 = getSmoothColor(0.7);
-
-  // ORGANIC DISPLACEMENT: Using Sin(Time * 2PI) ensures a perfect seamless join.
-  // Each blob uses different frequencies so they don't form a recognizable pattern.
-  const b1 = useDerivedValue(() => ({
+  const blob1 = useDerivedValue(() => ({
     x: width * 0.5 + Math.sin(time.value * Math.PI * 2) * (width * 0.4),
     y: height * 0.3 + Math.cos(time.value * Math.PI * 1.5) * (height * 0.2),
     r: width * (0.8 + Math.sin(time.value * Math.PI * 2) * 0.15),
   }));
-
-  const b2 = useDerivedValue(() => ({
+  const blob2 = useDerivedValue(() => ({
     x: width * 0.5 + Math.cos(time.value * Math.PI * 1.8) * (width * 0.4),
     y: height * 0.8 + Math.sin(time.value * Math.PI * 2.2) * (height * 0.15),
     r: width * (0.9 + Math.cos(time.value * Math.PI * 1.2) * 0.1),
   }));
-
-  const b3 = useDerivedValue(() => ({
+  const blob3 = useDerivedValue(() => ({
     x: width * 0.5 + Math.sin(time.value * Math.PI * 3.1) * (width * 0.2),
     y: height * 0.5 + Math.cos(time.value * Math.PI * 2.5) * (height * 0.15),
     r: width * (0.75 + Math.sin(time.value * Math.PI * 4) * 0.1),
   }));
-
-  const b4 = useDerivedValue(() => ({
+  const blob4 = useDerivedValue(() => ({
     x: width * (0.5 + Math.sin(time.value * Math.PI * 0.8) * 0.4),
     y: height * (0.4 + Math.cos(time.value * Math.PI * 0.6) * 0.2),
     r: width * 1.2,
   }));
+  const blob1x = useDerivedValue(() => blob1.value.x);
+  const blob1y = useDerivedValue(() => blob1.value.y);
+  const blob1r = useDerivedValue(() => blob1.value.r);
+  const blob2x = useDerivedValue(() => blob2.value.x);
+  const blob2y = useDerivedValue(() => blob2.value.y);
+  const blob2r = useDerivedValue(() => blob2.value.r);
+  const blob3x = useDerivedValue(() => blob3.value.x);
+  const blob3y = useDerivedValue(() => blob3.value.y);
+  const blob3r = useDerivedValue(() => blob3.value.r);
+  const blob4x = useDerivedValue(() => blob4.value.x);
+  const blob4y = useDerivedValue(() => blob4.value.y);
+  const blob4r = useDerivedValue(() => blob4.value.r);
 
-  // Pull derived values to top level to avoid hook-in-JSX violations and redundant creation
-  const b1x = useDerivedValue(() => b1.value.x);
-  const b1y = useDerivedValue(() => b1.value.y);
-  const b1r = useDerivedValue(() => b1.value.r);
-
-  const b2x = useDerivedValue(() => b2.value.x);
-  const b2y = useDerivedValue(() => b2.value.y);
-  const b2r = useDerivedValue(() => b2.value.r);
-
-  const b3x = useDerivedValue(() => b3.value.x);
-  const b3y = useDerivedValue(() => b3.value.y);
-  const b3r = useDerivedValue(() => b3.value.r);
-
-  const b4x = useDerivedValue(() => b4.value.x);
-  const b4y = useDerivedValue(() => b4.value.y);
-  const b4r = useDerivedValue(() => b4.value.r);
-
-  const blurSigma = Math.min(width, height) * 0.20; // Reduced from 0.38 for performance
+  const blurSigma = Math.min(width, height) * 0.2;
 
   return (
     <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
       <Canvas style={StyleSheet.absoluteFillObject}>
         <Rect x={0} y={0} width={width} height={height} color={baseColor} />
-        
-        <Circle cx={b4x} cy={b4y} r={b4r} color={c4} opacity={0.65}>
+
+        <Circle cx={blob4x} cy={blob4y} r={blob4r} color={derivedColor4} opacity={0.65}>
           <Blur blur={blurSigma} />
         </Circle>
-        
-        <Circle cx={b1x} cy={b1y} r={b1r} color={c1} opacity={0.7}>
+
+        <Circle cx={blob1x} cy={blob1y} r={blob1r} color={propColor1 ?? derivedColor1} opacity={0.7}>
           <Blur blur={blurSigma} />
         </Circle>
-        
-        <Circle cx={b2x} cy={b2y} r={b2r} color={c2} opacity={0.65}>
+
+        <Circle cx={blob2x} cy={blob2y} r={blob2r} color={propColor2 ?? derivedColor2} opacity={0.65}>
           <Blur blur={blurSigma} />
         </Circle>
-        
-        <Circle cx={b3x} cy={b3y} r={b3r} color={c3} opacity={0.7}>
+
+        <Circle cx={blob3x} cy={blob3y} r={blob3r} color={propColor3 ?? derivedColor3} opacity={0.7}>
           <Blur blur={blurSigma} />
         </Circle>
-        
+
         <Rect x={0} y={0} width={width} height={height} color="rgba(59, 66, 159, 0.45)" />
       </Canvas>
     </View>
   );
-});
+}
+
+function useSmoothColor(time: ReturnType<typeof useSharedValue<number>>, offset: number) {
+  return useDerivedValue(() => {
+    const progress = (time.value + offset) % 1;
+    return interpolateColor(progress, [0, 0.2, 0.4, 0.6, 0.8, 1], PALETTE as unknown as string[]);
+  });
+}

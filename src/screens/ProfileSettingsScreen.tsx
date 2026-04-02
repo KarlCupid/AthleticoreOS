@@ -333,7 +333,7 @@ export function ProfileSettingsScreen() {
     setVersionTapCount(nextCount);
     setLastVersionTapAt(now);
 
-    if (nextCount >= 5) {
+    if (__DEV__ && nextCount >= 5) {
       setVersionTapCount(0);
       setEngineReplayVisible(true);
     }
@@ -355,6 +355,14 @@ export function ProfileSettingsScreen() {
 
   function openCheckIn() {
     navigation.getParent()?.navigate('Today', { screen: 'Log' });
+  }
+
+  function openLegalSupport() {
+    navigation.navigate('LegalSupport');
+  }
+
+  function openDeleteAccount() {
+    navigation.navigate('DeleteAccount');
   }
 
   if (loading && !snapshot) {
@@ -640,6 +648,10 @@ export function ProfileSettingsScreen() {
         <Animated.View entering={FadeInDown.delay(330).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
           <Card variant="glass" title="Account" subtitle={snapshot.email || 'Signed in'}>
             {error ? <Text style={styles.inlineError}>{error}</Text> : null}
+            <View style={styles.accountActionStack}>
+              <AccountLinkButton label="Privacy & support" onPress={openLegalSupport} />
+              <AccountLinkButton label="Delete account" onPress={openDeleteAccount} tone="danger" />
+            </View>
             <AnimatedPressable style={styles.signOutButton} onPress={() => void supabase.auth.signOut()}>
               <IconClose size={18} color={COLORS.readiness.depleted} />
               <Text style={styles.signOutText}>Sign Out</Text>
@@ -778,6 +790,25 @@ function ProgressPill(props: { label: string; complete: boolean }) {
         {label}
       </Text>
     </View>
+  );
+}
+
+function AccountLinkButton(props: {
+  label: string;
+  onPress: () => void;
+  tone?: 'default' | 'danger';
+}) {
+  const { label, onPress, tone = 'default' } = props;
+  const danger = tone === 'danger';
+
+  return (
+    <AnimatedPressable
+      style={[styles.accountLinkButton, danger && styles.accountLinkButtonDanger]}
+      onPress={onPress}
+    >
+      <Text style={[styles.accountLinkText, danger && styles.accountLinkTextDanger]}>{label}</Text>
+      <IconChevronRight size={16} color={danger ? COLORS.readiness.depleted : COLORS.text.secondary} />
+    </AnimatedPressable>
   );
 }
 
@@ -1096,6 +1127,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.accent,
+  },
+  accountActionStack: {
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  accountLinkButton: {
+    minHeight: 48,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  accountLinkButtonDanger: {
+    backgroundColor: 'rgba(251, 113, 133, 0.08)',
+    borderColor: 'rgba(251, 113, 133, 0.22)',
+  },
+  accountLinkText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  accountLinkTextDanger: {
+    color: COLORS.readiness.depleted,
   },
   inlineError: {
     marginBottom: SPACING.md,

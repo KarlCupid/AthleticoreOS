@@ -11,6 +11,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
+
 import {
   COLORS,
   FONT_FAMILY,
@@ -24,10 +25,6 @@ import { AmbientParticles } from './AmbientParticles';
 import { RestTimerActions } from './RestTimerActions';
 import { useTimerHaptics } from './useTimerHaptics';
 
-// ---------------------------------------------------------------------------
-// Types — identical to RestTimerOverlay for drop-in replacement
-// ---------------------------------------------------------------------------
-
 interface SkiaRestTimerProps {
   totalSeconds: number;
   remainingSeconds: number;
@@ -37,9 +34,18 @@ interface SkiaRestTimerProps {
   onExtend: (seconds: number) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Rolling digit — slides old digit out, new digit in
-// ---------------------------------------------------------------------------
+const SIZE = TIMER_DIMENSIONS.ringSize;
+const CENTER = SIZE / 2;
+const STROKE = TIMER_DIMENSIONS.ringStroke;
+const RADIUS = (SIZE - STROKE) / 2;
+
+export function SkiaRestTimer(props: SkiaRestTimerProps) {
+  if (Platform.OS === 'web') {
+    return <SkiaRestTimerWeb {...props} />;
+  }
+
+  return <SkiaRestTimerNative {...props} />;
+}
 
 function RollingDigit({ digit }: { digit: string }) {
   const prevRef = useRef(digit);
@@ -50,72 +56,84 @@ function RollingDigit({ digit }: { digit: string }) {
     if (prevRef.current === digit) return;
     prevRef.current = digit;
 
-    // Slide out up, then snap to bottom, slide in up
-    translateY.value = 0;
-    opacity.value = 1;
     translateY.value = withSequence(
       withTiming(-20, { duration: 100, easing: Easing.in(Easing.ease) }),
       withTiming(20, { duration: 0 }),
       withTiming(0, { duration: 150, easing: Easing.out(Easing.ease) }),
     );
-    opacity.value = withSequence(
-      withTiming(0, { duration: 100 }),
-      withTiming(0, { duration: 0 }),
-      withTiming(1, { duration: 150 }),
-    );
-  }, [digit]);
+    opacity.value = withSequence(withTiming(0, { duration: 100 }), withTiming(0, { duration: 0 }), withTiming(1, { duration: 150 }));
+  }, [digit, opacity, translateY]);
 
   const style = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
     opacity: opacity.value,
   }));
 
-  return (
-    <Animated.Text style={[styles.digitText, style]}>{digit}</Animated.Text>
-  );
+  return <Animated.Text style={[styles.digitText, style]}>{digit}</Animated.Text>;
 }
 
-function RollingTimeDisplay({
-  remainingSeconds,
-  isUrgent,
-}: {
-  remainingSeconds: number;
-  isUrgent: boolean;
-}) {
-  const mins = Math.floor(remainingSeconds / 60);
-  const secs = remainingSeconds % 60;
-  const m = String(mins);
-  const s0 = Math.floor(secs / 10).toString();
-  const s1 = (secs % 10).toString();
-
+function RollingTimeDisplay({ remainingSeconds, isUrgent }: { remainingSeconds: number; isUrgent: boolean }) {
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
   const urgentStyle = isUrgent ? styles.digitTextUrgent : null;
 
   return (
     <View style={styles.timeRow}>
       <View style={styles.digitWrap}>
-        <RollingDigit digit={m} />
+        <RollingDigit digit={String(minutes)} />
       </View>
       <Text style={[styles.colonText, urgentStyle]}>:</Text>
       <View style={styles.digitWrap}>
-        <RollingDigit digit={s0} />
+        <RollingDigit digit={Math.floor(seconds / 10).toString()} />
       </View>
       <View style={styles.digitWrap}>
-        <RollingDigit digit={s1} />
+        <RollingDigit digit={(seconds % 10).toString()} />
       </View>
     </View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
+function SkiaRestTimerWeb({
+  remainingSeconds,
+  exerciseType,
+  nextExerciseName,
+  onSkip,
+  onExtend,
+}: SkiaRestTimerProps) {
+  const isUrgent = remainingSeconds <= 10 && remainingSeconds > 0;
 
-const SIZE = TIMER_DIMENSIONS.ringSize;
-const CENTER = SIZE / 2;
-const STROKE = TIMER_DIMENSIONS.ringStroke;
-const RADIUS = (SIZE - STROKE) / 2;
+  return (
+    <View style={styles.overlay}>
+      <View style={styles.ringContainer}>
+        <View
+          style={[
+            styles.webRingFallback,
+            {
+              borderColor: isUrgent ? COLORS.error : '#0FA888',
+              borderWidth: STROKE,
+              borderRadius: SIZE / 2,
+              width: SIZE,
+              height: SIZE,
+            },
+          ]}
+        />
+        <View style={styles.centerContent} pointerEvents="none">
+          <Text style={[styles.digitText, isUrgent && styles.digitTextUrgent]}>
+            {Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')}
+          </Text>
+          <Text style={styles.restLabel}>REST</Text>
+          <Text style={styles.exerciseLabel} numberOfLines={1}>
+            {exerciseType}
+          </Text>
+        </View>
+      </View>
 
-export function SkiaRestTimer({
+      <RestTimerActions onSkip={onSkip} onExtend={onExtend} nextExerciseName={nextExerciseName} />
+    </View>
+  );
+}
+
+function SkiaRestTimerNative({
   totalSeconds,
   remainingSeconds,
   exerciseType,
@@ -123,51 +141,11 @@ export function SkiaRestTimer({
   onSkip,
   onExtend,
 }: SkiaRestTimerProps) {
-  // Haptic milestones
   useTimerHaptics({ remainingSeconds, totalSeconds });
 
-  // Web Fallback: Render a simplified timer to avoid Skia crashes
-  if (Platform.OS === 'web') {
-    const isUrgentWeb = remainingSeconds <= 10 && remainingSeconds > 0;
-    return (
-      <View style={styles.overlay}>
-        <View style={styles.ringContainer}>
-          <View 
-            style={[
-              styles.webRingFallback, 
-              { 
-                borderColor: isUrgentWeb ? COLORS.error : '#0FA888',
-                borderWidth: STROKE,
-                borderRadius: SIZE / 2,
-                width: SIZE,
-                height: SIZE,
-              }
-            ]} 
-          />
-          <View style={styles.centerContent} pointerEvents="none">
-             <View style={styles.timeRow}>
-                <Text style={[styles.digitText, isUrgentWeb && styles.digitTextUrgent]}>
-                  {Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')}
-                </Text>
-             </View>
-            <Text style={styles.restLabel}>REST</Text>
-            <Text style={styles.exerciseLabel} numberOfLines={1}>
-              {exerciseType}
-            </Text>
-          </View>
-        </View>
-
-        <RestTimerActions
-          onSkip={onSkip}
-          onExtend={onExtend}
-          nextExerciseName={nextExerciseName}
-        />
-      </View>
-    );
-  }
-
-  // Core sweep angle (degrees, 360 = full, 0 = done)
   const sweepAngle = useSharedValue(360);
+  const pulseScale = useSharedValue(1);
+  const isPulsing = useRef(false);
 
   useEffect(() => {
     const progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
@@ -175,69 +153,7 @@ export function SkiaRestTimer({
       duration: 900,
       easing: Easing.inOut(Easing.ease),
     });
-  }, [remainingSeconds, totalSeconds]);
-
-  // Urgency 0 (calm) → 1 (done)
-  const urgency = useDerivedValue(() => 1 - sweepAngle.value / 360);
-
-  // Arc progress path (reactive)
-  const arcPath = useDerivedValue(() => {
-    const path = Skia.Path.Make();
-    if (sweepAngle.value > 0.5) {
-      const rect = Skia.XYWHRect(
-        CENTER - RADIUS,
-        CENTER - RADIUS,
-        RADIUS * 2,
-        RADIUS * 2,
-      );
-      path.addArc(rect, -90, sweepAngle.value);
-    }
-    return path;
-  });
-
-  // Arc stroke color: mint → amber → red as progress drains
-  const arcColor = useDerivedValue(() => {
-    const p = sweepAngle.value / 360; // 1 = full, 0 = empty
-    return interpolateColor(
-      p,
-      [0, 0.15, 0.30, 1.0],
-      ['#DC2626', '#DC2626', '#D97706', '#0FA888'],
-    );
-  });
-
-  // Outer glow layer — same path, wider + semi-transparent
-  const glowColor = useDerivedValue(() => {
-    const p = sweepAngle.value / 360;
-    return interpolateColor(
-      p,
-      [0, 0.15, 0.30, 1.0],
-      ['rgba(220,38,38,0.18)', 'rgba(220,38,38,0.18)', 'rgba(217,119,6,0.18)', 'rgba(15,168,136,0.18)'],
-    );
-  });
-
-  // Middle glow layer
-  const glowColor2 = useDerivedValue(() => {
-    const p = sweepAngle.value / 360;
-    return interpolateColor(
-      p,
-      [0, 0.15, 0.30, 1.0],
-      ['rgba(220,38,38,0.10)', 'rgba(220,38,38,0.10)', 'rgba(217,119,6,0.10)', 'rgba(15,168,136,0.10)'],
-    );
-  });
-
-  // End-cap dot position
-  const tipCx = useDerivedValue(() => {
-    const rad = ((-90 + sweepAngle.value) * Math.PI) / 180;
-    return CENTER + RADIUS * Math.cos(rad);
-  });
-  const tipCy = useDerivedValue(() => {
-    const rad = ((-90 + sweepAngle.value) * Math.PI) / 180;
-    return CENTER + RADIUS * Math.sin(rad);
-  });
-
-  // Pulsing scale when urgency kicks in (<= 10s)
-  const pulseScale = useSharedValue(1);
-  const isPulsing = useRef(false);
+  }, [remainingSeconds, totalSeconds, sweepAngle]);
 
   useEffect(() => {
     const isUrgent = remainingSeconds <= 10 && remainingSeconds > 0;
@@ -246,7 +162,7 @@ export function SkiaRestTimer({
       pulseScale.value = withRepeat(
         withSequence(
           withTiming(1.08, { duration: 500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1.0,  { duration: 500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.0, { duration: 500, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
       );
@@ -254,7 +170,35 @@ export function SkiaRestTimer({
       isPulsing.current = false;
       pulseScale.value = withTiming(1.0, { duration: 200 });
     }
-  }, [remainingSeconds]);
+  }, [remainingSeconds, pulseScale]);
+
+  const urgency = useDerivedValue(() => 1 - sweepAngle.value / 360);
+  const arcPath = useDerivedValue(() => {
+    const path = Skia.Path.Make();
+    if (sweepAngle.value > 0.5) {
+      path.addArc(Skia.XYWHRect(CENTER - RADIUS, CENTER - RADIUS, RADIUS * 2, RADIUS * 2), -90, sweepAngle.value);
+    }
+    return path;
+  });
+  const arcColor = useDerivedValue(() =>
+    interpolateColor(sweepAngle.value / 360, [0, 0.15, 0.3, 1], ['#DC2626', '#DC2626', '#D97706', '#0FA888']),
+  );
+  const glowColor = useDerivedValue(() =>
+    interpolateColor(
+      sweepAngle.value / 360,
+      [0, 0.15, 0.3, 1],
+      ['rgba(220,38,38,0.18)', 'rgba(220,38,38,0.18)', 'rgba(217,119,6,0.18)', 'rgba(15,168,136,0.18)'],
+    ),
+  );
+  const glowColor2 = useDerivedValue(() =>
+    interpolateColor(
+      sweepAngle.value / 360,
+      [0, 0.15, 0.3, 1],
+      ['rgba(220,38,38,0.10)', 'rgba(220,38,38,0.10)', 'rgba(217,119,6,0.10)', 'rgba(15,168,136,0.10)'],
+    ),
+  );
+  const tipCx = useDerivedValue(() => CENTER + RADIUS * Math.cos(((-90 + sweepAngle.value) * Math.PI) / 180));
+  const tipCy = useDerivedValue(() => CENTER + RADIUS * Math.sin(((-90 + sweepAngle.value) * Math.PI) / 180));
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -264,62 +208,17 @@ export function SkiaRestTimer({
 
   return (
     <View style={styles.overlay}>
-      {/* Ring + center content */}
       <View style={styles.ringContainer}>
         <Canvas style={{ width: SIZE, height: SIZE }}>
-          {/* Ambient breathing ring */}
           <BreathingRing cx={CENTER} cy={CENTER} />
-
-          {/* Floating particles */}
           <AmbientParticles canvasSize={SIZE} urgency={urgency} />
-
-          {/* Track ring (faint full circle) */}
-          <Circle
-            cx={CENTER}
-            cy={CENTER}
-            r={RADIUS}
-            style="stroke"
-            strokeWidth={STROKE}
-            color={TIMER_COLORS.track}
-          />
-
-          {/* Outer glow — widest, most transparent */}
-          <Path
-            path={arcPath}
-            style="stroke"
-            strokeWidth={TIMER_DIMENSIONS.glowStroke + 8}
-            color={glowColor2}
-            strokeCap="round"
-          />
-
-          {/* Inner glow — medium, semi-transparent */}
-          <Path
-            path={arcPath}
-            style="stroke"
-            strokeWidth={TIMER_DIMENSIONS.glowStroke}
-            color={glowColor}
-            strokeCap="round"
-          />
-
-          {/* Progress arc — sharp, full opacity */}
-          <Path
-            path={arcPath}
-            style="stroke"
-            strokeWidth={STROKE}
-            color={arcColor}
-            strokeCap="round"
-          />
-
-          {/* End-cap dot at arc tip */}
-          <Circle
-            cx={tipCx}
-            cy={tipCy}
-            r={TIMER_DIMENSIONS.endCapRadius}
-            color={arcColor}
-          />
+          <Circle cx={CENTER} cy={CENTER} r={RADIUS} style="stroke" strokeWidth={STROKE} color={TIMER_COLORS.track} />
+          <Path path={arcPath} style="stroke" strokeWidth={TIMER_DIMENSIONS.glowStroke + 8} color={glowColor2} strokeCap="round" />
+          <Path path={arcPath} style="stroke" strokeWidth={TIMER_DIMENSIONS.glowStroke} color={glowColor} strokeCap="round" />
+          <Path path={arcPath} style="stroke" strokeWidth={STROKE} color={arcColor} strokeCap="round" />
+          <Circle cx={tipCx} cy={tipCy} r={TIMER_DIMENSIONS.endCapRadius} color={arcColor} />
         </Canvas>
 
-        {/* Center overlay — time display */}
         <View style={styles.centerContent} pointerEvents="none">
           <Animated.View style={pulseStyle}>
             <RollingTimeDisplay remainingSeconds={remainingSeconds} isUrgent={isUrgent} />
@@ -331,19 +230,10 @@ export function SkiaRestTimer({
         </View>
       </View>
 
-      {/* Skip / Extend / Up Next */}
-      <RestTimerActions
-        onSkip={onSkip}
-        onExtend={onExtend}
-        nextExerciseName={nextExerciseName}
-      />
+      <RestTimerActions onSkip={onSkip} onExtend={onExtend} nextExerciseName={nextExerciseName} />
     </View>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   overlay: {

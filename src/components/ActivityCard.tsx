@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import type { ScheduledActivityRow } from '../../lib/engine/types';
 
 const ACTIVITY_ICONS: Record<string, string> = {

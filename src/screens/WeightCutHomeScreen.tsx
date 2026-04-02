@@ -72,7 +72,7 @@ export function WeightCutHomeScreen() {
           },
         },
         {
-          text: 'Made weight âœ“',
+          text: 'Made weight ✓',
           onPress: () => {
             Alert.alert(
               'Mark Complete',
@@ -210,7 +210,7 @@ export function WeightCutHomeScreen() {
           <View style={styles.projectionBanner}>
             <Text style={styles.projectionText}>
               Projected weigh-in: {projectedWeightByWeighIn.toFixed(1)} lbs
-              {projectedWeightByWeighIn <= activePlan.target_weight ? '  âœ“ ON TRACK' : '  âš  BEHIND'}
+              {projectedWeightByWeighIn <= activePlan.target_weight ? '  ✓ ON TRACK' : '  ! BEHIND'}
             </Text>
           </View>
         )}
@@ -225,6 +225,14 @@ export function WeightCutHomeScreen() {
       {todayProtocol && (
         <DailyProtocolCard protocol={todayProtocol} />
       )}
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Health guidance note</Text>
+        <Text style={styles.guidanceBody}>
+          This feature provides coaching-oriented educational guidance. It does not replace licensed medical advice,
+          diagnosis, or emergency care.
+        </Text>
+      </View>
 
       {/* â”€â”€ Weight chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <View style={styles.card}>
@@ -289,7 +297,7 @@ export function WeightCutHomeScreen() {
         <View style={[styles.card, styles.weightClassCard]}>
           <IconTarget size={16} color={COLORS.text.secondary} />
           <Text style={styles.weightClassText}>
-            {activePlan.weight_class_name} Â· {activePlan.sport?.toUpperCase()} Â· {activePlan.fight_status}
+            {activePlan.weight_class_name} · {activePlan.sport?.toUpperCase()} · {activePlan.fight_status}
           </Text>
         </View>
       )}
@@ -343,6 +351,12 @@ const styles = StyleSheet.create({
     ...SHADOWS.card,
   },
   sectionTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.sm },
+  guidanceBody: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 21,
+  },
   quickActions: { marginHorizontal: SPACING.md, gap: SPACING.sm },
   actionButton: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

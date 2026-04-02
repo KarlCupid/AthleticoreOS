@@ -112,6 +112,8 @@ export type FuelStackParamList = {
 
 export type MeStackParamList = {
   MeHome: undefined;
+  LegalSupport: undefined;
+  DeleteAccount: undefined;
 };
 
 export type RootTabParamList = {

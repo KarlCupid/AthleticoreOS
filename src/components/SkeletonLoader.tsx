@@ -9,7 +9,7 @@ import Animated, {
     interpolate,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, RADIUS } from '../theme/theme';
+import { RADIUS } from '../theme/theme';
 
 interface SkeletonLoaderProps {
     width: DimensionValue;

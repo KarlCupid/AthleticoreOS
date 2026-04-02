@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { AnimatedPressable } from './AnimatedPressable';
 import { IconCheckCircle, IconChevronRight } from './icons';
-import { COLORS, FONT_FAMILY, RADIUS, SPACING, SHADOWS, BORDERS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, RADIUS, SPACING, SHADOWS } from '../theme/theme';
 
 export interface ActionGridItemProps {
     icon: React.ReactNode;

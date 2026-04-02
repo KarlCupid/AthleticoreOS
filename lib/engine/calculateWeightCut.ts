@@ -103,11 +103,11 @@ export function generateCutPlan(input: CutPlanInput): CutPlanResult {
   const totalCutLbs = Math.round((startWeight - targetWeight) * 10) / 10;
   const totalCutPct = Math.round((totalCutLbs / startWeight) * 1000) / 10;
 
-  // Extreme cut flag (>10% BW) â€” warn heavily but allow the plan
+  // Extreme cut flag (>10% BW) - warn heavily but allow the plan
   const extremeCutWarning = totalCutPct > 10;
   if (extremeCutWarning) {
     safetyWarnings.unshift(
-      `âš ï¸ EXTREME CUT WARNING: This ${totalCutPct.toFixed(1)}% cut (${totalCutLbs.toFixed(1)} lbs) far exceeds the 10% ` +
+      `EXTREME CUT WARNING: This ${totalCutPct.toFixed(1)}% cut (${totalCutLbs.toFixed(1)} lbs) far exceeds the 10% ` +
       `body weight limit recognised by sports medicine authorities. Cuts of this magnitude carry documented risks of ` +
       `acute kidney injury, cardiac arrhythmia, severe cognitive impairment, and in rare cases, death. ` +
       `The recommended maximum from ${startWeight} lbs is ${(startWeight * 0.1).toFixed(1)} lbs (10%). ` +
@@ -323,9 +323,9 @@ export function computeCarbCycle(input: CarbCycleInput): CarbCycleResult {
   const adjustedCalories = baseCalories + carbCalDelta + fatBonus * 9;
 
   const messages: Record<'high' | 'moderate' | 'low', string> = {
-    high: 'High-carb day â€” hard training today fuels performance.',
-    moderate: 'Moderate-carb day â€” matched to training load.',
-    low: 'Low-carb rest day â€” deficit deepened, fat slightly elevated for satiety.',
+    high: 'High-carb day - hard training today fuels performance.',
+    moderate: 'Moderate-carb day - matched to training load.',
+    low: 'Low-carb rest day - deficit deepened, fat slightly elevated for satiety.',
   };
 
   return {
@@ -400,7 +400,7 @@ export function detectStall(input: StallDetectionInput): StallDetectionResult {
     stallDurationDays: 14,
     recommendation: 'none',
     refeedDurationDays: 0,
-    message: 'Weight stalled, but a refeed was recent. Stay consistent â€” progress may resume shortly.',
+    message: 'Weight stalled, but a refeed was recent. Stay consistent - progress may resume shortly.',
   };
 }
 
@@ -481,7 +481,7 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
     flags.push({
       severity: 'danger', code: 'ACWR_REDLINE_DURING_CUT',
       title: 'Overtraining Risk During Cut',
-      message: `Your ACWR is ${acwr.toFixed(2)} â€” in the redline zone. Combining aggressive training load with calorie restriction significantly raises injury risk.`,
+      message: `Your ACWR is ${acwr.toFixed(2)} - in the redline zone. Combining aggressive training load with calorie restriction significantly raises injury risk.`,
       recommendation: 'Reduce training volume this week. Maintain intensity but cut session count or duration.',
     });
   } else if (isDietPhase && acwr > 1.2) {
@@ -509,7 +509,7 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
       title: 'Moderate Dehydration',
       message: `Urine color score ${urineColor}/8 indicates moderate dehydration.`,
       recommendation: cutPhase === 'fight_week_load'
-        ? 'Increase water intake. You are in the loading phase â€” stay well hydrated.'
+        ? 'Increase water intake. You are in the loading phase - stay well hydrated.'
         : 'Expected during water cut. Monitor closely.',
     });
   }
@@ -521,7 +521,7 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
       flags.push({
         severity: 'danger', code: 'SEVERE_COGNITIVE_DECLINE',
         title: 'Severe Cognitive Decline',
-        message: `Your reaction time has declined ${declinePct.toFixed(0)}% from baseline â€” indicating severe dehydration affecting brain function.`,
+        message: `Your reaction time has declined ${declinePct.toFixed(0)}% from baseline - indicating severe dehydration affecting brain function.`,
         recommendation: 'This is a medical emergency. Rehydrate immediately and contact your coach and a medical professional.',
       });
     } else if (declinePct > 20) {
@@ -539,7 +539,7 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
     flags.push({
       severity: 'danger', code: 'ELEVATED_TEMP',
       title: 'Elevated Body Temperature',
-      message: `Body temperature of ${bodyTempF.toFixed(1)}Â°F exceeds safe threshold (100.4Â°F). Combined with dehydration, this is dangerous.`,
+      message: `Body temperature of ${bodyTempF.toFixed(1)}F exceeds safe threshold (100.4F). Combined with dehydration, this is dangerous.`,
       recommendation: 'Stop any heat-based cutting (sauna, hot bath). Move to a cool environment and seek medical attention if temp rises further.',
     });
   }
@@ -675,12 +675,12 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     prescribedFat = Math.round((prescribedCalories * 0.25) / 9);
     prescribedCarbs = Math.round(Math.max(0, prescribedCalories - proteinCal - prescribedFat * 9) / 4);
 
-    sodiumInstruction = 'Elevated â€” include electrolytes every 30-60 min';
-    fiberInstruction = 'Low â€” avoid high-fiber foods for 4+ hours post-weigh-in';
-    trainingRecommendation = 'Rest â€” no training until fight';
-    morningProtocol = 'Immediately drink ORS (500 ml with electrolytes). Do not gulp â€” sip steadily over 20 min.';
+    sodiumInstruction = 'Elevated - include electrolytes every 30-60 min';
+    fiberInstruction = 'Low - avoid high-fiber foods for 4+ hours post-weigh-in';
+    trainingRecommendation = 'Rest - no training until fight';
+    morningProtocol = 'Immediately drink ORS (500 ml with electrolytes). Do not gulp - sip steadily over 20 min.';
     afternoonProtocol = 'Eat structured meals every 1-2 hours. Focus: rice/pasta + lean protein. Sip fluids continuously.';
-    eveningProtocol = 'Monitor urine color (target pale yellow). Weigh yourself â€” aim for 5-7% weight regain by fight time.';
+    eveningProtocol = 'Monitor urine color (target pale yellow). Weigh yourself - aim for 5-7% weight regain by fight time.';
 
   } else if (cutPhase === 'weigh_in') {
     // Weigh-in day: minimal until weigh-in, structured rehydration after
@@ -689,10 +689,10 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     prescribedCarbs = 40;
     prescribedFat = 10;
 
-    sodiumInstruction = 'Zero â€” no added sodium until after weigh-in';
-    fiberInstruction = 'Zero â€” no fiber';
-    trainingRecommendation = 'Rest â€” no physical activity until after weigh-in';
-    morningProtocol = 'No food or water until after weigh-in. If you need to sweat off final lbs: hot bath (104Â°F, max 30 min) monitored by someone you trust.';
+    sodiumInstruction = 'Zero - no added sodium until after weigh-in';
+    fiberInstruction = 'Zero - no fiber';
+    trainingRecommendation = 'Rest - no physical activity until after weigh-in';
+    morningProtocol = 'No food or water until after weigh-in. If you need to sweat off final lbs: hot bath (104F, max 30 min) monitored by someone you trust.';
     afternoonProtocol = 'After weigh-in: start ORS immediately. See Rehydration Protocol screen for full post-weigh-in plan.';
     eveningProtocol = 'Structured refueling meals. Sip fluids continuously. Aim for pale yellow urine by fight time.';
 
@@ -705,10 +705,10 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     prescribedProtein = Math.round(currentWeight * 0.5);  // minimal, gut-emptying
     prescribedFat = 10;
     prescribedCarbs = Math.max(0, Math.round((prescribedCalories - prescribedProtein * 4 - prescribedFat * 9) / 4));
-    sodiumInstruction = daysToWeighIn === 3 ? 'Minimal â€” under 500mg total' : 'Zero â€” no added sodium';
+    sodiumInstruction = daysToWeighIn === 3 ? 'Minimal - under 500mg total' : 'Zero - no added sodium';
     sodiumTargetMg = daysToWeighIn === 3 ? 500 : 0;
-    fiberInstruction = 'Zero â€” white rice, white bread only if eating';
-    trainingRecommendation = 'Active recovery only â€” stretching, shadow boxing (5 min max)';
+    fiberInstruction = 'Zero - white rice, white bread only if eating';
+    trainingRecommendation = 'Active recovery only - stretching, shadow boxing (5 min max)';
     const ozDesc = daysToWeighIn === 1 ? 'sips only (16 oz total)' : `${waterTargetOz} oz`;
     morningProtocol = `Water: ${ozDesc}. Weigh yourself immediately upon waking. If weight is on target: rest, stay calm. If over target: discuss hot bath timing with coach.`;
     afternoonProtocol = 'Small low-residue meals only. Avoid: vegetables, beans, whole grains, dairy. OK: white rice, grilled chicken, egg whites.';
@@ -724,11 +724,11 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     prescribedFat = Math.round((prescribedCalories * 0.28) / 9);
     prescribedCarbs = Math.max(0, Math.round((prescribedCalories - proteinCal - prescribedFat * 9) / 4));
     sodiumInstruction = daysToWeighIn >= 6 ? 'Normal to slightly elevated' : 'Normal';
-    fiberInstruction = daysToWeighIn <= 5 ? 'Reduce to under 15g â€” minimize vegetables and legumes' : 'Normal â€” slight reduction from usual';
-    trainingRecommendation = 'Shadow boxing, technique work, light pad work only â€” no sparring, no heavy S&C';
+    fiberInstruction = daysToWeighIn <= 5 ? 'Reduce to under 15g - minimize vegetables and legumes' : 'Normal - slight reduction from usual';
+    trainingRecommendation = 'Shadow boxing, technique work, light pad work only - no sparring, no heavy S&C';
     morningProtocol = `Start drinking water immediately upon waking. Target ${waterTargetOz} oz today. Weigh after first void.`;
     afternoonProtocol = 'Continue hydrating. Light technique session if scheduled. Keep meals consistent and easily digestible.';
-    eveningProtocol = 'Finish your water target before 7pm. Avoid heavy meals late. Good sleep is critical â€” 9+ hours.';
+    eveningProtocol = 'Finish your water target before 7pm. Avoid heavy meals late. Good sleep is critical - 9+ hours.';
 
   } else if (isRefeedDay) {
     // Refeed: maintenance calories, high carb
@@ -739,10 +739,10 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     prescribedCarbs = Math.max(0, Math.round((prescribedCalories - proteinCal - prescribedFat * 9) / 4));
     sodiumInstruction = 'Normal';
     fiberInstruction = 'Normal';
-    trainingRecommendation = 'Normal training â€” high carbs support good performance today';
-    morningProtocol = 'Refeed day â€” eat at maintenance calories. High carbs, lower fat. This is intentional â€” your metabolism needs a reset.';
-    afternoonProtocol = 'Enjoy your carbs. Rice, pasta, fruit, potatoes. Keep protein high. This is not a cheat day â€” it is structured recovery eating.';
-    eveningProtocol = 'Do not stress about the scale. You will see a 1-2 lb increase from glycogen/water â€” this is expected and temporary.';
+    trainingRecommendation = 'Normal training - high carbs support good performance today';
+    morningProtocol = 'Refeed day - eat at maintenance calories. High carbs, lower fat. This is intentional - your metabolism needs a reset.';
+    afternoonProtocol = 'Enjoy your carbs. Rice, pasta, fruit, potatoes. Keep protein high. This is not a cheat day - it is structured recovery eating.';
+    eveningProtocol = 'Do not stress about the scale. You will see a 1-2 lb increase from glycogen/water - this is expected and temporary.';
 
   } else if (cutPhase === 'intensified') {
     // Intensified: moderate deficit + carb cycling
@@ -773,9 +773,9 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     prescribedFat = cycleResult.adjustedFat;
     isCarbCycleHigh = cycleResult.cycleType === 'high';
     sodiumInstruction = 'Normal';
-    fiberInstruction = 'Normal â€” prioritize vegetables and whole grains';
+    fiberInstruction = 'Normal - prioritize vegetables and whole grains';
     trainingIntensityCap = 8;
-    trainingRecommendation = 'Maintain intensity, manage volume â€” if feeling depleted, cut a set, not the RPE';
+    trainingRecommendation = 'Maintain intensity, manage volume - if feeling depleted, cut a set, not the RPE';
     morningProtocol = `${cycleResult.cycleType === 'low' ? 'Low-carb rest day' : cycleResult.cycleType === 'high' ? 'High-carb training day' : 'Moderate-carb day'}. Weigh yourself after first void. Log your weight.`;
     afternoonProtocol = cycleResult.message;
     eveningProtocol = 'Log all food. Check macro compliance. Prioritize protein at every meal. 8-9 hours sleep.';
@@ -795,12 +795,12 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     prescribedFat = Math.round((prescribedCalories * 0.30) / 9);
     prescribedCarbs = Math.max(0, Math.round((prescribedCalories - proteinCal - prescribedFat * 9) / 4));
     sodiumInstruction = 'Normal';
-    fiberInstruction = 'Normal â€” prioritize fiber-rich vegetables and legumes';
+    fiberInstruction = 'Normal - prioritize fiber-rich vegetables and legumes';
     trainingIntensityCap = null;
-    trainingRecommendation = 'Full training â€” deficit is moderate, performance should be maintained';
+    trainingRecommendation = 'Full training - deficit is moderate, performance should be maintained';
     morningProtocol = 'Weigh yourself after first void. Log your weight. Consistent morning weigh-ins are the most important data you produce.';
     afternoonProtocol = 'Eat consistently. Hitting protein and staying in your calorie window is the job. No dramatic changes needed.';
-    eveningProtocol = 'Review the day. Check food log. Aim for 8-9 hours sleep â€” cortisol from poor sleep slows fat loss.';
+    eveningProtocol = 'Review the day. Check food log. Aim for 8-9 hours sleep - cortisol from poor sleep slows fat loss.';
   }
 
   // â”€â”€ Safety validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

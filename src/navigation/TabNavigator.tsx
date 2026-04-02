@@ -54,7 +54,6 @@ export function TabNavigator() {
   const tabBarBottomPadding = Platform.OS === 'ios' ? 0 : 2;
   const tabBarHeight = (Platform.OS === 'ios' ? 50 : 56) + bottomInset;
   const tabBarInnerHeight = tabBarHeight - tabBarTopPadding - tabBarBottomPadding;
-  const tabBarVisualTopInset = 0;
   const baseTabBarStyle = {
     position: 'absolute' as const,
     bottom: 0,

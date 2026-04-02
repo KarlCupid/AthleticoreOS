@@ -1,5 +1,3 @@
-import { StyleSheet } from 'react-native';
-
 export const COLORS = {
     background: '#3b429f', // Ocean Twilight - Primary Cosmic Base
     surface: 'rgba(255, 255, 255, 0.08)', // Default Glass Surface

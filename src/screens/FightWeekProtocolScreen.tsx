@@ -13,6 +13,9 @@ import { UrineColorPicker } from '../components/UrineColorPicker';
 import { CognitiveTestCard } from '../components/CognitiveTestCard';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
+const HEALTH_GUIDANCE_NOTE =
+  'Fight-week protocols are coaching-oriented guidance for educational use. Escalate to qualified medical support if symptoms worsen or the cut becomes unsafe.';
+
 const DAY_LABELS: Record<number, string> = {
   7: 'Day 7', 6: 'Day 6', 5: 'Day 5', 4: 'Day 4',
   3: 'Day 3', 2: 'Day 2', 1: 'Day 1', 0: 'Weigh-In',
@@ -110,8 +113,13 @@ export function FightWeekProtocolScreen() {
 
         {/* Day header */}
         <View style={[styles.dayCard, { borderLeftColor: phaseColors[0] }]}>
-          <Text style={styles.dayCardTitle}>{DAY_LABELS[selectedDay]} â€” {DAY_PHASE[selectedDay]}</Text>
+          <Text style={styles.dayCardTitle}>{DAY_LABELS[selectedDay]} - {DAY_PHASE[selectedDay]}</Text>
           {isToday && <Text style={styles.todayBadge}>TODAY</Text>}
+        </View>
+
+        <View style={styles.briefCard}>
+          <Text style={styles.briefTitle}>Health guidance note</Text>
+          <Text style={styles.briefText}>{HEALTH_GUIDANCE_NOTE}</Text>
         </View>
 
         {/* Protocol from today's computed data (show only for today) */}
@@ -236,7 +244,7 @@ function ProtocolSection({ icon, title, color, items }: { icon: any; title: stri
         <Text style={styles.sectionTitle}>{title}</Text>
       </View>
       {items.map((item, i) => (
-        <Text key={i} style={styles.sectionItem}>â€¢ {item}</Text>
+        <Text key={i} style={styles.sectionItem}>- {item}</Text>
       ))}
     </View>
   );
@@ -256,11 +264,11 @@ function StaticDayProtocol({ day }: { day: number }) {
 }
 
 const STATIC_DAY_CONTENT: Record<number, { water: string; sodium: string; food: string; training: string }> = {
-  7: { water: '~2Ã— normal (100â€“130 oz). SUPERHYDRATION begins.', sodium: 'Normal to slightly elevated.', food: 'Maintenance calories. Clean eating.', training: 'Normal to light. No sparring.' },
-  6: { water: '~2Ã— normal (100â€“130 oz). Keep loading.', sodium: 'Normal.', food: 'Maintenance calories. Start reducing fiber slightly.', training: 'Light. Shadow boxing and pad work only.' },
-  5: { water: '~1.5Ã— normal (80â€“100 oz).', sodium: 'Normal. Slight reduction starting.', food: '-5% calories. Fiber under 15g.', training: 'Shadow boxing only. 30 min max.' },
-  4: { water: '~1.5Ã— normal (80â€“100 oz). Final big water day.', sodium: 'Normal.', food: '-10% calories. Low fiber.', training: 'Stretching and shadow only. No heavy work.' },
-  3: { water: '64 oz maximum. Restriction begins.', sodium: 'Minimal â€” under 500mg total.', food: '~800 cal. White rice, egg whites, grilled chicken only.', training: 'Active recovery â€” light stretching. No cardio.' },
+  7: { water: '~2x normal (100-130 oz). Superhydration begins.', sodium: 'Normal to slightly elevated.', food: 'Maintenance calories. Clean eating.', training: 'Normal to light. No sparring.' },
+  6: { water: '~2x normal (100-130 oz). Keep loading.', sodium: 'Normal.', food: 'Maintenance calories. Start reducing fiber slightly.', training: 'Light. Shadow boxing and pad work only.' },
+  5: { water: '~1.5x normal (80-100 oz).', sodium: 'Normal. Slight reduction starting.', food: '-5% calories. Fiber under 15g.', training: 'Shadow boxing only. 30 min max.' },
+  4: { water: '~1.5x normal (80-100 oz). Final big water day.', sodium: 'Normal.', food: '-10% calories. Low fiber.', training: 'Stretching and shadow only. No heavy work.' },
+  3: { water: '64 oz maximum. Restriction begins.', sodium: 'Minimal - under 500mg total.', food: '~800 cal. White rice, egg whites, grilled chicken only.', training: 'Active recovery - light stretching. No cardio.' },
   2: { water: '32 oz maximum. Sip throughout day.', sodium: 'Zero added sodium.', food: '~600 cal. Tiny meals. Zero fiber.', training: 'Rest. Conserve energy.' },
   1: { water: '16 oz (sips only). Near-zero restriction.', sodium: 'Zero.', food: '~400 cal. Absolutely minimal.', training: 'Rest completely.' },
   0: { water: 'Sips only until weigh-in.', sodium: 'Zero until after weigh-in.', food: 'Nothing until after weigh-in. Then see Rehydration Protocol.', training: 'Rest.' },

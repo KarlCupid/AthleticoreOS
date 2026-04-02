@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, DimensionValue } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -81,4 +81,3 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
   },
 });
-
