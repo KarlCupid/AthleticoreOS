@@ -26,6 +26,7 @@ import {
   hydrateFoodSearchResult,
   logFoodEntry,
   toggleFavorite,
+  updateFoodEntry,
   upsertFoodItem,
 } from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
@@ -45,6 +46,10 @@ type RouteParams = {
     foodItem: FoodSearchResult;
     mealType: MealType;
     date?: string;
+    foodLogId?: string;
+    initialAmountValue?: number;
+    initialAmountUnit?: string;
+    initialGrams?: number | null;
   };
 };
 
@@ -69,12 +74,15 @@ export function FoodDetailScreen() {
   const route = useRoute<RouteProp<RouteParams, 'FoodDetail'>>();
   const { mealType, date } = route.params;
   const today = date ?? todayLocalDate();
+  const isEditingEntry = Boolean(route.params.foodLogId);
 
   const [foodItem, setFoodItem] = useState(route.params.foodItem);
   const [selectedPortion, setSelectedPortion] = useState<FoodPortionOption>(() =>
     getDefaultPortion(route.params.foodItem)
   );
-  const [amountValue, setAmountValue] = useState(route.params.foodItem.baseUnit === 'g' ? 100 : 1);
+  const [amountValue, setAmountValue] = useState(
+    route.params.initialAmountValue ?? (route.params.foodItem.baseUnit === 'g' ? 100 : 1)
+  );
   const [saving, setSaving] = useState(false);
   const [hydrating, setHydrating] = useState(route.params.foodItem.source === 'usda');
   const [favoriteOnSave, setFavoriteOnSave] = useState(false);
@@ -109,6 +117,29 @@ export function FoodDetailScreen() {
       mounted = false;
     };
   }, [route.params.foodItem]);
+
+  useEffect(() => {
+    const initialAmountUnit = route.params.initialAmountUnit;
+    if (!initialAmountUnit) {
+      return;
+    }
+
+    const matchingPortion = foodItem.portionOptions.find((option) =>
+      option.unit === initialAmountUnit || option.label === initialAmountUnit
+    );
+
+    if (matchingPortion) {
+      setSelectedPortion(matchingPortion);
+      return;
+    }
+
+    if (initialAmountUnit === 'g') {
+      const gramsOption = foodItem.portionOptions.find((option) => option.unit === 'g');
+      if (gramsOption) {
+        setSelectedPortion(gramsOption);
+      }
+    }
+  }, [foodItem.portionOptions, route.params.initialAmountUnit]);
 
   const selectedGrams = useMemo(() => {
     if (selectedPortion.unit === 'g') {
@@ -148,19 +179,31 @@ export function FoodDetailScreen() {
       }
 
       const savedItem = await upsertFoodItem(foodItem);
-      await logFoodEntry(
-        session.user.id,
-        {
-          foodItem: savedItem,
-          amountValue,
-          amountUnit: selectedPortion.unit === 'portion' ? selectedPortion.label : selectedPortion.unit,
-          grams: selectedGrams,
-        },
-        mealType,
-        today
-      );
+      const payload = {
+        foodItem: savedItem,
+        amountValue,
+        amountUnit: selectedPortion.unit === 'portion' ? selectedPortion.label : selectedPortion.unit,
+        grams: selectedGrams,
+      };
 
-      if (favoriteOnSave) {
+      if (route.params.foodLogId) {
+        await updateFoodEntry(
+          session.user.id,
+          route.params.foodLogId,
+          payload,
+          mealType,
+          today
+        );
+      } else {
+        await logFoodEntry(
+          session.user.id,
+          payload,
+          mealType,
+          today
+        );
+      }
+
+      if (favoriteOnSave && !route.params.foodLogId) {
         await toggleFavorite(session.user.id, savedItem.id);
       }
 
@@ -179,7 +222,7 @@ export function FoodDetailScreen() {
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </AnimatedPressable>
         <Text style={styles.title} numberOfLines={1}>
-          {foodItem.name}
+          {isEditingEntry ? 'Edit Food' : foodItem.name}
         </Text>
       </View>
 
@@ -296,7 +339,7 @@ export function FoodDetailScreen() {
             style={styles.addButtonGradient}
           >
             <Text style={styles.addButtonText}>
-              {saving ? 'Adding…' : hydrating ? 'Loading…' : `Add to ${MEAL_LABELS[mealType]}`}
+              {saving ? 'Saving...' : hydrating ? 'Loading...' : isEditingEntry ? 'Save Changes' : `Add to ${MEAL_LABELS[mealType]}`}
             </Text>
           </LinearGradient>
         </AnimatedPressable>

@@ -17,7 +17,7 @@ import { CutPhaseTimeline } from '../components/CutPhaseTimeline';
 import { WeightCutChart } from '../components/WeightCutChart';
 import { DailyProtocolCard } from '../components/DailyProtocolCard';
 import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
-import { CutPhase } from '../../lib/engine/types';
+import { CutPhase, CutSafetyFlag } from '../../lib/engine/types';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightCutHome'>;
 
@@ -159,7 +159,7 @@ export function WeightCutHomeScreen() {
 
   const phase = todayProtocol?.cut_phase ?? 'chronic';
   const daysOut = todayProtocol?.days_to_weigh_in ?? 0;
-  const dangerFlags = todayProtocol?.safety_flags?.filter((f: any) => f.severity === 'danger') ?? [];
+  const dangerFlags = todayProtocol?.safety_flags?.filter((flag: CutSafetyFlag) => flag.severity === 'danger') ?? [];
   const currentWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : activePlan.start_weight;
   const remaining = Math.max(0, currentWeight - activePlan.target_weight).toFixed(1);
   const phaseColors = PHASE_COLORS[phase] as [string, string];
@@ -222,8 +222,15 @@ export function WeightCutHomeScreen() {
       )}
 
       {/* â”€â”€ Today's protocol â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {todayProtocol && (
+      {todayProtocol ? (
         <DailyProtocolCard protocol={todayProtocol} />
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Today's protocol</Text>
+          <Text style={styles.guidanceBody}>
+            Today's cut protocol is not ready yet. Pull to refresh or open fight-week protocol to trigger a fresh engine pass.
+          </Text>
+        </View>
       )}
 
       <View style={styles.card}>

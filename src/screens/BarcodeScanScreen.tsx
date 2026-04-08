@@ -71,6 +71,10 @@ export function BarcodeScanScreen() {
         navigation.replace('CustomFood');
     };
 
+    const handleManualSearch = () => {
+        navigation.replace('FoodSearch', { mealType, date });
+    };
+
     // Permission not yet determined
     if (!permission) {
         return (
@@ -172,6 +176,12 @@ export function BarcodeScanScreen() {
                                 Barcode: {scannedBarcode}
                             </Text>
                             <View style={styles.notFoundActions}>
+                                <AnimatedPressable
+                                    style={styles.notFoundButton}
+                                    onPress={handleManualSearch}
+                                >
+                                    <Text style={styles.notFoundButtonText}>Search Manually</Text>
+                                </AnimatedPressable>
                                 <AnimatedPressable
                                     style={styles.notFoundButton}
                                     onPress={handleTryCustom}

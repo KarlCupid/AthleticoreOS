@@ -4,7 +4,6 @@ import { CartesianChart, Bar, Line } from 'victory-native';
 import { Card } from './Card';
 import { AnimatedPressable } from './AnimatedPressable';
 import { ConsistencyCalendar } from './ConsistencyCalendar';
-import { NutritionAnalyticsSection } from './NutritionAnalyticsSection';
 import { SCAnalyticsSection } from './SCAnalyticsSection';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { buildWorkoutProgressSummary } from '../screens/workout/utils';
@@ -200,7 +199,6 @@ export function WorkoutAnalyticsTab({
           ) : null}
 
           {userId ? <SCAnalyticsSection userId={userId} /> : null}
-          {userId ? <NutritionAnalyticsSection userId={userId} /> : null}
         </View>
       ) : null}
     </View>

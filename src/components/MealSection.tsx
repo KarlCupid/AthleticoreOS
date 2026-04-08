@@ -3,20 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { IconPlus, IconChevronRight } from './icons';
 import { MealType } from '../../lib/engine/types';
-
-interface FoodEntry {
-  id: string;
-  food_name: string;
-  food_brand?: string | null;
-  amount_label: string;
-  logged_calories: number;
-}
+import type { MealLogEntryViewModel } from '../hooks/fuel/types';
 
 interface MealSectionProps {
   mealType: MealType;
-  foods: FoodEntry[];
+  foods: MealLogEntryViewModel[];
   subtotalCalories: number;
   onAddFood: () => void;
+  onSelectFood: (foodLogId: string) => void;
   onRemoveFood: (foodLogId: string) => void;
 }
 
@@ -39,6 +33,7 @@ export function MealSection({
   foods,
   subtotalCalories,
   onAddFood,
+  onSelectFood,
   onRemoveFood,
 }: MealSectionProps) {
   const [expanded, setExpanded] = useState(true);
@@ -73,19 +68,20 @@ export function MealSection({
             <TouchableOpacity
               key={food.id}
               style={styles.foodRow}
+              onPress={() => onSelectFood(food.id)}
               onLongPress={() => onRemoveFood(food.id)}
               activeOpacity={0.7}
             >
               <View style={styles.foodInfo}>
                 <Text style={styles.foodName} numberOfLines={1}>
-                  {food.food_name}
+                  {food.foodName}
                 </Text>
                 <Text style={styles.foodDetail}>
-                  {food.amount_label}
-                  {food.food_brand ? ` \u2022 ${food.food_brand}` : ''}
+                  {food.amountLabel}
+                  {food.foodBrand ? ` \u2022 ${food.foodBrand}` : ''}
                 </Text>
               </View>
-              <Text style={styles.foodCalories}>{Math.round(food.logged_calories)}</Text>
+              <Text style={styles.foodCalories}>{Math.round(food.loggedCalories)}</Text>
             </TouchableOpacity>
           ))}
 

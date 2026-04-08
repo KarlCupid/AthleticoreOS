@@ -50,6 +50,7 @@ export function FoodSearchScreen() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchMode, setSearchMode] = useState<FoodSearchMode>('recent');
   const [manualModeOverride, setManualModeOverride] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const activeMode = useMemo<FoodSearchMode>(() => {
     if (query.trim().length < 2) {
@@ -63,6 +64,7 @@ export function FoodSearchScreen() {
     async (nextQuery: string, nextMode: FoodSearchMode) => {
       setLoading(true);
       setSearched(nextQuery.trim().length >= 2);
+      setErrorMessage(null);
 
       try {
         const {
@@ -98,6 +100,7 @@ export function FoodSearchScreen() {
       } catch (error) {
         logError('FoodSearchScreen.loadSections', error, { query: nextQuery, mode: nextMode });
         setSections([]);
+        setErrorMessage('Search is unavailable right now. Check your connection and try again.');
       } finally {
         setLoading(false);
       }
@@ -164,15 +167,27 @@ export function FoodSearchScreen() {
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
-            {searched ? 'No foods found' : 'Search to start logging'}
+            {errorMessage ? 'Search paused' : searched ? 'No foods found' : 'Search to start logging'}
           </Text>
           <Text style={styles.emptySubtext}>
-            {searched
-              ? activeMode === 'ingredients'
-                ? 'Try a simpler ingredient like banana, rice, or chicken breast.'
-                : 'Try a brand name, product name, or scan the barcode.'
-              : 'Use ingredients for whole foods or packaged for branded products.'}
+            {errorMessage
+              ? errorMessage
+              : searched
+                ? activeMode === 'ingredients'
+                  ? 'Try a simpler ingredient like banana, rice, or chicken breast.'
+                  : 'Try a brand name, product name, or scan the barcode.'
+                : 'Use ingredients for whole foods or packaged for branded products.'}
           </Text>
+          {errorMessage ? (
+            <AnimatedPressable
+              style={styles.retryButton}
+              onPress={() => {
+                void loadSections(query, activeMode);
+              }}
+            >
+              <Text style={styles.retryButtonText}>Retry search</Text>
+            </AnimatedPressable>
+          ) : null}
         </View>
       );
     }
@@ -376,5 +391,19 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     textAlign: 'center',
     lineHeight: 19,
+  },
+  retryButton: {
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.surface,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
   },
 });

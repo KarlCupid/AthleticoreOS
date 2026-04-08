@@ -35,6 +35,33 @@ export interface FoodLogSelection {
   snapshot?: FoodNutritionSnapshot;
 }
 
+function buildLoggedNutritionValues(
+  foodItem: FoodItemRow,
+  selection: Pick<FoodLogSelection, 'amountValue' | 'amountUnit' | 'grams'>
+) {
+  const resolvedGrams = resolveLoggedGrams(
+    foodItem,
+    selection.amountValue,
+    selection.amountUnit,
+    selection.grams,
+  );
+  const multiplier = resolveLoggedMultiplier(
+    foodItem,
+    selection.amountValue,
+    selection.amountUnit,
+    resolvedGrams,
+  );
+
+  return {
+    resolvedGrams,
+    multiplier,
+    loggedCalories: Math.round(foodItem.calories_per_serving * multiplier),
+    loggedProtein: roundToTenth(foodItem.protein_per_serving * multiplier),
+    loggedCarbs: roundToTenth(foodItem.carbs_per_serving * multiplier),
+    loggedFat: roundToTenth(foodItem.fat_per_serving * multiplier),
+  };
+}
+
 function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
@@ -360,12 +387,14 @@ export async function logFoodEntry(
   date: string = today()
 ) {
   const { foodItem, amountValue, amountUnit } = selection;
-  const resolvedGrams = resolveLoggedGrams(foodItem, amountValue, amountUnit, selection.grams);
-  const multiplier = resolveLoggedMultiplier(foodItem, amountValue, amountUnit, resolvedGrams);
-  const loggedCalories = Math.round(foodItem.calories_per_serving * multiplier);
-  const loggedProtein = roundToTenth(foodItem.protein_per_serving * multiplier);
-  const loggedCarbs = roundToTenth(foodItem.carbs_per_serving * multiplier);
-  const loggedFat = roundToTenth(foodItem.fat_per_serving * multiplier);
+  const {
+    resolvedGrams,
+    multiplier,
+    loggedCalories,
+    loggedProtein,
+    loggedCarbs,
+    loggedFat,
+  } = buildLoggedNutritionValues(foodItem, selection);
 
   const { error: logError } = await supabase.from('food_log').insert({
     user_id: userId,
@@ -386,6 +415,49 @@ export async function logFoodEntry(
 
   if (logError) {
     throw logError;
+  }
+
+  await recalculateDailySummary(userId, date);
+}
+
+export async function updateFoodEntry(
+  userId: string,
+  foodLogId: string,
+  selection: FoodLogSelection,
+  mealType: MealType,
+  date: string = today()
+) {
+  const { foodItem, amountValue, amountUnit } = selection;
+  const {
+    resolvedGrams,
+    multiplier,
+    loggedCalories,
+    loggedProtein,
+    loggedCarbs,
+    loggedFat,
+  } = buildLoggedNutritionValues(foodItem, selection);
+
+  const { error } = await supabase
+    .from('food_log')
+    .update({
+      food_item_id: foodItem.id,
+      meal_type: mealType,
+      servings: Math.round(multiplier * 1000) / 1000,
+      amount_value: amountValue,
+      amount_unit: amountUnit,
+      grams: resolvedGrams,
+      source: normalizeSource(foodItem),
+      nutrition_snapshot: selection.snapshot ?? buildNutritionSnapshot(foodItem),
+      logged_calories: loggedCalories,
+      logged_protein: loggedProtein,
+      logged_carbs: loggedCarbs,
+      logged_fat: loggedFat,
+    })
+    .eq('id', foodLogId)
+    .eq('user_id', userId);
+
+  if (error) {
+    throw error;
   }
 
   await recalculateDailySummary(userId, date);
@@ -577,6 +649,43 @@ export async function logWater(
     date,
     amount_oz: amountOz,
   });
+  if (error) {
+    throw error;
+  }
+
+  await recalculateDailySummary(userId, date);
+}
+
+export async function updateWaterEntry(
+  userId: string,
+  hydrationLogId: string,
+  amountOz: number,
+  date: string = today()
+) {
+  const { error } = await supabase
+    .from('hydration_log')
+    .update({ amount_oz: amountOz })
+    .eq('id', hydrationLogId)
+    .eq('user_id', userId);
+
+  if (error) {
+    throw error;
+  }
+
+  await recalculateDailySummary(userId, date);
+}
+
+export async function removeWaterEntry(
+  userId: string,
+  hydrationLogId: string,
+  date: string = today()
+) {
+  const { error } = await supabase
+    .from('hydration_log')
+    .delete()
+    .eq('id', hydrationLogId)
+    .eq('user_id', userId);
+
   if (error) {
     throw error;
   }

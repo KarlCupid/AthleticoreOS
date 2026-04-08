@@ -96,7 +96,15 @@ export type PlanStackParamList = {
 export type FuelStackParamList = {
   NutritionHome: undefined;
   FoodSearch: { mealType: MealType; date?: string };
-  FoodDetail: { foodItem: FoodSearchResult; mealType: MealType; date?: string };
+  FoodDetail: {
+    foodItem: FoodSearchResult;
+    mealType: MealType;
+    date?: string;
+    foodLogId?: string;
+    initialAmountValue?: number;
+    initialAmountUnit?: string;
+    initialGrams?: number | null;
+  };
   CustomFood: undefined;
   BarcodeScan: { mealType: MealType; date?: string };
   WeightCutHome: undefined;

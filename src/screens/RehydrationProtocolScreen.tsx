@@ -168,7 +168,10 @@ export function RehydrationProtocolScreen() {
             <TouchableOpacity
               style={styles.logButton}
               onPress={async () => {
-                await logSafetyCheck({ post_weigh_in_weight: currentRegain } as never);
+                await logSafetyCheck({
+                  postWeighInWeight: currentRegain,
+                  rehydrationWeightRegained: currentRegain - weighInWeightLbs,
+                });
               }}
             >
               <Text style={styles.logButtonText}>Log Weight</Text>

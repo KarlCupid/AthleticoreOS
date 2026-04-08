@@ -1,216 +1,172 @@
-import React, { useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  RefreshControl,
   Alert,
-  InteractionManager,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { COLORS, SPACING, RADIUS, ANIMATION, GRADIENTS, FONT_FAMILY } from '../theme/theme';
+import { useNavigation } from '@react-navigation/native';
 import { buildNutritionQuickActionViewModel } from '../../lib/engine/presentation';
+import {
+  logWater,
+  removeFoodEntry,
+  removeWaterEntry,
+  updateWaterEntry,
+} from '../../lib/api/nutritionService';
+import { COLORS, FONT_FAMILY, GRADIENTS, RADIUS, SPACING, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { Card } from '../components/Card';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { AnimatedPressable } from '../components/AnimatedPressable';
-import { SkeletonLoader } from '../components/SkeletonLoader';
-import { MacroProgressBar } from '../components/MacroProgressBar';
-import { MacroPieChart } from '../components/MacroPieChart';
-import { MealSection } from '../components/MealSection';
+import { Card } from '../components/Card';
 import { HydrationTracker } from '../components/HydrationTracker';
-import { IconBarcode } from '../components/icons';
-import { styles } from './NutritionScreen.styles';
+import { MacroPieChart } from '../components/MacroPieChart';
+import { MacroProgressBar } from '../components/MacroProgressBar';
+import { MealSection } from '../components/MealSection';
+import { NutritionAnalyticsSection } from '../components/NutritionAnalyticsSection';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
-import { supabase } from '../../lib/supabase';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
-import {
-  getDailyNutrition,
-  removeFoodEntry,
-  logWater,
-  ensureDailyLedger,
-} from '../../lib/api/nutritionService';
-import { DailyMission, MealType, ResolvedNutritionTargets, DailyCutProtocolRow } from '../../lib/engine/types';
-import { todayLocalDate } from '../../lib/utils/date';
-import { logError } from '../../lib/utils/logger';
-import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
+import { SkeletonLoader } from '../components/SkeletonLoader';
+import { IconBarcode, IconWaterDrop } from '../components/icons';
+import { useFuelData } from '../hooks/useFuelData';
+import type { FuelStackParamList } from '../navigation/types';
+import type { FoodSearchResult, MealType, SessionFuelingWindow } from '../../lib/engine/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { styles } from './NutritionScreen.styles';
 
-const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks'];
+type FuelNav = NativeStackNavigationProp<FuelStackParamList>;
+
 const STAGGER_DELAY = 50;
 
-function formatAmountLabel(entry: any): string {
-  const amountValue = entry.amount_value ?? entry.servings ?? 1;
-  const amountUnit = entry.amount_unit ?? 'serving';
-  const roundedValue = Number.isInteger(amountValue)
-    ? String(amountValue)
-    : Number(amountValue).toFixed(1).replace(/\.0$/, '');
+function inferMealTypeForNow(): MealType {
+  const hour = new Date().getHours();
+  if (hour < 11) return 'breakfast';
+  if (hour < 14) return 'lunch';
+  if (hour < 17) return 'snacks';
+  return 'dinner';
+}
 
-  if (amountUnit === 'g') {
-    return `${roundedValue}g`;
+function renderFuelWindow(window: SessionFuelingWindow | null | undefined, emptyLabel: string) {
+  if (!window) {
+    return <Text style={inline.copyMuted}>{emptyLabel}</Text>;
   }
 
-  if (amountUnit === 'serving') {
-    const servingLabel = entry.nutrition_snapshot?.serving_label ?? entry.food_items?.serving_label ?? 'serving';
-    return `${roundedValue} × ${servingLabel}`;
+  return (
+    <View style={inline.windowBlock}>
+      <View style={inline.windowHeader}>
+        <Text style={inline.windowTitle}>{window.label}</Text>
+        <Text style={inline.windowTiming}>{window.timing}</Text>
+      </View>
+      <Text style={inline.copyMuted}>
+        {window.carbsG}g carbs · {window.proteinG}g protein
+      </Text>
+      {window.notes.map((note) => (
+        <Text key={`${window.label}-${note}`} style={inline.noteLine}>
+          - {note}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function FuelRail({
+  title,
+  items,
+  onSelect,
+}: {
+  title: string;
+  items: FoodSearchResult[];
+  onSelect: (item: FoodSearchResult) => void;
+}) {
+  if (items.length === 0) {
+    return null;
   }
 
-  if (amountUnit === 'portion') {
-    return `${roundedValue} × ${entry.nutrition_snapshot?.serving_label ?? 'portion'}`;
-  }
-
-  return `${roundedValue} × ${amountUnit}`;
+  return (
+    <View style={{ marginBottom: SPACING.md }}>
+      <Text style={inline.sectionEyebrow}>{title}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {items.map((item) => (
+          <AnimatedPressable
+            key={item.key}
+            style={inline.quickFoodCard}
+            onPress={() => onSelect(item)}
+          >
+            <Text style={inline.quickFoodTitle} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={inline.quickFoodSubtitle} numberOfLines={1}>
+              {item.brand ?? item.serving_label}
+            </Text>
+            <Text style={inline.quickFoodMeta}>
+              {Math.round(item.calories_per_serving)} cal · P{Math.round(item.protein_per_serving)}
+            </Text>
+          </AnimatedPressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
 }
 
 export function NutritionScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<FuelNav>();
   const { themeColor } = useReadinessTheme();
+  const { loading, refreshing, error, viewModel, reload, onRefresh } = useFuelData();
   const [nutritionMode, setNutritionMode] = useState<'quick' | 'detailed'>('quick');
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [targets, setTargets] = useState<ResolvedNutritionTargets | null>(null);
-  const [waterTarget, setWaterTarget] = useState(100);
-  const [cutProtocol, setCutProtocol] = useState<DailyCutProtocolRow | null>(null);
-  const [waterCurrent, setWaterCurrent] = useState(0);
-  const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
-  const [meals, setMeals] = useState<Record<MealType, any[]>>({
-    breakfast: [],
-    lunch: [],
-    dinner: [],
-    snacks: [],
-  });
-  const [totals, setTotals] = useState({
-    calories: 0,
-    protein: 0,
-    carbs: 0,
-    fat: 0,
-  });
-
-  const today = todayLocalDate();
-
-  const loadData = useCallback(async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      const userId = session.user.id;
-
-      const engineState = await getDailyEngineState(userId, today);
-      setCutProtocol(engineState.cutProtocol as DailyCutProtocolRow | null);
-      setDailyMission(engineState.mission);
-      setTargets({
-        ...engineState.nutritionTargets,
-        adjustedCalories: calculateCaloriesFromMacros(
-          engineState.mission.fuelDirective.protein,
-          engineState.mission.fuelDirective.carbs,
-          engineState.mission.fuelDirective.fat,
-        ),
-        protein: engineState.mission.fuelDirective.protein,
-        carbs: engineState.mission.fuelDirective.carbs,
-        fat: engineState.mission.fuelDirective.fat,
-        message: engineState.mission.fuelDirective.message,
-      });
-      setWaterTarget(engineState.mission.hydrationDirective.waterTargetOz);
-
-      await ensureDailyLedger(userId, today, {
-        tdee: engineState.nutritionTargets.tdee,
-        calories: engineState.mission.fuelDirective.calories,
-        protein: engineState.mission.fuelDirective.protein,
-        carbs: engineState.mission.fuelDirective.carbs,
-        fat: engineState.mission.fuelDirective.fat,
-        weightCorrectionDeficit: engineState.nutritionTargets.weightCorrectionDeficit,
-        targetSource: engineState.mission.fuelDirective.source === 'weight_cut_protocol'
-          ? 'weight_cut_protocol'
-          : engineState.mission.fuelDirective.source === 'daily_engine'
-            ? 'daily_activity_adjusted'
-            : 'base',
-      });
-
-      const data = await getDailyNutrition(userId, today);
-
-      const grouped: Record<MealType, any[]> = {
-        breakfast: [],
-        lunch: [],
-        dinner: [],
-        snacks: [],
-      };
-
-      for (const entry of data.foodLog) {
-        const mt = entry.meal_type as MealType;
-        if (grouped[mt]) {
-          grouped[mt].push({
-            id: entry.id,
-            food_name: entry.nutrition_snapshot?.name ?? entry.food_items?.name ?? 'Unknown',
-            food_brand: entry.nutrition_snapshot?.brand ?? entry.food_items?.brand ?? null,
-            amount_label: formatAmountLabel(entry),
-            logged_calories: entry.logged_calories,
-          });
-        }
-      }
-      setMeals(grouped);
-
-      const t = data.foodLog.reduce(
-        (acc: any, entry: any) => ({
-          calories: acc.calories + (entry.logged_calories ?? 0),
-          protein: acc.protein + (entry.logged_protein ?? 0),
-          carbs: acc.carbs + (entry.logged_carbs ?? 0),
-          fat: acc.fat + (entry.logged_fat ?? 0),
-        }),
-        { calories: 0, protein: 0, carbs: 0, fat: 0 }
-      );
-      setTotals(t);
-
-      const waterTotal = data.hydrationLog.reduce(
-        (sum: number, w: any) => sum + (w.amount_oz ?? 0),
-        0
-      );
-      setWaterCurrent(waterTotal);
-    } catch (err) {
-      logError('NutritionScreen.loadData', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [today]);
-
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      InteractionManager.runAfterInteractions(() => {
-        if (isActive) {
-          loadData();
-        }
-      });
-      return () => {
-        isActive = false;
-      };
-    }, [loadData])
+  const [hydrationDraft, setHydrationDraft] = useState('');
+  const [editingHydrationId, setEditingHydrationId] = useState<string | null>(null);
+  const quickVM = useMemo(
+    () => buildNutritionQuickActionViewModel(viewModel.dailyMission, viewModel.totals),
+    [viewModel.dailyMission, viewModel.totals],
   );
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+  const flatMealEntries = useMemo(
+    () => Object.values(viewModel.meals).flat(),
+    [viewModel.meals],
+  );
+
+  const handleQuickFoodSelect = (foodItem: FoodSearchResult, mealType?: MealType) => {
+    navigation.navigate('FoodDetail', {
+      foodItem,
+      mealType: mealType ?? inferMealTypeForNow(),
+      date: viewModel.date,
+    });
   };
 
-  const handleRemoveFood = async (foodLogId: string) => {
-    Alert.alert('Remove Food', 'Remove this entry?', [
+  const handleMealEntrySelect = (foodLogId: string) => {
+    const entry = flatMealEntries.find((candidate) => candidate.id === foodLogId);
+    if (!entry) {
+      return;
+    }
+
+    navigation.navigate('FoodDetail', {
+      foodItem: entry.foodItem,
+      mealType: entry.mealType,
+      date: viewModel.date,
+      foodLogId: entry.id,
+      initialAmountValue: entry.amountValue,
+      initialAmountUnit: entry.amountUnit,
+      initialGrams: entry.grams,
+    });
+  };
+
+  const handleRemoveFood = (foodLogId: string) => {
+    if (!viewModel.userId) return;
+
+    Alert.alert('Remove food', 'Remove this entry from today?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
           try {
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
-            if (!session?.user) return;
-            await removeFoodEntry(session.user.id, foodLogId, today);
-            await loadData();
-          } catch (_error) {
-            Alert.alert('Error', 'Failed to remove food entry');
+            await removeFoodEntry(viewModel.userId!, foodLogId, viewModel.date);
+            await reload(true);
+          } catch {
+            Alert.alert('Could not remove food', 'Please try again.');
           }
         },
       },
@@ -218,57 +174,437 @@ export function NutritionScreen() {
   };
 
   const handleQuickAddWater = async (oz: number) => {
+    if (!viewModel.userId) return;
+
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      await logWater(session.user.id, oz, today);
-      setWaterCurrent((prev) => prev + oz);
-    } catch (_error) {
-      Alert.alert('Error', 'Failed to log water');
+      await logWater(viewModel.userId, oz, viewModel.date);
+      await reload(true);
+    } catch {
+      Alert.alert('Could not log water', 'Please try again.');
     }
   };
 
-  const formatDate = () => {
-    const d = new Date();
-    return d.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-    });
+  const handleEditHydration = (entryId: string, amountOz: number) => {
+    setEditingHydrationId(entryId);
+    setHydrationDraft(String(amountOz));
   };
 
-  const getMealCalories = (mt: MealType) =>
-    meals[mt].reduce((sum, f) => sum + (f.logged_calories ?? 0), 0);
+  const resetHydrationEditor = () => {
+    setEditingHydrationId(null);
+    setHydrationDraft('');
+  };
 
-  const renderSkeleton = () => (
+  const handleSaveHydrationDraft = async () => {
+    if (!viewModel.userId) return;
+    const amountOz = Number(hydrationDraft);
+    if (!Number.isFinite(amountOz) || amountOz <= 0) {
+      Alert.alert('Enter a valid amount', 'Use a number greater than zero.');
+      return;
+    }
+
+    try {
+      if (editingHydrationId) {
+        await updateWaterEntry(viewModel.userId, editingHydrationId, amountOz, viewModel.date);
+      } else {
+        await logWater(viewModel.userId, amountOz, viewModel.date);
+      }
+      resetHydrationEditor();
+      await reload(true);
+    } catch {
+      Alert.alert('Could not save water', 'Please try again.');
+    }
+  };
+
+  const handleRemoveHydration = (entryId: string) => {
+    if (!viewModel.userId) return;
+
+    Alert.alert('Remove water log', 'Delete this hydration entry?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeWaterEntry(viewModel.userId!, entryId, viewModel.date);
+            if (editingHydrationId === entryId) {
+              resetHydrationEditor();
+            }
+            await reload(true);
+          } catch {
+            Alert.alert('Could not remove water log', 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const renderLoading = () => (
     <View style={styles.content}>
-      <View style={{ alignItems: 'center', marginBottom: SPACING.lg }}>
-        <SkeletonLoader width={120} height={40} shape="rect" />
-        <SkeletonLoader width={80} height={14} shape="text" style={{ marginTop: SPACING.sm }} />
-      </View>
-      <SkeletonLoader width="100%" height={120} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
-      <View style={{ alignItems: 'center', marginBottom: SPACING.md }}>
-        <SkeletonLoader width={140} height={140} shape="circle" />
-      </View>
-      {[1, 2, 3].map((i) => (
-        <SkeletonLoader key={i} width="100%" height={56} shape="rect" style={{ marginBottom: SPACING.sm, borderRadius: RADIUS.lg }} />
-      ))}
+      <SkeletonLoader width="100%" height={124} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
+      <SkeletonLoader width="100%" height={96} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
+      <SkeletonLoader width="100%" height={172} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
+      <SkeletonLoader width="100%" height={124} shape="rect" style={{ borderRadius: RADIUS.xl }} />
     </View>
+  );
+
+  const renderErrorCard = () => {
+    if (!error) {
+      return null;
+    }
+
+    return (
+      <Card style={{ marginBottom: SPACING.md }}>
+        <Text style={inline.errorTitle}>Fuel is temporarily unavailable</Text>
+        <Text style={inline.copyMuted}>{error}</Text>
+        <AnimatedPressable style={inline.secondaryButton} onPress={() => void reload(true)}>
+          <Text style={inline.secondaryButtonText}>Try again</Text>
+        </AnimatedPressable>
+      </Card>
+    );
+  };
+
+  const renderMissionCards = () => {
+    const sessionPlan = viewModel.targets?.sessionFuelingPlan;
+    if (!sessionPlan || !viewModel.targets) {
+      return null;
+    }
+
+    return (
+      <>
+        <Card style={{ marginBottom: SPACING.md }}>
+          <Text style={inline.sectionEyebrow}>Today's fuel mission</Text>
+          <Text style={inline.cardHeadline}>
+            {viewModel.dailyMission?.fuelDirective.message ?? 'Stay on top of your food today.'}
+          </Text>
+          <Text style={inline.copyMuted}>
+            Priority: {sessionPlan.priorityLabel} · Water target {Math.round(viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0)} oz
+          </Text>
+          {viewModel.targets.safetyWarning !== 'none' ? (
+            <View style={inline.warningBanner}>
+              <Text style={inline.warningText}>
+                {quickVM.safetyWarning ?? 'The engine protected fuel availability for this day.'}
+              </Text>
+            </View>
+          ) : null}
+          {renderFuelWindow(sessionPlan.preSession, 'No dedicated pre-session fuel block today.')}
+          {sessionPlan.betweenSessions ? renderFuelWindow(sessionPlan.betweenSessions, '') : null}
+          {renderFuelWindow(sessionPlan.postSession, 'No dedicated recovery block today.')}
+        </Card>
+
+        <Card style={{ marginBottom: SPACING.md }}>
+          <Text style={inline.sectionEyebrow}>Why your targets moved</Text>
+          {viewModel.missionReasonLines.length > 0 ? (
+            viewModel.missionReasonLines.map((line) => (
+              <Text key={line} style={inline.noteLine}>
+                - {line}
+              </Text>
+            ))
+          ) : (
+            <Text style={inline.copyMuted}>Targets are following your base mission settings today.</Text>
+          )}
+        </Card>
+
+        <Card style={{ marginBottom: SPACING.md }}>
+          <Text style={inline.sectionEyebrow}>Hydration notes</Text>
+          {viewModel.targets.hydrationPlan.notes.map((note) => (
+            <Text key={note} style={inline.noteLine}>
+              - {note}
+            </Text>
+          ))}
+          <Text style={[inline.copyMuted, { marginTop: SPACING.sm }]}>
+            Sodium target: {viewModel.targets.hydrationPlan.sodiumTargetMg ?? 0} mg
+          </Text>
+        </Card>
+      </>
+    );
+  };
+
+  const renderQuickMode = () => {
+    const betweenSessions = viewModel.targets?.sessionFuelingPlan.betweenSessions ?? null;
+
+    return (
+      <>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}>
+          <Card style={{ marginBottom: SPACING.md }}>
+            <Text style={inline.cardHeadline}>{quickVM.fuelDirectiveHeadline}</Text>
+            {[quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
+              .filter(Boolean)
+              .map((cue) => (
+                <Text key={cue} style={inline.noteLine}>
+                  - {cue}
+                </Text>
+              ))}
+            {betweenSessions ? (
+              <Text style={inline.noteLine}>
+                - Between sessions: {betweenSessions.carbsG}g carbs and {betweenSessions.proteinG}g protein.
+              </Text>
+            ) : null}
+            <Text style={[inline.copyMuted, { marginTop: SPACING.sm }]}>
+              Meals logged: {viewModel.historySummary.mealCount} · Water logged: {viewModel.historySummary.waterOz} oz
+            </Text>
+          </Card>
+        </Animated.View>
+
+        {quickVM.quickIntentOptions.length > 0 ? (
+          <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}>
+            <Text style={inline.sectionEyebrow}>Coach-suggested log</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
+              {quickVM.quickIntentOptions.map((intent) => (
+                <AnimatedPressable
+                  key={intent.id}
+                  style={inline.intentCard}
+                  onPress={() => navigation.navigate('FoodSearch', {
+                    mealType: inferMealTypeForNow(),
+                    date: viewModel.date,
+                  })}
+                >
+                  <Text style={inline.intentTitle}>{intent.label}</Text>
+                  <Text style={inline.intentMacro}>~{intent.calTarget} cal</Text>
+                  <Text style={inline.copyMuted}>
+                    P {intent.proteinTarget}g · C {intent.carbTarget}g · F {intent.fatTarget}g
+                  </Text>
+                </AnimatedPressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        ) : null}
+
+        {renderMissionCards()}
+
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}>
+          <Card style={{ marginBottom: SPACING.md }}>
+            <MacroProgressBar
+              label="Calories"
+              current={viewModel.totals.calories}
+              target={viewModel.targets?.adjustedCalories ?? 0}
+              color={COLORS.chart.accent}
+              unit=" cal"
+            />
+            <MacroProgressBar
+              label="Protein"
+              current={viewModel.totals.protein}
+              target={viewModel.targets?.protein ?? 0}
+              color={COLORS.chart.protein}
+            />
+          </Card>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}>
+          <HydrationTracker
+            currentOz={viewModel.totals.water}
+            targetOz={viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0}
+            onQuickAdd={handleQuickAddWater}
+          />
+        </Animated.View>
+
+        <FuelRail title="Favorites" items={viewModel.favorites} onSelect={handleQuickFoodSelect} />
+        <FuelRail title="Recent" items={viewModel.recent} onSelect={handleQuickFoodSelect} />
+
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.slow).springify()}>
+          <AnimatedPressable onPress={() => setNutritionMode('detailed')}>
+            <Text style={[inline.linkText, { color: themeColor }]}>Open full tracker</Text>
+          </AnimatedPressable>
+        </Animated.View>
+      </>
+    );
+  };
+
+  const renderDetailedMode = () => (
+    <>
+      <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
+        <AnimatedPressable onPress={() => setNutritionMode('quick')}>
+          <Text style={[inline.linkText, { color: themeColor }]}>Back to quick log</Text>
+        </AnimatedPressable>
+      </Animated.View>
+
+      {viewModel.activeCutProtocol ? (
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()} style={styles.cutBanner}>
+          <View style={styles.cutBannerTop}>
+            <Text style={styles.cutBannerPhase}>
+              {viewModel.activeCutProtocol.cut_phase.replace(/_/g, ' ').toUpperCase()} · {viewModel.activeCutProtocol.days_to_weigh_in}d to weigh-in
+            </Text>
+            {viewModel.activeCutProtocol.is_refeed_day ? (
+              <View style={styles.cutBadge}>
+                <Text style={styles.cutBadgeText}>REFEED</Text>
+              </View>
+            ) : null}
+            {viewModel.activeCutProtocol.is_carb_cycle_high ? (
+              <View style={[styles.cutBadge, { backgroundColor: '#DBEAFE' }]}>
+                <Text style={[styles.cutBadgeText, { color: '#1D4ED8' }]}>HIGH CARB</Text>
+              </View>
+            ) : null}
+          </View>
+          {viewModel.activeCutProtocol.training_recommendation ? (
+            <Text style={styles.cutBannerInstruction}>{viewModel.activeCutProtocol.training_recommendation}</Text>
+          ) : null}
+          <AnimatedPressable onPress={() => navigation.navigate('WeightCutHome')}>
+            <Text style={[inline.linkText, { color: COLORS.text.primary }]}>Open weight-cut center</Text>
+          </AnimatedPressable>
+        </Animated.View>
+      ) : null}
+
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()} style={styles.calorieHero}>
+        <AnimatedNumber value={viewModel.totals.calories} style={styles.calorieNumber} />
+        <Text style={styles.calorieLabel}>
+          of {viewModel.targets?.adjustedCalories ?? 0} cal
+        </Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}>
+        <Card style={{ marginBottom: SPACING.md }}>
+          <MacroProgressBar
+            label="Calories"
+            current={viewModel.totals.calories}
+            target={viewModel.targets?.adjustedCalories ?? 0}
+            color={COLORS.chart.accent}
+            unit=" cal"
+          />
+          <MacroProgressBar
+            label="Protein"
+            current={viewModel.totals.protein}
+            target={viewModel.targets?.protein ?? 0}
+            color={COLORS.chart.protein}
+          />
+          <MacroProgressBar
+            label="Carbs"
+            current={viewModel.totals.carbs}
+            target={viewModel.targets?.carbs ?? 0}
+            color={COLORS.chart.carbs}
+          />
+          <MacroProgressBar
+            label="Fat"
+            current={viewModel.totals.fat}
+            target={viewModel.targets?.fat ?? 0}
+            color={COLORS.chart.fat}
+          />
+        </Card>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}>
+        <Card style={{ marginBottom: SPACING.md }}>
+          <MacroPieChart
+            protein={viewModel.totals.protein}
+            carbs={viewModel.totals.carbs}
+            fat={viewModel.totals.fat}
+            calories={viewModel.totals.calories}
+          />
+        </Card>
+      </Animated.View>
+
+      {renderMissionCards()}
+
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.slow).springify()}>
+        <HydrationTracker
+          currentOz={viewModel.totals.water}
+          targetOz={viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0}
+          onQuickAdd={handleQuickAddWater}
+        />
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 6).duration(ANIMATION.slow).springify()}>
+        <Card style={{ marginBottom: SPACING.md }}>
+          <View style={inline.hydrationHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}>
+              <IconWaterDrop size={18} color={COLORS.chart.water} />
+              <Text style={inline.sectionEyebrow}>Hydration history</Text>
+            </View>
+            <Text style={inline.copyMuted}>{viewModel.hydrationEntries.length} logs</Text>
+          </View>
+
+          <View style={inline.editorRow}>
+            <TextInput
+              style={inline.hydrationInput}
+              value={hydrationDraft}
+              onChangeText={setHydrationDraft}
+              keyboardType="decimal-pad"
+              placeholder="12"
+              placeholderTextColor={COLORS.text.tertiary}
+            />
+            <Text style={inline.copyMuted}>oz</Text>
+            <AnimatedPressable style={inline.secondaryButton} onPress={handleSaveHydrationDraft}>
+              <Text style={inline.secondaryButtonText}>
+                {editingHydrationId ? 'Update' : 'Add custom'}
+              </Text>
+            </AnimatedPressable>
+            {editingHydrationId ? (
+              <AnimatedPressable style={inline.secondaryButton} onPress={resetHydrationEditor}>
+                <Text style={inline.secondaryButtonText}>Cancel</Text>
+              </AnimatedPressable>
+            ) : null}
+          </View>
+
+          {viewModel.hydrationEntries.length > 0 ? (
+            viewModel.hydrationEntries.map((entry) => (
+              <View key={entry.id} style={inline.hydrationRow}>
+                <View>
+                  <Text style={inline.quickFoodTitle}>{entry.amountOz} oz</Text>
+                  <Text style={inline.quickFoodSubtitle}>
+                    {entry.createdAtLabel}{entry.isLatest ? ' · latest' : ''}
+                  </Text>
+                </View>
+                <View style={inline.rowActions}>
+                  <AnimatedPressable onPress={() => handleEditHydration(entry.id, entry.amountOz)}>
+                    <Text style={inline.linkText}>Edit</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable onPress={() => handleRemoveHydration(entry.id)}>
+                    <Text style={[inline.linkText, { color: COLORS.error }]}>Delete</Text>
+                  </AnimatedPressable>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={inline.copyMuted}>No hydration logs yet today.</Text>
+          )}
+        </Card>
+      </Animated.View>
+
+      {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealType[]).map((mealType, index) => (
+        <Animated.View
+          key={mealType}
+          entering={FadeInDown.delay(STAGGER_DELAY * (7 + index)).duration(ANIMATION.slow).springify()}
+        >
+          <MealSection
+            mealType={mealType}
+            foods={viewModel.meals[mealType]}
+            subtotalCalories={viewModel.meals[mealType].reduce((sum, entry) => sum + entry.loggedCalories, 0)}
+            onAddFood={() => navigation.navigate('FoodSearch', { mealType, date: viewModel.date })}
+            onSelectFood={handleMealEntrySelect}
+            onRemoveFood={handleRemoveFood}
+          />
+        </Animated.View>
+      ))}
+
+      <FuelRail title="Favorites" items={viewModel.favorites} onSelect={handleQuickFoodSelect} />
+      <FuelRail title="Recent" items={viewModel.recent} onSelect={handleQuickFoodSelect} />
+
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 11).duration(ANIMATION.slow).springify()} style={styles.quickActions}>
+        <AnimatedPressable
+          style={styles.quickActionButton}
+          onPress={() => navigation.navigate('BarcodeScan', { mealType: inferMealTypeForNow(), date: viewModel.date })}
+        >
+          <LinearGradient colors={[...GRADIENTS.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.quickActionGradient}>
+            <IconBarcode size={18} color={COLORS.text.inverse} />
+            <Text style={styles.quickActionTextGradient}>Scan barcode</Text>
+          </LinearGradient>
+        </AnimatedPressable>
+        <AnimatedPressable
+          style={styles.quickActionButton}
+          onPress={() => navigation.navigate('CustomFood')}
+        >
+          <LinearGradient colors={[...GRADIENTS.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.quickActionGradient}>
+            <Text style={styles.quickActionTextGradient}>Custom food</Text>
+          </LinearGradient>
+        </AnimatedPressable>
+      </Animated.View>
+
+      {viewModel.userId ? <NutritionAnalyticsSection userId={viewModel.userId} /> : null}
+    </>
   );
 
   return (
     <ScreenWrapper useSafeArea={true}>
-      <Animated.View
-        entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}
-        style={styles.header}
-      >
-        <ScreenHeader
-          kicker="Fuel"
-          title="Today's fuel"
-          subtitle={formatDate()}
-        >
+      <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()} style={styles.header}>
+        <ScreenHeader kicker="Fuel" title="Today's fuel" subtitle={viewModel.formattedDate}>
           <View style={styles.modeSwitch}>
             <AnimatedPressable
               style={[styles.modeChip, nutritionMode === 'quick' && { backgroundColor: COLORS.accent }]}
@@ -293,310 +629,193 @@ export function NutritionScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} />}
       >
-        {loading ? (
-          renderSkeleton()
-        ) : (
+        {loading ? renderLoading() : (
           <>
-            {/* Quick Fuel mode — default path */}
-            {nutritionMode === 'quick' && (() => {
-              const quickVM = buildNutritionQuickActionViewModel(dailyMission, totals);
-              const inferMealType = () => {
-                const h = new Date().getHours();
-                if (h < 11) return 'breakfast';
-                if (h < 14) return 'lunch';
-                if (h < 17) return 'snacks';
-                return 'dinner';
-              };
-              return (
-                <>
-                  {quickVM.safetyWarning ? (
-                    <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}>
-                      <View style={{
-                        backgroundColor: COLORS.error + '18',
-                        borderRadius: RADIUS.lg,
-                        borderWidth: 1,
-                        borderColor: COLORS.error + '40',
-                        padding: SPACING.md,
-                        marginBottom: SPACING.sm,
-                      }}>
-                        <Text style={{ fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.error, lineHeight: 19 }}>
-                          {quickVM.safetyWarning}
-                        </Text>
-                      </View>
-                    </Animated.View>
-                  ) : null}
-
-                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}>
-                    <Card style={{ marginBottom: SPACING.sm + 4 }}>
-                      <Text style={{ fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.sm }}>
-                        {quickVM.fuelDirectiveHeadline}
-                      </Text>
-                      {[quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
-                        .filter(Boolean)
-                        .map((cue, i) => (
-                          <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: i > 0 ? SPACING.sm : 0 }}>
-                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: themeColor, marginTop: 6 }} />
-                            <Text style={{ flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 }}>{cue}</Text>
-                          </View>
-                        ))
-                      }
-                    </Card>
-                  </Animated.View>
-
-                  {quickVM.quickIntentOptions.length > 0 ? (
-                    <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}>
-                      <Text style={{ fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: SPACING.sm, letterSpacing: 0.5 }}>
-                        COACH-SUGGESTED LOG
-                      </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
-                        {quickVM.quickIntentOptions.map((intent) => (
-                          <AnimatedPressable
-                            key={intent.id}
-                            style={{
-                              backgroundColor: COLORS.surface,
-                              borderRadius: RADIUS.xl,
-                              borderWidth: 1,
-                              borderColor: COLORS.borderLight,
-                              padding: SPACING.md,
-                              marginRight: SPACING.sm,
-                              minWidth: 140,
-                            }}
-                            onPress={() => navigation.navigate('FoodSearch', { mealType: inferMealType(), date: today })}
-                          >
-                            <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs }}>
-                              {intent.label}
-                            </Text>
-                            <Text style={{ fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.chart.accent }}>
-                              ~{intent.calTarget} cal
-                            </Text>
-                            <Text style={{ fontSize: 11, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 2 }}>
-                              P {intent.proteinTarget}g · C {intent.carbTarget}g · F {intent.fatTarget}g
-                            </Text>
-                          </AnimatedPressable>
-                        ))}
-                      </ScrollView>
-                    </Animated.View>
-                  ) : null}
-
-                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}>
-                    <Card style={{ marginBottom: SPACING.md }}>
-                      <MacroProgressBar
-                        label="Calories"
-                        current={totals.calories}
-                        target={targets?.adjustedCalories ?? 0}
-                        color={COLORS.chart.accent}
-                        unit=" cal"
-                      />
-                    </Card>
-                  </Animated.View>
-
-                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}>
-                    <HydrationTracker
-                      currentOz={waterCurrent}
-                      targetOz={waterTarget}
-                      onQuickAdd={handleQuickAddWater}
-                    />
-                  </Animated.View>
-
-                  <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.slow).springify()} style={{ alignItems: 'center', marginTop: SPACING.lg }}>
-                    <AnimatedPressable onPress={() => setNutritionMode('detailed')}>
-                      <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: themeColor }}>
-                        Open full tracker
-                      </Text>
-                    </AnimatedPressable>
-                  </Animated.View>
-                </>
-              );
-            })()}
-
-            {/* Detailed mode — full existing layout */}
-            {nutritionMode === 'detailed' && (
-              <>
-                <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
-                  <AnimatedPressable onPress={() => setNutritionMode('quick')}>
-                    <Text style={{ fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: themeColor }}>
-                      Back to quick log
-                    </Text>
-                  </AnimatedPressable>
-                </Animated.View>
-
-            {dailyMission && (
-              <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}>
-                <Card style={{ marginBottom: SPACING.sm + 4 }}>
-                  <Text style={styles.cardTitle}>Fuel Directive</Text>
-                  <Text style={styles.cardSubtitle}>{dailyMission.fuelDirective.message}</Text>
-                  <Text style={styles.cardMeta}>
-                    Pre {dailyMission.fuelDirective.preSessionCarbsG}g carbs · Post {dailyMission.fuelDirective.postSessionProteinG}g protein · Intra {dailyMission.fuelDirective.intraSessionHydrationOz} oz
-                  </Text>
-                  <Text style={styles.cardMeta}>{dailyMission.overrideState.note}</Text>
-                </Card>
-              </Animated.View>
-            )}
-
-            {cutProtocol && (
-              <Animated.View
-                entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()}
-                style={styles.cutBanner}
-              >
-                <View style={styles.cutBannerTop}>
-                  <Text style={styles.cutBannerPhase}>
-                    {cutProtocol.cut_phase.replace(/_/g, ' ').toUpperCase()} - Day {cutProtocol.days_to_weigh_in > 0 ? `${cutProtocol.days_to_weigh_in}d to weigh-in` : 'Weigh-in today'}
-                  </Text>
-                  {cutProtocol.is_refeed_day && (
-                    <View style={styles.cutBadge}>
-                      <Text style={styles.cutBadgeText}>REFEED</Text>
-                    </View>
-                  )}
-                  {cutProtocol.is_carb_cycle_high && !cutProtocol.is_refeed_day && (
-                    <View style={[styles.cutBadge, { backgroundColor: '#DBEAFE' }]}>
-                      <Text style={[styles.cutBadgeText, { color: '#1D4ED8' }]}>HIGH CARB</Text>
-                    </View>
-                  )}
-                </View>
-                {cutProtocol.sodium_instruction && (
-                  <Text style={styles.cutBannerInstruction}>{cutProtocol.sodium_instruction}</Text>
-                )}
-                {cutProtocol.fiber_instruction && (
-                  <Text style={styles.cutBannerInstruction}>{cutProtocol.fiber_instruction}</Text>
-                )}
-              </Animated.View>
-            )}
-
-            <Animated.View
-              entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}
-              style={styles.calorieHero}
-            >
-              <AnimatedNumber
-                value={totals.calories}
-                style={styles.calorieNumber}
-              />
-              <Text style={styles.calorieLabel}>
-                of {targets?.adjustedCalories ?? 0} cal
-              </Text>
-            </Animated.View>
-
-            <Animated.View
-              entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}
-            >
-              <Card style={{ marginBottom: SPACING.sm + 4 }}>
-                <MacroProgressBar
-                  label="Calories"
-                  current={totals.calories}
-                  target={targets?.adjustedCalories ?? 0}
-                  color={COLORS.chart.accent}
-                  unit=" cal"
-                />
-                <MacroProgressBar
-                  label="Protein"
-                  current={totals.protein}
-                  target={targets?.protein ?? 0}
-                  color={COLORS.chart.protein}
-                />
-                <MacroProgressBar
-                  label="Carbs"
-                  current={totals.carbs}
-                  target={targets?.carbs ?? 0}
-                  color={COLORS.chart.carbs}
-                />
-                <MacroProgressBar
-                  label="Fat"
-                  current={totals.fat}
-                  target={targets?.fat ?? 0}
-                  color={COLORS.chart.fat}
-                />
-              </Card>
-            </Animated.View>
-
-            <Animated.View
-              entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}
-            >
-              <Card style={{ marginBottom: SPACING.sm + 4 }}>
-                <MacroPieChart
-                  protein={totals.protein}
-                  carbs={totals.carbs}
-                  fat={totals.fat}
-                  calories={totals.calories}
-                />
-              </Card>
-            </Animated.View>
-
-            <Animated.View
-              entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}
-            >
-              <HydrationTracker
-                currentOz={waterCurrent}
-                targetOz={waterTarget}
-                onQuickAdd={handleQuickAddWater}
-              />
-            </Animated.View>
-
-            {MEAL_TYPES.map((mt, i) => (
-              <Animated.View
-                key={mt}
-                entering={FadeInDown.delay(STAGGER_DELAY * (5 + i)).duration(ANIMATION.slow).springify()}
-              >
-                <MealSection
-                  mealType={mt}
-                  foods={meals[mt]}
-                  subtotalCalories={getMealCalories(mt)}
-                  onAddFood={() =>
-                    navigation.navigate('FoodSearch', { mealType: mt, date: today })
-                  }
-                  onRemoveFood={handleRemoveFood}
-                />
-              </Animated.View>
-            ))}
-
-            <Animated.View
-              entering={FadeInDown.delay(STAGGER_DELAY * 9).duration(ANIMATION.slow).springify()}
-              style={styles.quickActions}
-            >
-              <AnimatedPressable
-                style={styles.quickActionButton}
-                onPress={() => {
-                  const hour = new Date().getHours();
-                  let inferredMeal: MealType = 'dinner';
-                  if (hour < 11) inferredMeal = 'breakfast';
-                  else if (hour < 14) inferredMeal = 'lunch';
-                  else if (hour < 17) inferredMeal = 'snacks';
-                  navigation.navigate('BarcodeScan', { mealType: inferredMeal, date: today });
-                }}
-              >
-                <LinearGradient
-                  colors={[...GRADIENTS.accent]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.quickActionGradient}
-                >
-                  <IconBarcode size={18} color={COLORS.text.inverse} />
-                  <Text style={styles.quickActionTextGradient}>Scan Barcode</Text>
-                </LinearGradient>
-              </AnimatedPressable>
-              <AnimatedPressable
-                style={styles.quickActionButton}
-                onPress={() => navigation.navigate('CustomFood')}
-              >
-                <LinearGradient
-                  colors={[...GRADIENTS.accent]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.quickActionGradient}
-                >
-                  <Text style={styles.quickActionTextGradient}>Custom Food</Text>
-                </LinearGradient>
-              </AnimatedPressable>
-            </Animated.View>
-
+            {renderErrorCard()}
+            {nutritionMode === 'quick' ? renderQuickMode() : renderDetailedMode()}
             <View style={{ height: SPACING.xxl + 40 }} />
-              </>
-            )}
           </>
         )}
       </ScrollView>
     </ScreenWrapper>
   );
 }
+
+const inline = {
+  cardHeadline: {
+    fontSize: 18,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    lineHeight: 24,
+    marginBottom: SPACING.sm,
+  },
+  sectionEyebrow: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.6,
+    marginBottom: SPACING.sm,
+  },
+  copyMuted: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+  },
+  noteLine: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+    marginTop: SPACING.xs,
+  },
+  warningBanner: {
+    backgroundColor: `${COLORS.error}18`,
+    borderColor: `${COLORS.error}40`,
+    borderWidth: 1,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  warningText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.error,
+    lineHeight: 19,
+  },
+  windowBlock: {
+    marginTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: SPACING.md,
+  },
+  windowHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  windowTitle: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    flex: 1,
+  },
+  windowTiming: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
+  },
+  intentCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.md,
+    marginRight: SPACING.sm,
+    minWidth: 160,
+  },
+  intentTitle: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
+  },
+  intentMacro: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.chart.accent,
+    marginBottom: 2,
+  },
+  linkText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
+  },
+  quickFoodCard: {
+    width: 172,
+    marginRight: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.md,
+  },
+  quickFoodTitle: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  quickFoodSubtitle: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    marginTop: 2,
+  },
+  quickFoodMeta: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.chart.protein,
+    marginTop: SPACING.sm,
+  },
+  hydrationHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: SPACING.sm,
+  },
+  editorRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+    flexWrap: 'wrap' as const,
+  },
+  hydrationInput: {
+    minWidth: 72,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.surface,
+  },
+  secondaryButtonText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  hydrationRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingVertical: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  rowActions: {
+    flexDirection: 'row' as const,
+    gap: SPACING.md,
+    alignItems: 'center' as const,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
+  },
+};

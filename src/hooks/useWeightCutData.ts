@@ -87,6 +87,8 @@ export function useWeightCutData(userId: string | null) {
     dizziness?: boolean;
     headache?: boolean;
     muscleCramps?: boolean;
+    postWeighInWeight?: number;
+    rehydrationWeightRegained?: number;
   }) => {
     if (!userId || !state.data?.activePlan) return;
     const planId = state.data.activePlan.id;
@@ -99,6 +101,8 @@ export function useWeightCutData(userId: string | null) {
       dizziness: fields.dizziness,
       headache: fields.headache,
       muscle_cramps: fields.muscleCramps,
+      post_weigh_in_weight: fields.postWeighInWeight,
+      rehydration_weight_regained: fields.rehydrationWeightRegained,
     });
     if (fields.cognitiveScore && !state.data.activePlan.baseline_cognitive_score) {
       await setBaselineCognitiveScore(planId, fields.cognitiveScore);
@@ -106,9 +110,8 @@ export function useWeightCutData(userId: string | null) {
     await refresh();
   }, [userId, state.data?.activePlan, refresh]);
 
-  const logCompliance = useCallback(async (adherence: 'followed' | 'partial' | 'missed') => {
+  const logCompliance = useCallback(async (adherence: 'followed' | 'partial' | 'missed', date: string = todayLocalDate()) => {
     if (!userId) return;
-    const date = todayLocalDate();
     await updateProtocolCompliance(userId, date, { adherence });
     await refresh();
   }, [userId, refresh]);
