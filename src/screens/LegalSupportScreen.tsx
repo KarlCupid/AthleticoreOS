@@ -5,18 +5,28 @@ import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
-import { APP_SUPPORT_EMAIL, APP_SUPPORT_MAILTO, PRIVACY_POLICY_SECTIONS } from '../config/appReview';
+import {
+  APP_PRIVACY_POLICY_URL,
+  APP_SUPPORT_EMAIL,
+  APP_SUPPORT_MAILTO,
+  APP_SUPPORT_URL,
+  PRIVACY_POLICY_SECTIONS,
+} from '../config/appReview';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
 export function LegalSupportScreen() {
-  const handleEmailSupport = async () => {
-    const supported = await Linking.canOpenURL(APP_SUPPORT_MAILTO);
+  const openUrl = async (url: string, fallbackTitle: string, fallbackBody: string) => {
+    const supported = await Linking.canOpenURL(url);
     if (!supported) {
-      Alert.alert('Support email', APP_SUPPORT_EMAIL);
+      Alert.alert(fallbackTitle, fallbackBody);
       return;
     }
 
-    await Linking.openURL(APP_SUPPORT_MAILTO);
+    await Linking.openURL(url);
+  };
+
+  const handleEmailSupport = async () => {
+    await openUrl(APP_SUPPORT_MAILTO, 'Support email', APP_SUPPORT_EMAIL);
   };
 
   return (
@@ -30,7 +40,7 @@ export function LegalSupportScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Card variant="glass" title="Privacy policy" subtitle="In-app summary for review and user access.">
+        <Card variant="glass" title="Privacy policy" subtitle="In-app summary plus the public policy link used for review.">
           <View style={styles.sectionStack}>
             {PRIVACY_POLICY_SECTIONS.map((section, index) => (
               <View
@@ -42,6 +52,14 @@ export function LegalSupportScreen() {
               </View>
             ))}
           </View>
+          {APP_PRIVACY_POLICY_URL ? (
+            <AnimatedPressable
+              style={[styles.primaryButton, styles.secondaryButton]}
+              onPress={() => void openUrl(APP_PRIVACY_POLICY_URL, 'Privacy policy', APP_PRIVACY_POLICY_URL)}
+            >
+              <Text style={[styles.primaryButtonText, styles.secondaryButtonText]}>Open full privacy policy</Text>
+            </AnimatedPressable>
+          ) : null}
         </Card>
 
         <Card
@@ -53,6 +71,14 @@ export function LegalSupportScreen() {
           <AnimatedPressable style={styles.primaryButton} onPress={() => void handleEmailSupport()}>
             <Text style={styles.primaryButtonText}>Email support</Text>
           </AnimatedPressable>
+          {APP_SUPPORT_URL ? (
+            <AnimatedPressable
+              style={[styles.primaryButton, styles.secondaryButton]}
+              onPress={() => void openUrl(APP_SUPPORT_URL, 'Support site', APP_SUPPORT_URL)}
+            >
+              <Text style={[styles.primaryButtonText, styles.secondaryButtonText]}>Open support site</Text>
+            </AnimatedPressable>
+          ) : null}
         </Card>
 
         <Card
@@ -130,5 +156,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.inverse,
+  },
+  secondaryButton: {
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  secondaryButtonText: {
+    color: COLORS.text.primary,
   },
 });

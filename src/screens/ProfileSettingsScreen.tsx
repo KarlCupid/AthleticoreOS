@@ -319,7 +319,7 @@ export function ProfileSettingsScreen() {
       setSnapshot((current) => current
         ? { ...current, guidanceState: { ...current.guidanceState, status: 'pending', introSeenAt: null } }
         : current);
-      Alert.alert('Setup guide reset', 'The guide will appear again on Dashboard.');
+      Alert.alert('Setup guide restarted', 'The guide will appear again on the Today screen.');
     } catch (resetError) {
       logError('ProfileSettingsScreen.handleReplaySetupGuide', resetError);
       Alert.alert('Error', 'Could not reset the setup guide right now.');
@@ -327,13 +327,17 @@ export function ProfileSettingsScreen() {
   }
 
   function handleVersionPress() {
+    if (!__DEV__) {
+      return;
+    }
+
     const now = Date.now();
     const nextCount = now - lastVersionTapAt < 1500 ? versionTapCount + 1 : 1;
 
     setVersionTapCount(nextCount);
     setLastVersionTapAt(now);
 
-    if (__DEV__ && nextCount >= 5) {
+    if (nextCount >= 5) {
       setVersionTapCount(0);
       setEngineReplayVisible(true);
     }
@@ -640,7 +644,7 @@ export function ProfileSettingsScreen() {
             </View>
 
             <AnimatedPressable style={styles.replayGuideButton} onPress={() => void handleReplaySetupGuide()}>
-              <Text style={styles.replayGuideButtonText}>Replay setup guide</Text>
+              <Text style={styles.replayGuideButtonText}>Restart setup guide</Text>
             </AnimatedPressable>
           </Card>
         </Animated.View>
@@ -665,7 +669,7 @@ export function ProfileSettingsScreen() {
         <View style={{ height: SPACING.xxl }} />
       </ScrollView>
 
-      <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} />
+      {__DEV__ ? <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} /> : null}
     </ScreenWrapper>
   );
 }

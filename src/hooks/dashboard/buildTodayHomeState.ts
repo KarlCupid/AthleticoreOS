@@ -60,7 +60,7 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
   const {
     acwr,
     hydration,
-    checkinDone,
+    checkinDone: _checkinDone,
     currentLevel,
     workoutPrescription,
     todayPlanEntry,

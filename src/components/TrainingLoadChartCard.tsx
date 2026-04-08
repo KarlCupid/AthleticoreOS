@@ -17,7 +17,7 @@ interface TrainingLoadChartCardProps {
     acwr: any;
 }
 
-export const TrainingLoadChartCard = memo(function TrainingLoadChartCard({ trainingLoadData, acute, chronic, acwr }: TrainingLoadChartCardProps) {
+export const TrainingLoadChartCard = memo(function TrainingLoadChartCard({ trainingLoadData, acute: _acute, chronic: _chronic, acwr }: TrainingLoadChartCardProps) {
     const screenWidth = Dimensions.get('window').width;
     const chartWidth = screenWidth - (SPACING.lg * 2);
 
