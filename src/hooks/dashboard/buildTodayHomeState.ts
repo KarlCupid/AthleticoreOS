@@ -37,7 +37,7 @@ export interface TodayHomeState {
     readinessScore: number;
     chronic: number;
     acute: number;
-    loadChart: { x: number; fitness: number; fatigue: number; readiness: number }[];
+    loadChart: { value: number; label: string; isToday?: boolean }[];
   };
   fuel: {
     actual: DashboardNutritionTotals;
@@ -74,10 +74,43 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
   } = input;
 
   const readinessScore = currentLevel === 'Prime' ? 92 : currentLevel === 'Caution' ? 58 : 25;
-  const readinessBar = checkinDone ? (currentLevel === 'Prime' ? 100 : currentLevel === 'Caution' ? 65 : 30) : 0;
   const isDemoMode = (acwr?.chronic || 0) === 0 && (acwr?.acute || 0) === 0;
   const chronic = isDemoMode ? 450 : (acwr?.chronic || 0);
   const acute = isDemoMode ? 380 : (acwr?.acute || 0);
+
+  // Derive 7-Day Trend data from ACWR results
+  const dailyLoads = acwr?.loadMetrics?.dailyLoads ?? [];
+  const last7Loads = dailyLoads.slice(-7);
+  
+  // Day names for the last 7 days
+  const today = new Date();
+  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  
+  let chartData: { value: number; label: string; isToday?: boolean }[] = [];
+
+  if (isDemoMode || last7Loads.length === 0) {
+    // Premium Demo Wave
+    chartData = [
+      { value: 420, label: 'S' },
+      { value: 380, label: 'M' },
+      { value: 510, label: 'T' },
+      { value: 290, label: 'W' },
+      { value: 460, label: 'T' },
+      { value: 580, label: 'F' },
+      { value: acute, label: 'S', isToday: true },
+    ];
+  } else {
+    chartData = last7Loads.map((load, i) => {
+      const date = new Date();
+      date.setDate(today.getDate() - (last7Loads.length - 1 - i));
+      return {
+        value: load,
+        label: dayNames[date.getDay()],
+        isToday: i === last7Loads.length - 1,
+      };
+    });
+  }
+
   const contextualActivities = (workoutPrescription || isGuidedEngineActivityType(primaryActivity?.activity_type))
     ? todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type))
     : todayActivities;
@@ -107,11 +140,7 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
       readinessScore,
       chronic,
       acute,
-      loadChart: [
-        { x: 0, fitness: chronic, fatigue: 0, readiness: 0 },
-        { x: 1, fitness: 0, fatigue: acute, readiness: 0 },
-        { x: 2, fitness: 0, fatigue: 0, readiness: readinessBar },
-      ],
+      loadChart: chartData,
     },
     fuel: {
       actual: actualNutrition,
