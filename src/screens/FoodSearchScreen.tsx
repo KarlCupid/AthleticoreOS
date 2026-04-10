@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,13 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { FoodSearchItem } from '../components/FoodSearchItem';
 import { FoodSearchMode, FoodSearchResult, MealType } from '../../lib/engine/types';
-import { classifyFoodQuery, FoodSearchSection, searchFoodCatalog } from '../../lib/api/nutritionService';
+import {
+  classifyFoodQuery,
+  filterFoodSearchSections,
+  FoodSearchSection,
+  searchFoodCatalog,
+  searchLocalFoodCatalog,
+} from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
 import { logError } from '../../lib/utils/logger';
 import { IconChevronLeft, IconBarcode } from '../components/icons';
@@ -42,9 +48,10 @@ export function FoodSearchScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'FoodSearch'>>();
   const { mealType, date } = route.params;
+  const activeRequestRef = useRef(0);
 
   const [query, setQuery] = useState('');
-  const [sections, setSections] = useState<FoodSearchSection[]>([]);
+  const [allSections, setAllSections] = useState<FoodSearchSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [searched, setSearched] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -60,8 +67,15 @@ export function FoodSearchScreen() {
     return searchMode;
   }, [query, searchMode]);
 
+  const sections = useMemo(
+    () => filterFoodSearchSections(allSections, activeMode),
+    [activeMode, allSections]
+  );
+
   const loadSections = useCallback(
-    async (nextQuery: string, nextMode: FoodSearchMode) => {
+    async (nextQuery: string) => {
+      const requestId = activeRequestRef.current + 1;
+      activeRequestRef.current = requestId;
       setLoading(true);
       setSearched(nextQuery.trim().length >= 2);
       setErrorMessage(null);
@@ -71,37 +85,55 @@ export function FoodSearchScreen() {
           data: { session },
         } = await supabase.auth.getSession();
         if (!session?.user) {
-          setSections([]);
+          if (activeRequestRef.current === requestId) {
+            setAllSections([]);
+            setLoading(false);
+          }
           return;
         }
 
-        const result = await searchFoodCatalog({
+        const trimmedQuery = nextQuery.trim();
+        const fullSearchPromise = searchFoodCatalog({
           userId: session.user.id,
           query: nextQuery,
-          mode: nextMode,
+          mode: 'recent',
         });
 
-        if (!manualModeOverride && nextQuery.trim().length >= 2) {
-          const suggestedMode: FoodSearchMode =
-            result.classifier === 'ingredient' ? 'ingredients' : 'packaged';
-          if (suggestedMode !== nextMode) {
-            setSearchMode(suggestedMode);
-            const refined = await searchFoodCatalog({
-              userId: session.user.id,
-              query: nextQuery,
-              mode: suggestedMode,
-            });
-            setSections(refined.sections);
-            return;
-          }
+        if (trimmedQuery.length >= 2) {
+          void searchLocalFoodCatalog({
+            userId: session.user.id,
+            query: nextQuery,
+          })
+            .then((localResult) => {
+              if (activeRequestRef.current !== requestId || localResult.sections.length === 0) {
+                return;
+              }
+
+              setAllSections(localResult.sections);
+              setLoading(false);
+            })
+            .catch(() => undefined);
         }
 
-        setSections(result.sections);
+        const result = await fullSearchPromise;
+        if (activeRequestRef.current !== requestId) {
+          return;
+        }
+
+        if (!manualModeOverride && trimmedQuery.length >= 2) {
+          setSearchMode(result.classifier === 'packaged' ? 'packaged' : 'ingredients');
+        }
+
+        setAllSections(result.sections);
+        setLoading(false);
       } catch (error) {
-        logError('FoodSearchScreen.loadSections', error, { query: nextQuery, mode: nextMode });
-        setSections([]);
+        if (activeRequestRef.current !== requestId) {
+          return;
+        }
+
+        logError('FoodSearchScreen.loadSections', error, { query: nextQuery, mode: 'recent' });
+        setAllSections([]);
         setErrorMessage('Search is unavailable right now. Check your connection and try again.');
-      } finally {
         setLoading(false);
       }
     },
@@ -110,11 +142,11 @@ export function FoodSearchScreen() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadSections(query, activeMode);
+      void loadSections(query);
     }, query.trim().length >= 2 ? 300 : 0);
 
     return () => clearTimeout(timeout);
-  }, [activeMode, loadSections, query]);
+  }, [loadSections, query]);
 
   const handleSelectFood = (item: FoodSearchResult) => {
     Keyboard.dismiss();
@@ -132,7 +164,7 @@ export function FoodSearchScreen() {
 
     if (!manualModeOverride) {
       const suggestedMode: FoodSearchMode =
-        classifyFoodQuery(text) === 'ingredient' ? 'ingredients' : 'packaged';
+        classifyFoodQuery(text) === 'packaged' ? 'packaged' : 'ingredients';
       setSearchMode(suggestedMode);
     }
   };
@@ -175,14 +207,16 @@ export function FoodSearchScreen() {
               : searched
                 ? activeMode === 'ingredients'
                   ? 'Try a simpler ingredient like banana, rice, or chicken breast.'
-                  : 'Try a brand name, product name, or scan the barcode.'
+                  : activeMode === 'packaged'
+                    ? 'Try a brand name, product name, or scan the barcode.'
+                    : 'Try a food you logged recently or switch to Ingredients or Packaged.'
                 : 'Use ingredients for whole foods or packaged for branded products.'}
           </Text>
           {errorMessage ? (
             <AnimatedPressable
               style={styles.retryButton}
               onPress={() => {
-                void loadSections(query, activeMode);
+                void loadSections(query);
               }}
             >
               <Text style={styles.retryButtonText}>Retry search</Text>
@@ -276,7 +310,7 @@ export function FoodSearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

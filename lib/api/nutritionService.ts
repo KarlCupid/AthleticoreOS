@@ -12,14 +12,19 @@ import {
   MealType,
 } from '../engine/types';
 import { todayLocalDate } from '../utils/date';
+import {
+  buildFoodSearchQueryProfile,
+  hasHighConfidenceBestMatch,
+  normalizeFoodSearchText,
+  scoreFoodSearchItem,
+  type FoodQueryClassification,
+} from './foodSearchSupport';
 import { searchPackagedFoods } from './openFoodFacts';
 import { hydrateIngredientFood, searchIngredientFoods } from './usdaFoodData';
 
 const today = todayLocalDate;
-const LOCAL_RESULT_LIMIT = 12;
+const LOCAL_RESULT_LIMIT = 16;
 const RECENT_SECTION_LIMIT = 8;
-
-export type FoodQueryClassification = 'barcode' | 'ingredient' | 'packaged';
 
 export interface FoodSearchSection {
   id: string;
@@ -34,6 +39,8 @@ export interface FoodLogSelection {
   grams: number | null;
   snapshot?: FoodNutritionSnapshot;
 }
+
+export { classifyFoodQuery, filterFoodSearchSections } from './foodSearchSupport';
 
 function buildLoggedNutritionValues(
   foodItem: FoodItemRow,
@@ -254,24 +261,7 @@ function toFoodItemInsert(
 }
 
 function buildResultIdentity(item: Pick<FoodSearchResult, 'source' | 'external_id' | 'off_barcode' | 'name'>): string {
-  return `${item.source}:${item.external_id ?? item.off_barcode ?? item.name.toLowerCase()}`;
-}
-
-function getLocalSearchScore(item: FoodItemRow, query: string): number {
-  const name = item.name.toLowerCase();
-  const brand = item.brand?.toLowerCase() ?? '';
-  const sourceType = normalizeSourceType(item);
-  let score = 0;
-
-  if (name === query) score += 120;
-  if (name.startsWith(query)) score += 80;
-  if (name.includes(query)) score += 45;
-  if (brand.startsWith(query)) score += 25;
-  if (brand.includes(query)) score += 10;
-  if (normalizeSource(item) === 'custom') score += 20;
-  if (sourceType === 'ingredient') score += 10;
-
-  return score;
+  return `${item.source}:${item.external_id ?? item.off_barcode ?? normalizeFoodSearchText(item.name)}`;
 }
 
 async function getFavoriteFoodIds(userId: string): Promise<Set<string>> {
@@ -285,20 +275,6 @@ async function getFavoriteFoodIds(userId: string): Promise<Set<string>> {
   }
 
   return new Set((data ?? []).map((row) => row.food_item_id));
-}
-
-function passesMode(result: FoodSearchResult, mode: FoodSearchMode): boolean {
-  if (mode === 'recent') {
-    return true;
-  }
-
-  if (result.source === 'custom') {
-    return true;
-  }
-
-  return mode === 'ingredients'
-    ? result.sourceType === 'ingredient'
-    : result.sourceType === 'packaged';
 }
 
 function resolveLoggedGrams(
@@ -348,32 +324,131 @@ function resolveLoggedMultiplier(
   return amountValue;
 }
 
-export function classifyFoodQuery(query: string): FoodQueryClassification {
-  const trimmed = query.trim().toLowerCase();
-  if (!trimmed) {
-    return 'ingredient';
+function sortFoodSearchItems(items: FoodSearchResult[], query: string): FoodSearchResult[] {
+  const profile = buildFoodSearchQueryProfile(query);
+  return [...items].sort((left, right) => {
+    const scoreDelta = scoreFoodSearchItem(right, profile) - scoreFoodSearchItem(left, profile);
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function buildFoodSearchSections(input: {
+  query: string;
+  localItems: FoodSearchResult[];
+  ingredientItems: FoodSearchResult[];
+  packagedItems: FoodSearchResult[];
+}): FoodSearchSection[] {
+  const profile = buildFoodSearchQueryProfile(input.query);
+  const localItems = sortFoodSearchItems(input.localItems, input.query);
+  const ingredientItems = sortFoodSearchItems(input.ingredientItems, input.query);
+  const packagedItems = sortFoodSearchItems(input.packagedItems, input.query);
+  const rankedItems = [...localItems, ...ingredientItems, ...packagedItems]
+    .map((item) => ({ item, score: scoreFoodSearchItem(item, profile) }))
+    .sort((left, right) => right.score - left.score);
+
+  let bestMatch: FoodSearchResult | null = null;
+  if (hasHighConfidenceBestMatch(rankedItems)) {
+    bestMatch = rankedItems[0].item;
   }
 
-  if (/^\d{8,14}$/.test(trimmed)) {
-    return 'barcode';
+  const removeBestMatch = (items: FoodSearchResult[]) =>
+    bestMatch ? items.filter((item) => item.key !== bestMatch!.key) : items;
+
+  const sections: FoodSearchSection[] = [];
+  if (bestMatch) {
+    sections.push({
+      id: 'best-match',
+      title: 'Best match',
+      items: [bestMatch],
+    });
   }
 
-  const packagedKeywords = [
-    'bar',
-    'shake',
-    'protein',
-    'quest',
-    'fairlife',
-    'gatorade',
-    'cereal',
-    'cookie',
-    'chips',
-    'drink',
-  ];
+  const localWithoutBest = removeBestMatch(localItems);
+  if (localWithoutBest.length > 0) {
+    sections.push({
+      id: 'local',
+      title: 'Your foods',
+      items: localWithoutBest,
+    });
+  }
 
-  return packagedKeywords.some((keyword) => trimmed.includes(keyword))
-    ? 'packaged'
-    : 'ingredient';
+  const ingredientWithoutBest = removeBestMatch(ingredientItems);
+  if (ingredientWithoutBest.length > 0) {
+    sections.push({
+      id: 'ingredients',
+      title: 'Ingredient results',
+      items: ingredientWithoutBest,
+    });
+  }
+
+  const packagedWithoutBest = removeBestMatch(packagedItems);
+  if (packagedWithoutBest.length > 0) {
+    sections.push({
+      id: 'packaged',
+      title: 'Packaged results',
+      items: packagedWithoutBest,
+    });
+  }
+
+  return sections;
+}
+
+function buildFavoriteIdSet(rows: FoodItemRow[]): Set<string> {
+  return new Set(rows.map((item) => item.id));
+}
+
+function buildRecentIdSet(rows: FoodItemRow[]): Set<string> {
+  return new Set(rows.map((item) => item.id));
+}
+
+function toLocalFoodSearchResults(
+  rows: FoodItemRow[],
+  favoriteIds: Set<string>,
+  recentIds: Set<string>,
+): FoodSearchResult[] {
+  return rows.map((item, index) =>
+    toFoodSearchResult(item, {
+      searchRank: index,
+      favorite: favoriteIds.has(item.id),
+      recent: recentIds.has(item.id),
+    })
+  );
+}
+
+function dedupeFoodSearchResults(items: FoodSearchResult[]): FoodSearchResult[] {
+  const seen = new Set<string>();
+  const results: FoodSearchResult[] = [];
+
+  for (const item of items) {
+    const identity = buildResultIdentity(item);
+    if (seen.has(identity)) {
+      continue;
+    }
+
+    seen.add(identity);
+    results.push(item);
+  }
+
+  return results;
+}
+
+async function cacheSearchResults(items: FoodSearchResult[]) {
+  await Promise.allSettled(
+    items
+      .filter((item) => item.external_id || item.off_barcode)
+      .slice(0, 8)
+      .map(async (item) => {
+        try {
+          await upsertFoodItem(item);
+        } catch {
+          // Ignore cache misses so the foreground search remains responsive.
+        }
+      })
+  );
 }
 
 /**
@@ -756,22 +831,56 @@ export async function searchLocalFoods(
   query: string,
   limit: number = 10
 ): Promise<FoodItemRow[]> {
-  const trimmed = query.trim().toLowerCase();
+  const profile = buildFoodSearchQueryProfile(query);
+  const searchTerm = profile.canonicalQuery || profile.normalizedQuery;
   const { data, error } = await supabase
     .from('food_items')
     .select('*')
     .or(`user_id.is.null,user_id.eq.${userId}`)
-    .ilike('name', `%${trimmed}%`)
+    .ilike('name', `%${searchTerm}%`)
     .order('created_at', { ascending: false })
-    .limit(limit * 3);
+    .limit(limit * 4);
 
   if (error) {
     throw error;
   }
 
-  return ((data ?? []) as FoodItemRow[])
-    .sort((left, right) => getLocalSearchScore(right, trimmed) - getLocalSearchScore(left, trimmed))
+  const rows = (data ?? []) as FoodItemRow[];
+  return rows
+    .sort((left, right) => {
+      const leftItem = toFoodSearchResult(left, { searchRank: 0 });
+      const rightItem = toFoodSearchResult(right, { searchRank: 0 });
+      return scoreFoodSearchItem(rightItem, profile) - scoreFoodSearchItem(leftItem, profile);
+    })
     .slice(0, limit);
+}
+
+export async function searchLocalFoodCatalog(input: {
+  userId: string;
+  query: string;
+}): Promise<{
+  classifier: FoodQueryClassification;
+  sections: FoodSearchSection[];
+}> {
+  const profile = buildFoodSearchQueryProfile(input.query);
+  const [favoriteIds, recentRows, localRows] = await Promise.all([
+    getFavoriteFoodIds(input.userId),
+    getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
+    searchLocalFoods(input.userId, input.query, LOCAL_RESULT_LIMIT),
+  ]);
+
+  const recentIds = buildRecentIdSet(recentRows);
+  const localItems = toLocalFoodSearchResults(localRows, favoriteIds, recentIds);
+
+  return {
+    classifier: profile.classifier,
+    sections: buildFoodSearchSections({
+      query: input.query,
+      localItems,
+      ingredientItems: [],
+      packagedItems: [],
+    }),
+  };
 }
 
 export async function searchFoodCatalog(input: {
@@ -783,7 +892,8 @@ export async function searchFoodCatalog(input: {
   sections: FoodSearchSection[];
 }> {
   const trimmed = input.query.trim();
-  const classifier = classifyFoodQuery(trimmed);
+  const profile = buildFoodSearchQueryProfile(trimmed);
+  const classifier = profile.classifier;
 
   if (trimmed.length < 2) {
     const [favoriteRows, recentRows] = await Promise.all([
@@ -791,7 +901,7 @@ export async function searchFoodCatalog(input: {
       getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
     ]);
 
-    const favoriteIds = new Set(favoriteRows.map((item) => item.id));
+    const favoriteIds = buildFavoriteIdSet(favoriteRows);
     const sections: FoodSearchSection[] = [];
 
     if (favoriteRows.length > 0) {
@@ -821,51 +931,39 @@ export async function searchFoodCatalog(input: {
     return { classifier, sections };
   }
 
-  const [favoriteIds, localRows] = await Promise.all([
+  const [favoriteIds, recentRows, localRows, ingredientItems, packagedResponse] = await Promise.all([
     getFavoriteFoodIds(input.userId),
+    getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
     searchLocalFoods(input.userId, trimmed, LOCAL_RESULT_LIMIT),
+    searchIngredientFoods(profile.canonicalQuery || trimmed, 8, profile),
+    searchPackagedFoods(profile.canonicalQuery || trimmed, 1, 24),
   ]);
-
-  const localItems = localRows
-    .map((item, index) =>
-      toFoodSearchResult(item, {
-        searchRank: index,
-        favorite: favoriteIds.has(item.id),
+  const recentIds = buildRecentIdSet(recentRows);
+  const localItems = toLocalFoodSearchResults(localRows, favoriteIds, recentIds);
+  const localIdentities = new Set(localItems.map(buildResultIdentity));
+  const dedupedIngredientItems = dedupeFoodSearchResults(
+    ingredientItems
+      .filter((item) => !localIdentities.has(buildResultIdentity(item)))
+      .map((item, index) => ({ ...item, searchRank: index + 100 }))
+  );
+  const ingredientIdentities = new Set(dedupedIngredientItems.map(buildResultIdentity));
+  const dedupedPackagedItems = dedupeFoodSearchResults(
+    packagedResponse.items
+      .filter((item) => {
+        const identity = buildResultIdentity(item);
+        return !localIdentities.has(identity) && !ingredientIdentities.has(identity);
       })
-    )
-    .filter((item) => passesMode(item, input.mode));
+      .map((item, index) => ({ ...item, searchRank: index + 200 }))
+  );
 
-  let externalItems: FoodSearchResult[] = [];
-  if (input.mode === 'ingredients') {
-    externalItems = await searchIngredientFoods(trimmed, 6);
-  } else if (input.mode === 'packaged') {
-    externalItems = (await searchPackagedFoods(trimmed, 1)).items;
-  }
+  const sections = buildFoodSearchSections({
+    query: trimmed,
+    localItems,
+    ingredientItems: dedupedIngredientItems,
+    packagedItems: dedupedPackagedItems,
+  });
 
-  const seen = new Set(localItems.map(buildResultIdentity));
-  const dedupedExternal = externalItems
-    .filter((item) => !seen.has(buildResultIdentity(item)))
-    .map((item, index) => ({
-      ...item,
-      searchRank: index + 100,
-    }));
-
-  const sections: FoodSearchSection[] = [];
-  if (localItems.length > 0) {
-    sections.push({
-      id: 'local',
-      title: 'Your foods',
-      items: localItems,
-    });
-  }
-
-  if (dedupedExternal.length > 0) {
-    sections.push({
-      id: 'external',
-      title: input.mode === 'ingredients' ? 'Ingredient results' : 'Packaged results',
-      items: dedupedExternal,
-    });
-  }
+  void cacheSearchResults([...dedupedIngredientItems, ...dedupedPackagedItems]);
 
   return { classifier, sections };
 }

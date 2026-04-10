@@ -98,13 +98,13 @@ function normalizeOFFProduct(product: OFFProduct, searchRank: number): FoodSearc
 
 export async function searchPackagedFoods(
   query: string,
-  page: number = 1
+  page: number = 1,
+  pageSize: number = 12
 ): Promise<{
   items: FoodSearchResult[];
   totalCount: number;
   hasMore: boolean;
 }> {
-  const pageSize = 12;
   const url = `${BASE_URL}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page=${page}&page_size=${pageSize}&fields=${SEARCH_FIELDS}`;
 
   const response = await fetch(url, {

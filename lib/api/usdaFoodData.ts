@@ -1,4 +1,5 @@
 import { FoodPortionOption, FoodSearchResult } from '../engine/types';
+import { buildFoodSearchQueryProfile, scoreIngredientCandidate, type FoodSearchQueryProfile } from './foodSearchSupport';
 import { calculateCaloriesFromMacros } from '../utils/nutrition';
 
 const USDA_API_BASE = 'https://api.nal.usda.gov/fdc/v1';
@@ -210,8 +211,10 @@ async function fetchUSDADetail(fdcId: number): Promise<USDAFoodDetail | null> {
 
 export async function searchIngredientFoods(
   query: string,
-  limit: number = 6
+  limit: number = 6,
+  profile?: FoodSearchQueryProfile,
 ): Promise<FoodSearchResult[]> {
+  const queryProfile = profile ?? buildFoodSearchQueryProfile(query);
   const apiKey = getUsdaApiKey();
   const response = await fetch(`${USDA_API_BASE}/foods/search?api_key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
@@ -219,8 +222,8 @@ export async function searchIngredientFoods(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      query,
-      pageSize: limit,
+      query: queryProfile.canonicalQuery || query,
+      pageSize: Math.max(limit * 3, 18),
       pageNumber: 1,
       dataType: USDA_INGREDIENT_TYPES,
     }),
@@ -233,7 +236,14 @@ export async function searchIngredientFoods(
   const data: USDASearchResponse = await response.json();
   const foods = (data.foods ?? [])
     .filter((food) => food.fdcId != null)
-    .sort((left, right) => getDataTypeRank(left.dataType) - getDataTypeRank(right.dataType))
+    .sort((left, right) => {
+      const scoreDelta = scoreIngredientCandidate(right, queryProfile) - scoreIngredientCandidate(left, queryProfile);
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      return getDataTypeRank(left.dataType) - getDataTypeRank(right.dataType);
+    })
     .slice(0, limit);
 
   const detailedFoods = await Promise.all(
