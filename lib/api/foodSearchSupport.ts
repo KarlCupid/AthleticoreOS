@@ -1,4 +1,5 @@
 import { FoodSearchMode, FoodSearchResult } from '../engine/types';
+import { COMMON_INGREDIENT_CATALOG, type CommonIngredientDefinition } from './commonIngredientCatalog';
 
 export type FoodQueryClassification = 'barcode' | 'ingredient' | 'packaged';
 
@@ -38,14 +39,39 @@ const STAPLE_ALIAS_MAP: Record<string, string[]> = {
   eggs: ['egg', 'whole egg', 'large egg'],
   banana: ['banana', 'medium banana'],
   bananas: ['banana', 'medium banana'],
+  oatmeal: ['oatmeal', 'oats', 'rolled oats', 'old fashioned oats'],
   rice: ['rice', 'white rice', 'cooked white rice'],
+  yogurt: ['yogurt', 'plain yogurt', 'greek yogurt'],
+  yogurts: ['yogurt', 'plain yogurt', 'greek yogurt'],
+  'greek yogurt': ['greek yogurt', 'plain greek yogurt', 'nonfat greek yogurt'],
+  strawberry: ['strawberry', 'strawberries'],
+  strawberries: ['strawberry', 'strawberries'],
+  kiwi: ['kiwi', 'kiwifruit'],
+  kiwis: ['kiwi', 'kiwifruit'],
   oats: ['oats', 'rolled oats', 'old fashioned oats'],
   oat: ['oats', 'rolled oats'],
-  chicken: ['chicken', 'chicken breast'],
+  pork: ['pork', 'pork loin', 'pork chop', 'pork tenderloin'],
+  'pork chop': ['pork', 'pork chop', 'pork loin'],
+  chicken: ['chicken', 'chicken breast', 'chicken thigh', 'chicken tenderloin', 'chicken drumstick'],
   'chicken breast': ['chicken breast', 'boneless skinless chicken breast'],
+  beef: ['beef', 'ground beef', 'lean ground beef'],
+  turkey: ['turkey', 'turkey breast', 'ground turkey'],
   apple: ['apple', 'medium apple'],
   apples: ['apple', 'medium apple'],
 };
+
+const COMMON_ALIAS_LOOKUP = (() => {
+  const lookup = new Map<string, string[]>();
+
+  for (const item of COMMON_INGREDIENT_CATALOG) {
+    const relatedTerms = uniqueNormalized([item.name, ...item.aliases]);
+    for (const term of relatedTerms) {
+      lookup.set(term, relatedTerms);
+    }
+  }
+
+  return lookup;
+})();
 
 export interface FoodSearchQueryProfile {
   rawQuery: string;
@@ -159,6 +185,33 @@ function matchesRecentFilter(item: FoodSearchRankable): boolean {
   return Boolean(item.user_id) || item.source === 'custom' || item.badges.includes('Favorite') || item.badges.includes('Recent');
 }
 
+function collectRelatedAliasTerms(values: string[]): string[] {
+  const normalizedValues = uniqueNormalized(values);
+  const relatedTerms = new Set<string>();
+
+  for (const value of normalizedValues) {
+    const directMatches = COMMON_ALIAS_LOOKUP.get(value);
+    if (directMatches) {
+      directMatches.forEach((term) => relatedTerms.add(term));
+    }
+
+    const stapleMatches = STAPLE_ALIAS_MAP[value] ?? STAPLE_ALIAS_MAP[singularizeWord(value)] ?? [];
+    stapleMatches.forEach((term) => relatedTerms.add(normalizeFoodSearchText(term)));
+
+    for (const [lookupValue, aliases] of COMMON_ALIAS_LOOKUP.entries()) {
+      if (
+        value === lookupValue ||
+        value.includes(lookupValue) ||
+        lookupValue.includes(value)
+      ) {
+        aliases.forEach((term) => relatedTerms.add(term));
+      }
+    }
+  }
+
+  return [...relatedTerms];
+}
+
 export function normalizeFoodSearchText(value: string): string {
   return value
     .toLowerCase()
@@ -177,15 +230,21 @@ export function buildFoodSearchQueryProfile(query: string): FoodSearchQueryProfi
   const tokens = normalizedQuery.split(' ').filter(Boolean);
   const singularTokens = tokens.map((token) => singularizeWord(token));
   const singularQuery = singularTokens.join(' ').trim();
+  const tokenTerms = uniqueNormalized([
+    ...tokens,
+    ...singularTokens,
+  ]);
   const stapleAliases = uniqueNormalized([
     ...(STAPLE_ALIAS_MAP[normalizedQuery] ?? []),
     ...(STAPLE_ALIAS_MAP[singularQuery] ?? []),
+    ...collectRelatedAliasTerms([normalizedQuery, singularQuery, ...tokenTerms]),
   ]);
   const canonicalQuery = (stapleAliases[0] ?? singularQuery) || normalizedQuery;
   const searchTerms = uniqueNormalized([
     normalizedQuery,
     singularQuery,
     canonicalQuery,
+    ...tokenTerms,
     ...stapleAliases,
   ]);
   const classifier = classifyNormalizedQuery(normalizedQuery, tokens);
@@ -200,6 +259,112 @@ export function buildFoodSearchQueryProfile(query: string): FoodSearchQueryProfi
     classifier,
     isShortGenericIngredient: classifier === 'ingredient' && tokens.length > 0 && tokens.length <= 2,
   };
+}
+
+function scoreFallbackDefinition(
+  fallback: CommonIngredientDefinition,
+  profile: FoodSearchQueryProfile,
+): number {
+  const candidates = [...fallback.aliases, fallback.name].map((value) => normalizeFoodSearchText(value));
+  const candidateSet = [...new Set(candidates)];
+  let score = fallback.priority ?? 0;
+
+  for (const candidate of candidateSet) {
+    score += getTextMatchScore(candidate, profile.searchTerms);
+
+    if (profile.searchTerms.some((term) => candidate.includes(term) || term.includes(candidate))) {
+      score += 28;
+    }
+
+    const candidateTokens = candidate.split(' ').filter(Boolean);
+    const overlap = profile.tokens.filter((token) => candidateTokens.includes(token)).length;
+    score += overlap * 18;
+  }
+
+  return score;
+}
+
+export function getStapleFallbackResults(profile: FoodSearchQueryProfile): FoodSearchResult[] {
+  return COMMON_INGREDIENT_CATALOG
+    .map((fallback) => ({ fallback, score: scoreFallbackDefinition(fallback, profile) }))
+    .filter(({ score }) => score >= 70)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 8)
+    .map(({ fallback }, index) => {
+      const portionOptions = [
+        {
+          id: 'serving',
+          label: fallback.servingLabel,
+          amount: 1,
+          unit: 'portion',
+          grams: fallback.servingGrams,
+          isDefault: true,
+        },
+        ...(fallback.extraPortions ?? []).map((portion) => ({
+          id: portion.id,
+          label: portion.label,
+          amount: portion.amount,
+          unit: portion.label.toLowerCase().includes('g') ? 'g' : 'portion',
+          grams: portion.grams,
+        })),
+      ];
+
+      return {
+        key: `fallback:${fallback.id}`,
+        user_id: null,
+        source: 'custom',
+        sourceType: 'ingredient',
+        external_id: `fallback:${fallback.id}`,
+        verified: true,
+        searchRank: 20 + index,
+        off_barcode: null,
+        name: fallback.name,
+        brand: null,
+        image_url: null,
+        baseAmount: 1,
+        baseUnit: 'portion',
+        gramsPerPortion: fallback.servingGrams,
+        portionOptions,
+        serving_size_g: fallback.servingGrams,
+        serving_label: fallback.servingLabel,
+        calories_per_serving: fallback.calories,
+        protein_per_serving: fallback.protein,
+        carbs_per_serving: fallback.carbs,
+        fat_per_serving: fallback.fat,
+        is_supplement: false,
+        badges: ['Ingredient', 'Verified'],
+      };
+    });
+}
+
+export function buildFoodSearchMetadataText(input: {
+  name: string;
+  brand?: string | null;
+  servingLabel?: string | null;
+  portionOptions?: Array<{ label?: string | null }>;
+}): string {
+  const normalizedName = normalizeFoodSearchText(input.name);
+  const nameTokens = normalizedName.split(' ').filter(Boolean);
+  const singularName = nameTokens.map((token) => singularizeWord(token)).join(' ').trim();
+  const portionLabels = (input.portionOptions ?? [])
+    .map((option) => option.label ?? '')
+    .filter(Boolean);
+  const aliasTerms = collectRelatedAliasTerms([
+    normalizedName,
+    singularName,
+    ...nameTokens,
+    ...portionLabels,
+  ]);
+
+  return uniqueNormalized([
+    input.name,
+    input.brand ?? '',
+    input.servingLabel ?? '',
+    ...portionLabels,
+    ...aliasTerms,
+    ...nameTokens,
+    ...nameTokens.map((token) => singularizeWord(token)),
+  ]).join(' ');
 }
 
 export function scoreFoodSearchItem(item: FoodSearchRankable, profile: FoodSearchQueryProfile): number {
@@ -305,6 +470,10 @@ export function filterFoodSearchSections(
   sections: Array<{ id: string; title: string; items: FoodSearchResult[] }>,
   mode: FoodSearchMode,
 ): Array<{ id: string; title: string; items: FoodSearchResult[] }> {
+  if (mode === 'all') {
+    return sections.filter((section) => section.items.length > 0);
+  }
+
   const filterItem = (item: FoodSearchResult) => {
     if (mode === 'ingredients') {
       return item.sourceType === 'ingredient';

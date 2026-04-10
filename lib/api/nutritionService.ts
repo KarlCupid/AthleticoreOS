@@ -13,7 +13,9 @@ import {
 } from '../engine/types';
 import { todayLocalDate } from '../utils/date';
 import {
+  buildFoodSearchMetadataText,
   buildFoodSearchQueryProfile,
+  getStapleFallbackResults,
   hasHighConfidenceBestMatch,
   normalizeFoodSearchText,
   scoreFoodSearchItem,
@@ -21,6 +23,7 @@ import {
 } from './foodSearchSupport';
 import { searchPackagedFoods } from './openFoodFacts';
 import { hydrateIngredientFood, searchIngredientFoods } from './usdaFoodData';
+import { logWarn } from '../utils/logger';
 
 const today = todayLocalDate;
 const LOCAL_RESULT_LIMIT = 16;
@@ -218,6 +221,14 @@ function toFoodItemInsert(
   item: FoodSearchResult | Omit<FoodItemRow, 'id'>
 ): Omit<FoodItemRow, 'id'> {
   if (!isFoodSearchResult(item)) {
+    const normalizedPortionOptions =
+      item.portion_options ?? buildFallbackPortionOptions({
+        servingLabel: item.serving_label,
+        servingSizeG: item.serving_size_g,
+        baseAmount: item.base_amount,
+        baseUnit: item.base_unit,
+      });
+
     return {
       ...item,
       source: item.source ?? normalizeSource(item),
@@ -227,12 +238,15 @@ function toFoodItemInsert(
       base_amount: item.base_amount ?? 1,
       base_unit: item.base_unit ?? 'serving',
       grams_per_portion: item.grams_per_portion ?? item.serving_size_g,
-      portion_options: item.portion_options ?? buildFallbackPortionOptions({
-        servingLabel: item.serving_label,
-        servingSizeG: item.serving_size_g,
-        baseAmount: item.base_amount,
-        baseUnit: item.base_unit,
-      }),
+      portion_options: normalizedPortionOptions,
+      search_text:
+        item.search_text ??
+        buildFoodSearchMetadataText({
+          name: item.name,
+          brand: item.brand,
+          servingLabel: item.serving_label,
+          portionOptions: normalizedPortionOptions,
+        }),
     };
   }
 
@@ -257,6 +271,12 @@ function toFoodItemInsert(
     fat_per_serving: item.fat_per_serving,
     is_supplement: item.is_supplement,
     image_url: item.image_url,
+    search_text: buildFoodSearchMetadataText({
+      name: item.name,
+      brand: item.brand,
+      servingLabel: item.serving_label,
+      portionOptions: item.portionOptions,
+    }),
   };
 }
 
@@ -439,7 +459,7 @@ function dedupeFoodSearchResults(items: FoodSearchResult[]): FoodSearchResult[] 
 async function cacheSearchResults(items: FoodSearchResult[]) {
   await Promise.allSettled(
     items
-      .filter((item) => item.external_id || item.off_barcode)
+      .filter((item) => item.source !== 'custom' && (item.external_id || item.off_barcode))
       .slice(0, 8)
       .map(async (item) => {
         try {
@@ -449,6 +469,59 @@ async function cacheSearchResults(items: FoodSearchResult[]) {
         }
       })
   );
+}
+
+function buildLocalSearchClause(terms: string[], columns: string[]): string {
+  return terms
+    .slice(0, 6)
+    .flatMap((term) => columns.map((column) => `${column}.ilike.%${term}%`))
+    .join(',');
+}
+
+async function searchLocalFoodsByColumns(
+  userId: string,
+  columns: string[],
+  profile: ReturnType<typeof buildFoodSearchQueryProfile>,
+  limit: number,
+): Promise<FoodItemRow[]> {
+  const searchClause = buildLocalSearchClause(profile.searchTerms, columns);
+  if (!searchClause) {
+    return [];
+  }
+
+  const [sharedResult, userResult] = await Promise.all([
+    supabase
+      .from('food_items')
+      .select('*')
+      .is('user_id', null)
+      .or(searchClause)
+      .order('created_at', { ascending: false })
+      .limit(limit * 3),
+    supabase
+      .from('food_items')
+      .select('*')
+      .eq('user_id', userId)
+      .or(searchClause)
+      .order('created_at', { ascending: false })
+      .limit(limit * 3),
+  ]);
+
+  if (sharedResult.error) {
+    throw sharedResult.error;
+  }
+
+  if (userResult.error) {
+    throw userResult.error;
+  }
+
+  const rows = [...((userResult.data ?? []) as FoodItemRow[]), ...((sharedResult.data ?? []) as FoodItemRow[])];
+  const dedupedRows = new Map<string, FoodItemRow>();
+
+  for (const row of rows) {
+    dedupedRows.set(row.id, row);
+  }
+
+  return [...dedupedRows.values()];
 }
 
 /**
@@ -832,20 +905,18 @@ export async function searchLocalFoods(
   limit: number = 10
 ): Promise<FoodItemRow[]> {
   const profile = buildFoodSearchQueryProfile(query);
-  const searchTerm = profile.canonicalQuery || profile.normalizedQuery;
-  const { data, error } = await supabase
-    .from('food_items')
-    .select('*')
-    .or(`user_id.is.null,user_id.eq.${userId}`)
-    .ilike('name', `%${searchTerm}%`)
-    .order('created_at', { ascending: false })
-    .limit(limit * 4);
+  let rows: FoodItemRow[] = [];
 
-  if (error) {
-    throw error;
+  try {
+    rows = await searchLocalFoodsByColumns(userId, ['search_text', 'name'], profile, limit);
+  } catch (error) {
+    logWarn('searchLocalFoods.searchTextFallback', error, {
+      query,
+      terms: profile.searchTerms.slice(0, 4),
+    });
+    rows = await searchLocalFoodsByColumns(userId, ['name'], profile, limit);
   }
 
-  const rows = (data ?? []) as FoodItemRow[];
   return rows
     .sort((left, right) => {
       const leftItem = toFoodSearchResult(left, { searchRank: 0 });
@@ -931,12 +1002,23 @@ export async function searchFoodCatalog(input: {
     return { classifier, sections };
   }
 
+  const ingredientLimit = profile.isShortGenericIngredient
+    ? profile.tokens.length === 1
+      ? 14
+      : 10
+    : 8;
   const [favoriteIds, recentRows, localRows, ingredientItems, packagedResponse] = await Promise.all([
     getFavoriteFoodIds(input.userId),
     getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
     searchLocalFoods(input.userId, trimmed, LOCAL_RESULT_LIMIT),
-    searchIngredientFoods(profile.canonicalQuery || trimmed, 8, profile),
-    searchPackagedFoods(profile.canonicalQuery || trimmed, 1, 24),
+    searchIngredientFoods(trimmed, ingredientLimit, profile).catch((error) => {
+      logWarn('searchFoodCatalog.ingredients', error, { query: trimmed });
+      return [] as FoodSearchResult[];
+    }),
+    searchPackagedFoods(trimmed, 1, 24).catch((error) => {
+      logWarn('searchFoodCatalog.packaged', error, { query: trimmed });
+      return { items: [], totalCount: 0, hasMore: false };
+    }),
   ]);
   const recentIds = buildRecentIdSet(recentRows);
   const localItems = toLocalFoodSearchResults(localRows, favoriteIds, recentIds);
@@ -955,12 +1037,42 @@ export async function searchFoodCatalog(input: {
       })
       .map((item, index) => ({ ...item, searchRank: index + 200 }))
   );
+  const packagedIdentities = new Set(dedupedPackagedItems.map(buildResultIdentity));
+  const stapleFallbackItems = dedupeFoodSearchResults(
+    getStapleFallbackResults(profile)
+      .filter((item) => {
+        const identity = buildResultIdentity(item);
+        return !localIdentities.has(identity) && !ingredientIdentities.has(identity) && !packagedIdentities.has(identity);
+      })
+      .map((item, index) => ({ ...item, searchRank: index + 60 }))
+  );
+  const desiredFallbackCount = profile.isShortGenericIngredient
+    ? profile.tokens.length === 1
+      ? 6
+      : 5
+    : 4;
+  const supplementalFallbackItems =
+    dedupedIngredientItems.length >= desiredFallbackCount
+      ? []
+      : stapleFallbackItems.slice(0, Math.min(desiredFallbackCount - dedupedIngredientItems.length, desiredFallbackCount));
 
   const sections = buildFoodSearchSections({
     query: trimmed,
     localItems,
-    ingredientItems: dedupedIngredientItems,
+    ingredientItems: [...dedupedIngredientItems, ...supplementalFallbackItems],
     packagedItems: dedupedPackagedItems,
+  });
+
+  const finalVisibleCount = sections.reduce((sum, section) => sum + section.items.length, 0);
+  console.info('[searchFoodCatalog.coverage]', {
+    query: trimmed,
+    mode: input.mode,
+    classifier,
+    localCount: localItems.length,
+    usdaCount: dedupedIngredientItems.length,
+    offCount: dedupedPackagedItems.length,
+    fallbackCount: supplementalFallbackItems.length,
+    finalVisibleCount,
   });
 
   void cacheSearchResults([...dedupedIngredientItems, ...dedupedPackagedItems]);
@@ -1012,6 +1124,12 @@ export async function createCustomFood(
       base_unit: 'serving',
       grams_per_portion: food.serving_size_g,
       portion_options: portionOptions,
+      search_text: buildFoodSearchMetadataText({
+        name: food.name,
+        brand: food.brand,
+        servingLabel: food.serving_label,
+        portionOptions,
+      }),
       ...food,
     })
     .select()

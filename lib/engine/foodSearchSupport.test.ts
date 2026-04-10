@@ -3,6 +3,7 @@ import {
   buildFoodSearchQueryProfile,
   classifyFoodQuery,
   filterFoodSearchSections,
+  getStapleFallbackResults,
   hasHighConfidenceBestMatch,
   scoreFoodSearchItem,
 } from '../api/foodSearchSupport.ts';
@@ -60,6 +61,54 @@ console.log('\n-- food search normalization --');
   assert('eggs search terms include whole egg alias', eggProfile.searchTerms.includes('whole egg'));
   assert('egg classifies as ingredient', classifyFoodQuery('egg') === 'ingredient');
   assert('quest bar classifies as packaged', classifyFoodQuery('quest bar') === 'packaged');
+  const fallbackEggs = getStapleFallbackResults(eggProfile);
+  assert('eggs has a staple fallback result', fallbackEggs.length > 0);
+  assert('eggs fallback is a large egg entry', fallbackEggs[0].serving_label === '1 large egg');
+
+  const riceProfile = buildFoodSearchQueryProfile('rice');
+  const fallbackRice = getStapleFallbackResults(riceProfile);
+  assert('rice has multiple staple fallback results', fallbackRice.length >= 4);
+  assert('rice fallback includes brown rice', fallbackRice.some((item) => item.name.toLowerCase().includes('brown rice')));
+  assert('rice fallback includes rice pudding', fallbackRice.some((item) => item.name.toLowerCase().includes('rice pudding')));
+
+  const yogurtProfile = buildFoodSearchQueryProfile('plain yogurt');
+  const fallbackYogurt = getStapleFallbackResults(yogurtProfile);
+  assert('plain yogurt resolves to fallback results', fallbackYogurt.length >= 2);
+  assert('plain yogurt includes greek yogurt', fallbackYogurt.some((item) => item.name.toLowerCase().includes('greek yogurt')));
+
+  const strawberryProfile = buildFoodSearchQueryProfile('strawberries');
+  const fallbackStrawberry = getStapleFallbackResults(strawberryProfile);
+  assert('strawberries resolves to fallback results', fallbackStrawberry.length >= 1);
+  assert('strawberries includes strawberry entry', fallbackStrawberry.some((item) => item.name.toLowerCase().includes('strawberr')));
+
+  const kiwiProfile = buildFoodSearchQueryProfile('kiwi');
+  const fallbackKiwi = getStapleFallbackResults(kiwiProfile);
+  assert('kiwi resolves to fallback results', fallbackKiwi.length >= 2);
+  assert('kiwi includes green kiwi', fallbackKiwi.some((item) => item.name.toLowerCase().includes('green')));
+
+  const mangoProfile = buildFoodSearchQueryProfile('mango');
+  const fallbackMango = getStapleFallbackResults(mangoProfile);
+  assert('mango resolves to fallback results', fallbackMango.length >= 1);
+  assert('mango includes mango entry', fallbackMango.some((item) => item.name.toLowerCase().includes('mango')));
+
+  const oatmealProfile = buildFoodSearchQueryProfile('oatmeal');
+  const fallbackOatmeal = getStapleFallbackResults(oatmealProfile);
+  assert('oatmeal canonicalizes into oats-style terms', oatmealProfile.searchTerms.includes('rolled oats'));
+  assert('oatmeal resolves to fallback results', fallbackOatmeal.length >= 1);
+
+  const groundPorkProfile = buildFoodSearchQueryProfile('ground pork');
+  assert('multi-word queries retain tokenized search terms', groundPorkProfile.searchTerms.includes('ground'));
+  assert('multi-word queries retain shared noun token', groundPorkProfile.searchTerms.includes('pork'));
+
+  const porkProfile = buildFoodSearchQueryProfile('pork');
+  const fallbackPork = getStapleFallbackResults(porkProfile);
+  assert('pork resolves to fallback results', fallbackPork.length >= 4);
+  assert('pork includes pork chop or pork loin', fallbackPork.some((item) => item.name.toLowerCase().includes('pork')));
+
+  const chickenProfile = buildFoodSearchQueryProfile('chicken');
+  const fallbackChicken = getStapleFallbackResults(chickenProfile);
+  assert('chicken resolves to multiple fallback cuts', fallbackChicken.length >= 4);
+  assert('chicken includes breast and thigh style entries', fallbackChicken.some((item) => item.name.toLowerCase().includes('thigh')));
 }
 
 console.log('\n-- food search ranking --');
@@ -152,6 +201,14 @@ console.log('\n-- best match and filtering --');
   ], 'ingredients');
   assert('ingredient filter keeps ingredient sections', sections.some((section) => section.id === 'ingredients'));
   assert('ingredient filter removes packaged section', !sections.some((section) => section.id === 'packaged'));
+
+  const allSections = filterFoodSearchSections([
+    { id: 'best-match', title: 'Best match', items: [ingredient] },
+    { id: 'ingredients', title: 'Ingredient results', items: [ingredient] },
+    { id: 'packaged', title: 'Packaged results', items: [packaged] },
+  ], 'all');
+  assert('all filter keeps ingredient sections', allSections.some((section) => section.id === 'ingredients'));
+  assert('all filter keeps packaged sections', allSections.some((section) => section.id === 'packaged'));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

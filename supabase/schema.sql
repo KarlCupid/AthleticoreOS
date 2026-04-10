@@ -157,6 +157,7 @@ CREATE TABLE public.food_items (
     off_barcode TEXT,
     name TEXT NOT NULL,
     brand TEXT,
+    search_text TEXT NOT NULL DEFAULT '',
     base_amount NUMERIC NOT NULL DEFAULT 1,
     base_unit TEXT NOT NULL DEFAULT 'serving',
     grams_per_portion NUMERIC,

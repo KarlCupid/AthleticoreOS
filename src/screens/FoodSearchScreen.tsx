@@ -16,7 +16,6 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { FoodSearchItem } from '../components/FoodSearchItem';
 import { FoodSearchMode, FoodSearchResult, MealType } from '../../lib/engine/types';
 import {
-  classifyFoodQuery,
   filterFoodSearchSections,
   FoodSearchSection,
   searchFoodCatalog,
@@ -31,6 +30,7 @@ type RouteParams = {
 };
 
 const SEARCH_MODE_LABELS: Record<FoodSearchMode, string> = {
+  all: 'All',
   recent: 'Recent',
   ingredients: 'Ingredients',
   packaged: 'Packaged',
@@ -55,7 +55,7 @@ export function FoodSearchScreen() {
   const [loading, setLoading] = useState(true);
   const [searched, setSearched] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [searchMode, setSearchMode] = useState<FoodSearchMode>('recent');
+  const [searchMode, setSearchMode] = useState<FoodSearchMode>('all');
   const [manualModeOverride, setManualModeOverride] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -64,8 +64,12 @@ export function FoodSearchScreen() {
       return 'recent';
     }
 
+    if (!manualModeOverride) {
+      return 'all';
+    }
+
     return searchMode;
-  }, [query, searchMode]);
+  }, [manualModeOverride, query, searchMode]);
 
   const sections = useMemo(
     () => filterFoodSearchSections(allSections, activeMode),
@@ -76,6 +80,7 @@ export function FoodSearchScreen() {
     async (nextQuery: string) => {
       const requestId = activeRequestRef.current + 1;
       activeRequestRef.current = requestId;
+      let hasPartialResults = false;
       setLoading(true);
       setSearched(nextQuery.trim().length >= 2);
       setErrorMessage(null);
@@ -93,10 +98,12 @@ export function FoodSearchScreen() {
         }
 
         const trimmedQuery = nextQuery.trim();
+        const requestMode: FoodSearchMode =
+          trimmedQuery.length < 2 ? 'recent' : manualModeOverride ? searchMode : 'all';
         const fullSearchPromise = searchFoodCatalog({
           userId: session.user.id,
           query: nextQuery,
-          mode: 'recent',
+          mode: requestMode,
         });
 
         if (trimmedQuery.length >= 2) {
@@ -109,6 +116,7 @@ export function FoodSearchScreen() {
                 return;
               }
 
+              hasPartialResults = true;
               setAllSections(localResult.sections);
               setLoading(false);
             })
@@ -120,10 +128,6 @@ export function FoodSearchScreen() {
           return;
         }
 
-        if (!manualModeOverride && trimmedQuery.length >= 2) {
-          setSearchMode(result.classifier === 'packaged' ? 'packaged' : 'ingredients');
-        }
-
         setAllSections(result.sections);
         setLoading(false);
       } catch (error) {
@@ -131,13 +135,17 @@ export function FoodSearchScreen() {
           return;
         }
 
-        logError('FoodSearchScreen.loadSections', error, { query: nextQuery, mode: 'recent' });
-        setAllSections([]);
+        const requestMode: FoodSearchMode =
+          nextQuery.trim().length < 2 ? 'recent' : manualModeOverride ? searchMode : 'all';
+        logError('FoodSearchScreen.loadSections', error, { query: nextQuery, mode: requestMode });
+        if (!hasPartialResults) {
+          setAllSections([]);
+        }
         setErrorMessage('Search is unavailable right now. Check your connection and try again.');
         setLoading(false);
       }
     },
-    [manualModeOverride]
+    [manualModeOverride, searchMode]
   );
 
   useEffect(() => {
@@ -158,14 +166,7 @@ export function FoodSearchScreen() {
 
     if (text.trim().length < 2) {
       setManualModeOverride(false);
-      setSearchMode('recent');
       return;
-    }
-
-    if (!manualModeOverride) {
-      const suggestedMode: FoodSearchMode =
-        classifyFoodQuery(text) === 'packaged' ? 'packaged' : 'ingredients';
-      setSearchMode(suggestedMode);
     }
   };
 
@@ -209,8 +210,10 @@ export function FoodSearchScreen() {
                   ? 'Try a simpler ingredient like banana, rice, or chicken breast.'
                   : activeMode === 'packaged'
                     ? 'Try a brand name, product name, or scan the barcode.'
-                    : 'Try a food you logged recently or switch to Ingredients or Packaged.'
-                : 'Use ingredients for whole foods or packaged for branded products.'}
+                    : activeMode === 'recent'
+                      ? 'Try a food you logged recently or switch to All for broader live results.'
+                      : 'Try a basic food like oatmeal, mango, pork, or yogurt.'
+                : 'Search All to see ingredients, packaged foods, and your saved items together.'}
           </Text>
           {errorMessage ? (
             <AnimatedPressable
@@ -285,7 +288,7 @@ export function FoodSearchScreen() {
         </View>
 
         <View style={styles.modeRow}>
-          {(['recent', 'ingredients', 'packaged'] as FoodSearchMode[]).map((mode) => {
+          {(['all', 'ingredients', 'packaged', 'recent'] as FoodSearchMode[]).map((mode) => {
             const active = activeMode === mode;
             return (
               <AnimatedPressable

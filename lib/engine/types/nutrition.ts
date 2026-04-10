@@ -15,7 +15,7 @@ export type FoodDataSource = 'usda' | 'open_food_facts' | 'custom';
 
 export type FoodSourceType = 'ingredient' | 'packaged' | 'custom';
 
-export type FoodSearchMode = 'recent' | 'ingredients' | 'packaged';
+export type FoodSearchMode = 'all' | 'recent' | 'ingredients' | 'packaged';
 
 export type FoodSearchBadge =
   | 'Ingredient'
@@ -252,6 +252,7 @@ export interface FoodItemRow {
   fat_per_serving: number;
   is_supplement: boolean;
   image_url: string | null;
+  search_text?: string | null;
 }
 
 export interface FoodLogRow {

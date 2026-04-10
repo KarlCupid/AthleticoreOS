@@ -1,9 +1,11 @@
 import { FoodPortionOption, FoodSearchResult } from '../engine/types';
 import { buildFoodSearchQueryProfile, scoreIngredientCandidate, type FoodSearchQueryProfile } from './foodSearchSupport';
 import { calculateCaloriesFromMacros } from '../utils/nutrition';
+import { logWarn } from '../utils/logger';
 
 const USDA_API_BASE = 'https://api.nal.usda.gov/fdc/v1';
 const USDA_INGREDIENT_TYPES = ['Foundation', 'SR Legacy', 'Survey (FNDDS)'];
+let hasWarnedAboutDemoKey = false;
 
 function getDataTypeRank(dataType: string | undefined): number {
   const normalized = dataType ?? '';
@@ -64,6 +66,22 @@ interface USDAFoodDetail {
 
 function getUsdaApiKey(): string {
   return process.env.EXPO_PUBLIC_USDA_API_KEY || 'DEMO_KEY';
+}
+
+function hasConfiguredUsdaApiKey(): boolean {
+  const apiKey = process.env.EXPO_PUBLIC_USDA_API_KEY?.trim();
+  return Boolean(apiKey && apiKey !== 'DEMO_KEY');
+}
+
+function warnIfUsingDemoKey(query: string): void {
+  if (hasConfiguredUsdaApiKey() || hasWarnedAboutDemoKey) {
+    return;
+  }
+
+  hasWarnedAboutDemoKey = true;
+  logWarn('usdaFoodData.apiKey', new Error('USDA search is using DEMO_KEY; ingredient coverage will be limited.'), {
+    query,
+  });
 }
 
 function getNutrientValue(
@@ -209,12 +227,11 @@ async function fetchUSDADetail(fdcId: number): Promise<USDAFoodDetail | null> {
   return response.json();
 }
 
-export async function searchIngredientFoods(
+async function searchUSDAFoodsByQuery(
   query: string,
-  limit: number = 6,
-  profile?: FoodSearchQueryProfile,
-): Promise<FoodSearchResult[]> {
-  const queryProfile = profile ?? buildFoodSearchQueryProfile(query);
+  pageSize: number,
+  pageNumber: number = 1,
+): Promise<USDASearchFood[]> {
   const apiKey = getUsdaApiKey();
   const response = await fetch(`${USDA_API_BASE}/foods/search?api_key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
@@ -222,9 +239,9 @@ export async function searchIngredientFoods(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      query: queryProfile.canonicalQuery || query,
-      pageSize: Math.max(limit * 3, 18),
-      pageNumber: 1,
+      query,
+      pageSize,
+      pageNumber,
       dataType: USDA_INGREDIENT_TYPES,
     }),
   });
@@ -234,8 +251,73 @@ export async function searchIngredientFoods(
   }
 
   const data: USDASearchResponse = await response.json();
-  const foods = (data.foods ?? [])
-    .filter((food) => food.fdcId != null)
+  return data.foods ?? [];
+}
+
+function buildUsdaQueryVariants(query: string, profile: FoodSearchQueryProfile): string[] {
+  const variants = [
+    query,
+    profile.normalizedQuery,
+    profile.canonicalQuery,
+    ...profile.searchTerms,
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const maxVariants = profile.isShortGenericIngredient && profile.tokens.length === 1 ? 6 : 4;
+  return [...new Set(variants)].slice(0, maxVariants);
+}
+
+function buildUsdaQueryPlans(profile: FoodSearchQueryProfile, queryVariants: string[]) {
+  if (!profile.isShortGenericIngredient) {
+    return queryVariants.map((variant) => ({ variant, pageNumber: 1 }));
+  }
+
+  const pageCount = profile.tokens.length === 1 ? 2 : 1;
+  const plannedVariants = queryVariants.slice(0, profile.tokens.length === 1 ? 4 : 3);
+
+  return plannedVariants.flatMap((variant) =>
+    Array.from({ length: pageCount }, (_, index) => ({
+      variant,
+      pageNumber: index + 1,
+    }))
+  );
+}
+
+export async function searchIngredientFoods(
+  query: string,
+  limit: number = 6,
+  profile?: FoodSearchQueryProfile,
+): Promise<FoodSearchResult[]> {
+  const queryProfile = profile ?? buildFoodSearchQueryProfile(query);
+  warnIfUsingDemoKey(query);
+
+  const queryVariants = buildUsdaQueryVariants(query, queryProfile);
+  const queryPlans = buildUsdaQueryPlans(queryProfile, queryVariants);
+  const pageSize = queryProfile.isShortGenericIngredient
+    ? Math.max(limit * 3, queryProfile.tokens.length === 1 ? 24 : 18)
+    : Math.max(limit * 2, 12);
+  const searchResponses = await Promise.all(
+    queryPlans.map(({ variant, pageNumber }) => searchUSDAFoodsByQuery(variant, pageSize, pageNumber))
+  );
+  const scoredCandidates = new Map<number, { food: USDASearchFood; score: number }>();
+
+  for (const foods of searchResponses) {
+    for (const food of foods) {
+      if (food.fdcId == null) {
+        continue;
+      }
+
+      const score = scoreIngredientCandidate(food, queryProfile);
+      const existing = scoredCandidates.get(food.fdcId);
+      if (!existing || score > existing.score) {
+        scoredCandidates.set(food.fdcId, { food, score });
+      }
+    }
+  }
+
+  const foods = [...scoredCandidates.values()]
+    .map(({ food }) => food)
     .sort((left, right) => {
       const scoreDelta = scoreIngredientCandidate(right, queryProfile) - scoreIngredientCandidate(left, queryProfile);
       if (scoreDelta !== 0) {
