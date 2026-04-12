@@ -12,18 +12,18 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { supabase } from '../../lib/supabase';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail';
+import { useWorkoutDetailController } from '../hooks/useWorkoutDetailController';
 import type { TrainStackParamList } from '../navigation/types';
 import type {
-    WorkoutFocus,
     WorkoutSessionSection,
     SectionExercisePrescription,
     ExerciseSubstitution,
     ExerciseLibraryRow,
 } from '../../lib/engine/types';
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
+import { formatShortWeekday } from '../../lib/utils/date';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteProp = import('@react-navigation/native').RouteProp<TrainStackParamList, 'WorkoutDetail'>;
@@ -39,16 +39,6 @@ const SECTION_ICONS: Record<string, string> = {
     durability: '🛡',
     finisher: '🔥',
     cooldown: '🌀',
-};
-
-const FOCUS_LABELS: Record<WorkoutFocus, string> = {
-    lower: 'Lower Body',
-    upper_push: 'Upper Push',
-    upper_pull: 'Upper Pull',
-    full_body: 'Full Body',
-    conditioning: 'Conditioning',
-    sport_specific: 'Sport Specific',
-    recovery: 'Recovery',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -70,13 +60,6 @@ const READINESS_COLORS: Record<string, string> = {
     Caution: COLORS.readiness.caution,
     Depleted: COLORS.readiness.depleted,
 };
-
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function formatDayLabel(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
-    return DAY_NAMES[d.getDay()];
-}
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
@@ -103,6 +86,22 @@ export function WorkoutDetailScreen() {
         markSkipped,
         restore,
     } = useWorkoutDetail();
+    const {
+        handleStartWorkout,
+        handleSkipDay,
+        handleRestore,
+        handleReschedule: controllerHandleReschedule,
+        handleOptionsPress,
+    } = useWorkoutDetailController({
+        navigation,
+        entry,
+        readinessState,
+        phase,
+        fitnessLevel,
+        markSkipped,
+        restore,
+        regenerate,
+    });
 
     useFocusEffect(
         useCallback(() => {
@@ -112,82 +111,9 @@ export function WorkoutDetailScreen() {
 
     // ─── Handlers ────────────────────────────────────────────────────────────
 
-    function handleStartWorkout() {
-        if (!entry) return;
-        navigation.navigate('GuidedWorkout', {
-            weeklyPlanEntryId: entry.id,
-            scheduledActivityId: entry.scheduled_activity_id ?? undefined,
-            focus: entry.focus ?? undefined,
-            availableMinutes: entry.estimated_duration_min,
-            readinessState,
-            phase,
-            fitnessLevel,
-            trainingDate: entry.date,
-            isDeloadWeek: entry.is_deload,
-        });
-    }
-
-    function handleSkipDay() {
-        Alert.alert('Skip Day?', 'This session will be marked as skipped.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Skip', style: 'destructive', onPress: () => void markSkipped() },
-        ]);
-    }
-
-    function handleRestore() {
-        void restore();
-    }
-
     function handleReschedule() {
         // Navigate back — parent can use rescheduleDay from useWeeklyPlan
-        navigation.goBack();
-    }
-
-    async function handleOptionsPress() {
-        const { data: { session } } = await supabase.auth.getSession();
-        const userId = session?.user?.id;
-        if (!userId || !entry) return;
-
-        Alert.alert('Workout Options', '', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Regenerate Workout',
-                onPress: () => {
-                    Alert.alert(
-                        'Regenerate?',
-                        'This will replace the current workout with a newly generated one.',
-                        [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Regenerate', onPress: () => void regenerate(userId) },
-                        ],
-                    );
-                },
-            },
-            {
-                text: 'Change Focus',
-                onPress: () => showFocusPicker(userId),
-            },
-            {
-                text: 'Mark as Rest Day',
-                style: 'destructive',
-                onPress: handleSkipDay,
-            },
-        ]);
-    }
-
-    function showFocusPicker(userId: string) {
-        const focusOptions: WorkoutFocus[] = ['lower', 'upper_push', 'upper_pull', 'full_body', 'conditioning', 'sport_specific'];
-        Alert.alert(
-            'Choose Focus',
-            'Select a new focus for this session.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                ...focusOptions.map(f => ({
-                    text: FOCUS_LABELS[f],
-                    onPress: () => void regenerate(userId, f),
-                })),
-            ],
-        );
+        controllerHandleReschedule();
     }
 
     // ─── Derived display data ─────────────────────────────────────────────────
@@ -200,7 +126,7 @@ export function WorkoutDetailScreen() {
         focus,
         prescription,
     });
-    const dayLabel = date ? formatDayLabel(date) : '';
+    const dayLabel = date ? formatShortWeekday(date) : '';
     const durationMin = entry?.estimated_duration_min ?? 0;
     const intensity = entry?.target_intensity ?? null;
     const sessionGoal = prescription?.sessionGoal ?? prescription?.sessionIntent ?? null;

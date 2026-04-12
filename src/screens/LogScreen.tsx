@@ -21,20 +21,23 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { NutritionCheckIn, type NutritionStatus } from '../components/NutritionCheckIn';
+import {
+  useLogScreenData,
+  type NutritionActualDraft,
+  type NutritionTrackerState,
+} from '../hooks/useLogScreenData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { supabase } from '../../lib/supabase';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { generateDailyCoachDebrief } from '../../lib/engine/calculateDailyCoachDebrief';
 import type {
   CoachingFocus,
   DailyCoachDebrief,
   NutritionBarrier,
-  Phase,
   PrimaryLimiter,
 } from '../../lib/engine/types';
-import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
-import { logError, logWarn } from '../../lib/utils/logger';
+import { logError } from '../../lib/utils/logger';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
 type Step = 'recovery' | 'nutrition' | 'debrief';
@@ -69,61 +72,6 @@ const NUTRITION_METRICS: Array<{ key: keyof NutritionTrackerState['actual']; lab
   { key: 'carbs', label: 'Carbs', unit: 'g' },
   { key: 'fat', label: 'Fat', unit: 'g' },
 ];
-
-interface DailyCheckinRow {
-  morning_weight: number | null;
-  sleep_quality: number | null;
-  readiness: number | null;
-  macro_adherence: NutritionStatus;
-  stress_level?: number | null;
-  soreness_level?: number | null;
-  confidence_level?: number | null;
-  primary_limiter?: PrimaryLimiter | null;
-  nutrition_barrier?: NutritionBarrier | null;
-  coaching_focus?: CoachingFocus | null;
-  coach_debrief?: unknown;
-}
-
-interface ActivityLoadRow {
-  duration_min: number | null;
-  intensity: number | null;
-}
-
-interface MacroLedgerRow {
-  prescribed_calories: number | null;
-  prescribed_protein: number | null;
-  prescribed_carbs: number | null;
-  prescribed_fats: number | null;
-  actual_calories: number | null;
-  actual_protein: number | null;
-  actual_carbs: number | null;
-  actual_fat: number | null;
-}
-
-interface DailyNutritionSummaryRow {
-  total_calories: number | null;
-  total_protein: number | null;
-  total_carbs: number | null;
-  total_fat: number | null;
-  total_water_oz: number | null;
-  meal_count: number | null;
-}
-
-interface NutritionTrackerState {
-  targets: { calories: number; protein: number; carbs: number; fat: number } | null;
-  actual: { calories: number; protein: number; carbs: number; fat: number };
-  waterOz: number;
-  mealCount: number;
-}
-
-const EMPTY_TRACKER_STATE: NutritionTrackerState = {
-  targets: null,
-  actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  waterOz: 0,
-  mealCount: 0,
-};
-
-type NutritionActualDraft = Record<keyof NutritionTrackerState['actual'], string>;
 
 function roundPercent(actual: number, target: number): number {
   if (!Number.isFinite(target) || target <= 0) return 0;
@@ -183,22 +131,6 @@ function assessTrackedNutrition(
   return { status, reason };
 }
 
-function isDailyCoachDebrief(value: unknown): value is DailyCoachDebrief {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.headline === 'string' && Array.isArray(v.action_steps) && typeof v.education_topic === 'string';
-}
-
-function isPrimaryLimiter(value: unknown): value is PrimaryLimiter {
-  return PRIMARY_LIMITER_OPTIONS.some((option) => option.value === value);
-}
-function isNutritionBarrier(value: unknown): value is NutritionBarrier {
-  return NUTRITION_BARRIER_OPTIONS.some((option) => option.value === value);
-}
-function isCoachingFocus(value: unknown): value is CoachingFocus {
-  return COACHING_FOCUS_OPTIONS.some((option) => option.value === value);
-}
-
 function sliderHint(field: 'sleep' | 'readiness' | 'stress' | 'soreness' | 'confidence', value: number): string {
   const hintsByField: Record<'sleep' | 'readiness' | 'stress' | 'soreness' | 'confidence', string[]> = {
     sleep: [
@@ -247,6 +179,7 @@ export function LogScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<any>();
   const { themeColor, lightTint, gradient } = useReadinessTheme();
+  const logScreenData = useLogScreenData();
 
   const [step, setStep] = useState<Step>('recovery');
   const [weight, setWeight] = useState('');
@@ -260,16 +193,7 @@ export function LogScreen() {
   const [nutritionBarrier, setNutritionBarrier] = useState<NutritionBarrier>('none');
   const [coachingFocus, setCoachingFocus] = useState<CoachingFocus>('recovery');
   const [savedDebrief, setSavedDebrief] = useState<DailyCoachDebrief | null>(null);
-  const [previousDebrief, setPreviousDebrief] = useState<{ education_topic?: string | null; risk_flags?: string[] | null; primary_limiter?: PrimaryLimiter | null } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [loadingContext, setLoadingContext] = useState(true);
-  const [todayTrainingLoad, setTodayTrainingLoad] = useState<{ totalMinutes: number; weightedIntensity: number; totalLoad: number; sessionCount: number }>({
-    totalMinutes: 0,
-    weightedIntensity: 0,
-    totalLoad: 0,
-    sessionCount: 0,
-  });
-  const [nutritionTracker, setNutritionTracker] = useState<NutritionTrackerState>(EMPTY_TRACKER_STATE);
   const [nutritionActualDraft, setNutritionActualDraft] = useState<NutritionActualDraft>({
     calories: '0',
     protein: '0',
@@ -278,27 +202,17 @@ export function LogScreen() {
   });
   const [nutritionWaterDraft, setNutritionWaterDraft] = useState('0');
   const [hasManualNutritionEdits, setHasManualNutritionEdits] = useState(false);
-  const [acwrContext, setAcwrContext] = useState<{ ratio: number; status: 'safe' | 'caution' | 'redline'; acute: number; chronic: number; phase: Phase; isOnActiveCut: boolean }>({
-    ratio: 0,
-    status: 'safe',
-    acute: 0,
-    chronic: 0,
-    phase: 'off-season',
-    isOnActiveCut: false,
-  });
-
-  const logDate = todayLocalDate();
-  const todayFormatted = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  const nutritionDateObj = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d;
-  }, [logDate]);
-  const nutritionLogDate = useMemo(() => formatLocalDate(nutritionDateObj), [nutritionDateObj]);
-  const nutritionFormatted = useMemo(
-    () => nutritionDateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-    [nutritionDateObj],
-  );
+  const {
+    loadingContext,
+    logDate,
+    nutritionLogDate,
+    nutritionFormatted,
+    todayFormatted,
+    todayTrainingLoad,
+    previousDebrief,
+    acwrContext,
+  } = logScreenData;
+  const nutritionTracker = logScreenData.nutritionTracker;
   const stepIndex = STEPS.indexOf(step);
   const hasRecoveryCoreInput = weight.trim().length > 0 || sleep !== 3 || readiness !== 3;
   const effectiveNutritionActual = useMemo(
@@ -320,152 +234,21 @@ export function LogScreen() {
   );
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user) return;
-        const userId = userData.user.id;
-
-        const [todayRes, yesterdayRes, activityRes, ledgerRes, nutritionSummaryRes] = await Promise.all([
-          supabase.from('daily_checkins').select('*').eq('user_id', userId).eq('date', logDate).maybeSingle(),
-          supabase.from('daily_checkins').select('coach_debrief,primary_limiter').eq('user_id', userId).eq('date', nutritionLogDate).maybeSingle(),
-          supabase.from('activity_log').select('duration_min,intensity').eq('user_id', userId).eq('date', logDate),
-          supabase
-            .from('macro_ledger')
-            .select('prescribed_calories,prescribed_protein,prescribed_carbs,prescribed_fats,actual_calories,actual_protein,actual_carbs,actual_fat')
-            .eq('user_id', userId)
-            .eq('date', nutritionLogDate)
-            .maybeSingle(),
-          supabase
-            .from('daily_nutrition_summary')
-            .select('total_calories,total_protein,total_carbs,total_fat,total_water_oz,meal_count')
-            .eq('user_id', userId)
-            .eq('date', nutritionLogDate)
-            .maybeSingle(),
-        ]);
-
-        const engineState = await getDailyEngineState(userId, logDate);
-        const acwr = {
-          ratio: engineState.acwr.ratio,
-          status: engineState.acwr.status,
-          acute: engineState.acwr.acute,
-          chronic: engineState.acwr.chronic,
-        };
-
-        if (!mounted) return;
-        const todayCheckin = (todayRes.data as DailyCheckinRow | null) ?? null;
-        if (todayCheckin) {
-          setWeight(todayCheckin.morning_weight != null ? String(todayCheckin.morning_weight) : '');
-          setSleep(todayCheckin.sleep_quality ?? 3);
-          setReadiness(todayCheckin.readiness ?? 3);
-          setStressLevel(todayCheckin.stress_level ?? 3);
-          setSorenessLevel(todayCheckin.soreness_level ?? 3);
-          setConfidenceLevel(todayCheckin.confidence_level ?? 3);
-          setMacroAdherence(todayCheckin.macro_adherence ?? null);
-          setPrimaryLimiter(isPrimaryLimiter(todayCheckin.primary_limiter) ? todayCheckin.primary_limiter : 'none');
-          setNutritionBarrier(isNutritionBarrier(todayCheckin.nutrition_barrier) ? todayCheckin.nutrition_barrier : 'none');
-          setCoachingFocus(isCoachingFocus(todayCheckin.coaching_focus) ? todayCheckin.coaching_focus : 'recovery');
-          if (isDailyCoachDebrief(todayCheckin.coach_debrief)) setSavedDebrief(todayCheckin.coach_debrief);
-        }
-
-        const prior = yesterdayRes.data as { coach_debrief?: unknown; primary_limiter?: PrimaryLimiter | null } | null;
-        if (prior?.coach_debrief && typeof prior.coach_debrief === 'object') {
-          const parsed = prior.coach_debrief as Record<string, unknown>;
-          setPreviousDebrief({
-            education_topic: typeof parsed.education_topic === 'string' ? parsed.education_topic : null,
-            risk_flags: Array.isArray(parsed.risk_flags) ? parsed.risk_flags.filter((entry): entry is string => typeof entry === 'string') : null,
-            primary_limiter: isPrimaryLimiter(prior.primary_limiter) ? prior.primary_limiter : null,
-          });
-        }
-
-        if (activityRes.error) {
-          logWarn('LogScreen.loadContext.activityLog', activityRes.error, { targetDate: logDate });
-        }
-        const activityRows = (activityRes.data as ActivityLoadRow[] | null) ?? [];
-        const validLoadRows = activityRows.filter((row) =>
-          Number.isFinite(row.duration_min) && row.duration_min != null && row.duration_min > 0 &&
-          Number.isFinite(row.intensity) && row.intensity != null && row.intensity > 0,
-        );
-        const totalMinutes = validLoadRows.reduce((sum, row) => sum + (row.duration_min as number), 0);
-        const weightedIntensity = totalMinutes > 0
-          ? Math.round(validLoadRows.reduce((sum, row) => sum + ((row.duration_min as number) * (row.intensity as number)), 0) / totalMinutes)
-          : 0;
-        setTodayTrainingLoad({
-          totalMinutes,
-          weightedIntensity,
-          totalLoad: totalMinutes * weightedIntensity,
-          sessionCount: validLoadRows.length,
-        });
-
-        if (ledgerRes.error) {
-          logWarn('LogScreen.loadContext.macroLedger', ledgerRes.error, { targetDate: nutritionLogDate });
-        }
-        if (nutritionSummaryRes.error) {
-          logWarn('LogScreen.loadContext.nutritionSummary', nutritionSummaryRes.error, { targetDate: nutritionLogDate });
-        }
-
-        const ledger = (ledgerRes.data as MacroLedgerRow | null) ?? null;
-        const nutritionSummary = (nutritionSummaryRes.data as DailyNutritionSummaryRow | null) ?? null;
-        const targets = ledger
-          ? {
-            calories: calculateCaloriesFromMacros(
-              ledger.prescribed_protein ?? 0,
-              ledger.prescribed_carbs ?? 0,
-              ledger.prescribed_fats ?? 0,
-            ),
-            protein: ledger.prescribed_protein ?? 0,
-            carbs: ledger.prescribed_carbs ?? 0,
-            fat: ledger.prescribed_fats ?? 0,
-          }
-          : null;
-        const actual = {
-          calories: calculateCaloriesFromMacros(
-            nutritionSummary?.total_protein ?? ledger?.actual_protein ?? 0,
-            nutritionSummary?.total_carbs ?? ledger?.actual_carbs ?? 0,
-            nutritionSummary?.total_fat ?? ledger?.actual_fat ?? 0,
-          ),
-          protein: nutritionSummary?.total_protein ?? ledger?.actual_protein ?? 0,
-          carbs: nutritionSummary?.total_carbs ?? ledger?.actual_carbs ?? 0,
-          fat: nutritionSummary?.total_fat ?? ledger?.actual_fat ?? 0,
-        };
-        setNutritionTracker({
-          targets,
-          actual,
-          waterOz: nutritionSummary?.total_water_oz ?? 0,
-          mealCount: nutritionSummary?.meal_count ?? 0,
-        });
-        setNutritionActualDraft({
-          calories: String(Math.round(actual.calories)),
-          protein: String(Math.round(actual.protein)),
-          carbs: String(Math.round(actual.carbs)),
-          fat: String(Math.round(actual.fat)),
-        });
-        setNutritionWaterDraft(String(Math.round(nutritionSummary?.total_water_oz ?? 0)));
-        setHasManualNutritionEdits(false);
-        const assessment = assessTrackedNutrition(targets, actual);
-        if (!todayCheckin?.macro_adherence && assessment?.status) {
-          setMacroAdherence(assessment.status);
-        }
-
-        setAcwrContext({
-          ratio: acwr.ratio,
-          status: acwr.status,
-          acute: acwr.acute,
-          chronic: acwr.chronic,
-          phase: engineState.objectiveContext.phase,
-          isOnActiveCut: engineState.objectiveContext.isOnActiveCut,
-        });
-      } catch (error) {
-        logError('LogScreen.loadContext', error, { targetDate: logDate });
-      } finally {
-        if (mounted) setLoadingContext(false);
-      }
-    };
-
-    void load();
-    return () => { mounted = false; };
-  }, [logDate, nutritionLogDate]);
+    setWeight(logScreenData.initialValues.weight);
+    setSleep(logScreenData.initialValues.sleep);
+    setReadiness(logScreenData.initialValues.readiness);
+    setStressLevel(logScreenData.initialValues.stressLevel);
+    setSorenessLevel(logScreenData.initialValues.sorenessLevel);
+    setConfidenceLevel(logScreenData.initialValues.confidenceLevel);
+    setPrimaryLimiter(logScreenData.initialValues.primaryLimiter);
+    setMacroAdherence(logScreenData.initialValues.macroAdherence);
+    setNutritionBarrier(logScreenData.initialValues.nutritionBarrier);
+    setCoachingFocus(logScreenData.initialValues.coachingFocus);
+    setSavedDebrief(logScreenData.initialValues.savedDebrief);
+    setNutritionActualDraft(logScreenData.nutritionActualDraft);
+    setNutritionWaterDraft(logScreenData.nutritionWaterDraft);
+    setHasManualNutritionEdits(false);
+  }, [logScreenData.version, logScreenData.initialValues, logScreenData.nutritionActualDraft, logScreenData.nutritionWaterDraft]);
 
   useEffect(() => {
     if (macroAdherence === 'Target Met' && nutritionBarrier !== 'none') {
@@ -515,12 +298,11 @@ export function LogScreen() {
 
     setIsSaving(true);
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData?.user) {
+      const userId = await getActiveUserId();
+      if (!userId) {
         Alert.alert('Error', 'No authenticated user found.');
         return;
       }
-      const userId = userData.user.id;
 
       const debrief = generateDailyCoachDebrief({
         sleepQuality: sleep,

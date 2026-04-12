@@ -6,9 +6,8 @@ import {
     ScrollView,
     RefreshControl,
     TouchableOpacity,
-    Alert,
     InteractionManager,
-    Dimensions,
+    useWindowDimensions,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +18,7 @@ import { LineChart } from 'react-native-gifted-charts';
 
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useWeeklyPlan } from '../hooks/useWeeklyPlan';
+import { useWeeklyPlanScreenController } from '../hooks/useWeeklyPlanScreenController';
 import DayPlanCard from '../components/DayPlanCard';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { SectionHeader } from '../components/SectionHeader';
@@ -28,55 +28,29 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { StatCard } from '../components/StatCard';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
-import type { WeeklyPlanEntryRow } from '../../lib/engine/types';
-import { todayLocalDate } from '../../lib/utils/date';
-import { supabase } from '../../lib/supabase';
-import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
+import { formatLongWeekday, formatShortMonthDay } from '../../lib/utils/date';
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
+import {
+    buildWeeklyChartData,
+    buildWeeklyLineData,
+    buildWeeklyPlanGroups,
+    getWeeklyChartLayout,
+    isToday,
+} from './weeklyPlanScreenUtils';
 
 import type { PlanStackParamList } from '../navigation/types';
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** Return ISO date string -> short day name (Mon, Tue …) */
-function dayNameFromDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
-    return DAY_NAMES[d.getDay()];
-}
-
-function isToday(dateStr: string): boolean {
-    const today = todayLocalDate();
-    return dateStr === today;
-}
-
-/** Given an ISO date string, return the ISO date string of the preceding Sunday. */
-function getSundayOfDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
-    const day = d.getDay(); // 0 is Sunday
-    const sunday = new Date(d);
-    sunday.setDate(d.getDate() - day);
-    return sunday.toISOString().split('T')[0];
-}
-
-/** Generate an array of 7 ISO date strings starting from the provided date. */
-function getWeekDates(startDate: string): string[] {
-    const dates = [];
-    const start = new Date(startDate + 'T00:00:00');
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(start);
-        d.setDate(start.getDate() + i);
-        dates.push(d.toISOString().split('T')[0]);
-    }
-    return dates;
-}
 
 // ─── Screen ──────────────────────────────────────────────────────────
 
 export function WeeklyPlanScreen() {
     const insets = useSafeAreaInsets();
+    const { width: screenWidth } = useWindowDimensions();
     const navigation = useNavigation<NavProp>();
     const { currentLevel } = useReadinessTheme();
 
@@ -95,171 +69,60 @@ export function WeeklyPlanScreen() {
         rescheduleDay,
         cancelPlan,
     } = useWeeklyPlan();
+    const {
+        handleDayPress,
+        handleMissedBannerPress,
+        handleSetupPress,
+        handleOptionsPress,
+        handleTodayPress,
+        handleQuickLogPress,
+    } = useWeeklyPlanScreenController({
+        navigation,
+        currentLevel,
+        missedEntries,
+        rescheduleDay,
+        cancelPlan,
+        loadPlan,
+    });
 
     // Reload whenever the tab/screen comes into focus
     useFocusEffect(
         useCallback(() => {
             let isActive = true;
-            InteractionManager.runAfterInteractions(() => {
+            const task = InteractionManager.runAfterInteractions(() => {
                 if (isActive) {
-                    loadPlan();
+                    void loadPlan();
                 }
             });
             return () => {
                 isActive = false;
+                task.cancel();
             };
         }, [loadPlan]),
     );
 
     // ─── Navigation handlers ───
 
-    function handleDayPress(entry: WeeklyPlanEntryRow) {
-        (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user) return;
-
-            const context = await getGuidedWorkoutContext(session.user.id, entry.date);
-            navigation.navigate('WorkoutDetail', {
-                weeklyPlanEntryId: entry.id,
-                date: entry.date,
-                readinessState: currentLevel ?? 'Prime',
-                phase: context.phase,
-                fitnessLevel: context.fitnessLevel,
-                isDeloadWeek: entry.is_deload,
-            });
-        })();
-    }
-
-    function handleMissedBannerPress() {
-        if (missedEntries.length > 0) {
-            rescheduleDay(missedEntries[0]);
-        }
-    }
-
-    function handleSetupPress() {
-        navigation.navigate('WeeklyPlanSetup');
-    }
-
-    function handleOptionsPress() {
-        Alert.alert(
-            'Plan Options',
-            'What would you like to do?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Regenerate Plan',
-                    onPress: handleSetupPress,
-                },
-                {
-                    text: 'End Current Plan',
-                    style: 'destructive',
-                    onPress: () => {
-                        Alert.alert(
-                            'End Plan?',
-                            'This will clear all upcoming scheduled sessions for this week. This cannot be undone.',
-                            [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'End Plan', style: 'destructive', onPress: cancelPlan },
-                            ],
-                        );
-                    },
-                },
-            ],
-            { cancelable: true }
-        );
-    }
 
     // ─── Grouped display data ───
 
-    const grouped = useMemo(() => {
-        if (!activeWeekStart) return [];
-        
-        // Normalize the start date to Sunday for a consistent view layout
-        const sundayOfActiveWeek = getSundayOfDate(activeWeekStart);
-        const weekDates = getWeekDates(sundayOfActiveWeek);
-        
-        const entryMap = new Map<string, WeeklyPlanEntryRow[]>();
-        for (const e of entries) {
-            entryMap.set(e.date, [...(entryMap.get(e.date) || []), e]);
-        }
-        
-        return weekDates.map(date => ({
-            date,
-            dayName: dayNameFromDate(date),
-            sessions: entryMap.get(date) || []
-        }));
-    }, [entries, activeWeekStart]);
+    const grouped = useMemo(() => buildWeeklyPlanGroups(entries, activeWeekStart), [entries, activeWeekStart]);
     
     // Feature: Up Next Session
     const nextSession = useMemo(() => {
-        return entries.find(e => e.status === 'planned' && e.date >= todayLocalDate());
-    }, [entries]);
+        const upcomingAnchor = activeWeekStart ?? entries[0]?.date ?? '';
+        return entries.find((entry) => entry.status === 'planned' && entry.date >= upcomingAnchor)
+            ?? entries.find((entry) => entry.status === 'planned');
+    }, [activeWeekStart, entries]);
 
     // Feature: Weekly Load Chart Data
-    const chartData = useMemo(() => {
-        return grouped.map(g => {
-            const duration = g.sessions.reduce((acc, s) => acc + (s.estimated_duration_min || 0), 0);
-            return {
-                x: g.dayName.substring(0, 3), // Mon, Tue...
-                y: duration > 0 ? duration : 2, // Tiny baseline for rest days
-                actualDuration: duration,
-                isRest: duration === 0,
-                isToday: isToday(g.date)
-            };
-        });
-    }, [grouped]);
+    const chartData = useMemo(() => buildWeeklyChartData(grouped), [grouped]);
 
     const maxLoad = Math.max(...chartData.map(d => d.y), 10);
-    const screenWidth = Dimensions.get('window').width;
+    const chartLayout = useMemo(() => getWeeklyChartLayout(screenWidth), [screenWidth]);
     
     // Feature: Premium Wave Data
-    const lineData = useMemo(() => {
-        return chartData.map(d => {
-            const isRest = d.actualDuration === 0;
-            return {
-                value: isRest ? 5 : d.y, // Tiny baseline for rest days so the wave doesn't look dead
-                dataPointText: !isRest ? `${d.actualDuration}m` : 'REST',
-                label: d.x.substring(0, 1),
-                labelTextStyle: { 
-                    color: d.isToday ? COLORS.text.primary : COLORS.text.tertiary, 
-                    fontFamily: FONT_FAMILY.semiBold,
-                    fontSize: 11
-                },
-                dataPointLabelComponent: () => (
-                    <View style={{ 
-                        backgroundColor: isRest ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.4)', 
-                        paddingHorizontal: 6, 
-                        paddingVertical: 2, 
-                        borderRadius: 4,
-                        marginBottom: 8,
-                        alignSelf: 'center',
-                        borderWidth: isRest ? 1 : 0,
-                        borderColor: 'rgba(255,255,255,0.1)'
-                    }}>
-                        <Text style={{ 
-                            color: isRest ? COLORS.text.tertiary : (d.isToday ? COLORS.accent : COLORS.text.secondary), 
-                            fontSize: 10, 
-                            fontFamily: isRest ? FONT_FAMILY.semiBold : FONT_FAMILY.extraBold 
-                        }}>
-                            {isRest ? 'REST' : `${d.actualDuration}m`}
-                        </Text>
-                    </View>
-                ),
-                dataPointLabelShiftY: isRest ? -20 : -35,
-                showDataPointLabel: true,
-                customDataPoint: () => (
-                    <View style={{
-                        width: isRest ? 6 : 8, 
-                        height: isRest ? 6 : 8, 
-                        backgroundColor: isRest ? 'rgba(255,255,255,0.2)' : (d.isToday ? COLORS.accent : COLORS.surfaceSecondary), 
-                        borderRadius: 4, 
-                        borderWidth: isRest ? 1 : 1.5, 
-                        borderColor: d.isToday ? COLORS.text.inverse : (isRest ? 'rgba(255,255,255,0.1)' : COLORS.accent)
-                    }} />
-                ),
-            };
-        });
-    }, [chartData]);
+    const lineData = useMemo(() => buildWeeklyLineData(chartData), [chartData]);
 
     // ─── Derived Metrics ───
     const totalSessions = entries.length;
@@ -301,7 +164,7 @@ export function WeeklyPlanScreen() {
                             <Text style={styles.emptyTitle}>No Plan Found</Text>
                             <Text style={styles.emptySubtitle}>
                                 {activeWeekStart && !isCurrentWeek 
-                                    ? `Generate your training plan for the week of ${new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.` 
+                                    ? `Generate your training plan for the week of ${formatShortMonthDay(activeWeekStart)}.` 
                                     : 'Set up your weekly training plan to get smart daily recommendations tailored to your goals.'}
                             </Text>
                             {activeWeekStart && !isCurrentWeek ? (
@@ -319,7 +182,7 @@ export function WeeklyPlanScreen() {
                                     <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>« Prev Week</Text>
                                 </TouchableOpacity>
                                 {!isCurrentWeek && (
-                                    <TouchableOpacity onPress={() => loadPlan()}>
+                                    <TouchableOpacity onPress={handleTodayPress}>
                                         <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent }}>Today</Text>
                                     </TouchableOpacity>
                                 )}
@@ -343,7 +206,7 @@ export function WeeklyPlanScreen() {
                     kicker="Plan"
                     title={isCurrentWeek ? 'This Week' : 'Planned Week'}
                     subtitle={activeWeekStart && !isCurrentWeek 
-                        ? `Week of ${new Date(activeWeekStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` 
+                        ? `Week of ${formatShortMonthDay(activeWeekStart)}` 
                         : isDeloadWeek ? 'Recovery & Deload' : 'Your smart training schedule'}
                     rightAction={!loading && entries.length > 0 ? (
                         <TouchableOpacity onPress={handleOptionsPress} style={styles.headerOptionsBtn}>
@@ -357,7 +220,7 @@ export function WeeklyPlanScreen() {
                         </AnimatedPressable>
                         
                         {!isCurrentWeek && (
-                            <AnimatedPressable onPress={() => loadPlan()} style={[styles.navBtn, styles.navBtnToday]}>
+                            <AnimatedPressable onPress={handleTodayPress} style={[styles.navBtn, styles.navBtnToday]}>
                                 <Text style={[styles.navBtnText, { color: COLORS.text.inverse }]}>Today</Text>
                             </AnimatedPressable>
                         )}
@@ -394,7 +257,7 @@ export function WeeklyPlanScreen() {
                                     <View style={styles.heroBadge}>
                                         <Text style={styles.heroBadgeText}>UP NEXT</Text>
                                     </View>
-                                    <Text style={styles.heroDate}>{new Date(nextSession.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}</Text>
+                                    <Text style={styles.heroDate}>{formatLongWeekday(nextSession.date)}</Text>
                                 </View>
                                 <Text style={styles.heroTitle}>
                                     {getSessionFamilyLabel({ sessionType: nextSession.session_type, focus: nextSession.focus })}
@@ -468,11 +331,11 @@ export function WeeklyPlanScreen() {
                                 areaChart
                                 curved
                                 data={lineData}
-                                width={screenWidth - 32} // Total card width
+                                width={chartLayout.chartWidth}
                                 height={150}
                                 initialSpacing={15} // Sunday as leftmost
                                 endSpacing={15} // Saturday as rightmost
-                                spacing={(screenWidth - 32 - 30) / 6} // Wednesday still at exact center
+                                spacing={chartLayout.pointSpacing}
                                 color={COLORS.accent}
                                 thickness={3}
                                 maxValue={maxLoad + 50} 
@@ -497,7 +360,7 @@ export function WeeklyPlanScreen() {
                                     pointerStripWidth: 2,
                                     pointerColor: COLORS.accent,
                                     radius: 6,
-                                    pointerLabelComponent: (items: any[]) => (
+                                    pointerLabelComponent: (items: Array<{ value: number }>) => (
                                         <View style={styles.chartTooltip}>
                                             <Text style={styles.chartTooltipText}>{items[0].value}m</Text>
                                         </View>
@@ -545,9 +408,7 @@ export function WeeklyPlanScreen() {
 
             {/* ─── Feature: Quick Logging FAB ─── */}
             <Animated.View entering={FadeInDown.delay(400).duration(ANIMATION.normal).springify()} style={[styles.fabContainer, { bottom: Math.max(insets.bottom + 65, 75) }]}>
-                <AnimatedPressable style={styles.fab} onPress={() => {
-                    Alert.alert("Coming Soon", "Direct logging will open here.");
-                }}>
+                <AnimatedPressable style={styles.fab} onPress={handleQuickLogPress}>
                     <MaterialCommunityIcons name="plus" size={24} color={COLORS.text.inverse} />
                     <Text style={styles.fabText}>Log Session</Text>
                 </AnimatedPressable>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import {
     getWeeklyPlanEntryById,
@@ -8,6 +8,7 @@ import {
     regenerateDayWorkout,
 } from '../../lib/api/weeklyPlanService';
 import { getExerciseLibrary } from '../../lib/api/scService';
+import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { getErrorMessage } from '../../lib/utils/logger';
 import type {
     WeeklyPlanEntryRow,
@@ -26,17 +27,31 @@ export function useWorkoutDetail() {
     const [isLoading, setIsLoading] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [swappedId, setSwappedId] = useState<string | null>(null); // shows "Swapped" badge
+    const loadRequestIdRef = useRef(0);
+    const mountedRef = useRef(true);
+    const swappedBadgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMandatoryRecovery = entry?.daily_mission_snapshot?.trainingDirective?.isMandatoryRecovery ?? false;
     const mandatoryRecoveryReason = entry?.daily_mission_snapshot?.trainingDirective?.reason
         ?? 'Mandatory recovery is active for this session.';
 
+    useEffect(() => {
+        return () => {
+            mountedRef.current = false;
+            if (swappedBadgeTimeoutRef.current) {
+                clearTimeout(swappedBadgeTimeoutRef.current);
+            }
+        };
+    }, []);
+
     const load = useCallback(async (entryId: string) => {
+        const requestId = ++loadRequestIdRef.current;
         setIsLoading(true);
         try {
             const [loadedEntry, library] = await Promise.all([
                 getWeeklyPlanEntryById(entryId),
                 getExerciseLibrary(),
             ]);
+            if (!mountedRef.current || requestId !== loadRequestIdRef.current) return;
             setEntry(loadedEntry);
             setExerciseLibrary(library);
             const snap = loadedEntry?.daily_mission_snapshot?.trainingDirective?.prescription
@@ -44,9 +59,12 @@ export function useWorkoutDetail() {
                 ?? null;
             setPrescription(snap);
         } catch (_err) {
+            if (!mountedRef.current || requestId !== loadRequestIdRef.current) return;
             Alert.alert('Error', getErrorMessage(_err));
         } finally {
-            setIsLoading(false);
+            if (mountedRef.current && requestId === loadRequestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, []);
 
@@ -95,7 +113,14 @@ export function useWorkoutDetail() {
         // Optimistic update
         setPrescription(updated);
         setSwappedId(exerciseId);
-        setTimeout(() => setSwappedId(null), 2000);
+        if (swappedBadgeTimeoutRef.current) {
+            clearTimeout(swappedBadgeTimeoutRef.current);
+        }
+        swappedBadgeTimeoutRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+                setSwappedId(null);
+            }
+        }, 2000);
 
         // Persist
         try {
@@ -107,20 +132,29 @@ export function useWorkoutDetail() {
         }
     }, [prescription, entry, isMandatoryRecovery, mandatoryRecoveryReason]);
 
-    const regenerate = useCallback(async (userId: string, newFocus?: WorkoutFocus) => {
+    const regenerate = useCallback(async (newFocus?: WorkoutFocus) => {
         if (!entry) return;
+        const userId = await getActiveUserId();
+        if (!userId) {
+            Alert.alert('Error', 'No authenticated user found.');
+            return;
+        }
         setIsRegenerating(true);
         try {
             const newPrescription = await regenerateDayWorkout(userId, entry.id, newFocus);
+            if (!mountedRef.current) return;
             setPrescription(newPrescription);
             setExpandedExerciseId(null);
             // Refresh entry to pick up any status/focus changes
             const refreshed = await getWeeklyPlanEntryById(entry.id);
-            if (refreshed) setEntry(refreshed);
+            if (mountedRef.current && refreshed) setEntry(refreshed);
         } catch (_err) {
+            if (!mountedRef.current) return;
             Alert.alert('Error', `Could not regenerate workout: ${getErrorMessage(_err)}`);
         } finally {
-            setIsRegenerating(false);
+            if (mountedRef.current) {
+                setIsRegenerating(false);
+            }
         }
     }, [entry]);
 
@@ -128,7 +162,9 @@ export function useWorkoutDetail() {
         if (!entry) return;
         try {
             await markDaySkipped(entry.id);
-            setEntry(prev => prev ? { ...prev, status: 'skipped' } : prev);
+            if (mountedRef.current) {
+                setEntry(prev => prev ? { ...prev, status: 'skipped' } : prev);
+            }
         } catch (_err) {
             Alert.alert('Error', getErrorMessage(_err));
         }
@@ -138,7 +174,9 @@ export function useWorkoutDetail() {
         if (!entry) return;
         try {
             await restorePlanEntry(entry.id);
-            setEntry(prev => prev ? { ...prev, status: 'planned' } : prev);
+            if (mountedRef.current) {
+                setEntry(prev => prev ? { ...prev, status: 'planned' } : prev);
+            }
         } catch (_err) {
             Alert.alert('Error', getErrorMessage(_err));
         }
