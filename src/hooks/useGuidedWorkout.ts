@@ -14,7 +14,7 @@ import {
     startWorkoutV2,
 } from '../../lib/api/scService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
-import { getPRs, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
+import { getPRsForExercises, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
 import { todayLocalDate } from '../../lib/utils/date';
 import { markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
 import {
@@ -33,6 +33,7 @@ import type {
     WorkoutLogRow,
     GymProfileRow,
     ComplianceReason,
+    PRRecord,
     ScheduledActivityRow,
     WeeklyPlanEntryRow,
 } from '../../lib/engine/types';
@@ -60,6 +61,41 @@ export interface ExerciseProgress {
     warmupChecked: number[];
     isComplete: boolean;
     prResult: PRDetectionResult | null;
+}
+
+interface WorkoutSummary {
+    durationMin: number;
+    avgRPE: number | null;
+    totalVolume: number;
+    totalSets: number;
+}
+
+function buildCachedPRRecord(
+    exerciseId: string,
+    exerciseName: string,
+    detection: PRDetectionResult,
+    reps: number,
+    weight: number,
+    rpe: number | null,
+    achievedDate: string,
+): PRRecord | null {
+    if (!detection.prType || detection.newValue === null) {
+        return null;
+    }
+
+    return {
+        id: `${exerciseId}:${detection.prType}:${achievedDate}:${detection.newValue}`,
+        exerciseId,
+        exerciseName,
+        prType: detection.prType,
+        value: detection.newValue,
+        repsAtPR: reps,
+        weightAtPR: weight,
+        rpeAtPR: rpe,
+        estimated1RM: detection.prType === 'estimated_1rm' ? detection.newValue : null,
+        achievedDate,
+        date: achievedDate,
+    };
 }
 
 export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId?: string) {
@@ -91,6 +127,9 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [restTotal, setRestTotal] = useState(0);
     const sessionDateRef = useRef(todayLocalDate());
+    const prHistoryRef = useRef<Map<string, PRRecord[]>>(new Map());
+    const finishPromiseRef = useRef<Promise<WorkoutSummary | undefined> | null>(null);
+    const finishedSummaryRef = useRef<WorkoutSummary | null>(null);
 
     const currentExercise = prescription?.exercises[currentExerciseIndex] ?? null;
     const currentProgress = currentExercise
@@ -111,6 +150,10 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         setExerciseProgress(progress);
         setCurrentExerciseIndex(0);
         setAdaptationResult(null);
+        setPrResult(null);
+        finishPromiseRef.current = null;
+        finishedSummaryRef.current = null;
+        prHistoryRef.current = new Map();
     }, []);
 
     const resetPrescriptionState = useCallback((mission: DailyMission | null, message: string | null) => {
@@ -119,7 +162,23 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         setExerciseProgress({});
         setCurrentExerciseIndex(0);
         setAdaptationResult(null);
+        setPrResult(null);
+        setShowPRCelebration(false);
+        finishPromiseRef.current = null;
+        finishedSummaryRef.current = null;
+        prHistoryRef.current = new Map();
         setEmptyStateMessage(message);
+    }, []);
+
+    const preloadPRHistory = useCallback(async (userId: string, nextPrescription: WorkoutPrescriptionV2) => {
+        const exerciseIds = [...new Set(nextPrescription.exercises.map((exercise) => exercise.exercise.id))];
+
+        try {
+            prHistoryRef.current = await getPRsForExercises(userId, exerciseIds);
+        } catch (error) {
+            prHistoryRef.current = new Map();
+            logError('useGuidedWorkout.preloadPRHistory', error, { userId });
+        }
     }, []);
 
     const hydrateWorkoutProgress = useCallback(async (
@@ -330,10 +389,16 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
             setWorkoutLog(log);
             setIsStarted(true);
+            setIsComplete(false);
             setFatigueState(initFatigueState());
             setActivationRPE(null);
             setComplianceReason(null);
-            await hydrateWorkoutProgress(log, prescription);
+            finishPromiseRef.current = null;
+            finishedSummaryRef.current = null;
+            await Promise.all([
+                hydrateWorkoutProgress(log, prescription),
+                preloadPRHistory(session.user.id, prescription),
+            ]);
             invalidateEngineDataCache({
                 userId: session.user.id,
                 date: sessionDateRef.current,
@@ -341,7 +406,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         } catch (error) {
             logError('useGuidedWorkout.startWorkout', error, { weeklyPlanEntryId, scheduledActivityId });
         }
-    }, [gymProfile, hydrateWorkoutProgress, prescription, scheduledActivityId, weeklyPlanEntryId]);
+    }, [gymProfile, hydrateWorkoutProgress, preloadPRHistory, prescription, scheduledActivityId, weeklyPlanEntryId]);
 
     const submitActivationRPE = useCallback((rpe: number) => {
         setActivationRPE(rpe);
@@ -349,6 +414,23 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     }, []);
 
     // ── Log a Set ─────────────────────────────────────────────────
+
+    const startRestTimerInternal = useCallback((seconds: number) => {
+        if (restTimerRef.current) clearInterval(restTimerRef.current);
+        setRestTotal(seconds);
+        setRestSeconds(seconds);
+
+        restTimerRef.current = setInterval(() => {
+            setRestSeconds(prev => {
+                if (prev === null || prev <= 1) {
+                    if (restTimerRef.current) clearInterval(restTimerRef.current);
+                    restTimerRef.current = null;
+                    return null;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    }, []);
 
     const logSet = useCallback(async (
         exerciseId: string,
@@ -370,6 +452,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
         // Process adaptation
         let adaptationResultForSet: SetAdaptationResult | null = null;
+        let nextFatigueState = fatigueState;
         if (!isWarmup) {
             const adaptation = processSetCompletion({
                 exerciseId,
@@ -389,35 +472,10 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     : [],
             });
 
-            setFatigueState(adaptation.updatedFatigueState);
+            nextFatigueState = adaptation.updatedFatigueState;
+            setFatigueState(nextFatigueState);
             setAdaptationResult(adaptation);
             adaptationResultForSet = adaptation;
-
-            // Check for PRs
-            const existingPRs = await getPRs(userId, exerciseId);
-            const pr = detectPR(
-                exerciseId,
-                currentExercise.exercise.name,
-                weight,
-                reps,
-                rpe,
-                existingPRs,
-            );
-
-            if (pr.isNewPR && pr.prType && pr.newValue !== null) {
-                setPrResult(pr);
-                setShowPRCelebration(true);
-                await savePR(userId, {
-                    exerciseId,
-                    prType: pr.prType,
-                    value: pr.newValue,
-                    repsAtPR: reps,
-                    weightAtPR: weight,
-                    rpeAtPR: rpe,
-                    estimated1RM: null,
-                    workoutLogId: workoutLog.id,
-                });
-            }
         }
 
         // Log to Supabase
@@ -460,30 +518,69 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         if (!isWarmup && !options?.skipRestTimer) {
             const restDuration = getRestDuration(
                 currentExercise.exercise.type,
-                fatigueState.fatigueLevel,
+                nextFatigueState.fatigueLevel,
             );
-            startRestTimer(restDuration);
+            startRestTimerInternal(restDuration);
         }
-    }, [workoutLog, currentExercise, exerciseProgress, fatigueState, prescription, currentExerciseIndex, gymProfile]);
+
+        if (!isWarmup) {
+            void (async () => {
+                const existingPRs = prHistoryRef.current.get(exerciseId) ?? [];
+                const pr = detectPR(
+                    exerciseId,
+                    currentExercise.exercise.name,
+                    weight,
+                    reps,
+                    rpe,
+                    existingPRs,
+                );
+
+                if (!pr.isNewPR || !pr.prType || pr.newValue === null) {
+                    return;
+                }
+
+                const cachedPR = buildCachedPRRecord(
+                    exerciseId,
+                    currentExercise.exercise.name,
+                    pr,
+                    reps,
+                    weight,
+                    rpe,
+                    sessionDateRef.current,
+                );
+
+                if (!cachedPR) {
+                    return;
+                }
+
+                prHistoryRef.current.set(exerciseId, [cachedPR, ...existingPRs]);
+                setPrResult(pr);
+                setShowPRCelebration(true);
+
+                try {
+                    await savePR(userId, {
+                        exerciseId,
+                        prType: pr.prType,
+                        value: pr.newValue,
+                        repsAtPR: reps,
+                        weightAtPR: weight,
+                        rpeAtPR: rpe,
+                        estimated1RM: pr.prType === 'estimated_1rm' ? pr.newValue : null,
+                        workoutLogId: workoutLog.id,
+                    });
+                } catch (error) {
+                    prHistoryRef.current.set(exerciseId, existingPRs);
+                    logError('useGuidedWorkout.logSet.savePR', error, {
+                        exerciseId,
+                        userId,
+                        workoutLogId: workoutLog.id,
+                    });
+                }
+            })();
+        }
+    }, [workoutLog, currentExercise, exerciseProgress, fatigueState, prescription, currentExerciseIndex, gymProfile, startRestTimerInternal]);
 
     // ── Rest Timer ────────────────────────────────────────────────
-
-    const startRestTimer = useCallback((seconds: number) => {
-        if (restTimerRef.current) clearInterval(restTimerRef.current);
-        setRestTotal(seconds);
-        setRestSeconds(seconds);
-
-        restTimerRef.current = setInterval(() => {
-            setRestSeconds(prev => {
-                if (prev === null || prev <= 1) {
-                    if (restTimerRef.current) clearInterval(restTimerRef.current);
-                    restTimerRef.current = null;
-                    return null;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-    }, []);
 
     const skipRest = useCallback(() => {
         if (restTimerRef.current) clearInterval(restTimerRef.current);
@@ -579,58 +676,85 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     // ── Finish Workout ────────────────────────────────────────────
 
     const finishWorkout = useCallback(async () => {
-        if (!workoutLog || !startTime) return;
-        const durationMin = Math.round((Date.now() - startTime.getTime()) / 60000);
-
-        // Calculate session RPE (avg of all working sets)
-        const allSets = Object.values(exerciseProgress).flatMap(p => p.setsLogged);
-        const workingSets = allSets.filter(s => !s.isWarmup && s.rpe !== null);
-        const avgRPE = workingSets.length > 0
-            ? workingSets.reduce((s, e) => s + (e.rpe ?? 0), 0) / workingSets.length
-            : null;
-
-        const totalVolume = workingSets.reduce((s, e) => s + e.reps * e.weight, 0);
-        const totalSets = workingSets.length;
-
-        // Save overload history for each exercise
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-            for (const [exId, prog] of Object.entries(exerciseProgress)) {
-                const working = prog.setsLogged.filter(s => !s.isWarmup);
-                if (working.length === 0) continue;
-                const best = working.reduce((a, b) => b.weight > a.weight ? b : a);
-                await saveOverloadHistory(session.user.id, exId, {
-                    bestSetWeight: best.weight,
-                    bestSetReps: best.reps,
-                    bestSetRPE: best.rpe,
-                    totalVolume: working.reduce((s, e) => s + e.reps * e.weight, 0),
-                    workingSets: working.length,
-                    estimated1RM: 0,
-                    progressionModel: null,
-                });
-            }
-            await completeWorkout(
-                session.user.id,
-                workoutLog.id,
-                avgRPE ? Math.round(avgRPE * 10) / 10 : 6,
-                durationMin,
-                undefined,
-                {
-                    complianceReason,
-                    activationRPE,
-                },
-            );
-            invalidateEngineDataCache({
-                userId: session.user.id,
-                date: sessionDateRef.current,
-            });
+        if (finishedSummaryRef.current) {
+            return finishedSummaryRef.current;
         }
 
-        setIsComplete(true);
-        if (restTimerRef.current) clearInterval(restTimerRef.current);
+        if (finishPromiseRef.current) {
+            return finishPromiseRef.current;
+        }
 
-        return { durationMin, avgRPE, totalVolume, totalSets };
-    }, [workoutLog, startTime, exerciseProgress]);
+        if (!workoutLog || !startTime) return;
+        const finishPromise = (async () => {
+            const durationMin = Math.round((Date.now() - startTime.getTime()) / 60000);
+
+            const allSets = Object.values(exerciseProgress).flatMap(p => p.setsLogged);
+            const workingSets = allSets.filter(s => !s.isWarmup && s.rpe !== null);
+            const avgRPE = workingSets.length > 0
+                ? workingSets.reduce((sum, entry) => sum + (entry.rpe ?? 0), 0) / workingSets.length
+                : null;
+
+            const totalVolume = workingSets.reduce((sum, entry) => sum + entry.reps * entry.weight, 0);
+            const totalSets = workingSets.length;
+            const summary: WorkoutSummary = { durationMin, avgRPE, totalVolume, totalSets };
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await Promise.all(
+                    Object.entries(exerciseProgress).map(async ([exerciseId, progress]) => {
+                        const working = progress.setsLogged.filter((set) => !set.isWarmup);
+                        if (working.length === 0) {
+                            return;
+                        }
+
+                        const best = working.reduce((currentBest, candidate) => (
+                            candidate.weight > currentBest.weight ? candidate : currentBest
+                        ));
+                        await saveOverloadHistory(session.user.id, exerciseId, {
+                            bestSetWeight: best.weight,
+                            bestSetReps: best.reps,
+                            bestSetRPE: best.rpe,
+                            totalVolume: working.reduce((sum, entry) => sum + entry.reps * entry.weight, 0),
+                            workingSets: working.length,
+                            estimated1RM: 0,
+                            progressionModel: null,
+                        });
+                    }),
+                );
+
+                await completeWorkout(
+                    session.user.id,
+                    workoutLog.id,
+                    avgRPE ? Math.round(avgRPE * 10) / 10 : 6,
+                    durationMin,
+                    undefined,
+                    {
+                        complianceReason,
+                        activationRPE,
+                    },
+                );
+                invalidateEngineDataCache({
+                    userId: session.user.id,
+                    date: sessionDateRef.current,
+                });
+            }
+
+            if (restTimerRef.current) {
+                clearInterval(restTimerRef.current);
+            }
+
+            finishedSummaryRef.current = summary;
+            return summary;
+        })();
+
+        finishPromiseRef.current = finishPromise;
+
+        try {
+            return await finishPromise;
+        } finally {
+            finishPromiseRef.current = null;
+        }
+    }, [activationRPE, complianceReason, exerciseProgress, startTime, workoutLog]);
 
     return {
         // State

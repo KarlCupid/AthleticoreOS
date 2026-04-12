@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
@@ -50,16 +50,28 @@ export function useFuelData() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewModel, setViewModel] = useState<FuelHomeViewModel>(EMPTY_MODEL);
+  const requestIdRef = useRef(0);
 
   const loadData = useCallback(async (forceRefresh: boolean = false) => {
+    const requestId = ++requestIdRef.current;
     const date = todayLocalDate();
+
+    const isCurrentRequest = () => requestId === requestIdRef.current;
+
     try {
-      setError(null);
+      if (isCurrentRequest()) {
+        setError(null);
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session?.user) {
+        if (!isCurrentRequest()) {
+          return;
+        }
+
         setViewModel({ ...EMPTY_MODEL, date });
         setLoading(false);
         setRefreshing(false);
@@ -103,6 +115,10 @@ export function useFuelData() {
         nutritionData.summary?.total_water_oz,
       );
 
+      if (!isCurrentRequest()) {
+        return;
+      }
+
       setViewModel({
         userId,
         date,
@@ -134,38 +150,31 @@ export function useFuelData() {
         missionTraceLines: engineState.nutritionTargets.traceLines,
       });
     } catch (loadError) {
+      if (!isCurrentRequest()) {
+        return;
+      }
+
       logError('useFuelData.loadData', loadError);
       setError('We could not load Fuel right now. Pull to try again.');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrentRequest()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    let isActive = true;
-    InteractionManager.runAfterInteractions(() => {
-      if (isActive) {
-        void loadData();
-      }
-    });
-
-    return () => {
-      isActive = false;
-    };
-  }, [loadData]);
-
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
-      InteractionManager.runAfterInteractions(() => {
-        if (isActive) {
+      const task = InteractionManager.runAfterInteractions(() => {
+        if (requestIdRef.current >= 0) {
           void loadData();
         }
       });
 
       return () => {
-        isActive = false;
+        requestIdRef.current += 1;
+        task.cancel?.();
       };
     }, [loadData]),
   );

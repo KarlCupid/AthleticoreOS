@@ -38,11 +38,7 @@ import { ActiveCampBanner } from "../components/ActiveCampBanner";
 import { RadialProgress } from "../components/RadialProgress";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 
-import type {
-  DailyCutProtocolRow,
-  ScheduledActivityRow,
-  WeightCutPlanRow,
-} from "../../lib/engine/types";
+import type { ScheduledActivityRow } from "../../lib/engine/types";
 import { getActiveUserId } from "../../lib/api/athleteContextService";
 import {
   getAndSyncFirstRunGuidanceState,
@@ -62,49 +58,9 @@ import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-
-  const [activeCutPlan, setActiveCutPlan] =
-    React.useState<WeightCutPlanRow | null>(null);
-  const [todayCutProtocol, setTodayCutProtocol] =
-    React.useState<DailyCutProtocolRow | null>(null);
   const [firstRunGuidance, setFirstRunGuidance] =
     React.useState<FirstRunGuidanceState | null>(null);
   const [showFirstRunModal, setShowFirstRunModal] = React.useState(false);
-
-  React.useEffect(() => {
-    let isActive = true;
-    InteractionManager.runAfterInteractions(() => {
-      (async () => {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session?.user || !isActive) return;
-
-        const today = todayLocalDate();
-        const { data: plan } = await supabase
-          .from("weight_cut_plans")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .eq("status", "active")
-          .maybeSingle();
-
-        if (!isActive) return;
-        setActiveCutPlan(plan ?? null);
-
-        if (plan) {
-          const { data: proto } = await supabase
-            .from("daily_cut_protocols")
-            .select("*")
-            .eq("plan_id", plan.id)
-            .eq("date", today)
-            .maybeSingle();
-          if (isActive) setTodayCutProtocol(proto ?? null);
-        }
-      })();
-    });
-    return () => { isActive = false; };
-  }, []);
 
   const loadFirstRunGuidance = React.useCallback(async () => {
     try {
@@ -159,10 +115,12 @@ export function DashboardScreen() {
     nutritionTargets,
     actualNutrition,
     currentLedger,
+    activeCutProtocol,
     campRisk,
     dailyMission,
     goalMode,
     hasActiveFightCamp,
+    hasActiveCutPlan,
   } = useDashboardData();
 
   const [showWhyToday, setShowWhyToday] = React.useState(false);
@@ -192,8 +150,8 @@ export function DashboardScreen() {
         nutritionTargets,
         actualNutrition,
         currentLedger,
-        activeCutPlan,
-        todayCutProtocol,
+        hasActiveCutPlan,
+        todayCutProtocol: activeCutProtocol,
       }),
     [
       acwr,
@@ -208,8 +166,8 @@ export function DashboardScreen() {
       nutritionTargets,
       actualNutrition,
       currentLedger,
-      activeCutPlan,
-      todayCutProtocol,
+      hasActiveCutPlan,
+      activeCutProtocol,
     ],
   );
   const D = 50;
@@ -839,7 +797,7 @@ export function DashboardScreen() {
               <DashboardNutritionCard
                 actualNutrition={homeState.fuel.actual}
                 targets={homeState.fuel.targets}
-                cutProtocol={activeCutPlan ? todayCutProtocol : undefined}
+                cutProtocol={hasActiveCutPlan ? activeCutProtocol : undefined}
               />
             </AnimatedPressable>
           </Animated.View>
@@ -933,8 +891,8 @@ export function DashboardScreen() {
             </Animated.View>
           ) : null}
 
-          {todayCutProtocol &&
-            (todayCutProtocol.safety_flags as any[])?.filter(
+          {activeCutProtocol &&
+            (activeCutProtocol.safety_flags as any[])?.filter(
               (f: any) => f.severity === "danger",
             ).length > 0 && (
               <Animated.View
@@ -943,7 +901,7 @@ export function DashboardScreen() {
                   .springify()}
               >
                 <SafetyStatusIndicator
-                  flags={todayCutProtocol.safety_flags as any[]}
+                  flags={activeCutProtocol.safety_flags as any[]}
                 />
               </Animated.View>
             )}

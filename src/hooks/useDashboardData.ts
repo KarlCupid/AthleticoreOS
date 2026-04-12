@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
@@ -48,45 +48,80 @@ const EMPTY_NUTRITION: DashboardNutritionTotals = {
   water: 0,
 };
 
+interface DashboardDataState {
+  acwr: ACWRResult | null;
+  biology: BiologyResult | null;
+  hydration: HydrationResult | null;
+  checkinDone: boolean;
+  sessionDone: boolean;
+  sleepQuality: number | null;
+  morningWeight: string | null;
+  readinessSubjective: number | null;
+  todayActivities: ScheduledActivityRow[];
+  primaryActivity: ScheduledActivityRow | null;
+  currentLedger: MacroLedgerRow | null;
+  prescriptionMessage: string | null;
+  workoutPrescription: WorkoutPrescription | null;
+  weightTrend: WeightTrendResult | null;
+  dailyMission: DailyMission | null;
+  todayPlanEntry: WeeklyPlanEntryRow | null;
+  nutritionTargets: ResolvedNutritionTargets | null;
+  actualNutrition: DashboardNutritionTotals;
+  activeCutProtocol: DailyCutProtocolRow | null;
+  campStatusLabel: string;
+  campRisk: CampRiskAssessment | null;
+  goalMode: 'fight_camp' | 'build_phase';
+  hasActiveFightCamp: boolean;
+  hasActiveCutPlan: boolean;
+}
+
+const INITIAL_STATE: DashboardDataState = {
+  acwr: null,
+  biology: null,
+  hydration: null,
+  checkinDone: false,
+  sessionDone: false,
+  sleepQuality: null,
+  morningWeight: null,
+  readinessSubjective: null,
+  todayActivities: [],
+  primaryActivity: null,
+  currentLedger: null,
+  prescriptionMessage: null,
+  workoutPrescription: null,
+  weightTrend: null,
+  dailyMission: null,
+  todayPlanEntry: null,
+  nutritionTargets: null,
+  actualNutrition: EMPTY_NUTRITION,
+  activeCutProtocol: null,
+  campStatusLabel: 'Build Phase',
+  campRisk: null,
+  goalMode: 'build_phase',
+  hasActiveFightCamp: false,
+  hasActiveCutPlan: false,
+};
+
 export function useDashboardData() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const [acwr, setAcwr] = useState<ACWRResult | null>(null);
-  const [biology, setBiology] = useState<BiologyResult | null>(null);
-  const [hydration, setHydration] = useState<HydrationResult | null>(null);
-
-  const [checkinDone, setCheckinDone] = useState(false);
-  const [sessionDone, setSessionDone] = useState(false);
-  const [sleepQuality, setSleepQuality] = useState<number | null>(null);
-  const [morningWeight, setMorningWeight] = useState<string | null>(null);
-  const [readinessSubjective, setReadinessSubjective] = useState<number | null>(null);
-
-  const [todayActivities, setTodayActivities] = useState<ScheduledActivityRow[]>([]);
-  const [primaryActivity, setPrimaryActivity] = useState<ScheduledActivityRow | null>(null);
-  const [currentLedger, setCurrentLedger] = useState<MacroLedgerRow | null>(null);
-  const [prescriptionMessage, setPrescriptionMessage] = useState<string | null>(null);
-  const [workoutPrescription, setWorkoutPrescription] = useState<WorkoutPrescription | null>(null);
-  const [weightTrend, setWeightTrend] = useState<WeightTrendResult | null>(null);
-  const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
-  const [todayPlanEntry, setTodayPlanEntry] = useState<WeeklyPlanEntryRow | null>(null);
+  const [state, setState] = useState<DashboardDataState>(INITIAL_STATE);
 
   const { setReadiness, currentLevel } = useReadinessTheme();
-
-  const [nutritionTargets, setNutritionTargets] = useState<ResolvedNutritionTargets | null>(null);
-  const [actualNutrition, setActualNutrition] = useState<DashboardNutritionTotals>(EMPTY_NUTRITION);
-  const [activeCutProtocol, setActiveCutProtocol] = useState<DailyCutProtocolRow | null>(null);
-  const [campStatusLabel, setCampStatusLabel] = useState<string>('Build Phase');
-  const [campRisk, setCampRisk] = useState<CampRiskAssessment | null>(null);
-  const [goalMode, setGoalMode] = useState<'fight_camp' | 'build_phase'>('build_phase');
-  const [hasActiveFightCamp, setHasActiveFightCamp] = useState(false);
+  const requestIdRef = useRef(0);
 
   const loadDashboardData = useCallback(async (forceRefresh: boolean = false) => {
+    const requestId = ++requestIdRef.current;
     const userId = await getActiveUserId();
+
+    const isCurrentRequest = () => requestId === requestIdRef.current;
+
     if (!userId) {
-      setCampRisk(null);
-      setGoalMode('build_phase');
-      setHasActiveFightCamp(false);
+      if (!isCurrentRequest()) {
+        return;
+      }
+
+      setState(INITIAL_STATE);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -101,17 +136,15 @@ export function useDashboardData() {
 
       const athleteContext = await getAthleteContext(userId);
       const profile = athleteContext.profile;
-      setGoalMode(athleteContext.goalMode);
 
-      let campStatus: Awaited<ReturnType<typeof getFightCampStatus>> | null = null;
+      let hasActiveFightCamp = false;
+      let campStatusLabel = 'Build Phase';
       try {
-        campStatus = await getFightCampStatus(userId, todayStr);
-        setHasActiveFightCamp(Boolean(campStatus.camp));
-        setCampStatusLabel(campStatus.label);
+        const campStatus = await getFightCampStatus(userId, todayStr);
+        hasActiveFightCamp = Boolean(campStatus.camp);
+        campStatusLabel = campStatus.label;
       } catch (error) {
         logError('useDashboardData.getFightCampStatus', error, { userId });
-        setHasActiveFightCamp(false);
-        setCampStatusLabel('Build Phase');
       }
 
       const [
@@ -140,60 +173,53 @@ export function useDashboardData() {
         getDailyEngineState(userId, todayStr, { forceRefresh }),
       ]);
 
-      const checkin = (checkinData as DailyCheckinRow | null) ?? null;
-
-      setCheckinDone(Boolean(checkin));
-      if (checkin) {
-        setSleepQuality(checkin.sleep_quality);
-        setMorningWeight(checkin.morning_weight != null ? String(checkin.morning_weight) : null);
-        setReadinessSubjective(checkin.readiness);
-      } else {
-        setSleepQuality(null);
-        setMorningWeight(null);
-        setReadinessSubjective(null);
+      if (!isCurrentRequest()) {
+        return;
       }
 
-      setSessionDone(Boolean(trainingSessions && trainingSessions.length > 0));
-      setCurrentLedger((ledger as MacroLedgerRow | null) ?? null);
+      const checkin = (checkinData as DailyCheckinRow | null) ?? null;
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
-      setTodayActivities(engineState.scheduledActivities ?? []);
-      setPrimaryActivity(engineState.primaryScheduledActivity);
-      setTodayPlanEntry((engineState.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null);
-      const currentWeightTrend = engineState.objectiveContext.weightTrend ?? null;
-      setWeightTrend(currentWeightTrend);
-      setAcwr(engineState.acwr);
-      setActiveCutProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
+
+      let biology: BiologyResult | null = null;
+      if (profile?.biological_sex === 'female' && profile.cycle_tracking && cycleDay != null) {
+        try {
+          biology = adjustForBiology({ cycleDay });
+        } catch (error) {
+          logError('useDashboardData.adjustForBiology', error, { userId, cycleDay });
+        }
+      }
+
       setReadiness(engineState.readinessState);
-      setWorkoutPrescription((engineState.workoutPrescription as WorkoutPrescription | null) ?? null);
-      setDailyMission(engineState.mission);
-      setCampRisk(engineState.campRisk);
-      setNutritionTargets(engineState.nutritionTargets);
-      setHydration(engineState.hydration);
-      setPrescriptionMessage(engineState.mission.summary);
+      setState({
+        acwr: engineState.acwr,
+        biology,
+        hydration: engineState.hydration,
+        checkinDone: Boolean(checkin),
+        sessionDone: Boolean(trainingSessions && trainingSessions.length > 0),
+        sleepQuality: checkin?.sleep_quality ?? null,
+        morningWeight: checkin?.morning_weight != null ? String(checkin.morning_weight) : null,
+        readinessSubjective: checkin?.readiness ?? null,
+        todayActivities: engineState.scheduledActivities ?? [],
+        primaryActivity: engineState.primaryScheduledActivity,
+        currentLedger: (ledger as MacroLedgerRow | null) ?? null,
+        prescriptionMessage: engineState.mission.summary,
+        workoutPrescription: (engineState.workoutPrescription as WorkoutPrescription | null) ?? null,
+        weightTrend: engineState.objectiveContext.weightTrend ?? null,
+        dailyMission: engineState.mission,
+        todayPlanEntry: (engineState.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
+        nutritionTargets: engineState.nutritionTargets,
+        actualNutrition: EMPTY_NUTRITION,
+        activeCutProtocol: (engineState.cutProtocol as DailyCutProtocolRow | null) ?? null,
+        campStatusLabel,
+        campRisk: engineState.campRisk,
+        goalMode: athleteContext.goalMode,
+        hasActiveFightCamp,
+        hasActiveCutPlan: Boolean(profile?.active_cut_plan_id),
+      });
       setLoading(false);
       setRefreshing(false);
 
       void (async () => {
-        if (!profile) {
-          setBiology(null);
-          setHydration(null);
-          setNutritionTargets(null);
-          setActualNutrition(EMPTY_NUTRITION);
-          return;
-        }
-
-        if (profile.biological_sex === 'female' && profile.cycle_tracking && cycleDay != null) {
-          try {
-            const bioResult = adjustForBiology({ cycleDay });
-            setBiology(bioResult);
-          } catch (error) {
-            logError('useDashboardData.adjustForBiology', error, { userId, cycleDay });
-            setBiology(null);
-          }
-        } else {
-          setBiology(null);
-        }
-
         try {
           await ensureDailyLedger(userId, todayStr, {
             tdee: engineState.nutritionTargets.tdee,
@@ -209,11 +235,15 @@ export function useDashboardData() {
                 : 'base',
           });
         } catch (error) {
-          logError('useDashboardData.ensureDailyLedger', error, { userId });
+            logError('useDashboardData.ensureDailyLedger', error, { userId });
         }
 
         try {
           const nutritionData = await getDailyNutrition(userId, todayStr);
+          if (!isCurrentRequest()) {
+            return;
+          }
+
           const actuals = computeActualNutrition(
             nutritionData.foodLog as {
               logged_calories?: number | null;
@@ -223,15 +253,32 @@ export function useDashboardData() {
             }[],
             nutritionData.summary?.total_water_oz,
           );
-          setActualNutrition(actuals);
+          setState((currentState) => ({
+            ...currentState,
+            actualNutrition: actuals,
+          }));
         } catch (error) {
+          if (!isCurrentRequest()) {
+            return;
+          }
+
           logError('useDashboardData.getDailyNutrition', error, { userId });
-          setActualNutrition(EMPTY_NUTRITION);
+          setState((currentState) => ({
+            ...currentState,
+            actualNutrition: EMPTY_NUTRITION,
+          }));
         }
       })();
     } catch (error) {
+      if (!isCurrentRequest()) {
+        return;
+      }
+
       logError('useDashboardData.loadDashboardData', error, { userId });
-      setCampRisk(null);
+      setState((currentState) => ({
+        ...currentState,
+        campRisk: null,
+      }));
       setLoading(false);
       setRefreshing(false);
     }
@@ -239,13 +286,15 @@ export function useDashboardData() {
 
   useEffect(() => {
     let isActive = true;
-    InteractionManager.runAfterInteractions(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
       if (isActive) {
         void loadDashboardData();
       }
     });
     return () => {
       isActive = false;
+      requestIdRef.current += 1;
+      task.cancel?.();
     };
   }, [loadDashboardData]);
 
@@ -258,30 +307,8 @@ export function useDashboardData() {
     loading,
     refreshing,
     onRefresh,
-    acwr,
-    biology,
-    hydration,
-    checkinDone,
-    sessionDone,
-    sleepQuality,
-    morningWeight,
-    readinessSubjective,
-    todayActivities,
-    primaryActivity,
-    currentLedger,
     currentLevel,
-    prescriptionMessage,
-    workoutPrescription,
-    todayPlanEntry,
-    weightTrend,
-    nutritionTargets,
-    actualNutrition,
-    activeCutProtocol,
-    campStatusLabel,
-    campRisk,
-    dailyMission,
-    goalMode,
-    hasActiveFightCamp,
+    ...state,
   };
 }
 

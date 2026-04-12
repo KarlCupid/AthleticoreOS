@@ -5,7 +5,6 @@ import type {
   MacroLedgerRow,
   ResolvedNutritionTargets,
   ScheduledActivityRow,
-  WeightCutPlanRow,
   WeeklyPlanEntryRow,
   WorkoutPrescription,
 } from '../../../lib/engine/types';
@@ -28,7 +27,7 @@ interface BuildTodayHomeStateInput {
   nutritionTargets: ResolvedNutritionTargets | null;
   actualNutrition: DashboardNutritionTotals;
   currentLedger: MacroLedgerRow | null;
-  activeCutPlan: WeightCutPlanRow | null;
+  hasActiveCutPlan: boolean;
   todayCutProtocol: DailyCutProtocolRow | null;
 }
 
@@ -69,7 +68,7 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
     nutritionTargets,
     actualNutrition,
     currentLedger,
-    activeCutPlan,
+    hasActiveCutPlan,
     todayCutProtocol,
   } = input;
 
@@ -145,7 +144,7 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
     fuel: {
       actual: actualNutrition,
       targets,
-      hasActiveCutProtocol: Boolean(activeCutPlan && todayCutProtocol),
+      hasActiveCutProtocol: Boolean(hasActiveCutPlan && todayCutProtocol),
     },
     schedule: {
       contextualActivities: contextualActivities,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
@@ -17,63 +17,76 @@ export function SCAnalyticsSection({ userId }: SCAnalyticsSectionProps) {
     const { themeColor } = useReadinessTheme();
     const [loading, setLoading] = useState(true);
     const [volumeData, setVolumeData] = useState<{ x: string; y: number }[]>([]);
-    const [prs, setPrs] = useState<any[]>([]);
+    const [prs, setPrs] = useState<Array<{ name: string; weight: number; reps: number }>>([]);
 
-    useEffect(() => {
-        loadData();
-    }, [userId]);
+    const loadData = useCallback(async () => {
+        const volumeStats = await getWeeklyVolumeStats(userId);
+        const latestWeek = volumeStats.length > 0 ? volumeStats[0].volumes : {};
+        const nextVolumeData = Object.entries(latestWeek)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([muscle, vol]) => ({ x: muscle.substring(0, 3).toUpperCase(), y: vol }));
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            // Load weekly volume
-            const volumeStats = await getWeeklyVolumeStats(userId);
-            // Volume stats is an array of weeks. Grab the first (most recent) or default to empty
-            const latestWeek = volumeStats.length > 0 ? volumeStats[0].volumes : {};
+        const { data: topSets } = await supabase
+            .from('workout_set_log')
+            .select(`
+                weight_lbs,
+                reps,
+                exercise_library ( name )
+            `)
+            .eq('user_id', userId)
+            .eq('is_warmup', false)
+            .gt('weight_lbs', 0)
+            .order('weight_lbs', { ascending: false })
+            .limit(20);
 
-            // Convert to chart format (take top 6 muscle groups)
-            const vData = Object.entries(latestWeek)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 6)
-                .map(([muscle, vol]) => ({ x: muscle.substring(0, 3).toUpperCase(), y: vol }));
-            setVolumeData(vData);
-
-            // Load some PRs (e.g. top 3 exercises by max weight)
-            // For now we'll just fetch recent max efforts from workout_set_log
-            const { data: topSets } = await supabase
-                .from('workout_set_log')
-                .select(`
-                    weight_lbs,
-                    reps,
-                    exercise_library ( name )
-                `)
-                .eq('is_warmup', false)
-                .gt('weight_lbs', 0)
-                .order('weight_lbs', { ascending: false })
-                .limit(20);
-
-            // Group by exercise to get distinct PRs
-            const uniquePrs = [];
-            const seen = new Set();
-            if (topSets) {
-                for (const set of topSets) {
-                    const lib = set.exercise_library as any;
-                    const name = lib?.name;
-                    if (name && !seen.has(name)) {
-                        seen.add(name);
-                        uniquePrs.push({ name, weight: set.weight_lbs, reps: set.reps });
-                        if (uniquePrs.length >= 3) break;
-                    }
+        const uniquePrs: Array<{ name: string; weight: number; reps: number }> = [];
+        const seen = new Set<string>();
+        if (topSets) {
+            for (const set of topSets) {
+                const lib = set.exercise_library as any;
+                const name = lib?.name;
+                if (name && !seen.has(name)) {
+                    seen.add(name);
+                    uniquePrs.push({ name, weight: set.weight_lbs, reps: set.reps });
+                    if (uniquePrs.length >= 3) break;
                 }
             }
-            setPrs(uniquePrs);
-
-        } catch (error) {
-            logError('SCAnalyticsSection.loadData', error, { userId });
-        } finally {
-            setLoading(false);
         }
-    };
+
+        return { nextVolumeData, uniquePrs };
+    }, [userId]);
+
+    useEffect(() => {
+        let isActive = true;
+        setLoading(true);
+
+        void (async () => {
+            try {
+                const { nextVolumeData, uniquePrs } = await loadData();
+                if (!isActive) {
+                    return;
+                }
+
+                setVolumeData(nextVolumeData);
+                setPrs(uniquePrs);
+            } catch (error) {
+                if (!isActive) {
+                    return;
+                }
+
+                logError('SCAnalyticsSection.loadData', error, { userId });
+            } finally {
+                if (isActive) {
+                    setLoading(false);
+                }
+            }
+        })();
+
+        return () => {
+            isActive = false;
+        };
+    }, [loadData, userId]);
 
     if (loading) {
         return (

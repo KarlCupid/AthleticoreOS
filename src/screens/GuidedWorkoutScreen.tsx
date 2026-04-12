@@ -109,6 +109,7 @@ export function GuidedWorkoutScreen() {
     const [isLoggingSet, setIsLoggingSet] = useState(false);
     const [isAutoStarting, setIsAutoStarting] = useState(false);
     const autoStartTriggeredRef = useRef(false);
+    const summaryNavigationTriggeredRef = useRef(false);
 
     // Form cue expanded
     const [formCueExpanded, setFormCueExpanded] = useState(false);
@@ -193,10 +194,14 @@ export function GuidedWorkoutScreen() {
         };
     }, [navigation, isStarted]);
 
-    // â”€â”€ Navigate on complete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    useEffect(() => {
-        if (!isComplete) return;
-        const doFinish = async () => {
+    const finalizeWorkoutAndNavigate = useCallback(async () => {
+        if (summaryNavigationTriggeredRef.current) {
+            return;
+        }
+
+        summaryNavigationTriggeredRef.current = true;
+
+        try {
             const summary = await finishWorkout();
             navigation.replace('WorkoutSummary', {
                 durationMin: summary?.durationMin,
@@ -204,9 +209,17 @@ export function GuidedWorkoutScreen() {
                 totalVolume: summary?.totalVolume,
                 avgRPE: summary?.avgRPE,
             });
-        };
-        doFinish();
-    }, [isComplete]);
+        } catch (_error) {
+            summaryNavigationTriggeredRef.current = false;
+            Alert.alert('Error', 'Failed to finish the workout. Please try again.');
+        }
+    }, [finishWorkout, navigation]);
+
+    // â”€â”€ Navigate on complete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    useEffect(() => {
+        if (!isComplete) return;
+        void finalizeWorkoutAndNavigate();
+    }, [finalizeWorkoutAndNavigate, isComplete]);
 
     // â”€â”€ Pre-fill inputs when exercise changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
@@ -353,13 +366,7 @@ export function GuidedWorkoutScreen() {
                     text: 'Finish',
                     style: 'default',
                     onPress: async () => {
-                        const summary = await finishWorkout();
-                        navigation.replace('WorkoutSummary', {
-                            durationMin: summary?.durationMin,
-                            totalSets: summary?.totalSets,
-                            totalVolume: summary?.totalVolume,
-                            avgRPE: summary?.avgRPE,
-                        });
+                        await finalizeWorkoutAndNavigate();
                     },
                 },
             ],

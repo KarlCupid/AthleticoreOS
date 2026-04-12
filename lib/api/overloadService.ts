@@ -4,6 +4,21 @@ import { todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
 
+function mapPRRow(row: any): PRRecord {
+    return {
+        id: row.id,
+        exerciseId: row.exercise_library_id,
+        exerciseName: row.exercise_library?.name ?? 'Unknown',
+        prType: row.pr_type,
+        value: Number(row.value),
+        repsAtPR: row.reps_at_pr,
+        weightAtPR: row.weight_at_pr ? Number(row.weight_at_pr) : null,
+        rpeAtPR: row.rpe_at_pr,
+        estimated1RM: row.estimated_1rm ? Number(row.estimated_1rm) : null,
+        achievedDate: row.achieved_date,
+    };
+}
+
 // ─── Exercise History ────────────────────────────────────────
 
 /**
@@ -136,18 +151,43 @@ export async function getPRs(
     const { data, error } = await q;
     if (error) throw error;
 
-    return (data ?? []).map((row: any) => ({
-        id: row.id,
-        exerciseId: row.exercise_library_id,
-        exerciseName: row.exercise_library?.name ?? 'Unknown',
-        prType: row.pr_type,
-        value: Number(row.value),
-        repsAtPR: row.reps_at_pr,
-        weightAtPR: row.weight_at_pr ? Number(row.weight_at_pr) : null,
-        rpeAtPR: row.rpe_at_pr,
-        estimated1RM: row.estimated_1rm ? Number(row.estimated_1rm) : null,
-        achievedDate: row.achieved_date,
-    }));
+    return (data ?? []).map(mapPRRow);
+}
+
+export async function getPRsForExercises(
+    userId: string,
+    exerciseIds: string[],
+): Promise<Map<string, PRRecord[]>> {
+    const result = new Map<string, PRRecord[]>();
+
+    for (const exerciseId of exerciseIds) {
+        result.set(exerciseId, []);
+    }
+
+    if (exerciseIds.length === 0) {
+        return result;
+    }
+
+    const { data, error } = await supabase
+        .from('exercise_pr_log')
+        .select('*, exercise_library(name)')
+        .eq('user_id', userId)
+        .in('exercise_library_id', exerciseIds)
+        .order('achieved_date', { ascending: false });
+
+    if (error) throw error;
+
+    for (const row of (data ?? []) as any[]) {
+        const mapped = mapPRRow(row);
+        const existing = result.get(mapped.exerciseId);
+        if (existing) {
+            existing.push(mapped);
+        } else {
+            result.set(mapped.exerciseId, [mapped]);
+        }
+    }
+
+    return result;
 }
 
 /**
