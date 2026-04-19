@@ -4,10 +4,10 @@ export function getSafetyThreshold(chronicLoad: number): {
   source: 'low_chronic' | 'standard_chronic' | 'high_chronic';
 } {
   if (chronicLoad < 300) {
-    return { caution: 1.2, redline: 1.32, source: 'low_chronic' };
+    return { caution: 1.24, redline: 1.4, source: 'low_chronic' };
   }
-  if (chronicLoad < 600) {
-    return { caution: 1.3, redline: 1.42, source: 'standard_chronic' };
+  if (chronicLoad < 900) {
+    return { caution: 1.27, redline: 1.45, source: 'standard_chronic' };
   }
-  return { caution: 1.5, redline: 1.62, source: 'high_chronic' };
+  return { caution: 1.28, redline: 1.5, source: 'high_chronic' };
 }

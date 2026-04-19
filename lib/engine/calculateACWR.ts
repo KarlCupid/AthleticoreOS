@@ -140,6 +140,7 @@ export function getPersonalizedACWRThresholds(input: {
   fitnessLevel?: FitnessLevel | null;
   phase?: Phase | null;
   isOnActiveCut?: boolean;
+  cycleDay?: number | null;
   daysOfData: number;
   chronicLoad: number;
   loadMetrics: LoadMetrics;
@@ -148,6 +149,7 @@ export function getPersonalizedACWRThresholds(input: {
     fitnessLevel,
     phase,
     isOnActiveCut = false,
+    cycleDay = null,
     daysOfData,
     chronicLoad,
     loadMetrics,
@@ -172,7 +174,7 @@ export function getPersonalizedACWRThresholds(input: {
     'camp-base': 0.02,
     'camp-build': 0.04,
     'camp-peak': 0.03,
-    'camp-taper': -0.08,
+    'camp-taper': -0.02,
   };
 
   let adjustment = phaseAdj[effectivePhase] ?? 0;
@@ -183,6 +185,11 @@ export function getPersonalizedACWRThresholds(input: {
   if (isOnActiveCut) {
     adjustment -= 0.1;
     factors.push('active_cut');
+  }
+
+  if (cycleDay != null && cycleDay >= 20 && cycleDay <= 28) {
+    adjustment += 0.05;
+    factors.push('luteal_late');
   }
 
   if (daysOfData < 7) {
@@ -221,13 +228,16 @@ export function getPersonalizedACWRThresholds(input: {
   }
 
   const base = baseByFitness[effectiveFitness];
-  const caution = clamp(base.caution + adjustment, 1.05, 1.38);
-  const redline = clamp(base.redline + adjustment, caution + 0.12, 1.7);
+  // See lib/engine/THRESHOLDS.md for the guarded ACWR bands used here.
+  const detrained = 0.8;
+  const caution = clamp(base.caution + adjustment, 1.1, 1.3);
+  const redline = clamp(base.redline + adjustment, caution + 0.15, 1.5);
 
   const confidence: ACWRThresholds['confidence'] =
     daysOfData >= 18 ? 'high' : daysOfData >= 7 ? 'medium' : 'low';
 
   return {
+    detrained,
     caution: roundTo(caution, 2),
     redline: roundTo(redline, 2),
     confidence,
@@ -260,6 +270,7 @@ export async function calculateACWR({
   fitnessLevel,
   phase,
   isOnActiveCut,
+  cycleDay,
 }: ACWRInput): Promise<ACWRResult> {
   const asOf = asOfDate
     ? parseISODate(asOfDate)
@@ -303,6 +314,7 @@ export async function calculateACWR({
       fitnessLevel,
       phase,
       isOnActiveCut,
+      cycleDay,
       daysOfData: 0,
       chronicLoad: 0,
       loadMetrics: emptyMetrics,
@@ -352,6 +364,7 @@ export async function calculateACWR({
     fitnessLevel,
     phase,
     isOnActiveCut,
+    cycleDay,
     daysOfData,
     chronicLoad: chronic,
     loadMetrics,
@@ -370,6 +383,11 @@ export async function calculateACWR({
     message =
       `Your ACWR is elevated (${ratio.toFixed(2)} > ${thresholds.caution.toFixed(2)}). ` +
       'Stay disciplined with recovery and avoid stacking high-intensity work.';
+  } else if (ratio < thresholds.detrained) {
+    status = 'safe';
+    message =
+      `Your workload ratio is below the detrained band (${ratio.toFixed(2)} < ${thresholds.detrained.toFixed(2)}). ` +
+      'Rebuild load progressively instead of spiking volume all at once.';
   } else {
     status = 'safe';
     message =

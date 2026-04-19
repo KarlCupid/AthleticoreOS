@@ -112,13 +112,20 @@ console.log('\n-- calculateNutritionTargets --');
     biologicalSex: 'female',
     cycleDay: 10,
   }));
-  const lutealLate = calculateNutritionTargets(baseInput({
+  const lutealLateMaintain = calculateNutritionTargets(baseInput({
     biologicalSex: 'female',
     cycleDay: 24,
   }));
-  assert('Late-luteal proteinModifier is 1.15', lutealLate.proteinModifier === 1.15);
+  const lutealLateCut = calculateNutritionTargets(baseInput({
+    biologicalSex: 'female',
+    cycleDay: 24,
+    phase: 'fight-camp',
+    nutritionGoal: 'cut',
+  }));
+  assert('Late-luteal maintenance proteinModifier is 1.05', lutealLateMaintain.proteinModifier === 1.05);
+  assert('Late-luteal cut proteinModifier is 1.15', lutealLateCut.proteinModifier === 1.15);
   assert('Follicular proteinModifier is 1.0', follicular.proteinModifier === 1.0);
-  assert('Late-luteal protein > follicular protein', lutealLate.protein > follicular.protein);
+  assert('Late-luteal cut protein > follicular protein', lutealLateCut.protein > follicular.protein);
 })();
 
 (() => {

@@ -320,7 +320,7 @@ export function scoreExerciseForUser(
 
     // 2. Phase bonus
     const boostedTypes = PHASE_BOOSTS[context.phase] ?? [];
-    if (boostedTypes.includes(exercise.type)) {
+    if (context.readinessState !== 'Depleted' && boostedTypes.includes(exercise.type)) {
         score += 15;
     }
 
@@ -700,9 +700,12 @@ function estimateWorkoutTime(exercises: PrescribedExerciseV2[]): number {
     for (const ex of exercises) {
         const warmupTime = (ex.warmupSets?.length ?? 0) * 1.25;
         const restSec = ex.restSeconds ?? restDefaults[ex.exercise.type]?.defaultSeconds ?? 90;
-        const setTime = ex.setPrescription && ex.setPrescription.length > 0
+        let setTime = ex.setPrescription && ex.setPrescription.length > 0
             ? ex.setPrescription.reduce((sum, entry) => sum + (entry.sets * (0.75 + entry.restSeconds / 60)), 0)
             : ex.targetSets * (1 + restSec / 60);
+        if (ex.supersetGroup != null) {
+            setTime *= 0.8;
+        }
         totalMinutes += warmupTime + setTime;
     }
 
@@ -1269,6 +1272,10 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             metabolicReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 58 : 36,
             overallReadiness: readinessState === 'Prime' ? 82 : readinessState === 'Caution' ? 60 : 36,
             trend: 'stable',
+            dataConfidence: 'low',
+            dataSufficiency: 'insufficient',
+            cardioModifier: 1,
+            proteinModifier: 1,
             flags: [],
             performanceAnchors: [],
             readinessState,

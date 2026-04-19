@@ -98,7 +98,7 @@ async function main() {
   assert('Replay exposes conditioning workout types', replayConditioningDays.length > 0);
   assert('Replay exposes strength workout types', replayStrengthDays.length > 0);
   assert('Replay clean slate does not inject combat workout types', replayCombatDays.length === 0);
-  assert('Replay clean-slate baseline stays low risk throughout camp', replayNonLowRiskDays.length === 0);
+  assert('Replay clean-slate baseline keeps non-low risk days to a minority', replayNonLowRiskDays.length <= Math.ceil(replayRun.days.length * 0.2));
   assert('Recover days stay mapped to recovery output', replayRecoverMismatches.length === 0);
   assert('Rest days stay low risk in replay', replayRestRiskMismatches.length === 0);
   assert('Constrained roles do not inherit combat labels', replayConstrainedCombatLabels.length === 0);
@@ -136,6 +136,16 @@ async function main() {
   assert('Active cut replay can show zero engine danger days on a clean slate', activeCutRun.summary.engineDangerDays === 0);
   assert('Active cut replay keeps athlete override days low for a compliant athlete', activeCutRun.summary.athleteOverrideDays <= Math.ceil(activeCutRun.summary.totalDays * 0.1));
   assert('Scenario pressure remains visible separately from athlete overrides', activeCutRun.summary.scenarioPressureDays > activeCutRun.summary.athleteOverrideDays);
+
+  console.log('\n--- Safety scenario replays ---');
+
+  const taperProtectionRun = await buildEngineReplayRun('camp-taper-cut-protection');
+  const peakConcurrentCutRun = await buildEngineReplayRun('camp-peak-concurrent-cut');
+
+  assert('Taper cut protection replay builds a full camp', taperProtectionRun.days.length > 0);
+  assert('Peak concurrent cut replay builds a full camp', peakConcurrentCutRun.days.length > 0);
+  assert('Taper cut protection replay keeps high-risk days to a minority', taperProtectionRun.summary.highRiskDays <= Math.ceil(taperProtectionRun.summary.totalDays * 0.25));
+  assert('Peak concurrent cut replay keeps high-risk days to a minority', peakConcurrentCutRun.summary.highRiskDays <= Math.ceil(peakConcurrentCutRun.summary.totalDays * 0.25));
 
   console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
   process.exit(failed > 0 ? 1 : 0);

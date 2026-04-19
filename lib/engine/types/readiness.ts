@@ -16,11 +16,13 @@ export interface ACWRInput {
   fitnessLevel?: FitnessLevel | null;
   phase?: Phase | null;
   isOnActiveCut?: boolean;
+  cycleDay?: number | null;
 }
 
 export interface ACWRThresholds {
   caution: number;
   redline: number;
+  detrained: number;
   confidence: 'low' | 'medium' | 'high';
   personalizationFactors: string[];
   source: 'ewma_personalized';
@@ -64,6 +66,7 @@ export type ReadinessDimension = 'neural' | 'structural' | 'metabolic';
 export type FlagLevel = 'none' | 'yellow' | 'red';
 export type FatigueTrend = 'dropping' | 'stable' | 'rebounding';
 export type PerformanceAnchorStatus = 'below_baseline' | 'normal' | 'above_baseline' | 'unknown';
+export type ReadinessDataSufficiency = 'insufficient' | 'limited' | 'established';
 export type StimulusType =
   | 'max_velocity'
   | 'plyometric'
@@ -117,6 +120,10 @@ export interface ReadinessProfile {
   metabolicReadiness: number;
   overallReadiness: number;
   trend: FatigueTrend;
+  dataConfidence: 'low' | 'medium' | 'high';
+  dataSufficiency: ReadinessDataSufficiency;
+  cardioModifier: number;
+  proteinModifier: number;
   flags: ReadinessFlag[];
   performanceAnchors: PerformanceAnchor[];
   readinessState: ReadinessState;
@@ -139,6 +146,7 @@ export interface ReadinessProfileInput {
   bodyTempF?: number | null;
   weightCutIntensityCap?: number | null;
   recentSparringCount48h?: number;
+  recentSparringDecayLoad5d?: number;
   recentHighImpactCount48h?: number;
   recentHeavyStrengthCount48h?: number;
   goalMode?: 'build_phase' | 'fight_camp';
@@ -149,6 +157,8 @@ export interface ReadinessProfileInput {
   hasTechnicalSessionScheduled?: boolean;
   readinessHistory?: number[];
   priorDayReadinessState?: ReadinessState | null;
+  cycleDay?: number | null;
+  energyDeficitPercent?: number | null;
 }
 
 export interface ConstraintContext {
@@ -185,6 +195,7 @@ export interface GlobalReadinessInput {
 
 export interface BiologyInput {
   cycleDay: number;
+  energyDeficitPercent?: number | null;
 }
 
 export interface BiologyResult {

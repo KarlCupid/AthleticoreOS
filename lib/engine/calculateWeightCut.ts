@@ -1,6 +1,7 @@
 ﻿import type {
   CutPlanInput,
   CutPlanResult,
+  CutPlanWarning,
   CutPhaseDates,
   CutPhase,
   CutSafetyFlag,
@@ -56,6 +57,52 @@ function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+function buildExtremeCutWarning(input: {
+  cutPct: number;
+  totalCutLbs: number;
+  startWeight: number;
+  daysToWeighIn: number | null;
+  fightStatus: FightStatus;
+}): CutPlanWarning | null {
+  const { cutPct, totalCutLbs, startWeight, daysToWeighIn, fightStatus } = input;
+  if (cutPct <= 7) return null;
+
+  let severityScore = 0;
+  if (cutPct >= 12) severityScore += 3;
+  else if (cutPct >= 10) severityScore += 2;
+  else if (cutPct >= 8) severityScore += 1;
+
+  if (daysToWeighIn != null) {
+    if (daysToWeighIn <= 7) severityScore += 2;
+    else if (daysToWeighIn <= 14) severityScore += 1;
+  }
+
+  const amateurAdjusted = fightStatus === 'amateur';
+  if (amateurAdjusted) severityScore += 1;
+
+  const severity: CutPlanWarning['severity'] =
+    severityScore >= 5 ? 'medical'
+      : severityScore >= 3 ? 'severe'
+        : severityScore >= 1 ? 'caution'
+          : 'info';
+
+  return {
+    severity,
+    code: 'extreme_cut',
+    message:
+      `This cut is ${cutPct.toFixed(1)}% (${totalCutLbs.toFixed(1)} lbs), beyond the common 10% upper guidance band. ` +
+      `From ${startWeight} lbs, the recommended maximum is ${(startWeight * 0.1).toFixed(1)} lbs. ` +
+      `${daysToWeighIn == null ? 'Timeline risk is unknown.' : `${daysToWeighIn} days remain until weigh-in.`} ` +
+      `${amateurAdjusted ? 'Amateur status bumps this risk one step sooner.' : 'Professional status does not remove the medical risk.'} ` +
+      `Proceed only with direct medical and nutrition supervision.`,
+    requiresAcknowledgement: severity === 'severe' || severity === 'medical',
+    persistent: severity === 'severe' || severity === 'medical',
+    amateurAdjusted,
+    daysToWeighIn,
+    cutPct,
+  };
+}
+
 function computeDailyTargetOnCurve(plan: WeightCutPlanRow, dateStr: string): number {
   const totalDays = Math.max(0, daysBetween(plan.plan_created_date, plan.weigh_in_date));
   if (totalDays === 0) return roundToTenth(plan.target_weight);
@@ -102,24 +149,23 @@ export function generateCutPlan(input: CutPlanInput): CutPlanResult {
 
   const totalCutLbs = Math.round((startWeight - targetWeight) * 10) / 10;
   const totalCutPct = Math.round((totalCutLbs / startWeight) * 1000) / 10;
+  const daysToWeighIn = Math.max(0, daysBetween(todayStr, weighInDate));
+  const cutWarning = buildExtremeCutWarning({
+    cutPct: totalCutPct,
+    totalCutLbs,
+    startWeight,
+    daysToWeighIn,
+    fightStatus,
+  });
 
-  // Extreme cut flag (>10% BW) - warn heavily but allow the plan
-  const extremeCutWarning = totalCutPct > 10;
-  if (extremeCutWarning) {
-    safetyWarnings.unshift(
-      `EXTREME CUT WARNING: This ${totalCutPct.toFixed(1)}% cut (${totalCutLbs.toFixed(1)} lbs) far exceeds the 10% ` +
-      `body weight limit recognised by sports medicine authorities. Cuts of this magnitude carry documented risks of ` +
-      `acute kidney injury, cardiac arrhythmia, severe cognitive impairment, and in rare cases, death. ` +
-      `The recommended maximum from ${startWeight} lbs is ${(startWeight * 0.1).toFixed(1)} lbs (10%). ` +
-      `We strongly advise choosing a higher weight class. If you proceed, do so only under direct supervision ` +
-      `of a licensed sports dietitian and medical professional.`
-    );
+  if (cutWarning) {
+    safetyWarnings.unshift(`${cutWarning.severity.toUpperCase()} CUT WARNING: ${cutWarning.message}`);
   }
 
   if (validationErrors.length > 0) {
     return {
       valid: false,
-      extremeCutWarning,
+      cutWarning,
       validationErrors,
       safetyWarnings,
       totalCutLbs,
@@ -226,7 +272,7 @@ export function generateCutPlan(input: CutPlanInput): CutPlanResult {
 
   return {
     valid: true,
-    extremeCutWarning,
+    cutWarning,
     validationErrors: [],
     safetyWarnings,
     totalCutLbs,
@@ -602,6 +648,13 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
 
   const cutPhase = determineCutPhase(plan, date);
   const daysToWeighIn = Math.max(0, daysBetween(date, plan.weigh_in_date));
+  const activeCutWarning = buildExtremeCutWarning({
+    cutPct: Math.round((((plan.start_weight - plan.target_weight) / plan.start_weight) * 1000)) / 10,
+    totalCutLbs: Math.round((plan.start_weight - plan.target_weight) * 10) / 10,
+    startWeight: plan.start_weight,
+    daysToWeighIn,
+    fightStatus: plan.fight_status as FightStatus,
+  });
   const calorieFloor = plan.calorie_floor;
   const isTrainingDay = dayActivities.some(a =>
     a.activity_type !== 'rest' && a.activity_type !== 'active_recovery'
@@ -846,6 +899,17 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     daysToWeighIn,
     fightStatus: plan.fight_status as FightStatus,
   });
+  if (activeCutWarning && (activeCutWarning.severity === 'severe' || activeCutWarning.severity === 'medical')) {
+    safetyFlags.unshift({
+      severity: activeCutWarning.severity === 'medical' ? 'danger' : 'warning',
+      code: activeCutWarning.code,
+      title: `${activeCutWarning.severity.toUpperCase()} cut warning`,
+      message: activeCutWarning.message,
+      recommendation: activeCutWarning.requiresAcknowledgement
+        ? 'Require explicit acknowledgement and keep this warning visible on every daily mission until the cut ends.'
+        : 'Monitor this cut closely.',
+    });
+  }
 
   // Rehydration protocol (if applicable)
   let rehydrationProtocol: RehydrationProtocolResult | null = null;
@@ -863,6 +927,7 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     date,
     cutPhase,
     daysToWeighIn,
+    activeCutWarning,
     weightDriftLbs,
     prescribedCalories,
     prescribedProtein,

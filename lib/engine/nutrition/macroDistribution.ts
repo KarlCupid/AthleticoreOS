@@ -1,13 +1,30 @@
+import type { Phase, ProteinTargetPolicy } from '../types.ts';
 import { calculateCaloriesFromMacros } from '../../utils/nutrition.ts';
+
+function getProteinPolicy(phase?: Phase | null): ProteinTargetPolicy {
+  if (phase === 'fight-camp' || phase === 'camp-build' || phase === 'camp-peak' || phase === 'camp-taper') {
+    return {
+      baseProteinPerLb: 1.2,
+      deficitScalerCap: 0.5,
+    };
+  }
+
+  return {
+    baseProteinPerLb: 1.0,
+    deficitScalerCap: 0.4,
+  };
+}
 
 export function getProteinTarget(input: {
   bodyweightLbs: number;
   deficitPercent: number;
   proteinModifier?: number;
+  phase?: Phase | null;
 }): number {
-  const { bodyweightLbs, deficitPercent, proteinModifier = 1 } = input;
-  const baseProtein = 1.0;
-  const deficitScaler = Math.min(Math.max(0, deficitPercent) * 2.0, 0.4);
+  const { bodyweightLbs, deficitPercent, proteinModifier = 1, phase = null } = input;
+  const policy = getProteinPolicy(phase);
+  const baseProtein = policy.baseProteinPerLb;
+  const deficitScaler = Math.min(Math.max(0, deficitPercent) * 2.0, policy.deficitScalerCap);
   return Math.round(bodyweightLbs * (baseProtein + deficitScaler) * proteinModifier);
 }
 

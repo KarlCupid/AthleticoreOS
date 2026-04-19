@@ -30,6 +30,12 @@ function assert(label: string, condition: boolean) {
   }
 }
 
+function plusDaysIso(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
 function makePlan(overrides: Partial<WeightCutPlanRow> = {}): WeightCutPlanRow {
   return {
     id: 'plan-1',
@@ -194,7 +200,22 @@ console.log('\n-- calculateWeightCut --');
       biologicalSex: 'male',
       sport: 'mma',
     });
-    assert('Extreme cut (>10%) triggers extremeCutWarning', result.extremeCutWarning === true);
+    assert('Extreme cut (>10%) returns a structured cut warning', result.cutWarning != null);
+    assert('Extreme cut warning keeps the warning code', result.cutWarning?.code === 'extreme_cut');
+  }
+
+  {
+    const result = generateCutPlan({
+      startWeight: 180,
+      targetWeight: 158,
+      fightDate: plusDaysIso(6),
+      weighInDate: plusDaysIso(5),
+      fightStatus: 'pro',
+      biologicalSex: 'male',
+      sport: 'mma',
+    });
+    assert('Short-horizon 12%+ cut escalates to medical severity', result.cutWarning?.severity === 'medical');
+    assert('Medical cut warning requires acknowledgement', result.cutWarning?.requiresAcknowledgement === true);
   }
 })();
 

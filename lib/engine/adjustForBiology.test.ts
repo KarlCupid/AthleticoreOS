@@ -57,18 +57,19 @@ console.log('\n-- adjustForBiology --');
   {
     const r = adjustForBiology({ cycleDay: 14 });
     assert('Day 14 phase is ovulatory', r.cyclePhase === 'ovulatory');
-    assert('Day 14 cardioModifier is 1.05', r.cardioModifier === 1.05);
+    assert('Day 14 cardioModifier is 1.08', r.cardioModifier === 1.08);
     assert('Day 14 proteinModifier is 1.0', r.proteinModifier === 1.0);
     assert('Day 14 message contains "Ovulation"', r.message.includes('Ovulation'));
   }
 
-  // --- Luteal-early phase (days 15-19) ---
+  // --- Ovulatory window continues through day 15 ---
   {
     const r = adjustForBiology({ cycleDay: 15 });
-    assert('Day 15 phase is luteal-early', r.cyclePhase === 'luteal-early');
-    assert('Day 15 cardioModifier is 0.95', r.cardioModifier === 0.95);
-    assert('Day 15 proteinModifier is 1.1', r.proteinModifier === 1.1);
+    assert('Day 15 phase is ovulatory', r.cyclePhase === 'ovulatory');
+    assert('Day 15 cardioModifier is 1.08', r.cardioModifier === 1.08);
+    assert('Day 15 proteinModifier is 1.0', r.proteinModifier === 1.0);
   }
+  // --- Luteal-early phase (days 16-19) ---
   {
     const r = adjustForBiology({ cycleDay: 19 });
     assert('Day 19 (boundary) phase is luteal-early', r.cyclePhase === 'luteal-early');
@@ -76,7 +77,7 @@ console.log('\n-- adjustForBiology --');
 
   // --- Luteal-late phase (days 20-28) ---
   {
-    const r = adjustForBiology({ cycleDay: 20 });
+    const r = adjustForBiology({ cycleDay: 20, energyDeficitPercent: 10 });
     assert('Day 20 phase is luteal-late', r.cyclePhase === 'luteal-late');
     assert('Day 20 cardioModifier is 0.8', r.cardioModifier === 0.8);
     assert('Day 20 proteinModifier is 1.15', r.proteinModifier === 1.15);

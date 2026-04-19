@@ -18,7 +18,7 @@ import type { BiologyInput, BiologyResult, CyclePhase } from './types.ts';
  * Only call when athlete_profiles.cycle_tracking is TRUE
  * and athlete_profiles.biological_sex is 'female'.
  */
-export function adjustForBiology({ cycleDay }: BiologyInput): BiologyResult {
+export function adjustForBiology({ cycleDay, energyDeficitPercent = null }: BiologyInput): BiologyResult {
   if (!Number.isInteger(cycleDay) || cycleDay < 1 || cycleDay > 28) {
     throw new Error('cycleDay must be an integer between 1 and 28');
   }
@@ -40,22 +40,22 @@ export function adjustForBiology({ cycleDay }: BiologyInput): BiologyResult {
     proteinModifier = 1.0;
     message =
       'Follicular phase. Your body is primed for hard work. Push the intensity today.';
-  } else if (cycleDay === 14) {
+  } else if (cycleDay <= 15) {
     cyclePhase = 'ovulatory';
-    cardioModifier = 1.05;
+    cardioModifier = 1.08;
     proteinModifier = 1.0;
     message =
       'Ovulation window. Strength is peaking but watch your joints. Warm up thoroughly.';
   } else if (cycleDay <= 19) {
     cyclePhase = 'luteal-early';
     cardioModifier = 0.95;
-    proteinModifier = 1.1;
+    proteinModifier = (energyDeficitPercent ?? 0) > 5 ? 1.1 : 1.05;
     message =
       'Early luteal phase. Metabolism is ramping up. Slight protein bump to match.';
   } else {
     cyclePhase = 'luteal-late';
     cardioModifier = 0.8;
-    proteinModifier = 1.15;
+    proteinModifier = (energyDeficitPercent ?? 0) > 5 ? 1.15 : 1.05;
     message =
       'Your body is working harder internally this week. We are dialing back the cardio intensity today and bumping up your protein.';
   }

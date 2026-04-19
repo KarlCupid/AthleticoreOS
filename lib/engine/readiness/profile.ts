@@ -9,6 +9,7 @@ import type {
   StimulusConstraintSet,
   StimulusType,
 } from '../types.ts';
+import { adjustForBiology } from '../adjustForBiology.ts';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -102,6 +103,16 @@ export function deriveLegacyReadinessState(profile: Pick<ReadinessProfile, 'over
 
 export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessProfile {
   const flags: ReadinessFlag[] = [];
+  const daysOfData = input.readinessHistory?.length ?? 0;
+  const dataConfidence: ReadinessProfile['dataConfidence'] =
+    daysOfData >= 14 ? 'high' : daysOfData >= 7 ? 'medium' : 'low';
+  const dataSufficiency: ReadinessProfile['dataSufficiency'] =
+    daysOfData >= 7 ? 'established' : daysOfData > 0 ? 'limited' : 'insufficient';
+  const biology = input.cycleDay != null && input.cycleDay >= 1 && input.cycleDay <= 28
+    ? adjustForBiology({ cycleDay: input.cycleDay, energyDeficitPercent: input.energyDeficitPercent ?? 0 })
+    : null;
+  const cardioModifier = biology?.cardioModifier ?? 1;
+  const proteinModifier = biology?.proteinModifier ?? 1;
 
   const sleepScore = normalize1to5(input.sleepQuality, 3);
   const readinessScore = normalize1to5(input.subjectiveReadiness, 3);
@@ -149,7 +160,7 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
     readinessScore,
     100 - sorenessPenalty,
     100 - acwrPenalty,
-    100 - Math.min(28, (input.recentSparringCount48h ?? 0) * 10),
+    100 - Math.min(34, Math.round((input.recentSparringDecayLoad5d ?? (input.recentSparringCount48h ?? 0) * 0.8) * 12)),
     100 - Math.min(18, (input.recentHighImpactCount48h ?? 0) * 8),
     100 - Math.min(12, (input.recentHeavyStrengthCount48h ?? 0) * 6),
   ])), 8, 100);
@@ -281,6 +292,15 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
     });
   }
 
+  if (daysOfData < 7) {
+    addFlag(flags, {
+      code: 'insufficient_data',
+      level: 'yellow',
+      dimension: 'global',
+      reason: 'Less than 7 days of readiness data are available, so today\'s score should be treated with lower confidence.',
+    });
+  }
+
   const trend = getTrend(input.readinessHistory ?? []);
   const overallReadiness = clamp(Math.round(average([neuralReadiness, structuralReadiness, metabolicReadiness])), 8, 100);
   const readinessState = deriveLegacyReadinessState({ overallReadiness, flags });
@@ -322,6 +342,10 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
     metabolicReadiness,
     overallReadiness,
     trend,
+    dataConfidence,
+    dataSufficiency,
+    cardioModifier,
+    proteinModifier,
     flags,
     performanceAnchors: anchors,
     readinessState,
@@ -346,7 +370,7 @@ export function deriveStimulusConstraintSet(
   let explosiveBudget = profile.neuralReadiness;
   let impactBudget = profile.structuralReadiness;
   let strengthBudget = Math.round((profile.structuralReadiness * 0.6) + (profile.neuralReadiness * 0.2) + (profile.metabolicReadiness * 0.2));
-  let aerobicBudget = profile.metabolicReadiness;
+  let aerobicBudget = Math.round(profile.metabolicReadiness * profile.cardioModifier);
 
   if (profile.trend === 'dropping') {
     explosiveBudget -= 8;
@@ -406,7 +430,7 @@ export function deriveStimulusConstraintSet(
   if (impactBudget < 68 || structuralRedFlags > 0) {
     blocked.push('high_impact');
   }
-  if (impactBudget < 62 || protectWindow || structuralRedFlags > 0 || (context.goalMode === 'fight_camp' && structuralYellowFlags > 0)) {
+  if (impactBudget < 62 || protectWindow || structuralRedFlags > 0 || structuralYellowFlags > 0) {
     blocked.push('hard_sparring');
   }
   if (strengthBudget < 48) {
@@ -419,7 +443,7 @@ export function deriveStimulusConstraintSet(
     blocked.push('tempo_conditioning');
   }
 
-  if (context.goalMode === 'fight_camp' && context.hasTechnicalSession) {
+  if (context.hasTechnicalSession) {
     blocked.push('recovery');
   }
 

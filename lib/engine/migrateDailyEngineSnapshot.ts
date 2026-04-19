@@ -88,6 +88,7 @@ function migrateNutritionTargets(raw: unknown): ResolvedNutritionTargets {
     fuelingFloorTriggered: Boolean(source.fuelingFloorTriggered),
     deficitBankDelta: coerceNumber(source.deficitBankDelta, 0),
     safetyWarning: (source.safetyWarning as ResolvedNutritionTargets['safetyWarning']) ?? 'none',
+    safetyEvents: Array.isArray(source.safetyEvents) ? source.safetyEvents as ResolvedNutritionTargets['safetyEvents'] : [],
     traceLines: traceLines.length > 0 ? traceLines : reasonLines,
   };
 }
@@ -135,6 +136,8 @@ function migrateMission(raw: unknown, migratedNutrition: ResolvedNutritionTarget
     },
     riskState: {
       ...riskState,
+      campRiskLevel: (riskState.campRiskLevel as DailyMission['riskState']['campRiskLevel']) ?? null,
+      campRiskSource: (riskState.campRiskSource as DailyMission['riskState']['campRiskSource']) ?? null,
       flags: Array.isArray(riskState.flags) ? riskState.flags : [],
       anchorSummary: typeof riskState.anchorSummary === 'string' ? riskState.anchorSummary : null,
     },

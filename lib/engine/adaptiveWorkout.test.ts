@@ -111,16 +111,14 @@ console.log('\n── processSetCompletion: RPE delta ──');
 })();
 
 (() => {
-    // RPE +2 (heavy fatigue) -> weight reduction 10% AND rep reduction
+    // RPE +2 (heavy fatigue) -> weight reduction only
     const result = processSetCompletion(makeSetInput({
         actualRPE: 9, targetRPE: 7, targetWeight: 200, targetReps: 10,
     }));
     const weightAdj = result.adjustments.find(a => a.adjustmentType === 'weight_reduction');
-    const repAdj = result.adjustments.find(a => a.adjustmentType === 'rep_reduction');
     assert('RPE +2 -> weight reduction', weightAdj != null);
     assert('RPE +2 -> 10% reduction (200->180)', weightAdj?.adjustedValue === 180);
-    assert('RPE +2 -> rep reduction', repAdj != null);
-    assert('RPE +2 -> reps reduced by 2 (10->8)', repAdj?.adjustedValue === 8);
+    assert('RPE +2 -> does not change rep target', !result.adjustments.some(a => a.adjustmentType === 'rep_reduction'));
     assert('RPE +2 -> warning severity', result.feedbackSeverity === 'warning');
 })();
 

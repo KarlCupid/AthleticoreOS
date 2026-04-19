@@ -54,22 +54,22 @@ console.log('\n-- getGlobalReadinessState --');
   assert('Prime: sleep=5, readiness=5, acwr=0.5',
     getGlobalReadinessState({ sleep: 5, readiness: 5, acwr: 0.5 }) === 'Prime');
 
-  assert('Prime: exact boundary acwr=1.3 (<=1.3 satisfies Prime)',
-    getGlobalReadinessState({ sleep: 4, readiness: 4, acwr: 1.3 }) === 'Prime');
+  assert('Caution: exact boundary acwr=1.3 enters caution band',
+    getGlobalReadinessState({ sleep: 4, readiness: 4, acwr: 1.3 }) === 'Caution');
 
-  // === Fallback Caution (middle-ground) ===
-  assert('Fallback Caution: sleep=3, readiness=3, acwr=1.0 (not >3)',
-    getGlobalReadinessState({ sleep: 3, readiness: 3, acwr: 1.0 }) === 'Caution');
+  // === Prime boundary inclusivity ===
+  assert('Prime: sleep=3, readiness=3, acwr=1.0',
+    getGlobalReadinessState({ sleep: 3, readiness: 3, acwr: 1.0 }) === 'Prime');
 
-  assert('Fallback Caution: sleep=3, readiness=4, acwr=1.0 (sleep not >3)',
-    getGlobalReadinessState({ sleep: 3, readiness: 4, acwr: 1.0 }) === 'Caution');
+  assert('Prime: sleep=3, readiness=4, acwr=1.0',
+    getGlobalReadinessState({ sleep: 3, readiness: 4, acwr: 1.0 }) === 'Prime');
 
-  assert('Fallback Caution: sleep=4, readiness=3, acwr=1.0 (readiness not >3)',
-    getGlobalReadinessState({ sleep: 4, readiness: 3, acwr: 1.0 }) === 'Caution');
+  assert('Prime: sleep=4, readiness=3, acwr=1.0',
+    getGlobalReadinessState({ sleep: 4, readiness: 3, acwr: 1.0 }) === 'Prime');
 
   // === Boundary precision ===
-  assert('Boundary: acwr=1.30 is Prime not Caution',
-    getGlobalReadinessState({ sleep: 4, readiness: 4, acwr: 1.30 }) === 'Prime');
+  assert('Boundary: acwr=1.30 is Caution',
+    getGlobalReadinessState({ sleep: 4, readiness: 4, acwr: 1.30 }) === 'Caution');
 
   assert('Boundary: acwr=1.50 is Depleted not Caution',
     getGlobalReadinessState({ sleep: 4, readiness: 4, acwr: 1.50 }) === 'Depleted');
@@ -88,7 +88,7 @@ console.log('\n-- getGlobalReadinessState --');
     getGlobalReadinessState({ sleep: 5, readiness: 5, acwr: 0.8 }) === 'Prime');
 
   assert('weightPenalty=1 reduces readiness 4->3, still Prime',
-    getGlobalReadinessState({ sleep: 4, readiness: 4, acwr: 1.0, weightPenalty: 1 }) === 'Caution');
+    getGlobalReadinessState({ sleep: 4, readiness: 4, acwr: 1.0, weightPenalty: 1 }) === 'Prime');
 
   assert('weightPenalty=1 reduces readiness 5->4, still Prime',
     getGlobalReadinessState({ sleep: 5, readiness: 5, acwr: 1.0, weightPenalty: 1 }) === 'Prime');

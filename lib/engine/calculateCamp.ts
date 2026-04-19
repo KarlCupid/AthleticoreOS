@@ -57,11 +57,11 @@ const PHASE_VOLUME_MULTIPLIERS: Record<CampPhase, number> = {
 /**
  * Max RPE for each camp phase (applied across all activity types).
  */
-const PHASE_INTENSITY_CAPS: Record<CampPhase, number> = {
-    base: 7,    // build base without frying the system
-    build: 9,    // high intensity to match fight demands
-    peak: 9,    // hold intensity, cut volume
-    taper: 6,    // back off, stay sharp
+const PHASE_INTENSITY_CAPS: Record<CampPhase, { normal: number; concurrentCut: number }> = {
+    base: { normal: 7, concurrentCut: 7 },
+    build: { normal: 9, concurrentCut: 8 },
+    peak: { normal: 9, concurrentCut: 7 },
+    taper: { normal: 6, concurrentCut: 6 },
 };
 
 /**
@@ -210,7 +210,9 @@ export function getCampTrainingModifiers(
 
     return {
         volumeMultiplier: volMult,
-        intensityCap: PHASE_INTENSITY_CAPS[campPhase],
+        intensityCap: hasConcurrentCut
+            ? PHASE_INTENSITY_CAPS[campPhase].concurrentCut
+            : PHASE_INTENSITY_CAPS[campPhase].normal,
         mandatoryRestDaysPerWeek: PHASE_REST_DAYS[campPhase],
         sparringDaysPerWeek: PHASE_SPARRING_DAYS[campPhase],
         roadWorkSessionsPerWeek: Math.round(baseRunByLevel[fitnessLevel] * volMult),
@@ -304,7 +306,20 @@ export function toCampEnginePhase(campPhase: CampPhase): Phase {
  *
  * @ANTI-WIRING: Pure synchronous function.
  */
-export function getAutoTaperMultiplier(sparringDaysPerWeek: number): number {
+export function getAutoTaperMultiplier(
+    sparringDaysPerWeek: number,
+    sparringRoundsThisWeek?: number,
+    avgSparringIntensity?: number,
+): number {
+    if (
+        typeof sparringRoundsThisWeek === 'number'
+        && sparringRoundsThisWeek > 0
+        && typeof avgSparringIntensity === 'number'
+        && avgSparringIntensity > 0
+    ) {
+        return Math.max(0.5, 1.0 - ((sparringRoundsThisWeek * avgSparringIntensity) / 50));
+    }
+
     if (sparringDaysPerWeek <= 1) return 1.0;
     return Math.max(0.5, 1.0 - (sparringDaysPerWeek - 1) * 0.175);
 }
@@ -328,8 +343,14 @@ export function getAutoTaperMultiplier(sparringDaysPerWeek: number): number {
 export function getCampSCModifier(
     campPhase: CampPhase,
     sparringDaysThisWeek: number,
+    sparringRoundsThisWeek?: number,
+    avgSparringIntensity?: number,
 ): CampSCModifier {
-    const taperMult = getAutoTaperMultiplier(sparringDaysThisWeek);
+    const taperMult = getAutoTaperMultiplier(
+        sparringDaysThisWeek,
+        sparringRoundsThisWeek,
+        avgSparringIntensity,
+    );
     const phaseVolume = PHASE_VOLUME_MULTIPLIERS[campPhase];
     const scVolumeMultiplier = phaseVolume * taperMult;
 
@@ -401,47 +422,51 @@ export function getSparringDayGuidance(
             && ex.type !== 'power',
     );
 
+    const taperMode = campPhase === 'taper';
+
     // Build pre-activation routine (3-4 exercises, ~10-15 min)
     const preActivation: PrescribedExercise[] = [];
 
-    // Add 1-2 mobility exercises
-    const mobilityPicks = mobilityExercises.slice(0, 2);
+    // Taper strips sparring-day work down to a minimal movement prep block.
+    const mobilityPicks = mobilityExercises.slice(0, taperMode ? 1 : 2);
     for (const ex of mobilityPicks) {
         preActivation.push({
             exercise: ex,
-            targetSets: 2,
-            targetReps: 10,
-            targetRPE: 3,
+            targetSets: taperMode ? 1 : 2,
+            targetReps: taperMode ? 8 : 10,
+            targetRPE: taperMode ? 2 : 3,
             supersetGroup: null,
             score: 80,
         });
     }
 
-    // Add 1-2 activation exercises (band work, bodyweight)
-    const activationPicks = activationCandidates
-        .filter(ex => !mobilityPicks.some(m => m.id === ex.id))
-        .slice(0, 2);
-    for (const ex of activationPicks) {
-        preActivation.push({
-            exercise: ex,
-            targetSets: 2,
-            targetReps: 8,
-            targetRPE: 4,
-            supersetGroup: null,
-            score: 70,
-        });
+    if (!taperMode) {
+        // Add 1-2 activation exercises (band work, bodyweight)
+        const activationPicks = activationCandidates
+            .filter(ex => !mobilityPicks.some(m => m.id === ex.id))
+            .slice(0, 2);
+        for (const ex of activationPicks) {
+            preActivation.push({
+                exercise: ex,
+                targetSets: 2,
+                targetReps: 8,
+                targetRPE: 4,
+                supersetGroup: null,
+                score: 70,
+            });
+        }
     }
 
     // Build post-recovery routine (2-3 exercises, ~10 min)
     const postRecovery: PrescribedExercise[] = [];
     const recoveryPicks = mobilityExercises
         .filter(ex => !mobilityPicks.some(m => m.id === ex.id))
-        .slice(0, 3);
+        .slice(0, taperMode ? 1 : 3);
     for (const ex of recoveryPicks) {
         postRecovery.push({
             exercise: ex,
             targetSets: 1,
-            targetReps: 12,
+            targetReps: taperMode ? 8 : 12,
             targetRPE: 2,
             supersetGroup: null,
             score: 60,
@@ -462,7 +487,7 @@ export function getSparringDayGuidance(
         base: 'Base phase sparring day. Light activation to prime movement patterns. Save your energy for rounds.',
         build: 'Build phase sparring day. Activation only â€” intensity comes from sparring, not S&C.',
         peak: 'Peak phase sparring day. Minimal activation to stay sharp. Full recovery between sessions.',
-        taper: 'Taper phase sparring day. Light mobility only. Preserve every ounce of energy for fight prep.',
+        taper: 'Taper phase sparring day. Light mobility only. Keep the prep minimal and preserve every ounce of energy for fight week.',
     };
 
     return {

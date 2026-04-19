@@ -360,6 +360,30 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
     }),
   },
   {
+    id: 'camp-taper-cut-protection',
+    label: 'Taper Cut Protection',
+    description: 'Late-camp replay tuned for taper plus active cut pressure. Useful for checking that protective mission logic still preserves recovery-first outputs as weigh-in approaches.',
+    config: buildFightCampConfig({
+      startDate: '2026-02-02',
+      weeks: 8,
+      seed: 37,
+      targetWeight: 167,
+      persona: TheCoachablePro,
+    }),
+  },
+  {
+    id: 'camp-peak-concurrent-cut',
+    label: 'Peak With Concurrent Cut',
+    description: 'Peak-camp replay with a tighter cut. Useful for validating that intensity pressure stays bounded instead of stacking peak load and aggressive cut stress together.',
+    config: buildFightCampConfig({
+      startDate: '2026-02-02',
+      weeks: 8,
+      seed: 41,
+      targetWeight: 166,
+      persona: TheCoachablePro,
+    }),
+  },
+  {
     id: 'stressed-low-compliance',
     label: 'Camp Recovery Headwinds',
     description: 'Same realistically compliant athlete under a noisier recovery trajectory. Useful for validating whether the engine stays coherent when readiness gets choppy.',

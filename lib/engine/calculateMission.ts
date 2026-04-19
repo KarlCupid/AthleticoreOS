@@ -240,20 +240,20 @@ function checkInterventionStatus(
   riskState: MissionRiskState,
   plannedIntensityCap: number | null,
 ): InterventionStatus {
-  if (riskState.score >= 75) {
+  if (riskState.level === 'critical') {
     return {
       interventionState: 'hard',
-      enforcedIntensityCap: plannedIntensityCap === null ? 2 : Math.min(plannedIntensityCap, 2),
+      enforcedIntensityCap: plannedIntensityCap === null ? 3 : Math.min(plannedIntensityCap, 3),
       forcedSessionRole: 'recover',
       isMandatoryRecovery: true,
       reason: 'Critical risk is active. Recovery is mandatory today to stop the fatigue spiral.',
     };
   }
 
-  if (riskState.score >= 55) {
+  if (riskState.level === 'high') {
     return {
       interventionState: 'soft',
-      enforcedIntensityCap: plannedIntensityCap === null ? 4 : Math.min(plannedIntensityCap, 4),
+      enforcedIntensityCap: plannedIntensityCap === null ? 5 : Math.min(plannedIntensityCap, 5),
       forcedSessionRole: null,
       isMandatoryRecovery: false,
       reason: 'Risk is elevated. Output is capped today to protect recovery and keep the block on line.',
@@ -349,10 +349,17 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
     drivers.push('Taper phase prioritizes freshness over added load.');
   }
 
-  let level: MissionRiskLevel = 'low';
-  if (score >= 75) level = 'critical';
-  else if (score >= 55) level = 'high';
-  else if (score >= 35) level = 'moderate';
+  let level: MissionRiskLevel = input.riskLevel ?? 'low';
+  if (input.riskLevel == null) {
+    if (score >= 75) level = 'critical';
+    else if (score >= 55) level = 'high';
+    else if (score >= 35) level = 'moderate';
+  } else {
+    score = Math.max(
+      score,
+      input.riskLevel === 'critical' ? 75 : input.riskLevel === 'high' ? 55 : input.riskLevel === 'moderate' ? 35 : 0,
+    );
+  }
 
   const label = level === 'critical'
     ? 'Protect the next 48 hours'
@@ -367,6 +374,8 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
     score: Math.max(0, Math.min(100, Math.round(score))),
     label,
     drivers: drivers.length > 0 ? drivers : ['No major risk drivers detected.'],
+    campRiskLevel: input.riskLevel ?? null,
+    campRiskSource: input.riskLevel != null ? 'explicit_level' : 'score_only',
     flags: input.readinessProfile.flags,
     anchorSummary: anchorSummary || null,
     underlyingLevel: null,

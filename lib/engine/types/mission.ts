@@ -158,6 +158,8 @@ export interface MissionRiskState {
   score: number;
   label: string;
   drivers: string[];
+  campRiskLevel?: MissionRiskLevel | null;
+  campRiskSource?: 'explicit_level' | 'score_only' | null;
   flags?: ReadinessFlag[];
   anchorSummary?: string | null;
   underlyingLevel?: MissionRiskLevel | null;
@@ -232,6 +234,7 @@ export interface BuildDailyMissionInput {
   medStatus?: MEDStatus | null;
   riskScore?: number | null;
   riskDrivers?: string[];
+  riskLevel?: MissionRiskLevel | null;
   protectWindow?: MissionProtectWindow | null;
 }
 

@@ -190,47 +190,43 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
     let feedbackMessage = '';
     let feedbackSeverity: FeedbackSeverity = 'neutral';
 
-    // RPE delta >= +2: heavy fatigue â€” reduce weight 10% AND reps 1-2
-    if (rpeDelta >= 2) {
-        const reducedWeight = Math.round(targetWeight * 0.9);
-        const reducedReps = Math.max(1, targetReps - 2);
-
-        adjustments.push({
-            exerciseId,
-            adjustmentType: 'weight_reduction',
-            originalValue: targetWeight,
-            adjustedValue: reducedWeight,
-            reason: `RPE ${rpeDelta} points above target. Reducing weight by 10% for remaining sets.`,
-        });
-
-        adjustments.push({
-            exerciseId,
-            adjustmentType: 'rep_reduction',
-            originalValue: targetReps,
-            adjustedValue: reducedReps,
-            reason: `RPE ${rpeDelta} points above target. Reducing reps for remaining sets.`,
-        });
-
-        feedbackMessage = `Fatigue building. Reducing target weight from ${targetWeight} to ${reducedWeight} for remaining sets.`;
-        feedbackSeverity = 'warning';
+    const minimumWeight = Math.max(0, Math.round(targetWeight * 0.75));
+    if (Math.abs(rpeDelta) <= 0.5) {
+        feedbackMessage = 'Right on target. Keep it up.';
+        feedbackSeverity = 'neutral';
     }
-    // RPE delta == +1: mild fatigue â€” reduce weight 5%
-    else if (rpeDelta === 1) {
-        const reducedWeight = Math.round(targetWeight * 0.95);
+    // 0.5-1.5 delta: light weight-only adjustment
+    else if (rpeDelta > 0.5 && rpeDelta < 1.5) {
+        const reducedWeight = Math.max(minimumWeight, Math.round(targetWeight * 0.95));
 
         adjustments.push({
             exerciseId,
             adjustmentType: 'weight_reduction',
             originalValue: targetWeight,
             adjustedValue: reducedWeight,
-            reason: `RPE 1 point above target. Reducing weight by 5% for remaining sets.`,
+            reason: `RPE is ${rpeDelta.toFixed(1)} above target. Reducing weight by 5% for the next set while preserving the planned reps.`,
         });
 
-        feedbackMessage = `RPE slightly higher than expected. Reducing to ${reducedWeight} lbs for next set.`;
+        feedbackMessage = `RPE is slightly high. Drop to ${reducedWeight} lbs and keep the rep target steady.`;
         feedbackSeverity = 'caution';
     }
-    // RPE delta <= -1: feeling strong â€” suggest weight increase
-    else if (rpeDelta <= -1) {
+    // >=1.5 delta: stronger weight-only adjustment
+    else if (rpeDelta >= 1.5) {
+        const reducedWeight = Math.max(minimumWeight, Math.round(targetWeight * 0.9));
+
+        adjustments.push({
+            exerciseId,
+            adjustmentType: 'weight_reduction',
+            originalValue: targetWeight,
+            adjustedValue: reducedWeight,
+            reason: `RPE is ${rpeDelta.toFixed(1)} above target. Reducing weight by 10% while preserving the planned reps and session intent.`,
+        });
+
+        feedbackMessage = `Fatigue is climbing. Reduce to ${reducedWeight} lbs and keep the reps as written.`;
+        feedbackSeverity = 'warning';
+    }
+    // Feeling strong â€” suggest weight increase
+    else if (rpeDelta <= -0.5) {
         const increasedWeight = Math.max(
             Math.round(targetWeight * 1.025),
             targetWeight + 5,
@@ -247,15 +243,18 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         feedbackMessage = `Feeling strong! Consider bumping up to ${increasedWeight} lbs.`;
         feedbackSeverity = 'positive';
     }
-    // RPE delta == 0: on target
+    // RPE delta inside the deadband
     else {
         feedbackMessage = 'Right on target. Keep it up.';
         feedbackSeverity = 'neutral';
     }
 
-    // 3+ consecutive high RPE sets: swap high-CNS remaining exercises
+    // 3+ consecutive high RPE sets: swap at most one non-primary high-CNS remaining exercise
     if (consecutiveHighRPESets >= 3) {
         for (const prescribed of remainingExercises) {
+            if (prescribed.exercise.id === (input.primaryExerciseId ?? null)) {
+                continue;
+            }
             const exRow = exerciseLibrary.find((e) => e.id === prescribed.exercise.id);
             if (exRow && exRow.cns_load >= 7) {
                 const substitute = findSubstituteExercise(exRow, exerciseLibrary, availableEquipment);
@@ -269,6 +268,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
                         swapExerciseName: substitute.name,
                         reason: `${consecutiveHighRPESets} consecutive high-RPE sets. Swapping ${exRow.name} (CNS ${exRow.cns_load}) for ${substitute.name} (CNS ${substitute.cns_load}).`,
                     });
+                    break;
                 }
             }
         }
@@ -380,11 +380,13 @@ export function getRestTimerDefaults(): Record<ExerciseType, RestTimerConfig> {
  *
  * Pure synchronous function. No database queries. No LLM generation.
  */
-export function getRestDuration(exerciseType: ExerciseType, fatigueLevel: FatigueLevel): number {
+export function getRestDuration(exerciseType: ExerciseType, fatigueLevel: FatigueLevel, targetReps?: number | null): number {
     const defaults = getRestTimerDefaults();
     const config = defaults[exerciseType];
-
     let seconds = config.defaultSeconds;
+    if (typeof targetReps === 'number' && Number.isFinite(targetReps)) {
+        seconds = targetReps <= 5 ? 240 : targetReps <= 12 ? 75 : 45;
+    }
 
     if (fatigueLevel === 'high' || fatigueLevel === 'extreme') {
         seconds = Math.min(seconds + 30, config.maxSeconds);

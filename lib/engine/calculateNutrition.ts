@@ -64,7 +64,7 @@ const PHASE_GOAL_MODIFIERS: Record<Phase, Record<NutritionGoal, number>> = {
     bulk: 0.05,
   },
   'fight-camp': {
-    maintain: -0.15,
+    maintain: 0,
     cut: -0.25,
     bulk: 0,
   },
@@ -85,7 +85,7 @@ const PHASE_GOAL_MODIFIERS: Record<Phase, Record<NutritionGoal, number>> = {
     bulk: 0,
   },
   'camp-taper': {
-    maintain: -0.10,  // Taper: moderate cut to make weight while maintaining muscle
+    maintain: 0,  // Taper maintain stays neutral; active cut protocol owns deficit pressure
     cut: -0.20,
     bulk: 0,
   },
@@ -350,8 +350,8 @@ function buildSessionFuelingPlan(input: {
   const preProtein = cutProtected ? clamp(Math.round(Math.min(preProteinCap, 20)), 15, 25) : clamp(Math.round(Math.min(preProteinCap, 20 + durationMin / 30)), 20, 35);
   const intraCarbs = cutProtected
     ? 0
-    : durationMin >= 75 || priority === 'double_session'
-      ? clamp(Math.round(durationMin / 4), 15, 35)
+    : ((durationMin >= 75 && intensity >= 7) || priority === 'double_session')
+      ? clamp(Math.round((durationMin / 60) * 60), 20, 70)
       : priority === 'sparring' || priority === 'boxing_practice'
         ? clamp(Math.round(durationMin / 6), 10, 25)
         : 0;
@@ -511,20 +511,22 @@ export function calculateNutritionTargets(
   }
 
   // 3. Biology modifier for protein
+  const deficitPercent = tdee > 0 ? Math.max(0, (tdee - adjustedCalories) / tdee) : 0;
   let proteinModifier = 1.0;
   let biologyMessage = '';
   if (cycleDay != null && cycleDay >= 1 && cycleDay <= 28) {
-    const biology = adjustForBiology({ cycleDay });
+    const biology = adjustForBiology({ cycleDay, energyDeficitPercent: deficitPercent * 100 });
     proteinModifier = biology.proteinModifier;
     biologyMessage = biology.message;
   }
-
-  const deficitPercent = tdee > 0 ? Math.max(0, (tdee - adjustedCalories) / tdee) : 0;
-  const protein = coachProteinOverride ?? getProteinTarget({
-    bodyweightLbs: weightLbs,
-    deficitPercent,
-    proteinModifier,
-  });
+  const protein = coachProteinOverride != null
+    ? Math.round(coachProteinOverride * proteinModifier)
+    : getProteinTarget({
+        bodyweightLbs: weightLbs,
+        deficitPercent,
+        proteinModifier,
+        phase,
+      });
 
   const distributed = distributeMacros({
     adjustedCalories,
@@ -664,17 +666,24 @@ export function resolveDailyNutritionTargets(
       bodyweightLbs: estimatedBodyweightLbs,
       deficitPercent,
       proteinModifier: baseTargets.proteinModifier,
+      phase: options?.macrocycleContext?.phase ?? null,
     });
     const cutDistributed = distributeMacros({
       adjustedCalories: cutCalories,
       proteinTarget: Math.max(cutProtocol.prescribed_protein, scaledProtein),
     });
+    const metabolicReadiness = options?.readinessProfile?.metabolicReadiness ?? 100;
+    const cutReadinessCalories = isTrainingDay && metabolicReadiness < 60
+      ? cutDistributed.calories + 100
+      : cutDistributed.calories;
     const floorResult = applyFuelingFloor({
-      targetCalories: cutDistributed.calories,
+      targetCalories: cutReadinessCalories,
       estimatedExpenditure,
       leanMassKg,
       isTrainingDay,
       daysToWeighIn: options?.daysToWeighIn ?? cutProtocol.days_to_weigh_in,
+      minimumEnergyAvailability: isTrainingDay && metabolicReadiness < 60 ? 23 : null,
+      floorSource: isTrainingDay && metabolicReadiness < 60 ? 'cut_readiness_floor' : 'fueling_floor',
     });
     const finalDistributed = distributeMacros({
       adjustedCalories: floorResult.adjustedCalories,
@@ -728,6 +737,7 @@ export function resolveDailyNutritionTargets(
       fuelingFloorTriggered: floorResult.fuelingFloorTriggered,
       deficitBankDelta: floorResult.deficitBankDelta,
       safetyWarning: floorResult.safetyWarning,
+      safetyEvents: floorResult.safetyEvents,
       traceLines,
       message: cutProtocol.cut_phase
         ? `Weight cut protocol (${cutProtocol.cut_phase.replace(/_/g, ' ')})`
@@ -803,6 +813,7 @@ export function resolveDailyNutritionTargets(
     bodyweightLbs: estimatedBodyweightLbs,
     deficitPercent,
     proteinModifier: baseTargets.proteinModifier,
+    phase: options?.macrocycleContext?.phase ?? null,
   }) + proteinModifier;
   const distributed = distributeMacros({
     adjustedCalories: modifiedCalories,
@@ -874,6 +885,7 @@ export function resolveDailyNutritionTargets(
     fuelingFloorTriggered: floorResult.fuelingFloorTriggered,
     deficitBankDelta: floorResult.deficitBankDelta,
     safetyWarning: floorResult.safetyWarning,
+    safetyEvents: floorResult.safetyEvents,
     traceLines: [...reasonLines, ...floorResult.traceLines],
     message: dayActivities.length > 0 ? reasonLines.join(' ') : baseTargets.message,
   };

@@ -31,12 +31,12 @@ export function getGlobalReadinessState({
   }
 
   // Caution — moderate risk indicators
-  if (sleep <= 2 || adjustedReadiness <= 2 || (acwr >= 1.31 && acwr <= 1.49)) {
+  if (sleep <= 2 || adjustedReadiness <= 2 || (acwr >= 1.3 && acwr < 1.5)) {
     return 'Caution';
   }
 
   // Prime — all signals green
-  if (sleep > 3 && adjustedReadiness > 3 && acwr <= 1.3) {
+  if (sleep >= 3 && adjustedReadiness >= 3 && acwr <= 1.3) {
     return 'Prime';
   }
 

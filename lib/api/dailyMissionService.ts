@@ -330,7 +330,14 @@ function toMissionActivityStatus(status: WeeklyPlanEntryRow['status']): 'schedul
   }
 }
 
-async function resolveACWR(userId: string, date: string, phase: Phase, fitnessLevel: string, isOnActiveCut: boolean): Promise<ACWRResult> {
+async function resolveACWR(
+  userId: string,
+  date: string,
+  phase: Phase,
+  fitnessLevel: string,
+  isOnActiveCut: boolean,
+  cycleDay: number | null,
+): Promise<ACWRResult> {
   return calculateACWR({
     userId,
     supabaseClient: supabase,
@@ -338,6 +345,7 @@ async function resolveACWR(userId: string, date: string, phase: Phase, fitnessLe
     fitnessLevel: fitnessLevel as any,
     phase,
     isOnActiveCut,
+    cycleDay,
   });
 }
 
@@ -347,14 +355,15 @@ async function resolveReadinessProfile(input: {
   acwr: ACWRResult;
   objectiveContext: MacrocycleContext;
   trainingIntensityCap?: number | null;
+  cycleDay?: number | null;
 }): Promise<{
   readinessProfile: ReadinessProfile;
   readinessState: ReadinessState;
   constraintSet: StimulusConstraintSet;
 }> {
-  const { userId, date, acwr, objectiveContext, trainingIntensityCap = null } = input;
+  const { userId, date, acwr, objectiveContext, trainingIntensityCap = null, cycleDay = null } = input;
   const historyStart = addDays(date, -6);
-  const recentActivityStart = addDays(date, -1);
+  const recentActivityStart = addDays(date, -5);
 
   let checkinsResult: any = { data: [] };
   let recentActivities: any[] = [];
@@ -418,6 +427,12 @@ async function resolveReadinessProfile(input: {
     .map((checkin) => checkin.readiness)
     .filter((value): value is number => typeof value === 'number');
   const recentSparringCount48h = recentActivities.filter((activity) => activity.activity_type === 'sparring' && activity.status !== 'skipped').length;
+  const recentSparringDecayLoad5d = recentActivities
+    .filter((activity) => activity.activity_type === 'sparring' && activity.status !== 'skipped')
+    .reduce((sum, activity) => {
+      const hoursAgo = Math.max(0, daysBetween(activity.date, date) * 24);
+      return sum + (Math.exp(-hoursAgo / 72) * ((activity.expected_intensity ?? 0) / 10));
+    }, 0);
   const recentHighImpactCount48h = recentActivities.filter((activity) =>
     (activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice')
     && activity.expected_intensity >= 7
@@ -446,6 +461,7 @@ async function resolveReadinessProfile(input: {
     bodyTempF: todayCheckin?.body_temp_f ?? null,
     weightCutIntensityCap: trainingIntensityCap,
     recentSparringCount48h,
+    recentSparringDecayLoad5d,
     recentHighImpactCount48h,
     recentHeavyStrengthCount48h,
     goalMode: objectiveContext.goalMode,
@@ -455,6 +471,7 @@ async function resolveReadinessProfile(input: {
     hasHardSparringScheduled: recentActivities.some((activity) => activity.activity_type === 'sparring' && activity.status !== 'skipped'),
     hasTechnicalSessionScheduled: recentActivities.some((activity) => activity.activity_type === 'boxing_practice' && activity.status !== 'skipped'),
     readinessHistory,
+    cycleDay,
   });
   const constraintSet = deriveStimulusConstraintSet(profile, {
     phase: objectiveContext.phase,
@@ -652,7 +669,24 @@ async function getCutProtocolForDate(userId: string, date: string) {
     .eq('date', date)
     .maybeSingle();
 
-  return data as any;
+  const protocol = data as any;
+  if (protocol && protocol.active_cut_warning == null && Array.isArray(protocol.safety_flags)) {
+    const warningFlag = protocol.safety_flags.find((flag: any) => flag?.code === 'extreme_cut');
+    if (warningFlag) {
+      protocol.active_cut_warning = {
+        severity: warningFlag.severity === 'danger' ? 'medical' : 'severe',
+        code: 'extreme_cut',
+        message: warningFlag.message,
+        requiresAcknowledgement: true,
+        persistent: true,
+        amateurAdjusted: false,
+        daysToWeighIn: protocol.days_to_weigh_in ?? null,
+        cutPct: 0,
+      };
+    }
+  }
+
+  return protocol;
 }
 
 async function ensureCutProtocolForDate(input: {
@@ -870,14 +904,25 @@ async function computeDailyEngineState(
   const primaryEnginePlanEntry = pickPrimaryEnginePlanEntry(weeklyPlanEntries);
 
   const profile = athleteContext.profile;
+  const profileCycleDay = typeof (profile as { cycle_day?: number | null } | null)?.cycle_day === 'number'
+    ? (profile as { cycle_day?: number | null }).cycle_day ?? null
+    : null;
   const currentWeight = objectiveContext.currentWeightLbs ?? profile?.base_weight ?? 150;
   const targetWeight = objectiveContext.targetWeightLbs ?? currentWeight;
-  const acwr = await resolveACWR(userId, date, objectiveContext.phase, athleteContext.fitnessLevel, athleteContext.isOnActiveCut);
+  const acwr = await resolveACWR(
+    userId,
+    date,
+    objectiveContext.phase,
+    athleteContext.fitnessLevel,
+    athleteContext.isOnActiveCut,
+    profileCycleDay,
+  );
   const initialReadiness = await resolveReadinessProfile({
     userId,
     date,
     acwr,
     objectiveContext,
+    cycleDay: profileCycleDay,
   });
   const cutProtocol = athleteContext.isOnActiveCut && profile
     ? await ensureCutProtocolForDate({
@@ -896,10 +941,11 @@ async function computeDailyEngineState(
     acwr,
     objectiveContext,
     trainingIntensityCap: cutProtocol?.training_intensity_cap ?? null,
+    cycleDay: profileCycleDay,
   });
   const medStatus = deriveMEDStatus(weeklyEntries, date);
 
-  const nutritionTargets = profile
+  let nutritionTargets = profile
     ? await resolveNutritionTargets({
       userId,
       date,
@@ -952,8 +998,37 @@ async function computeDailyEngineState(
       fuelingFloorTriggered: false,
       deficitBankDelta: 0,
       safetyWarning: 'none',
+      safetyEvents: [],
       traceLines: [],
     } as ResolvedNutritionTargets);
+
+  const eaLookbackDates = Array.from({ length: 6 }, (_, index) => addDays(date, -(index + 1)));
+  const eaLookbackSnapshots = await getDailyEngineSnapshotsForDates(userId, eaLookbackDates);
+  const rollingSevenDayDeficit = eaLookbackDates.reduce((sum, previousDate) => {
+    const previousSnapshot = eaLookbackSnapshots.get(previousDate)?.nutrition_targets_snapshot as ResolvedNutritionTargets | undefined;
+    if (!previousSnapshot) return sum;
+    return sum + Math.max(0, previousSnapshot.tdee - previousSnapshot.adjustedCalories);
+  }, Math.max(0, nutritionTargets.tdee - nutritionTargets.adjustedCalories));
+  if (rollingSevenDayDeficit > 15000) {
+    nutritionTargets = {
+      ...nutritionTargets,
+      safetyWarning: 'cumulative_ea_deficit_red_flag',
+      safetyEvents: [
+        ...(nutritionTargets.safetyEvents ?? []),
+        {
+          code: 'cumulative_ea_deficit_red_flag',
+          source: 'cumulative_ea_deficit',
+          priorValue: rollingSevenDayDeficit,
+          adjustedValue: rollingSevenDayDeficit,
+          reason: `Rolling 7-day deficit reached ${rollingSevenDayDeficit} kcal.`,
+        },
+      ],
+      traceLines: [
+        ...nutritionTargets.traceLines,
+        `Cumulative energy-availability surveillance flagged a 7-day deficit of ${rollingSevenDayDeficit} kcal.`,
+      ],
+    };
+  }
 
   const hydration = getHydrationProtocol({
     phase: objectiveContext.phase,
@@ -990,6 +1065,25 @@ async function computeDailyEngineState(
     acwrRatio: acwr.ratio,
     isTravelWindow: objectiveContext.isTravelWindow,
   });
+  for (const event of nutritionTargets.safetyEvents ?? []) {
+    console.info('[dailyMissionService] nutrition-safety-event', {
+      userId,
+      date,
+      code: event.code,
+      source: event.source,
+      priorValue: event.priorValue,
+      adjustedValue: event.adjustedValue,
+      reason: event.reason,
+    });
+  }
+  if (cutProtocol?.active_cut_warning) {
+    console.info('[dailyMissionService] cut-warning', {
+      userId,
+      date,
+      severity: cutProtocol.active_cut_warning.severity,
+      message: cutProtocol.active_cut_warning.message,
+    });
+  }
   const previousDates = [3, 2, 1].map((delta) => addDays(date, -delta));
   const previousSnapshots = options.forceRefresh
     ? new Map()
@@ -1030,6 +1124,7 @@ async function computeDailyEngineState(
     medStatus,
     riskScore: riskAssessment?.score ?? null,
     riskDrivers: riskAssessment?.drivers ?? [],
+    riskLevel: riskAssessment?.level ?? null,
     protectWindow,
   });
 

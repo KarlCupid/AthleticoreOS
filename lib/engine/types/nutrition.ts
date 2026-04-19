@@ -115,6 +115,11 @@ export interface NutritionProfileInput {
   weightCorrectionDeficit?: number;
 }
 
+export interface ProteinTargetPolicy {
+  baseProteinPerLb: number;
+  deficitScalerCap: number;
+}
+
 export interface NutritionTargets {
   tdee: number;
   adjustedCalories: number;
@@ -201,8 +206,18 @@ export type DailyNutritionTargetSource =
 export type NutritionSafetyWarning =
   | 'none'
   | 'fueling_floor_applied'
+  | 'cut_readiness_floor_applied'
   | 'low_energy_availability'
-  | 'critical_energy_availability';
+  | 'critical_energy_availability'
+  | 'cumulative_ea_deficit_red_flag';
+
+export interface NutritionSafetyEvent {
+  code: NutritionSafetyWarning;
+  source: 'fueling_floor' | 'cut_readiness_floor' | 'cumulative_ea_deficit';
+  priorValue: number | null;
+  adjustedValue: number | null;
+  reason: string;
+}
 
 export interface ResolvedNutritionTargets extends NutritionTargets {
   source: DailyNutritionTargetSource;
@@ -219,6 +234,7 @@ export interface ResolvedNutritionTargets extends NutritionTargets {
   fuelingFloorTriggered: boolean;
   deficitBankDelta: number;
   safetyWarning: NutritionSafetyWarning;
+  safetyEvents?: NutritionSafetyEvent[];
   traceLines: string[];
 }
 

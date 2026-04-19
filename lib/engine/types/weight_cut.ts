@@ -94,7 +94,7 @@ export interface CutPlanResult {
   valid: boolean;
   validationErrors: string[];
   safetyWarnings: string[];
-  extremeCutWarning: boolean;
+  cutWarning: CutPlanWarning | null;
   totalCutLbs: number;
   totalCutPct: number;
   dietPhaseTargetLbs: number;
@@ -110,6 +110,19 @@ export interface CutPlanResult {
   maxWaterCutPct: number;
   estimatedDailyDeficitChronic: number;
   estimatedDailyDeficitIntensified: number;
+}
+
+export type CutPlanWarningSeverity = 'info' | 'caution' | 'severe' | 'medical';
+
+export interface CutPlanWarning {
+  severity: CutPlanWarningSeverity;
+  code: 'extreme_cut';
+  message: string;
+  requiresAcknowledgement: boolean;
+  persistent: boolean;
+  amateurAdjusted: boolean;
+  daysToWeighIn: number | null;
+  cutPct: number;
 }
 
 export interface CutSafetyFlag {
@@ -149,6 +162,7 @@ export interface DailyCutProtocolResult {
   date: string;
   cutPhase: CutPhase;
   daysToWeighIn: number;
+  activeCutWarning: CutPlanWarning | null;
   weightDriftLbs: number | null;
   prescribedCalories: number;
   prescribedProtein: number;
@@ -335,6 +349,7 @@ export interface DailyCutProtocolRow {
   date: string;
   cut_phase: CutPhase;
   days_to_weigh_in: number;
+  active_cut_warning?: CutPlanWarning | null;
   weight_drift_lbs: number | null;
   prescribed_calories: number;
   prescribed_protein: number;

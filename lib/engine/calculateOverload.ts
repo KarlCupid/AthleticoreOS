@@ -57,6 +57,14 @@ function isUpperBody(muscleGroup: MuscleGroup): boolean {
   return UPPER_BODY_GROUPS.includes(muscleGroup);
 }
 
+function weeksBetween(startDate: string | null | undefined, endDate: string | null | undefined): number | null {
+  if (!startDate || !endDate) return null;
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+  return Math.floor((end - start) / (7 * 24 * 60 * 60 * 1000));
+}
+
 // ─── estimateE1RM ────────────────────────────────────────────
 
 /**
@@ -115,6 +123,8 @@ export function suggestOverload(input: OverloadInput): OverloadSuggestion {
     targetRPE,
     targetReps,
     muscleGroup,
+    sessionDate,
+    cycleStartDate,
   } = input;
 
   // ── Confidence from history depth ──
@@ -176,7 +186,7 @@ export function suggestOverload(input: OverloadInput): OverloadSuggestion {
 
     case 'wave': {
       // Wave / Undulating: cycle through heavy, moderate, light
-      const wavePosition = history.length % 3;
+      const wavePosition = weeksBetween(cycleStartDate ?? history[0]?.date ?? null, sessionDate ?? null) ?? (history.length % 3);
       switch (wavePosition) {
         case 0: // Heavy
           suggestedWeight = roundTo5(lastWeight * 1.10);
@@ -199,7 +209,7 @@ export function suggestOverload(input: OverloadInput): OverloadSuggestion {
 
     case 'block': {
       // Block: 3-week mesocycles
-      const blockPosition = history.length % 3;
+      const blockPosition = weeksBetween(cycleStartDate ?? history[0]?.date ?? null, sessionDate ?? null) ?? (history.length % 3);
       switch (blockPosition) {
         case 0: // Accumulation
           suggestedWeight = lastWeight;
@@ -207,14 +217,18 @@ export function suggestOverload(input: OverloadInput): OverloadSuggestion {
           reasoning = `Block periodization: ACCUMULATION \u2014 moderate weight, high volume (+2 reps)`;
           break;
         case 1: // Transmutation
-          suggestedWeight = roundTo5(lastWeight * 1.05);
+          suggestedWeight = (lastRPE ?? DEFAULT_RPE) > targetRPE + 1 ? lastWeight : roundTo5(lastWeight * 1.05);
           suggestedReps = Math.max(1, targetReps - 1);
-          reasoning = `Block periodization: TRANSMUTATION \u2014 +5% weight, moderate volume`;
+          reasoning = (lastRPE ?? DEFAULT_RPE) > targetRPE + 1
+            ? `Block periodization: TRANSMUTATION \u2014 last session overshot target RPE, holding weight`
+            : `Block periodization: TRANSMUTATION \u2014 +5% weight, moderate volume`;
           break;
         case 2: // Realization
-          suggestedWeight = roundTo5(lastWeight * 1.10);
+          suggestedWeight = (lastRPE ?? DEFAULT_RPE) > targetRPE + 1 ? lastWeight : roundTo5(lastWeight * 1.10);
           suggestedReps = Math.max(1, targetReps - 3);
-          reasoning = `Block periodization: REALIZATION \u2014 +10% weight, low volume, peak intensity`;
+          reasoning = (lastRPE ?? DEFAULT_RPE) > targetRPE + 1
+            ? `Block periodization: REALIZATION \u2014 last session overshot target RPE, holding weight`
+            : `Block periodization: REALIZATION \u2014 +10% weight, low volume, peak intensity`;
           break;
       }
       break;
@@ -224,10 +238,13 @@ export function suggestOverload(input: OverloadInput): OverloadSuggestion {
   // ── Deload override ──
   let isDeloadSet = false;
   if (isDeloadWeek) {
-    suggestedWeight = roundTo5(lastWeight * 0.60);
+    const lastEstimated1RM = lastSession.estimated1RM > 0
+      ? lastSession.estimated1RM
+      : estimateE1RM(lastWeight, Math.max(1, lastReps), lastRPE);
+    suggestedWeight = roundTo5(lastEstimated1RM * 0.675);
     suggestedReps = targetReps + 2;
     suggestedRPE = Math.min(suggestedRPE, 5);
-    reasoning = `DELOAD WEEK \u2014 60% of last weight, +2 reps, RPE capped at 5`;
+    reasoning = `DELOAD WEEK \u2014 67.5% of estimated 1RM, +2 reps, RPE capped at 5`;
     isDeloadSet = true;
   }
 

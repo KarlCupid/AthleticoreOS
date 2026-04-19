@@ -2193,10 +2193,10 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
         };
     }
 
-    // Sort exercises by score (highest priority first), take top 2
+    // Sort exercises by score (highest priority first), take top 5
     const missedExercises = [...missedEntry.prescription_snapshot.exercises]
         .sort((a, b) => b.score - a.score)
-        .slice(0, 2);
+        .slice(0, 5);
 
     if (missedExercises.length === 0) {
         return {
@@ -2240,22 +2240,40 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
     const updatedEntries = remainingEntries.map(e => ({ ...e }));
     const redistributed: PrescribedExercise[] = [];
 
-    // Distribute exercises across the lightest available days
+    const deferredExercises: PrescribedExercise[] = [];
+
+    // Distribute exercises across the lightest available safe days
     for (let i = 0; i < missedExercises.length; i++) {
         const exercise = missedExercises[i];
-        const targetEntry = candidates[i % candidates.length];
+        let placed = false;
 
-        // Find the entry in updatedEntries and extend its duration
-        const entryToUpdate = updatedEntries.find(e => e.id === targetEntry.id);
-        if (entryToUpdate) {
-            // Add ~10 min per redistributed exercise
+        for (const targetEntry of candidates) {
+            const simulatedEntries = updatedEntries.map(e => ({ ...e }));
+            const simulatedTarget = simulatedEntries.find(e => e.id === targetEntry.id);
+            if (!simulatedTarget) continue;
+
+            simulatedTarget.estimated_duration_min += 10;
+            const sameDayEntries = simulatedEntries
+                .filter(e => e.date === simulatedTarget.date && e.status !== 'skipped')
+                .map(e => ({
+                    activity_type: e.session_type as any,
+                    expected_intensity: e.target_intensity ?? 5,
+                    estimated_duration_min: e.estimated_duration_min,
+                }));
+            const validation = validateDayLoad(sameDayEntries as any);
+            if (!validation.safe) {
+                continue;
+            }
+
+            const entryToUpdate = updatedEntries.find(e => e.id === targetEntry.id);
+            if (!entryToUpdate) continue;
+
             entryToUpdate.estimated_duration_min += 10;
             entryToUpdate.engine_notes = [
                 entryToUpdate.engine_notes ?? '',
                 `Added ${exercise.exercise.name} from missed ${missedEntry.focus ?? 'workout'} day.`,
             ].filter(Boolean).join(' ');
 
-            // If the entry has a prescription snapshot, add the exercise
             if (entryToUpdate.prescription_snapshot) {
                 entryToUpdate.prescription_snapshot = {
                     ...entryToUpdate.prescription_snapshot,
@@ -2267,13 +2285,22 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
             }
 
             redistributed.push(exercise);
+            placed = true;
+            break;
+        }
+
+        if (!placed) {
+            deferredExercises.push(exercise);
         }
     }
 
     const exerciseNames = redistributed.map(e => e.exercise.name).join(', ');
-    const message = redistributed.length > 0
+    const deferredNames = deferredExercises.map(e => e.exercise.name).join(', ');
+    const message = redistributed.length > 0 && deferredExercises.length === 0
         ? `Redistributed ${redistributed.length} exercise(s) (${exerciseNames}) from missed ${missedEntry.focus ?? 'workout'} day to remaining sessions.`
-        : 'Could not redistribute any exercises.';
+        : redistributed.length > 0
+            ? `Redistributed ${redistributed.length} exercise(s) (${exerciseNames}). ${deferredExercises.length} exercise(s) (${deferredNames}) were deferred because adding them would violate recipient-day load safety; reschedule them next week instead of forcing them in.`
+            : 'Could not safely redistribute the missed exercises without violating recipient-day load limits. Reschedule them next week instead of forcing them into this microcycle.';
 
     return {
         updatedEntries,

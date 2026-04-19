@@ -126,7 +126,7 @@ console.log('\n── suggestOverload ──');
     });
     assert('Linear: lower body increment = +10 lbs', linearLower.suggestedWeight === 210);
 
-    // Deload override: 60% of last weight
+    // Deload override now anchors to ~67.5% of estimated 1RM.
     const deload = suggestOverload({
         exerciseId: 'ex-2',
         exerciseName: 'Back Squat',
@@ -140,7 +140,7 @@ console.log('\n── suggestOverload ──');
         muscleGroup: 'quads',
     });
     // 60% of 315 = 189 → roundTo5 → 190
-    assert('Deload: weight = 60% of last', deload.suggestedWeight === 190);
+    assert('Deload: weight = 67.5% of e1RM', deload.suggestedWeight === 215);
     assert('Deload: isDeloadSet = true', deload.isDeloadSet === true);
     assert('Deload: RPE capped at 5', deload.suggestedRPE <= 5);
     assert('Deload: reps = target + 2', deload.suggestedReps === 7);

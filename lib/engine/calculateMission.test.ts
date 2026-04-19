@@ -289,7 +289,7 @@ console.log('\n── Session role inference ──');
         riskScore: 58,
     }));
     assert('Soft intervention keeps planned role instead of auto-recover', mission.trainingDirective.sessionRole === 'develop');
-    assert('Soft intervention still caps intensity', (mission.trainingDirective.intensityCap ?? 10) <= 4);
+    assert('Soft intervention still caps intensity', (mission.trainingDirective.intensityCap ?? 10) <= 5);
 })();
 
 (() => {
@@ -371,7 +371,7 @@ console.log('\n── Risk state scoring ──');
 console.log('\n── Intervention thresholds ──');
 
 (() => {
-    // Score >= 75 -> hard intervention, mandatory recovery, cap 2
+    // Score >= 75 -> hard intervention, mandatory recovery, cap 3
     const mission = buildDailyMission(makeInput({
         readinessState: 'Depleted',
         acwr: makeAcwr({ status: 'redline', ratio: 1.9 }),
@@ -401,14 +401,14 @@ console.log('\n── Intervention thresholds ──');
     }));
     assert('Hard intervention state', mission.trainingDirective.interventionState === 'hard');
     assert('Mandatory recovery', mission.trainingDirective.isMandatoryRecovery === true);
-    assert('Intensity cap = 2', mission.trainingDirective.intensityCap === 2);
+    assert('Intensity cap = 3', mission.trainingDirective.intensityCap === 3);
     assert('Forced session role = recover', mission.trainingDirective.sessionRole === 'recover');
     assert('Mandatory recovery rewrites workout type', mission.trainingDirective.workoutType === 'recovery');
     assert('Mandatory recovery clears carried prescription', mission.trainingDirective.prescription == null);
 })();
 
 (() => {
-    // Score >= 55 but < 75 -> soft intervention, cap 4
+    // Score >= 55 but < 75 -> soft intervention, cap 5
     const mission = buildDailyMission(makeInput({
         readinessState: 'Caution',
         acwr: makeAcwr({ status: 'caution', ratio: 1.4 }),
@@ -416,7 +416,7 @@ console.log('\n── Intervention thresholds ──');
     }));
     assert('Soft intervention state', mission.trainingDirective.interventionState === 'soft');
     assert('Soft intervention not mandatory recovery', mission.trainingDirective.isMandatoryRecovery === false);
-    assert('Soft intervention cap <= 4', (mission.trainingDirective.intensityCap ?? 10) <= 4);
+    assert('Soft intervention cap <= 5', (mission.trainingDirective.intensityCap ?? 10) <= 5);
 })();
 
 (() => {

@@ -262,6 +262,8 @@ export interface OverloadInput {
   targetRPE: number;
   targetReps: number;
   muscleGroup: MuscleGroup;
+  sessionDate?: string;
+  cycleStartDate?: string | null;
 }
 
 export interface DeloadDecisionInput {
@@ -315,6 +317,7 @@ export interface SetCompletionInput {
   remainingExercises: PrescribedExerciseV2[];
   exerciseLibrary: ExerciseLibraryRow[];
   availableEquipment?: EquipmentItem[];
+  primaryExerciseId?: string | null;
 }
 
 export interface ExerciseAdjustment {
