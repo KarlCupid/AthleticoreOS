@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "typecheck:clean": "tsc --noEmit -p tsconfig.clean.json",
     "test:engine": "node scripts/run-engine-tests.js",
+    "seed:ingredients": "node scripts/generate-ingredient-catalog-seed.js",
+    "seed:ingredients:2000": "node scripts/expand-ingredient-catalog.js --target=2000 --migration=020_expand_ingredient_catalog_to_2000.sql",
     "quality": "npm run lint && npm run typecheck && npm run typecheck:clean && npm run test:engine",
     "optimize:images": "node scripts/optimize-images.js"
   },

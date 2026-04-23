@@ -54,6 +54,8 @@ const STAPLE_ALIAS_MAP: Record<string, string[]> = {
   'pork chop': ['pork', 'pork chop', 'pork loin'],
   chicken: ['chicken', 'chicken breast', 'chicken thigh', 'chicken tenderloin', 'chicken drumstick'],
   'chicken breast': ['chicken breast', 'boneless skinless chicken breast'],
+  lamb: ['lamb', 'lamb loin', 'lamb chop', 'ground lamb'],
+  'lamb chop': ['lamb', 'lamb chop', 'lamb loin'],
   beef: ['beef', 'ground beef', 'lean ground beef'],
   turkey: ['turkey', 'turkey breast', 'ground turkey'],
   apple: ['apple', 'medium apple'],
@@ -484,7 +486,7 @@ export function filterFoodSearchSections(
 
   const filterItem = (item: FoodSearchResult) => {
     if (mode === 'ingredients') {
-      return item.sourceType === 'ingredient';
+      return item.sourceType === 'ingredient' || item.sourceType === 'custom';
     }
 
     if (mode === 'packaged') {

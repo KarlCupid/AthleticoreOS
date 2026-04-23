@@ -73,6 +73,10 @@ function hasConfiguredUsdaApiKey(): boolean {
   return Boolean(apiKey && apiKey !== 'DEMO_KEY');
 }
 
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 function warnIfUsingDemoKey(query: string): void {
   if (hasConfiguredUsdaApiKey() || hasWarnedAboutDemoKey) {
     return;
@@ -268,13 +272,27 @@ function buildUsdaQueryVariants(query: string, profile: FoodSearchQueryProfile):
   return [...new Set(variants)].slice(0, maxVariants);
 }
 
-function buildUsdaQueryPlans(profile: FoodSearchQueryProfile, queryVariants: string[]) {
+export function buildUsdaQueryPlans(
+  profile: FoodSearchQueryProfile,
+  queryVariants: string[],
+  options?: { allowExpandedSearch?: boolean },
+) {
+  const allowExpandedSearch = options?.allowExpandedSearch ?? true;
+
   if (!profile.isShortGenericIngredient) {
-    return queryVariants.map((variant) => ({ variant, pageNumber: 1 }));
+    const variantLimit = allowExpandedSearch ? queryVariants.length : Math.min(queryVariants.length, 2);
+    return queryVariants.slice(0, variantLimit).map((variant) => ({ variant, pageNumber: 1 }));
   }
 
-  const pageCount = profile.tokens.length === 1 ? 2 : 1;
-  const plannedVariants = queryVariants.slice(0, profile.tokens.length === 1 ? 4 : 3);
+  const pageCount = allowExpandedSearch && profile.tokens.length === 1 ? 2 : 1;
+  const variantLimit = allowExpandedSearch
+    ? profile.tokens.length === 1
+      ? 4
+      : 3
+    : profile.tokens.length === 1
+      ? 2
+      : 1;
+  const plannedVariants = queryVariants.slice(0, variantLimit);
 
   return plannedVariants.flatMap((variant) =>
     Array.from({ length: pageCount }, (_, index) => ({
@@ -293,16 +311,32 @@ export async function searchIngredientFoods(
   warnIfUsingDemoKey(query);
 
   const queryVariants = buildUsdaQueryVariants(query, queryProfile);
-  const queryPlans = buildUsdaQueryPlans(queryProfile, queryVariants);
+  const queryPlans = buildUsdaQueryPlans(queryProfile, queryVariants, {
+    allowExpandedSearch: hasConfiguredUsdaApiKey(),
+  });
   const pageSize = queryProfile.isShortGenericIngredient
     ? Math.max(limit * 3, queryProfile.tokens.length === 1 ? 24 : 18)
     : Math.max(limit * 2, 12);
-  const searchResponses = await Promise.all(
+  const searchResponses = await Promise.allSettled(
     queryPlans.map(({ variant, pageNumber }) => searchUSDAFoodsByQuery(variant, pageSize, pageNumber))
   );
+  const successfulResponses = searchResponses
+    .filter((response): response is PromiseFulfilledResult<USDASearchFood[]> => response.status === 'fulfilled')
+    .map((response) => response.value);
+
+  if (successfulResponses.length === 0) {
+    const firstFailure = searchResponses.find(
+      (response): response is PromiseRejectedResult => response.status === 'rejected'
+    );
+    if (firstFailure) {
+      throw toError(firstFailure.reason);
+    }
+    return [];
+  }
+
   const scoredCandidates = new Map<number, { food: USDASearchFood; score: number }>();
 
-  for (const foods of searchResponses) {
+  for (const foods of successfulResponses) {
     for (const food of foods) {
       if (food.fdcId == null) {
         continue;
@@ -328,7 +362,7 @@ export async function searchIngredientFoods(
     })
     .slice(0, limit);
 
-  const detailedFoods = await Promise.all(
+  const detailedFoods = await Promise.allSettled(
     foods.map(async (food, index) => {
       const detail = await fetchUSDADetail(food.fdcId!);
       if (!detail) {
@@ -339,7 +373,10 @@ export async function searchIngredientFoods(
     })
   );
 
-  return detailedFoods.filter(Boolean) as FoodSearchResult[];
+  return detailedFoods
+    .filter((result): result is PromiseFulfilledResult<FoodSearchResult | null> => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .filter(Boolean) as FoodSearchResult[];
 }
 
 export async function hydrateIngredientFood(

@@ -241,9 +241,9 @@ CREATE POLICY "Users can read shared and own food items"
     ON public.food_items FOR SELECT
     USING (user_id IS NULL OR auth.uid() = user_id);
 
-CREATE POLICY "Users can insert shared food items"
+CREATE POLICY "Users can insert their own food items"
     ON public.food_items FOR INSERT
-    WITH CHECK (user_id IS NULL OR auth.uid() = user_id);
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can manage their own custom foods"
     ON public.food_items FOR UPDATE

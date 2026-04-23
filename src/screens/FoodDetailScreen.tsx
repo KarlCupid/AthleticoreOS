@@ -23,7 +23,6 @@ import {
   MealType,
 } from '../../lib/engine/types';
 import {
-  hydrateFoodSearchResult,
   logFoodEntry,
   toggleFavorite,
   updateFoodEntry,
@@ -76,7 +75,7 @@ export function FoodDetailScreen() {
   const today = date ?? todayLocalDate();
   const isEditingEntry = Boolean(route.params.foodLogId);
 
-  const [foodItem, setFoodItem] = useState(route.params.foodItem);
+  const [foodItem] = useState(route.params.foodItem);
   const [selectedPortion, setSelectedPortion] = useState<FoodPortionOption>(() =>
     getDefaultPortion(route.params.foodItem)
   );
@@ -84,39 +83,7 @@ export function FoodDetailScreen() {
     route.params.initialAmountValue ?? (route.params.foodItem.baseUnit === 'g' ? 100 : 1)
   );
   const [saving, setSaving] = useState(false);
-  const [hydrating, setHydrating] = useState(route.params.foodItem.source === 'usda');
   const [favoriteOnSave, setFavoriteOnSave] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    if (route.params.foodItem.source !== 'usda') {
-      setHydrating(false);
-      return () => {
-        mounted = false;
-      };
-    }
-
-    hydrateFoodSearchResult(route.params.foodItem)
-      .then((hydrated) => {
-        if (!mounted) {
-          return;
-        }
-
-        setFoodItem(hydrated);
-        setSelectedPortion(getDefaultPortion(hydrated));
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (mounted) {
-          setHydrating(false);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [route.params.foodItem]);
 
   useEffect(() => {
     const initialAmountUnit = route.params.initialAmountUnit;
@@ -319,18 +286,15 @@ export function FoodDetailScreen() {
                 {favoriteOnSave ? 'Will save to Favorites' : 'Save to Favorites'}
               </Text>
             </AnimatedPressable>
-            {hydrating ? (
-              <Text style={styles.loadingText}>Loading ingredient portion options…</Text>
-            ) : null}
           </Card>
         </Animated.View>
       </ScrollView>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
         <AnimatedPressable
-          style={[styles.addButtonWrapper, (saving || hydrating) && { opacity: 0.6 }]}
+          style={[styles.addButtonWrapper, saving && { opacity: 0.6 }]}
           onPress={handleAdd}
-          disabled={saving || hydrating}
+          disabled={saving}
         >
           <LinearGradient
             colors={[...GRADIENTS.accent]}
@@ -339,7 +303,7 @@ export function FoodDetailScreen() {
             style={styles.addButtonGradient}
           >
             <Text style={styles.addButtonText}>
-              {saving ? 'Saving...' : hydrating ? 'Loading...' : isEditingEntry ? 'Save Changes' : `Add to ${MEAL_LABELS[mealType]}`}
+              {saving ? 'Saving...' : isEditingEntry ? 'Save Changes' : `Add to ${MEAL_LABELS[mealType]}`}
             </Text>
           </LinearGradient>
         </AnimatedPressable>
@@ -496,12 +460,6 @@ const styles = StyleSheet.create({
   },
   favoriteChipTextActive: {
     color: COLORS.text.inverse,
-  },
-  loadingText: {
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.regular,
-    color: COLORS.text.tertiary,
-    marginTop: SPACING.sm,
   },
   bottomBar: {
     paddingHorizontal: SPACING.lg,

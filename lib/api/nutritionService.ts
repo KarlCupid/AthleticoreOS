@@ -15,7 +15,6 @@ import { todayLocalDate } from '../utils/date';
 import {
   buildFoodSearchMetadataText,
   buildFoodSearchQueryProfile,
-  getStapleFallbackResults,
   hasHighConfidenceBestMatch,
   normalizeFoodSearchText,
   scoreFoodSearchItem,
@@ -24,7 +23,6 @@ import {
   type FoodQueryClassification,
 } from './foodSearchSupport';
 import { searchPackagedFoods } from './openFoodFacts';
-import { hydrateIngredientFood, searchIngredientFoods } from './usdaFoodData';
 import { logWarn } from '../utils/logger';
 
 const today = todayLocalDate;
@@ -1024,17 +1022,27 @@ export async function searchLocalFoodCatalog(input: {
   ]);
 
   const recentIds = buildRecentIdSet(recentRows);
-  const localItems = filterLocalItemsForMode(
-    toLocalFoodSearchResults(localRows, favoriteIds, recentIds),
-    mode,
+  const localSearchResults = toLocalFoodSearchResults(localRows, favoriteIds, recentIds);
+  const userOwnedItems = localSearchResults.filter((item) => item.user_id === input.userId);
+  const sharedIngredientItems = localSearchResults.filter(
+    (item) => item.user_id == null && item.sourceType === 'ingredient'
   );
+  const localItems = filterLocalItemsForMode(userOwnedItems, mode);
+  const localIdentities = new Set(localItems.map(buildResultIdentity));
+  const ingredientItems = shouldSearchIngredientsForMode(mode)
+    ? dedupeFoodSearchResults(
+        sharedIngredientItems
+          .filter((item) => !localIdentities.has(buildResultIdentity(item)))
+          .map((item, index) => ({ ...item, searchRank: index + 100 }))
+      )
+    : [];
 
   return {
     classifier: profile.classifier,
     sections: buildFoodSearchSections({
       query: input.query,
       localItems,
-      ingredientItems: [],
+      ingredientItems,
       packagedItems: [],
     }),
   };
@@ -1115,28 +1123,13 @@ export async function searchFoodCatalog(input: {
     return { classifier, sections: sections.filter((section) => section.items.length > 0) };
   }
 
-  const ingredientLimit = profile.isShortGenericIngredient
-    ? profile.tokens.length === 1
-      ? 14
-      : 10
-    : 8;
   const shouldSearchIngredients = shouldSearchIngredientsForMode(mode);
   const shouldSearchPackaged = shouldSearchPackagedForMode(mode);
   const emptyPackagedResponse = { items: [] as FoodSearchResult[], totalCount: 0, hasMore: false };
-  const [favoriteIds, recentRows, localRows, ingredientItems, packagedResponse] = await Promise.all([
+  const [favoriteIds, recentRows, localRows, packagedResponse] = await Promise.all([
     getFavoriteFoodIds(input.userId),
     getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
     searchLocalFoods(input.userId, trimmed, LOCAL_RESULT_LIMIT),
-    shouldSearchIngredients
-      ? withTimeout(searchIngredientFoods(trimmed, ingredientLimit, profile), PROVIDER_TIMEOUT_MS, {
-          label: 'USDA ingredient search',
-          query: trimmed,
-          fallback: [] as FoodSearchResult[],
-        }).catch((error) => {
-          logWarn('searchFoodCatalog.ingredients', error, { query: trimmed });
-          return [] as FoodSearchResult[];
-        })
-      : Promise.resolve([] as FoodSearchResult[]),
     shouldSearchPackaged
       ? withTimeout(searchPackagedFoods(trimmed, 1, 24), PROVIDER_TIMEOUT_MS, {
           label: 'Open Food Facts search',
@@ -1149,13 +1142,15 @@ export async function searchFoodCatalog(input: {
       : Promise.resolve(emptyPackagedResponse),
   ]);
   const recentIds = buildRecentIdSet(recentRows);
-  const localItems = filterLocalItemsForMode(
-    toLocalFoodSearchResults(localRows, favoriteIds, recentIds),
-    mode,
+  const localSearchResults = toLocalFoodSearchResults(localRows, favoriteIds, recentIds);
+  const userOwnedItems = localSearchResults.filter((item) => item.user_id === input.userId);
+  const sharedIngredientItems = localSearchResults.filter(
+    (item) => item.user_id == null && item.sourceType === 'ingredient'
   );
+  const localItems = filterLocalItemsForMode(userOwnedItems, mode);
   const localIdentities = new Set(localItems.map(buildResultIdentity));
   const dedupedIngredientItems = dedupeFoodSearchResults(
-    ingredientItems
+    (shouldSearchIngredients ? sharedIngredientItems : [])
       .filter((item) => !localIdentities.has(buildResultIdentity(item)))
       .map((item, index) => ({ ...item, searchRank: index + 100 }))
   );
@@ -1168,29 +1163,11 @@ export async function searchFoodCatalog(input: {
       })
       .map((item, index) => ({ ...item, searchRank: index + 200 }))
   );
-  const packagedIdentities = new Set(dedupedPackagedItems.map(buildResultIdentity));
-  const stapleFallbackItems = dedupeFoodSearchResults(
-    (shouldSearchIngredients ? getStapleFallbackResults(profile) : [])
-      .filter((item) => {
-        const identity = buildResultIdentity(item);
-        return !localIdentities.has(identity) && !ingredientIdentities.has(identity) && !packagedIdentities.has(identity);
-      })
-      .map((item, index) => ({ ...item, searchRank: index + 60 }))
-  );
-  const desiredFallbackCount = profile.isShortGenericIngredient
-    ? profile.tokens.length === 1
-      ? 6
-      : 5
-    : 4;
-  const supplementalFallbackItems =
-    dedupedIngredientItems.length >= desiredFallbackCount
-      ? []
-      : stapleFallbackItems.slice(0, Math.min(desiredFallbackCount - dedupedIngredientItems.length, desiredFallbackCount));
 
   const sections = buildFoodSearchSections({
     query: trimmed,
     localItems,
-    ingredientItems: [...dedupedIngredientItems, ...supplementalFallbackItems],
+    ingredientItems: dedupedIngredientItems,
     packagedItems: dedupedPackagedItems,
   });
 
@@ -1200,9 +1177,8 @@ export async function searchFoodCatalog(input: {
     mode,
     classifier,
     localCount: localItems.length,
-    usdaCount: dedupedIngredientItems.length,
+    ingredientCount: dedupedIngredientItems.length,
     offCount: dedupedPackagedItems.length,
-    fallbackCount: supplementalFallbackItems.length,
     finalVisibleCount,
   });
 
@@ -1214,10 +1190,7 @@ export async function searchFoodCatalog(input: {
 export async function hydrateFoodSearchResult(
   result: FoodSearchResult
 ): Promise<FoodSearchResult> {
-  if (result.source === 'usda') {
-    return hydrateIngredientFood(result);
-  }
-
+  // Ingredient and packaged details are fully represented in search results.
   return result;
 }
 

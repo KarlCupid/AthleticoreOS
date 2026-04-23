@@ -111,6 +111,11 @@ console.log('\n-- food search normalization --');
   const fallbackChicken = getStapleFallbackResults(chickenProfile);
   assert('chicken resolves to multiple fallback cuts', fallbackChicken.length >= 4);
   assert('chicken includes breast and thigh style entries', fallbackChicken.some((item) => item.name.toLowerCase().includes('thigh')));
+
+  const lambProfile = buildFoodSearchQueryProfile('lamb');
+  const fallbackLamb = getStapleFallbackResults(lambProfile);
+  assert('lamb resolves to multiple fallback cuts', fallbackLamb.length >= 3);
+  assert('lamb includes a chop or loin style entry', fallbackLamb.some((item) => item.name.toLowerCase().includes('lamb chop') || item.name.toLowerCase().includes('lamb loin')));
 }
 
 console.log('\n-- food search ranking --');
@@ -188,6 +193,14 @@ console.log('\n-- best match and filtering --');
     calories_per_serving: 320,
     badges: ['Packaged', 'Verified'],
   });
+  const custom = makeItem({
+    key: 'custom',
+    source: 'custom',
+    sourceType: 'custom',
+    external_id: null,
+    name: 'Coach custom egg mix',
+    badges: ['Custom', 'Favorite'],
+  });
   assert(
     'high confidence best match is detected for clear winner',
     hasHighConfidenceBestMatch([
@@ -198,11 +211,15 @@ console.log('\n-- best match and filtering --');
 
   const sections = filterFoodSearchSections([
     { id: 'best-match', title: 'Best match', items: [ingredient] },
-    { id: 'ingredients', title: 'Ingredient results', items: [ingredient] },
+    { id: 'ingredients', title: 'Ingredient results', items: [ingredient, custom] },
     { id: 'packaged', title: 'Packaged results', items: [packaged] },
   ], 'ingredients');
   assert('ingredient filter keeps ingredient sections', sections.some((section) => section.id === 'ingredients'));
   assert('ingredient filter removes packaged section', !sections.some((section) => section.id === 'packaged'));
+  assert(
+    'ingredient filter keeps custom rows',
+    sections.some((section) => section.items.some((item) => item.sourceType === 'custom'))
+  );
 
   const allSections = filterFoodSearchSections([
     { id: 'best-match', title: 'Best match', items: [ingredient] },
