@@ -105,7 +105,7 @@ export type FuelStackParamList = {
     initialAmountUnit?: string;
     initialGrams?: number | null;
   };
-  CustomFood: undefined;
+  CustomFood: { mealType?: MealType; date?: string } | undefined;
   BarcodeScan: { mealType: MealType; date?: string };
   WeightCutHome: undefined;
   CutPlanSetup: undefined;

@@ -19,6 +19,8 @@ import {
   hasHighConfidenceBestMatch,
   normalizeFoodSearchText,
   scoreFoodSearchItem,
+  shouldSearchIngredientsForMode,
+  shouldSearchPackagedForMode,
   type FoodQueryClassification,
 } from './foodSearchSupport';
 import { searchPackagedFoods } from './openFoodFacts';
@@ -28,6 +30,7 @@ import { logWarn } from '../utils/logger';
 const today = todayLocalDate;
 const LOCAL_RESULT_LIMIT = 16;
 const RECENT_SECTION_LIMIT = 8;
+const PROVIDER_TIMEOUT_MS = 4500;
 
 export interface FoodSearchSection {
   id: string;
@@ -218,7 +221,8 @@ function isFoodSearchResult(item: FoodSearchResult | Omit<FoodItemRow, 'id'>): i
 }
 
 function toFoodItemInsert(
-  item: FoodSearchResult | Omit<FoodItemRow, 'id'>
+  item: FoodSearchResult | Omit<FoodItemRow, 'id'>,
+  options?: { userIdForCustom?: string },
 ): Omit<FoodItemRow, 'id'> {
   if (!isFoodSearchResult(item)) {
     const normalizedPortionOptions =
@@ -251,10 +255,13 @@ function toFoodItemInsert(
   }
 
   return {
-    user_id: item.user_id,
+    user_id: item.source === 'custom' ? item.user_id ?? options?.userIdForCustom ?? null : item.user_id,
     source: item.source,
     source_type: item.sourceType,
-    external_id: item.external_id,
+    external_id:
+      item.source === 'custom' && item.external_id?.startsWith('fallback:')
+        ? null
+        : item.external_id,
     verified: item.verified,
     off_barcode: item.off_barcode,
     name: item.name,
@@ -354,6 +361,67 @@ function sortFoodSearchItems(items: FoodSearchResult[], query: string): FoodSear
 
     return left.name.localeCompare(right.name);
   });
+}
+
+function foodSearchItemMatchesQuery(item: FoodSearchResult, query: string): boolean {
+  const profile = buildFoodSearchQueryProfile(query);
+  const searchableText = [
+    item.name,
+    item.brand ?? '',
+    item.serving_label,
+    ...item.portionOptions.map((option) => option.label),
+  ]
+    .map((value) => normalizeFoodSearchText(value))
+    .filter(Boolean);
+
+  return profile.searchTerms.some((term) =>
+    term.length >= 2 &&
+    searchableText.some((text) => text === term || text.includes(term))
+  );
+}
+
+function filterLocalItemsForMode(items: FoodSearchResult[], mode: FoodSearchMode): FoodSearchResult[] {
+  if (mode === 'all') {
+    return items;
+  }
+
+  if (mode === 'ingredients') {
+    return items.filter((item) => item.sourceType === 'ingredient' || item.sourceType === 'custom');
+  }
+
+  if (mode === 'packaged') {
+    return items.filter((item) => item.sourceType === 'packaged' || item.sourceType === 'custom');
+  }
+
+  return items.filter(
+    (item) => Boolean(item.user_id) || item.badges.includes('Favorite') || item.badges.includes('Recent')
+  );
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  context: { label: string; query: string; fallback: T },
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      logWarn('searchFoodCatalog.providerTimeout', new Error(`${context.label} timed out`), {
+        query: context.query,
+        timeoutMs,
+      });
+      resolve(context.fallback);
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 function buildFoodSearchSections(input: {
@@ -842,9 +910,10 @@ export async function removeWaterEntry(
 }
 
 export async function upsertFoodItem(
-  item: FoodSearchResult | Omit<FoodItemRow, 'id'>
+  item: FoodSearchResult | Omit<FoodItemRow, 'id'>,
+  options?: { userIdForCustom?: string },
 ): Promise<FoodItemRow> {
-  const payload = toFoodItemInsert(item);
+  const payload = toFoodItemInsert(item, options);
 
   let existing: FoodItemRow | null = null;
 
@@ -863,6 +932,18 @@ export async function upsertFoodItem(
       .select('*')
       .eq('source', payload.source)
       .eq('external_id', payload.external_id)
+      .maybeSingle();
+    existing = (data as FoodItemRow | null) ?? existing;
+  }
+
+  if (!existing && payload.source === 'custom' && payload.user_id) {
+    const { data } = await supabase
+      .from('food_items')
+      .select('*')
+      .eq('source', 'custom')
+      .eq('user_id', payload.user_id)
+      .eq('name', payload.name)
+      .eq('serving_label', payload.serving_label)
       .maybeSingle();
     existing = (data as FoodItemRow | null) ?? existing;
   }
@@ -929,11 +1010,13 @@ export async function searchLocalFoods(
 export async function searchLocalFoodCatalog(input: {
   userId: string;
   query: string;
+  mode?: FoodSearchMode;
 }): Promise<{
   classifier: FoodQueryClassification;
   sections: FoodSearchSection[];
 }> {
   const profile = buildFoodSearchQueryProfile(input.query);
+  const mode = input.mode ?? 'all';
   const [favoriteIds, recentRows, localRows] = await Promise.all([
     getFavoriteFoodIds(input.userId),
     getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
@@ -941,7 +1024,10 @@ export async function searchLocalFoodCatalog(input: {
   ]);
 
   const recentIds = buildRecentIdSet(recentRows);
-  const localItems = toLocalFoodSearchResults(localRows, favoriteIds, recentIds);
+  const localItems = filterLocalItemsForMode(
+    toLocalFoodSearchResults(localRows, favoriteIds, recentIds),
+    mode,
+  );
 
   return {
     classifier: profile.classifier,
@@ -965,41 +1051,68 @@ export async function searchFoodCatalog(input: {
   const trimmed = input.query.trim();
   const profile = buildFoodSearchQueryProfile(trimmed);
   const classifier = profile.classifier;
+  const mode = trimmed.length < 2 ? 'recent' : input.mode;
 
-  if (trimmed.length < 2) {
+  if (mode === 'recent') {
     const [favoriteRows, recentRows] = await Promise.all([
       getFavoriteFoods(input.userId),
       getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
     ]);
 
     const favoriteIds = buildFavoriteIdSet(favoriteRows);
+    const typedQuery = trimmed.length >= 2;
+    const favoriteItems = favoriteRows
+      .map((item, index) => toFoodSearchResult(item, { searchRank: index, favorite: true }))
+      .filter((item) => !typedQuery || foodSearchItemMatchesQuery(item, trimmed));
+    const recentItems = recentRows
+      .map((item, index) =>
+        toFoodSearchResult(item, {
+          searchRank: index + 20,
+          recent: true,
+          favorite: favoriteIds.has(item.id),
+        })
+      )
+      .filter((item) => !typedQuery || foodSearchItemMatchesQuery(item, trimmed));
+    const recentIdentities = new Set([...favoriteItems, ...recentItems].map(buildResultIdentity));
+    const customItems = typedQuery
+      ? filterLocalItemsForMode(
+          toLocalFoodSearchResults(
+            (await searchLocalFoods(input.userId, trimmed, LOCAL_RESULT_LIMIT)).filter(
+              (item) => item.user_id === input.userId
+            ),
+            favoriteIds,
+            buildRecentIdSet(recentRows),
+          ),
+          'recent',
+        ).filter((item) => !recentIdentities.has(buildResultIdentity(item)))
+      : [];
     const sections: FoodSearchSection[] = [];
 
-    if (favoriteRows.length > 0) {
+    if (favoriteItems.length > 0) {
       sections.push({
         id: 'favorites',
         title: 'Favorites',
-        items: favoriteRows.map((item, index) =>
-          toFoodSearchResult(item, { searchRank: index, favorite: true })
-        ),
+        items: favoriteItems,
       });
     }
 
-    if (recentRows.length > 0) {
+    if (recentItems.length > 0) {
       sections.push({
         id: 'recent',
         title: 'Recent',
-        items: recentRows.map((item, index) =>
-          toFoodSearchResult(item, {
-            searchRank: index + 20,
-            recent: true,
-            favorite: favoriteIds.has(item.id),
-          })
-        ),
+        items: recentItems,
       });
     }
 
-    return { classifier, sections };
+    if (customItems.length > 0) {
+      sections.push({
+        id: 'custom',
+        title: 'Your custom foods',
+        items: sortFoodSearchItems(customItems, trimmed),
+      });
+    }
+
+    return { classifier, sections: sections.filter((section) => section.items.length > 0) };
   }
 
   const ingredientLimit = profile.isShortGenericIngredient
@@ -1007,21 +1120,39 @@ export async function searchFoodCatalog(input: {
       ? 14
       : 10
     : 8;
+  const shouldSearchIngredients = shouldSearchIngredientsForMode(mode);
+  const shouldSearchPackaged = shouldSearchPackagedForMode(mode);
+  const emptyPackagedResponse = { items: [] as FoodSearchResult[], totalCount: 0, hasMore: false };
   const [favoriteIds, recentRows, localRows, ingredientItems, packagedResponse] = await Promise.all([
     getFavoriteFoodIds(input.userId),
     getRecentFoods(input.userId, RECENT_SECTION_LIMIT),
     searchLocalFoods(input.userId, trimmed, LOCAL_RESULT_LIMIT),
-    searchIngredientFoods(trimmed, ingredientLimit, profile).catch((error) => {
-      logWarn('searchFoodCatalog.ingredients', error, { query: trimmed });
-      return [] as FoodSearchResult[];
-    }),
-    searchPackagedFoods(trimmed, 1, 24).catch((error) => {
-      logWarn('searchFoodCatalog.packaged', error, { query: trimmed });
-      return { items: [], totalCount: 0, hasMore: false };
-    }),
+    shouldSearchIngredients
+      ? withTimeout(searchIngredientFoods(trimmed, ingredientLimit, profile), PROVIDER_TIMEOUT_MS, {
+          label: 'USDA ingredient search',
+          query: trimmed,
+          fallback: [] as FoodSearchResult[],
+        }).catch((error) => {
+          logWarn('searchFoodCatalog.ingredients', error, { query: trimmed });
+          return [] as FoodSearchResult[];
+        })
+      : Promise.resolve([] as FoodSearchResult[]),
+    shouldSearchPackaged
+      ? withTimeout(searchPackagedFoods(trimmed, 1, 24), PROVIDER_TIMEOUT_MS, {
+          label: 'Open Food Facts search',
+          query: trimmed,
+          fallback: emptyPackagedResponse,
+        }).catch((error) => {
+          logWarn('searchFoodCatalog.packaged', error, { query: trimmed });
+          return emptyPackagedResponse;
+        })
+      : Promise.resolve(emptyPackagedResponse),
   ]);
   const recentIds = buildRecentIdSet(recentRows);
-  const localItems = toLocalFoodSearchResults(localRows, favoriteIds, recentIds);
+  const localItems = filterLocalItemsForMode(
+    toLocalFoodSearchResults(localRows, favoriteIds, recentIds),
+    mode,
+  );
   const localIdentities = new Set(localItems.map(buildResultIdentity));
   const dedupedIngredientItems = dedupeFoodSearchResults(
     ingredientItems
@@ -1039,7 +1170,7 @@ export async function searchFoodCatalog(input: {
   );
   const packagedIdentities = new Set(dedupedPackagedItems.map(buildResultIdentity));
   const stapleFallbackItems = dedupeFoodSearchResults(
-    getStapleFallbackResults(profile)
+    (shouldSearchIngredients ? getStapleFallbackResults(profile) : [])
       .filter((item) => {
         const identity = buildResultIdentity(item);
         return !localIdentities.has(identity) && !ingredientIdentities.has(identity) && !packagedIdentities.has(identity);
@@ -1066,7 +1197,7 @@ export async function searchFoodCatalog(input: {
   const finalVisibleCount = sections.reduce((sum, section) => sum + section.items.length, 0);
   console.info('[searchFoodCatalog.coverage]', {
     query: trimmed,
-    mode: input.mode,
+    mode,
     classifier,
     localCount: localItems.length,
     usdaCount: dedupedIngredientItems.length,

@@ -182,7 +182,15 @@ function hasHouseholdPortion(item: FoodSearchRankable): boolean {
 }
 
 function matchesRecentFilter(item: FoodSearchRankable): boolean {
-  return Boolean(item.user_id) || item.source === 'custom' || item.badges.includes('Favorite') || item.badges.includes('Recent');
+  return Boolean(item.user_id) || item.badges.includes('Favorite') || item.badges.includes('Recent');
+}
+
+export function shouldSearchIngredientsForMode(mode: FoodSearchMode): boolean {
+  return mode === 'all' || mode === 'ingredients';
+}
+
+export function shouldSearchPackagedForMode(mode: FoodSearchMode): boolean {
+  return mode === 'all' || mode === 'packaged';
 }
 
 function collectRelatedAliasTerms(values: string[]): string[] {

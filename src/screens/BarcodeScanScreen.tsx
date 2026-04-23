@@ -68,7 +68,7 @@ export function BarcodeScanScreen() {
     };
 
     const handleTryCustom = () => {
-        navigation.replace('CustomFood');
+        navigation.replace('CustomFood', { mealType, date });
     };
 
     const handleManualSearch = () => {

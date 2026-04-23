@@ -6,6 +6,8 @@ import {
   getStapleFallbackResults,
   hasHighConfidenceBestMatch,
   scoreFoodSearchItem,
+  shouldSearchIngredientsForMode,
+  shouldSearchPackagedForMode,
 } from '../api/foodSearchSupport.ts';
 
 let passed = 0;
@@ -209,6 +211,30 @@ console.log('\n-- best match and filtering --');
   ], 'all');
   assert('all filter keeps ingredient sections', allSections.some((section) => section.id === 'ingredients'));
   assert('all filter keeps packaged sections', allSections.some((section) => section.id === 'packaged'));
+
+  const fallback = getStapleFallbackResults(buildFoodSearchQueryProfile('egg'))[0];
+  const recentSections = filterFoodSearchSections([
+    { id: 'ingredients', title: 'Ingredient results', items: [fallback] },
+  ], 'recent');
+  assert('recent filter excludes unlogged fallback staples', recentSections.length === 0);
+
+  const loggedFallback = { ...fallback, user_id: 'user-1' };
+  const loggedFallbackSections = filterFoodSearchSections([
+    { id: 'ingredients', title: 'Ingredient results', items: [loggedFallback] },
+  ], 'recent');
+  assert('recent filter keeps logged fallback staples', loggedFallbackSections.length === 1);
+}
+
+console.log('\n-- mode provider planning --');
+{
+  assert('all mode searches ingredients', shouldSearchIngredientsForMode('all'));
+  assert('all mode searches packaged', shouldSearchPackagedForMode('all'));
+  assert('ingredients mode skips packaged provider', !shouldSearchPackagedForMode('ingredients'));
+  assert('ingredients mode searches ingredient provider', shouldSearchIngredientsForMode('ingredients'));
+  assert('packaged mode skips ingredient provider', !shouldSearchIngredientsForMode('packaged'));
+  assert('packaged mode searches packaged provider', shouldSearchPackagedForMode('packaged'));
+  assert('recent mode skips ingredient provider', !shouldSearchIngredientsForMode('recent'));
+  assert('recent mode skips packaged provider', !shouldSearchPackagedForMode('recent'));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

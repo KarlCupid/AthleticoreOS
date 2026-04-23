@@ -110,6 +110,7 @@ export function FoodSearchScreen() {
           void searchLocalFoodCatalog({
             userId: session.user.id,
             query: nextQuery,
+            mode: requestMode,
           })
             .then((localResult) => {
               if (activeRequestRef.current !== requestId || localResult.sections.length === 0) {

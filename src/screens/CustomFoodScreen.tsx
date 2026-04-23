@@ -11,19 +11,74 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { IconChevronLeft } from '../components/icons';
 import { createCustomFood } from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
+import type { FoodItemRow, FoodPortionOption, FoodSearchResult, MealType } from '../../lib/engine/types';
 
 const STAGGER_DELAY = 60;
+
+type RouteParams = {
+  CustomFood: { mealType?: MealType; date?: string } | undefined;
+};
+
+function buildFallbackPortionOptions(row: FoodItemRow): FoodPortionOption[] {
+  return [
+    {
+      id: 'default',
+      label: row.serving_label,
+      amount: 1,
+      unit: 'serving',
+      grams: row.serving_size_g,
+      isDefault: true,
+    },
+  ];
+}
+
+function buildFoodSearchResult(row: FoodItemRow): FoodSearchResult {
+  const portionOptions =
+    row.portion_options && row.portion_options.length > 0
+      ? row.portion_options
+      : buildFallbackPortionOptions(row);
+
+  return {
+    key: `${row.source}:${row.external_id ?? row.id}`,
+    id: row.id,
+    user_id: row.user_id,
+    source: row.source,
+    sourceType: row.source_type,
+    external_id: row.external_id,
+    verified: row.verified,
+    searchRank: 0,
+    off_barcode: row.off_barcode,
+    name: row.name,
+    brand: row.brand,
+    image_url: row.image_url,
+    baseAmount: row.base_amount,
+    baseUnit: row.base_unit,
+    gramsPerPortion: row.grams_per_portion,
+    portionOptions,
+    serving_size_g: row.serving_size_g,
+    serving_label: row.serving_label,
+    calories_per_serving: row.calories_per_serving,
+    protein_per_serving: row.protein_per_serving,
+    carbs_per_serving: row.carbs_per_serving,
+    fat_per_serving: row.fat_per_serving,
+    is_supplement: row.is_supplement,
+    badges: ['Custom', 'Verified'],
+  };
+}
 
 export function CustomFoodScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<RouteParams, 'CustomFood'>>();
+  const mealType = route.params?.mealType;
+  const date = route.params?.date;
 
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
@@ -51,7 +106,7 @@ export function CustomFoodScreen() {
         return;
       }
 
-      await createCustomFood(session.user.id, {
+      const savedFood = await createCustomFood(session.user.id, {
         name: name.trim(),
         brand: brand.trim() || undefined,
         serving_size_g: parseFloat(servingSize) || 100,
@@ -62,6 +117,15 @@ export function CustomFoodScreen() {
         fat_per_serving: parseFloat(fat) || 0,
         is_supplement: isSupplement,
       });
+
+      if (mealType) {
+        navigation.replace('FoodDetail', {
+          foodItem: buildFoodSearchResult(savedFood),
+          mealType,
+          date,
+        });
+        return;
+      }
 
       Alert.alert('Saved', `${name.trim()} has been created.`, [
         { text: 'OK', onPress: () => navigation.goBack() },

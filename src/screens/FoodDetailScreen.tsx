@@ -178,7 +178,7 @@ export function FoodDetailScreen() {
         return;
       }
 
-      const savedItem = await upsertFoodItem(foodItem);
+      const savedItem = await upsertFoodItem(foodItem, { userIdForCustom: session.user.id });
       const payload = {
         foodItem: savedItem,
         amountValue,
