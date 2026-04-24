@@ -9,6 +9,7 @@ interface MealSectionProps {
   mealType: MealType;
   foods: MealLogEntryViewModel[];
   subtotalCalories: number;
+  defaultExpanded?: boolean;
   onAddFood: () => void;
   onSelectFood: (foodLogId: string) => void;
   onRemoveFood: (foodLogId: string) => void;
@@ -32,11 +33,13 @@ export function MealSection({
   mealType,
   foods,
   subtotalCalories,
+  defaultExpanded,
   onAddFood,
   onSelectFood,
   onRemoveFood,
 }: MealSectionProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? foods.length > 0);
+  const hasFoods = foods.length > 0;
 
   return (
     <View style={styles.container}>
@@ -49,7 +52,7 @@ export function MealSection({
           <Text style={styles.mealIcon}>{MEAL_ICONS[mealType]}</Text>
           <Text style={styles.mealLabel}>{MEAL_LABELS[mealType]}</Text>
           <Text style={styles.itemCount}>
-            {foods.length > 0 ? `${foods.length} item${foods.length > 1 ? 's' : ''}` : ''}
+            {hasFoods ? `${foods.length} item${foods.length > 1 ? 's' : ''}` : 'Empty'}
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -87,9 +90,15 @@ export function MealSection({
 
           <TouchableOpacity style={styles.addButton} onPress={onAddFood} activeOpacity={0.7}>
             <IconPlus size={16} color={COLORS.text.tertiary} strokeWidth={2} />
-            <Text style={styles.addText}>Add Food</Text>
+            <Text style={styles.addText}>Add</Text>
           </TouchableOpacity>
         </View>
+      )}
+      {!expanded && !hasFoods && (
+        <TouchableOpacity style={styles.addButtonCompact} onPress={onAddFood} activeOpacity={0.7}>
+          <IconPlus size={16} color={COLORS.text.tertiary} strokeWidth={2} />
+          <Text style={styles.addText}>Add</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -180,5 +189,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.tertiary,
+  },
+  addButtonCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 0,
+    paddingBottom: SPACING.md,
+    gap: SPACING.xs + 2,
   },
 });

@@ -29,7 +29,7 @@ export function ServingSelector({
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Amount</Text>
-      <Text style={styles.helperText}>Choose a portion, then set the amount you actually ate.</Text>
+      <Text style={styles.helperText}>Pick portion and amount.</Text>
 
       <View style={styles.portionGrid}>
         {portionOptions.map((portion) => {
