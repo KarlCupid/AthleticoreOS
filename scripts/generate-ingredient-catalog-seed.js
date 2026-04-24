@@ -59,7 +59,6 @@ function parseCommonCatalog() {
   }
 
   const arrayText = file.substring(start, end + 1);
-  // eslint-disable-next-line no-eval
   const parsed = eval(arrayText);
   if (!Array.isArray(parsed)) {
     throw new Error('COMMON_INGREDIENT_CATALOG did not parse to an array.');

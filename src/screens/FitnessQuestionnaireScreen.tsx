@@ -196,7 +196,7 @@ export function FitnessQuestionnaireScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: { padding: 24, paddingBottom: 16 },
     title: { fontSize: 28, fontWeight: '800', color: COLORS.text, marginBottom: 8 },
     subtitle: { fontSize: 16, color: COLORS.textMuted },

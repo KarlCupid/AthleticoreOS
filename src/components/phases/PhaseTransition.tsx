@@ -63,7 +63,7 @@ export function PhaseTransition({ fromPhase, toPhase, tagline, onComplete, displ
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: APP_CHROME.background,
+        backgroundColor: 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: SPACING.xl,

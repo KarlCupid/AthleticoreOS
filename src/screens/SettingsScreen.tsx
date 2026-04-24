@@ -136,7 +136,7 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'transparent',
     },
     header: {
         paddingHorizontal: SPACING.lg,

@@ -159,7 +159,7 @@ export function CutPlanSetupScreen() {
         return;
       }
 
-      if (planResult.extremeCutWarning && !extremeAcknowledged) {
+      if (planResult.cutWarning && !extremeAcknowledged) {
         Alert.alert(
           'Acknowledgment required',
           'You must confirm that you understand the elevated health risks before proceeding.',
@@ -351,7 +351,7 @@ export function CutPlanSetupScreen() {
       <Text style={styles.stepTitle}>Step 5 of 5</Text>
       <Text style={styles.heading}>Final notes</Text>
 
-      {planResult?.extremeCutWarning ? (
+      {planResult?.cutWarning ? (
         <View style={styles.extremeReminderBanner}>
           <Text style={styles.extremeReminderText}>
             Extreme cut active ({planResult.totalCutPct.toFixed(1)}% body weight). Medical oversight is strongly recommended before proceeding.
@@ -380,11 +380,11 @@ export function CutPlanSetupScreen() {
 
   const isNextDisabled =
     (step === 4 && !planResult?.valid) ||
-    (step === 4 && Boolean(planResult?.extremeCutWarning) && !extremeAcknowledged);
+    (step === 4 && Boolean(planResult?.cutWarning) && !extremeAcknowledged);
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: COLORS.background }}
+      style={{ flex: 1, backgroundColor: 'transparent' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <LinearGradient colors={['#16A34A', '#15803D']} style={styles.header}>
@@ -432,7 +432,7 @@ export function CutPlanSetupScreen() {
             <Text style={styles.nextButtonText}>
               {step === 1
                 ? 'Build my cut plan'
-                : step === 4 && planResult?.extremeCutWarning && !extremeAcknowledged
+                : step === 4 && planResult?.cutWarning && !extremeAcknowledged
                   ? 'Confirm risks above to continue'
                   : step === 4
                     ? 'Looks good'

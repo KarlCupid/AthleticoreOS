@@ -315,9 +315,9 @@ export function WeightCutHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content: { paddingBottom: SPACING.xxl },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   noCutContainer: { flex: 1 },
   noCutGradient: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, gap: SPACING.md },
   noCutTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: '#fff', textAlign: 'center' },

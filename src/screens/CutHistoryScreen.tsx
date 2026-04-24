@@ -149,7 +149,7 @@ function DetailRow({ label, value, valueColor }: { label: string; value: string;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: SPACING.md, paddingBottom: 48 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },

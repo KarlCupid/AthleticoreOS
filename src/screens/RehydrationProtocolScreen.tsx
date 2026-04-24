@@ -222,7 +222,7 @@ function PhaseDetail({ icon, text }: { icon: string; text: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 40,

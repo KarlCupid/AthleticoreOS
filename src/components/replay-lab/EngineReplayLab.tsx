@@ -149,7 +149,7 @@ export function EngineReplayLab({ visible, onClose }: EngineReplayLabProps) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+  root: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row',
     gap: SPACING.md,

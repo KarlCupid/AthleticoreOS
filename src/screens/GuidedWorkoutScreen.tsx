@@ -718,7 +718,7 @@ export function GuidedWorkoutScreen() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'transparent',
     },
 
     // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

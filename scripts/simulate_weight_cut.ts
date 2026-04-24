@@ -133,7 +133,7 @@ async function runSimulation(profile: Profile) {
     }
 
     console.log(`✅ Plan Valid. Total Cut: ${planResult.totalCutLbs} lbs (${planResult.totalCutPct.toFixed(1)}%)`);
-    if (planResult.extremeCutWarning) console.warn(`⚠️ EXTREME CUT DETECTED`);
+    if (planResult.cutWarning) console.warn(`⚠️ EXTREME CUT DETECTED`);
 
     // Convert Plan Result to Row format for engine consumption
     const planRow: WeightCutPlanRow = {

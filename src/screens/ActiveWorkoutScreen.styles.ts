@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 
 export const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
+    container: { flex: 1, backgroundColor: 'transparent' },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',

@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow, DailyMission } from '../engine/types';
-import { classifyGuidedSessionType, isGuidedEngineActivityType, toScheduledActivityPayload } from '../engine/sessionOwnership';
+import { toScheduledActivityPayload } from '../engine/sessionOwnership';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;

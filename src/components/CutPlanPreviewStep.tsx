@@ -79,7 +79,7 @@ export function CutPlanPreviewStep({
             <Text style={styles.noteBody}>{HEALTH_GUIDANCE_NOTE}</Text>
           </View>
 
-          {planResult.extremeCutWarning ? (
+          {planResult.cutWarning ? (
             <View style={styles.extremeWarningBox}>
               <View style={styles.extremeWarningHeader}>
                 <Text style={styles.extremeWarningIcon}>!</Text>
@@ -122,7 +122,7 @@ export function CutPlanPreviewStep({
             </View>
           ) : null}
 
-          {planResult.safetyWarnings.length > 0 && !planResult.extremeCutWarning ? (
+          {planResult.safetyWarnings.length > 0 && !planResult.cutWarning ? (
             <View style={styles.warningBox}>
               <IconAlertTriangle size={16} color={COLORS.warning} />
               {planResult.safetyWarnings.map((warning, index) => (

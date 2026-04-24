@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { APP_CHROME, COLORS, FONT_FAMILY, SPACING, TYPOGRAPHY_V2 } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, TYPOGRAPHY_V2 } from '../theme/theme';
 
 // Visual Noise Removal (Task 6):
 // - AnimatedBackgroundBlobs removed
@@ -117,7 +117,7 @@ export function HeroHeader({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: APP_CHROME.background, // Flat, never shifts with readiness
+        backgroundColor: 'transparent',
         paddingBottom: SPACING.lg,
         paddingHorizontal: SPACING.lg,
         borderBottomWidth: 1,

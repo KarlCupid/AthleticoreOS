@@ -397,7 +397,7 @@ function ProfileForm({
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'transparent',
     },
     flex: {
         flex: 1,

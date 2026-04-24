@@ -137,7 +137,6 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         exerciseId,
         actualRPE,
         targetWeight,
-        targetReps,
         targetRPE,
         currentFatigueState,
         remainingExercises,

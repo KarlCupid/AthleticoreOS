@@ -7,10 +7,14 @@ const SAFETY_WARNING_MESSAGES: Record<NutritionSafetyWarning, string | null> = {
   none: null,
   fueling_floor_applied:
     "We bumped calories up so you have enough for today's workload.",
+  cut_readiness_floor_applied:
+    'We raised calories to protect recovery while your cut and readiness are under strain.',
   low_energy_availability:
     'Your calories are too low for the work you are doing right now.',
   critical_energy_availability:
     'You are under-fueled right now. Eat enough before you train.',
+  cumulative_ea_deficit_red_flag:
+    'Your recent fueling deficit is adding up. Eat enough today before pushing training.',
 };
 
 function buildPreSessionCue(carbsG: number): string | null {

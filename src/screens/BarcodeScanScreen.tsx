@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     },
     permissionContainer: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: SPACING.xl,

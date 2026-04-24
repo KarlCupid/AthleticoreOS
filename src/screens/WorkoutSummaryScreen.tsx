@@ -278,7 +278,7 @@ export function WorkoutSummaryScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'transparent',
     },
     scroll: {
         flex: 1,
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(59, 66, 159, 0.82)',
         paddingHorizontal: SPACING.md,
         paddingTop: SPACING.md,
         gap: SPACING.sm,
