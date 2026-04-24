@@ -11,12 +11,13 @@ import { WorkoutSummaryScreen } from '../screens/WorkoutSummaryScreen';
 import { GymProfileScreen } from '../screens/GymProfileScreen';
 import { WorkoutDetailScreen } from '../screens/WorkoutDetailScreen';
 import type { TrainStackParamList } from './types';
+import { APP_STACK_SCREEN_OPTIONS } from './stackOptions';
 
 const Stack = createNativeStackNavigator<TrainStackParamList>();
 
 export function TrainStackNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <Stack.Screen name="WorkoutHome" component={WorkoutScreen} />
       <Stack.Screen name="WeeklyPlanSetup" component={WeeklyPlanSetupScreen} />
       <Stack.Screen name="ExerciseSearch" component={ExerciseSearchScreen} />

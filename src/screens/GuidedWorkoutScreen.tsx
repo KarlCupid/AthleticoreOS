@@ -7,6 +7,7 @@ import {
     StyleSheet,
     Alert,
     Vibration,
+    InteractionManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -88,6 +89,7 @@ export function GuidedWorkoutScreen() {
         finishWorkout,
         skipRest,
         extendRest,
+        cancelLoad,
     } = useGuidedWorkout(params?.weeklyPlanEntryId, params?.scheduledActivityId);
 
     const { isGymFloor, setMode } = useInteractionMode();
@@ -121,16 +123,30 @@ export function GuidedWorkoutScreen() {
     // â”€â”€ Load on focus â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useFocusEffect(
         useCallback(() => {
-            loadAndGenerate(
-                resolvedParams.readinessState,
-                resolvedParams.phase,
-                resolvedParams.fitnessLevel,
-                resolvedParams.focus,
-                resolvedParams.availableMinutes,
-                resolvedParams.trainingDate,
-                resolvedParams.isDeloadWeek,
-            );
+            let isActive = true;
+            const task = InteractionManager.runAfterInteractions(() => {
+                if (!isActive) {
+                    return;
+                }
+
+                loadAndGenerate(
+                    resolvedParams.readinessState,
+                    resolvedParams.phase,
+                    resolvedParams.fitnessLevel,
+                    resolvedParams.focus,
+                    resolvedParams.availableMinutes,
+                    resolvedParams.trainingDate,
+                    resolvedParams.isDeloadWeek,
+                );
+            });
+
+            return () => {
+                isActive = false;
+                task.cancel?.();
+                cancelLoad();
+            };
         }, [
+            cancelLoad,
             loadAndGenerate,
             resolvedParams.readinessState,
             resolvedParams.phase,
@@ -171,28 +187,10 @@ export function GuidedWorkoutScreen() {
     // â”€â”€ Gym-floor mode: hide tabs during workout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         setMode(isStarted ? 'gym-floor' : 'standard');
-    }, [isStarted, setMode]);
-
-    useEffect(() => {
-        const parent = navigation.getParent();
-        if (!parent) return;
-
-        if (isStarted) {
-            parent.setOptions({
-                tabBarStyle: { display: 'none' },
-            });
-        } else {
-            parent.setOptions({
-                tabBarStyle: undefined,
-            });
-        }
-
         return () => {
-            parent.setOptions({
-                tabBarStyle: undefined,
-            });
+            setMode('standard');
         };
-    }, [navigation, isStarted]);
+    }, [isStarted, setMode]);
 
     const finalizeWorkoutAndNavigate = useCallback(async () => {
         if (summaryNavigationTriggeredRef.current) {

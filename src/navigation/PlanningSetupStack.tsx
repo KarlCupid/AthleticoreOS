@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WeeklyPlanSetupScreen } from '../screens/WeeklyPlanSetupScreen';
+import { APP_STACK_SCREEN_OPTIONS } from './stackOptions';
 
 const Stack = createNativeStackNavigator();
 
@@ -14,7 +15,7 @@ function PlanningSetupGateScreen({ onComplete }: PlanningSetupStackProps) {
 
 export function PlanningSetupStackNavigator({ onComplete }: PlanningSetupStackProps) {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <Stack.Screen name="PlanningSetup">
         {() => <PlanningSetupGateScreen onComplete={onComplete} />}
       </Stack.Screen>

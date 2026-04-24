@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { InteractionManager, View, Text, TouchableOpacity } from 'react-native';
 import { CartesianChart, Line, Bar } from 'victory-native';
 import { COLORS } from '../theme/theme';
 import { Card } from './Card';
@@ -47,6 +47,7 @@ interface AdherenceDay {
 // ─── Component ──────────────────────────────────────────────────
 
 export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionProps) {
+    const mountedRef = useRef(true);
     const [macroTrendData, setMacroTrendData] = useState<Array<{
         x: number;
         calories: number;
@@ -67,7 +68,24 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (userId) fetchAnalyticsData();
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!userId) return undefined;
+
+        const task = InteractionManager.runAfterInteractions(() => {
+            if (mountedRef.current) {
+                void fetchAnalyticsData();
+            }
+        });
+
+        return () => {
+            task.cancel?.();
+        };
     }, [userId]);
 
     async function fetchAnalyticsData() {
@@ -126,6 +144,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                     });
                 }
             }
+            if (!mountedRef.current) return;
             setMacroTrendData(trend14);
 
             // ─── Calorie Balance (7 days) ───
@@ -149,6 +168,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                     label: d.toLocaleDateString('en-US', { weekday: 'short' }),
                 });
             }
+            if (!mountedRef.current) return;
             setCalorieBalanceData(balance7);
 
             // ─── Adherence Calendar (30 days) ───
@@ -184,11 +204,14 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                     adherence30.push({ date: ds, status: 'no_data' });
                 }
             }
+            if (!mountedRef.current) return;
             setAdherenceDays(adherence30);
         } catch (error) {
             logError('NutritionAnalyticsSection.fetchAnalyticsData', error, { userId });
         } finally {
-            setLoading(false);
+            if (mountedRef.current) {
+                setLoading(false);
+            }
         }
     }
 

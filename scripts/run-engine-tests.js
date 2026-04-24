@@ -3,7 +3,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const projectRoot = process.cwd();
-const engineDir = path.join(projectRoot, 'lib', 'engine');
+const testRoots = [
+  path.join(projectRoot, 'lib', 'engine'),
+  path.join(projectRoot, 'lib', 'api'),
+];
 const singleTestRunner = path.join(projectRoot, 'scripts', 'run-single-engine-test.js');
 
 function runSingleTest(fullPath) {
@@ -20,8 +23,10 @@ function runSingleTest(fullPath) {
 }
 
 function run() {
-  if (!fs.existsSync(engineDir)) {
-    throw new Error(`Engine directory not found: ${engineDir}`);
+  for (const testRoot of testRoots) {
+    if (!fs.existsSync(testRoot)) {
+      throw new Error(`Test directory not found: ${testRoot}`);
+    }
   }
 
   const collectTestFiles = (dir) => {
@@ -40,14 +45,14 @@ function run() {
     return results;
   };
 
-  const testFiles = collectTestFiles(engineDir).sort();
+  const testFiles = testRoots.flatMap(collectTestFiles).sort();
 
   if (testFiles.length === 0) {
-    throw new Error('No engine test files found.');
+    throw new Error('No engine or API test files found.');
   }
 
   for (const fullPath of testFiles) {
-    const testFile = path.relative(engineDir, fullPath);
+    const testFile = path.relative(projectRoot, fullPath);
     console.log(`\nRunning ${testFile}`);
     const exitCode = runSingleTest(fullPath);
     if (exitCode !== 0) {

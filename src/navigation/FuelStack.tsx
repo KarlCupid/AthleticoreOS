@@ -11,12 +11,13 @@ import { FightWeekProtocolScreen } from '../screens/FightWeekProtocolScreen';
 import { RehydrationProtocolScreen } from '../screens/RehydrationProtocolScreen';
 import { CutHistoryScreen } from '../screens/CutHistoryScreen';
 import type { FuelStackParamList } from './types';
+import { APP_STACK_SCREEN_OPTIONS } from './stackOptions';
 
 const Stack = createNativeStackNavigator<FuelStackParamList>();
 
 export function FuelStackNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <Stack.Screen name="NutritionHome" component={NutritionScreen} />
       <Stack.Screen name="FoodSearch" component={FoodSearchScreen} />
       <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />

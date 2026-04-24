@@ -130,6 +130,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     const prHistoryRef = useRef<Map<string, PRRecord[]>>(new Map());
     const finishPromiseRef = useRef<Promise<WorkoutSummary | undefined> | null>(null);
     const finishedSummaryRef = useRef<WorkoutSummary | null>(null);
+    const loadRequestRef = useRef(0);
 
     const currentExercise = prescription?.exercises[currentExerciseIndex] ?? null;
     const currentProgress = currentExercise
@@ -263,20 +264,28 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         trainingDate?: string,
         _isDeloadWeek: boolean = false,
     ) => {
+        const requestId = ++loadRequestRef.current;
+        const isCurrentRequest = () => requestId === loadRequestRef.current;
         setLoading(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user) return;
+            if (!session?.user || !isCurrentRequest()) return;
             const userId = session.user.id;
             const sessionDate = trainingDate ?? todayLocalDate();
             sessionDateRef.current = sessionDate;
 
-            // Load gym profile
-            const gym = await getDefaultGymProfile(userId);
+            const [gym, engineState] = await Promise.all([
+                getDefaultGymProfile(userId),
+                getDailyEngineState(userId, sessionDate),
+            ]);
+
+            if (!isCurrentRequest()) {
+                return;
+            }
+
             setGymProfile(gym);
             setEmptyStateMessage(null);
 
-            const engineState = await getDailyEngineState(userId, sessionDate);
             let mission = engineState.mission;
 
             if (weeklyPlanEntryId) {
@@ -287,6 +296,9 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 const weeklyMission = weekStart
                     ? await getWeeklyMission(userId, weekStart)
                     : null;
+                if (!isCurrentRequest()) {
+                    return;
+                }
                 const matchingEntry = weeklyMission?.entries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
                     ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
                     ?? null;
@@ -301,7 +313,6 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     setDailyMission(mission);
                     setPrescription(entryPrescription);
                     initializeProgress(entryPrescription);
-                    setLoading(false);
                     return;
                 }
 
@@ -309,7 +320,6 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     mission,
                     mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
                 );
-                setLoading(false);
                 return;
             }
 
@@ -327,7 +337,6 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     setDailyMission(entryMission);
                     setPrescription(entryPrescription);
                     initializeProgress(entryPrescription);
-                    setLoading(false);
                     return;
                 }
 
@@ -336,14 +345,12 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                         mission,
                         'This engine-managed session is not linked to a canonical plan entry. Regenerate today\'s plan before starting it.',
                     );
-                    setLoading(false);
                     return;
                 }
                 resetPrescriptionState(
                     mission,
                     mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
                 );
-                setLoading(false);
                 return;
             }
 
@@ -351,7 +358,6 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 setDailyMission(mission);
                 setPrescription(engineState.workoutPrescription);
                 initializeProgress(engineState.workoutPrescription);
-                setLoading(false);
                 return;
             }
 
@@ -361,9 +367,17 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             );
         } catch (error) {
             logError('useGuidedWorkout.loadAndGenerate', error, { weeklyPlanEntryId });
+        } finally {
+            if (isCurrentRequest()) {
+                setLoading(false);
+            }
         }
-        setLoading(false);
     }, [initializeProgress, resetPrescriptionState, scheduledActivityId, weeklyPlanEntryId]);
+
+    const cancelLoad = useCallback(() => {
+        loadRequestRef.current += 1;
+        setLoading(false);
+    }, []);
 
     // ── Start Workout ─────────────────────────────────────────────
 
@@ -785,6 +799,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         restTotal,
         // Actions
         loadAndGenerate,
+        cancelLoad,
         startWorkout,
         logSet,
         toggleWarmupSet,

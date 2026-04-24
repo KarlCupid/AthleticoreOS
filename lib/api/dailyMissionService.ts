@@ -42,6 +42,7 @@ import { getEffectiveWeight, getWeightHistory } from './weightService';
 import { updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
 import { getConsecutiveDepletedDays, getLastRefeedDate, upsertDailyCutProtocol } from './weightCutService';
 import { isActiveGuidedEnginePlanEntry } from '../engine/sessionOwnership';
+import { resolveWeeklyMissionWithDependencies } from './weeklyMissionResolver';
 
 interface DailyMissionOptions {
   forceRefresh?: boolean;
@@ -1202,75 +1203,24 @@ async function computeWeeklyMission(
   weekStart: string,
   options: DailyMissionOptions = {},
 ): Promise<WeeklyMissionPlan> {
-  const { data, error } = await supabase
-    .from('weekly_plan_entries')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('week_start_date', weekStart)
-    .order('date')
-    .order('slot');
+  return resolveWeeklyMissionWithDependencies(userId, weekStart, options, {
+    engineVersion: DAILY_ENGINE_VERSION,
+    loadWeeklyPlanEntries: async (targetUserId, targetWeekStart) => {
+      const { data, error } = await supabase
+        .from('weekly_plan_entries')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .eq('week_start_date', targetWeekStart)
+        .order('date')
+        .order('slot');
 
-  if (error) throw error;
-
-  const entries = ((data ?? []) as WeeklyPlanEntryRow[]);
-  if (entries.length === 0) {
-    return {
-      entries: [],
-      headline: 'No weekly mission',
-      summary: 'There is no active weekly plan for this window.',
-    };
-  }
-
-  if (
-    !options.forceRefresh
-    && entries.every((entry) => entry.daily_mission_snapshot?.engineVersion === DAILY_ENGINE_VERSION)
-  ) {
-    return {
-      entries: entries.map((entry) => ({
-        ...entry,
-        daily_mission_snapshot: entry.daily_mission_snapshot ?? null,
-      })),
-      headline: 'Weekly mission',
-      summary: `${entries.length} sessions loaded from saved mission snapshots.`,
-    };
-  }
-  const uniqueDates = Array.from(new Set(entries.map((entry) => entry.date)));
-  const storedSnapshots = options.forceRefresh
-    ? new Map()
-    : await getDailyEngineSnapshotsForDates(userId, uniqueDates);
-  const snapshotsToWrite: Array<{ date: string; mission: DailyMission }> = [];
-  const missionsByDate = new Map<string, DailyMission>();
-
-  for (const date of uniqueDates) {
-    const storedMission = storedSnapshots.get(date)?.mission_snapshot;
-    if (storedMission?.engineVersion === DAILY_ENGINE_VERSION) {
-      missionsByDate.set(date, storedMission);
-      continue;
-    }
-
-    const entryMission = entries.find((entry) => entry.date === date)?.daily_mission_snapshot;
-    if (entryMission?.engineVersion === DAILY_ENGINE_VERSION) {
-      missionsByDate.set(date, entryMission);
-      continue;
-    }
-
-    const mission = await getDailyMission(userId, date, { forceRefresh: options.forceRefresh });
-    missionsByDate.set(date, mission);
-    snapshotsToWrite.push({ date, mission });
-  }
-
-  if (snapshotsToWrite.length > 0) {
-    await updateDailyMissionSnapshotsByDate(userId, snapshotsToWrite);
-  }
-
-  return {
-    entries: entries.map((entry) => ({
-      ...entry,
-      daily_mission_snapshot: missionsByDate.get(entry.date) ?? entry.daily_mission_snapshot ?? null,
-    })),
-    headline: 'Weekly mission',
-    summary: `${uniqueDates.length} daily missions aligned to the current block and saved for reuse.`,
-  };
+      if (error) throw error;
+      return (data ?? []) as WeeklyPlanEntryRow[];
+    },
+    getDailyEngineSnapshotsForDates,
+    updateDailyMissionSnapshotsByDate,
+    getDailyMission,
+  });
 }
 
 export async function getWeeklyMission(

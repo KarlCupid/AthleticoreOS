@@ -39,7 +39,7 @@ import { styles } from './NutritionScreen.styles';
 
 type FuelNav = NativeStackNavigationProp<FuelStackParamList>;
 
-const STAGGER_DELAY = 50;
+const STAGGER_DELAY = 28;
 
 function inferMealTypeForNow(): MealType {
   const hour = new Date().getHours();
@@ -324,7 +324,7 @@ export function NutritionScreen() {
 
     return (
       <>
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)}>
           <Card style={{ marginBottom: SPACING.md }}>
             <Text style={inline.cardHeadline}>{quickVM.fuelDirectiveHeadline}</Text>
             {[quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
@@ -346,7 +346,7 @@ export function NutritionScreen() {
         </Animated.View>
 
         {quickVM.quickIntentOptions.length > 0 ? (
-          <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}>
+          <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.normal)}>
             <Text style={inline.sectionEyebrow}>Coach-suggested log</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
               {quickVM.quickIntentOptions.map((intent) => (
@@ -371,7 +371,7 @@ export function NutritionScreen() {
 
         {renderMissionCards()}
 
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.normal)}>
           <Card style={{ marginBottom: SPACING.md }}>
             <MacroProgressBar
               label="Calories"
@@ -389,7 +389,7 @@ export function NutritionScreen() {
           </Card>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.normal)}>
           <HydrationTracker
             currentOz={viewModel.totals.water}
             targetOz={viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0}
@@ -400,7 +400,7 @@ export function NutritionScreen() {
         <FuelRail title="Favorites" items={viewModel.favorites} onSelect={handleQuickFoodSelect} />
         <FuelRail title="Recent" items={viewModel.recent} onSelect={handleQuickFoodSelect} />
 
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.slow).springify()}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.normal)}>
           <AnimatedPressable onPress={() => setNutritionMode('detailed')}>
             <Text style={[inline.linkText, { color: themeColor }]}>Open full tracker</Text>
           </AnimatedPressable>
@@ -411,14 +411,14 @@ export function NutritionScreen() {
 
   const renderDetailedMode = () => (
     <>
-      <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
+      <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.normal)} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
         <AnimatedPressable onPress={() => setNutritionMode('quick')}>
           <Text style={[inline.linkText, { color: themeColor }]}>Back to quick log</Text>
         </AnimatedPressable>
       </Animated.View>
 
       {viewModel.activeCutProtocol ? (
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()} style={styles.cutBanner}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)} style={styles.cutBanner}>
           <View style={styles.cutBannerTop}>
             <Text style={styles.cutBannerPhase}>
               {viewModel.activeCutProtocol.cut_phase.replace(/_/g, ' ').toUpperCase()} · {viewModel.activeCutProtocol.days_to_weigh_in}d to weigh-in
@@ -443,14 +443,14 @@ export function NutritionScreen() {
         </Animated.View>
       ) : null}
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()} style={styles.calorieHero}>
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.normal)} style={styles.calorieHero}>
         <AnimatedNumber value={viewModel.totals.calories} style={styles.calorieNumber} />
         <Text style={styles.calorieLabel}>
           of {viewModel.targets?.adjustedCalories ?? 0} cal
         </Text>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}>
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.normal)}>
         <Card style={{ marginBottom: SPACING.md }}>
           <MacroProgressBar
             label="Calories"
@@ -480,7 +480,7 @@ export function NutritionScreen() {
         </Card>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.slow).springify()}>
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.normal)}>
         <Card style={{ marginBottom: SPACING.md }}>
           <MacroPieChart
             protein={viewModel.totals.protein}
@@ -493,7 +493,7 @@ export function NutritionScreen() {
 
       {renderMissionCards()}
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.slow).springify()}>
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.normal)}>
         <HydrationTracker
           currentOz={viewModel.totals.water}
           targetOz={viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0}
@@ -501,7 +501,7 @@ export function NutritionScreen() {
         />
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 6).duration(ANIMATION.slow).springify()}>
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 6).duration(ANIMATION.normal)}>
         <Card style={{ marginBottom: SPACING.md }}>
           <View style={inline.hydrationHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}>
@@ -561,7 +561,7 @@ export function NutritionScreen() {
       {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealType[]).map((mealType, index) => (
         <Animated.View
           key={mealType}
-          entering={FadeInDown.delay(STAGGER_DELAY * (7 + index)).duration(ANIMATION.slow).springify()}
+          entering={FadeInDown.delay(STAGGER_DELAY * (7 + index)).duration(ANIMATION.normal)}
         >
           <MealSection
             mealType={mealType}
@@ -577,7 +577,7 @@ export function NutritionScreen() {
       <FuelRail title="Favorites" items={viewModel.favorites} onSelect={handleQuickFoodSelect} />
       <FuelRail title="Recent" items={viewModel.recent} onSelect={handleQuickFoodSelect} />
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 11).duration(ANIMATION.slow).springify()} style={styles.quickActions}>
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 11).duration(ANIMATION.normal)} style={styles.quickActions}>
         <AnimatedPressable
           style={styles.quickActionButton}
           onPress={() => navigation.navigate('BarcodeScan', { mealType: inferMealTypeForNow(), date: viewModel.date })}
@@ -597,13 +597,13 @@ export function NutritionScreen() {
         </AnimatedPressable>
       </Animated.View>
 
-      {viewModel.userId ? <NutritionAnalyticsSection userId={viewModel.userId} /> : null}
+      {nutritionMode === 'detailed' && viewModel.userId ? <NutritionAnalyticsSection userId={viewModel.userId} /> : null}
     </>
   );
 
   return (
     <ScreenWrapper useSafeArea={true}>
-      <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.slow).springify()} style={styles.header}>
+      <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.normal)} style={styles.header}>
         <ScreenHeader kicker="Fuel" title="Today's fuel" subtitle={viewModel.formattedDate}>
           <View style={styles.modeSwitch}>
             <AnimatedPressable

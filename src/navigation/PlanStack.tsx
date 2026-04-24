@@ -8,12 +8,13 @@ import { ActivityLogScreen } from '../screens/ActivityLogScreen';
 import { WeeklyReviewScreen } from '../screens/WeeklyReviewScreen';
 import { WorkoutDetailScreen } from '../screens/WorkoutDetailScreen';
 import type { PlanStackParamList } from './types';
+import { APP_STACK_SCREEN_OPTIONS } from './stackOptions';
 
 const Stack = createNativeStackNavigator<PlanStackParamList>();
 
 export function PlanStackNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <Stack.Screen name="PlanHome" component={WeeklyPlanScreen} />
       <Stack.Screen name="WeeklyPlanSetup" component={WeeklyPlanSetupScreen} />
       <Stack.Screen name="CalendarMain" component={CalendarScreen} />

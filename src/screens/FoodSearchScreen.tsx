@@ -3,14 +3,14 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
+  SectionList,
   StyleSheet,
   Keyboard,
+  InteractionManager,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { FoodSearchItem } from '../components/FoodSearchItem';
@@ -49,6 +49,7 @@ export function FoodSearchScreen() {
   const route = useRoute<RouteProp<RouteParams, 'FoodSearch'>>();
   const { mealType, date } = route.params;
   const activeRequestRef = useRef(0);
+  const searchInputRef = useRef<TextInput>(null);
 
   const [query, setQuery] = useState('');
   const [allSections, setAllSections] = useState<FoodSearchSection[]>([]);
@@ -58,6 +59,7 @@ export function FoodSearchScreen() {
   const [searchMode, setSearchMode] = useState<FoodSearchMode>('all');
   const [manualModeOverride, setManualModeOverride] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [readyForSearch, setReadyForSearch] = useState(false);
 
   const activeMode = useMemo<FoodSearchMode>(() => {
     if (query.trim().length < 2) {
@@ -75,6 +77,28 @@ export function FoodSearchScreen() {
     () => filterFoodSearchSections(allSections, activeMode),
     [activeMode, allSections]
   );
+
+  const listSections = useMemo(
+    () => sections.map((section) => ({ ...section, data: section.items })),
+    [sections],
+  );
+
+  useEffect(() => {
+    let focusTimeout: ReturnType<typeof setTimeout> | null = null;
+    const task = InteractionManager.runAfterInteractions(() => {
+      setReadyForSearch(true);
+      focusTimeout = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 80);
+    });
+
+    return () => {
+      task.cancel?.();
+      if (focusTimeout) {
+        clearTimeout(focusTimeout);
+      }
+    };
+  }, []);
 
   const loadSections = useCallback(
     async (nextQuery: string) => {
@@ -150,12 +174,16 @@ export function FoodSearchScreen() {
   );
 
   useEffect(() => {
+    if (!readyForSearch) {
+      return undefined;
+    }
+
     const timeout = setTimeout(() => {
       void loadSections(query);
     }, query.trim().length >= 2 ? 300 : 0);
 
     return () => clearTimeout(timeout);
-  }, [loadSections, query]);
+  }, [loadSections, query, readyForSearch]);
 
   const handleSelectFood = (item: FoodSearchResult) => {
     Keyboard.dismiss();
@@ -231,26 +259,32 @@ export function FoodSearchScreen() {
     }
 
     return (
-      <ScrollView
+      <SectionList
+        sections={listSections}
+        keyExtractor={(item) => item.key}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.resultsContent}
-      >
-        {sections.map((section, sectionIndex) => (
-          <Animated.View
-            key={section.id}
-            entering={FadeInDown.delay(sectionIndex * 40).duration(ANIMATION.normal).springify()}
-            style={styles.section}
+        stickySectionHeadersEnabled={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        )}
+        renderItem={({ item, index, section }) => (
+          <View
+            style={[
+              styles.sectionCardRow,
+              index === 0 && styles.sectionCardRowFirst,
+              index === section.data.length - 1 && styles.sectionCardRowLast,
+            ]}
           >
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionCard}>
-              {section.items.map((item) => (
-                <FoodSearchItem key={item.key} item={item} onSelect={handleSelectFood} />
-              ))}
-            </View>
-          </Animated.View>
-        ))}
-      </ScrollView>
+            <FoodSearchItem item={item} onSelect={handleSelectFood} />
+          </View>
+        )}
+        SectionSeparatorComponent={() => <View style={styles.sectionGap} />}
+      />
     );
   };
 
@@ -266,6 +300,7 @@ export function FoodSearchScreen() {
       <View style={styles.searchContainer}>
         <View style={styles.searchRow}>
           <TextInput
+            ref={searchInputRef}
             style={[
               styles.searchInput,
               searchFocused && { borderColor: COLORS.accent, ...SHADOWS.sm },
@@ -274,7 +309,6 @@ export function FoodSearchScreen() {
             placeholderTextColor={COLORS.text.tertiary}
             value={query}
             onChangeText={handleChangeQuery}
-            autoFocus
             returnKeyType="search"
             clearButtonMode="while-editing"
             onFocus={() => setSearchFocused(true)}
@@ -394,9 +428,6 @@ const styles = StyleSheet.create({
   resultsContent: {
     paddingBottom: SPACING.xxl,
   },
-  section: {
-    marginBottom: SPACING.md,
-  },
   sectionTitle: {
     fontSize: 13,
     fontFamily: FONT_FAMILY.semiBold,
@@ -406,11 +437,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.sm,
   },
-  sectionCard: {
+  sectionCardRow: {
     marginHorizontal: SPACING.lg,
-    borderRadius: RADIUS.xl,
     backgroundColor: COLORS.surface,
     overflow: 'hidden',
+  },
+  sectionCardRowFirst: {
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+  },
+  sectionCardRowLast: {
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
+  },
+  sectionGap: {
+    height: SPACING.md,
   },
   emptyContainer: {
     paddingHorizontal: SPACING.xxl,
