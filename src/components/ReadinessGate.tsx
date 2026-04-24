@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     actions: { width: '100%', gap: SPACING.sm },
     button: { width: '100%', paddingVertical: SPACING.md, borderRadius: RADIUS.md, alignItems: 'center' },
     switchButton: { backgroundColor: COLORS.readiness.prime },
-    switchText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: '#FFF' },
+    switchText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: '#F5F5F0' },
     proceedButton: { backgroundColor: COLORS.borderLight },
     proceedText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
     cancelButton: { marginTop: SPACING.md },

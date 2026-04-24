@@ -25,19 +25,19 @@ const READINESS_PALETTES: Record<ReadinessLevel, ReadinessAccent> = {
     Prime: {
         accentColor:    COLORS.readiness.prime,
         tintColor:      COLORS.readiness.primeLight,
-        gradientColors: ['#0FA888', '#0D8A70'],
+        gradientColors: ['#D4AF37', '#8C6A1E'],
         level:          'Prime',
     },
     Caution: {
         accentColor:    COLORS.readiness.caution,
         tintColor:      COLORS.readiness.cautionLight,
-        gradientColors: ['#D97706', '#B45309'],
+        gradientColors: ['#B8892D', '#8C6A1E'],
         level:          'Caution',
     },
     Depleted: {
         accentColor:    COLORS.readiness.depleted,
         tintColor:      COLORS.readiness.depletedLight,
-        gradientColors: ['#DC2626', '#B91C1C'],
+        gradientColors: ['#D9827E', '#B85D58'],
         level:          'Depleted',
     },
 };

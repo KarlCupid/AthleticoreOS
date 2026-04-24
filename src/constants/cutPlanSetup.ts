@@ -3,7 +3,7 @@ export const APP_IMPACTS = [
     icon: 'Fuel',
     feature: 'Nutrition',
     timing: 'Day 1',
-    color: '#16A34A',
+    color: '#B7D9A8',
     bg: '#F0FDF4',
     detail:
       'Macro targets recalculate daily based on your current cut phase. Calories, protein, carbs, and fat all adjust automatically, and refeed days are scheduled when needed.',
@@ -30,8 +30,8 @@ export const APP_IMPACTS = [
     icon: 'Data',
     feature: 'Dashboard',
     timing: 'Day 1',
-    color: '#F59E0B',
-    bg: '#FFFBEB',
+    color: '#D4AF37',
+    bg: '#F5F5F0BEB',
     detail:
       'Your phase switches into fight camp automatically when the fight is 12 weeks away or closer. Readiness reflects cut progress and recovery pressure.',
   },
@@ -41,7 +41,7 @@ export const CUT_PHASES = [
   {
     label: 'Chronic Phase',
     when: '8+ weeks out',
-    color: '#3B82F6',
+    color: '#D4AF37',
     bg: '#EFF6FF',
     description:
       'Moderate caloric deficit with normal training loads. The goal is steady fat loss without compromising recovery.',
@@ -57,15 +57,15 @@ export const CUT_PHASES = [
   {
     label: 'Fight Week',
     when: '7 days out',
-    color: '#F59E0B',
-    bg: '#FFFBEB',
+    color: '#D4AF37',
+    bg: '#F5F5F0BEB',
     description:
       'Sodium loading, depletion, and controlled fluid restriction. Training volume drops sharply while the water-cut protocol activates.',
   },
   {
     label: 'Rehydration',
     when: 'After weigh-in',
-    color: '#16A34A',
+    color: '#B7D9A8',
     bg: '#F0FDF4',
     description: 'Rapid rehydration and carb restoration to rebuild performance before fight time.',
   },

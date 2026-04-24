@@ -382,7 +382,7 @@ function ProfileForm({
                     disabled={saving}
                 >
                     {saving ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <ActivityIndicator size="small" color="#F5F5F0" />
                     ) : (
                         <Text style={styles.saveButtonText}>Save Profile</Text>
                     )}
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     addButtonText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 14,
-        color: '#FFFFFF',
+        color: '#F5F5F0',
     },
 
     // Scroll
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     emptyAddButtonText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFFFFF',
+        color: '#F5F5F0',
     },
 
     // Form
@@ -631,6 +631,6 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFFFFF',
+        color: '#F5F5F0',
     },
 });

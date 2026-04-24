@@ -42,12 +42,12 @@ export const styles = StyleSheet.create({
     restTimerText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     restSkipText: {
         fontSize: 13,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFFFFF99',
+        color: '#F5F5F099',
     },
     content: { padding: SPACING.lg },
     exerciseTitle: {
@@ -200,7 +200,7 @@ export const styles = StyleSheet.create({
     finishButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     cancelButton: {
         marginTop: SPACING.xl,

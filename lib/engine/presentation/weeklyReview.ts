@@ -74,7 +74,7 @@ function buildWhatSlipped(
     insights.recommendationFollowThroughPct < 60 &&
     insights.recommendationCount > 0
   ) {
-    return `${Math.round(insights.recommendationFollowThroughPct)}% of engine recommendations were followed through.`;
+    return `${Math.round(insights.recommendationFollowThroughPct)}% plan follow-through.`;
   }
 
   return null;
@@ -90,7 +90,7 @@ function buildWhatChangesNext(insights: WeeklyReviewInsights): string {
     insights.recommendationFollowThroughPct != null &&
     insights.recommendationFollowThroughPct < 80
   ) {
-    return "Focus on follow-through — matching the engine's recommendations is the fastest way to improve next week.";
+    return 'Focus on plan follow-through next week.';
   }
 
   return "Keep building on this week's foundation.";

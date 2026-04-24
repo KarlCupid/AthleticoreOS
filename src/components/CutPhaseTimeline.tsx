@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { COLORS, FONT_FAMILY, RADIUS } from '../theme/theme';
 import { CutPhase, WeightCutPlanRow } from '../../lib/engine/types';
@@ -9,11 +9,11 @@ interface Props {
 }
 
 const PHASES: { key: CutPhase; label: string; short: string; color: string }[] = [
-  { key: 'chronic',         label: 'Chronic',      short: 'CHR', color: '#3B82F6' },
+  { key: 'chronic',         label: 'Chronic',      short: 'CHR', color: '#D4AF37' },
   { key: 'intensified',     label: 'Intensified',  short: 'INT', color: '#15803D' },
-  { key: 'fight_week_load', label: 'Water Load',   short: 'WL',  color: '#06B6D4' },
-  { key: 'fight_week_cut',  label: 'Water Cut',    short: 'WC',  color: '#F59E0B' },
-  { key: 'weigh_in',        label: 'Weigh-in',     short: 'WI',  color: '#EF4444' },
+  { key: 'fight_week_load', label: 'Water Load',   short: 'WL',  color: '#B8C0C2' },
+  { key: 'fight_week_cut',  label: 'Water Cut',    short: 'WC',  color: '#D4AF37' },
+  { key: 'weigh_in',        label: 'Weigh-in',     short: 'WI',  color: '#D9827E' },
   { key: 'rehydration',     label: 'Rehydrate',    short: 'RH',  color: '#10B981' },
 ];
 
@@ -50,7 +50,7 @@ export function CutPhaseTimeline({ plan, currentPhase }: Props) {
           : COLORS.surfaceSecondary;
 
         const chipText = isCurrent
-          ? '#FFFFFF'
+          ? '#F5F5F0'
           : isPast
           ? phase.color
           : COLORS.text.tertiary;

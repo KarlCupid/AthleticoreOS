@@ -75,7 +75,7 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
 
   const bgColor = anim.interpolate({
     inputRange:  [0, 1],
-    outputRange: ['#6B7280', '#16A34A'],
+    outputRange: ['#6B7280', '#B7D9A8'],
   });
 
   return (
@@ -121,7 +121,7 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
         <View style={styles.resultBlock}>
           {declineStatus === 'danger' && (
             <View style={[styles.resultBanner, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#DC2626' }]}>⛔ Reaction Severely Slowed</Text>
+              <Text style={[styles.resultBannerTitle, { color: '#D9827E' }]}>⛔ Reaction Severely Slowed</Text>
               <Text style={styles.resultBannerBody}>
                 {result} ms — {Math.round(((result - baselineMs!) / baselineMs!) * 100)}% slower than your baseline.
                 This indicates significant cognitive impairment from dehydration. Consult your corner.
@@ -130,7 +130,7 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
           )}
           {declineStatus === 'warning' && (
             <View style={[styles.resultBanner, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#D97706' }]}>⚠️ Reaction Slowed</Text>
+              <Text style={[styles.resultBannerTitle, { color: '#B8892D' }]}>⚠️ Reaction Slowed</Text>
               <Text style={styles.resultBannerBody}>
                 {result} ms — {Math.round(((result - baselineMs!) / baselineMs!) * 100)}% slower than baseline.
                 Monitor closely and increase rehydration.
@@ -139,7 +139,7 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
           )}
           {declineStatus === 'improved' && (
             <View style={[styles.resultBanner, { backgroundColor: '#DCFCE7', borderColor: '#BBF7D0' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#16A34A' }]}>✅ Reaction Normal</Text>
+              <Text style={[styles.resultBannerTitle, { color: '#B7D9A8' }]}>✅ Reaction Normal</Text>
               <Text style={styles.resultBannerBody}>
                 {result} ms — within normal range of baseline ({baselineMs} ms).
               </Text>
@@ -147,7 +147,7 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
           )}
           {declineStatus === null && (
             <View style={[styles.resultBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#2563EB' }]}>Result: {result} ms</Text>
+              <Text style={[styles.resultBannerTitle, { color: '#8C6A1E' }]}>Result: {result} ms</Text>
               {!baselineMs && (
                 <Text style={styles.resultBannerBody}>
                   This result will become your baseline. Complete the test again tomorrow to track changes.
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   circleText: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     textAlign: 'center',
     paddingHorizontal: SPACING.sm,
   },
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   falseStartText: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: '#92400E' },
-  retryText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#D97706' },
+  retryText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#B8892D' },
   resultBlock: { gap: SPACING.sm },
   resultBanner: {
     borderRadius: RADIUS.lg,
@@ -233,5 +233,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.sm,
   },
-  startButtonText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: '#FFFFFF' },
+  startButtonText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: '#F5F5F0' },
 });

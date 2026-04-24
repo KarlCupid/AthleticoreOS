@@ -387,7 +387,7 @@ export function ProfileSettingsScreen() {
           <ScreenHeader
             kicker="Me"
             title="Profile & settings"
-            subtitle="Account details, athlete profile, preferences, and setup tools."
+            subtitle="Profile, setup, account."
           />
         </View>
         <View style={styles.emptyState}>
@@ -409,7 +409,7 @@ export function ProfileSettingsScreen() {
         <ScreenHeader
           kicker="Me"
           title="Profile & settings"
-          subtitle="Connected athlete data, planning inputs, and account tools."
+          subtitle="Profile, setup, account."
         />
       </View>
 
@@ -471,7 +471,7 @@ export function ProfileSettingsScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(130).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Current Program" subtitle="This card uses the same planning and cut sources that drive the rest of the app.">
+          <Card variant="glass" title="Current program" subtitle="Active plan">
             <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Mode" value={formatGoalMode(goalMode)} />
             <DetailRow icon={<IconBarChart size={18} color={themeColor} />} label="Phase" value={phaseLabel} />
             <DetailRow
@@ -503,7 +503,7 @@ export function ProfileSettingsScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(170).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Training Setup" subtitle="Planner and gym settings that affect recommendations across Train and Plan.">
+          <Card variant="glass" title="Training setup" subtitle="Planner and gym">
             <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Weekly Planner" value={setupSummary} />
             <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Default Gym" value={snapshot.defaultGymProfile?.name ?? 'Not set'} />
             <DetailRow
@@ -523,7 +523,7 @@ export function ProfileSettingsScreen() {
 
         {profile ? (
           <Animated.View entering={FadeInDown.delay(210).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-            <Card variant="glass" title="Profile Inputs" subtitle="Only fields that still live on the athlete profile are editable here.">
+            <Card variant="glass" title="Profile inputs" subtitle="Editable basics">
               <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Fight Status" value={formatTitleCase(profile.fight_status)} />
               <DetailRow icon={<IconPerson size={18} color={themeColor} />} label="Biological Sex" value={formatTitleCase(profile.biological_sex)} />
               <EditableRow
@@ -607,7 +607,7 @@ export function ProfileSettingsScreen() {
 
         {profile ? (
           <Animated.View entering={FadeInDown.delay(250).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-            <Card variant="glass" title="Nutrition & recovery inputs" subtitle="These values shape nutrition targets and biology-aware readiness logic.">
+            <Card variant="glass" title="Nutrition & recovery" subtitle="Planning inputs">
               <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Activity Level" value={formatTitleCase(profile.activity_level, 'Moderate')} />
               <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Nutrition Goal" value={formatTitleCase(profile.nutrition_goal, 'Maintain')} />
               <View style={[styles.settingRow, styles.detailRowLast]}>
@@ -619,7 +619,7 @@ export function ProfileSettingsScreen() {
                   value={Boolean(profile.cycle_tracking)}
                   onValueChange={(nextValue) => void handleCycleTrackingChange(nextValue)}
                   trackColor={{ true: themeColor, false: COLORS.border }}
-                  thumbColor="#FFF"
+                  thumbColor="#F5F5F0"
                 />
               </View>
             </Card>
@@ -627,7 +627,7 @@ export function ProfileSettingsScreen() {
         ) : null}
 
         <Animated.View entering={FadeInDown.delay(290).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Setup Guide" subtitle="Guide status plus the milestones the app has actually seen you complete.">
+          <Card variant="glass" title="Setup guide" subtitle="First wins">
             <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Guide Status" value={formatGuidanceStatus(snapshot.guidanceState)} />
             <DetailRow
               icon={<IconCheck size={18} color={themeColor} />}

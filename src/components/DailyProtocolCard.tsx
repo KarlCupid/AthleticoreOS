@@ -40,7 +40,7 @@ export function DailyProtocolCard({ protocol }: Props) {
         )}
         {protocol.is_carb_cycle_high && !protocol.is_refeed_day && (
           <View style={[styles.refeedBadge, { backgroundColor: '#EFF6FF' }]}>
-            <Text style={[styles.refeedText, { color: '#2563EB' }]}>HIGH CARB</Text>
+            <Text style={[styles.refeedText, { color: '#8C6A1E' }]}>HIGH CARB</Text>
           </View>
         )}
       </View>

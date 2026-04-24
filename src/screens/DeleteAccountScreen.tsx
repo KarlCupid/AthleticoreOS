@@ -70,7 +70,7 @@ export function DeleteAccountScreen() {
               value={confirmed}
               onValueChange={setConfirmed}
               trackColor={{ true: COLORS.readiness.depleted, false: COLORS.border }}
-              thumbColor="#FFFFFF"
+              thumbColor="#F5F5F0"
             />
           </View>
         </Card>
@@ -140,6 +140,6 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
 });

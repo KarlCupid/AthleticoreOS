@@ -44,7 +44,7 @@ function SegmentFlash({ flash }: { flash: boolean }) {
   return (
     <Animated.View
       pointerEvents="none"
-      style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF', borderRadius: 3 }, style]}
+      style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F5F0', borderRadius: 3 }, style]}
     />
   );
 }

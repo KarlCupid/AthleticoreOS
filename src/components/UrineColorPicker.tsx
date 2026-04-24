@@ -20,14 +20,14 @@ const COLORS_SCALE = [
 ];
 
 const STATUS_MESSAGES: Record<number, { text: string; color: string }> = {
-  1: { text: 'Over-hydrated — slightly reduce water intake', color: '#2563EB' },
-  2: { text: 'Excellent hydration', color: '#16A34A' },
-  3: { text: 'Well hydrated', color: '#16A34A' },
-  4: { text: 'Adequately hydrated', color: '#16A34A' },
-  5: { text: 'Mildly dehydrated — drink more water', color: '#D97706' },
-  6: { text: 'Dehydrated — increase intake now', color: '#D97706' },
-  7: { text: 'Significantly dehydrated — DANGER', color: '#DC2626' },
-  8: { text: 'Severely dehydrated — seek medical attention', color: '#DC2626' },
+  1: { text: 'Over-hydrated — slightly reduce water intake', color: '#8C6A1E' },
+  2: { text: 'Excellent hydration', color: '#B7D9A8' },
+  3: { text: 'Well hydrated', color: '#B7D9A8' },
+  4: { text: 'Adequately hydrated', color: '#B7D9A8' },
+  5: { text: 'Mildly dehydrated — drink more water', color: '#B8892D' },
+  6: { text: 'Dehydrated — increase intake now', color: '#B8892D' },
+  7: { text: 'Significantly dehydrated — DANGER', color: '#D9827E' },
+  8: { text: 'Severely dehydrated — seek medical attention', color: '#D9827E' },
 };
 
 export function UrineColorPicker({ value = null, onChange, onSelect }: Props) {

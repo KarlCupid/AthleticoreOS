@@ -106,7 +106,7 @@ export function WeightCutChart({
           <Text style={styles.legendLabel}>Projected</Text>
         </View>
         <View style={[styles.targetBadge, { backgroundColor: onTrack ? '#DCFCE7' : '#FEE2E2' }]}>
-          <Text style={[styles.targetText, { color: onTrack ? '#16A34A' : '#DC2626' }]}>
+          <Text style={[styles.targetText, { color: onTrack ? '#B7D9A8' : '#D9827E' }]}>
             Target: {targetWeight} lbs
           </Text>
         </View>

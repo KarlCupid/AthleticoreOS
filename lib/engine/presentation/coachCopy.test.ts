@@ -38,6 +38,11 @@ assert(
   humanizeCoachCopy('Your training load is high today.') ===
     'Your workload is high today.',
 );
+assert(
+  'why this matters prefix is removed',
+  humanizeCoachCopy('Why this matters: baseline controls your daily training recommendation.') ===
+    'baseline controls your daily training plan.',
+);
 
 console.log('\n-- sentence cleanup --');
 
@@ -50,6 +55,11 @@ assert(
   'fallback sentence is humanized',
   humanizeCoachSentence('', 'Following the scheduled training plan.') ===
     'This fits your plan today.',
+);
+assert(
+  'long sentences are capped',
+  humanizeCoachSentence('Focus on follow-through by matching the engine recommendations because that is the fastest way to improve your training next week.') ===
+    'Focus on follow-through by matching the engine plan because that is the fastest way to improve.',
 );
 
 console.log(`\n${passed} passed, ${failed} failed`);

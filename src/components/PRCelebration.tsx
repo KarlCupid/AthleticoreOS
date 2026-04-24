@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   dismissBtnText: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
   confettiDot: {
     position: 'absolute',

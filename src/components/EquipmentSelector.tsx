@@ -156,6 +156,6 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
 });

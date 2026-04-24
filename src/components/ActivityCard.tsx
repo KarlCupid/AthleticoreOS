@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.readiness.prime,
     borderRadius: RADIUS.sm,
   },
-  primaryButtonText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: '#FFF' },
+  primaryButtonText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: '#F5F5F0' },
   secondaryButton: {
     paddingHorizontal: SPACING.md,
     paddingVertical: 6,

@@ -24,13 +24,13 @@ const RPE_COLORS: Record<number, string> = {
   1: '#22C55E',
   2: '#22C55E',
   3: '#22C55E',
-  4: '#F59E0B',
-  5: '#F59E0B',
-  6: '#F59E0B',
+  4: '#D4AF37',
+  5: '#D4AF37',
+  6: '#D4AF37',
   7: '#F97316',
   8: '#F97316',
-  9: '#EF4444',
-  10: '#EF4444',
+  9: '#D9827E',
+  10: '#D9827E',
 };
 
 const RPE_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -87,7 +87,7 @@ const RPECircle: React.FC<RPECircleProps> = ({
       <Text
         style={[
           styles.circleText,
-          { color: isSelected ? '#FFFFFF' : COLORS.text.secondary },
+          { color: isSelected ? '#F5F5F0' : COLORS.text.secondary },
           disabled && styles.textDisabled,
         ]}
       >

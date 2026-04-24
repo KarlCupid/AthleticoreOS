@@ -258,6 +258,6 @@ const styles = StyleSheet.create({
     addButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
 });

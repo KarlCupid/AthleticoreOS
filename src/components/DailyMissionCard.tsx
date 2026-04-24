@@ -45,7 +45,7 @@ export const DailyMissionCard = memo(function DailyMissionCard({ mission, compac
         <View style={styles.headerCopy}>
           <Text style={styles.kicker}>DAILY MISSION</Text>
           <Text style={compact ? styles.headlineCompact : styles.headline}>{mission.headline}</Text>
-          <Text style={styles.summary}>{mission.summary}</Text>
+          <Text style={styles.summary} numberOfLines={compact ? 2 : undefined}>{mission.summary}</Text>
         </View>
         <View style={[styles.riskChip, { backgroundColor: `${riskColor}1A` }]}>
           <Text style={[styles.riskChipText, { color: riskColor }]}>

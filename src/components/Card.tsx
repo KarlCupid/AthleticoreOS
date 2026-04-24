@@ -22,6 +22,7 @@ interface CardProps {
     noPadding?: boolean;
     entering?: boolean;
     enteringDelay?: number;
+    subtitleLines?: number;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -38,6 +39,7 @@ export const Card = memo(function Card({
     noPadding,
     entering = false,
     enteringDelay = 0,
+    subtitleLines = 1,
 }: CardProps) {
     const scale = useSharedValue(1);
 
@@ -66,7 +68,7 @@ export const Card = memo(function Card({
     const header = title ? (
         <View style={[styles.header, noPadding && { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg }]}>
             <Text style={styles.title}>{title}</Text>
-            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+            {subtitle && <Text style={styles.subtitle} numberOfLines={subtitleLines}>{subtitle}</Text>}
         </View>
     ) : null;
 

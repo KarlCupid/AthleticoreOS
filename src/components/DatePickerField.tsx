@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     },
     pickerCancel: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
     pickerTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-    pickerDone: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#16A34A' },
+    pickerDone: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#B7D9A8' },
     pickerHighlight: {
         position: 'absolute',
         left: 0,
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
         height: ITEM_H,
         borderTopWidth: 1.5,
         borderBottomWidth: 1.5,
-        borderColor: '#16A34A',
+        borderColor: '#B7D9A8',
     },
 });
 

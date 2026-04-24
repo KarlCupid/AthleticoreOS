@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(59, 66, 159, 0.82)',
+        backgroundColor: 'rgba(10, 10, 10, 0.86)',
         paddingHorizontal: SPACING.md,
         paddingTop: SPACING.md,
         gap: SPACING.sm,

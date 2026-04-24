@@ -203,9 +203,9 @@ export function CutPlanSetupScreen() {
     <View style={styles.stepContainer}>
       <View style={styles.introHero}>
         <Text style={styles.introHeroEmoji}>CUT</Text>
-        <Text style={styles.introHeroTitle}>How the weight cut plan works</Text>
+        <Text style={styles.introHeroTitle}>Set up your cut</Text>
         <Text style={styles.introHeroSub}>
-          Once activated, this plan becomes the camp guide for your timeline. Nutrition, hydration, and training recommendations update automatically by cut phase.
+          Targets update by cut phase.
         </Text>
       </View>
 
@@ -246,7 +246,7 @@ export function CutPlanSetupScreen() {
       <View style={styles.introNote}>
         <Text style={styles.introNoteIcon}>i</Text>
         <Text style={styles.introNoteText}>
-          Daily recommendations are estimates based on the data you log. Keep your coach informed, and use medical support whenever symptoms, recovery, or safety become concerns.
+          Estimates use your logs. Keep your coach informed and get medical help for safety concerns.
         </Text>
       </View>
     </View>
@@ -387,7 +387,7 @@ export function CutPlanSetupScreen() {
       style={{ flex: 1, backgroundColor: 'transparent' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient colors={['#16A34A', '#15803D']} style={styles.header}>
+      <LinearGradient colors={['#B7D9A8', '#15803D']} style={styles.header}>
         <TouchableOpacity
           onPress={() => (step === 1 ? nav.goBack() : setStep((current) => (current - 1) as Step))}
           style={styles.backButton}

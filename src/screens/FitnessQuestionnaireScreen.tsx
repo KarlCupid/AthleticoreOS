@@ -13,7 +13,7 @@ const COLORS = {
     text: '#FAFAFA',
     textMuted: '#A1A1AA',
     primary: '#EAB308',
-    danger: '#EF4444',
+    danger: '#D9827E',
 };
 
 export function FitnessQuestionnaireScreen() {

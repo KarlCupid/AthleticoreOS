@@ -111,7 +111,7 @@ export function SettingsScreen() {
                                 <Switch
                                     value={profile.cycle_tracking}
                                     trackColor={{ true: themeColor, false: COLORS.border }}
-                                    thumbColor="#FFF"
+                                    thumbColor="#F5F5F0"
                                 />
                             </View>
                         )}

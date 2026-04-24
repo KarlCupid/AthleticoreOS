@@ -11,6 +11,7 @@ interface ScreenHeaderProps {
   rightAction?: ReactNode;
   children?: ReactNode;
   style?: ViewStyle;
+  subtitleLines?: number;
 }
 
 export function ScreenHeader({
@@ -20,6 +21,7 @@ export function ScreenHeader({
   rightAction,
   children,
   style,
+  subtitleLines = 1,
 }: ScreenHeaderProps) {
   return (
     <View style={[styles.wrapper, style]}>
@@ -27,7 +29,7 @@ export function ScreenHeader({
         <View style={styles.copy}>
           {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
           <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {subtitle ? <Text style={styles.subtitle} numberOfLines={subtitleLines}>{subtitle}</Text> : null}
         </View>
         {rightAction ? <View style={styles.action}>{rightAction}</View> : null}
       </View>

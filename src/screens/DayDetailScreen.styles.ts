@@ -52,5 +52,5 @@ export const styles = StyleSheet.create({
         borderWidth: 1, borderColor: COLORS.borderLight, marginBottom: SPACING.md
     },
     applyButton: { paddingVertical: SPACING.md, borderRadius: RADIUS.md, alignItems: 'center', marginTop: SPACING.sm },
-    applyButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: '#FFF' },
+    applyButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: '#F5F5F0' },
 });

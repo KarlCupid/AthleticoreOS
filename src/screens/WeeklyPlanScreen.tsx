@@ -156,7 +156,7 @@ export function WeeklyPlanScreen() {
         return (
             <ScreenWrapper useSafeArea={true}>
                 <View style={styles.header}>
-                    <ScreenHeader kicker="Plan" title="No Plan Yet" subtitle="Start your journey with a tailored schedule." />
+                    <ScreenHeader kicker="Plan" title="No plan yet" subtitle="Set up your week." />
                 </View>
                 <View style={styles.scrollContent}>
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
@@ -165,7 +165,7 @@ export function WeeklyPlanScreen() {
                             <Text style={styles.emptySubtitle}>
                                 {activeWeekStart && !isCurrentWeek 
                                     ? `Generate your training plan for the week of ${formatShortMonthDay(activeWeekStart)}.` 
-                                    : 'Set up your weekly training plan to get smart daily recommendations tailored to your goals.'}
+                                    : 'Set up your week to see daily training.'}
                             </Text>
                             {activeWeekStart && !isCurrentWeek ? (
                                 <AnimatedPressable style={styles.setupButton} onPress={generateActiveWeek}>
@@ -207,7 +207,7 @@ export function WeeklyPlanScreen() {
                     title={isCurrentWeek ? 'This Week' : 'Planned Week'}
                     subtitle={activeWeekStart && !isCurrentWeek 
                         ? `Week of ${formatShortMonthDay(activeWeekStart)}` 
-                        : isDeloadWeek ? 'Recovery & Deload' : 'Your smart training schedule'}
+                        : isDeloadWeek ? 'Recovery week' : 'Training schedule'}
                     rightAction={!loading && entries.length > 0 ? (
                         <TouchableOpacity onPress={handleOptionsPress} style={styles.headerOptionsBtn}>
                             <MaterialCommunityIcons name="dots-vertical" size={20} color={COLORS.text.primary} />
@@ -283,8 +283,8 @@ export function WeeklyPlanScreen() {
                                     <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={COLORS.accent} />
                                 </View>
                                 <View style={styles.coachNoteContent}>
-                                    <Text style={styles.coachNoteTitle}>Coach's Note</Text>
-                                    <Text style={styles.coachNoteText}>{weekPlan.message}</Text>
+                                    <Text style={styles.coachNoteTitle}>Coach note</Text>
+                                    <Text style={styles.coachNoteText} numberOfLines={2}>{weekPlan.message}</Text>
                                 </View>
                             </View>
                         </Card>
@@ -298,7 +298,7 @@ export function WeeklyPlanScreen() {
                             <Card variant="glass" style={styles.cautionBanner} noPadding>
                                 <View style={styles.cautionBannerInner}>
                                     <View style={styles.cautionIconBox}>
-                                        <MaterialCommunityIcons name="alert" size={14} color="#FFF" />
+                                        <MaterialCommunityIcons name="alert" size={14} color="#F5F5F0" />
                                     </View>
                                     <Text style={styles.cautionBannerText}>
                                         {missedEntries.length} missed session{missedEntries.length > 1 ? 's' : ''} — tap to reschedule
@@ -323,7 +323,7 @@ export function WeeklyPlanScreen() {
                     <Card variant="glass" style={styles.chartCard} noPadding>
                         <View style={styles.chartHeader}>
                             <Text style={styles.chartTitle}>Projected Load</Text>
-                            <Text style={styles.chartSubtitle}>Duration & Volume</Text>
+                            <Text style={styles.chartSubtitle}>Minutes and load</Text>
                         </View>
                         
                         <View style={styles.chartContainer}>
@@ -468,8 +468,8 @@ const styles = StyleSheet.create({
     // Hero Card
     heroCard: {
         marginBottom: SPACING.sm,
-        backgroundColor: 'rgba(0, 229, 255, 0.08)', // Accent tint
-        borderColor: 'rgba(0, 229, 255, 0.3)',
+        backgroundColor: 'rgba(212, 175, 55, 0.08)', // Accent tint
+        borderColor: 'rgba(212, 175, 55, 0.30)',
         borderWidth: 1,
         ...SHADOWS.colored.accent,
     },
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: RADIUS.md,
-        backgroundColor: 'rgba(0, 229, 255, 0.1)',
+        backgroundColor: 'rgba(212, 175, 55, 0.10)',
         alignItems: 'center',
         justifyContent: 'center',
     },

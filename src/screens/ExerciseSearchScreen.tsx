@@ -175,7 +175,7 @@ export function ExerciseSearchScreen() {
                     >
                         <Text style={[
                             styles.filterChipText,
-                            typeFilter === item.value && { color: '#FFF' },
+                            typeFilter === item.value && { color: '#F5F5F0' },
                         ]}>{item.label}</Text>
                     </TouchableOpacity>
                 )}
@@ -198,7 +198,7 @@ export function ExerciseSearchScreen() {
                     >
                         <Text style={[
                             styles.filterChipText,
-                            muscleFilter === item.value && { color: '#FFF' },
+                            muscleFilter === item.value && { color: '#F5F5F0' },
                         ]}>{item.label}</Text>
                     </TouchableOpacity>
                 )}

@@ -34,7 +34,7 @@ export function AttentionCard({ type, headline, explanation, action }: Attention
 
             <View style={styles.body}>
                 <Text style={styles.headline}>{headline}</Text>
-                <Text style={styles.explanation}>{explanation}</Text>
+                <Text style={styles.explanation} numberOfLines={2}>{explanation}</Text>
 
                 {action && (
                     <Pressable

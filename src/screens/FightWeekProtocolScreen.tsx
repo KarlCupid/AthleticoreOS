@@ -35,11 +35,11 @@ const PHASE_LABELS: Record<CutPhase, string> = {
 };
 
 const PHASE_COLORS: Record<CutPhase, [string, string]> = {
-  chronic: ['#3B82F6', '#2563EB'],
+  chronic: ['#D4AF37', '#8C6A1E'],
   intensified: ['#15803D', '#166534'],
-  fight_week_load: ['#06B6D4', '#0891B2'],
-  fight_week_cut: ['#F59E0B', '#D97706'],
-  weigh_in: ['#EF4444', '#DC2626'],
+  fight_week_load: ['#B8C0C2', '#6F7778'],
+  fight_week_cut: ['#D4AF37', '#B8892D'],
+  weigh_in: ['#D9827E', '#D9827E'],
   rehydration: ['#10B981', '#059669'],
 };
 

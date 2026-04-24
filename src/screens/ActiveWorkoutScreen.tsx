@@ -432,7 +432,7 @@ export function ActiveWorkoutScreen() {
                                 end={{ x: 1, y: 0 }}
                                 style={styles.finishButton}
                             >
-                                <IconCheckCircle size={20} color="#FFF" />
+                                <IconCheckCircle size={20} color="#F5F5F0" />
                                 <Text style={styles.finishButtonText}>Finish Workout</Text>
                             </LinearGradient>
                         </AnimatedPressable>

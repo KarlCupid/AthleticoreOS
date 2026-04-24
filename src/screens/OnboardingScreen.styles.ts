@@ -250,7 +250,7 @@ export const styles = StyleSheet.create({
     },
     activityOptionIndicatorActive: {
         borderColor: COLORS.readiness.prime,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F5F5F0',
     },
     navRow: {
         flexDirection: 'row',

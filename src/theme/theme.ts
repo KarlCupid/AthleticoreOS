@@ -1,70 +1,70 @@
 export const COLORS = {
     background: '#0A0A0A', // Matte Obsidian Black - app canvas
-    surface: 'rgba(255, 255, 255, 0.08)', // Default Glass Surface
-    surfaceElevated: 'rgba(255, 255, 255, 0.12)', // Brighter Glass for elevation
-    surfaceSecondary: 'rgba(59, 66, 159, 0.4)', // Deep Ocean Glass
-    border: 'rgba(255, 255, 255, 0.15)', // Light-catching edge
-    borderLight: 'rgba(255, 255, 255, 0.1)',
+    surface: 'rgba(10, 10, 10, 0.64)', // Obsidian glass surface
+    surfaceElevated: 'rgba(245, 245, 240, 0.13)', // Pearl-lit elevated glass
+    surfaceSecondary: 'rgba(245, 245, 240, 0.08)', // Soft pearl supporting surface
+    border: 'rgba(245, 245, 240, 0.18)', // Pearl edge
+    borderLight: 'rgba(245, 245, 240, 0.10)',
 
-    // Accent palette — Electric Cyan / Teal
-    accent: '#00E5FF',
-    accentLight: 'rgba(0, 229, 255, 0.15)',
+    // Accent palette - brushed warm metal
+    accent: '#D4AF37',
+    accentLight: 'rgba(212, 175, 55, 0.16)',
 
     // Semantic colors
-    success: '#4ADE80', // Brighter for dark mode
-    warning: '#FBBF24',
-    error: '#FB7185',
+    success: '#B7D9A8',
+    warning: '#D4AF37',
+    error: '#D9827E',
 
     // Overlay
-    overlay: 'rgba(15, 23, 42, 0.6)',
+    overlay: 'rgba(10, 10, 10, 0.72)',
 
     text: {
-        primary: '#FFFFFF',
-        secondary: 'rgba(255, 255, 255, 0.7)',
-        tertiary: 'rgba(255, 255, 255, 0.5)',
-        inverse: '#1C2B3A',
+        primary: '#F5F5F0',
+        secondary: 'rgba(245, 245, 240, 0.76)',
+        tertiary: 'rgba(245, 245, 240, 0.54)',
+        inverse: '#0A0A0A',
     },
 
     readiness: {
-        prime: '#0FA888',
-        primeLight: '#E0F5F1',
-        caution: '#D97706',
-        cautionLight: '#FEF3C7',
-        depleted: '#DC2626',
-        depletedLight: '#FEE2E2',
+        prime: '#D4AF37',
+        primeLight: 'rgba(212, 175, 55, 0.18)',
+        caution: '#B8892D',
+        cautionLight: 'rgba(184, 137, 45, 0.18)',
+        depleted: '#D9827E',
+        depletedLight: 'rgba(217, 130, 126, 0.18)',
     },
 
     chart: {
-        fitness: '#3B82F6',
-        fatigue: '#0FA888',
-        readiness: '#14B8A6',
-        accent: '#D97706',
-        protein: '#6366F1',
-        carbs: '#F59E0B',
-        fat: '#EF4444',
-        water: '#06B6D4',
+        fitness: '#D4AF37',
+        fatigue: '#8C6A1E',
+        readiness: '#F5F5F0',
+        accent: '#B8892D',
+        protein: '#F5F5F0',
+        carbs: '#D4AF37',
+        fat: '#D9827E',
+        water: '#B8C0C2',
     },
 
     status: {
-        optimal: '#16A34A',
-        caution: '#D97706',
-        actionRequired: '#DC2626',
+        optimal: '#B7D9A8',
+        caution: '#D4AF37',
+        actionRequired: '#D9827E',
     },
 };
 
 export const GRADIENTS = {
-    prime: ['#0FA888', '#0D8A70', '#0B7860'] as const,
-    caution: ['#D97706', '#B45309', '#92400E'] as const,
-    depleted: ['#DC2626', '#B91C1C', '#991B1B'] as const,
-    card: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)'] as const,
-    accent: ['#00E5FF', '#00B0FF'] as const,
+    prime: ['#F5F5F0', '#D4AF37', '#8C6A1E'] as const,
+    caution: ['#D4AF37', '#B8892D', '#8C6A1E'] as const,
+    depleted: ['#D9827E', '#B85D58', '#7A3430'] as const,
+    card: ['rgba(245, 245, 240, 0.14)', 'rgba(10, 10, 10, 0.58)'] as const,
+    accent: ['#F5F5F0', '#D4AF37', '#8C6A1E'] as const,
 };
 
 export const BORDERS = {
-    card: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }, // Glass Edge
-    elevated: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
-    accent: { borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.30)' },
-    glow: { borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.40)' },
+    card: { borderWidth: 1, borderColor: 'rgba(245,245,240,0.16)' },
+    elevated: { borderWidth: 1, borderColor: 'rgba(212,175,55,0.28)' },
+    accent: { borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.34)' },
+    glow: { borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.46)' },
 } as const;
 
 export const FONT_FAMILY = {
@@ -192,49 +192,49 @@ export const RADIUS = {
 
 export const SHADOWS = {
     sm: { // Subtler glassy feel
-        shadowColor: '#1C2B3A',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.03,
         shadowRadius: 3,
         elevation: 1,
     },
     card: { // Subtle glow for dark glass
-        shadowColor: 'rgba(255, 255, 255, 0.05)',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 16,
         elevation: 2,
     },
     md: {
-        shadowColor: '#1C2B3A',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
         shadowRadius: 16,
         elevation: 2,
     },
     cardElevated: {
-        shadowColor: '#1C2B3A',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.06,
         shadowRadius: 24,
         elevation: 4,
     },
     lg: {
-        shadowColor: '#1C2B3A',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.06,
         shadowRadius: 24,
         elevation: 4,
     },
     xl: {
-        shadowColor: '#1C2B3A',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.08,
         shadowRadius: 32,
         elevation: 6,
     },
     header: {
-        shadowColor: '#1C2B3A',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.06,
         shadowRadius: 24,
@@ -249,7 +249,7 @@ export const SHADOWS = {
             elevation: 4,
         },
         accent: {
-            shadowColor: '#00E5FF',
+            shadowColor: '#D4AF37',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.15,
             shadowRadius: 16,
@@ -269,30 +269,30 @@ export const ANIMATION = {
 export const APP_CHROME = {
     background: '#0A0A0A', // Matte Obsidian Black - matches metallic marble base
     accent:     '#D4AF37', // Warm Metallic Gold - brushed metal accent
-    text:       '#FFFFFF', // Light text for the dark theme
+    text:       '#F5F5F0', // Pearl text for the dark theme
 } as const;
 
 // Semantic palette for AttentionCards and coaching notes
 // Replaces the readiness palette in all UI contexts after Task 3
 export const SEMANTIC_PALETTE = {
-    positive: { edge: '#0FA888', tint: '#F0FFF8' }, // Performance gains, compliance streaks
-    caution:  { edge: '#D4932B', tint: '#FFF8F0' }, // Nutrition alerts, weight check reminders
-    alert:    { edge: '#D4432B', tint: '#FFF0ED' }, // Recovery warnings, safety gates
-    info:     { edge: '#4A7BD4', tint: '#F0F4FF' }, // Schedule changes, phase transitions
+    positive: { edge: '#B7D9A8', tint: 'rgba(183, 217, 168, 0.16)' },
+    caution:  { edge: '#D4AF37', tint: 'rgba(212, 175, 55, 0.16)' },
+    alert:    { edge: '#D9827E', tint: 'rgba(217, 130, 126, 0.16)' },
+    info:     { edge: '#F5F5F0', tint: 'rgba(245, 245, 240, 0.14)' },
 } as const;
 
 export type SemanticTier = keyof typeof SEMANTIC_PALETTE;
 
 // Timer design tokens — used by SkiaRestTimer and related components
 export const TIMER_COLORS = {
-    calm:        '#0FA888',               // mint — full rest
-    caution:     '#D97706',               // amber — ~30% remaining
-    urgent:      '#DC2626',               // red — ~15% remaining
-    glow:        'rgba(15, 168, 136, 0.35)',
-    glowUrgent:  'rgba(220, 38, 38, 0.35)',
-    overlay:     'rgba(10, 12, 20, 0.92)',
-    track:       'rgba(255, 255, 255, 0.06)',
-    particle:    'rgba(15, 168, 136, 0.22)',
+    calm:        '#D4AF37',
+    caution:     '#B8892D',
+    urgent:      '#D9827E',
+    glow:        'rgba(212, 175, 55, 0.32)',
+    glowUrgent:  'rgba(217, 130, 126, 0.35)',
+    overlay:     'rgba(10, 10, 10, 0.94)',
+    track:       'rgba(245, 245, 240, 0.08)',
+    particle:    'rgba(212, 175, 55, 0.20)',
 } as const;
 
 export const TIMER_DIMENSIONS = {

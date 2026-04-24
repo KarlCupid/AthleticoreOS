@@ -61,7 +61,7 @@ export const DashboardNutritionCard = memo(function DashboardNutritionCard({ act
                         color={COLORS.chart.protein}
                         trackColor="rgba(255,255,255,0.1)"
                         label={`${Math.round(actualNutrition.protein)}`}
-                        textColor="#FFF"
+                        textColor="#F5F5F0"
                     />
                     <Text style={styles.macroRingLabel}>Protein</Text>
                     <Text style={styles.macroRingSub}>{targets.protein}g</Text>
@@ -74,7 +74,7 @@ export const DashboardNutritionCard = memo(function DashboardNutritionCard({ act
                         color={COLORS.chart.carbs}
                         trackColor="rgba(255,255,255,0.1)"
                         label={`${Math.round(actualNutrition.carbs)}`}
-                        textColor="#FFF"
+                        textColor="#F5F5F0"
                     />
                     <Text style={styles.macroRingLabel}>Carbs</Text>
                     <Text style={styles.macroRingSub}>{targets.carbs}g</Text>
@@ -87,7 +87,7 @@ export const DashboardNutritionCard = memo(function DashboardNutritionCard({ act
                         color={COLORS.chart.fat}
                         trackColor="rgba(255,255,255,0.1)"
                         label={`${Math.round(actualNutrition.fat)}`}
-                        textColor="#FFF"
+                        textColor="#F5F5F0"
                     />
                     <Text style={styles.macroRingLabel}>Fat</Text>
                     <Text style={styles.macroRingSub}>{targets.fat}g</Text>
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     calorieValue: {
         fontSize: 48,
         fontFamily: FONT_FAMILY.black,
-        color: '#FFF',
+        color: '#F5F5F0',
         letterSpacing: -1.5,
     },
     calorieTarget: {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     macroRingLabel: {
         fontSize: 14,
         fontFamily: FONT_FAMILY.extraBold,
-        color: '#FFF',
+        color: '#F5F5F0',
         marginTop: SPACING.md,
     },
     macroRingSub: {
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     hydrationText: {
         fontSize: 12,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     // Cut specific styles
     cutProtocolContainer: {
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         paddingHorizontal: 10,
     },
-    sodiumValue: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#FFF' },
+    sodiumValue: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#F5F5F0' },
     sodiumLabel: { fontFamily: FONT_FAMILY.regular, fontSize: 9, color: 'rgba(255,255,255,0.6)' },
     refeedBadge: {
         backgroundColor: 'rgba(251,191,36,0.15)',
@@ -282,11 +282,11 @@ const styles = StyleSheet.create({
         marginTop: SPACING.sm,
         marginBottom: SPACING.xs,
     },
-    expandText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: '#FFF', letterSpacing: 0.5, textTransform: 'uppercase' },
+    expandText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: '#F5F5F0', letterSpacing: 0.5, textTransform: 'uppercase' },
     scheduleBlock: { gap: SPACING.sm },
     scheduleRow: { flexDirection: 'row', gap: SPACING.xs },
     scheduleIcon: { fontSize: 16 },
     scheduleTextBlock: { flex: 1 },
-    scheduleLabel: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: '#FFF' },
+    scheduleLabel: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12, color: '#F5F5F0' },
     scheduleBody: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
 });

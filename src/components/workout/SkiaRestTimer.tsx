@@ -109,7 +109,7 @@ function SkiaRestTimerWeb({
           style={[
             styles.webRingFallback,
             {
-              borderColor: isUrgent ? COLORS.error : '#0FA888',
+              borderColor: isUrgent ? COLORS.error : '#D4AF37',
               borderWidth: STROKE,
               borderRadius: SIZE / 2,
               width: SIZE,
@@ -181,7 +181,7 @@ function SkiaRestTimerNative({
     return path;
   });
   const arcColor = useDerivedValue(() =>
-    interpolateColor(sweepAngle.value / 360, [0, 0.15, 0.3, 1], ['#DC2626', '#DC2626', '#D97706', '#0FA888']),
+    interpolateColor(sweepAngle.value / 360, [0, 0.15, 0.3, 1], ['#D9827E', '#D9827E', '#B8892D', '#D4AF37']),
   );
   const glowColor = useDerivedValue(() =>
     interpolateColor(
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 52,
     lineHeight: 60,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     includeFontPadding: false,
   },
   digitTextUrgent: {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 48,
     lineHeight: 60,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     includeFontPadding: false,
     marginBottom: 4,
   },

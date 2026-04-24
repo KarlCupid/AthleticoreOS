@@ -54,7 +54,7 @@ export function CutPlanPreviewStep({
                 name="Chronic Cut"
                 start={planResult.chronicPhaseDates.start}
                 end={planResult.chronicPhaseDates.end}
-                color="#3B82F6"
+                color="#D4AF37"
                 weeks={planResult.chronicPhaseWeeks}
               />
             ) : null}
@@ -69,7 +69,7 @@ export function CutPlanPreviewStep({
               name="Fight Week"
               start={planResult.fightWeekDates.start}
               end={planResult.fightWeekDates.end}
-              color="#F59E0B"
+              color="#D4AF37"
               weeks={1}
             />
           </View>
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1C0A0A',
     borderRadius: RADIUS.xl,
     borderWidth: 2,
-    borderColor: '#DC2626',
+    borderColor: '#D9827E',
     padding: SPACING.md,
     gap: SPACING.xs,
   },
@@ -265,20 +265,20 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.sm,
     borderWidth: 1,
-    borderColor: '#DC2626',
+    borderColor: '#D9827E',
   },
   ackCheckbox: {
     width: 22,
     height: 22,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#DC2626',
+    borderColor: '#D9827E',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 1,
     flexShrink: 0,
   },
-  ackCheckboxChecked: { backgroundColor: '#DC2626', borderColor: '#DC2626' },
-  ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 11, color: '#FFFFFF' },
+  ackCheckboxChecked: { backgroundColor: '#D9827E', borderColor: '#D9827E' },
+  ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 11, color: '#F5F5F0' },
   ackText: { flex: 1, fontFamily: FONT_FAMILY.regular, fontSize: 12, color: '#FEE2E2', lineHeight: 18 },
 });

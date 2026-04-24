@@ -27,8 +27,8 @@ function getIntensityConfig(intensity: number | null): { label: string; color: s
   
   if (intensity <= 3) return { label: 'Recovery', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' };
   if (intensity <= 6) return { label: 'Moderate', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
-  if (intensity <= 8) return { label: 'Hard', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' };
-  return { label: 'Max Effort', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)' };
+  if (intensity <= 8) return { label: 'Hard', color: '#D4AF37', bg: 'rgba(245, 158, 11, 0.15)' };
+  return { label: 'Max Effort', color: '#D9827E', bg: 'rgba(239, 68, 68, 0.15)' };
 }
 
 interface Session {

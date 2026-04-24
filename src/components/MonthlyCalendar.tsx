@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     selectedDay: { borderRadius: RADIUS.md },
     todayDay: { borderWidth: 1, borderColor: COLORS.text.tertiary, borderRadius: RADIUS.md },
     dayText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-    selectedDayText: { color: '#FFF', fontFamily: FONT_FAMILY.black },
+    selectedDayText: { color: '#F5F5F0', fontFamily: FONT_FAMILY.black },
     dotsRow: { flexDirection: 'row', gap: 2, marginTop: 2 },
     dot: { width: 5, height: 5, borderRadius: 2.5 },
 });

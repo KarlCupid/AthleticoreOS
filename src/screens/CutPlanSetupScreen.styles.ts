@@ -1,4 +1,4 @@
-﻿import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 
 export const styles = StyleSheet.create({
@@ -20,7 +20,7 @@ export const styles = StyleSheet.create({
     subtitle: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
     label: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginTop: SPACING.sm },
 
-    // â”€â”€ Step 1: Intro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Step 1: Intro ─────────────────────────────────────────────
     introHero: {
         alignItems: 'center',
         backgroundColor: '#DCFCE7',
@@ -148,7 +148,7 @@ export const styles = StyleSheet.create({
         lineHeight: 20,
     },
 
-    // â”€â”€ Form elements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Form elements ─────────────────────────────────────────────
     input: {
         backgroundColor: COLORS.surface,
         borderRadius: RADIUS.md,
@@ -166,15 +166,15 @@ export const styles = StyleSheet.create({
         flex: 1, padding: SPACING.md, backgroundColor: COLORS.surface,
         borderRadius: RADIUS.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,
     },
-    toggleOptionActive: { backgroundColor: '#DCFCE7', borderColor: '#16A34A' },
+    toggleOptionActive: { backgroundColor: '#DCFCE7', borderColor: '#B7D9A8' },
     toggleText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: COLORS.text.secondary },
-    toggleTextActive: { color: '#16A34A' },
+    toggleTextActive: { color: '#B7D9A8' },
     suggestionRow: {
         flexDirection: 'row', alignItems: 'center', padding: SPACING.md,
         backgroundColor: COLORS.surface, borderRadius: RADIUS.md, gap: SPACING.sm,
         borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.sm,
     },
-    suggestionRowActive: { borderColor: '#16A34A', backgroundColor: '#DCFCE7' },
+    suggestionRowActive: { borderColor: '#B7D9A8', backgroundColor: '#DCFCE7' },
     suggestionRowDisabled: { opacity: 0.5 },
     suggestionName: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
     suggestionSub: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
@@ -183,7 +183,7 @@ export const styles = StyleSheet.create({
     infoBox: { backgroundColor: COLORS.accentLight, borderRadius: RADIUS.md, padding: SPACING.md },
     infoText: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 20 },
 
-    // â”€â”€ Plan preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Plan preview ──────────────────────────────────────────────
     errorBox: { backgroundColor: '#FEE2E2', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
     errorText: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.error, lineHeight: 20 },
     warningBox: { backgroundColor: '#FEF3C7', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
@@ -201,28 +201,28 @@ export const styles = StyleSheet.create({
     phaseName: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
     phaseDates: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
 
-    // â”€â”€ Confirmation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Confirmation ──────────────────────────────────────────────
     confirmBox: {
         flexDirection: 'row', backgroundColor: '#DCFCE7', borderRadius: RADIUS.md,
         padding: SPACING.md, gap: SPACING.sm, alignItems: 'flex-start',
     },
     confirmText: { flex: 1, fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary, lineHeight: 22 },
 
-    // â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Footer ────────────────────────────────────────────────────
     footer: {
         padding: SPACING.lg,
         paddingBottom: Platform.OS === 'ios' ? 110 : 80,
         backgroundColor: COLORS.background,
     },
-    nextButton: { backgroundColor: '#16A34A', borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
+    nextButton: { backgroundColor: '#B7D9A8', borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
     nextButtonDisabled: { backgroundColor: COLORS.text.tertiary },
     activateButton: { backgroundColor: COLORS.readiness.prime, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
     nextButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#fff' },
 
-    // â”€â”€ Extreme cut disclaimer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Extreme cut disclaimer ────────────────────────────────────
     extremeWarningBox: {
         backgroundColor: '#1C0A0A', borderRadius: RADIUS.xl,
-        borderWidth: 2, borderColor: '#DC2626',
+        borderWidth: 2, borderColor: '#D9827E',
         padding: SPACING.md, marginBottom: SPACING.md, gap: SPACING.xs,
     },
     extremeWarningHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginBottom: SPACING.xs },
@@ -234,19 +234,19 @@ export const styles = StyleSheet.create({
     ackRow: {
         flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: SPACING.sm,
         backgroundColor: 'rgba(220,38,38,0.15)', borderRadius: RADIUS.lg,
-        padding: SPACING.sm, borderWidth: 1, borderColor: '#DC2626',
+        padding: SPACING.sm, borderWidth: 1, borderColor: '#D9827E',
     },
     ackCheckbox: {
-        width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#DC2626',
+        width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#D9827E',
         justifyContent: 'center', alignItems: 'center', marginTop: 1, flexShrink: 0,
     },
-    ackCheckboxChecked: { backgroundColor: '#DC2626', borderColor: '#DC2626' },
-    ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#FFFFFF' },
+    ackCheckboxChecked: { backgroundColor: '#D9827E', borderColor: '#D9827E' },
+    ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#F5F5F0' },
     ackText: { flex: 1, fontFamily: FONT_FAMILY.regular, fontSize: 12, color: '#FEE2E2', lineHeight: 18 },
     extremeReminderBanner: {
         backgroundColor: '#FEE2E2', borderRadius: RADIUS.lg,
         borderWidth: 1, borderColor: '#FECACA', padding: SPACING.sm, marginBottom: SPACING.md,
     },
-    extremeReminderText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#DC2626', textAlign: 'center' },
+    extremeReminderText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#D9827E', textAlign: 'center' },
 });
 

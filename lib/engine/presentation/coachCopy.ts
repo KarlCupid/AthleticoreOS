@@ -5,12 +5,18 @@ const EXACT_REPLACEMENTS: Record<string, string> = {
   "Complete your check-in to unlock today's plan.": "Complete your check-in to see today's plan.",
   'Hit your targets today.': 'Stay on top of your food today.',
   'All systems green.': 'You are good to train today.',
+  'Start your journey with a tailored schedule.': 'Set up your week.',
+  'Your smart training schedule': 'This week',
 };
 
 const PATTERN_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\btraining load\b/gi, 'workload'],
   [/\bload ratio\b/gi, 'workload trend'],
   [/\brecommendations?\b/gi, 'plan'],
+  [/\btailored to your goals\b/gi, 'for your goal'],
+  [/\bused to tune\b/gi, 'sets'],
+  [/\bwhy this matters:?\s*/gi, ''],
+  [/\bsmart daily\b/gi, 'daily'],
   [/\bpre-session\b/gi, 'pre-workout'],
   [/\bpost-session\b/gi, 'post-workout'],
   [/\bsessions\b/gi, 'workouts'],
@@ -30,6 +36,12 @@ function ensureSentence(text: string): string {
   return `${trimmed}.`;
 }
 
+function trimWords(text: string, maxWords: number): string {
+  const words = normalizeWhitespace(text).split(' ').filter(Boolean);
+  if (words.length <= maxWords) return normalizeWhitespace(text);
+  return `${words.slice(0, maxWords).join(' ')}.`;
+}
+
 export function humanizeCoachCopy(raw: string | null | undefined): string {
   const trimmed = normalizeWhitespace(raw ?? '');
   if (!trimmed) return '';
@@ -47,5 +59,5 @@ export function humanizeCoachSentence(raw: string | null | undefined, fallback?:
   if (!source) return '';
 
   const firstSentence = source.match(/[^.!?]+[.!?]?/)?.[0] ?? source;
-  return ensureSentence(humanizeCoachCopy(firstSentence));
+  return ensureSentence(trimWords(humanizeCoachCopy(firstSentence), 16));
 }

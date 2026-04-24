@@ -226,7 +226,7 @@ export function CustomFoodScreen() {
                 value={isSupplement}
                 onValueChange={setIsSupplement}
                 trackColor={{ true: COLORS.chart.protein, false: COLORS.border }}
-                thumbColor="#FFF"
+                thumbColor="#F5F5F0"
               />
             </View>
           </Card>

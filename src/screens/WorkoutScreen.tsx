@@ -109,8 +109,8 @@ function StateCard({
 function EmptyPlanCard({ onPress }: { onPress: () => void }) {
   return (
     <StateCard
-      title="Set up your week once, then Train stays simple"
-      body="Add your training days, session length, and preferences so we can show one clear plan for each day."
+      title="Set up your training week"
+      body="Add days and session length."
       actionLabel="Set Up Weekly Plan"
       onPress={onPress}
     />
@@ -237,7 +237,7 @@ export function WorkoutScreen() {
         <ScreenHeader
           kicker="Train"
           title="Training"
-          subtitle="See today in plain English, check the week, and track your progress without the clutter."
+          subtitle="Today, week, progress."
           rightAction={(
             <View style={styles.headerActions}>
               <Pressable style={styles.headerBtn} onPress={() => parentNavigation?.navigate('Plan' as never)}><Text style={styles.headerBtnText}>Plan</Text></Pressable>
@@ -301,7 +301,7 @@ export function WorkoutScreen() {
             ) : null}
             {!initialLoadError && contextualTodayActivities.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
-                <Card title="Also today" subtitle="Other sessions on your schedule">
+                <Card title="Also today" subtitle="Other sessions">
                   <View style={styles.alsoTodayList}>
                     {contextualTodayActivities.map((activity, index) => (
                       <View key={activity.id} style={[styles.alsoTodayRow, index === contextualTodayActivities.length - 1 && styles.alsoTodayRowLast]}>
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   tab: { flex: 1, paddingVertical: SPACING.sm, borderRadius: RADIUS.md, alignItems: 'center' },
   tabActive: { backgroundColor: COLORS.accent },
   tabText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  tabTextActive: { color: '#FFFFFF' },
+  tabTextActive: { color: '#F5F5F0' },
   content: { padding: SPACING.md, paddingTop: SPACING.xs },
   tabStack: { gap: SPACING.md },
   heroCard: { borderWidth: 1.5 },

@@ -197,6 +197,8 @@ Contributor rules:
 
 - Prefer `TYPOGRAPHY_V2.plan`.
 - Use stronger copy hierarchy and simpler surfaces instead of decorative gradients or extra animation.
+- Keep copy action-first. Screen subtitles should stay under 8 words, card subtitles under 6 words, helper text to one short sentence, coach summaries to one sentence, and list/card rows to 2 visible lines.
+- Put rationale and education behind details, disclosure, or secondary screens instead of making it required reading on first view.
 
 ## File map
 

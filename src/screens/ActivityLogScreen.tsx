@@ -142,7 +142,7 @@ export function ActivityLogScreen() {
                                     style={[styles.rpeBubble, n === sessionRPE && { backgroundColor: themeColor }]}
                                     onPress={() => setSessionRPE(n)}
                                 >
-                                    <Text style={[styles.rpeBubbleText, n === sessionRPE && { color: '#FFF' }]}>{n}</Text>
+                                    <Text style={[styles.rpeBubbleText, n === sessionRPE && { color: '#F5F5F0' }]}>{n}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>

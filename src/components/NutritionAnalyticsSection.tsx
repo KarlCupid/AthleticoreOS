@@ -239,7 +239,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                                 <>
                                     <Line
                                         points={points.protein}
-                                        color="#3B82F6"
+                                        color="#D4AF37"
                                         strokeWidth={2}
                                         curveType="natural"
                                     />
@@ -251,7 +251,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                                     />
                                     <Line
                                         points={points.fat}
-                                        color="#F59E0B"
+                                        color="#D4AF37"
                                         strokeWidth={2}
                                         curveType="natural"
                                     />
@@ -265,9 +265,9 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                     </View>
                 )}
                 <View style={styles.legendRow}>
-                    <LegendItem color="#3B82F6" label="Protein" />
+                    <LegendItem color="#D4AF37" label="Protein" />
                     <LegendItem color="#10B981" label="Carbs" />
-                    <LegendItem color="#F59E0B" label="Fat" />
+                    <LegendItem color="#D4AF37" label="Fat" />
                 </View>
             </Card>
 
@@ -383,9 +383,9 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                 )}
 
                 <View style={styles.legendRow}>
-                    <LegendItem color="#16A34A" label="Target Met" />
-                    <LegendItem color="#D97706" label="Close" />
-                    <LegendItem color="#DC2626" label="Missed" />
+                    <LegendItem color="#B7D9A8" label="Target Met" />
+                    <LegendItem color="#B8892D" label="Close" />
+                    <LegendItem color="#D9827E" label="Missed" />
                 </View>
             </Card>
         </View>
@@ -397,11 +397,11 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
 function getAdherenceColor(status: AdherenceDay['status']): string {
     switch (status) {
         case 'Target Met':
-            return '#16A34A';
+            return '#B7D9A8';
         case 'Close Enough':
-            return '#D97706';
+            return '#B8892D';
         case 'Missed It':
-            return '#DC2626';
+            return '#D9827E';
         default:
             return COLORS.borderLight;
     }

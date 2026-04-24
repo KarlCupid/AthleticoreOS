@@ -124,7 +124,7 @@ export function CustomExerciseScreen() {
                                 style={[styles.chip, type === t.value && { backgroundColor: themeColor, borderColor: themeColor }]}
                                 onPress={() => setType(t.value)}
                             >
-                                <Text style={[styles.chipText, type === t.value && { color: '#FFF' }]}>{t.label}</Text>
+                                <Text style={[styles.chipText, type === t.value && { color: '#F5F5F0' }]}>{t.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -137,7 +137,7 @@ export function CustomExerciseScreen() {
                                 style={[styles.chip, muscleGroup === m.value && { backgroundColor: themeColor, borderColor: themeColor }]}
                                 onPress={() => setMuscleGroup(m.value)}
                             >
-                                <Text style={[styles.chipText, muscleGroup === m.value && { color: '#FFF' }]}>{m.label}</Text>
+                                <Text style={[styles.chipText, muscleGroup === m.value && { color: '#F5F5F0' }]}>{m.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -150,7 +150,7 @@ export function CustomExerciseScreen() {
                                 style={[styles.chip, equipment === e.value && { backgroundColor: themeColor, borderColor: themeColor }]}
                                 onPress={() => setEquipment(e.value)}
                             >
-                                <Text style={[styles.chipText, equipment === e.value && { color: '#FFF' }]}>{e.label}</Text>
+                                <Text style={[styles.chipText, equipment === e.value && { color: '#F5F5F0' }]}>{e.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -265,6 +265,6 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
 });

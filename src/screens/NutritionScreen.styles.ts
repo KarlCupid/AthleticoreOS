@@ -6,7 +6,7 @@ export const styles = StyleSheet.create({
         flex: 1,
     },
     cutBanner: {
-        backgroundColor: 'rgba(59, 66, 159, 0.4)', // Ocean Twilight Glass
+        backgroundColor: 'rgba(245, 245, 240, 0.08)',
         borderRadius: RADIUS.xl,
         padding: SPACING.md,
         marginBottom: SPACING.sm,

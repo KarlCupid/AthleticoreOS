@@ -1,4 +1,4 @@
-﻿import React, { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
     View,
     Text,
@@ -502,7 +502,7 @@ const ppStyles = StyleSheet.create({
     beginText: {
         fontFamily: FONT_FAMILY.extraBold,
         fontSize: 18,
-        color: '#FFFFFF',
+        color: '#F5F5F0',
         letterSpacing: 0.3,
     },
 });

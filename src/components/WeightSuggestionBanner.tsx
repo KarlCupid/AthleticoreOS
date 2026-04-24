@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   deloadChipText: {
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 10,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     letterSpacing: 1,
   },
   lastLine: {
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   acceptText: {
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
   modifyButton: {
     flex: 1,

@@ -79,7 +79,7 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
           <Text style={styles.cutDate}>{cutDate}</Text>
         </View>
         <View style={[styles.madeWeightBadge, { backgroundColor: madeWeight ? '#DCFCE7' : '#FEE2E2' }]}>
-          <Text style={[styles.madeWeightText, { color: madeWeight ? '#16A34A' : '#DC2626' }]}>
+          <Text style={[styles.madeWeightText, { color: madeWeight ? '#B7D9A8' : '#D9827E' }]}>
             {madeWeight ? '✓ MADE WEIGHT' : '✗ MISSED'}
           </Text>
         </View>

@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 56,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     letterSpacing: 1,
   },
   timeTextLow: {
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
   extendButton: {
     paddingVertical: SPACING.sm + 4,
@@ -369,6 +369,6 @@ const styles = StyleSheet.create({
   upNextName: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
 });

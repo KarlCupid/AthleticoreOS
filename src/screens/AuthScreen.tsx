@@ -47,7 +47,7 @@ export function AuthScreen() {
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
-                        <IconShieldCheck size={32} color="#FFF" strokeWidth={2} />
+                        <IconShieldCheck size={32} color="#F5F5F0" strokeWidth={2} />
                     </LinearGradient>
                 </Animated.View>
 

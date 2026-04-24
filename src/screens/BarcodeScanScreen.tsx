@@ -126,7 +126,7 @@ export function BarcodeScanScreen() {
                 {/* Top bar */}
                 <View style={[styles.overlayTop, { paddingTop: insets.top + SPACING.sm }]}>
                     <AnimatedPressable onPress={() => navigation.goBack()} style={styles.topButton}>
-                        <IconChevronLeft size={28} color="#FFF" />
+                        <IconChevronLeft size={28} color="#F5F5F0" />
                     </AnimatedPressable>
                     <Text style={styles.overlayTitle}>Scan Barcode</Text>
                     <AnimatedPressable
@@ -134,7 +134,7 @@ export function BarcodeScanScreen() {
                         style={styles.topButton}
                     >
                         {torchEnabled ? (
-                            <IconFlash size={24} color="#FFF" />
+                            <IconFlash size={24} color="#F5F5F0" />
                         ) : (
                             <IconFlashOff size={24} color="rgba(255,255,255,0.6)" />
                         )}
@@ -164,7 +164,7 @@ export function BarcodeScanScreen() {
 
                     {scanState === 'loading' && (
                         <View style={styles.statusContainer}>
-                            <ActivityIndicator color="#FFF" size="small" />
+                            <ActivityIndicator color="#F5F5F0" size="small" />
                             <Text style={styles.statusText}>Looking up product...</Text>
                         </View>
                     )}
@@ -192,7 +192,7 @@ export function BarcodeScanScreen() {
                                     style={[styles.notFoundButton, styles.notFoundButtonOutline]}
                                     onPress={handleTryAgain}
                                 >
-                                    <Text style={[styles.notFoundButtonText, { color: '#FFF' }]}>
+                                    <Text style={[styles.notFoundButtonText, { color: '#F5F5F0' }]}>
                                         Try Again
                                     </Text>
                                 </AnimatedPressable>
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     overlayTitle: {
         fontSize: 18,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     overlayMiddle: {
         flexDirection: 'row',
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         width: 28,
         height: 28,
-        borderColor: '#FFF',
+        borderColor: '#F5F5F0',
     },
     cornerTL: {
         top: 0,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     statusText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     notFoundContainer: {
         alignItems: 'center',
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     notFoundTitle: {
         fontSize: 18,
         fontFamily: FONT_FAMILY.extraBold,
-        color: '#FFF',
+        color: '#F5F5F0',
         marginBottom: SPACING.xs,
     },
     notFoundBarcode: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
         gap: SPACING.sm,
     },
     notFoundButton: {
-        backgroundColor: '#FFF',
+        backgroundColor: '#F5F5F0',
         paddingVertical: SPACING.sm + 4,
         paddingHorizontal: SPACING.lg,
         borderRadius: RADIUS.lg,
@@ -382,6 +382,6 @@ const styles = StyleSheet.create({
     permissionButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
 });

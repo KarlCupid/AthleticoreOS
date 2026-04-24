@@ -27,7 +27,7 @@ export function ActiveCampBanner({ goalMode }: ActiveCampBannerProps) {
         >
           <View style={styles.headerRow}>
             <View style={styles.campBadge}>
-              <IconTarget size={14} color="#FFF" />
+              <IconTarget size={14} color="#F5F5F0" />
               <Text style={styles.campBadgeText}>Active Camp</Text>
             </View>
             <IconChevronRight size={20} color="rgba(255,255,255,0.7)" />
@@ -78,14 +78,14 @@ const styles = StyleSheet.create({
   campBadgeText: {
     fontSize: 12,
     fontFamily: FONT_FAMILY.black,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   countdownTitle: {
     fontSize: 28,
     fontFamily: FONT_FAMILY.black,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     letterSpacing: -1,
     marginBottom: 2,
   },
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5F0',
     borderRadius: 3,
   },
 });

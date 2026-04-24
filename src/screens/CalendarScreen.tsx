@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
         borderRadius: RADIUS.sm,
     },
     addButtonText: {
-        fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: '#FFF',
+        fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: '#F5F5F0',
     },
     emptyDay: {
         alignItems: 'center', paddingVertical: SPACING.xl,

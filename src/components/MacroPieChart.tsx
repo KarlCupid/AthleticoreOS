@@ -16,9 +16,9 @@ const RADIUS = (CHART_SIZE - STROKE_WIDTH) / 2;
 const CENTER = CHART_SIZE / 2;
 
 const MACRO_COLORS = {
-    protein: '#3B82F6',
+    protein: '#D4AF37',
     carbs: '#10B981',
-    fat: '#F59E0B',
+    fat: '#D4AF37',
 };
 
 function createArcPath(

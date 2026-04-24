@@ -27,13 +27,13 @@ export const styles = StyleSheet.create({
   fieldNote: { ...TYPOGRAPHY_V2.plan.caption, color: COLORS.text.tertiary, marginTop: SPACING.xs },
   dateRow: { paddingRight: SPACING.lg, paddingTop: SPACING.sm },
   datePill: { width: 72, height: 72, borderRadius: RADIUS.md, borderWidth: 1, marginRight: SPACING.sm, alignItems: 'center', justifyContent: 'center' },
-  datePillSelected: { backgroundColor: 'rgba(0, 229, 255, 0.15)', borderColor: COLORS.accent, ...SHADOWS.colored.accent },
+  datePillSelected: { backgroundColor: 'rgba(212, 175, 55, 0.16)', borderColor: COLORS.accent, ...SHADOWS.colored.accent },
   datePillIdle: { backgroundColor: COLORS.surface, borderColor: COLORS.borderLight },
   dateTopText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 4 },
   dateBottomText: { fontSize: 16, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
   dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
   dayPill: { minWidth: 58, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface },
-  dayPillSelected: { borderColor: COLORS.accent, backgroundColor: 'rgba(0, 229, 255, 0.15)', ...SHADOWS.colored.accent },
+  dayPillSelected: { borderColor: COLORS.accent, backgroundColor: 'rgba(212, 175, 55, 0.16)', ...SHADOWS.colored.accent },
   dayPillText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   optionList: { gap: SPACING.sm, marginTop: SPACING.sm },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
@@ -50,7 +50,7 @@ export const styles = StyleSheet.create({
   },
   optionCardSelected: {
     borderColor: COLORS.accent,
-    backgroundColor: 'rgba(0, 229, 255, 0.10)',
+    backgroundColor: 'rgba(212, 175, 55, 0.10)',
     ...SHADOWS.colored.accent,
   },
   optionCardText: {
@@ -76,7 +76,7 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
   },
   optionPill: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface },
-  optionPillSelected: { borderColor: COLORS.accent, backgroundColor: 'rgba(0, 229, 255, 0.15)', ...SHADOWS.colored.accent },
+  optionPillSelected: { borderColor: COLORS.accent, backgroundColor: 'rgba(212, 175, 55, 0.16)', ...SHADOWS.colored.accent },
   optionPillText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   optionPillTextSelected: { color: COLORS.accent },
   advancedToggle: { marginTop: SPACING.lg, borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, padding: SPACING.md, backgroundColor: COLORS.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -113,7 +113,7 @@ export const styles = StyleSheet.create({
   previewCard: { marginTop: SPACING.lg, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface, padding: SPACING.md, gap: SPACING.xs },
   previewTitle: { ...TYPOGRAPHY_V2.plan.caption, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.2, color: COLORS.text.tertiary, marginBottom: 4 },
   previewLine: { ...TYPOGRAPHY_V2.plan.body, fontSize: 14, color: COLORS.text.secondary },
-  secondaryButton: { marginTop: SPACING.lg, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.accent, paddingVertical: SPACING.md, alignItems: 'center', backgroundColor: 'rgba(0, 229, 255, 0.05)' },
+  secondaryButton: { marginTop: SPACING.lg, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.accent, paddingVertical: SPACING.md, alignItems: 'center', backgroundColor: 'rgba(212, 175, 55, 0.06)' },
   secondaryButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
   
   saveBarContainer: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, backgroundColor: 'transparent' }, 
@@ -124,7 +124,7 @@ export const styles = StyleSheet.create({
   
   durationPickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(10, 10, 10, 0.78)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.lg,
@@ -133,7 +133,7 @@ export const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     borderRadius: RADIUS.xl,
-    backgroundColor: 'rgba(59, 66, 159, 0.95)',
+    backgroundColor: 'rgba(10, 10, 10, 0.94)',
     padding: SPACING.md,
     ...SHADOWS.cardElevated,
     ...BORDERS.elevated,
@@ -154,7 +154,7 @@ export const styles = StyleSheet.create({
   },
   durationPickerOptionSelected: {
     borderColor: COLORS.accent,
-    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    backgroundColor: 'rgba(212, 175, 55, 0.16)',
   },
   durationPickerOptionText: {
     fontSize: 15,

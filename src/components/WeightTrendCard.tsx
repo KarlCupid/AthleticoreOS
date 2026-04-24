@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: FONT_FAMILY.black,
         letterSpacing: 0.5,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     statusBadge: {
         paddingHorizontal: SPACING.sm + 4,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 32,
         fontFamily: FONT_FAMILY.black,
-        color: '#FFF',
+        color: '#F5F5F0',
         letterSpacing: -1,
     },
     statLabel: {
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     progressPct: {
         fontSize: 12,
         fontFamily: FONT_FAMILY.black,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     progressTrack: {
         height: 8,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     projectionDate: {
         fontSize: 13,
         fontFamily: FONT_FAMILY.black,
-        color: '#FFF',
+        color: '#F5F5F0',
     },
     message: {
         fontSize: 14,

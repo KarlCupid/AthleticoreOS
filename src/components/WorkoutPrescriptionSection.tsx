@@ -211,7 +211,7 @@ export function WorkoutPrescriptionSection({
             end={{ x: 1, y: 0 }}
             style={styles.startButton}
           >
-            <IconFire size={20} color="#FFF" />
+            <IconFire size={20} color="#F5F5F0" />
             <Text style={styles.startButtonText}>Start Workout</Text>
           </LinearGradient>
         </AnimatedPressable>
@@ -330,6 +330,6 @@ const styles = StyleSheet.create({
   startButtonText: {
     fontSize: 16,
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#FFF',
+    color: '#F5F5F0',
   },
 });

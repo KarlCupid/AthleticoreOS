@@ -414,20 +414,19 @@ export function DashboardScreen() {
         {
           id: "checkin" as const,
             title: "Log your first check-in",
-            subtitle:
-              "Check in once so today's plan fits how you feel.",
+            subtitle: "Set today's readiness.",
             done: firstRunGuidance.progress.checkinDone,
           },
         {
           id: "workout" as const,
-          title: "Complete your first training session",
-          subtitle: "Run your guided S&C flow once to unlock training history.",
+          title: "Complete first training",
+          subtitle: "Start training history.",
           done: firstRunGuidance.progress.workoutDone,
         },
         {
           id: "nutrition" as const,
           title: "Log your first meal",
-          subtitle: "Track one meal to activate nutrition feedback loops.",
+          subtitle: "Start fuel feedback.",
           done: firstRunGuidance.progress.nutritionDone,
         },
       ]
@@ -493,8 +492,7 @@ export function DashboardScreen() {
               Start Here in 3 Quick Wins
             </Text>
             <Text style={styles.firstRunModalBody}>
-              We will keep this simple. Complete your first check-in, first
-              session, and first meal log.
+              Complete one check-in, workout, and meal.
             </Text>
 
             <AnimatedPressable
@@ -545,7 +543,7 @@ export function DashboardScreen() {
                         trackColor="rgba(255,255,255,0.1)"
                         label={Math.round(homeState.training.readinessScore).toString()}
                         sublabel={currentLevel}
-                        textColor="#FFF"
+                        textColor="#F5F5F0"
                     />
                 </View>
                 
@@ -597,7 +595,7 @@ export function DashboardScreen() {
 
                {dailyMission ? (
                   <AnimatedPressable onPress={() => setShowWhyToday(true)}>
-                     <Text style={styles.compassMissionLink}>View Full Mission ›</Text>
+                     <Text style={styles.compassMissionLink}>Mission details ›</Text>
                   </AnimatedPressable>
                ) : null}
             </View>
@@ -609,7 +607,7 @@ export function DashboardScreen() {
                 onPress={() => navigation.navigate("Log")}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconActivity size={24} color="#FFF" />
+                   <IconActivity size={24} color="#F5F5F0" />
                 </View>
                 <Text style={[styles.quickActionLabelBlock, checkinDone && styles.quickActionLabelDoneBlock]}>
                    Check In
@@ -621,7 +619,7 @@ export function DashboardScreen() {
                 onPress={() => void openTodayTraining()}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconFire size={24} color="#FFF" />
+                   <IconFire size={24} color="#F5F5F0" />
                 </View>
                 <Text style={[styles.quickActionLabelBlock, sessionDone && styles.quickActionLabelDoneBlock]}>
                    Train
@@ -633,7 +631,7 @@ export function DashboardScreen() {
                 onPress={() => openFuelScreen("NutritionHome")}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconRestaurant size={24} color="#FFF" />
+                   <IconRestaurant size={24} color="#F5F5F0" />
                 </View>
                 <Text style={styles.quickActionLabelBlock}>
                    Fuel
@@ -645,7 +643,7 @@ export function DashboardScreen() {
                 onPress={openPlanningSurface}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconCalendar size={24} color="#FFF" />
+                   <IconCalendar size={24} color="#F5F5F0" />
                 </View>
                 <Text style={styles.quickActionLabelBlock}>
                    {homeState.schedule.hasLivePlanningState ? "Calendar" : "Setup"}
@@ -672,7 +670,7 @@ export function DashboardScreen() {
                   style={styles.whyTodayHeader}
                   onPress={() => setShowWhyToday((v) => !v)}
                 >
-                  <Text style={styles.whyTodayTitle}>Mission Context</Text>
+                  <Text style={styles.whyTodayTitle}>Mission details</Text>
                   <Text style={styles.whyTodayChevron}>
                     {showWhyToday ? "▲" : "▼"}
                   </Text>
@@ -713,7 +711,7 @@ export function DashboardScreen() {
               <SectionHeader
                 title={
                   todayPlanEntry
-                    ? "Also on today's schedule"
+                    ? "Also today"
                     : "Today's schedule"
                 }
                 actionLabel="View day"
@@ -723,8 +721,7 @@ export function DashboardScreen() {
               />
               {todayPlanEntry && (
                 <Text style={styles.contextScheduleNote}>
-                  The engine-driven training recommendation is shown above.
-                  These items are the rest of today's schedule.
+                  Training is shown above. These are the rest.
                 </Text>
               )}
               {homeState.schedule.contextualActivities.map((activity) => (
@@ -820,8 +817,7 @@ export function DashboardScreen() {
                 </View>
                 <Text style={styles.firstRunTitle}>Your first 3 wins</Text>
                 <Text style={styles.firstRunSubtitle}>
-                  Follow these in order once, then Athleticore runs on
-                  autopilot.
+                  Do these once to unlock your plan.
                 </Text>
 
                 <View style={styles.firstRunStepList}>

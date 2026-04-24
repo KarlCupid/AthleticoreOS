@@ -66,7 +66,7 @@ export function TabNavigator() {
     borderTopWidth: 0,
     borderTopLeftRadius: RADIUS.xxl,
     borderTopRightRadius: RADIUS.xxl,
-    backgroundColor: '#0F172A', // Midnight Slate (Solid base to prevent sub-pixel gaps)
+    backgroundColor: 'rgba(10, 10, 10, 0.92)',
     ...SHADOWS.header,
     display: mode === 'gym-floor' ? 'none' as const : 'flex' as const,
   };
@@ -108,7 +108,7 @@ export function TabNavigator() {
                 }}
               >
                 <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.8)' }]} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 10, 0.88)' }]} />
               </View>
             </View>
           ) : (
@@ -116,7 +116,7 @@ export function TabNavigator() {
               style={{
                 ...StyleSheet.absoluteFillObject,
                 top: -1,
-                backgroundColor: '#0F172A', // Midnight Slate
+                backgroundColor: 'rgba(10, 10, 10, 0.94)',
                 borderTopLeftRadius: RADIUS.xxl,
                 borderTopRightRadius: RADIUS.xxl,
                 borderTopWidth: 1,

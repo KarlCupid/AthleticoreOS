@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ScrollView, Alert, Keyboard,
@@ -22,17 +22,17 @@ const STEP_META = [
     {
         eyebrow: 'Phase 1',
         title: 'Welcome',
-        description: 'We will collect only the inputs that actually power your training and nutrition recommendations.',
+        description: 'Add the basics that power your plan.',
     },
     {
         eyebrow: 'Phase 2',
         title: 'Body Stats',
-        description: 'These numbers set your baseline for bodyweight trends, calorie targets, and weight planning.',
+        description: 'Set your weight baseline.',
     },
     {
         eyebrow: 'Phase 3',
         title: 'Athlete Profile',
-        description: 'These selections control physiology and fight-context assumptions used in daily guidance.',
+        description: 'Set athlete context.',
     },
 ] as const;
 
@@ -162,12 +162,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 colors={[...GRADIENTS.prime]}
                                 style={styles.welcomeIconGradient}
                             >
-                                <IconCheckCircle size={48} color="#FFF" strokeWidth={2} />
+                                <IconCheckCircle size={48} color="#F5F5F0" strokeWidth={2} />
                             </LinearGradient>
                         </View>
                         <Text style={styles.welcomeTitle}>Welcome to Athleticore</Text>
                         <Text style={styles.welcomeSubtitle}>
-                            Setup happens in short phases. Each one explains what we need and why it matters before you move on.
+                            Three quick steps. Add what your plan needs.
                         </Text>
                     </View>
                 );
@@ -175,11 +175,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 return (
                     <View style={styles.stepContent}>
                         <Text style={styles.stepTitle}>Body Stats</Text>
-                        <Text style={styles.stepSubtitle}>We use these numbers to anchor bodyweight trends, nutrition targets, and weight-class recommendations.</Text>
+                        <Text style={styles.stepSubtitle}>Add your baseline.</Text>
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Name (optional)</Text>
-                            <Text style={styles.helperText}>Only used to personalize the experience inside your profile.</Text>
+                            <Text style={styles.helperText}>Shown in your profile.</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="Your name"
@@ -192,7 +192,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         <View style={styles.inputRow}>
                             <View style={[styles.inputGroup, { flex: 1 }]}>
                                 <Text style={styles.inputLabel}>Height (optional)</Text>
-                                <Text style={styles.helperText}>Helps improve calorie estimates and body-composition context.</Text>
+                                <Text style={styles.helperText}>Improves calorie estimates.</Text>
                                 <View style={styles.inputRow}>
                                     <TextInput
                                         style={[styles.input, { flex: 1 }]}
@@ -216,7 +216,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             <View style={{ width: SPACING.md }} />
                             <View style={[styles.inputGroup, { flex: 1 }]}>
                                 <Text style={styles.inputLabel}>Age (optional)</Text>
-                                <Text style={styles.helperText}>Used to tune recovery and workload assumptions.</Text>
+                                <Text style={styles.helperText}>Sets recovery context.</Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="25"
@@ -230,7 +230,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Body Weight (lbs)</Text>
-                            <Text style={styles.helperText}>Your current walk-around weight. This is required.</Text>
+                            <Text style={styles.helperText}>Required.</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="155"
@@ -246,10 +246,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 return (
                     <View style={styles.stepContent}>
                         <Text style={styles.stepTitle}>Athlete Profile</Text>
-                        <Text style={styles.stepSubtitle}>These settings influence readiness, recovery assumptions, and fight-specific safety guidance.</Text>
+                        <Text style={styles.stepSubtitle}>Set planning context.</Text>
 
                         <Text style={styles.inputLabel}>Fight Status</Text>
-                        <Text style={styles.helperText}>Choose the level you currently compete at so training assumptions match your experience.</Text>
+                        <Text style={styles.helperText}>Match your competition level.</Text>
                         <View style={styles.activityOptionsList}>
                             {FIGHT_STATUS_OPTIONS.map((option) => (
                                 <TouchableOpacity
@@ -276,7 +276,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         </View>
 
                         <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Biological Sex</Text>
-                        <Text style={styles.helperText}>Used for physiology-specific planning logic. It does not change the rest of your profile experience.</Text>
+                        <Text style={styles.helperText}>Sets physiology defaults.</Text>
                         <View style={styles.activityOptionsList}>
                             {BIO_SEX_OPTIONS.map((option) => (
                                 <TouchableOpacity
@@ -308,7 +308,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         {bioSex === 'female' ? (
                             <View style={{ marginTop: SPACING.lg }}>
                                 <Text style={styles.inputLabel}>Cycle Tracking</Text>
-                                <Text style={styles.helperText}>Turn this on if you want readiness and workload suggestions to account for cycle phases.</Text>
+                                <Text style={styles.helperText}>Include cycle phases in readiness.</Text>
                                 <View style={styles.activityOptionsList}>
                                     {CYCLE_TRACKING_OPTIONS.map((option) => (
                                         <TouchableOpacity
@@ -409,7 +409,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             <Text style={styles.nextText}>
                                 {saving ? 'Saving...' : step === TOTAL_STEPS - 1 ? 'Finish Profile' : 'Continue'}
                             </Text>
-                            {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color="#FFF" /> : null}
+                            {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color="#F5F5F0" /> : null}
                         </LinearGradient>
                     </AnimatedPressable>
                 </View>

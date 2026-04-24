@@ -411,7 +411,7 @@ export function LogScreen() {
   );
 
   const renderRecovery = () => (
-    <Card title="Recovery Baseline" subtitle="Why this matters: baseline controls your daily training recommendation.">
+    <Card title="Recovery baseline" subtitle="Today's inputs">
       <View style={styles.group}>
         <Text style={styles.label}>Morning Weight (lbs)</Text>
         <TextInput
@@ -459,7 +459,7 @@ export function LogScreen() {
   );
 
   const renderNutrition = () => (
-    <Card title="Nutrition Reflection" subtitle="Use yesterday's intake so today's coaching reflects what actually happened.">
+    <Card title="Nutrition reflection" subtitle="Yesterday's intake">
       <Text style={styles.hint}>
         Training load is pulled from Workout Log: {todayTrainingLoad.sessionCount} session{todayTrainingLoad.sessionCount === 1 ? '' : 's'}
         {todayTrainingLoad.totalMinutes > 0 ? `, ${todayTrainingLoad.totalMinutes} min at avg RPE ${todayTrainingLoad.weightedIntensity} (${todayTrainingLoad.totalLoad} load).` : ', no load logged yet.'}
@@ -496,7 +496,7 @@ export function LogScreen() {
               <Text style={[styles.linkText, { color: themeColor }]}>Reset to tracked</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.hint}>If meals were missed in tracker, enter your total intake for {nutritionFormatted}.</Text>
+          <Text style={styles.hint}>Enter totals if tracker data is missing.</Text>
           <View style={styles.manualGrid}>
             {NUTRITION_METRICS.map((metric) => (
               <View key={`manual-${metric.key}`} style={styles.manualField}>
@@ -530,7 +530,7 @@ export function LogScreen() {
             </View>
           </View>
         </View>
-        {hasManualNutritionEdits ? <Text style={styles.hint}>Manual edits detected. These values will be used as yesterday's intake for coaching.</Text> : null}
+        {hasManualNutritionEdits ? <Text style={styles.hint}>Manual totals will be used.</Text> : null}
         <Text style={[styles.hint, { marginBottom: 0 }]}>
           Meals logged: {nutritionTracker.mealCount} | Water: {Math.round(effectiveNutritionWater)} oz
         </Text>
@@ -562,7 +562,7 @@ export function LogScreen() {
         </View>
       ) : null}
       <Text style={styles.label}>Final nutrition call for coaching</Text>
-      <Text style={styles.hint}>Only adjust this if yesterday's tracking is incomplete or late entries are missing.</Text>
+      <Text style={styles.hint}>Adjust only if tracking is incomplete.</Text>
       <NutritionCheckIn status={macroAdherence} setStatus={setMacroAdherence} />
       {macroAdherence ? (
         <View style={styles.reveal}>
@@ -582,7 +582,7 @@ export function LogScreen() {
   );
 
   const renderDebrief = () => (
-    <Card title="Coach Debrief" subtitle="Simple breakdown: what this means, what to do, and one thing to learn.">
+    <Card title="Coach debrief" subtitle="Today and next">
       {savedDebrief ? (
         <>
           <View style={styles.debriefSummaryBox}>
@@ -741,6 +741,6 @@ const styles = StyleSheet.create({
   primaryWrap: { flex: 1, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOWS.colored.prime },
   primaryWrapFull: { flex: 1 },
   primaryButton: { minHeight: 52, paddingVertical: SPACING.md + 1, justifyContent: 'center', alignItems: 'center' },
-  primaryButtonText: { color: '#FFF', fontSize: 15, fontFamily: FONT_FAMILY.semiBold },
+  primaryButtonText: { color: '#F5F5F0', fontSize: 15, fontFamily: FONT_FAMILY.semiBold },
   disabled: { opacity: 0.5 },
 });

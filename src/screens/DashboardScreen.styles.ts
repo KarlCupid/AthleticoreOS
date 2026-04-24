@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)', // Glassy Slate 900
+    backgroundColor: 'rgba(10, 10, 10, 0.88)', // Glassy Slate 900
     borderRadius: RADIUS.xxl,
     padding: SPACING.xl,
     marginTop: SPACING.lg,
@@ -88,7 +88,7 @@ export const styles = StyleSheet.create({
   secondaryMetricValue: {
     fontSize: 18,
     fontFamily: FONT_FAMILY.black,
-    color: '#FFF',
+    color: '#F5F5F0',
   },
   secondaryMetricLabel: {
     fontSize: 13,
@@ -99,7 +99,7 @@ export const styles = StyleSheet.create({
   // Compass Action Block (Inside Hero)
   compassCard: {
     marginTop: SPACING.lg,
-    backgroundColor: 'rgba(15, 23, 42, 0.95)', // Slightly more opaque glass
+    backgroundColor: 'rgba(10, 10, 10, 0.92)', // Slightly more opaque glass
     borderRadius: RADIUS.xxl,
     padding: SPACING.xl,
     borderWidth: 1,
@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
   compassHeadline: {
     fontSize: 28,
     fontFamily: FONT_FAMILY.black,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     letterSpacing: -1,
     lineHeight: 34,
   },
@@ -150,7 +150,7 @@ export const styles = StyleSheet.create({
   },
   compassPrimaryButton: {
     marginTop: SPACING.lg,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5F0',
     borderRadius: RADIUS.full,
     paddingVertical: SPACING.md,
     alignItems: 'center',
@@ -159,7 +159,7 @@ export const styles = StyleSheet.create({
   compassPrimaryText: {
     fontSize: 15,
     fontFamily: FONT_FAMILY.extraBold,
-    color: '#0F172A',
+    color: '#0A0A0A',
     letterSpacing: 0.5,
   },
   compassSecondaryButton: {
@@ -174,7 +174,7 @@ export const styles = StyleSheet.create({
   compassSecondaryText: {
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
   compassMissionLink: {
     marginTop: SPACING.lg,
@@ -213,7 +213,7 @@ export const styles = StyleSheet.create({
   quickActionLabelBlock: {
     fontSize: 16,
     fontFamily: FONT_FAMILY.extraBold,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
     letterSpacing: -0.2,
   },
   quickActionLabelDoneBlock: {
@@ -472,7 +472,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
   },
   firstRunModalCard: {
-    backgroundColor: '#0F172A', // Slate 900
+    backgroundColor: '#0A0A0A', // Slate 900
     borderRadius: RADIUS.xxl,
     padding: SPACING.xl,
     ...SHADOWS.md,
@@ -487,7 +487,7 @@ export const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     fontSize: 32,
     fontFamily: FONT_FAMILY.black,
-    color: '#FFF',
+    color: '#F5F5F0',
     letterSpacing: -1,
   },
   firstRunModalBody: {
@@ -499,7 +499,7 @@ export const styles = StyleSheet.create({
   },
   firstRunModalPrimaryButton: {
     marginTop: SPACING.xl,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5F0',
     borderRadius: RADIUS.full,
     alignItems: 'center',
     paddingVertical: SPACING.md,
@@ -507,7 +507,7 @@ export const styles = StyleSheet.create({
   firstRunModalPrimaryText: {
     fontSize: 16,
     fontFamily: FONT_FAMILY.black,
-    color: '#0F172A',
+    color: '#0A0A0A',
   },
   firstRunModalSecondaryButton: {
     marginTop: SPACING.md,
@@ -521,7 +521,7 @@ export const styles = StyleSheet.create({
   firstRunModalSecondaryText: {
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#FFFFFF',
+    color: '#F5F5F0',
   },
   firstRunHeaderRow: {
     flexDirection: 'row',
