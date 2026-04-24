@@ -23,7 +23,7 @@ import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
 import { APP_CHROME, COLORS } from './src/theme/theme';
 import { logError } from './lib/utils/logger';
-import { AuroraBackground } from './src/components/AuroraBackground';
+import { AuroraBackground, type AuroraBackgroundMood } from './src/components/AuroraBackground';
 import { OceanLoader } from './src/components/OceanLoader';
 
 const myTheme = {
@@ -156,6 +156,7 @@ export default function App() {
   ) : (
     <TabNavigator />
   );
+  const backgroundMood: AuroraBackgroundMood = !session || !hasProfile ? 'hero' : 'calm';
 
   return (
     <GestureHandlerRootView style={styles.container}>
@@ -164,7 +165,7 @@ export default function App() {
           <InteractionModeProvider>
             <NavigationContainer theme={myTheme} linking={appLinking}>
               <View style={styles.container}>
-                <AuroraBackground />
+                <AuroraBackground mood={backgroundMood} />
                 <StatusBar style="dark" />
                 {content}
               </View>

@@ -1,5 +1,5 @@
 export const COLORS = {
-    background: '#3b429f', // Ocean Twilight - Primary Cosmic Base
+    background: '#0A0A0A', // Matte Obsidian Black - app canvas
     surface: 'rgba(255, 255, 255, 0.08)', // Default Glass Surface
     surfaceElevated: 'rgba(255, 255, 255, 0.12)', // Brighter Glass for elevation
     surfaceSecondary: 'rgba(59, 66, 159, 0.4)', // Deep Ocean Glass
@@ -267,8 +267,8 @@ export const ANIMATION = {
 
 // Fixed chrome palette — never shifts with readiness level
 export const APP_CHROME = {
-    background: '#3b429f', // Ocean Twilight - Matches our new Aurora base
-    accent:     '#fcca46', // Golden Pollen - High contrast for navigation
+    background: '#0A0A0A', // Matte Obsidian Black - matches metallic marble base
+    accent:     '#D4AF37', // Warm Metallic Gold - brushed metal accent
     text:       '#FFFFFF', // Light text for the dark theme
 } as const;
 
