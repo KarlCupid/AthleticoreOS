@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, TextStyle, StyleProp } from 'react-native';
 import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
@@ -14,6 +14,8 @@ interface RadialProgressProps {
   sublabel?: string;
   icon?: React.ReactNode;
   textColor?: string;
+  labelStyle?: StyleProp<TextStyle>;
+  sublabelStyle?: StyleProp<TextStyle>;
 }
 
 export const RadialProgress = memo(function RadialProgress(props: RadialProgressProps) {
@@ -32,6 +34,8 @@ function RadialProgressWeb({
   sublabel,
   icon,
   textColor = COLORS.text.primary,
+  labelStyle,
+  sublabelStyle,
 }: RadialProgressProps) {
   return (
     <View style={[styles.container, { width: size }]}>
@@ -51,14 +55,14 @@ function RadialProgressWeb({
           {icon ? (
             icon
           ) : label ? (
-            <Text style={[styles.centerLabel, { color: textColor }]} numberOfLines={1}>
+            <Text style={[styles.centerLabel, { color: textColor }, labelStyle]} numberOfLines={1}>
               {label}
             </Text>
           ) : null}
         </View>
       </View>
       {sublabel ? (
-        <Text style={styles.sublabel} numberOfLines={1}>
+        <Text style={[styles.sublabel, sublabelStyle]} numberOfLines={1}>
           {sublabel}
         </Text>
       ) : null}
@@ -76,6 +80,8 @@ function RadialProgressNative({
   sublabel,
   icon,
   textColor = COLORS.text.primary,
+  labelStyle,
+  sublabelStyle,
 }: RadialProgressProps) {
   const radius = (size - strokeWidth) / 2;
   const center = size / 2;
@@ -120,14 +126,14 @@ function RadialProgressNative({
           {icon ? (
             icon
           ) : label ? (
-            <Text style={[styles.centerLabel, { color: textColor }]} numberOfLines={1}>
+            <Text style={[styles.centerLabel, { color: textColor }, labelStyle]} numberOfLines={1}>
               {label}
             </Text>
           ) : null}
         </View>
       </View>
       {sublabel ? (
-        <Text style={[styles.sublabel, { color: 'rgba(255,255,255,0.7)' }]} numberOfLines={1}>
+        <Text style={[styles.sublabel, { color: 'rgba(255,255,255,0.7)' }, sublabelStyle]} numberOfLines={1}>
           {sublabel}
         </Text>
       ) : null}

@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ImageBackground, View, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { FONT_FAMILY, SPACING, RADIUS, SHADOWS, GRADIENTS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { AnimatedPressable } from './AnimatedPressable';
 import { IconChevronRight, IconTarget } from './icons';
+
+const CAMP_BACKGROUND = require('../../assets/images/dashboard/camp-card-bg.png');
 
 interface ActiveCampBannerProps {
   goalMode: string | null;
@@ -19,12 +20,13 @@ export function ActiveCampBanner({ goalMode }: ActiveCampBannerProps) {
   return (
     <AnimatedPressable onPress={() => navigation.navigate('PlanningHome')}>
       <View style={styles.container}>
-        <LinearGradient
-          colors={[...GRADIENTS.caution]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <ImageBackground
+          source={CAMP_BACKGROUND}
           style={styles.gradient}
+          imageStyle={styles.backgroundImage}
+          resizeMode="cover"
         >
+          <View style={styles.scrim} />
           <View style={styles.headerRow}>
             <View style={styles.campBadge}>
               <IconTarget size={14} color="#F5F5F0" />
@@ -35,7 +37,7 @@ export function ActiveCampBanner({ goalMode }: ActiveCampBannerProps) {
 
           <Text style={styles.countdownTitle}>{weeksOut} WEEKS OUT</Text>
           <Text style={styles.subtitle}>
-            {goalMode === 'cut' ? 'Weight Cut Phase' : 'Fight Camp'} • Stay disciplined today.
+            {goalMode === 'cut' ? 'Weight Cut Phase' : 'Fight Camp'} - Stay disciplined today.
           </Text>
 
           <View style={styles.progressContainer}>
@@ -43,7 +45,7 @@ export function ActiveCampBanner({ goalMode }: ActiveCampBannerProps) {
               <View style={[styles.progressFill, { width: `${progressPct * 100}%` }]} />
             </View>
           </View>
-        </LinearGradient>
+        </ImageBackground>
       </View>
     </AnimatedPressable>
   );
@@ -59,6 +61,13 @@ const styles = StyleSheet.create({
   },
   gradient: {
     padding: SPACING.xl,
+  },
+  backgroundImage: {
+    borderRadius: RADIUS.xxl,
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 10, 10, 0.28)',
   },
   headerRow: {
     flexDirection: 'row',
@@ -86,7 +95,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: FONT_FAMILY.black,
     color: '#F5F5F0',
-    letterSpacing: -1,
+    letterSpacing: 0,
     marginBottom: 2,
   },
   subtitle: {
@@ -106,7 +115,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#F5F5F0',
+    backgroundColor: COLORS.accent,
     borderRadius: 3,
   },
 });

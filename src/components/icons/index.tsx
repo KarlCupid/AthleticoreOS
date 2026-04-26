@@ -31,6 +31,10 @@ export const IconShieldCheck = ({ color = '#000', size = DEFAULT_SIZE, style }: 
     <Feather name="shield" size={size} color={color} style={style} />
 );
 
+export const IconBell = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
+    <Feather name="bell" size={size} color={color} style={style} />
+);
+
 export const IconWaterDrop = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
     <Feather name="droplet" size={size} color={color} style={style} />
 );
@@ -57,8 +61,16 @@ export const IconFire = ({ color = '#000', size = DEFAULT_SIZE, style }: IconPro
     <Ionicons name="flame-outline" size={size} color={color} style={style} />
 );
 
+export const IconBarbell = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
+    <Ionicons name="barbell-outline" size={size} color={color} style={style} />
+);
+
 export const IconLightning = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
     <Feather name="zap" size={size} color={color} style={style} />
+);
+
+export const IconArrowUp = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
+    <Feather name="arrow-up" size={size} color={color} style={style} />
 );
 
 export const IconActivity = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (

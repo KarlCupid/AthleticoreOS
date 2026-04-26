@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { ImageBackground, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { CutSafetyFlag } from '../../lib/engine/types';
+
+const SUPPORT_BACKGROUND = require('../../assets/images/dashboard/support-card-bg.png');
 
 interface Props {
   flags: CutSafetyFlag[];
@@ -63,7 +65,13 @@ export function SafetyStatusIndicator({ flags, compact = false }: Props) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
+    <ImageBackground
+      source={SUPPORT_BACKGROUND}
+      resizeMode="cover"
+      style={[styles.container, { borderColor: statusConfig.border }]}
+      imageStyle={styles.backgroundImage}
+    >
+      <View style={[styles.scrim, { backgroundColor: statusConfig.bg }]} />
       <TouchableOpacity
         style={styles.header}
         onPress={() => flags.length > 0 && setExpanded(!expanded)}
@@ -110,7 +118,7 @@ export function SafetyStatusIndicator({ flags, compact = false }: Props) {
           })}
         </View>
       )}
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -119,6 +127,14 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     borderWidth: 1,
     padding: SPACING.md,
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    borderRadius: RADIUS.xl,
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.82,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },

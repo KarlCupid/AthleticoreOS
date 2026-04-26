@@ -7,6 +7,8 @@ import { IconWaterDrop } from './icons';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { DailyCutProtocolRow } from '../../lib/engine/types';
 
+const NUTRITION_DETAIL_BACKGROUND = require('../../assets/images/dashboard/nutrition-detail-card-bg.png');
+
 interface DashboardNutritionCardProps {
     actualNutrition: {
         calories: number;
@@ -38,7 +40,11 @@ export const DashboardNutritionCard = memo(function DashboardNutritionCard({ act
     const waterProgress = targets.water > 0 ? actualNutrition.water / targets.water : 0;
 
     return (
-        <Card style={styles.nutritionCard}>
+        <Card
+            style={styles.nutritionCard}
+            backgroundImage={NUTRITION_DETAIL_BACKGROUND}
+            backgroundScrimColor="rgba(10, 10, 10, 0.44)"
+        >
             {/* Calorie hero number */}
             <View style={styles.calorieHero}>
                 <AnimatedNumber
@@ -185,7 +191,7 @@ const styles = StyleSheet.create({
         fontSize: 48,
         fontFamily: FONT_FAMILY.black,
         color: '#F5F5F0',
-        letterSpacing: -1.5,
+        letterSpacing: 0,
     },
     calorieTarget: {
         fontSize: 18,

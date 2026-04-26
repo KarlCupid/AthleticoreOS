@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Alert,
+  ImageBackground,
   InteractionManager,
   Modal,
   RefreshControl,
@@ -20,8 +21,16 @@ import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
   IconRestaurant,
   IconActivity,
+  IconArrowUp,
+  IconBarbell,
+  IconBell,
+  IconCheckCircle,
+  IconDroplets,
   IconFire,
   IconCalendar,
+  IconChevronRight,
+  IconLightning,
+  IconTarget,
 } from "../components/icons";
 import { DashboardNutritionCard } from "../components/DashboardNutritionCard";
 import { DailyMissionCard } from "../components/DailyMissionCard";
@@ -54,6 +63,14 @@ import { buildTodayHomeState } from "../hooks/dashboard/buildTodayHomeState";
 import { styles } from "./DashboardScreen.styles";
 import { getGuidedWorkoutContext } from "../../lib/api/fightCampService";
 import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
+
+const DASHBOARD_BACKGROUNDS = {
+  readiness: require("../../assets/images/dashboard/readiness-console-bg.png"),
+  mission: require("../../assets/images/dashboard/mission-card-bg.png"),
+  training: require("../../assets/images/dashboard/training-load-card-bg.png"),
+  fuel: require("../../assets/images/dashboard/fuel-card-bg.png"),
+  support: require("../../assets/images/dashboard/support-card-bg.png"),
+};
 
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -171,6 +188,34 @@ export function DashboardScreen() {
     ],
   );
   const D = 50;
+  const fuelPreview = React.useMemo(
+    () => [
+      {
+        label: "Energy",
+        value: percentOf(homeState.fuel.actual.calories, homeState.fuel.targets.calories),
+        icon: <IconLightning size={16} color={COLORS.accent} />,
+      },
+      {
+        label: "Hydration",
+        value: percentOf(homeState.fuel.actual.water, homeState.fuel.targets.water),
+        icon: <IconDroplets size={16} color={COLORS.accent} />,
+      },
+      {
+        label: "Nutrition",
+        value: averagePercent([
+          percentOf(homeState.fuel.actual.protein, homeState.fuel.targets.protein),
+          percentOf(homeState.fuel.actual.carbs, homeState.fuel.targets.carbs),
+          percentOf(homeState.fuel.actual.fat, homeState.fuel.targets.fat),
+        ]),
+        icon: <IconRestaurant size={16} color={COLORS.accent} />,
+      },
+    ],
+    [homeState.fuel.actual, homeState.fuel.targets],
+  );
+  const loadChartMax = React.useMemo(
+    () => Math.max(...homeState.training.loadChart.map((point) => point.value), 1),
+    [homeState.training.loadChart],
+  );
 
   const openTrainScreen = React.useCallback(
     (screen: string, params?: Record<string, unknown>) => {
@@ -523,58 +568,111 @@ export function DashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        <Animated.View 
-            entering={FadeInDown.duration(ANIMATION.slow)} 
+        <Animated.View
+            entering={FadeInDown.duration(ANIMATION.slow)}
             style={[styles.heroSection, { paddingTop: insets.top + SPACING.lg }]}
         >
             <View style={styles.heroGreetingRow}>
-                <Text style={styles.heroGreeting}>{getGreeting()}</Text>
-                <Text style={styles.heroDate}>{todayLocalDate().toUpperCase()}</Text>
+                <View style={styles.brandMark}>
+                  <Text style={styles.brandMarkText}>A</Text>
+                </View>
+                <View style={styles.heroTitleBlock}>
+                  <Text style={styles.heroGreeting}>{getGreeting()}</Text>
+                  <Text style={styles.heroDate}>{formatDashboardDate(todayLocalDate())}</Text>
+                </View>
+                <View style={styles.notificationButton}>
+                  <IconBell size={20} color={COLORS.accent} />
+                </View>
             </View>
 
-            <View style={styles.heroMetricsBlock}>
+            <ImageBackground
+              source={DASHBOARD_BACKGROUNDS.readiness}
+              style={styles.heroMetricsBlock}
+              imageStyle={styles.windowImage}
+              resizeMode="cover"
+            >
+                <View style={styles.windowScrim} />
                 <View style={styles.readinessMain}>
                     <Text style={styles.readinessLabel}>READINESS</Text>
-                    <RadialProgress 
+                    <RadialProgress
                         progress={homeState.training.readinessScore / 100}
-                        size={120}
-                        strokeWidth={12}
+                        size={154}
+                        strokeWidth={14}
                         color={getReadinessColor(homeState.training.readinessScore)}
-                        trackColor="rgba(255,255,255,0.1)"
+                        trackColor="rgba(245,245,240,0.14)"
                         label={Math.round(homeState.training.readinessScore).toString()}
                         sublabel={currentLevel}
                         textColor="#F5F5F0"
+                        labelStyle={styles.readinessScoreText}
+                        sublabelStyle={styles.readinessSublabelText}
                     />
                 </View>
                 
                 <View style={styles.secondaryMetricsList}>
                     {acwr?.ratio !== undefined && (
                         <View style={styles.secondaryMetricItem}>
-                            <Text style={styles.secondaryMetricValue}>{acwr.ratio.toFixed(2)}</Text>
-                            <Text style={styles.secondaryMetricLabel}>ACWR</Text>
+                            <View style={styles.metricIconBubble}>
+                              <IconLightning size={18} color={COLORS.accent} />
+                            </View>
+                            <View style={styles.metricCopy}>
+                              <Text style={styles.secondaryMetricLabel}>ACWR</Text>
+                              <Text style={styles.secondaryMetricValue}>{acwr.ratio.toFixed(2)}</Text>
+                            </View>
+                            <View style={styles.metricTrendBubble}>
+                              <IconArrowUp size={14} color={COLORS.success} />
+                            </View>
                         </View>
                     )}
                     {sleepQuality !== undefined && (
                         <View style={styles.secondaryMetricItem}>
-                            <Text style={styles.secondaryMetricValue}>{sleepQuality}/5</Text>
-                            <Text style={styles.secondaryMetricLabel}>Sleep</Text>
+                            <View style={styles.metricIconBubble}>
+                              <IconActivity size={18} color={COLORS.accent} />
+                            </View>
+                            <View style={styles.metricCopy}>
+                              <Text style={styles.secondaryMetricLabel}>Sleep</Text>
+                              <Text style={styles.secondaryMetricValue}>{sleepQuality}/5</Text>
+                            </View>
+                            <View style={styles.metricTrendBubble}>
+                              <IconArrowUp size={14} color={COLORS.success} />
+                            </View>
                         </View>
                     )}
                     {morningWeight !== undefined && (
                         <View style={styles.secondaryMetricItem}>
-                            <Text style={styles.secondaryMetricValue}>{morningWeight} lb</Text>
-                            <Text style={styles.secondaryMetricLabel}>Weight</Text>
+                            <View style={styles.metricIconBubble}>
+                              <IconFire size={18} color={COLORS.accent} />
+                            </View>
+                            <View style={styles.metricCopy}>
+                              <Text style={styles.secondaryMetricLabel}>Weight</Text>
+                              <Text style={styles.secondaryMetricValue}>{morningWeight} lb</Text>
+                            </View>
+                            <View style={styles.metricTrendBubble}>
+                              <IconArrowUp size={14} color={COLORS.success} />
+                            </View>
                         </View>
                     )}
                 </View>
-            </View>
+            </ImageBackground>
 
-            <View style={styles.compassCard}>
-               <Text style={styles.compassSessionRole}>
-                  {compassVM.sessionRoleLabel.toUpperCase()}
-               </Text>
-               <Text style={styles.compassHeadline}>{compassVM.headline}</Text>
-               <Text style={styles.compassSummary}>{compassVM.summaryLine}</Text>
+            <ImageBackground
+              source={DASHBOARD_BACKGROUNDS.mission}
+              style={styles.compassCard}
+              imageStyle={styles.windowImage}
+              resizeMode="cover"
+            >
+               <View style={styles.missionScrim} />
+               <Text style={styles.compassWatermark}>A</Text>
+               <View style={styles.compassHeaderRow}>
+                 <View style={styles.missionIconBubble}>
+                   <IconTarget size={20} color={COLORS.accent} />
+                 </View>
+                 <Text style={styles.compassSessionRole}>Today's Mission</Text>
+                 <Text style={styles.compassRolePill}>
+                    {compassVM.sessionRoleLabel.toUpperCase()}
+                 </Text>
+               </View>
+               <Text style={styles.compassHeadline} numberOfLines={2}>{compassVM.headline}</Text>
+               <Text style={styles.compassSummary} numberOfLines={2}>{compassVM.summaryLine}</Text>
                
                {dailyMission?.decisionTrace?.length ? (
                  <View style={styles.compassReasonRow}>
@@ -585,6 +683,7 @@ export function DashboardScreen() {
 
                <AnimatedPressable style={styles.compassPrimaryButton} onPress={handleCompassCTA}>
                   <Text style={styles.compassPrimaryText}>{compassVM.primaryCTALabel}</Text>
+                  <IconChevronRight size={18} color={COLORS.text.inverse} />
                </AnimatedPressable>
 
                {compassVM.secondaryCTALabel ? (
@@ -595,19 +694,19 @@ export function DashboardScreen() {
 
                {dailyMission ? (
                   <AnimatedPressable onPress={() => setShowWhyToday(true)}>
-                     <Text style={styles.compassMissionLink}>Mission details ›</Text>
+                     <Text style={styles.compassMissionLink}>Mission details &gt;</Text>
                   </AnimatedPressable>
                ) : null}
-            </View>
+            </ImageBackground>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={styles.quickActionGrid}>
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: 'rgba(15, 168, 136, 0.7)' }]} // Glassy Mint
+                style={[styles.quickActionBlock, checkinDone && styles.quickActionBlockDone]}
                 onPress={() => navigation.navigate("Log")}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconActivity size={24} color="#F5F5F0" />
+                   <IconCheckCircle size={28} color={checkinDone ? COLORS.success : COLORS.accent} />
                 </View>
                 <Text style={[styles.quickActionLabelBlock, checkinDone && styles.quickActionLabelDoneBlock]}>
                    Check In
@@ -615,11 +714,11 @@ export function DashboardScreen() {
             </AnimatedPressable>
             
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: 'rgba(99, 102, 241, 0.7)' }]} // Glassy Indigo/Violet
+                style={[styles.quickActionBlock, sessionDone && styles.quickActionBlockDone]}
                 onPress={() => void openTodayTraining()}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconFire size={24} color="#F5F5F0" />
+                   <IconBarbell size={28} color={sessionDone ? COLORS.success : COLORS.accent} />
                 </View>
                 <Text style={[styles.quickActionLabelBlock, sessionDone && styles.quickActionLabelDoneBlock]}>
                    Train
@@ -627,11 +726,11 @@ export function DashboardScreen() {
             </AnimatedPressable>
 
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: 'rgba(245, 158, 11, 0.7)' }]} // Glassy Amber
+                style={styles.quickActionBlock}
                 onPress={() => openFuelScreen("NutritionHome")}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconRestaurant size={24} color="#F5F5F0" />
+                   <IconDroplets size={28} color={COLORS.accent} />
                 </View>
                 <Text style={styles.quickActionLabelBlock}>
                    Fuel
@@ -639,16 +738,87 @@ export function DashboardScreen() {
             </AnimatedPressable>
 
             <AnimatedPressable
-                style={[styles.quickActionBlock, { backgroundColor: 'rgba(59, 130, 246, 0.7)' }]} // Glassy Blue
+                style={styles.quickActionBlock}
                 onPress={openPlanningSurface}
             >
                 <View style={styles.quickActionIconContainer}>
-                   <IconCalendar size={24} color="#F5F5F0" />
+                   <IconCalendar size={28} color={COLORS.accent} />
                 </View>
                 <Text style={styles.quickActionLabelBlock}>
                    {homeState.schedule.hasLivePlanningState ? "Calendar" : "Setup"}
                 </Text>
             </AnimatedPressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(D * 1.2).duration(ANIMATION.slow).springify()} style={styles.previewGrid}>
+          <ImageBackground
+            source={DASHBOARD_BACKGROUNDS.training}
+            style={styles.previewCard}
+            imageStyle={styles.previewImage}
+            resizeMode="cover"
+          >
+            <View style={styles.previewScrim} />
+            <View style={styles.previewHeaderRow}>
+              <Text style={styles.previewTitle}>Training Load</Text>
+              <View style={styles.previewArrow}>
+                <IconChevronRight size={16} color={COLORS.text.primary} />
+              </View>
+            </View>
+            <View style={styles.previewValueRow}>
+              <Text style={styles.previewValue}>{Math.round(homeState.training.acute)}</Text>
+              <Text style={styles.previewUnit}>Load</Text>
+            </View>
+            <Text style={styles.previewDelta}>
+              {acwr?.ratio !== undefined ? `${acwr.ratio.toFixed(2)} ACWR` : "+12% vs yesterday"}
+            </Text>
+            <View style={styles.previewBarChart}>
+              {homeState.training.loadChart.map((point, idx) => (
+                <View key={`${point.label}-${idx}`} style={styles.previewBarSlot}>
+                  <View
+                    style={[
+                      styles.previewBar,
+                      point.isToday && styles.previewBarToday,
+                      { height: `${Math.max(16, (point.value / loadChartMax) * 100)}%` },
+                    ]}
+                  />
+                  <Text style={[styles.previewBarLabel, point.isToday && styles.previewBarLabelToday]}>
+                    {point.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </ImageBackground>
+
+          <ImageBackground
+            source={DASHBOARD_BACKGROUNDS.fuel}
+            style={styles.previewCard}
+            imageStyle={styles.previewImage}
+            resizeMode="cover"
+          >
+            <View style={styles.previewScrim} />
+            <View style={styles.previewHeaderRow}>
+              <Text style={styles.previewTitle}>Fuel</Text>
+              <View style={styles.previewArrow}>
+                <IconChevronRight size={16} color={COLORS.text.primary} />
+              </View>
+            </View>
+            <View style={styles.fuelPreviewList}>
+              {fuelPreview.map((item) => (
+                <View key={item.label} style={styles.fuelPreviewRow}>
+                  <View style={styles.fuelPreviewIcon}>{item.icon}</View>
+                  <View style={styles.fuelPreviewCopy}>
+                    <View style={styles.fuelPreviewLabelRow}>
+                      <Text style={styles.fuelPreviewLabel}>{item.label}</Text>
+                      <Text style={styles.fuelPreviewValue}>{item.value}%</Text>
+                    </View>
+                    <View style={styles.fuelPreviewTrack}>
+                      <View style={[styles.fuelPreviewFill, { width: `${item.value}%` }]} />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ImageBackground>
         </Animated.View>
 
         {/* The New Active Camp Banner positioned right below the grid */}
@@ -665,14 +835,17 @@ export function DashboardScreen() {
                 .duration(ANIMATION.slow)
                 .springify()}
             >
-              <Card>
+              <Card
+                backgroundImage={DASHBOARD_BACKGROUNDS.support}
+                backgroundScrimColor="rgba(10, 10, 10, 0.46)"
+              >
                 <AnimatedPressable
                   style={styles.whyTodayHeader}
                   onPress={() => setShowWhyToday((v) => !v)}
                 >
                   <Text style={styles.whyTodayTitle}>Mission details</Text>
                   <Text style={styles.whyTodayChevron}>
-                    {showWhyToday ? "▲" : "▼"}
+                    {showWhyToday ? "^" : "v"}
                   </Text>
                 </AnimatedPressable>
                 {showWhyToday &&
@@ -807,7 +980,10 @@ export function DashboardScreen() {
                 .springify()}
               style={{ marginTop: SPACING.md }}
             >
-              <Card>
+              <Card
+                backgroundImage={DASHBOARD_BACKGROUNDS.support}
+                backgroundScrimColor="rgba(10, 10, 10, 0.46)"
+              >
                 <View style={styles.firstRunHeaderRow}>
                   <Text style={styles.firstRunKicker}>START HERE</Text>
                   <Text style={styles.firstRunProgress}>
@@ -839,7 +1015,7 @@ export function DashboardScreen() {
                             step.done && styles.firstRunStepBadgeTextDone,
                           ]}
                         >
-                          {step.done ? "✓" : `${idx + 1}`}
+                          {step.done ? "OK" : `${idx + 1}`}
                         </Text>
                       </View>
                       <View style={styles.firstRunStepCopy}>
@@ -867,14 +1043,17 @@ export function DashboardScreen() {
                 .springify()}
               style={{ marginTop: SPACING.md }}
             >
-              <Card>
+              <Card
+                backgroundImage={DASHBOARD_BACKGROUNDS.support}
+                backgroundScrimColor="rgba(10, 10, 10, 0.50)"
+              >
                 <Text
                   style={[
                     styles.biologyTitle,
                     { color: getCampRiskColor(campRisk.level) },
                   ]}
                 >
-                  Camp Risk {campRisk.score}/100 ·{" "}
+                  Camp Risk {campRisk.score}/100 -{" "}
                   {formatCampRiskLevel(campRisk.level)}
                 </Text>
                 <Text style={[styles.biologyDesc, { marginTop: SPACING.xs }]}>
@@ -938,4 +1117,25 @@ function getGreeting(): string {
   if (hour < 12) return "Good Morning";
   if (hour < 17) return "Good Afternoon";
   return "Good Evening";
+}
+
+function formatDashboardDate(isoDate: string): string {
+  const date = new Date(`${isoDate}T12:00:00`);
+  return date
+    .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    .toUpperCase();
+}
+
+function percentOf(actual: number, target: number): number {
+  if (!target || target <= 0) return 0;
+  return Math.round(clamp((actual / target) * 100, 0, 100));
+}
+
+function averagePercent(values: number[]): number {
+  if (!values.length) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }

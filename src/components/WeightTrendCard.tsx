@@ -5,6 +5,8 @@ import { AnimatedPressable } from './AnimatedPressable';
 import { Card } from './Card';
 import type { WeightTrendResult, WeightCutStatus } from '../../lib/engine/types';
 
+const BODY_TREND_BACKGROUND = require('../../assets/images/dashboard/body-trend-card-bg.png');
+
 interface WeightTrendCardProps {
     trend: WeightTrendResult;
     baseWeight?: number;
@@ -36,7 +38,11 @@ export const WeightTrendCard = memo(function WeightTrendCard({ trend, baseWeight
         : 0;
 
     const content = (
-        <Card style={styles.card}>
+        <Card
+            style={styles.card}
+            backgroundImage={BODY_TREND_BACKGROUND}
+            backgroundScrimColor="rgba(10, 10, 10, 0.46)"
+        >
             {/* Header Row */}
             <View style={styles.headerRow}>
                 <Text style={styles.title}>Weight Trend</Text>
@@ -164,7 +170,7 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontFamily: FONT_FAMILY.black,
         color: '#F5F5F0',
-        letterSpacing: -1,
+        letterSpacing: 0,
     },
     statLabel: {
         fontSize: 12,

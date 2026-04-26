@@ -4,6 +4,8 @@ import { LineChart } from 'react-native-gifted-charts';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 
+const TRAINING_DETAIL_BACKGROUND = require('../../assets/images/dashboard/training-detail-card-bg.png');
+
 interface TrainingLoadChartDataPoint {
     value: number;
     label: string;
@@ -78,7 +80,13 @@ export const TrainingLoadChartCard = memo(function TrainingLoadChartCard({ train
     if (!trainingLoadData || trainingLoadData.length === 0) return null;
 
     return (
-        <Card variant="glass" noPadding style={styles.container}>
+        <Card
+            variant="glass"
+            noPadding
+            style={styles.container}
+            backgroundImage={TRAINING_DETAIL_BACKGROUND}
+            backgroundScrimColor="rgba(10, 10, 10, 0.44)"
+        >
             <View style={styles.header}>
                 <Text style={styles.title}>Training Load</Text>
                 <Text style={styles.subtitle}>7-Day Intensity Wave</Text>

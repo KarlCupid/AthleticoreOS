@@ -1,5 +1,5 @@
 import React, { ReactNode, memo } from 'react';
-import { View, Text, StyleSheet, ViewStyle, Pressable, StyleProp } from 'react-native';
+import { ImageBackground, ImageSourcePropType, View, Text, StyleSheet, ViewStyle, Pressable, StyleProp } from 'react-native';
 import Animated, {
     FadeInDown,
     useSharedValue,
@@ -23,6 +23,8 @@ interface CardProps {
     entering?: boolean;
     enteringDelay?: number;
     subtitleLines?: number;
+    backgroundImage?: ImageSourcePropType;
+    backgroundScrimColor?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -40,6 +42,8 @@ export const Card = memo(function Card({
     entering = false,
     enteringDelay = 0,
     subtitleLines = 1,
+    backgroundImage,
+    backgroundScrimColor = 'rgba(10, 10, 10, 0.38)',
 }: CardProps) {
     const scale = useSharedValue(1);
 
@@ -76,6 +80,17 @@ export const Card = memo(function Card({
         ? FadeInDown.delay(enteringDelay).duration(ANIMATION.slow).springify()
         : undefined;
 
+    const backgroundLayer = backgroundImage ? (
+        <ImageBackground
+            source={backgroundImage}
+            resizeMode="cover"
+            style={StyleSheet.absoluteFillObject}
+            imageStyle={styles.backgroundImage}
+        >
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: backgroundScrimColor }]} />
+        </ImageBackground>
+    ) : null;
+
     if (pressable || onPress) {
         return (
             <AnimatedPressable
@@ -85,6 +100,7 @@ export const Card = memo(function Card({
                 entering={enteringAnim}
                 style={[containerStyle, animatedStyle]}
             >
+                {backgroundLayer}
                 {header}
                 {children}
             </AnimatedPressable>
@@ -94,6 +110,7 @@ export const Card = memo(function Card({
     if (entering) {
         return (
             <Animated.View entering={enteringAnim} style={containerStyle}>
+                {backgroundLayer}
                 {header}
                 {children}
             </Animated.View>
@@ -102,6 +119,7 @@ export const Card = memo(function Card({
 
     return (
         <View style={containerStyle}>
+            {backgroundLayer}
             {header}
             {children}
         </View>
@@ -138,6 +156,10 @@ const styles = StyleSheet.create({
     card: {
         borderRadius: RADIUS.xl,
         padding: SPACING.lg - 4,
+        overflow: 'hidden',
+    },
+    backgroundImage: {
+        borderRadius: RADIUS.xl,
     },
     header: {
         marginBottom: SPACING.md,

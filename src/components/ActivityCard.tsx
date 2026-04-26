@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import type { ScheduledActivityRow } from '../../lib/engine/types';
 
@@ -20,6 +20,8 @@ const STATUS_COLORS: Record<string, string> = {
   skipped: COLORS.readiness.depleted,
   modified: COLORS.readiness.caution,
 };
+
+const SCHEDULE_BACKGROUND = require('../../assets/images/dashboard/schedule-card-bg.png');
 
 interface ActivityCardProps {
   activity: ScheduledActivityRow;
@@ -46,6 +48,14 @@ export const ActivityCard = memo(function ActivityCard({ activity, onPress, onSk
       activeOpacity={0.8}
       disabled={!onPress}
     >
+      <ImageBackground
+        source={SCHEDULE_BACKGROUND}
+        resizeMode="cover"
+        style={StyleSheet.absoluteFillObject}
+        imageStyle={styles.cardImage}
+      >
+        <View style={styles.cardScrim} />
+      </ImageBackground>
       <View style={styles.timeColumn}>
         <Text style={styles.timeText}>{timeStr}</Text>
       </View>
@@ -137,7 +147,15 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     ...SHADOWS.md, // Switch from sub-pixel shadow to the glassy md variant
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: 'rgba(245, 245, 240, 0.16)',
+    overflow: 'hidden',
+  },
+  cardImage: {
+    borderRadius: RADIUS.xl,
+  },
+  cardScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 10, 10, 0.42)',
   },
   timeColumn: { width: 55, justifyContent: 'center' },
   timeText: { fontSize: 13, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.secondary },
@@ -145,7 +163,7 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   icon: { fontSize: 20 },
-  label: { flex: 1, fontSize: 18, fontFamily: FONT_FAMILY.black, letterSpacing: -0.5, color: COLORS.text.primary },
+  label: { flex: 1, fontSize: 18, fontFamily: FONT_FAMILY.black, letterSpacing: 0, color: COLORS.text.primary },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.sm },
   statusText: { fontSize: 11, fontFamily: FONT_FAMILY.extraBold, letterSpacing: 0.5 },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
