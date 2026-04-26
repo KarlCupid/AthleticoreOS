@@ -1,6 +1,7 @@
-import type { FightStatus, Phase, ReadinessState } from './foundational.ts';
+import type { FightStatus, Phase, ReadinessState, WeighInTiming } from './foundational.ts';
 import type { NutritionTargets } from './nutrition.ts';
 import type { ActivityType } from './schedule.ts';
+import type { AthleteSafetyContext, EngineSafetyWarning } from './safety.ts';
 
 export type WeightCutStatus =
   | 'on_track'
@@ -76,6 +77,7 @@ export type CutPlanStatus = 'active' | 'completed' | 'abandoned' | 'paused';
 export type CutSport = 'boxing' | 'mma';
 
 export interface CutPlanInput {
+  asOfDate: string;
   startWeight: number;
   targetWeight: number;
   fightDate: string;
@@ -83,6 +85,8 @@ export interface CutPlanInput {
   fightStatus: FightStatus;
   biologicalSex: 'male' | 'female';
   sport: CutSport;
+  athleteAge?: number | null;
+  weighInTiming?: WeighInTiming | null;
 }
 
 export interface CutPhaseDates {
@@ -92,8 +96,10 @@ export interface CutPhaseDates {
 
 export interface CutPlanResult {
   valid: boolean;
+  asOfDate: string;
   validationErrors: string[];
   safetyWarnings: string[];
+  safetyWarningDetails: EngineSafetyWarning[];
   cutWarning: CutPlanWarning | null;
   totalCutLbs: number;
   totalCutPct: number;
@@ -116,11 +122,17 @@ export type CutPlanWarningSeverity = 'info' | 'caution' | 'severe' | 'medical';
 
 export interface CutPlanWarning {
   severity: CutPlanWarningSeverity;
-  code: 'extreme_cut';
+  tier: CutPlanWarningSeverity;
+  code: string;
   message: string;
   requiresAcknowledgement: boolean;
   persistent: boolean;
+  allowProceed: true;
+  policyVersion: string;
+  source: EngineSafetyWarning['source'];
   amateurAdjusted: boolean;
+  teenSensitive: boolean;
+  ageUnknown: boolean;
   daysToWeighIn: number | null;
   cutPct: number;
 }
@@ -156,6 +168,7 @@ export interface DailyCutProtocolInput {
   urineColor: number | null;
   bodyTempF: number | null;
   consecutiveDepletedDays: number;
+  safetyContext: AthleteSafetyContext;
 }
 
 export interface DailyCutProtocolResult {
@@ -236,6 +249,8 @@ export interface CutSafetyInput {
   remainingLbsToTarget: number;
   daysToWeighIn: number;
   fightStatus: FightStatus;
+  safetyContext?: AthleteSafetyContext;
+  projectedWeightByWeighIn?: number | null;
 }
 
 export interface RehydrationPhase {
@@ -338,6 +353,9 @@ export interface WeightCutPlanRow {
   baseline_cognitive_score: number | null;
   coach_notes: string | null;
   biological_sex?: 'male' | 'female' | null;
+  risk_acknowledged_at?: string | null;
+  risk_acknowledgement_version?: string | null;
+  risk_warning_snapshot?: EngineSafetyWarning[] | null;
   created_at: string;
   updated_at: string;
 }

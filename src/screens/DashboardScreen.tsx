@@ -48,7 +48,7 @@ import { ActiveCampBanner } from "../components/ActiveCampBanner";
 import { RadialProgress } from "../components/RadialProgress";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 
-import type { ScheduledActivityRow } from "../../lib/engine/types";
+import type { CutSafetyFlag, ScheduledActivityRow } from "../../lib/engine/types";
 import { getActiveUserId } from "../../lib/api/athleteContextService";
 import {
   getAndSyncFirstRunGuidanceState,
@@ -187,6 +187,10 @@ export function DashboardScreen() {
       hasActiveCutPlan,
       activeCutProtocol,
     ],
+  );
+  const activeCutSafetyFlags = React.useMemo(
+    () => normalizeCutSafetyFlags(activeCutProtocol?.safety_flags),
+    [activeCutProtocol?.safety_flags],
   );
   const D = 50;
   const fuelPreview = React.useMemo(
@@ -1058,26 +1062,41 @@ export function DashboardScreen() {
             </Animated.View>
           ) : null}
 
-          {activeCutProtocol &&
-            (activeCutProtocol.safety_flags as any[])?.filter(
-              (f: any) => f.severity === "danger",
-            ).length > 0 && (
-              <Animated.View
-                entering={FadeInDown.delay(D * 1.5)
-                  .duration(ANIMATION.slow)
-                  .springify()}
-              >
-                <SafetyStatusIndicator
-                  flags={activeCutProtocol.safety_flags as any[]}
-                />
-              </Animated.View>
-            )}
+          {activeCutSafetyFlags.filter((flag) => flag.severity === "danger").length > 0 && (
+            <Animated.View
+              entering={FadeInDown.delay(D * 1.5)
+                .duration(ANIMATION.slow)
+                .springify()}
+            >
+              <SafetyStatusIndicator
+                flags={activeCutSafetyFlags}
+              />
+            </Animated.View>
+          )}
 
           <View style={{ height: SPACING.xxl }} />
         </View>
       </ScrollView>
     </ScreenWrapper>
   );
+}
+
+function isCutSafetyFlag(value: unknown): value is CutSafetyFlag {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<CutSafetyFlag>;
+  return (
+    (candidate.severity === "info" ||
+      candidate.severity === "warning" ||
+      candidate.severity === "danger") &&
+    typeof candidate.code === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.message === "string" &&
+    typeof candidate.recommendation === "string"
+  );
+}
+
+function normalizeCutSafetyFlags(flags: unknown): CutSafetyFlag[] {
+  return Array.isArray(flags) ? flags.filter(isCutSafetyFlag) : [];
 }
 
 function formatCampRiskLevel(

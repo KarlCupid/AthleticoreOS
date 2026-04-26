@@ -1,7 +1,6 @@
 ﻿import type {
   CutPlanInput,
   CutPlanResult,
-  CutPlanWarning,
   CutPhaseDates,
   CutPhase,
   CutSafetyFlag,
@@ -19,7 +18,14 @@
 } from './types/weight_cut.ts';
 import type { FightStatus } from './types/foundational.ts';
 import { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol.ts';
-import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
+import { formatLocalDate } from '../utils/date.ts';
+import {
+  evaluateCutPlanSafety,
+  getPolicyWaterCutPct,
+  isAgeUnknown,
+  isTeenAthlete,
+  toCutPlanWarning,
+} from './safety/policy.ts';
 
 /**
  * @ANTI-WIRING:
@@ -49,67 +55,39 @@ function daysBetween(a: string, b: string): number {
   );
 }
 
-function today(): string {
-  return todayLocalDate();
-}
-
 function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function buildExtremeCutWarning(input: {
-  cutPct: number;
-  totalCutLbs: number;
-  startWeight: number;
-  daysToWeighIn: number | null;
-  fightStatus: FightStatus;
-}): CutPlanWarning | null {
-  const { cutPct, totalCutLbs, startWeight, daysToWeighIn, fightStatus } = input;
-  if (cutPct <= 7) return null;
-
-  let severityScore = 0;
-  if (cutPct >= 12) severityScore += 3;
-  else if (cutPct >= 10) severityScore += 2;
-  else if (cutPct >= 8) severityScore += 1;
-
-  if (daysToWeighIn != null) {
-    if (daysToWeighIn <= 7) severityScore += 2;
-    else if (daysToWeighIn <= 14) severityScore += 1;
-  }
-
-  const amateurAdjusted = fightStatus === 'amateur';
-  if (amateurAdjusted) severityScore += 1;
-
-  const severity: CutPlanWarning['severity'] =
-    severityScore >= 5 ? 'medical'
-      : severityScore >= 3 ? 'severe'
-        : severityScore >= 1 ? 'caution'
-          : 'info';
-
-  return {
-    severity,
-    code: 'extreme_cut',
-    message:
-      `This cut is ${cutPct.toFixed(1)}% (${totalCutLbs.toFixed(1)} lbs), beyond the common 10% upper guidance band. ` +
-      `From ${startWeight} lbs, the recommended maximum is ${(startWeight * 0.1).toFixed(1)} lbs. ` +
-      `${daysToWeighIn == null ? 'Timeline risk is unknown.' : `${daysToWeighIn} days remain until weigh-in.`} ` +
-      `${amateurAdjusted ? 'Amateur status bumps this risk one step sooner.' : 'Professional status does not remove the medical risk.'} ` +
-      `Proceed only with direct medical and nutrition supervision.`,
-    requiresAcknowledgement: severity === 'severe' || severity === 'medical',
-    persistent: severity === 'severe' || severity === 'medical',
-    amateurAdjusted,
-    daysToWeighIn,
-    cutPct,
-  };
+function getWaterCutShare(totalCutPct: number): number {
+  if (totalCutPct >= 12) return 0.35;
+  if (totalCutPct >= 10) return 0.32;
+  if (totalCutPct >= 7) return 0.28;
+  if (totalCutPct >= 4) return 0.22;
+  return 0.15;
 }
 
 function computeDailyTargetOnCurve(plan: WeightCutPlanRow, dateStr: string): number {
   const totalDays = Math.max(0, daysBetween(plan.plan_created_date, plan.weigh_in_date));
   if (totalDays === 0) return roundToTenth(plan.target_weight);
 
-  const elapsedDays = Math.max(0, Math.min(totalDays, daysBetween(plan.plan_created_date, dateStr)));
-  const progress = elapsedDays / totalDays;
-  const interpolatedWeight = plan.start_weight + ((plan.target_weight - plan.start_weight) * progress);
+  const finalCutDays = 3;
+  const finalCutStart = addDays(plan.weigh_in_date, -finalCutDays);
+  const preFinalCutTarget = roundToTenth(plan.target_weight + Math.max(0, plan.water_cut_allocation_lbs));
+
+  if (dateStr < finalCutStart) {
+    const dietDays = Math.max(1, daysBetween(plan.plan_created_date, finalCutStart));
+    const elapsedDietDays = Math.max(0, Math.min(dietDays, daysBetween(plan.plan_created_date, dateStr)));
+    const progress = elapsedDietDays / dietDays;
+    const interpolatedWeight = plan.start_weight + ((preFinalCutTarget - plan.start_weight) * progress);
+
+    return roundToTenth(interpolatedWeight);
+  }
+
+  const finalDays = Math.max(1, daysBetween(finalCutStart, plan.weigh_in_date));
+  const elapsedFinalDays = Math.max(0, Math.min(finalDays, daysBetween(finalCutStart, dateStr)));
+  const progress = elapsedFinalDays / finalDays;
+  const interpolatedWeight = preFinalCutTarget + ((plan.target_weight - preFinalCutTarget) * progress);
 
   return roundToTenth(interpolatedWeight);
 }
@@ -130,11 +108,22 @@ function computeDailyTargetOnCurve(plan: WeightCutPlanRow, dateStr: string): num
  *   - sport: CutSport
  */
 export function generateCutPlan(input: CutPlanInput): CutPlanResult {
-  const { startWeight, targetWeight, fightDate, weighInDate, fightStatus, biologicalSex } = input;
-  const todayStr = today();
+  const {
+    asOfDate,
+    startWeight,
+    targetWeight,
+    fightDate,
+    weighInDate,
+    fightStatus,
+    biologicalSex,
+    athleteAge = null,
+    weighInTiming = daysBetween(weighInDate, fightDate) === 0 ? 'same_day' : 'next_day',
+  } = input;
+  const todayStr = asOfDate;
 
   const validationErrors: string[] = [];
   const safetyWarnings: string[] = [];
+  let safetyWarningDetails: CutPlanResult['safetyWarningDetails'] = [];
 
   // Basic validation
   if (targetWeight >= startWeight) {
@@ -150,24 +139,60 @@ export function generateCutPlan(input: CutPlanInput): CutPlanResult {
   const totalCutLbs = Math.round((startWeight - targetWeight) * 10) / 10;
   const totalCutPct = Math.round((totalCutLbs / startWeight) * 1000) / 10;
   const daysToWeighIn = Math.max(0, daysBetween(todayStr, weighInDate));
-  const cutWarning = buildExtremeCutWarning({
-    cutPct: totalCutPct,
-    totalCutLbs,
+
+  // Water cut allocation
+  const maxWaterCutPct = getPolicyWaterCutPct({ fightStatus, athleteAge, weighInTiming });
+  const maxWaterCutLbs = Math.round((startWeight * maxWaterCutPct) / 100 * 10) / 10;
+  const waterCutAllocationLbs = roundToTenth(Math.min(
+    maxWaterCutLbs,
+    Math.max(0, totalCutLbs - 1),
+    Math.max(0, totalCutLbs * getWaterCutShare(totalCutPct)),
+  ));
+  const dietPhaseTargetLbs = Math.round((totalCutLbs - waterCutAllocationLbs) * 10) / 10;
+
+  // Timeline breakdown
+  const totalDays = daysBetween(todayStr, weighInDate);
+  const fightWeekDays = 7;
+  const dietPhaseDays = Math.max(0, totalDays - fightWeekDays);
+  const weeksAvailable = dietPhaseDays / 7;
+  safetyWarningDetails = evaluateCutPlanSafety({
     startWeight,
+    targetWeight,
+    totalCutLbs,
+    totalCutPct,
     daysToWeighIn,
     fightStatus,
+    athleteAge,
+    weighInTiming,
+    waterCutAllocationLbs,
+    dietPhaseTargetLbs,
+    dietPhaseDays,
   });
+  const primaryCutWarning = safetyWarningDetails.find((warning) =>
+    warning.code === 'extreme_cut' || warning.code === 'cut_pct_over_7'
+  ) ?? safetyWarningDetails[0] ?? null;
+  const cutWarning = primaryCutWarning
+    ? toCutPlanWarning({
+      warning: primaryCutWarning,
+      fightStatus,
+      athleteAge,
+      daysToWeighIn,
+      cutPct: totalCutPct,
+    })
+    : null;
 
-  if (cutWarning) {
-    safetyWarnings.unshift(`${cutWarning.severity.toUpperCase()} CUT WARNING: ${cutWarning.message}`);
+  for (const warning of safetyWarningDetails) {
+    safetyWarnings.push(`${warning.tier.toUpperCase()} CUT WARNING: ${warning.message}`);
   }
 
   if (validationErrors.length > 0) {
     return {
       valid: false,
+      asOfDate,
       cutWarning,
       validationErrors,
       safetyWarnings,
+      safetyWarningDetails,
       totalCutLbs,
       totalCutPct,
       dietPhaseTargetLbs: 0,
@@ -180,23 +205,11 @@ export function generateCutPlan(input: CutPlanInput): CutPlanResult {
       weighInDate,
       safeWeeklyLossRateLbs: 0,
       calorieFloor: biologicalSex === 'female' ? 1200 : 1500,
-      maxWaterCutPct: fightStatus === 'amateur' ? 3 : 5,
+      maxWaterCutPct,
       estimatedDailyDeficitChronic: 0,
       estimatedDailyDeficitIntensified: 0,
     };
   }
-
-  // Water cut allocation
-  const maxWaterCutPct = fightStatus === 'amateur' ? 3 : 5;
-  const maxWaterCutLbs = Math.round((startWeight * maxWaterCutPct) / 100 * 10) / 10;
-  const waterCutAllocationLbs = Math.min(maxWaterCutLbs, Math.max(0, totalCutLbs - 1));
-  const dietPhaseTargetLbs = Math.round((totalCutLbs - waterCutAllocationLbs) * 10) / 10;
-
-  // Timeline breakdown
-  const totalDays = daysBetween(todayStr, weighInDate);
-  const fightWeekDays = 7;
-  const dietPhaseDays = Math.max(0, totalDays - fightWeekDays);
-  const weeksAvailable = dietPhaseDays / 7;
 
   let chronicPhaseWeeks = 0;
   let intensifiedPhaseWeeks = 0;
@@ -272,9 +285,11 @@ export function generateCutPlan(input: CutPlanInput): CutPlanResult {
 
   return {
     valid: true,
+    asOfDate,
     cutWarning,
     validationErrors: [],
     safetyWarnings,
+    safetyWarningDetails,
     totalCutLbs,
     totalCutPct,
     dietPhaseTargetLbs,
@@ -473,6 +488,8 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
     waterCutAllocationLbs,
     remainingLbsToTarget,
     daysToWeighIn,
+    safetyContext,
+    projectedWeightByWeighIn,
   } = input;
 
   const flags: CutSafetyFlag[] = [];
@@ -487,6 +504,16 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
       title: 'Loss Rate Too Fast',
       message: `You are losing ${rate} lbs/week, exceeding the safe maximum of ${(startWeightLbs * 0.015).toFixed(1)} lbs/week.`,
       recommendation: 'Increase calories by 200-300/day. Rapid weight loss causes muscle loss and performance decline.',
+    });
+  }
+
+  if ((isTeenAthlete(safetyContext?.age) || isAgeUnknown(safetyContext?.age)) && isFightWeek) {
+    const teen = isTeenAthlete(safetyContext?.age);
+    flags.push({
+      severity: 'danger', code: teen ? 'TEEN_FIGHT_WEEK_CUT' : 'UNKNOWN_AGE_FIGHT_WEEK_CUT',
+      title: teen ? 'Teen Fight-Week Cut' : 'Age Missing for Fight-Week Cut',
+      message: 'The app will allow this plan, but fight-week dehydration guidance is not appropriate without qualified supervision.',
+      recommendation: 'Avoid heat-based sweating, fluid restriction, and extra conditioning. Escalate decisions to a qualified support team and medical professional.',
     });
   }
 
@@ -526,15 +553,15 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
   if (isDietPhase && acwr > 1.4) {
     flags.push({
       severity: 'danger', code: 'ACWR_REDLINE_DURING_CUT',
-      title: 'Overtraining Risk During Cut',
-      message: `Your ACWR is ${acwr.toFixed(2)} - in the redline zone. Combining aggressive training load with calorie restriction significantly raises injury risk.`,
+      title: 'Load Spike During Cut',
+      message: `Your workload ratio is ${acwr.toFixed(2)} - in the redline zone. Treat this as a load-management signal, not a diagnosis or injury prediction.`,
       recommendation: 'Reduce training volume this week. Maintain intensity but cut session count or duration.',
     });
   } else if (isDietPhase && acwr > 1.2) {
     flags.push({
       severity: 'warning', code: 'ACWR_CAUTION_DURING_CUT',
-      title: 'Elevated Training Load During Cut',
-      message: `ACWR ${acwr.toFixed(2)} is in the caution zone. Monitor recovery closely while in a calorie deficit.`,
+      title: 'Elevated Workload During Cut',
+      message: `Workload ratio ${acwr.toFixed(2)} is in the caution zone. Use it as one recovery signal while in a calorie deficit.`,
       recommendation: 'Prioritize sleep and protein intake. One additional recovery session this week is advisable.',
     });
   }
@@ -556,7 +583,7 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
       message: `Urine color score ${urineColor}/8 indicates moderate dehydration.`,
       recommendation: cutPhase === 'fight_week_load'
         ? 'Increase water intake. You are in the loading phase - stay well hydrated.'
-        : 'Expected during water cut. Monitor closely.',
+        : 'Do not add restriction. Use conservative fluids/electrolytes and contact qualified support if symptoms appear.',
     });
   }
 
@@ -575,7 +602,7 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
         severity: 'danger', code: 'COGNITIVE_DECLINE',
         title: 'Cognitive Decline Detected',
         message: `Reaction time declined ${declinePct.toFixed(0)}% from baseline. Dehydration is impairing brain function.`,
-        recommendation: 'Ease the water restriction. Do not drive or spar.',
+        recommendation: 'Stop additional restriction, rehydrate conservatively, and do not drive or spar.',
       });
     }
   }
@@ -598,9 +625,18 @@ export function validateCutSafety(input: CutSafetyInput): CutSafetyFlag[] {
         severity: 'warning', code: 'WATER_CUT_EXCEEDS_PLAN',
         title: 'Water Cut May Exceed Safe Limit',
         message: `${overage} lbs more than your planned water cut allocation remain ${daysToWeighIn} days from weigh-in.`,
-        recommendation: `Tighten the diet over the next ${daysToWeighIn} days. Consider discussing with your coach about the weight class target.`,
+        recommendation: `Do not add dehydration tactics. Reassess the target and use coach/medical guidance before attempting the final drop.`,
       });
     }
+  }
+
+  if (projectedWeightByWeighIn != null && projectedWeightByWeighIn < (startWeightLbs * 0.9)) {
+    flags.push({
+      severity: 'warning', code: 'PROJECTED_TOTAL_CUT_OVER_10PCT',
+      title: 'Projected Cut Exceeds 10%',
+      message: `Current trend projects ${projectedWeightByWeighIn.toFixed(1)} lbs by weigh-in, which would move total loss beyond 10% of start weight.`,
+      recommendation: 'Raise intake and reduce optional training load. Do not add dehydration tactics.',
+    });
   }
 
   return flags;
@@ -644,17 +680,43 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     urineColor,
     bodyTempF,
     consecutiveDepletedDays,
+    safetyContext,
   } = input;
 
   const cutPhase = determineCutPhase(plan, date);
   const daysToWeighIn = Math.max(0, daysBetween(date, plan.weigh_in_date));
-  const activeCutWarning = buildExtremeCutWarning({
-    cutPct: Math.round((((plan.start_weight - plan.target_weight) / plan.start_weight) * 1000)) / 10,
-    totalCutLbs: Math.round((plan.start_weight - plan.target_weight) * 10) / 10,
+  const totalCutLbs = Math.round((plan.start_weight - plan.target_weight) * 10) / 10;
+  const totalCutPct = Math.round(((totalCutLbs / plan.start_weight) * 1000)) / 10;
+  const dietPhaseDays = Math.max(0, daysBetween(plan.plan_created_date, plan.weigh_in_date) - 7);
+  const warningDetails = evaluateCutPlanSafety({
     startWeight: plan.start_weight,
+    targetWeight: plan.target_weight,
+    totalCutLbs,
+    totalCutPct,
     daysToWeighIn,
     fightStatus: plan.fight_status as FightStatus,
+    athleteAge: safetyContext.age,
+    weighInTiming: safetyContext.weighInTiming,
+    waterCutAllocationLbs: plan.water_cut_allocation_lbs,
+    dietPhaseTargetLbs: plan.diet_phase_target_lbs,
+    dietPhaseDays,
   });
+  const primaryDailyWarning = warningDetails.find((warning) =>
+    warning.code === 'extreme_cut' || warning.code === 'cut_pct_over_7'
+  ) ?? warningDetails[0] ?? null;
+  const activeCutWarning = primaryDailyWarning
+    ? toCutPlanWarning({
+      warning: primaryDailyWarning,
+      fightStatus: plan.fight_status as FightStatus,
+      athleteAge: safetyContext.age,
+      daysToWeighIn,
+      cutPct: totalCutPct,
+    })
+    : null;
+  const conservativeCutProtocol = isTeenAthlete(safetyContext.age)
+    || isAgeUnknown(safetyContext.age)
+    || activeCutWarning?.severity === 'severe'
+    || activeCutWarning?.severity === 'medical';
   const calorieFloor = plan.calorie_floor;
   const isTrainingDay = dayActivities.some(a =>
     a.activity_type !== 'rest' && a.activity_type !== 'active_recovery'
@@ -663,6 +725,11 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
   const remainingLbsToTarget = Math.max(0, currentWeight - plan.target_weight);
   const dailyTargetOnCurve = computeDailyTargetOnCurve(plan, date);
   const weightDriftLbs = roundToTenth(currentWeight - dailyTargetOnCurve);
+  const finalCutHoldBufferLbs = Math.max(0.5, roundToTenth(plan.target_weight * 0.005));
+  const targetReachedHold = currentWeight <= plan.target_weight + finalCutHoldBufferLbs || weightDriftLbs < -1.5;
+  const finalDropWithinPlan = remainingLbsToTarget <= plan.water_cut_allocation_lbs + finalCutHoldBufferLbs;
+  const useConservativeFinalCut = (cutPhase === 'fight_week_cut' || cutPhase === 'weigh_in')
+    && (targetReachedHold || finalDropWithinPlan);
 
   // â”€â”€ Stall detection (diet phases only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let isRefeedDay = false;
@@ -736,36 +803,83 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     eveningProtocol = 'Monitor urine color (target pale yellow). Weigh yourself - aim for 5-7% weight regain by fight time.';
 
   } else if (cutPhase === 'weigh_in') {
-    // Weigh-in day: minimal until weigh-in, structured rehydration after
-    prescribedCalories = 400;
-    prescribedProtein = 30;
-    prescribedCarbs = 40;
-    prescribedFat = 10;
+    if (useConservativeFinalCut && targetReachedHold) {
+      prescribedCalories = Math.max(calorieFloor, Math.round(baseTDEE * 0.7));
+      prescribedProtein = Math.round(currentWeight * 0.8);
+      const proteinCal = prescribedProtein * 4;
+      prescribedFat = Math.round((prescribedCalories * 0.22) / 9);
+      prescribedCarbs = Math.max(0, Math.round((prescribedCalories - proteinCal - prescribedFat * 9) / 4));
 
-    sodiumInstruction = 'Zero - no added sodium until after weigh-in';
-    fiberInstruction = 'Zero - no fiber';
-    trainingRecommendation = 'Rest - no physical activity until after weigh-in';
-    morningProtocol = 'No food or water until after weigh-in. If you need to sweat off final lbs: hot bath (104F, max 30 min) monitored by someone you trust.';
-    afternoonProtocol = 'After weigh-in: start ORS immediately. See Rehydration Protocol screen for full post-weigh-in plan.';
-    eveningProtocol = 'Structured refueling meals. Sip fluids continuously. Aim for pale yellow urine by fight time.';
+      sodiumInstruction = 'Normal and predictable - do not chase a lower number';
+      sodiumTargetMg = null;
+      fiberInstruction = 'Low - keep foods simple until the scale check is complete';
+      trainingRecommendation = 'Rest - protect recovery and do not add weight-loss activity';
+      morningProtocol = 'You are already inside the target band. Hold steady with simple food and fluids; do not add dehydration, heat, or extra conditioning to chase a lower number.';
+      afternoonProtocol = 'After weigh-in: start ORS immediately. See Rehydration Protocol screen for full post-weigh-in plan.';
+      eveningProtocol = 'Structured refueling meals. Sip fluids continuously. Aim for pale yellow urine by fight time.';
+      interventionReason = 'Scale is inside the target band; final-drop tactics removed to avoid overshooting the cut.';
+    } else {
+      // Weigh-in day: conservative intake before weigh-in, structured rehydration after.
+      prescribedCalories = 400;
+      prescribedProtein = 30;
+      prescribedCarbs = 40;
+      prescribedFat = 10;
+
+      sodiumInstruction = conservativeCutProtocol
+        ? 'Medical-supervision only - do not chase sodium/fluid manipulation alone'
+        : 'Reduced - keep choices simple until after weigh-in';
+      sodiumTargetMg = conservativeCutProtocol ? null : 500;
+      fiberInstruction = 'Very low - keep foods simple and low residue';
+      trainingRecommendation = 'Rest - no physical activity until after weigh-in';
+      morningProtocol = conservativeCutProtocol
+        ? 'Do not use heat-based sweating, fluid restriction, or extra training to force the final drop. If still over target, contact qualified medical support and your coach before taking action.'
+        : 'Keep the morning calm and low-residue. Do not use hot baths, saunas, or extra training to force sweat without qualified supervision.';
+      afternoonProtocol = 'After weigh-in: start ORS immediately. See Rehydration Protocol screen for full post-weigh-in plan.';
+      eveningProtocol = 'Structured refueling meals. Sip fluids continuously. Aim for pale yellow urine by fight time.';
+    }
 
   } else if (cutPhase === 'fight_week_cut') {
-    // Days 1-3 before weigh-in: water and sodium restriction
+    // Days 1-3 before weigh-in: low-residue taper with conservative hydration safeguards.
 
-    // Minimal low-residue calories
-    const dailyCalByDay: Record<number, number> = { 1: 400, 2: 600, 3: 800 };
-    prescribedCalories = Math.max(calorieFloor * 0.4, dailyCalByDay[daysToWeighIn] ?? 800);
-    prescribedProtein = Math.round(currentWeight * 0.5);  // minimal, gut-emptying
-    prescribedFat = 10;
-    prescribedCarbs = Math.max(0, Math.round((prescribedCalories - prescribedProtein * 4 - prescribedFat * 9) / 4));
-    sodiumInstruction = daysToWeighIn === 3 ? 'Minimal - under 500mg total' : 'Zero - no added sodium';
-    sodiumTargetMg = daysToWeighIn === 3 ? 500 : 0;
-    fiberInstruction = 'Zero - white rice, white bread only if eating';
-    trainingRecommendation = 'Active recovery only - stretching, shadow boxing (5 min max)';
-    const ozDesc = daysToWeighIn === 1 ? 'sips only (16 oz total)' : `${waterTargetOz} oz`;
-    morningProtocol = `Water: ${ozDesc}. Weigh yourself immediately upon waking. If weight is on target: rest, stay calm. If over target: discuss hot bath timing with coach.`;
-    afternoonProtocol = 'Small low-residue meals only. Avoid: vegetables, beans, whole grains, dairy. OK: white rice, grilled chicken, egg whites.';
-    eveningProtocol = 'Minimal fluid. Stay warm and calm. Sleep in a warm room if still need to drop weight via passive sweat.';
+    if (useConservativeFinalCut) {
+      prescribedCalories = Math.max(calorieFloor, Math.round(baseTDEE * (targetReachedHold ? 0.9 : 0.8)));
+      prescribedProtein = Math.round(currentWeight * 0.9);
+      const proteinCal = prescribedProtein * 4;
+      prescribedFat = Math.round((prescribedCalories * 0.24) / 9);
+      prescribedCarbs = Math.max(0, Math.round((prescribedCalories - proteinCal - prescribedFat * 9) / 4));
+      sodiumInstruction = conservativeCutProtocol
+        ? 'Medical-supervision only - avoid unsupervised sodium restriction'
+        : 'Normal and predictable - do not chase zero sodium';
+      sodiumTargetMg = null;
+      fiberInstruction = 'Low to moderate - keep foods simple without starving the day';
+      trainingRecommendation = 'Active recovery only - no extra conditioning to move the scale';
+      morningProtocol = targetReachedHold
+        ? 'You are already inside the target band. Hold steady with simple meals and fluids; do not add dehydration, heat, or extra conditioning.'
+        : 'You are inside the planned final-drop range. Keep the final cut conservative, weigh after first void, and use coach/medical guidance before any hydration changes.';
+      afternoonProtocol = 'Use small, predictable meals. Keep energy stable and stop adding restriction once morning weight is on target.';
+      eveningProtocol = 'Keep the evening calm. Do not add sauna, hot bath, warm-room sweating, or extra conditioning to chase weight.';
+      interventionReason = targetReachedHold
+        ? 'Scale is inside the target band; final-drop tactics removed to avoid overshooting the cut.'
+        : 'Remaining scale change is inside the planned final-drop budget; extra restriction removed.';
+    } else {
+      // Minimal low-residue calories
+      const dailyCalByDay: Record<number, number> = { 1: 400, 2: 600, 3: 800 };
+      prescribedCalories = Math.max(calorieFloor * 0.4, dailyCalByDay[daysToWeighIn] ?? 800);
+      prescribedProtein = Math.round(currentWeight * 0.5);  // minimal, gut-emptying
+      prescribedFat = 10;
+      prescribedCarbs = Math.max(0, Math.round((prescribedCalories - prescribedProtein * 4 - prescribedFat * 9) / 4));
+      sodiumInstruction = conservativeCutProtocol
+        ? 'Medical-supervision only - avoid unsupervised sodium restriction'
+        : 'Reduced - keep sodium predictable, not zero-chasing';
+      sodiumTargetMg = conservativeCutProtocol ? null : 500;
+      fiberInstruction = 'Very low - simple low-residue foods only';
+      trainingRecommendation = 'Active recovery only - stretching, shadow boxing (5 min max)';
+      morningProtocol = conservativeCutProtocol
+        ? `Weigh yourself after first void. Follow the visible safety warning and avoid heat-based or fluid-restriction tactics. Hydration changes should be supervised.`
+        : `Water target: ${waterTargetOz} oz. Weigh yourself after first void. If over target, use coach/medical guidance instead of heat-based shortcuts.`;
+      afternoonProtocol = 'Small low-residue meals only. Avoid: vegetables, beans, whole grains, dairy. OK: white rice, grilled chicken, egg whites.';
+      eveningProtocol = 'Keep the evening calm. Do not add sauna, hot bath, warm-room sweating, or extra conditioning to chase weight.';
+    }
 
   } else if (cutPhase === 'fight_week_load') {
     // Days 4-7 before weigh-in: water superhydration
@@ -857,14 +971,31 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
   }
 
   // â”€â”€ Safety validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const isAdjustableDriftPhase = cutPhase === 'chronic' || cutPhase === 'intensified' || cutPhase === 'fight_week_load';
-  if (isAdjustableDriftPhase && weightDriftLbs > 0.5) {
+  const isDietDriftPhase = cutPhase === 'chronic' || cutPhase === 'intensified' || cutPhase === 'fight_week_load';
+  if (isDietDriftPhase && weightDriftLbs > 0.5) {
     const driftCorrectionCalories = Math.round(weightDriftLbs * 500);
     const correctedCalories = Math.max(calorieFloor, prescribedCalories - driftCorrectionCalories);
     if (correctedCalories < prescribedCalories) {
       prescribedCalories = correctedCalories;
       interventionReason = `Weight drift +${weightDriftLbs.toFixed(1)} lb above curve; calories reduced to restore trajectory.`;
     }
+  }
+
+  const projectedWeightByWeighIn = weeklyVelocityLbs !== 0
+    ? roundToTenth(currentWeight + (weeklyVelocityLbs * (daysToWeighIn / 7)))
+    : null;
+  const projectedUndershootLbs = projectedWeightByWeighIn == null
+    ? 0
+    : roundToTenth(plan.target_weight - projectedWeightByWeighIn);
+  const undershootToleranceLbs = Math.max(1, roundToTenth(plan.target_weight * 0.01));
+  const isUndershootCorrectionPhase = isDietDriftPhase || cutPhase === 'fight_week_cut' || cutPhase === 'weigh_in';
+  if (isUndershootCorrectionPhase && (weightDriftLbs < -1.5 || projectedUndershootLbs > undershootToleranceLbs)) {
+    const addedCalories = cutPhase === 'fight_week_load' ? 150 : 250;
+    prescribedCalories = Math.min(baseTDEE, prescribedCalories + addedCalories);
+    trainingIntensityCap = trainingIntensityCap == null ? null : Math.min(trainingIntensityCap, 6);
+    interventionReason = projectedUndershootLbs > undershootToleranceLbs
+      ? `Projected weigh-in weight is ${projectedUndershootLbs.toFixed(1)} lb below target; calories raised to avoid overshooting the cut.`
+      : `Weight is ${Math.abs(weightDriftLbs).toFixed(1)} lb below curve; calories raised to protect performance.`;
   }
 
   // Normalize macros so they are internally consistent with prescribed calories.
@@ -898,19 +1029,43 @@ export function computeDailyCutProtocol(input: DailyCutProtocolInput): DailyCutP
     remainingLbsToTarget,
     daysToWeighIn,
     fightStatus: plan.fight_status as FightStatus,
+    safetyContext,
+    projectedWeightByWeighIn,
   });
-  if (activeCutWarning && (activeCutWarning.severity === 'severe' || activeCutWarning.severity === 'medical')) {
+  if (useConservativeFinalCut) {
     safetyFlags.unshift({
-      severity: activeCutWarning.severity === 'medical' ? 'danger' : 'warning',
-      code: activeCutWarning.code,
-      title: `${activeCutWarning.severity.toUpperCase()} cut warning`,
-      message: activeCutWarning.message,
-      recommendation: activeCutWarning.requiresAcknowledgement
-        ? 'Require explicit acknowledgement and keep this warning visible on every daily mission until the cut ends.'
-        : 'Monitor this cut closely.',
+      severity: targetReachedHold ? 'warning' : 'info',
+      code: targetReachedHold ? 'TARGET_REACHED_HOLD' : 'FINAL_DROP_WITHIN_PLAN',
+      title: targetReachedHold ? 'Hold Target Weight' : 'Final Drop Within Plan',
+      message: targetReachedHold
+        ? 'Current weight is already inside the target band, so the protocol removed extra final-drop tactics.'
+        : 'Remaining scale change is inside the planned final-drop budget, so the protocol is avoiding extra restriction.',
+      recommendation: targetReachedHold
+        ? 'Hold steady, keep fluids predictable, and do not try to weigh in farther below the class limit.'
+        : 'Use conservative supervision and stop escalating once the morning scale is on target.',
     });
   }
-
+  if (projectedUndershootLbs > undershootToleranceLbs) {
+    safetyFlags.unshift({
+      severity: 'warning',
+      code: 'PROJECTED_UNDERSHOOT',
+      title: 'Projected Below Target',
+      message: `Current trend projects ${projectedWeightByWeighIn?.toFixed(1)} lbs by weigh-in, about ${projectedUndershootLbs.toFixed(1)} lbs below target.`,
+      recommendation: 'Raise calories and do not add extra dehydration or conditioning work to chase a lower number.',
+    });
+  }
+  for (const warning of warningDetails) {
+    if (safetyFlags.some((flag) => flag.code === warning.code)) continue;
+    safetyFlags.unshift({
+      severity: warning.tier === 'medical' || warning.tier === 'severe' ? 'danger' : warning.tier === 'caution' ? 'warning' : 'info',
+      code: warning.code,
+      title: `${warning.tier.toUpperCase()} safety warning`,
+      message: warning.message,
+      recommendation: warning.requiresAcknowledgement
+        ? 'Keep this warning visible and require acknowledgement before relying on this cut plan.'
+        : 'Keep monitoring this risk while the plan remains active.',
+    });
+  }
   // Rehydration protocol (if applicable)
   let rehydrationProtocol: RehydrationProtocolResult | null = null;
   if (cutPhase === 'rehydration' || cutPhase === 'weigh_in') {

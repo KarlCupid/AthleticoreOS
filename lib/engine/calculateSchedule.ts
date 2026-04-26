@@ -1087,7 +1087,7 @@ export function generateWeekPlan(
 
         if (dayActivities.length === 0) continue;
 
-        let validation = validateDayLoad(dayActivities as any);
+        let validation = validateDayLoad(dayActivities);
         let passes = 0;
 
         while (!validation.safe && passes < 3) {
@@ -1119,7 +1119,7 @@ export function generateWeekPlan(
             }
 
             // Re-validate
-            validation = validateDayLoad(dayActivities as any);
+            validation = validateDayLoad(dayActivities);
         }
     }
 
@@ -1951,7 +1951,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             notes.push(`Risk: ${performanceRisk.level}. ${performanceRisk.reasons.join('; ')}.`);
         }
         const hypotheticalSessionType = classifyGuidedSessionType({ focus });
-        const dayLoadValidation: any = !isSparringDay && duration >= MIN_GUIDED_DURATION_MIN
+        const dayLoadValidation = !isSparringDay && duration >= MIN_GUIDED_DURATION_MIN
             ? validateDayLoad([
                 ...scaledRecurringAnchors.map((activity) => ({
                     activity_type: activity.activity_type,
@@ -1963,23 +1963,26 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                     expected_intensity: targetIntensity,
                     estimated_duration_min: duration,
                 },
-            ] as any)
+            ])
+            : null;
+        const unsafeDayLoadMessage = dayLoadValidation?.safe === false
+            ? dayLoadValidation.message
             : null;
 
-        if (duration < MIN_GUIDED_DURATION_MIN || (dayLoadValidation && !dayLoadValidation.safe)) {
+        if (duration < MIN_GUIDED_DURATION_MIN || unsafeDayLoadMessage != null) {
             carryForwardAdjustments.push({
                 family: blueprint.family,
                 fromDate: entryDate,
                 suggestedDate: null,
                 reason: duration < MIN_GUIDED_DURATION_MIN
                     ? 'Resolved guided block fell below the minimum viable dose after constraints were applied.'
-                    : `Combined day load would have been unsafe (${dayLoadValidation.message}).`,
+                    : `Combined day load would have been unsafe (${unsafeDayLoadMessage}).`,
                 status: 'moved',
             });
             if (primaryCombatAnchor) {
                 const reason = duration < MIN_GUIDED_DURATION_MIN
                     ? 'Guided work skipped - resolved block fell below the minimum viable dose after constraints were applied.'
-                    : `Guided work skipped - combined day load would be unsafe (${dayLoadValidation.message}).`;
+                    : `Guided work skipped - combined day load would be unsafe (${unsafeDayLoadMessage}).`;
                 pushCombatEntry('single', reason, 1);
             }
             continue;
@@ -2256,11 +2259,15 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
             const sameDayEntries = simulatedEntries
                 .filter(e => e.date === simulatedTarget.date && e.status !== 'skipped')
                 .map(e => ({
-                    activity_type: e.session_type as any,
+                    activity_type: classifyGuidedSessionType({
+                        sessionType: e.session_type,
+                        focus: e.focus,
+                        prescription: e.prescription_snapshot,
+                    }),
                     expected_intensity: e.target_intensity ?? 5,
                     estimated_duration_min: e.estimated_duration_min,
                 }));
-            const validation = validateDayLoad(sameDayEntries as any);
+            const validation = validateDayLoad(sameDayEntries);
             if (!validation.safe) {
                 continue;
             }

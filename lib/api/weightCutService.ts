@@ -27,9 +27,17 @@ export async function createWeightCutPlan(
     biologicalSex: 'male' | 'female';
     planResult: CutPlanResult;
     coachNotes?: string;
+    riskAcknowledgedAt?: string | null;
   }
 ): Promise<WeightCutPlanRow> {
   const { planResult } = input;
+  const riskRequiresAcknowledgement = planResult.cutWarning?.requiresAcknowledgement === true;
+  const riskAcknowledgedAt = riskRequiresAcknowledgement
+    ? input.riskAcknowledgedAt ?? null
+    : null;
+  if (riskRequiresAcknowledgement && !riskAcknowledgedAt) {
+    throw new Error('Risk acknowledgement is required before activating this cut plan.');
+  }
 
   const row = {
     user_id: userId,
@@ -39,7 +47,7 @@ export async function createWeightCutPlan(
     sport: input.sport,
     fight_date: input.fightDate,
     weigh_in_date: input.weighInDate,
-    plan_created_date: todayLocalDate(),
+    plan_created_date: planResult.asOfDate,
     fight_status: input.fightStatus,
     max_water_cut_pct: planResult.maxWaterCutPct,
     total_cut_lbs: planResult.totalCutLbs,
@@ -57,6 +65,9 @@ export async function createWeightCutPlan(
     calorie_floor: planResult.calorieFloor,
     coach_notes: input.coachNotes ?? null,
     baseline_cognitive_score: null,
+    risk_acknowledged_at: riskAcknowledgedAt,
+    risk_acknowledgement_version: riskAcknowledgedAt ? planResult.cutWarning?.policyVersion ?? null : null,
+    risk_warning_snapshot: planResult.safetyWarningDetails.length > 0 ? planResult.safetyWarningDetails : null,
   };
 
   const { data, error } = await supabase
@@ -69,7 +80,7 @@ export async function createWeightCutPlan(
 
   // Determine phase from days-to-fight
   const daysToFight = Math.round(
-    (new Date(input.fightDate).getTime() - Date.now()) / 86400000
+    (new Date(input.fightDate).getTime() - new Date(planResult.asOfDate).getTime()) / 86400000
   );
   const newPhase = daysToFight <= 84 ? 'fight-camp' : daysToFight <= 168 ? 'pre-camp' : 'off-season';
 
@@ -165,6 +176,7 @@ export async function upsertDailyCutProtocol(
     afternoon_protocol: protocol.afternoonProtocol,
     evening_protocol: protocol.eveningProtocol,
     safety_flags: protocol.safetyFlags,
+    active_cut_warning: protocol.activeCutWarning,
   };
 
   const { error } = await supabase

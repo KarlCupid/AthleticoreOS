@@ -57,6 +57,7 @@ import type {
     ExerciseLibraryRow,
     WeekPlanEntry,
     ActivityType,
+    DailyCutProtocolResult,
 } from '../lib/engine/types';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -73,6 +74,38 @@ function daysBetween(a: string, b: string): number {
 
 function getDayOfWeek(dateStr: string): number {
     return new Date(dateStr + 'T12:00:00Z').getUTCDay();
+}
+
+function hasSafetyFlag(protocol: DailyCutProtocolResult, codes: string[]): boolean {
+    return protocol.safetyFlags.some(flag => codes.includes(flag.code));
+}
+
+function plannedScaleDropForDay(
+    protocol: DailyCutProtocolResult,
+    currentWeight: number,
+    targetWeight: number,
+    waterCutAllocationLbs: number
+): number {
+    if (hasSafetyFlag(protocol, ['PROJECTED_UNDERSHOOT', 'TARGET_REACHED_HOLD'])) {
+        return 0;
+    }
+
+    const remainingAboveTarget = Math.max(0, currentWeight - targetWeight);
+    if (remainingAboveTarget <= 0.2) return 0;
+
+    if (protocol.cutPhase === 'fight_week_cut') {
+        const remainingCutDays = Math.max(1, protocol.daysToWeighIn);
+        return Math.min(
+            waterCutAllocationLbs / 3,
+            Math.max(0, remainingAboveTarget - 0.2) / remainingCutDays
+        );
+    }
+
+    if (protocol.cutPhase === 'weigh_in') {
+        return Math.min(1.0, Math.max(0, remainingAboveTarget - 0.2));
+    }
+
+    return 0;
 }
 
 // Bug tracker
@@ -199,6 +232,7 @@ function main() {
     // ── Step 2: Generate Weight Cut Plan ────────────────────────
     console.log('\n📋 STEP 2: Generate Weight Cut Plan');
     const planResult = generateCutPlan({
+        asOfDate: campaStartDate,
         startWeight: FIGHTER.startWeight,
         targetWeight: FIGHTER.targetWeight,
         fightDate,
@@ -206,6 +240,8 @@ function main() {
         fightStatus: 'pro',
         biologicalSex: FIGHTER.sex,
         sport: 'boxing',
+        athleteAge: FIGHTER.age,
+        weighInTiming: 'next_day',
     });
 
     if (!planResult.valid) {
@@ -239,6 +275,7 @@ function main() {
         status: 'active', completed_at: null,
         safe_weekly_loss_rate: planResult.safeWeeklyLossRateLbs,
         calorie_floor: planResult.calorieFloor, baseline_cognitive_score: 100,
+        biological_sex: FIGHTER.sex,
         coach_notes: null, created_at: campaStartDate, updated_at: campaStartDate,
     };
 
@@ -533,6 +570,17 @@ function main() {
                 urineColor: 2,
                 bodyTempF: 98.6,
                 consecutiveDepletedDays,
+                safetyContext: {
+                    age: FIGHTER.age,
+                    sex: FIGHTER.sex,
+                    weighInTiming: 'next_day',
+                    competitionPhase: enginePhase,
+                    asOfDate: currentDate,
+                    urineColor: 2,
+                    bodyTempF: 98.6,
+                    latestCognitiveScore: 98,
+                    baselineCognitiveScore: 100,
+                },
             });
 
             // VERIFY: We run resolveDailyMacros
@@ -706,11 +754,14 @@ function main() {
         const tdee = nutritionTargets.tdee;
         let dailyWeightChange = (actualIntake - tdee) / 3500;
 
-        // Water cut acceleration during fight week
-        if (cutProtocol?.cutPhase === 'fight_week_cut') {
-            dailyWeightChange -= (planResult.waterCutAllocationLbs / 3);
-        } else if (cutProtocol?.cutPhase === 'weigh_in') {
-            dailyWeightChange -= 1.0;
+        // Fight-week scale drop is capped by the engine's current target guardrails.
+        if (cutProtocol?.cutPhase === 'fight_week_cut' || cutProtocol?.cutPhase === 'weigh_in') {
+            dailyWeightChange -= plannedScaleDropForDay(
+                cutProtocol,
+                currentWeight,
+                FIGHTER.targetWeight,
+                planResult.waterCutAllocationLbs
+            );
         } else if (cutProtocol?.cutPhase === 'rehydration') {
             dailyWeightChange += (planResult.waterCutAllocationLbs * 0.8 / 2);
         }

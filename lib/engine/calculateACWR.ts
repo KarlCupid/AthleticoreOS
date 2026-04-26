@@ -188,7 +188,7 @@ export function getPersonalizedACWRThresholds(input: {
   }
 
   if (cycleDay != null && cycleDay >= 20 && cycleDay <= 28) {
-    adjustment += 0.05;
+    adjustment -= 0.03;
     factors.push('luteal_late');
   }
 
@@ -376,12 +376,12 @@ export async function calculateACWR({
   if (ratio > thresholds.redline) {
     status = 'redline';
     message =
-      `You are redlining (ACWR ${ratio.toFixed(2)} > ${thresholds.redline.toFixed(2)}). ` +
+      `Your workload ratio is redlining (${ratio.toFixed(2)} > ${thresholds.redline.toFixed(2)}). ` +
       'Keep today light and prioritize recovery.';
   } else if (ratio > thresholds.caution) {
     status = 'caution';
     message =
-      `Your ACWR is elevated (${ratio.toFixed(2)} > ${thresholds.caution.toFixed(2)}). ` +
+      `Your workload ratio is elevated (${ratio.toFixed(2)} > ${thresholds.caution.toFixed(2)}). ` +
       'Stay disciplined with recovery and avoid stacking high-intensity work.';
   } else if (ratio < thresholds.detrained) {
     status = 'safe';

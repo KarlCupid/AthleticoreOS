@@ -6,6 +6,7 @@ import {
   generateCutPlan,
   determineCutPhase,
   getDailyCutIntensityCap,
+  computeDailyCutProtocol,
   computeCarbCycle,
   detectStall,
   validateCutSafety,
@@ -19,6 +20,7 @@ import type {
 
 let passed = 0;
 let failed = 0;
+const TEST_AS_OF = '2026-01-01';
 
 function assert(label: string, condition: boolean) {
   if (condition) {
@@ -28,12 +30,6 @@ function assert(label: string, condition: boolean) {
     failed++;
     console.error(`  FAIL ${label}`);
   }
-}
-
-function plusDaysIso(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split('T')[0];
 }
 
 function makePlan(overrides: Partial<WeightCutPlanRow> = {}): WeightCutPlanRow {
@@ -104,6 +100,7 @@ console.log('\n-- calculateWeightCut --');
   // target >= start → error
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 170,
       targetWeight: 170,
       fightDate: '2027-06-15',
@@ -111,6 +108,7 @@ console.log('\n-- calculateWeightCut --');
       fightStatus: 'amateur',
       biologicalSex: 'male',
       sport: 'mma',
+      athleteAge: 25,
     });
     assert('Target == start weight returns valid=false', result.valid === false);
     assert('Error mentions target weight', result.validationErrors.some(e => e.includes('Target weight must be less')));
@@ -119,6 +117,7 @@ console.log('\n-- calculateWeightCut --');
   // past weigh-in → error
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 180,
       targetWeight: 170,
       fightDate: '2024-01-02',
@@ -126,6 +125,7 @@ console.log('\n-- calculateWeightCut --');
       fightStatus: 'amateur',
       biologicalSex: 'male',
       sport: 'mma',
+      athleteAge: 25,
     });
     assert('Past weigh-in returns valid=false', result.valid === false);
   }
@@ -133,6 +133,7 @@ console.log('\n-- calculateWeightCut --');
   // fight < weigh-in → error
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 180,
       targetWeight: 170,
       fightDate: '2027-06-13',
@@ -140,6 +141,7 @@ console.log('\n-- calculateWeightCut --');
       fightStatus: 'amateur',
       biologicalSex: 'male',
       sport: 'mma',
+      athleteAge: 25,
     });
     assert('Fight before weigh-in returns valid=false', result.valid === false);
   }
@@ -148,6 +150,7 @@ console.log('\n-- calculateWeightCut --');
 
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 180,
       targetWeight: 170,
       fightDate: '2027-06-15',
@@ -155,6 +158,7 @@ console.log('\n-- calculateWeightCut --');
       fightStatus: 'amateur',
       biologicalSex: 'male',
       sport: 'mma',
+      athleteAge: 25,
     });
     assert('Valid cut plan returns valid=true', result.valid === true);
     assert('Total cut lbs is 10', result.totalCutLbs === 10);
@@ -166,6 +170,7 @@ console.log('\n-- calculateWeightCut --');
 
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 130,
       targetWeight: 125,
       fightDate: '2027-06-15',
@@ -173,12 +178,14 @@ console.log('\n-- calculateWeightCut --');
       fightStatus: 'amateur',
       biologicalSex: 'female',
       sport: 'boxing',
+      athleteAge: 25,
     });
     assert('Female calorie floor is 1200', result.calorieFloor === 1200);
   }
 
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 180,
       targetWeight: 170,
       fightDate: '2027-06-15',
@@ -186,12 +193,14 @@ console.log('\n-- calculateWeightCut --');
       fightStatus: 'pro',
       biologicalSex: 'male',
       sport: 'mma',
+      athleteAge: 25,
     });
     assert('Professional max water cut is 5%', result.maxWaterCutPct === 5);
   }
 
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 180,
       targetWeight: 160,
       fightDate: '2027-06-15',
@@ -199,6 +208,7 @@ console.log('\n-- calculateWeightCut --');
       fightStatus: 'pro',
       biologicalSex: 'male',
       sport: 'mma',
+      athleteAge: 25,
     });
     assert('Extreme cut (>10%) returns a structured cut warning', result.cutWarning != null);
     assert('Extreme cut warning keeps the warning code', result.cutWarning?.code === 'extreme_cut');
@@ -206,16 +216,66 @@ console.log('\n-- calculateWeightCut --');
 
   {
     const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
       startWeight: 180,
       targetWeight: 158,
-      fightDate: plusDaysIso(6),
-      weighInDate: plusDaysIso(5),
+      fightDate: '2026-01-07',
+      weighInDate: '2026-01-06',
       fightStatus: 'pro',
       biologicalSex: 'male',
       sport: 'mma',
+      athleteAge: 25,
     });
     assert('Short-horizon 12%+ cut escalates to medical severity', result.cutWarning?.severity === 'medical');
     assert('Medical cut warning requires acknowledgement', result.cutWarning?.requiresAcknowledgement === true);
+  }
+
+  {
+    const result = generateCutPlan({
+      asOfDate: '2026-03-01',
+      startWeight: 180,
+      targetWeight: 168,
+      fightDate: '2026-05-02',
+      weighInDate: '2026-05-01',
+      fightStatus: 'amateur',
+      biologicalSex: 'male',
+      sport: 'mma',
+      athleteAge: 25,
+    });
+    assert('Cut plan records explicit asOfDate', result.asOfDate === '2026-03-01');
+    assert('Cut plan phase starts from asOfDate, not wall clock', result.chronicPhaseDates?.start === '2026-03-01');
+  }
+
+  {
+    const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
+      startWeight: 175,
+      targetWeight: 160,
+      fightDate: '2026-03-02',
+      weighInDate: '2026-03-01',
+      fightStatus: 'pro',
+      biologicalSex: 'male',
+      sport: 'boxing',
+      athleteAge: 25,
+    });
+    assert('7-10% cut uses caution-band warning code', result.cutWarning?.code === 'cut_pct_over_7');
+    assert('7-10% warning does not claim it exceeds 10%', result.cutWarning?.message.includes('below the common 10%') === true);
+  }
+
+  {
+    const result = generateCutPlan({
+      asOfDate: TEST_AS_OF,
+      startWeight: 180,
+      targetWeight: 170,
+      fightDate: '2027-06-15',
+      weighInDate: '2027-06-14',
+      fightStatus: 'pro',
+      biologicalSex: 'male',
+      sport: 'mma',
+      athleteAge: null,
+    });
+    assert('Unknown age uses teen-conservative water cap', result.maxWaterCutPct === 1.5);
+    assert('Unknown age warning is surfaced', result.safetyWarningDetails.some((warning) => warning.code === 'unknown_age_weight_cut'));
   }
 })();
 
@@ -247,6 +307,104 @@ console.log('\n-- calculateWeightCut --');
   assert('intensified cap is 8', getDailyCutIntensityCap(plan, '2026-04-20') === 8);
   assert('chronic cap is null', getDailyCutIntensityCap(plan, '2026-03-01') === null);
   assert('null plan returns null', getDailyCutIntensityCap(null, '2026-06-14') === null);
+})();
+
+(() => {
+  console.log('\n  Section: computeDailyCutProtocol safety policy');
+
+  const plan = makePlan();
+  const protocol = computeDailyCutProtocol({
+    plan,
+    date: '2026-06-12',
+    currentWeight: 174,
+    weightHistory: [
+      { date: '2026-06-05', weight: 176 },
+      { date: '2026-06-12', weight: 174 },
+    ],
+    baseNutritionTargets: {
+      tdee: 2600,
+      adjustedCalories: 2300,
+      protein: 180,
+      carbs: 240,
+      fat: 70,
+      proteinModifier: 1,
+      phaseMultiplier: -0.1,
+      weightCorrectionDeficit: 0,
+      message: 'test',
+    },
+    dayActivities: [],
+    readinessState: 'Caution',
+    acwr: 1,
+    biologicalSex: 'male',
+    cycleDay: null,
+    weeklyVelocityLbs: -2,
+    lastRefeedDate: null,
+    lastDietBreakDate: null,
+    baselineCognitiveScore: 100,
+    latestCognitiveScore: 98,
+    urineColor: 3,
+    bodyTempF: 98.6,
+    consecutiveDepletedDays: 0,
+    safetyContext: {
+      age: 17,
+      sex: 'male',
+      weighInTiming: 'next_day',
+      competitionPhase: 'fight-camp',
+      asOfDate: '2026-06-12',
+    },
+  });
+
+  assert('Teen fight-week protocol surfaces teen safety flag', protocol.safetyFlags.some((flag) => flag.code === 'TEEN_FIGHT_WEEK_CUT'));
+  assert('Teen fight-week protocol avoids hot-bath instruction', !protocol.morningProtocol.toLowerCase().includes('hot bath'));
+  assert('Teen fight-week protocol avoids passive sweat instruction', !protocol.eveningProtocol.toLowerCase().includes('passive sweat'));
+})();
+
+(() => {
+  const protocol = computeDailyCutProtocol({
+    plan: makePlan(),
+    date: '2026-06-13',
+    currentWeight: 170.4,
+    weightHistory: [
+      { date: '2026-06-06', weight: 172 },
+      { date: '2026-06-12', weight: 170.6 },
+    ],
+    baseNutritionTargets: {
+      tdee: 2600,
+      adjustedCalories: 2300,
+      protein: 180,
+      carbs: 240,
+      fat: 70,
+      proteinModifier: 1,
+      phaseMultiplier: -0.1,
+      weightCorrectionDeficit: 0,
+      message: 'test',
+    },
+    dayActivities: [],
+    readinessState: 'Prime',
+    acwr: 1,
+    biologicalSex: 'male',
+    cycleDay: null,
+    weeklyVelocityLbs: -1.4,
+    lastRefeedDate: null,
+    lastDietBreakDate: null,
+    baselineCognitiveScore: 100,
+    latestCognitiveScore: 98,
+    urineColor: 2,
+    bodyTempF: 98.6,
+    consecutiveDepletedDays: 0,
+    safetyContext: {
+      age: 28,
+      sex: 'male',
+      weighInTiming: 'next_day',
+      competitionPhase: 'fight-camp',
+      asOfDate: '2026-06-13',
+    },
+  });
+
+  assert('Target-band fight-week cut raises calories above minimal protocol', protocol.prescribedCalories > 1500);
+  assert('Target-band fight-week cut surfaces hold flag', protocol.safetyFlags.some((flag) => flag.code === 'TARGET_REACHED_HOLD'));
+  assert('Target-band fight-week cut explains removed final-drop tactics', protocol.interventionReason?.includes('final-drop tactics removed') === true);
+  assert('Target-band fight-week cut avoids hot-bath instruction', !protocol.morningProtocol.toLowerCase().includes('hot bath'));
 })();
 
 (() => {

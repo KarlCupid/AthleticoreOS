@@ -22,6 +22,9 @@ export function CutPlanPreviewStep({
   if (!planResult) return null;
 
   const hasErrors = planResult.validationErrors.length > 0;
+  const riskTitle = planResult.cutWarning
+    ? `${planResult.cutWarning.severity.toUpperCase()} SAFETY WARNING`
+    : 'SAFETY WARNING';
 
   return (
     <View style={styles.stepContainer}>
@@ -83,42 +86,39 @@ export function CutPlanPreviewStep({
             <View style={styles.extremeWarningBox}>
               <View style={styles.extremeWarningHeader}>
                 <Text style={styles.extremeWarningIcon}>!</Text>
-                <Text style={styles.extremeWarningTitle}>EXTREME CUT: SERIOUS HEALTH RISK</Text>
+                <Text style={styles.extremeWarningTitle}>{riskTitle}</Text>
               </View>
-              <Text style={styles.extremeWarningBody}>
-                A {planResult.totalCutPct.toFixed(1)}% body-weight cut ({planResult.totalCutLbs.toFixed(1)} lbs)
-                significantly exceeds the 10% limit commonly used in sports-medicine safety guidance.
-              </Text>
-              <Text style={styles.extremeWarningSubheading}>Documented risks at this magnitude:</Text>
-              {[
-                'Acute kidney injury and kidney failure',
-                'Cardiac arrhythmia and sudden cardiac events',
-                'Severe cognitive and neuromuscular impairment',
-                'Rhabdomyolysis (muscle breakdown)',
-                'In rare cases, death',
-              ].map((risk) => (
-                <Text key={risk} style={styles.extremeRiskItem}>
-                  - {risk}
-                </Text>
-              ))}
-              <Text style={styles.extremeWarningBody}>
-                The safest option is to move to a higher weight class. If you still plan to proceed, only do so under
-                direct supervision from a licensed sports dietitian and physician.
-              </Text>
+              <Text style={styles.extremeWarningBody}>{planResult.cutWarning.message}</Text>
+              {planResult.cutWarning.severity === 'severe' || planResult.cutWarning.severity === 'medical' ? (
+                <>
+                  <Text style={styles.extremeWarningSubheading}>Key risks to monitor:</Text>
+                  {[
+                    'Dehydration, heat illness, and kidney strain',
+                    'Cognitive and neuromuscular impairment',
+                    'Reduced sparring and fight-day performance',
+                    'Low energy availability and poor recovery',
+                  ].map((risk) => (
+                    <Text key={risk} style={styles.extremeRiskItem}>
+                      - {risk}
+                    </Text>
+                  ))}
+                </>
+              ) : null}
 
-              <TouchableOpacity
-                style={styles.ackRow}
-                onPress={() => setExtremeAcknowledged((value) => !value)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.ackCheckbox, extremeAcknowledged && styles.ackCheckboxChecked]}>
-                  {extremeAcknowledged ? <Text style={styles.ackCheckmark}>OK</Text> : null}
-                </View>
-                <Text style={styles.ackText}>
-                  I understand these risks are real and potentially life-threatening. I will only proceed with qualified
-                  medical supervision.
-                </Text>
-              </TouchableOpacity>
+              {planResult.cutWarning.requiresAcknowledgement ? (
+                <TouchableOpacity
+                  style={styles.ackRow}
+                  onPress={() => setExtremeAcknowledged((value) => !value)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.ackCheckbox, extremeAcknowledged && styles.ackCheckboxChecked]}>
+                    {extremeAcknowledged ? <Text style={styles.ackCheckmark}>OK</Text> : null}
+                  </View>
+                  <Text style={styles.ackText}>
+                    I understand these risks are real. I will only proceed with qualified supervision and will stop if safety symptoms appear.
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : null}
 

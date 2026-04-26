@@ -254,6 +254,14 @@ console.log('\n-- resolveDailyMacros --');
 })();
 
 (() => {
+  const base = calculateNutritionTargets(baseInput());
+  const lightResolved = resolveDailyNutritionTargets(base, null, [], { bodyweightLbs: 140 });
+  const heavyResolved = resolveDailyNutritionTargets(base, null, [], { bodyweightLbs: 220 });
+
+  assert('Daily resolver uses explicit bodyweight for protein scaling', heavyResolved.protein > lightResolved.protein);
+})();
+
+(() => {
   const base = calculateNutritionTargets(baseInput({
     phase: 'camp-build',
     nutritionGoal: 'maintain',
@@ -314,6 +322,11 @@ console.log('\n-- resolveDailyMacros --');
         trend: 'stable',
         flags: [],
         performanceAnchors: [],
+      } as any,
+      macrocycleContext: {
+        phase: 'camp-build',
+        goalMode: 'fight_camp',
+        campPhase: 'build',
       } as any,
     },
   );

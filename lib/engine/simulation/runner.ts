@@ -56,6 +56,7 @@ function buildSimulationCutPlan(input: {
 }) {
   const { startDate, fightDate, startWeight, targetWeight } = input;
   const plan = generateCutPlan({
+    asOfDate: startDate,
     startWeight,
     targetWeight,
     fightDate: addIsoDays(fightDate, 1),
@@ -63,6 +64,8 @@ function buildSimulationCutPlan(input: {
     fightStatus: 'pro',
     biologicalSex: 'male',
     sport: 'boxing',
+    athleteAge: 25,
+    weighInTiming: 'next_day',
   });
 
   return {
@@ -628,7 +631,18 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         urineColor: isFightWeek ? 5 : 2,
         bodyTempF: 98.6,
         consecutiveDepletedDays: simState.consecutiveDepletedDays,
-        biologicalSex: 'male'
+        biologicalSex: 'male',
+        safetyContext: {
+          age: 25,
+          sex: 'male',
+          weighInTiming: 'next_day',
+          competitionPhase: macrocycleContext.phase,
+          asOfDate: dateStr,
+          urineColor: isFightWeek ? 5 : 2,
+          bodyTempF: 98.6,
+          latestCognitiveScore: isFightWeek ? 85 : 100,
+          baselineCognitiveScore: 100,
+        },
       });
       cutProtocol = normalizeCutProtocol(rawCutProtocol);
     }

@@ -7,6 +7,7 @@ import { calculateNutritionTargets } from '../lib/engine/calculateNutrition';
 import {
     CutPlanInput,
     DailyCutProtocolInput,
+    DailyCutProtocolResult,
     WeightDataPoint,
     ReadinessState,
     Phase,
@@ -25,6 +26,38 @@ function addDays(dateStr: string, days: number): string {
 
 function daysBetween(a: string, b: string): number {
     return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+}
+
+function hasSafetyFlag(protocol: DailyCutProtocolResult, codes: string[]): boolean {
+    return protocol.safetyFlags.some(flag => codes.includes(flag.code));
+}
+
+function plannedScaleDropForDay(
+    protocol: DailyCutProtocolResult,
+    currentWeight: number,
+    targetWeight: number,
+    waterCutAllocationLbs: number
+): number {
+    if (hasSafetyFlag(protocol, ['PROJECTED_UNDERSHOOT', 'TARGET_REACHED_HOLD'])) {
+        return 0;
+    }
+
+    const remainingAboveTarget = Math.max(0, currentWeight - targetWeight);
+    if (remainingAboveTarget <= 0.2) return 0;
+
+    if (protocol.cutPhase === 'fight_week_cut') {
+        const remainingCutDays = Math.max(1, protocol.daysToWeighIn);
+        return Math.min(
+            waterCutAllocationLbs / 3,
+            Math.max(0, remainingAboveTarget - 0.2) / remainingCutDays
+        );
+    }
+
+    if (protocol.cutPhase === 'weigh_in') {
+        return Math.min(1.0, Math.max(0, remainingAboveTarget - 0.2));
+    }
+
+    return 0;
 }
 
 // ─── Simulation Logic ──────────────────────────────────────────
@@ -116,13 +149,16 @@ async function runSimulation(profile: Profile) {
 
     // 1. Generate Plan
     const planInput: CutPlanInput = {
+        asOfDate: todayStr,
         startWeight: profile.startWeight,
         targetWeight: profile.targetWeight,
         fightDate,
         weighInDate,
         fightStatus: 'pro',
         biologicalSex: profile.sex,
-        sport: 'boxing'
+        sport: 'boxing',
+        athleteAge: profile.age,
+        weighInTiming: 'next_day'
     };
 
     const planResult = generateCutPlan(planInput);
@@ -164,6 +200,7 @@ async function runSimulation(profile: Profile) {
         calorie_floor: planResult.calorieFloor,
         baseline_cognitive_score: 100,
         coach_notes: null,
+        biological_sex: profile.sex,
         created_at: todayStr,
         updated_at: todayStr
     };
@@ -228,7 +265,18 @@ async function runSimulation(profile: Profile) {
             latestCognitiveScore: 98,
             urineColor: 2,
             bodyTempF: 98.6,
-            consecutiveDepletedDays
+            consecutiveDepletedDays,
+            safetyContext: {
+                age: profile.age,
+                sex: profile.sex,
+                weighInTiming: 'next_day',
+                competitionPhase: 'fight-camp',
+                asOfDate: currentDate,
+                urineColor: 2,
+                bodyTempF: 98.6,
+                latestCognitiveScore: 98,
+                baselineCognitiveScore: 100
+            }
         };
 
         const protocol = computeDailyCutProtocol(protocolInput);
@@ -240,13 +288,14 @@ async function runSimulation(profile: Profile) {
         // Calorie physics (3500 cal = 1 lb)
         let dailyChange = (intakeAdjusted - tdee) / 3500;
 
-        // Water cut logic (Fight Week)
-        if (protocol.cutPhase === 'fight_week_cut') {
-            // Significantly drop weight due to water restriction
-            dailyChange -= (planResult.waterCutAllocationLbs / 3);
-        } else if (protocol.cutPhase === 'weigh_in') {
-            // Final drop
-            dailyChange -= 1.0;
+        // Fight-week scale drop is capped by the engine's current target guardrails.
+        if (protocol.cutPhase === 'fight_week_cut' || protocol.cutPhase === 'weigh_in') {
+            dailyChange -= plannedScaleDropForDay(
+                protocol,
+                currentWeight,
+                profile.targetWeight,
+                planResult.waterCutAllocationLbs
+            );
         } else if (protocol.cutPhase === 'rehydration') {
             // Regain weight
             dailyChange += (planResult.waterCutAllocationLbs * 0.8 / 2);

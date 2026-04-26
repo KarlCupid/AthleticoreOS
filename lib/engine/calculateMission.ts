@@ -588,7 +588,7 @@ function buildFuelDirective(
   } else if (input.nutritionTargets.recoveryNutritionFocus === 'impact_recovery') {
     message += ' Protein timing matters today because tissue recovery is part of the workload.';
   }
-  const weightDriftLbs = (input.cutProtocol as any)?.weightDriftLbs ?? input.cutProtocol?.weight_drift_lbs ?? null;
+  const weightDriftLbs = input.cutProtocol?.weight_drift_lbs ?? null;
   const hasDriftCorrection = weightDriftLbs != null && weightDriftLbs > 0.5;
 
   return {
@@ -597,10 +597,10 @@ function buildFuelDirective(
     deficitClass: input.nutritionTargets.deficitClass,
     recoveryNutritionFocus: input.nutritionTargets.recoveryNutritionFocus,
     sessionDemandScore: isRestDay ? 0 : demandScore,
-    calories: (input.cutProtocol as any)?.prescribedCalories ?? (input.cutProtocol as any)?.prescribed_calories ?? input.nutritionTargets.adjustedCalories,
-    protein: (input.cutProtocol as any)?.prescribedProtein ?? (input.cutProtocol as any)?.prescribed_protein ?? input.nutritionTargets.protein,
-    carbs: (input.cutProtocol as any)?.prescribedCarbs ?? (input.cutProtocol as any)?.prescribed_carbs ?? input.nutritionTargets.carbs,
-    fat: (input.cutProtocol as any)?.prescribedFat ?? (input.cutProtocol as any)?.prescribed_fat ?? input.nutritionTargets.fat,
+    calories: input.cutProtocol?.prescribed_calories ?? input.nutritionTargets.adjustedCalories,
+    protein: input.cutProtocol?.prescribed_protein ?? input.nutritionTargets.protein,
+    carbs: input.cutProtocol?.prescribed_carbs ?? input.nutritionTargets.carbs,
+    fat: input.cutProtocol?.prescribed_fat ?? input.nutritionTargets.fat,
     preSessionCarbsG,
     intraSessionCarbsG,
     postSessionProteinG,
@@ -737,7 +737,7 @@ function buildDecisionTrace(
   }
 
   if (input.cutProtocol) {
-    const phaseName = (input.cutProtocol as any).cut_phase || (input.cutProtocol as any).cutPhase || 'active_cut';
+    const phaseName = input.cutProtocol.cut_phase || 'active_cut';
     trace.push({
       subsystem: 'fuel',
       title: 'Cut protocol authority',

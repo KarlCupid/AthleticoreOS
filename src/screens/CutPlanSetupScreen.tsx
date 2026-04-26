@@ -21,7 +21,7 @@ import { createWeightCutPlan } from '../../lib/api/weightCutService';
 import { getEffectiveWeight } from '../../lib/api/weightService';
 import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
 import type { CutPlanResult, CutSport, FightStatus } from '../../lib/engine/types';
-import { formatLocalDate } from '../../lib/utils/date';
+import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { CutPlanPreviewStep } from '../components/CutPlanPreviewStep';
 import { DatePickerField } from '../components/DatePickerField';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';
@@ -47,6 +47,7 @@ interface AthleteProfileSnapshot {
   sport?: CutSport | null;
   fight_status?: FightStatus | null;
   biological_sex?: 'male' | 'female' | null;
+  age?: number | null;
 }
 
 const HEALTH_GUIDANCE_NOTE =
@@ -83,7 +84,7 @@ export function CutPlanSetupScreen() {
       setUserId(user.id);
 
       const [profileRes, effectiveWeight] = await Promise.all([
-        supabase.from('athlete_profiles').select('sport, fight_status, biological_sex').eq('user_id', user.id).single(),
+        supabase.from('athlete_profiles').select('sport, fight_status, biological_sex, age').eq('user_id', user.id).single(),
         getEffectiveWeight(user.id, 160),
       ]);
 
@@ -138,6 +139,7 @@ export function CutPlanSetupScreen() {
 
       const actualStartWeight = Number(form.startWeightStr) || startWeight;
       const result = generateCutPlan({
+        asOfDate: todayLocalDate(),
         startWeight: actualStartWeight,
         targetWeight: Number(form.targetWeight),
         fightDate: form.fightDate,
@@ -145,6 +147,8 @@ export function CutPlanSetupScreen() {
         fightStatus: profile?.fight_status ?? 'amateur',
         biologicalSex: profile?.biological_sex ?? 'male',
         sport: form.sport,
+        athleteAge: profile?.age ?? null,
+        weighInTiming: form.fightDate === form.weighInDate ? 'same_day' : 'next_day',
       });
 
       setPlanResult(result);
@@ -159,7 +163,7 @@ export function CutPlanSetupScreen() {
         return;
       }
 
-      if (planResult.cutWarning && !extremeAcknowledged) {
+      if (planResult.cutWarning?.requiresAcknowledgement && !extremeAcknowledged) {
         Alert.alert(
           'Acknowledgment required',
           'You must confirm that you understand the elevated health risks before proceeding.',
@@ -189,6 +193,9 @@ export function CutPlanSetupScreen() {
         biologicalSex: profile?.biological_sex ?? 'male',
         planResult,
         coachNotes: form.coachNotes || undefined,
+        riskAcknowledgedAt: planResult.cutWarning?.requiresAcknowledgement && extremeAcknowledged
+          ? new Date().toISOString()
+          : null,
       });
 
       nav.navigate('WeightCutHome');
@@ -354,7 +361,7 @@ export function CutPlanSetupScreen() {
       {planResult?.cutWarning ? (
         <View style={styles.extremeReminderBanner}>
           <Text style={styles.extremeReminderText}>
-            Extreme cut active ({planResult.totalCutPct.toFixed(1)}% body weight). Medical oversight is strongly recommended before proceeding.
+            Safety warning active ({planResult.totalCutPct.toFixed(1)}% body weight). Qualified supervision is strongly recommended before proceeding.
           </Text>
         </View>
       ) : null}
@@ -378,9 +385,10 @@ export function CutPlanSetupScreen() {
     </View>
   );
 
+  const requiresRiskAcknowledgement = Boolean(planResult?.cutWarning?.requiresAcknowledgement);
   const isNextDisabled =
     (step === 4 && !planResult?.valid) ||
-    (step === 4 && Boolean(planResult?.cutWarning) && !extremeAcknowledged);
+    (step === 4 && requiresRiskAcknowledgement && !extremeAcknowledged);
 
   return (
     <KeyboardAvoidingView
@@ -432,7 +440,7 @@ export function CutPlanSetupScreen() {
             <Text style={styles.nextButtonText}>
               {step === 1
                 ? 'Build my cut plan'
-                : step === 4 && planResult?.cutWarning && !extremeAcknowledged
+                : step === 4 && requiresRiskAcknowledgement && !extremeAcknowledged
                   ? 'Confirm risks above to continue'
                   : step === 4
                     ? 'Looks good'

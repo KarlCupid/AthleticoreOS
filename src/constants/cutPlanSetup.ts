@@ -15,7 +15,7 @@ export const APP_IMPACTS = [
     color: '#0EA5E9',
     bg: '#F0F9FF',
     detail:
-      'Daily water targets update based on your cut phase. Fight week adds a structured sodium and fluid protocol to support the final water cut.',
+      'Daily water targets update based on your cut phase. Fight week adds conservative hydration and sodium guardrails with visible safety warnings.',
   },
   {
     icon: 'S&C',
@@ -60,7 +60,7 @@ export const CUT_PHASES = [
     color: '#D4AF37',
     bg: '#F5F5F0BEB',
     description:
-      'Sodium loading, depletion, and controlled fluid restriction. Training volume drops sharply while the water-cut protocol activates.',
+      'Conservative hydration, sodium, and low-residue guidance. Training volume drops sharply, and warnings stay visible when risk is elevated.',
   },
   {
     label: 'Rehydration',

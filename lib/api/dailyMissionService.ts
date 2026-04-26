@@ -27,7 +27,7 @@ import {
   type WeeklyMissionPlan,
   type WeeklyPlanEntryRow,
 } from '../engine/index.ts';
-import type { WeightCutPlanRow } from '../engine/types';
+import type { CutPlanWarning, CutSafetyFlag, DailyCutProtocolRow, WeightCutPlanRow } from '../engine/types';
 import { calculateACWR } from '../engine/calculateACWR';
 import { determineCampPhase, toCampEnginePhase } from '../engine/calculateCamp';
 import { computeDailyCutProtocol } from '../engine/calculateWeightCut';
@@ -654,6 +654,8 @@ async function resolveNutritionTargets(input: {
           }))),
     {
       daysToWeighIn: cutProtocol?.days_to_weigh_in ?? null,
+      bodyweightLbs: currentWeight,
+      athleteAge: profile.age ?? null,
       readinessProfile,
       constraintSet,
       macrocycleContext,
@@ -670,17 +672,23 @@ async function getCutProtocolForDate(userId: string, date: string) {
     .eq('date', date)
     .maybeSingle();
 
-  const protocol = data as any;
+  const protocol = normalizeDailyCutProtocolRow(data);
   if (protocol && protocol.active_cut_warning == null && Array.isArray(protocol.safety_flags)) {
-    const warningFlag = protocol.safety_flags.find((flag: any) => flag?.code === 'extreme_cut');
+    const warningFlag = protocol.safety_flags.find((flag) => flag.code === 'extreme_cut' || flag.code === 'cut_pct_over_7');
     if (warningFlag) {
       protocol.active_cut_warning = {
         severity: warningFlag.severity === 'danger' ? 'medical' : 'severe',
-        code: 'extreme_cut',
+        tier: warningFlag.severity === 'danger' ? 'medical' : 'severe',
+        code: warningFlag.code,
         message: warningFlag.message,
         requiresAcknowledgement: true,
         persistent: true,
+        allowProceed: true,
+        policyVersion: 'legacy-safety-flag',
+        source: 'weight_cut',
         amateurAdjusted: false,
+        teenSensitive: false,
+        ageUnknown: false,
         daysToWeighIn: protocol.days_to_weigh_in ?? null,
         cutPct: 0,
       };
@@ -688,6 +696,36 @@ async function getCutProtocolForDate(userId: string, date: string) {
   }
 
   return protocol;
+}
+
+function normalizeDailyCutProtocolRow(data: unknown): DailyCutProtocolRow | null {
+  if (!data || typeof data !== 'object') return null;
+  const protocol = data as DailyCutProtocolRow;
+  protocol.safety_flags = Array.isArray(protocol.safety_flags)
+    ? protocol.safety_flags.filter(isCutSafetyFlag)
+    : [];
+  protocol.active_cut_warning = isCutPlanWarning(protocol.active_cut_warning)
+    ? protocol.active_cut_warning
+    : null;
+  return protocol;
+}
+
+function isCutSafetyFlag(value: unknown): value is CutSafetyFlag {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<CutSafetyFlag>;
+  return typeof candidate.code === 'string'
+    && typeof candidate.title === 'string'
+    && typeof candidate.message === 'string'
+    && typeof candidate.recommendation === 'string'
+    && (candidate.severity === 'info' || candidate.severity === 'warning' || candidate.severity === 'danger');
+}
+
+function isCutPlanWarning(value: unknown): value is CutPlanWarning {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<CutPlanWarning>;
+  return typeof candidate.code === 'string'
+    && typeof candidate.message === 'string'
+    && (candidate.severity === 'info' || candidate.severity === 'caution' || candidate.severity === 'severe' || candidate.severity === 'medical');
 }
 
 async function ensureCutProtocolForDate(input: {
@@ -808,6 +846,17 @@ async function ensureCutProtocolForDate(input: {
     urineColor: todayCheckin?.urine_color ?? null,
     bodyTempF: todayCheckin?.body_temp_f ?? null,
     consecutiveDepletedDays,
+    safetyContext: {
+      age: profile.age ?? null,
+      sex: profile.biological_sex ?? null,
+      weighInTiming: daysBetween(plan.weigh_in_date, plan.fight_date) === 0 ? 'same_day' : 'next_day',
+      competitionPhase: phase,
+      asOfDate: date,
+      urineColor: todayCheckin?.urine_color ?? null,
+      bodyTempF: todayCheckin?.body_temp_f ?? null,
+      latestCognitiveScore: todayCheckin?.cognitive_score ?? null,
+      baselineCognitiveScore: plan.baseline_cognitive_score,
+    },
   });
 
   await upsertDailyCutProtocol(userId, plan.id, date, protocol);

@@ -101,6 +101,9 @@ type DayActivity = {
 
 type NutritionResolutionOptions = {
   daysToWeighIn?: number | null;
+  bodyweightLbs?: number | null;
+  leanMassKg?: number | null;
+  athleteAge?: number | null;
   readinessProfile?: ReadinessProfile | null;
   constraintSet?: StimulusConstraintSet | null;
   macrocycleContext?: MacrocycleContext | null;
@@ -635,8 +638,10 @@ export function resolveDailyNutritionTargets(
   const activeTrainingCount = sortedActivities.filter((activity) =>
     activity.activity_type !== 'rest' && activity.activity_type !== 'active_recovery',
   ).length;
-  const estimatedBodyweightLbs = Math.max(100, Math.round(baseTargets.protein / Math.max(baseTargets.proteinModifier, 1)));
-  const leanMassKg = estimateLeanMassKg(estimatedBodyweightLbs);
+  const bodyweightLbs = options?.bodyweightLbs
+    ?? options?.macrocycleContext?.currentWeightLbs
+    ?? 180;
+  const leanMassKg = options?.leanMassKg ?? estimateLeanMassKg(bodyweightLbs);
   const estimatedExpenditure = estimateTrainingExpenditure(sortedActivities);
   const isTrainingDay = activeTrainingCount > 0;
   const legacyFuelState = getLegacyFuelState(prioritySession.priority, options?.macrocycleContext);
@@ -663,7 +668,7 @@ export function resolveDailyNutritionTargets(
     );
     const deficitPercent = baseTargets.tdee > 0 ? Math.max(0, (baseTargets.tdee - cutCalories) / baseTargets.tdee) : 0;
     const scaledProtein = getProteinTarget({
-      bodyweightLbs: estimatedBodyweightLbs,
+      bodyweightLbs,
       deficitPercent,
       proteinModifier: baseTargets.proteinModifier,
       phase: options?.macrocycleContext?.phase ?? null,
@@ -810,7 +815,7 @@ export function resolveDailyNutritionTargets(
   const modifiedCalories = baseTargets.adjustedCalories + calorieModifier;
   const deficitPercent = baseTargets.tdee > 0 ? Math.max(0, (baseTargets.tdee - modifiedCalories) / baseTargets.tdee) : 0;
   const modifiedProtein = getProteinTarget({
-    bodyweightLbs: estimatedBodyweightLbs,
+    bodyweightLbs,
     deficitPercent,
     proteinModifier: baseTargets.proteinModifier,
     phase: options?.macrocycleContext?.phase ?? null,
