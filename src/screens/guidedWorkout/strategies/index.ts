@@ -25,7 +25,6 @@ import { DensityRenderer } from './DensityRenderer';
 import { ForTimeRenderer } from './ForTimeRenderer';
 import { RecoveryRenderer } from './RecoveryRenderer';
 import { ActivationRenderer } from './ActivationRenderer';
-import { ConditioningRenderer } from './ConditioningRenderer';
 import { PlyometricRenderer } from './PlyometricRenderer';
 import { SprintRenderer } from './SprintRenderer';
 import { HIITRenderer } from './HIITRenderer';
@@ -134,12 +133,11 @@ export function resolveRenderer(
       case 'recovery_flow':
         return RecoveryRenderer;
       case 'intervals':
-        return ConditioningRenderer;
+        return HIITRenderer;
     }
   }
 
   // 4. Workout type match
-  if (workoutType === 'conditioning') return ConditioningRenderer;
   if (workoutType === 'recovery') return RecoveryRenderer;
 
   // 5. Default: Strength renderer for any unmatched case (most common)

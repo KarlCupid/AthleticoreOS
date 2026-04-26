@@ -49,7 +49,7 @@ import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
 import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
 import { deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseScoring.ts';
-import { buildLegacySessionPrescription } from './resources/scProgrammingResources.ts';
+import { buildSessionPrescriptionForWorkout } from './resources/scProgrammingResources.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -1162,10 +1162,10 @@ function buildConditioningWorkoutV2(input: {
     const estimatedDuration = availableMinutes != null
         ? Math.min(availableMinutes, prescription.totalDurationMin)
         : prescription.totalDurationMin;
-    const sessionPrescription = buildLegacySessionPrescription({
+    const sessionPrescription = buildSessionPrescriptionForWorkout({
         focus: 'conditioning',
         primaryAdaptation: 'conditioning',
-        legacySessionFamily: 'conditioning',
+        engineSessionFamily: 'conditioning',
         conditioningType: prescription.type,
     });
 
@@ -1533,10 +1533,10 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         blockContext: resolvedBlockContext,
         availableMinutes,
     });
-    const sessionPrescription = buildLegacySessionPrescription({
+    const sessionPrescription = buildSessionPrescriptionForWorkout({
         focus: effectiveFocus,
         primaryAdaptation,
-        legacySessionFamily: resolvedSessionFamily,
+        engineSessionFamily: resolvedSessionFamily,
     });
     const doseOutputs = buildDoseOutputs({
         modules: resolvedSessionModules,
@@ -1822,10 +1822,10 @@ function buildSparringDayWorkout(
         campPhaseContext = phase.replace('camp-', '') as CampPhase;
     }
     const resolvedSupportFamily = sessionFamily ?? 'durability_core';
-    const sessionPrescription = buildLegacySessionPrescription({
+    const sessionPrescription = buildSessionPrescriptionForWorkout({
         focus: 'recovery',
         primaryAdaptation: 'recovery',
-        legacySessionFamily: resolvedSupportFamily,
+        engineSessionFamily: resolvedSupportFamily,
     });
 
     return {

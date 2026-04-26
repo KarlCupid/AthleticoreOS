@@ -11,7 +11,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
@@ -22,7 +22,6 @@ import { IconChevronLeft, IconPlus } from '../components/icons';
 import type { TrainStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
-type RouteParams = Pick<TrainStackParamList, 'ExerciseSearch'>;
 
 const TYPE_FILTERS: { value: ExerciseType; label: string }[] = [
     { value: 'heavy_lift', label: 'Lifts' },
@@ -48,8 +47,6 @@ const MUSCLE_FILTERS: { value: MuscleGroup; label: string }[] = [
 export function ExerciseSearchScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
-    const route = useRoute<RouteProp<RouteParams, 'ExerciseSearch'>>();
-    const workoutLogId = route.params?.workoutLogId;
     const { themeColor } = useReadinessTheme();
 
     const [query, setQuery] = useState('');
@@ -88,7 +85,7 @@ export function ExerciseSearchScreen() {
         <Animated.View entering={FadeInDown.delay(index * 30).duration(200).springify()}>
             <AnimatedPressable
                 style={styles.exerciseItem}
-                onPress={() => navigation.navigate('ExerciseDetail', { exercise: item, workoutLogId })}
+                onPress={() => navigation.navigate('ExerciseDetail', { exercise: item })}
             >
                 <View style={styles.exerciseLeft}>
                     <Text style={styles.exerciseName}>{item.name}</Text>

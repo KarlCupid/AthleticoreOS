@@ -20,29 +20,18 @@ import type { TrainStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteParams = {
-    ExerciseDetail: { exercise: ExerciseLibraryRow; workoutLogId?: string };
+    ExerciseDetail: { exercise: ExerciseLibraryRow };
 };
 
 export function ExerciseDetailScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RouteProp<RouteParams, 'ExerciseDetail'>>();
-    const { exercise, workoutLogId } = route.params;
+    const { exercise } = route.params;
     const { themeColor } = useReadinessTheme();
 
     const handleAdd = () => {
-        if (workoutLogId) {
-            // Navigate back to ActiveWorkout and pass a unique token so the screen can add exactly one set.
-            navigation.navigate('ActiveWorkout', {
-                workoutLogId,
-                focus: null,
-                workoutType: 'strength',
-                selectedExerciseId: exercise.id,
-                selectionToken: `${Date.now()}`,
-            });
-        } else {
-            navigation.goBack();
-        }
+        navigation.goBack();
     };
 
     return (
@@ -136,7 +125,7 @@ export function ExerciseDetailScreen() {
                         style={styles.addButton}
                     >
                         <Text style={styles.addButtonText}>
-                            {workoutLogId ? 'Add to Workout' : 'Done'}
+                            Done
                         </Text>
                     </LinearGradient>
                 </AnimatedPressable>

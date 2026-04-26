@@ -4,7 +4,7 @@ import {
   SCIENCE_NOTES,
   SESSION_TEMPLATES,
   TRACKING_SCHEMAS,
-  buildLegacySessionPrescription,
+  buildSessionPrescriptionForWorkout,
   buildSessionPrescriptionFromTemplate,
   mapConditioningTypeToSessionFamily,
   validateSCProgrammingResources,
@@ -72,13 +72,13 @@ const hiit = buildSessionPrescriptionFromTemplate(mapConditioningTypeToSessionFa
 assert('HIIT conditioning maps to HIIT wizard', hiit.wizardKind === 'hiit');
 assert('HIIT templates summarize work minutes', (hiit.dose.hiitMinutes ?? 0) > 0);
 
-const recovery = buildLegacySessionPrescription({
+const recovery = buildSessionPrescriptionForWorkout({
   focus: 'recovery',
   primaryAdaptation: 'recovery',
-  legacySessionFamily: 'recovery',
+  engineSessionFamily: 'recovery',
 });
-assert('legacy recovery resolves to recovery wizard', recovery.wizardKind === 'recovery');
-assert('legacy recovery includes safety flags array', Array.isArray(recovery.safetyFlags));
+assert('engine recovery resolves to recovery wizard', recovery.wizardKind === 'recovery');
+assert('engine recovery includes safety flags array', Array.isArray(recovery.safetyFlags));
 
 if (failed > 0) {
   throw new Error(`scProgrammingResources tests failed: ${failed}`);

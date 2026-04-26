@@ -8,7 +8,6 @@ import type {
   Phase,
   ReadinessState,
   WorkoutFocus,
-  WorkoutType,
 } from '../../lib/engine/types';
 
 
@@ -31,16 +30,9 @@ export type TrainStackParamList = {
   WorkoutHome: undefined;
   WeeklyPlanSetup: WeeklyPlanSetupParams;
   PlanHome: undefined;
-  ExerciseSearch: { workoutLogId?: string };
-  ExerciseDetail: { exercise: ExerciseLibraryRow; workoutLogId?: string };
+  ExerciseSearch: undefined;
+  ExerciseDetail: { exercise: ExerciseLibraryRow };
   CustomExercise: undefined;
-  ActiveWorkout: {
-    workoutLogId: string;
-    focus: WorkoutFocus | null;
-    workoutType: WorkoutType;
-    selectedExerciseId?: string;
-    selectionToken?: string;
-  };
   GuidedWorkout: {
     weeklyPlanEntryId?: string;
     scheduledActivityId?: string;

@@ -18,50 +18,6 @@ import { estimateE1RM } from '../engine/calculateOverload';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
-let hasWorkoutLogScheduledActivityIdColumn: boolean | null = null;
-
-function isMissingWorkoutLogScheduledActivityIdColumnError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') return false;
-    const maybe = error as { code?: string; message?: string };
-    return maybe.code === 'PGRST204'
-        && typeof maybe.message === 'string'
-        && maybe.message.includes('scheduled_activity_id')
-        && maybe.message.includes('workout_log');
-}
-
-async function insertWorkoutLogWithCompat(
-    basePayload: Record<string, unknown>,
-    scheduledActivityId?: string | null,
-): Promise<WorkoutLogRow> {
-    const payload = hasWorkoutLogScheduledActivityIdColumn === false || typeof scheduledActivityId === 'undefined'
-        ? basePayload
-        : { ...basePayload, scheduled_activity_id: scheduledActivityId ?? null };
-
-    const { data, error } = await supabase
-        .from('workout_log')
-        .insert(payload)
-        .select()
-        .single();
-
-    if (error && isMissingWorkoutLogScheduledActivityIdColumnError(error)) {
-        hasWorkoutLogScheduledActivityIdColumn = false;
-
-        const retry = await supabase
-            .from('workout_log')
-            .insert(basePayload)
-            .select()
-            .single();
-
-        if (retry.error) throw retry.error;
-        return retry.data as WorkoutLogRow;
-    }
-
-    if (error) throw error;
-    if (typeof scheduledActivityId !== 'undefined') {
-        hasWorkoutLogScheduledActivityIdColumn = true;
-    }
-    return data as WorkoutLogRow;
-}
 
 function snapshotNumber(snapshot: Record<string, unknown>, keys: string[]): number {
     for (const key of keys) {
@@ -264,95 +220,6 @@ export async function createCustomExercise(
 /**
  * Start a new workout. Creates a workout_log row and returns it.
  */
-export async function startWorkout(
-    userId: string,
-    params: {
-        workoutType: WorkoutType;
-        focus: WorkoutFocus | null;
-        scheduledActivityId?: string | null;
-        date?: string;
-    },
-): Promise<WorkoutLogRow> {
-    return insertWorkoutLogWithCompat({
-        user_id: userId,
-        date: params.date ?? today(),
-        workout_type: params.workoutType,
-        focus: params.focus,
-        total_volume: 0,
-        total_sets: 0,
-        session_rpe: null,
-        duration_minutes: null,
-        notes: null,
-    }, params.scheduledActivityId);
-}
-
-/**
- * Log a single workout set.
- */
-export async function logWorkoutSet(
-    workoutLogId: string,
-    set: {
-        exercise_library_id: string;
-        set_number: number;
-        reps: number;
-        weight_lbs: number;
-        rpe?: number;
-        tempo?: string;
-        rest_seconds?: number;
-        is_warmup?: boolean;
-        superset_group?: number;
-    },
-): Promise<WorkoutSetLogRow> {
-    const { data, error } = await supabase
-        .from('workout_set_log')
-        .insert({
-            workout_log_id: workoutLogId,
-            exercise_library_id: set.exercise_library_id,
-            set_number: set.set_number,
-            reps: set.reps,
-            weight_lbs: set.weight_lbs,
-            rpe: set.rpe ?? null,
-            tempo: set.tempo ?? null,
-            rest_seconds: set.rest_seconds ?? null,
-            is_warmup: set.is_warmup ?? false,
-            superset_group: set.superset_group ?? null,
-        })
-        .select()
-        .single();
-
-    if (error) throw error;
-    return data as WorkoutSetLogRow;
-}
-
-/**
- * Update an existing workout set.
- */
-export async function updateWorkoutSet(
-    setId: string,
-    updates: Partial<Pick<WorkoutSetLogRow,
-        'reps' | 'weight_lbs' | 'rpe' | 'tempo' | 'rest_seconds' | 'is_warmup' | 'superset_group'
-    >>,
-): Promise<void> {
-    const { error } = await supabase
-        .from('workout_set_log')
-        .update(updates)
-        .eq('id', setId);
-
-    if (error) throw error;
-}
-
-/**
- * Remove a workout set.
- */
-export async function removeWorkoutSet(setId: string): Promise<void> {
-    const { error } = await supabase
-        .from('workout_set_log')
-        .delete()
-        .eq('id', setId);
-
-    if (error) throw error;
-}
-
 /**
  * Complete a workout. Calculates totals, updates workout_log,
  * syncs linked schedule/plan rows, and inserts a training_sessions row.
@@ -455,22 +322,6 @@ export async function completeWorkout(
 /**
  * Cancel a workout. Deletes the workout_log and its associated sets.
  */
-export async function cancelWorkout(workoutLogId: string): Promise<void> {
-    const { error: setsError } = await supabase
-        .from('workout_set_log')
-        .delete()
-        .eq('workout_log_id', workoutLogId);
-
-    if (setsError) throw setsError;
-
-    const { error: logError } = await supabase
-        .from('workout_log')
-        .delete()
-        .eq('id', workoutLogId);
-
-    if (logError) throw logError;
-}
-
 // ─── Workout Retrieval ─────────────────────────────────────────
 
 /**
@@ -514,7 +365,7 @@ export async function getWorkoutLog(
 
 /**
  * Get all sets for a specific workout log id.
- * Used by ActiveWorkout to restore in-progress sessions.
+ * Used by guided strength sessions to restore in-progress set logs.
  */
 export async function getWorkoutSetsForLog(
     workoutLogId: string,
@@ -937,25 +788,33 @@ export async function startWorkoutV2(
         return openWorkout;
     }
 
-    return insertWorkoutLogWithCompat({
-        user_id: userId,
-        date: params.date ?? today(),
-        workout_type: params.workoutType,
-        focus: params.focus,
-        weekly_plan_entry_id: params.weeklyPlanEntryId ?? null,
-        gym_profile_id: params.gymProfileId ?? null,
-        total_volume: 0,
-        total_sets: 0,
-        session_rpe: null,
-        duration_minutes: null,
-        notes: null,
-        session_family: params.sessionFamily ?? null,
-        primary_modality: params.primaryModality ?? null,
-        energy_system: params.energySystem ?? null,
-        dose_summary: params.doseSummary ?? {},
-        tracking_schema_id: params.trackingSchemaId ?? null,
-        safety_flags: params.safetyFlags ?? [],
-    }, params.scheduledActivityId);
+    const { data, error } = await supabase
+        .from('workout_log')
+        .insert({
+            user_id: userId,
+            date: params.date ?? today(),
+            workout_type: params.workoutType,
+            focus: params.focus,
+            weekly_plan_entry_id: params.weeklyPlanEntryId ?? null,
+            gym_profile_id: params.gymProfileId ?? null,
+            total_volume: 0,
+            total_sets: 0,
+            session_rpe: null,
+            duration_minutes: null,
+            notes: null,
+            session_family: params.sessionFamily ?? null,
+            primary_modality: params.primaryModality ?? null,
+            energy_system: params.energySystem ?? null,
+            dose_summary: params.doseSummary ?? {},
+            tracking_schema_id: params.trackingSchemaId ?? null,
+            safety_flags: params.safetyFlags ?? [],
+            scheduled_activity_id: params.scheduledActivityId ?? null,
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data as WorkoutLogRow;
 }
 
 /**

@@ -1270,16 +1270,16 @@ export function mapConditioningTypeToSessionFamily(type: ConditioningType): SCSe
   }
 }
 
-export function resolveLegacySCSessionFamily(input: {
+export function resolveSCSessionFamily(input: {
   focus: WorkoutFocus | 'strength';
   primaryAdaptation: WorkoutPrescriptionV2['primaryAdaptation'];
-  legacySessionFamily?: string | null;
+  engineSessionFamily?: string | null;
   conditioningType?: ConditioningType | null;
 }): SCSessionFamily {
   if (input.conditioningType) return mapConditioningTypeToSessionFamily(input.conditioningType);
-  if (input.legacySessionFamily === 'durability_core') return 'durability';
-  if (input.legacySessionFamily === 'conditioning') return 'hiit';
-  if (input.legacySessionFamily === 'recovery' || input.focus === 'recovery') return 'mobility_flow';
+  if (input.engineSessionFamily === 'durability_core') return 'durability';
+  if (input.engineSessionFamily === 'conditioning') return 'hiit';
+  if (input.engineSessionFamily === 'recovery' || input.focus === 'recovery') return 'mobility_flow';
   if (input.focus === 'conditioning') return 'hiit';
   if (input.focus === 'sport_specific') return 'combat_specific_circuit';
   if (input.primaryAdaptation === 'power') return 'med_ball_power';
@@ -1334,13 +1334,13 @@ export function buildSessionPrescriptionFromTemplate(sessionFamily: SCSessionFam
   };
 }
 
-export function buildLegacySessionPrescription(input: {
+export function buildSessionPrescriptionForWorkout(input: {
   focus: WorkoutFocus | 'strength';
   primaryAdaptation: WorkoutPrescriptionV2['primaryAdaptation'];
-  legacySessionFamily?: string | null;
+  engineSessionFamily?: string | null;
   conditioningType?: ConditioningType | null;
 }): SessionPrescription {
-  return buildSessionPrescriptionFromTemplate(resolveLegacySCSessionFamily(input));
+  return buildSessionPrescriptionFromTemplate(resolveSCSessionFamily(input));
 }
 
 export function validateSCProgrammingResources(): { valid: boolean; errors: string[] } {
