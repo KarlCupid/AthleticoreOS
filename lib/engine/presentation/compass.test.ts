@@ -89,8 +89,8 @@ assert('checkin + no rx + not done: secondary = Log Fuel', ciNoRx.secondaryCTALa
 console.log('\n── Mission fields passed through ──');
 
 const result = buildCompassViewModel(mission, true, true, false);
-assert('headline from mission', result.headline === 'Strong training day');
-assert('summaryLine from mission summary', result.summaryLine === 'You are good to train today.');
+assert('headline is human mission copy', result.headline === 'Strength today');
+assert('summaryLine is simple direction', result.summaryLine === 'Do the planned work. Keep reps clean.');
 assert('riskLevel from mission.riskState.level', result.riskLevel === 'low');
 assert('sessionLabel derived from workout identity', result.sessionLabel === 'Strength');
 assert('hasPrescription reflects arg', result.hasPrescription === true);
@@ -137,7 +137,49 @@ const withTrace = makeMission({
   }],
 });
 const traceResult = buildCompassViewModel(withTrace, false, true, false);
-assert('reasonSentence from trace', traceResult.reasonSentence === 'Back off today.');
+assert('plain trace reason can pass through', traceResult.reasonSentence === 'Back off today.');
+
+console.log('\n── Human mission copy ──');
+
+const hardMission = makeMission({
+  trainingDirective: {
+    ...makeMission().trainingDirective,
+    interventionState: 'hard' as any,
+    isMandatoryRecovery: true,
+    sessionRole: 'recover',
+  },
+  riskState: { level: 'critical', score: 85, label: 'Critical', drivers: [] },
+});
+const hardResult = buildCompassViewModel(hardMission, false, true, false);
+assert('hard intervention headline is recovery first', hardResult.headline === 'Recovery first');
+assert('hard intervention summary is direct', hardResult.summaryLine === 'Keep it easy today. Do not add extra work.');
+assert('hard intervention reason is human', hardResult.reasonSentence === 'Your body needs the lighter option today.');
+
+const softMission = makeMission({
+  trainingDirective: {
+    ...makeMission().trainingDirective,
+    interventionState: 'soft' as any,
+  },
+  riskState: { level: 'high', score: 62, label: 'High', drivers: [] },
+});
+const softResult = buildCompassViewModel(softMission, true, true, false);
+assert('soft intervention headline is controlled', softResult.headline === 'Keep it controlled');
+assert('soft intervention summary skips optional extras', softResult.summaryLine === 'Do the main work. Skip optional extras.');
+
+const restCopyResult = buildCompassViewModel(restMission, false, true, false);
+assert('rest copy headline is plain', restCopyResult.headline === 'Rest today');
+assert('rest copy summary is plain', restCopyResult.summaryLine === 'No training today. Let the work settle.');
+
+const cutMission = makeMission({
+  trainingDirective: {
+    ...makeMission().trainingDirective,
+    sessionRole: 'cut_protect',
+    source: 'weight_cut_protocol',
+  },
+});
+const cutResult = buildCompassViewModel(cutMission, false, true, false);
+assert('cut protection headline is plain', cutResult.headline === 'Keep it light');
+assert('cut protection reason is plain', cutResult.reasonSentence === 'The cut is setting today\'s limits.');
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

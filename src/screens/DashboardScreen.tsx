@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Alert,
+  Image,
   ImageBackground,
   InteractionManager,
   Modal,
@@ -67,10 +68,10 @@ import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
 const DASHBOARD_BACKGROUNDS = {
   readiness: require("../../assets/images/dashboard/readiness-console-bg.png"),
   mission: require("../../assets/images/dashboard/mission-card-bg.png"),
-  training: require("../../assets/images/dashboard/training-load-card-bg.png"),
-  fuel: require("../../assets/images/dashboard/fuel-card-bg.png"),
   support: require("../../assets/images/dashboard/support-card-bg.png"),
 };
+
+const BRAND_LOGO = require("../../assets/images/athleticore-logo.png");
 
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -574,7 +575,12 @@ export function DashboardScreen() {
         >
             <View style={styles.heroGreetingRow}>
                 <View style={styles.brandMark}>
-                  <Text style={styles.brandMarkText}>A</Text>
+                  <Image
+                    source={BRAND_LOGO}
+                    style={styles.brandMarkImage}
+                    resizeMode="cover"
+                    accessibilityLabel="AthletiCore OS logo"
+                  />
                 </View>
                 <View style={styles.heroTitleBlock}>
                   <Text style={styles.heroGreeting}>{getGreeting()}</Text>
@@ -591,17 +597,17 @@ export function DashboardScreen() {
               imageStyle={styles.windowImage}
               resizeMode="cover"
             >
-                <View style={styles.windowScrim} />
+                <View style={styles.readinessScrim} />
                 <View style={styles.readinessMain}>
                     <Text style={styles.readinessLabel}>READINESS</Text>
                     <RadialProgress
                         progress={homeState.training.readinessScore / 100}
-                        size={154}
-                        strokeWidth={14}
+                        size={132}
+                        strokeWidth={10}
                         color={getReadinessColor(homeState.training.readinessScore)}
                         trackColor="rgba(245,245,240,0.14)"
                         label={Math.round(homeState.training.readinessScore).toString()}
-                        sublabel={currentLevel}
+                        sublabel={getReadinessGuidance(currentLevel)}
                         textColor="#F5F5F0"
                         labelStyle={styles.readinessScoreText}
                         sublabelStyle={styles.readinessSublabelText}
@@ -609,21 +615,16 @@ export function DashboardScreen() {
                 </View>
                 
                 <View style={styles.secondaryMetricsList}>
-                    {acwr?.ratio !== undefined && (
-                        <View style={styles.secondaryMetricItem}>
-                            <View style={styles.metricIconBubble}>
-                              <IconLightning size={18} color={COLORS.accent} />
-                            </View>
-                            <View style={styles.metricCopy}>
-                              <Text style={styles.secondaryMetricLabel}>ACWR</Text>
-                              <Text style={styles.secondaryMetricValue}>{acwr.ratio.toFixed(2)}</Text>
-                            </View>
-                            <View style={styles.metricTrendBubble}>
-                              <IconArrowUp size={14} color={COLORS.success} />
-                            </View>
+                    <View style={styles.secondaryMetricItem}>
+                        <View style={styles.metricIconBubble}>
+                          <IconLightning size={18} color={COLORS.accent} />
                         </View>
-                    )}
-                    {sleepQuality !== undefined && (
+                        <View style={styles.metricCopy}>
+                          <Text style={styles.secondaryMetricLabel}>Today</Text>
+                          <Text style={styles.secondaryMetricValue}>{homeState.training.workload.label}</Text>
+                        </View>
+                    </View>
+                    {typeof sleepQuality === "number" && (
                         <View style={styles.secondaryMetricItem}>
                             <View style={styles.metricIconBubble}>
                               <IconActivity size={18} color={COLORS.accent} />
@@ -637,7 +638,7 @@ export function DashboardScreen() {
                             </View>
                         </View>
                     )}
-                    {morningWeight !== undefined && (
+                    {typeof morningWeight === "number" && (
                         <View style={styles.secondaryMetricItem}>
                             <View style={styles.metricIconBubble}>
                               <IconFire size={18} color={COLORS.accent} />
@@ -751,25 +752,22 @@ export function DashboardScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(D * 1.2).duration(ANIMATION.slow).springify()} style={styles.previewGrid}>
-          <ImageBackground
-            source={DASHBOARD_BACKGROUNDS.training}
-            style={styles.previewCard}
-            imageStyle={styles.previewImage}
-            resizeMode="cover"
-          >
-            <View style={styles.previewScrim} />
+          <View style={styles.previewCard}>
+            <View style={styles.previewAccentRail} />
+            <View style={styles.previewCornerMark} />
             <View style={styles.previewHeaderRow}>
-              <Text style={styles.previewTitle}>Training Load</Text>
+              <Text style={styles.previewTitle}>Training Guidance</Text>
               <View style={styles.previewArrow}>
                 <IconChevronRight size={16} color={COLORS.text.primary} />
               </View>
             </View>
             <View style={styles.previewValueRow}>
-              <Text style={styles.previewValue}>{Math.round(homeState.training.acute)}</Text>
-              <Text style={styles.previewUnit}>Load</Text>
+              <Text style={styles.previewGuidanceValue} numberOfLines={2}>
+                {homeState.training.workload.headline}
+              </Text>
             </View>
             <Text style={styles.previewDelta}>
-              {acwr?.ratio !== undefined ? `${acwr.ratio.toFixed(2)} ACWR` : "+12% vs yesterday"}
+              {homeState.training.workload.guidance}
             </Text>
             <View style={styles.previewBarChart}>
               {homeState.training.loadChart.map((point, idx) => (
@@ -787,15 +785,11 @@ export function DashboardScreen() {
                 </View>
               ))}
             </View>
-          </ImageBackground>
+          </View>
 
-          <ImageBackground
-            source={DASHBOARD_BACKGROUNDS.fuel}
-            style={styles.previewCard}
-            imageStyle={styles.previewImage}
-            resizeMode="cover"
-          >
-            <View style={styles.previewScrim} />
+          <View style={styles.previewCard}>
+            <View style={styles.previewAccentRail} />
+            <View style={styles.previewCornerMark} />
             <View style={styles.previewHeaderRow}>
               <Text style={styles.previewTitle}>Fuel</Text>
               <View style={styles.previewArrow}>
@@ -818,7 +812,7 @@ export function DashboardScreen() {
                 </View>
               ))}
             </View>
-          </ImageBackground>
+          </View>
         </Animated.View>
 
         {/* The New Active Camp Banner positioned right below the grid */}
@@ -921,12 +915,10 @@ export function DashboardScreen() {
               .springify()}
             style={{ marginTop: SPACING.md }}
           >
-            <SectionHeader title="Training load" />
+            <SectionHeader title="Load trend" />
             <TrainingLoadChartCard
               trainingLoadData={homeState.training.loadChart}
-              acute={homeState.training.acute}
-              chronic={homeState.training.chronic}
-              acwr={acwr}
+              workload={homeState.training.workload}
             />
           </Animated.View>
 
@@ -1110,6 +1102,13 @@ function getReadinessColor(score: number): string {
     if (score >= 70) return COLORS.readiness.prime;
     if (score >= 40) return COLORS.readiness.caution;
     return COLORS.readiness.depleted;
+}
+
+function getReadinessGuidance(level: string | null): string {
+    if (level === "Prime") return "Clear to train";
+    if (level === "Caution") return "Keep controlled";
+    if (level === "Depleted") return "Recovery first";
+    return "Check in first";
 }
 
 function getGreeting(): string {

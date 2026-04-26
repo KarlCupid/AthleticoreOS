@@ -37,6 +37,7 @@ export interface TodayHomeState {
     chronic: number;
     acute: number;
     loadChart: { value: number; label: string; isToday?: boolean }[];
+    workload: DashboardWorkloadGuidance;
   };
   fuel: {
     actual: DashboardNutritionTotals;
@@ -52,6 +53,117 @@ export interface TodayHomeState {
   schedule: {
     contextualActivities: ScheduledActivityRow[];
     hasLivePlanningState: boolean;
+  };
+}
+
+export type DashboardWorkloadTone = 'positive' | 'steady' | 'caution' | 'protect' | 'neutral';
+
+export interface DashboardWorkloadGuidance {
+  label: string;
+  headline: string;
+  guidance: string;
+  chartHelp: string;
+  detail: string;
+  tone: DashboardWorkloadTone;
+  confidenceLabel: string;
+}
+
+function formatRatio(value: number | null | undefined): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value.toFixed(2);
+}
+
+function buildWorkloadDetail(acwr: ACWRResult | null): string {
+  const ratio = formatRatio(acwr?.ratio);
+  if (!acwr || !ratio) {
+    return 'Details appear after you log training.';
+  }
+
+  const daysLabel = acwr.daysOfData === 1 ? '1 day logged' : `${acwr.daysOfData} days logged`;
+  return `ACWR ${ratio} - ${daysLabel}`;
+}
+
+function getConfidenceLabel(acwr: ACWRResult | null): string {
+  if (!acwr || acwr.daysOfData === 0) return 'No history yet';
+  if (acwr.thresholds.confidence === 'high') return 'High confidence';
+  if (acwr.thresholds.confidence === 'medium') return 'Building confidence';
+  return 'Low confidence';
+}
+
+export function buildDashboardWorkloadGuidance(acwr: ACWRResult | null): DashboardWorkloadGuidance {
+  const detail = buildWorkloadDetail(acwr);
+  const confidenceLabel = getConfidenceLabel(acwr);
+
+  if (!acwr || acwr.daysOfData === 0) {
+    return {
+      label: 'Need more history',
+      headline: 'Log training first',
+      guidance: 'Log a few sessions to sharpen this.',
+      chartHelp: 'This starts working after you log training. More history makes the guidance sharper.',
+      detail,
+      tone: 'neutral',
+      confidenceLabel,
+    };
+  }
+
+  if (acwr.thresholds.confidence === 'low' || acwr.daysOfData < 7) {
+    return {
+      label: 'Need more history',
+      headline: 'Keep logging',
+      guidance: 'We need a few more logged sessions before this trend is reliable.',
+      chartHelp: 'This shows recent logged work. Your normal base gets clearer with more sessions.',
+      detail,
+      tone: 'neutral',
+      confidenceLabel,
+    };
+  }
+
+  if (acwr.status === 'redline') {
+    return {
+      label: 'Recovery first',
+      headline: 'Protect today',
+      guidance: 'Recent work is above your normal base. Keep extras light today.',
+      chartHelp: 'This shows your last 7 days of training. Higher points mean more total work that day.',
+      detail,
+      tone: 'protect',
+      confidenceLabel,
+    };
+  }
+
+  if (acwr.status === 'caution') {
+    return {
+      label: 'Keep it controlled',
+      headline: 'Trim extras',
+      guidance: 'Recent work is above your normal base. Keep today controlled.',
+      chartHelp: 'This shows your last 7 days of training. Higher points mean more total work that day.',
+      detail,
+      tone: 'caution',
+      confidenceLabel,
+    };
+  }
+
+  if (acwr.ratio > 0 && acwr.ratio < acwr.thresholds.detrained) {
+    return {
+      label: 'Build gradually',
+      headline: 'Ease back in',
+      guidance: 'Your recent training is below your normal base. Build gradually.',
+      chartHelp: 'This shows your last 7 days of training. Higher points mean more total work that day.',
+      detail,
+      tone: 'steady',
+      confidenceLabel,
+    };
+  }
+
+  return {
+    label: 'Ready to train',
+    headline: 'Train as planned',
+    guidance: 'Your recent training is close to your normal base.',
+    chartHelp: 'This shows your last 7 days of training. Higher points mean more total work that day.',
+    detail,
+    tone: 'positive',
+    confidenceLabel,
   };
 }
 
@@ -140,6 +252,7 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
       chronic,
       acute,
       loadChart: chartData,
+      workload: buildDashboardWorkloadGuidance(acwr),
     },
     fuel: {
       actual: actualNutrition,

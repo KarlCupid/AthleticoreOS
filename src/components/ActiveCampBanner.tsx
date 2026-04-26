@@ -27,6 +27,7 @@ export function ActiveCampBanner({ goalMode }: ActiveCampBannerProps) {
           resizeMode="cover"
         >
           <View style={styles.scrim} />
+          <View style={styles.textShade} />
           <View style={styles.headerRow}>
             <View style={styles.campBadge}>
               <IconTarget size={14} color="#F5F5F0" />
@@ -55,7 +56,7 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.xl,
-    borderRadius: RADIUS.xxl,
+    borderRadius: RADIUS.lg,
     overflow: 'hidden',
     ...SHADOWS.md,
   },
@@ -63,11 +64,19 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   backgroundImage: {
-    borderRadius: RADIUS.xxl,
+    borderRadius: RADIUS.lg,
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 10, 10, 0.28)',
+    backgroundColor: 'rgba(10, 10, 10, 0.16)',
+  },
+  textShade: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '68%',
+    backgroundColor: 'rgba(10, 10, 10, 0.34)',
   },
   headerRow: {
     flexDirection: 'row',

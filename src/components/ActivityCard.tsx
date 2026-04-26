@@ -3,6 +3,8 @@ import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import type { ScheduledActivityRow } from '../../lib/engine/types';
 
+const SCHEDULE_BACKGROUND = require('../../assets/images/dashboard/schedule-card-bg.png');
+
 const ACTIVITY_ICONS: Record<string, string> = {
   boxing_practice: 'BOX',
   sparring: 'SPR',
@@ -20,8 +22,6 @@ const STATUS_COLORS: Record<string, string> = {
   skipped: COLORS.readiness.depleted,
   modified: COLORS.readiness.caution,
 };
-
-const SCHEDULE_BACKGROUND = require('../../assets/images/dashboard/schedule-card-bg.png');
 
 interface ActivityCardProps {
   activity: ScheduledActivityRow;
@@ -43,90 +43,90 @@ export const ActivityCard = memo(function ActivityCard({ activity, onPress, onSk
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={styles.cardShell}
       onPress={onPress}
       activeOpacity={0.8}
       disabled={!onPress}
     >
       <ImageBackground
         source={SCHEDULE_BACKGROUND}
-        resizeMode="cover"
-        style={StyleSheet.absoluteFillObject}
+        style={styles.card}
         imageStyle={styles.cardImage}
+        resizeMode="cover"
       >
         <View style={styles.cardScrim} />
-      </ImageBackground>
-      <View style={styles.timeColumn}>
-        <Text style={styles.timeText}>{timeStr}</Text>
-      </View>
-
-      <View style={[styles.indicator, { backgroundColor: statusColor }]} />
-
-      <View style={styles.content}>
-        <View style={styles.topRow}>
-          <Text style={styles.icon}>{icon}</Text>
-          <Text style={styles.label} numberOfLines={1}>{label.charAt(0).toUpperCase() + label.slice(1)}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-            <Text style={[styles.statusText, { color: statusColor }]}>
-              {activity.status === 'completed' ? 'Done' : activity.status}
-            </Text>
-          </View>
+        <View style={styles.timeColumn}>
+          <Text style={styles.timeText}>{timeStr}</Text>
         </View>
 
-        <View style={styles.statsRow}>
-          <Text style={styles.statText}>{activity.estimated_duration_min}min</Text>
-          <Text style={styles.statDot}>|</Text>
-          <Text style={styles.statText}>RPE {activity.actual_rpe ?? activity.expected_intensity}</Text>
-          {activity.session_components && (activity.session_components as any[]).length > 0 && (
-            <>
-              <Text style={styles.statDot}>|</Text>
-              <Text style={styles.statText}>{(activity.session_components as any[]).length} components</Text>
-            </>
-          )}
-        </View>
+        <View style={[styles.indicator, { backgroundColor: statusColor }]} />
 
-        {activity.engine_recommendation && (
-          <Text style={styles.recommendation} numberOfLines={2}>
-            Tip: {activity.engine_recommendation}
-          </Text>
-        )}
-
-        {showActions && activity.status === 'scheduled' && (
-          <>
-            <View style={styles.actionsRow}>
-              {logHandler && (
-                <TouchableOpacity style={styles.primaryButton} onPress={logHandler}>
-                  <Text style={styles.primaryButtonText}>Log</Text>
-                </TouchableOpacity>
-              )}
-              {onEdit && (
-                <TouchableOpacity style={styles.secondaryButton} onPress={onEdit}>
-                  <Text style={styles.secondaryButtonText}>Move</Text>
-                </TouchableOpacity>
-              )}
-              {onSkip && (
-                <TouchableOpacity style={styles.secondaryButton} onPress={onSkip}>
-                  <Text style={styles.secondaryButtonText}>Skip</Text>
-                </TouchableOpacity>
-              )}
+        <View style={styles.content}>
+          <View style={styles.topRow}>
+            <Text style={styles.icon}>{icon}</Text>
+            <Text style={styles.label} numberOfLines={1}>{label.charAt(0).toUpperCase() + label.slice(1)}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {activity.status === 'completed' ? 'Done' : activity.status}
+              </Text>
             </View>
-            {(onLighter || onHarder) && (
+          </View>
+
+          <View style={styles.statsRow}>
+            <Text style={styles.statText}>{activity.estimated_duration_min}min</Text>
+            <Text style={styles.statDot}>|</Text>
+            <Text style={styles.statText}>RPE {activity.actual_rpe ?? activity.expected_intensity}</Text>
+            {activity.session_components && (activity.session_components as any[]).length > 0 && (
+              <>
+                <Text style={styles.statDot}>|</Text>
+                <Text style={styles.statText}>{(activity.session_components as any[]).length} components</Text>
+              </>
+            )}
+          </View>
+
+          {activity.engine_recommendation && (
+            <Text style={styles.recommendation} numberOfLines={2}>
+              Tip: {activity.engine_recommendation}
+            </Text>
+          )}
+
+          {showActions && activity.status === 'scheduled' && (
+            <>
               <View style={styles.actionsRow}>
-                {onLighter && (
-                  <TouchableOpacity style={styles.secondaryButton} onPress={onLighter}>
-                    <Text style={styles.secondaryButtonText}>Lighter</Text>
+                {logHandler && (
+                  <TouchableOpacity style={styles.primaryButton} onPress={logHandler}>
+                    <Text style={styles.primaryButtonText}>Log</Text>
                   </TouchableOpacity>
                 )}
-                {onHarder && (
-                  <TouchableOpacity style={styles.secondaryButton} onPress={onHarder}>
-                    <Text style={styles.secondaryButtonText}>Harder</Text>
+                {onEdit && (
+                  <TouchableOpacity style={styles.secondaryButton} onPress={onEdit}>
+                    <Text style={styles.secondaryButtonText}>Move</Text>
+                  </TouchableOpacity>
+                )}
+                {onSkip && (
+                  <TouchableOpacity style={styles.secondaryButton} onPress={onSkip}>
+                    <Text style={styles.secondaryButtonText}>Skip</Text>
                   </TouchableOpacity>
                 )}
               </View>
-            )}
-          </>
-        )}
-      </View>
+              {(onLighter || onHarder) && (
+                <View style={styles.actionsRow}>
+                  {onLighter && (
+                    <TouchableOpacity style={styles.secondaryButton} onPress={onLighter}>
+                      <Text style={styles.secondaryButtonText}>Lighter</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onHarder && (
+                    <TouchableOpacity style={styles.secondaryButton} onPress={onHarder}>
+                      <Text style={styles.secondaryButtonText}>Harder</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      </ImageBackground>
     </TouchableOpacity>
   );
 });
@@ -139,13 +139,16 @@ function formatTime(time: string): string {
 }
 
 const styles = StyleSheet.create({
+  cardShell: {
+    borderRadius: RADIUS.xl, // Chunkier borders
+    marginBottom: SPACING.md,
+    ...SHADOWS.card,
+  },
   card: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl, // Chunkier borders
+    backgroundColor: 'rgba(10, 10, 10, 0.68)',
+    borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    marginBottom: SPACING.md,
-    ...SHADOWS.md, // Switch from sub-pixel shadow to the glassy md variant
     borderWidth: 1,
     borderColor: 'rgba(245, 245, 240, 0.16)',
     overflow: 'hidden',
