@@ -14,7 +14,6 @@ import type {
   BuildMetricOption,
   BuildPhaseRecommendation,
   EditableCommitment,
-  SessionType,
   SetupPhaseKey,
 } from './types';
 
@@ -59,14 +58,6 @@ export function createCommitment(dayOfWeek: number = 1): EditableCommitment {
     expectedIntensity: 7,
     tier: 'mandatory',
   };
-}
-
-export function normalizeTwoADayPair(amType: SessionType, pmType: SessionType): { amType: SessionType; pmType: SessionType } {
-  if ((amType === 'sc' || amType === 'conditioning') && (pmType === 'sc' || pmType === 'conditioning')) {
-    return { amType, pmType: 'boxing_practice' };
-  }
-
-  return { amType, pmType };
 }
 
 export function getSetupPhaseIndex(phaseKey: SetupPhaseKey | undefined): number {

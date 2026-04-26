@@ -26,9 +26,7 @@ import {
   SETUP_PHASES,
 } from './constants';
 import type {
-  AvailabilityWindowField,
   EditableCommitment,
-  SessionType,
 } from './types';
 import {
   addDays,
@@ -40,7 +38,6 @@ import {
   getDefaultBuildMetricOption,
   isGuidedBuildGoal,
   isValidTime,
-  normalizeTwoADayPair,
   parseNumberInput,
   resolveBuildMetricValue,
   sortDays,
@@ -73,11 +70,6 @@ export function useWeeklyPlanSetupController({
 
   const [startDate, setStartDate] = useState<string>(todayLocalDate());
   const [availabilityWindows, setAvailabilityWindows] = useState<AvailabilityWindow[]>(createDefaultAvailabilityWindows());
-  const [sessionDuration, setSessionDuration] = useState<number>(60);
-  const [allowTwoADays, setAllowTwoADays] = useState(false);
-  const [twoADayDays, setTwoADayDays] = useState<number[]>([]);
-  const [amSessionType, setAmSessionType] = useState<SessionType>('sc');
-  const [pmSessionType, setPmSessionType] = useState<SessionType>('boxing_practice');
   const [autoDeloadInterval, setAutoDeloadInterval] = useState(5);
   const [commitments, setCommitments] = useState<EditableCommitment[]>([]);
   const [durationPickerCommitmentId, setDurationPickerCommitmentId] = useState<string | null>(null);
@@ -178,15 +170,6 @@ export function useWeeklyPlanSetupController({
             ? sortWindows(config.availability_windows)
             : sortDays(config.available_days ?? [1, 3, 5]).map((dayOfWeek) => ({ dayOfWeek, ...DEFAULT_WINDOW }));
           setAvailabilityWindows(loadedWindows);
-          setSessionDuration(config.session_duration_min ?? 60);
-          setAllowTwoADays(config.allow_two_a_days ?? false);
-          setTwoADayDays(sortDays(config.two_a_day_days ?? []));
-          const normalizedSessionPair = normalizeTwoADayPair(
-            (config.am_session_type as SessionType) ?? 'sc',
-            (config.pm_session_type as SessionType) ?? 'boxing_practice',
-          );
-          setAmSessionType(normalizedSessionPair.amType);
-          setPmSessionType(normalizedSessionPair.pmType);
           setAutoDeloadInterval(config.auto_deload_interval_weeks ?? 5);
         }
 
@@ -267,28 +250,10 @@ export function useWeeklyPlanSetupController({
     setAvailabilityWindows((prev) => {
       const exists = prev.some((window) => window.dayOfWeek === dayOfWeek);
       if (exists) {
-        setTwoADayDays((current) => current.filter((day) => day !== dayOfWeek));
         return prev.filter((window) => window.dayOfWeek !== dayOfWeek);
       }
       return sortWindows([...prev, { dayOfWeek, ...DEFAULT_WINDOW }]);
     });
-  }
-
-  function updateAvailabilityWindow(dayOfWeek: number, field: AvailabilityWindowField, value: string) {
-    setAvailabilityWindows((prev) => sortWindows(prev.map((window) => (
-      window.dayOfWeek === dayOfWeek ? { ...window, [field]: value } : window
-    ))));
-  }
-
-  function toggleTwoADay(day: number) {
-    setTwoADayDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : sortDays([...prev, day])));
-  }
-
-  function handleAllowTwoADaysChange(value: boolean) {
-    setAllowTwoADays(value);
-    if (!value) {
-      setTwoADayDays([]);
-    }
   }
 
   function updateCommitment(id: string, patch: Partial<EditableCommitment>) {
@@ -598,24 +563,10 @@ export function useWeeklyPlanSetupController({
     setRoundDurationSec,
     restDurationSec,
     setRestDurationSec,
-    availabilityWindows,
     toggleAvailabilityDay,
-    updateAvailabilityWindow,
     commitments,
-    setCommitments,
     updateCommitment,
     removeCommitment,
-    sessionDuration,
-    setSessionDuration,
-    allowTwoADays,
-    setAllowTwoADays,
-    handleAllowTwoADaysChange,
-    twoADayDays,
-    toggleTwoADay,
-    amSessionType,
-    setAmSessionType,
-    pmSessionType,
-    setPmSessionType,
     autoDeloadInterval,
     setAutoDeloadInterval,
     durationPickerCommitmentId,

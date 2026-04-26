@@ -50,7 +50,7 @@ Do not casually bypass or weaken this gate. It is controlled by `App.tsx` and pl
 - Root chrome is fixed with `APP_CHROME` plus the shared `AuroraBackground`.
 - New UI should use `TYPOGRAPHY_V2`, tokenized spacing and radii, and standard `Card` surfaces.
 - Readiness color is scoped to readiness-aware accents, not whole-screen backgrounds.
-- `GlassCard` is deprecated and should not gain new usage.
+- The old `GlassCard` primitive has been removed; do not reintroduce it.
 - Workout and gym-floor experiences must respect `InteractionModeContext` and larger target sizing.
 
 Use `DESIGN_SYSTEM.md` when making UI decisions or updating product docs.

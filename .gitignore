@@ -43,6 +43,9 @@ yarn-error.*
 # local diagnostics
 compile.log
 compile_errors.txt
+tsc_output*.txt
+.codex_runtime_unused.txt
+sim_results/*.csv
 
 # environment files
 .env

@@ -67,7 +67,7 @@ The main tab shell is:
 - Use `Card` and tokenized surfaces for new content blocks.
 - Prefer `TYPOGRAPHY_V2` for all new UI.
 - Keep readiness color scoped to readiness-specific accents and stateful feedback.
-- Do not introduce new usages of `GlassCard`.
+- Do not reintroduce the removed `GlassCard` primitive.
 - Respect interaction modes when working on workout or gym-floor experiences.
 
 ## Validation commands

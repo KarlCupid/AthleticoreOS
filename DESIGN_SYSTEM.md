@@ -83,11 +83,11 @@ Practical guidance:
 - Use `outlined` when separation is more important than fill contrast.
 - Use `filled` for denser sub-panels or utility groupings.
 
-`GlassCard` is deprecated.
+The old `GlassCard` primitive has been removed.
 
 Contributor rules:
 
-- Do not introduce new uses of `GlassCard`.
+- Do not reintroduce `GlassCard`.
 - Prefer tokenized borders, radii, and shadows from `src/theme/theme.ts`.
 - If a new surface need appears, extend `Card` or the theme tokens before creating a one-off visual pattern.
 
@@ -207,7 +207,6 @@ Contributor rules:
 - `src/theme/useReadinessAccent.ts`: preferred readiness-accent hook for explicit readiness UI.
 - `src/components/AuroraBackground.tsx`: shared animated root backdrop.
 - `src/components/Card.tsx`: preferred content surface primitive.
-- `src/components/GlassCard.tsx`: deprecated legacy surface primitive.
 - `src/navigation/TabNavigator.tsx`: tab-shell chrome and active-state behavior.
 - `src/context/InteractionModeContext.tsx`: mode switching for focus and gym-floor behavior.
 
@@ -219,6 +218,6 @@ Before shipping UI work, check the following:
 - Are colors coming from theme tokens instead of one-off values where feasible?
 - Is readiness color scoped to explicit readiness meaning?
 - Is `TYPOGRAPHY_V2` used for new UI?
-- Is `Card` used instead of `GlassCard`?
+- Are new surfaces using `Card` or theme tokens instead of reintroducing a one-off surface primitive?
 - Are touch targets appropriate for the interaction mode?
 - If the contributor rules changed, did you update this document and the top-level repo docs?

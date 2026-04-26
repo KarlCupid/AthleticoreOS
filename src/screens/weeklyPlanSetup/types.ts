@@ -1,12 +1,10 @@
 import type {
   ActivityType,
-  AvailabilityWindow,
   BuildPhaseGoalRow,
   ConstraintTier,
   ObjectiveSecondaryConstraint,
 } from '../../../lib/engine/types';
 
-export type SessionType = Extract<ActivityType, 'sc' | 'boxing_practice' | 'conditioning'>;
 export type CommitmentType = Extract<ActivityType, 'boxing_practice' | 'sparring'>;
 
 export type EditableCommitment = {
@@ -45,8 +43,6 @@ export type BuildPhaseRecommendation = {
   goalStatement: string;
   secondaryConstraint: ObjectiveSecondaryConstraint;
 };
-
-export type AvailabilityWindowField = keyof Pick<AvailabilityWindow, 'startTime' | 'endTime'>;
 
 export type GuidedBuildGoalCheckInput = {
   buildGoal: BuildPhaseGoalRow;

@@ -31,7 +31,7 @@ The visual system now has a clear separation between app chrome, content surface
 
 - The default surface language is dark translucent cards using `COLORS.surface`, `COLORS.surfaceElevated`, and border tokens from `src/theme/theme.ts`.
 - `Card` is the preferred content surface component.
-- `GlassCard` is deprecated and should be migrated away from rather than copied into new features.
+- The old `GlassCard` primitive has been removed; new surfaces should use `Card` or theme tokens.
 
 ### Readiness is scoped, not global
 
@@ -183,7 +183,7 @@ If you change simulation output shape, you usually need to update both the repla
 - Preserve the auth, profile, and planning gate unless the task explicitly targets it.
 - If the code path is mode-sensitive, check both `build_phase` and `fight_camp`.
 - For replay-lab work, do not fork engine logic for visualization. Reuse engine outputs and add adapter or view-model fields instead.
-- For UI work, keep the fixed chrome plus scoped-accent model intact instead of reintroducing full-screen readiness tinting or new glassmorphism primitives.
+- For UI work, keep the fixed chrome plus scoped-accent model intact instead of reintroducing full-screen readiness tinting or one-off surface primitives.
 
 ## Validation guidance
 

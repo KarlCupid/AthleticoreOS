@@ -34,7 +34,7 @@ The current UI is built around a fixed dark chrome with selective accents rather
 - Most surfaces use dark translucent cards from `Card` and theme tokens in `src/theme/theme.ts`.
 - `TYPOGRAPHY_V2` is the preferred typography system for all new UI.
 - Readiness colors are scoped to readiness-specific accents and feedback, not app-wide chrome.
-- `GlassCard` is deprecated and should not be used for new work.
+- The old `GlassCard` primitive has been removed; use `Card` for new surfaces.
 
 See `DESIGN_SYSTEM.md` for contributor guidance on palette, surfaces, typography, interaction modes, and design rules.
 
