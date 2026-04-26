@@ -29,6 +29,7 @@ import type {
     ExerciseHistoryEntry,
     MuscleGroup,
     SessionModulePlan,
+    SessionDoseSummary,
     WorkoutDoseBucket,
 } from './types.ts';
 import { getFitnessModifiers } from './calculateFitness.ts';
@@ -709,6 +710,35 @@ function buildSessionTargets(input: {
                 : null,
         };
     });
+}
+
+function emptySCDoseSummary(): Required<SessionDoseSummary> {
+    return {
+        hardSets: 0,
+        sprintMeters: 0,
+        plyoContacts: 0,
+        hiitMinutes: 0,
+        aerobicMinutes: 0,
+        circuitRounds: 0,
+        highImpactCount: 0,
+        tissueStressLoad: 0,
+    };
+}
+
+function buildWeeklySCDoseSummary(placements: DailyTrainingPlacement[]): Required<SessionDoseSummary> {
+    return placements.reduce((summary, placement) => {
+        const dose = placement.doseSummary;
+        if (!dose) return summary;
+        summary.hardSets += dose.hardSets ?? 0;
+        summary.sprintMeters += dose.sprintMeters ?? 0;
+        summary.plyoContacts += dose.plyoContacts ?? 0;
+        summary.hiitMinutes += dose.hiitMinutes ?? 0;
+        summary.aerobicMinutes += dose.aerobicMinutes ?? 0;
+        summary.circuitRounds += dose.circuitRounds ?? 0;
+        summary.highImpactCount += dose.highImpactCount ?? 0;
+        summary.tissueStressLoad += dose.tissueStressLoad ?? 0;
+        return summary;
+    }, emptySCDoseSummary());
 }
 
 function buildWeekIntent(input: {
@@ -1783,6 +1813,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 notes: note,
                 sessionModules: null,
                 doseCredits: [],
+                doseSummary: null,
                 realizedDoseBuckets: [],
                 recurringActivityId: primaryCombatAnchor.id,
             });
@@ -2067,6 +2098,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             notes: notes.join(' ') || null,
             sessionModules,
             doseCredits: prescriptionSnapshot?.doseCredits ?? [],
+            doseSummary: prescriptionSnapshot?.doseSummary ?? prescriptionSnapshot?.sessionPrescription?.dose ?? null,
             realizedDoseBuckets,
             recurringActivityId: null,
         });
@@ -2112,6 +2144,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             blueprints: plannedBlueprints,
             placements: dailyPlacements,
         }),
+        scDoseSummary: buildWeeklySCDoseSummary(dailyPlacements),
         dailyPlacements,
         carryForwardAdjustments,
     };

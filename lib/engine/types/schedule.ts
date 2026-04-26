@@ -21,6 +21,7 @@ import type {
   PrescribedExercise,
   RoadWorkPrescription,
   SessionModulePlan,
+  SessionDoseSummary,
   WorkoutDoseBucket,
   WorkoutDoseCredit,
   WorkoutPrescriptionV2,
@@ -305,6 +306,7 @@ export interface DailyTrainingPlacement {
   notes: string | null;
   sessionModules?: SessionModulePlan[] | null;
   doseCredits?: WorkoutDoseCredit[];
+  doseSummary?: SessionDoseSummary | null;
   realizedDoseBuckets?: WorkoutDoseBucket[];
   recurringActivityId?: string | null;
 }
@@ -321,6 +323,7 @@ export interface WeeklyTrainingMixPlan {
   weekStartDate: string;
   weekIntent: string;
   sessionTargets: WeeklySessionTarget[];
+  scDoseSummary: Required<SessionDoseSummary>;
   dailyPlacements: DailyTrainingPlacement[];
   carryForwardAdjustments: CarryForwardAdjustment[];
 }

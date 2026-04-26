@@ -10,6 +10,16 @@ import type {
   LoadingStrategy,
   WorkoutSectionTemplate,
   ExerciseRole,
+  SCSessionFamily,
+  SCModality,
+  EnergySystem,
+  TrackingWizardKind,
+  SessionPrescription,
+  TrackingSchemaDefinition,
+  SessionDoseSummary,
+  SafetyFlag,
+  ModalityDose,
+  WorkoutEffortKind,
 } from '../../../lib/engine/types/training';
 import type {
   WorkoutType,
@@ -31,6 +41,16 @@ export interface WorkoutSessionVM {
   sessionIntent: string | null;
   /** Primary stimulus delivered */
   primaryAdaptation: 'strength' | 'power' | 'conditioning' | 'recovery' | 'mixed';
+  /** Science-backed session family, when available */
+  sessionFamily: SCSessionFamily | string | null;
+  /** Full modality-specific prescription contract */
+  sessionPrescription: SessionPrescription | null;
+  modality: SCModality | null;
+  energySystem: EnergySystem | null;
+  trackingSchema: TrackingSchemaDefinition | null;
+  doseSummary: SessionDoseSummary | null;
+  safetyFlags: SafetyFlag[];
+  wizardKind: TrackingWizardKind | null;
   /** Estimated total duration */
   estimatedDurationMin: number;
   /** Ordered section breakdown */
@@ -91,6 +111,12 @@ export interface ExerciseVM {
   sectionTitle: string | null;
   /** Loading approach — drives renderer selection */
   loadingStrategy: LoadingStrategy | null;
+  /** Dedicated wizard and modality contract for non-strength workouts */
+  wizardKind: TrackingWizardKind | null;
+  modality: SCModality | null;
+  energySystem: EnergySystem | null;
+  modalityDose: ModalityDose | null;
+  trackingSchemaId: string | null;
   /** Human-readable set scheme (e.g. "4 x 6 @ RPE 7") */
   setScheme: string | null;
   targetSets: number;
@@ -207,11 +233,24 @@ export interface SetLogVM {
   adaptationReason: string | null;
 }
 
+export interface EffortLogVM {
+  effortKind: WorkoutEffortKind;
+  effortIndex: number;
+  targetSnapshot: Record<string, unknown>;
+  actualSnapshot: Record<string, unknown>;
+  actualRPE: number | null;
+  qualityRating: number | null;
+  painFlag: boolean;
+  notes: string | null;
+}
+
 export interface ExerciseProgressVM {
   exerciseId: string;
   setsCompleted: number;
   totalTargetSets: number;
   setsLogged: SetLogVM[];
+  effortsCompleted: number;
+  effortsLogged: EffortLogVM[];
   warmupsCompleted: number;
   isComplete: boolean;
   prResult: PRResultVM | null;

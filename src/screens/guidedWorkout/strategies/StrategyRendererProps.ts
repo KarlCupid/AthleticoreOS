@@ -7,7 +7,7 @@
  */
 
 import type { ExerciseVM, ExerciseProgressVM, WorkoutSessionVM, WorkoutSectionVM } from '../../../components/workout/types';
-import type { SetAdaptationResult } from '../../../../lib/engine/types';
+import type { SetAdaptationResult, WorkoutEffortLogInput } from '../../../../lib/engine/types';
 
 export interface StrategyRendererProps {
   // Session context
@@ -40,6 +40,7 @@ export interface StrategyRendererProps {
 
   // Callbacks
   onLogSet: () => void;
+  onLogEffort: (effort: WorkoutEffortLogInput) => Promise<void>;
   onCompleteExercise: () => void;
   onSkipExercise: () => void;
   onWeightDecrement: () => void;

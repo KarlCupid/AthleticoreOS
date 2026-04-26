@@ -82,6 +82,7 @@ export function GuidedWorkoutScreen() {
         loadAndGenerate,
         startWorkout,
         logSet,
+        logEffort,
         toggleWarmupSet,
         completeExercise,
         completeSection,
@@ -262,7 +263,7 @@ export function GuidedWorkoutScreen() {
     const totalExercises = prescription?.exercises.length ?? 0;
 
     const workingSetsLogged = currentProgress
-        ? currentProgress.setsLogged.filter(s => !s.isWarmup).length
+        ? currentProgress.setsLogged.filter(s => !s.isWarmup).length + currentProgress.effortsLogged.length
         : 0;
     const targetSets = currentExercise?.targetSets ?? 0;
 
@@ -297,6 +298,8 @@ export function GuidedWorkoutScreen() {
               currentExerciseVM.loadingStrategy,
               sessionVM?.workoutType,
               currentExerciseVM.sectionTemplate,
+              currentExerciseVM.wizardKind ?? sessionVM?.wizardKind,
+              sessionVM?.sessionFamily,
           )
         : null;
 
@@ -456,6 +459,7 @@ export function GuidedWorkoutScreen() {
             restSeconds,
             restTotal,
             onLogSet: handleLogSet,
+            onLogEffort: logEffort,
             onCompleteExercise: handleCompleteExercise,
             onSkipExercise: handleSkipExercise,
             onWeightDecrement: handleWeightDecrement,

@@ -18,6 +18,7 @@ export type {
   ConditioningLogVM,
   ConditioningDrillLogVM,
   SetLogVM,
+  EffortLogVM,
   PRResultVM,
   WorkoutStatsVM,
   WorkoutRenderMode,

@@ -37,6 +37,7 @@ export {
   getTrainingStreak,
 } from './calculateSchedule.ts';
 export * from './performancePlanner.ts';
+export * from './resources/scProgrammingResources.ts';
 export * from './readiness/profile.ts';
 export * from './sessionOwnership.ts';
 export * from './sessionLabels.ts';

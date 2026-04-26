@@ -45,6 +45,19 @@ export interface ExerciseLibraryRow {
   eccentric_damage?: 1 | 2 | 3 | 4 | 5 | null;
   interference_risk?: 'NONE' | 'LOW' | 'MODERATE' | 'HIGH' | null;
   normalized_recovery_cost?: number | null;
+  modality?: SCModality | null;
+  energy_systems?: EnergySystem[] | null;
+  skill_demand?: SkillDemand | null;
+  tissue_stress?: TissueStress | null;
+  axial_load?: LoadStressLevel | null;
+  impact_level?: LoadStressLevel | null;
+  eccentric_load?: LoadStressLevel | null;
+  youth_suitability?: YouthSuitability | null;
+  contraindication_tags?: string[] | null;
+  progression_family?: ProgressionFamily | null;
+  surface_tags?: SurfaceTag[] | null;
+  tracking_schema_id?: string | null;
+  resource_metadata?: Record<string, unknown> | null;
 }
 
 export interface WorkoutPrescription {
@@ -118,6 +131,19 @@ export interface WorkoutLogRow {
   notes: string | null;
   compliance_reason?: ComplianceReason | null;
   activation_rpe?: number | null;
+  session_family?: SCSessionFamily | null;
+  primary_modality?: SCModality | null;
+  energy_system?: EnergySystem | null;
+  dose_summary?: SessionDoseSummary | null;
+  tracking_schema_id?: string | null;
+  safety_flags?: SafetyFlag[] | null;
+  sprint_meters?: number | null;
+  plyo_contacts?: number | null;
+  hiit_minutes?: number | null;
+  aerobic_minutes?: number | null;
+  circuit_rounds?: number | null;
+  high_impact_count?: number | null;
+  tissue_stress_load?: number | null;
 }
 
 export interface WorkoutSetLogRow {
@@ -132,6 +158,323 @@ export interface WorkoutSetLogRow {
   tempo: string | null;
   rest_seconds: number | null;
   is_warmup: boolean;
+}
+
+export type AgeBand =
+  | 'teen_13_17'
+  | 'adult_18_49'
+  | 'masters_50_64'
+  | 'older_adult_65_plus';
+
+export type SCModality =
+  | 'strength'
+  | 'power'
+  | 'plyometric'
+  | 'sprint'
+  | 'conditioning'
+  | 'circuit'
+  | 'agility'
+  | 'mobility'
+  | 'recovery';
+
+export type SCSessionFamily =
+  | 'max_strength'
+  | 'hypertrophy'
+  | 'strength_endurance'
+  | 'unilateral_strength'
+  | 'durability'
+  | 'olympic_lift_power'
+  | 'med_ball_power'
+  | 'loaded_jump_power'
+  | 'contrast_power'
+  | 'low_contact_plyometrics'
+  | 'bounding'
+  | 'hops'
+  | 'lateral_plyometrics'
+  | 'depth_drop_progression'
+  | 'acceleration'
+  | 'max_velocity'
+  | 'hill_sprints'
+  | 'resisted_sprints'
+  | 'repeated_sprint_ability'
+  | 'aerobic_base'
+  | 'tempo'
+  | 'threshold'
+  | 'hiit'
+  | 'sit'
+  | 'mixed_intervals'
+  | 'sport_round_conditioning'
+  | 'strength_endurance_circuit'
+  | 'metabolic_circuit'
+  | 'bodyweight_circuit'
+  | 'kettlebell_circuit'
+  | 'sled_rope_circuit'
+  | 'combat_specific_circuit'
+  | 'planned_cod'
+  | 'reactive_agility'
+  | 'footwork'
+  | 'deceleration'
+  | 'mobility_flow'
+  | 'tissue_capacity'
+  | 'breathwork'
+  | 'easy_aerobic_flush';
+
+export type EnergySystem =
+  | 'alactic_power'
+  | 'alactic_capacity'
+  | 'glycolytic_power'
+  | 'glycolytic_capacity'
+  | 'aerobic_power'
+  | 'aerobic_capacity'
+  | 'local_muscular_endurance'
+  | 'tissue_capacity'
+  | 'parasympathetic_recovery';
+
+export type TrackingWizardKind =
+  | 'strength'
+  | 'plyometric'
+  | 'sprint'
+  | 'hiit'
+  | 'circuit'
+  | 'aerobic_tempo'
+  | 'agility_cod'
+  | 'recovery';
+
+export type DoseUnit =
+  | 'hard_sets'
+  | 'load_percent_1rm'
+  | 'reps'
+  | 'rpe'
+  | 'rir'
+  | 'rest_seconds'
+  | 'tempo'
+  | 'ground_contacts'
+  | 'meters'
+  | 'rep_distance_meters'
+  | 'rep_seconds'
+  | 'work_seconds'
+  | 'rounds'
+  | 'minutes'
+  | 'hr_zone'
+  | 'pace'
+  | 'direction_changes'
+  | 'quality_rating'
+  | 'pain_flag';
+
+export type ProgressionFamily =
+  | 'load'
+  | 'volume'
+  | 'contact'
+  | 'meter'
+  | 'density'
+  | 'pace'
+  | 'quality'
+  | 'range_of_motion';
+
+export type SkillDemand = 'low' | 'moderate' | 'high' | 'elite';
+export type TissueStress = 'low' | 'moderate' | 'high' | 'very_high';
+export type LoadStressLevel = 'none' | 'low' | 'moderate' | 'high' | 'very_high';
+export type YouthSuitability = 'suitable' | 'restricted' | 'coach_required' | 'not_recommended';
+export type SurfaceTag = 'gym_floor' | 'track' | 'turf' | 'grass' | 'hill' | 'court' | 'mat' | 'pool' | 'bike' | 'rower' | 'sled_lane';
+
+export interface SafetyFlag {
+  code: string;
+  level: 'info' | 'caution' | 'restricted';
+  message: string;
+}
+
+export interface ModalityDose {
+  strength?: {
+    hardSets: number;
+    reps: number | string;
+    targetRPE: number;
+    rir?: number | null;
+    loadPercent1RM?: number | null;
+    restSeconds: number;
+    tempo?: string | null;
+  };
+  plyometric?: {
+    groundContacts: number;
+    jumpType: 'extensive' | 'intensive' | 'horizontal' | 'vertical' | 'lateral' | 'depth_drop';
+    amplitude: 'low' | 'moderate' | 'high';
+    surface: SurfaceTag;
+    landingQualityRequired: boolean;
+  };
+  sprint?: {
+    totalMeters: number;
+    repDistanceMeters: number;
+    targetRepSeconds?: number | null;
+    restSeconds: number;
+    surface: SurfaceTag;
+    intensityPercent: number;
+    sprintType: 'acceleration' | 'max_velocity' | 'hill' | 'resisted' | 'repeated_sprint';
+  };
+  interval?: {
+    workSeconds: number;
+    restSeconds: number;
+    rounds: number;
+    modality: 'run' | 'bike' | 'row' | 'ski' | 'jump_rope' | 'bag' | 'mixed';
+    targetIntensity: 'threshold' | 'vo2' | 'all_out' | 'sport_round';
+  };
+  circuit?: {
+    rounds: number;
+    movementCount: number;
+    workSeconds?: number | null;
+    restSeconds?: number | null;
+    scoreType: 'rounds' | 'for_time' | 'amrap' | 'completion';
+    densityTarget?: string | null;
+  };
+  aerobic?: {
+    durationMin: number;
+    distanceMiles?: number | null;
+    pace?: string | null;
+    hrZone: HRZone;
+    targetRPE: number;
+  };
+  agility?: {
+    drillDistanceMeters: number;
+    reps: number;
+    directionChanges: number;
+    reactionComponent: boolean;
+  };
+  recovery?: {
+    durationMin: number;
+    checklistItems: string[];
+    painScoreRequired: boolean;
+    tightnessScoreRequired: boolean;
+  };
+}
+
+export interface SessionDoseSummary {
+  hardSets?: number;
+  sprintMeters?: number;
+  plyoContacts?: number;
+  hiitMinutes?: number;
+  aerobicMinutes?: number;
+  circuitRounds?: number;
+  highImpactCount?: number;
+  tissueStressLoad?: number;
+}
+
+export interface TrackingFieldDefinition {
+  key: string;
+  label: string;
+  valueType: 'number' | 'text' | 'boolean' | 'rating' | 'duration' | 'select';
+  unit?: string | null;
+  required: boolean;
+}
+
+export interface TrackingSchemaDefinition {
+  id: string;
+  wizardKind: TrackingWizardKind;
+  modality: SCModality;
+  requiredFields: TrackingFieldDefinition[];
+  summaryFields: DoseUnit[];
+  completionMetric: DoseUnit | 'completion';
+}
+
+export interface ProgressionModelDefinition {
+  id: string;
+  family: ProgressionFamily;
+  appliesTo: SCSessionFamily[];
+  progressionUnit: DoseUnit;
+  regressionUnit: DoseUnit;
+  readinessGate: ReadinessState[];
+  description: string;
+}
+
+export interface SafetyRuleDefinition {
+  id: string;
+  appliesTo: SCSessionFamily[];
+  ageBands: AgeBand[];
+  blockedWhen: string[];
+  substitutionTarget: SCSessionFamily | 'recovery' | 'mobility';
+  rationale: string;
+}
+
+export interface ScienceNote {
+  id: string;
+  label: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  summary: string;
+}
+
+export interface SessionTemplateSection {
+  id: string;
+  title: string;
+  intent: string;
+  loadingStrategy: LoadingStrategy;
+  dose: ModalityDose;
+}
+
+export interface SessionTemplateResource {
+  id: SCSessionFamily;
+  title: string;
+  modality: SCModality;
+  primaryEnergySystem: EnergySystem;
+  wizardKind: TrackingWizardKind;
+  trackingSchemaId: string;
+  progressionModelId: string;
+  safetyRuleIds: string[];
+  scienceNoteIds: string[];
+  compatibleAgeBands: AgeBand[];
+  defaultDurationMin: number;
+  dose: SessionDoseSummary;
+  sections: SessionTemplateSection[];
+  rationale: string;
+}
+
+export interface SessionPrescription {
+  sessionFamily: SCSessionFamily;
+  primaryAdaptation: WorkoutPrescriptionV2['primaryAdaptation'];
+  energySystem: EnergySystem;
+  modality: SCModality;
+  sections: SessionTemplateSection[];
+  dose: SessionDoseSummary;
+  trackingSchema: TrackingSchemaDefinition;
+  progressionModel: ProgressionModelDefinition;
+  safetyFlags: SafetyFlag[];
+  rationale: string;
+  wizardKind: TrackingWizardKind;
+  scienceNotes: ScienceNote[];
+}
+
+export type WorkoutEffortKind =
+  | 'strength_set'
+  | 'plyo_set'
+  | 'sprint_rep'
+  | 'interval_round'
+  | 'circuit_round'
+  | 'aerobic_block'
+  | 'agility_rep'
+  | 'recovery_block';
+
+export interface WorkoutEffortLogRow {
+  id: string;
+  workout_log_id: string;
+  exercise_library_id: string | null;
+  effort_kind: WorkoutEffortKind;
+  effort_index: number;
+  target_snapshot: Record<string, unknown>;
+  actual_snapshot: Record<string, unknown>;
+  actual_rpe: number | null;
+  quality_rating: number | null;
+  pain_flag: boolean;
+  notes: string | null;
+  completed_at: string;
+}
+
+export interface WorkoutEffortLogInput {
+  exercise_library_id?: string | null;
+  effort_kind: WorkoutEffortKind;
+  effort_index: number;
+  target_snapshot: Record<string, unknown>;
+  actual_snapshot: Record<string, unknown>;
+  actual_rpe?: number | null;
+  quality_rating?: number | null;
+  pain_flag?: boolean;
+  notes?: string | null;
 }
 
 export interface WorkoutComplianceResult {
@@ -554,6 +897,11 @@ export interface PrescribedExerciseV2 extends PrescribedExercise {
   sectionIntent?: string;
   recoveryCost?: number;
   expectedActivationRPE?: number | null;
+  modality?: SCModality | null;
+  energySystem?: EnergySystem | null;
+  modalityDose?: ModalityDose | null;
+  trackingSchemaId?: string | null;
+  wizardKind?: TrackingWizardKind | null;
   interferenceAdjustment?: {
     penalty: number;
     warning: string | null;
@@ -698,6 +1046,13 @@ export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   sections?: WorkoutSessionSection[];
   sessionIntent: string | null;
   primaryAdaptation: 'strength' | 'power' | 'conditioning' | 'recovery' | 'mixed';
+  sessionPrescription?: SessionPrescription | null;
+  modality?: SCModality | null;
+  energySystem?: EnergySystem | null;
+  trackingSchemaId?: string | null;
+  doseSummary?: SessionDoseSummary | null;
+  safetyFlags?: SafetyFlag[] | null;
+  wizardKind?: TrackingWizardKind | null;
   performanceRisk: PerformanceRiskState | null;
   readinessProfile?: ReadinessProfile | null;
   constraintSet?: StimulusConstraintSet | null;

@@ -26,7 +26,7 @@ import type {
   EngineReplayExerciseLog,
 } from '../../../lib/engine/simulation/lab';
 import type { WorkoutStats } from '../replay-lab/useReplayState';
-import type { ExerciseProgress, SetEntry } from '../../hooks/useGuidedWorkout';
+import type { EffortEntry, ExerciseProgress, SetEntry } from '../../hooks/useGuidedWorkout';
 
 import type {
   WorkoutSessionVM,
@@ -60,6 +60,14 @@ export function fromPrescriptionV2(
     sessionGoal: rx.sessionGoal ?? null,
     sessionIntent: rx.sessionIntent,
     primaryAdaptation: rx.primaryAdaptation,
+    sessionFamily: rx.sessionPrescription?.sessionFamily ?? rx.sessionFamily ?? null,
+    sessionPrescription: rx.sessionPrescription ?? null,
+    modality: rx.modality ?? rx.sessionPrescription?.modality ?? null,
+    energySystem: rx.energySystem ?? rx.sessionPrescription?.energySystem ?? null,
+    trackingSchema: rx.sessionPrescription?.trackingSchema ?? null,
+    doseSummary: rx.doseSummary ?? rx.sessionPrescription?.dose ?? null,
+    safetyFlags: rx.safetyFlags ?? rx.sessionPrescription?.safetyFlags ?? [],
+    wizardKind: rx.wizardKind ?? rx.sessionPrescription?.wizardKind ?? null,
     estimatedDurationMin: rx.estimatedDurationMin,
     sections,
     isDeload: rx.isDeloadWorkout,
@@ -101,6 +109,11 @@ function mapSectionExercise(ex: SectionExercisePrescription): ExerciseVM {
     sectionTemplate: ex.sectionTemplate,
     sectionTitle: ex.sectionIntent ?? null,
     loadingStrategy: ex.loadingStrategy,
+    wizardKind: ex.wizardKind ?? null,
+    modality: ex.modality ?? null,
+    energySystem: ex.energySystem ?? null,
+    modalityDose: ex.modalityDose ?? null,
+    trackingSchemaId: ex.trackingSchemaId ?? null,
     setScheme: ex.setScheme ?? null,
     targetSets: ex.targetSets,
     targetReps: ex.targetReps,
@@ -139,6 +152,11 @@ function mapLiveExercise(ex: PrescribedExerciseV2): ExerciseVM {
     sectionTemplate: ex.sectionTemplate ?? null,
     sectionTitle: ex.sectionIntent ?? null,
     loadingStrategy: ex.loadingStrategy ?? null,
+    wizardKind: ex.wizardKind ?? null,
+    modality: ex.modality ?? null,
+    energySystem: ex.energySystem ?? null,
+    modalityDose: ex.modalityDose ?? null,
+    trackingSchemaId: ex.trackingSchemaId ?? null,
     setScheme: ex.setScheme ?? null,
     targetSets: ex.targetSets,
     targetReps: ex.targetReps,
@@ -198,6 +216,14 @@ export function fromReplayDay(
     sessionGoal: session?.sessionGoal ?? null,
     sessionIntent: session?.sessionIntent ?? null,
     primaryAdaptation: session?.primaryAdaptation ?? 'mixed',
+    sessionFamily: day.sessionRole,
+    sessionPrescription: null,
+    modality: null,
+    energySystem: null,
+    trackingSchema: null,
+    doseSummary: null,
+    safetyFlags: [],
+    wizardKind: null,
     estimatedDurationMin: session?.estimatedDurationMin ?? day.durationMin,
     sections,
     isDeload: false,
@@ -241,6 +267,11 @@ function mapReplayExercise(ex: EngineReplayPrescribedExercise): ExerciseVM {
     sectionTemplate: ex.sectionTemplate as ExerciseVM['sectionTemplate'],
     sectionTitle: ex.sectionTitle,
     loadingStrategy: null, // replay doesn't expose this directly
+    wizardKind: null,
+    modality: null,
+    energySystem: null,
+    modalityDose: null,
+    trackingSchemaId: null,
     setScheme: ex.setScheme,
     targetSets: ex.targetSets,
     targetReps: ex.targetReps,
@@ -314,9 +345,11 @@ export function fromExerciseProgress(
 ): ExerciseProgressVM {
   return {
     exerciseId: progress.exerciseId,
-    setsCompleted: progress.setsLogged.filter(s => !s.isWarmup).length,
+    setsCompleted: progress.setsLogged.filter(s => !s.isWarmup).length + progress.effortsLogged.length,
     totalTargetSets: targetSets,
     setsLogged: progress.setsLogged.map(mapSetEntry),
+    effortsCompleted: progress.effortsLogged.length,
+    effortsLogged: progress.effortsLogged.map(mapEffortEntry),
     warmupsCompleted: progress.warmupChecked.length,
     isComplete: progress.isComplete,
     prResult: progress.prResult
@@ -326,6 +359,19 @@ export function fromExerciseProgress(
           previous: progress.prResult.previousBest ?? null,
         }
       : null,
+  };
+}
+
+function mapEffortEntry(entry: EffortEntry) {
+  return {
+    effortKind: entry.effortKind,
+    effortIndex: entry.effortIndex,
+    targetSnapshot: entry.targetSnapshot,
+    actualSnapshot: entry.actualSnapshot,
+    actualRPE: entry.actualRPE,
+    qualityRating: entry.qualityRating,
+    painFlag: entry.painFlag,
+    notes: entry.notes,
   };
 }
 
@@ -358,6 +404,8 @@ export function fromReplayExerciseLogs(
       wasAdapted: false,
       adaptationReason: null,
     })),
+    effortsCompleted: 0,
+    effortsLogged: [],
     warmupsCompleted: 0,
     isComplete: log.completed,
     prResult: null,

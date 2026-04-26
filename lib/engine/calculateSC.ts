@@ -49,6 +49,7 @@ import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
 import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
 import { deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseScoring.ts';
+import { buildLegacySessionPrescription } from './resources/scProgrammingResources.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -1161,6 +1162,12 @@ function buildConditioningWorkoutV2(input: {
     const estimatedDuration = availableMinutes != null
         ? Math.min(availableMinutes, prescription.totalDurationMin)
         : prescription.totalDurationMin;
+    const sessionPrescription = buildLegacySessionPrescription({
+        focus: 'conditioning',
+        primaryAdaptation: 'conditioning',
+        legacySessionFamily: 'conditioning',
+        conditioningType: prescription.type,
+    });
 
     return {
         focus: 'conditioning',
@@ -1198,6 +1205,13 @@ function buildConditioningWorkoutV2(input: {
         sections,
         sessionIntent: `Build conditioning through ${conditioningTypeLabel.toLowerCase()} with a ${prescription.intensityLabel} output target.${availableMinutes ? ` Keep the work inside ${availableMinutes} minutes.` : ''}`,
         primaryAdaptation: 'conditioning',
+        sessionPrescription,
+        modality: sessionPrescription.modality,
+        energySystem: sessionPrescription.energySystem,
+        trackingSchemaId: sessionPrescription.trackingSchema.id,
+        doseSummary: sessionPrescription.dose,
+        safetyFlags: sessionPrescription.safetyFlags,
+        wizardKind: sessionPrescription.wizardKind,
         performanceRisk,
         readinessProfile: readinessProfile ?? null,
         constraintSet,
@@ -1519,6 +1533,11 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         blockContext: resolvedBlockContext,
         availableMinutes,
     });
+    const sessionPrescription = buildLegacySessionPrescription({
+        focus: effectiveFocus,
+        primaryAdaptation,
+        legacySessionFamily: resolvedSessionFamily,
+    });
     const doseOutputs = buildDoseOutputs({
         modules: resolvedSessionModules,
         focus: effectiveFocus,
@@ -1585,6 +1604,13 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         sections,
         sessionIntent,
         primaryAdaptation,
+        sessionPrescription,
+        modality: sessionPrescription.modality,
+        energySystem: sessionPrescription.energySystem,
+        trackingSchemaId: sessionPrescription.trackingSchema.id,
+        doseSummary: sessionPrescription.dose,
+        safetyFlags: sessionPrescription.safetyFlags,
+        wizardKind: sessionPrescription.wizardKind,
         performanceRisk: resolvedPerformanceRisk,
         readinessProfile: readinessProfile ?? null,
         constraintSet: resolvedConstraintSet,
@@ -1795,13 +1821,19 @@ function buildSparringDayWorkout(
     if (phase?.startsWith('camp-')) {
         campPhaseContext = phase.replace('camp-', '') as CampPhase;
     }
+    const resolvedSupportFamily = sessionFamily ?? 'durability_core';
+    const sessionPrescription = buildLegacySessionPrescription({
+        focus: 'recovery',
+        primaryAdaptation: 'recovery',
+        legacySessionFamily: resolvedSupportFamily,
+    });
 
     return {
         focus: 'recovery',
         workoutType: 'recovery',
         exercises: supportExercises,
         payloadVersion: 'v3',
-        sessionFamily: sessionFamily ?? 'durability_core',
+        sessionFamily: resolvedSupportFamily,
         sessionComposition: [{ bucket: 'durability', focus: 'sport_specific', durationMin: 16, preserveOnYellow: true }],
         secondaryAdaptations: ['durability'],
         plannedBucket: 'durability',
@@ -1833,6 +1865,13 @@ function buildSparringDayWorkout(
         sections,
         sessionIntent: 'Support sparring with low-cost prep, trunk support, and recovery only.',
         primaryAdaptation: 'recovery',
+        sessionPrescription,
+        modality: sessionPrescription.modality,
+        energySystem: sessionPrescription.energySystem,
+        trackingSchemaId: sessionPrescription.trackingSchema.id,
+        doseSummary: sessionPrescription.dose,
+        safetyFlags: sessionPrescription.safetyFlags,
+        wizardKind: sessionPrescription.wizardKind,
         performanceRisk: null,
         readinessProfile: readinessProfile ?? null,
         constraintSet: constraintSet ?? null,

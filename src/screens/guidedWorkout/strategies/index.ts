@@ -7,7 +7,12 @@
  */
 
 import type { ComponentType } from 'react';
-import type { LoadingStrategy, WorkoutSectionTemplate } from '../../../../lib/engine/types/training';
+import type {
+  LoadingStrategy,
+  SCSessionFamily,
+  TrackingWizardKind,
+  WorkoutSectionTemplate,
+} from '../../../../lib/engine/types/training';
 import type { WorkoutType } from '../../../../lib/engine/types/foundational';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
@@ -21,6 +26,11 @@ import { ForTimeRenderer } from './ForTimeRenderer';
 import { RecoveryRenderer } from './RecoveryRenderer';
 import { ActivationRenderer } from './ActivationRenderer';
 import { ConditioningRenderer } from './ConditioningRenderer';
+import { PlyometricRenderer } from './PlyometricRenderer';
+import { SprintRenderer } from './SprintRenderer';
+import { HIITRenderer } from './HIITRenderer';
+import { AerobicTempoRenderer } from './AerobicTempoRenderer';
+import { AgilityCODRenderer } from './AgilityCODRenderer';
 
 type Renderer = ComponentType<StrategyRendererProps>;
 
@@ -37,12 +47,72 @@ export function resolveRenderer(
   loadingStrategy: LoadingStrategy | null | undefined,
   workoutType: WorkoutType | null | undefined,
   sectionTemplate: WorkoutSectionTemplate | null | undefined,
+  wizardKind?: TrackingWizardKind | null,
+  sessionFamily?: SCSessionFamily | string | null,
 ): Renderer | null {
   // 1. Section template overrides
   if (sectionTemplate === 'activation') return ActivationRenderer;
   if (sectionTemplate === 'cooldown') return RecoveryRenderer;
 
-  // 2. Loading strategy match
+  // 2. Modality-specific wizard match
+  switch (wizardKind) {
+    case 'plyometric':
+      return PlyometricRenderer;
+    case 'sprint':
+      return SprintRenderer;
+    case 'hiit':
+      return HIITRenderer;
+    case 'aerobic_tempo':
+      return AerobicTempoRenderer;
+    case 'agility_cod':
+      return AgilityCODRenderer;
+    case 'circuit':
+      return CircuitRenderer;
+    case 'recovery':
+      return RecoveryRenderer;
+    case 'strength':
+      break;
+  }
+
+  if (sessionFamily) {
+    const family = String(sessionFamily);
+    if ([
+      'low_contact_plyometrics',
+      'bounding',
+      'hops',
+      'lateral_plyometrics',
+      'depth_drop_progression',
+      'loaded_jump_power',
+      'contrast_power',
+    ].includes(family)) return PlyometricRenderer;
+    if ([
+      'acceleration',
+      'max_velocity',
+      'hill_sprints',
+      'resisted_sprints',
+      'repeated_sprint_ability',
+    ].includes(family)) return SprintRenderer;
+    if ([
+      'hiit',
+      'sit',
+      'mixed_intervals',
+      'sport_round_conditioning',
+    ].includes(family)) return HIITRenderer;
+    if ([
+      'aerobic_base',
+      'tempo',
+      'threshold',
+      'easy_aerobic_flush',
+    ].includes(family)) return AerobicTempoRenderer;
+    if ([
+      'planned_cod',
+      'reactive_agility',
+      'footwork',
+      'deceleration',
+    ].includes(family)) return AgilityCODRenderer;
+  }
+
+  // 3. Loading strategy match
   if (loadingStrategy) {
     switch (loadingStrategy) {
       case 'straight_sets':
@@ -68,11 +138,11 @@ export function resolveRenderer(
     }
   }
 
-  // 3. Workout type match
+  // 4. Workout type match
   if (workoutType === 'conditioning') return ConditioningRenderer;
   if (workoutType === 'recovery') return RecoveryRenderer;
 
-  // 4. Default: Strength renderer for any unmatched case (most common)
+  // 5. Default: Strength renderer for any unmatched case (most common)
   return StrengthRenderer;
 }
 

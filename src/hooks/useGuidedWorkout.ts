@@ -9,7 +9,9 @@ import { autoregulateSession } from '../../lib/engine/sc/autoregulation';
 import { detectPR } from '../../lib/engine/calculateOverload';
 import {
     completeWorkout,
+    getWorkoutEffortsForLog,
     getWorkoutSetsForLog,
+    logWorkoutEffort,
     logWorkoutSetV2,
     startWorkoutV2,
 } from '../../lib/api/scService';
@@ -31,6 +33,8 @@ import type {
     PRDetectionResult,
     ReadinessState,
     WorkoutLogRow,
+    WorkoutEffortKind,
+    WorkoutEffortLogInput,
     GymProfileRow,
     ComplianceReason,
     PRRecord,
@@ -55,9 +59,23 @@ export interface SetEntry {
     completedAt: Date;
 }
 
+export interface EffortEntry {
+    exerciseId: string | null;
+    effortKind: WorkoutEffortKind;
+    effortIndex: number;
+    targetSnapshot: Record<string, unknown>;
+    actualSnapshot: Record<string, unknown>;
+    actualRPE: number | null;
+    qualityRating: number | null;
+    painFlag: boolean;
+    notes: string | null;
+    completedAt: Date;
+}
+
 export interface ExerciseProgress {
     exerciseId: string;
     setsLogged: SetEntry[];
+    effortsLogged: EffortEntry[];
     warmupChecked: number[];
     isComplete: boolean;
     prResult: PRDetectionResult | null;
@@ -143,6 +161,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             progress[ex.exercise.id] = {
                 exerciseId: ex.exercise.id,
                 setsLogged: [],
+                effortsLogged: [],
                 warmupChecked: [],
                 isComplete: false,
                 prResult: null,
@@ -186,7 +205,10 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         workout: WorkoutLogRow,
         nextPrescription: WorkoutPrescriptionV2,
     ) => {
-        const loggedSets = await getWorkoutSetsForLog(workout.id);
+        const [loggedSets, loggedEfforts] = await Promise.all([
+            getWorkoutSetsForLog(workout.id),
+            getWorkoutEffortsForLog(workout.id),
+        ]);
         const exerciseOrder = new Map(nextPrescription.exercises.map((exercise, index) => [exercise.exercise.id, index]));
         const nextProgress: Record<string, ExerciseProgress> = {};
 
@@ -194,6 +216,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             nextProgress[exercise.exercise.id] = {
                 exerciseId: exercise.exercise.id,
                 setsLogged: [],
+                effortsLogged: [],
                 warmupChecked: [],
                 isComplete: false,
                 prResult: null,
@@ -224,11 +247,39 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             }
         }
 
+        for (const effort of loggedEfforts) {
+            const exerciseId = effort.exercise_library_id;
+            if (!exerciseId) {
+                continue;
+            }
+
+            const existing = nextProgress[exerciseId];
+            if (!existing) {
+                continue;
+            }
+
+            existing.effortsLogged.push({
+                exerciseId,
+                effortKind: effort.effort_kind,
+                effortIndex: effort.effort_index,
+                targetSnapshot: effort.target_snapshot ?? {},
+                actualSnapshot: effort.actual_snapshot ?? {},
+                actualRPE: effort.actual_rpe,
+                qualityRating: effort.quality_rating,
+                painFlag: effort.pain_flag,
+                notes: effort.notes,
+                completedAt: effort.completed_at ? new Date(effort.completed_at) : new Date(),
+            });
+        }
+
         for (const exercise of nextPrescription.exercises) {
             const progress = nextProgress[exercise.exercise.id];
             progress.setsLogged.sort((a, b) => a.setNumber - b.setNumber);
+            progress.effortsLogged.sort((a, b) => a.effortIndex - b.effortIndex);
             progress.warmupChecked.sort((a, b) => a - b);
-            progress.isComplete = progress.setsLogged.filter((set) => !set.isWarmup).length >= exercise.targetSets;
+            progress.isComplete = (
+                progress.setsLogged.filter((set) => !set.isWarmup).length + progress.effortsLogged.length
+            ) >= exercise.targetSets;
         }
 
         const nextIndex = nextPrescription.exercises.findIndex((exercise) => {
@@ -239,12 +290,17 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             const index = exerciseOrder.get(set.exercise_library_id);
             return typeof index === 'number' ? Math.max(highestIndex, index) : highestIndex;
         }, 0);
+        const fallbackEffortIndex = loggedEfforts.reduce((highestIndex, effort) => {
+            const exerciseId = effort.exercise_library_id;
+            const index = exerciseId ? exerciseOrder.get(exerciseId) : undefined;
+            return typeof index === 'number' ? Math.max(highestIndex, index) : highestIndex;
+        }, fallbackIndex);
 
         setExerciseProgress(nextProgress);
         setCurrentExerciseIndex(
             nextIndex >= 0
                 ? nextIndex
-                : Math.min(fallbackIndex, Math.max(0, nextPrescription.exercises.length - 1)),
+                : Math.min(fallbackEffortIndex, Math.max(0, nextPrescription.exercises.length - 1)),
         );
         setStartTime(
             workout.created_at
@@ -395,6 +451,12 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 scheduledActivityId,
                 gymProfileId: gym?.id,
                 date: sessionDateRef.current,
+                sessionFamily: prescription.sessionPrescription?.sessionFamily ?? null,
+                primaryModality: prescription.modality ?? prescription.sessionPrescription?.modality ?? null,
+                energySystem: prescription.energySystem ?? prescription.sessionPrescription?.energySystem ?? null,
+                doseSummary: prescription.doseSummary ?? prescription.sessionPrescription?.dose ?? {},
+                trackingSchemaId: prescription.trackingSchemaId ?? prescription.sessionPrescription?.trackingSchema.id ?? null,
+                safetyFlags: prescription.safetyFlags ?? prescription.sessionPrescription?.safetyFlags ?? [],
             });
 
             if (weeklyPlanEntryId) {
@@ -596,6 +658,54 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
     // ── Rest Timer ────────────────────────────────────────────────
 
+    const logEffort = useCallback(async (effort: WorkoutEffortLogInput) => {
+        if (!workoutLog || !currentExercise) return;
+
+        const exerciseId = effort.exercise_library_id ?? currentExercise.exercise.id;
+        const progress = exerciseProgress[exerciseId];
+        if (!progress) return;
+
+        const effortIndex = effort.effort_index > 0
+            ? effort.effort_index
+            : progress.effortsLogged.length + 1;
+
+        const saved = await logWorkoutEffort(workoutLog.id, {
+            ...effort,
+            exercise_library_id: exerciseId,
+            effort_index: effortIndex,
+        });
+
+        const effortEntry: EffortEntry = {
+            exerciseId,
+            effortKind: saved.effort_kind,
+            effortIndex: saved.effort_index,
+            targetSnapshot: saved.target_snapshot ?? {},
+            actualSnapshot: saved.actual_snapshot ?? {},
+            actualRPE: saved.actual_rpe,
+            qualityRating: saved.quality_rating,
+            painFlag: saved.pain_flag,
+            notes: saved.notes,
+            completedAt: saved.completed_at ? new Date(saved.completed_at) : new Date(),
+        };
+
+        setExerciseProgress(prev => {
+            const existing = prev[exerciseId];
+            if (!existing) return prev;
+
+            const effortsLogged = [...existing.effortsLogged, effortEntry];
+            const workingSetCount = existing.setsLogged.filter((set) => !set.isWarmup).length;
+
+            return {
+                ...prev,
+                [exerciseId]: {
+                    ...existing,
+                    effortsLogged,
+                    isComplete: workingSetCount + effortsLogged.length >= currentExercise.targetSets,
+                },
+            };
+        });
+    }, [currentExercise, exerciseProgress, workoutLog]);
+
     const skipRest = useCallback(() => {
         if (restTimerRef.current) clearInterval(restTimerRef.current);
         restTimerRef.current = null;
@@ -703,13 +813,19 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             const durationMin = Math.round((Date.now() - startTime.getTime()) / 60000);
 
             const allSets = Object.values(exerciseProgress).flatMap(p => p.setsLogged);
+            const allEfforts = Object.values(exerciseProgress).flatMap(p => p.effortsLogged);
             const workingSets = allSets.filter(s => !s.isWarmup && s.rpe !== null);
-            const avgRPE = workingSets.length > 0
-                ? workingSets.reduce((sum, entry) => sum + (entry.rpe ?? 0), 0) / workingSets.length
+            const effortRPEs = allEfforts.filter((entry) => entry.actualRPE !== null);
+            const loggedRPEs = [
+                ...workingSets.map((entry) => entry.rpe ?? 0),
+                ...effortRPEs.map((entry) => entry.actualRPE ?? 0),
+            ];
+            const avgRPE = loggedRPEs.length > 0
+                ? loggedRPEs.reduce((sum, rpe) => sum + rpe, 0) / loggedRPEs.length
                 : null;
 
             const totalVolume = workingSets.reduce((sum, entry) => sum + entry.reps * entry.weight, 0);
-            const totalSets = workingSets.length;
+            const totalSets = workingSets.length + allEfforts.length;
             const summary: WorkoutSummary = { durationMin, avgRPE, totalVolume, totalSets };
 
             const { data: { session } } = await supabase.auth.getSession();
@@ -802,6 +918,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         cancelLoad,
         startWorkout,
         logSet,
+        logEffort,
         toggleWarmupSet,
         completeExercise,
         completeSection,

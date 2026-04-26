@@ -15,16 +15,41 @@ import RPESelector from '../../../components/RPESelector';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function CircuitRenderer(props: StrategyRendererProps) {
-  const { exercise, onLogSet, onCompleteExercise, onFinishWorkout, isLastExercise, selectedRPE, onSelectRPE } = props;
+  const { exercise, onLogEffort, onCompleteExercise, onFinishWorkout, isLastExercise, selectedRPE, onSelectRPE } = props;
 
   const circuit = exercise.circuitRound ?? exercise.setPrescription[0]?.circuitRound;
-  const totalRounds = circuit?.roundCount ?? exercise.targetSets;
+  const dose = exercise.modalityDose?.circuit;
+  const totalRounds = circuit?.roundCount ?? dose?.rounds ?? exercise.targetSets;
   const [currentRound, setCurrentRound] = useState(1);
   const [completedMovements, setCompletedMovements] = useState<Set<number>>(new Set());
   const [resting, setResting] = useState(false);
   const allRoundsDone = currentRound > totalRounds;
 
-  const movementCount = circuit?.movements.length ?? 0;
+  const movementCount = circuit?.movements.length ?? dose?.movementCount ?? 1;
+  const restBetweenRoundsSec = circuit?.restBetweenRoundsSec ?? dose?.restSeconds ?? 0;
+
+  const logRound = useCallback((round: number) => {
+    void onLogEffort({
+      exercise_library_id: exercise.id,
+      effort_kind: 'circuit_round',
+      effort_index: round,
+      target_snapshot: {
+        rounds: totalRounds,
+        movement_count: movementCount,
+        work_seconds: dose?.workSeconds ?? null,
+        rest_seconds: restBetweenRoundsSec || null,
+        score_type: dose?.scoreType ?? null,
+        density_target: dose?.densityTarget ?? null,
+      },
+      actual_snapshot: {
+        rounds_completed: 1,
+        movement_count: movementCount,
+        completed: true,
+      },
+      actual_rpe: selectedRPE,
+      pain_flag: false,
+    });
+  }, [dose?.densityTarget, dose?.scoreType, dose?.workSeconds, exercise.id, movementCount, onLogEffort, restBetweenRoundsSec, selectedRPE, totalRounds]);
 
   const handleToggleMovement = useCallback((index: number) => {
     setCompletedMovements((prev) => {
@@ -36,7 +61,7 @@ export function CircuitRenderer(props: StrategyRendererProps) {
       }
 
       if (next.size >= movementCount) {
-        onLogSet();
+        logRound(currentRound);
         if (currentRound < totalRounds) {
           setResting(true);
         } else {
@@ -47,34 +72,26 @@ export function CircuitRenderer(props: StrategyRendererProps) {
 
       return next;
     });
-  }, [currentRound, movementCount, onLogSet, totalRounds]);
+  }, [currentRound, logRound, movementCount, totalRounds]);
 
   const handleRestComplete = useCallback(() => {
     setResting(false);
     setCurrentRound((prev) => prev + 1);
   }, []);
 
-  if (!circuit) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.fallback}>Circuit data not available.</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      {resting && circuit.restBetweenRoundsSec > 0 ? (
+      {resting && restBetweenRoundsSec > 0 ? (
         <TimerDisplay
           mode="countdown"
-          totalSeconds={circuit.restBetweenRoundsSec}
+          totalSeconds={restBetweenRoundsSec}
           running={true}
           label={`Rest before Round ${currentRound + 1}`}
           size="prominent"
           onComplete={handleRestComplete}
           onSkip={handleRestComplete}
         />
-      ) : !allRoundsDone ? (
+      ) : !allRoundsDone && circuit ? (
         <CircuitView
           circuit={circuit}
           currentRound={currentRound}
@@ -82,6 +99,21 @@ export function CircuitRenderer(props: StrategyRendererProps) {
           onToggleMovement={handleToggleMovement}
           interactive={true}
         />
+      ) : !allRoundsDone ? (
+        <View style={styles.finishSection}>
+          <Text style={styles.doneTitle}>Round {currentRound}</Text>
+          <Text style={styles.doneSubtitle}>{movementCount} movements | {dose?.scoreType?.replace(/_/g, ' ') ?? 'rounds'}</Text>
+          <TouchableOpacity
+            style={styles.completeButton}
+            onPress={() => {
+              logRound(currentRound);
+              setCurrentRound((round) => round + 1);
+            }}
+            activeOpacity={0.82}
+          >
+            <Text style={styles.completeText}>Complete Round</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <View style={styles.finishSection}>
           <Text style={styles.doneTitle}>Circuit Complete</Text>

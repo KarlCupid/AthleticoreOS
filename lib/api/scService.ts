@@ -11,6 +11,8 @@ import {
     ExerciseType,
     EquipmentItem,
     ExerciseHistoryEntry,
+    WorkoutEffortLogInput,
+    WorkoutEffortLogRow,
 } from '../engine/types';
 import { estimateE1RM } from '../engine/calculateOverload';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
@@ -59,6 +61,92 @@ async function insertWorkoutLogWithCompat(
         hasWorkoutLogScheduledActivityIdColumn = true;
     }
     return data as WorkoutLogRow;
+}
+
+function snapshotNumber(snapshot: Record<string, unknown>, keys: string[]): number {
+    for (const key of keys) {
+        const value = snapshot[key];
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        if (typeof value === 'string' && value.trim() !== '') {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) return parsed;
+        }
+    }
+    return 0;
+}
+
+function summarizeEffortLogs(efforts: WorkoutEffortLogRow[]): Pick<WorkoutLogRow,
+    'sprint_meters' |
+    'plyo_contacts' |
+    'hiit_minutes' |
+    'aerobic_minutes' |
+    'circuit_rounds' |
+    'high_impact_count' |
+    'tissue_stress_load'
+> {
+    let sprintMeters = 0;
+    let plyoContacts = 0;
+    let hiitSeconds = 0;
+    let aerobicMinutes = 0;
+    let circuitRounds = 0;
+    let highImpactCount = 0;
+    let tissueStressLoad = 0;
+
+    for (const effort of efforts) {
+        const actual = effort.actual_snapshot ?? {};
+        const target = effort.target_snapshot ?? {};
+
+        if (effort.effort_kind === 'sprint_rep') {
+            const meters = snapshotNumber(actual, ['distance_m', 'distanceMeters', 'meters'])
+                || snapshotNumber(target, ['distance_m', 'distanceMeters', 'meters']);
+            sprintMeters += meters;
+            highImpactCount += meters > 0 ? 1 : 0;
+            tissueStressLoad += meters * 0.03;
+        }
+
+        if (effort.effort_kind === 'plyo_set') {
+            const contacts = snapshotNumber(actual, ['contacts', 'groundContacts'])
+                || snapshotNumber(target, ['contacts', 'groundContacts']);
+            plyoContacts += contacts;
+            highImpactCount += snapshotNumber(actual, ['highImpactCount']) || snapshotNumber(target, ['highImpactCount']);
+            tissueStressLoad += contacts * 0.08;
+        }
+
+        if (effort.effort_kind === 'interval_round') {
+            const workSeconds = snapshotNumber(actual, ['work_seconds', 'workSeconds'])
+                || snapshotNumber(target, ['work_seconds', 'workSeconds']);
+            hiitSeconds += workSeconds;
+            tissueStressLoad += workSeconds * 0.01;
+        }
+
+        if (effort.effort_kind === 'aerobic_block') {
+            aerobicMinutes += snapshotNumber(actual, ['duration_min', 'durationMin', 'minutes'])
+                || snapshotNumber(target, ['duration_min', 'durationMin', 'minutes']);
+        }
+
+        if (effort.effort_kind === 'circuit_round') {
+            circuitRounds += snapshotNumber(actual, ['rounds_completed', 'roundsCompleted', 'rounds']) || 1;
+            const workSeconds = snapshotNumber(actual, ['work_seconds', 'workSeconds'])
+                || snapshotNumber(target, ['work_seconds', 'workSeconds']);
+            tissueStressLoad += workSeconds * 0.01;
+        }
+
+        if (effort.effort_kind === 'agility_rep') {
+            highImpactCount += snapshotNumber(actual, ['direction_changes', 'directionChanges'])
+                || snapshotNumber(target, ['direction_changes', 'directionChanges']);
+            tissueStressLoad += 0.5;
+        }
+    }
+
+    return {
+        sprint_meters: sprintMeters || null,
+        plyo_contacts: plyoContacts || null,
+        hiit_minutes: hiitSeconds > 0 ? Math.round((hiitSeconds / 60) * 10) / 10 : null,
+        aerobic_minutes: aerobicMinutes || null,
+        circuit_rounds: circuitRounds || null,
+        high_impact_count: highImpactCount || null,
+        tissue_stress_load: tissueStressLoad > 0 ? Math.round(tissueStressLoad * 10) / 10 : null,
+    };
 }
 
 export async function findOpenWorkoutLog(
@@ -289,6 +377,14 @@ export async function completeWorkout(
     if (setsErr) throw setsErr;
     const allSets = (sets ?? []) as WorkoutSetLogRow[];
 
+    const { data: efforts, error: effortsErr } = await supabase
+        .from('workout_effort_log')
+        .select('*')
+        .eq('workout_log_id', workoutLogId);
+
+    if (effortsErr) throw effortsErr;
+    const effortSummary = summarizeEffortLogs((efforts ?? []) as WorkoutEffortLogRow[]);
+
     // 2. Calculate totals
     const workingSets = allSets.filter(s => !s.is_warmup);
     const totalVolume = workingSets.reduce((sum, s) => sum + s.reps * s.weight_lbs, 0);
@@ -305,6 +401,13 @@ export async function completeWorkout(
             compliance_reason: options?.complianceReason ?? null,
             activation_rpe: options?.activationRPE ?? null,
             notes: notes ?? null,
+            sprint_meters: effortSummary.sprint_meters,
+            plyo_contacts: effortSummary.plyo_contacts,
+            hiit_minutes: effortSummary.hiit_minutes,
+            aerobic_minutes: effortSummary.aerobic_minutes,
+            circuit_rounds: effortSummary.circuit_rounds,
+            high_impact_count: effortSummary.high_impact_count,
+            tissue_stress_load: effortSummary.tissue_stress_load,
         })
         .eq('id', workoutLogId)
         .select()
@@ -816,6 +919,12 @@ export async function startWorkoutV2(
         scheduledActivityId?: string | null;
         gymProfileId?: string;
         date?: string;
+        sessionFamily?: WorkoutLogRow['session_family'];
+        primaryModality?: WorkoutLogRow['primary_modality'];
+        energySystem?: WorkoutLogRow['energy_system'];
+        doseSummary?: WorkoutLogRow['dose_summary'];
+        trackingSchemaId?: string | null;
+        safetyFlags?: WorkoutLogRow['safety_flags'];
     },
 ): Promise<WorkoutLogRow> {
     const openWorkout = await findOpenWorkoutLog(userId, {
@@ -840,6 +949,12 @@ export async function startWorkoutV2(
         session_rpe: null,
         duration_minutes: null,
         notes: null,
+        session_family: params.sessionFamily ?? null,
+        primary_modality: params.primaryModality ?? null,
+        energy_system: params.energySystem ?? null,
+        dose_summary: params.doseSummary ?? {},
+        tracking_schema_id: params.trackingSchemaId ?? null,
+        safety_flags: params.safetyFlags ?? [],
     }, params.scheduledActivityId);
 }
 
@@ -889,6 +1004,51 @@ export async function logWorkoutSetV2(
 
     if (error) throw error;
     return data as WorkoutSetLogRow;
+}
+
+/**
+ * Log one modality-specific effort row, such as a sprint rep, plyo contact set,
+ * interval round, circuit round, aerobic block, agility rep, or recovery block.
+ */
+export async function logWorkoutEffort(
+    workoutLogId: string,
+    effort: WorkoutEffortLogInput,
+): Promise<WorkoutEffortLogRow> {
+    const { data, error } = await supabase
+        .from('workout_effort_log')
+        .insert({
+            workout_log_id: workoutLogId,
+            exercise_library_id: effort.exercise_library_id ?? null,
+            effort_kind: effort.effort_kind,
+            effort_index: effort.effort_index,
+            target_snapshot: effort.target_snapshot,
+            actual_snapshot: effort.actual_snapshot,
+            actual_rpe: effort.actual_rpe ?? null,
+            quality_rating: effort.quality_rating ?? null,
+            pain_flag: effort.pain_flag ?? false,
+            notes: effort.notes ?? null,
+        })
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data as WorkoutEffortLogRow;
+}
+
+/**
+ * Restore modality-specific effort logs for an in-progress guided workout.
+ */
+export async function getWorkoutEffortsForLog(
+    workoutLogId: string,
+): Promise<WorkoutEffortLogRow[]> {
+    const { data, error } = await supabase
+        .from('workout_effort_log')
+        .select('*')
+        .eq('workout_log_id', workoutLogId)
+        .order('effort_index');
+
+    if (error) throw error;
+    return (data ?? []) as WorkoutEffortLogRow[];
 }
 
 
