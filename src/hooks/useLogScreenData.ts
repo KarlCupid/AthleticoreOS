@@ -29,7 +29,6 @@ export interface LogScreenInitialValues {
   sleep: number;
   readiness: number;
   energyLevel: number;
-  fuelHydrationStatus: number;
   painLevel: number;
   readinessScore: number | null;
   stressLevel: number;
@@ -69,7 +68,6 @@ interface DailyCheckinRow {
   sleep_quality: number | null;
   readiness: number | null;
   energy_level?: number | null;
-  fuel_hydration_status?: number | null;
   pain_level?: number | null;
   readiness_score?: number | null;
   macro_adherence: NutritionStatus;
@@ -124,7 +122,6 @@ const DEFAULT_INITIAL_VALUES: LogScreenInitialValues = {
   sleep: 3,
   readiness: 3,
   energyLevel: 3,
-  fuelHydrationStatus: 3,
   painLevel: 1,
   readinessScore: null,
   stressLevel: 3,
@@ -362,7 +359,6 @@ export function useLogScreenData() {
           sleep: todayCheckin?.sleep_quality ?? 3,
           readiness: todayCheckin?.readiness ?? 3,
           energyLevel: todayCheckin?.energy_level ?? todayCheckin?.readiness ?? 3,
-          fuelHydrationStatus: todayCheckin?.fuel_hydration_status ?? 3,
           painLevel: todayCheckin?.pain_level ?? 1,
           readinessScore: todayCheckin?.readiness_score ?? null,
           stressLevel: todayCheckin?.stress_level ?? 3,

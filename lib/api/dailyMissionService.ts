@@ -54,6 +54,24 @@ const dailyEngineStateCache = new Map<string, DailyEngineState>();
 const dailyEngineStateInFlight = new Map<string, Promise<DailyEngineState>>();
 const weeklyMissionCache = new Map<string, WeeklyMissionPlan>();
 const weeklyMissionInFlight = new Map<string, Promise<WeeklyMissionPlan>>();
+let hasDailyPerformanceCheckColumns: boolean | null = null;
+
+const DAILY_CHECKIN_LEGACY_SELECT = 'date, sleep_quality, readiness, stress_level, soreness_level, confidence_level';
+const DAILY_CHECKIN_PERFORMANCE_SELECT = `${DAILY_CHECKIN_LEGACY_SELECT}, energy_level, pain_level`;
+const DAILY_PERFORMANCE_CHECK_COLUMNS = [
+  'energy_level',
+  'pain_level',
+  'readiness_score',
+  'checkin_version',
+] as const;
+
+function isMissingDailyPerformanceCheckColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybe = error as { code?: string; message?: string };
+  const message = typeof maybe.message === 'string' ? maybe.message : '';
+  return (maybe.code === 'PGRST204' || maybe.code === '42703')
+    && DAILY_PERFORMANCE_CHECK_COLUMNS.some((column) => message.includes(column));
+}
 
 function getDailyEngineStateCacheKey(userId: string, date: string): string {
   return `${userId}::${date}`;
@@ -371,12 +389,15 @@ async function resolveReadinessProfile(input: {
   let checkinsResult: any = { data: [] };
   let recentActivities: any[] = [];
   let activationResult: any = { data: [] };
+  const checkinSelect = hasDailyPerformanceCheckColumns === false
+    ? DAILY_CHECKIN_LEGACY_SELECT
+    : DAILY_CHECKIN_PERFORMANCE_SELECT;
 
   try {
     const [cRes, rAct, aRes] = await Promise.all([
       supabase
         .from('daily_checkins')
-        .select('date, sleep_quality, readiness, energy_level, fuel_hydration_status, stress_level, soreness_level, pain_level, confidence_level')
+        .select(checkinSelect)
         .eq('user_id', userId)
         .gte('date', historyStart)
         .lte('date', date)
@@ -397,13 +418,20 @@ async function resolveReadinessProfile(input: {
 
     if (cRes.error) throw cRes.error;
     if (aRes.error) throw aRes.error;
+    if (checkinSelect === DAILY_CHECKIN_PERFORMANCE_SELECT) {
+      hasDailyPerformanceCheckColumns = true;
+    }
   } catch (error) {
-    console.error('Error resolving readiness data (check columns exist?):', error);
+    if (isMissingDailyPerformanceCheckColumnError(error)) {
+      hasDailyPerformanceCheckColumns = false;
+    } else {
+      console.error('Error resolving readiness data:', error);
+    }
     // Fallback: If queries fail (e.g. missing columns), try a minimal checkin fetch
     try {
       const fallbackCheckins = await supabase
         .from('daily_checkins')
-        .select('date, readiness, sleep_quality')
+        .select(DAILY_CHECKIN_LEGACY_SELECT)
         .eq('user_id', userId)
         .gte('date', historyStart)
         .lte('date', date);
@@ -418,7 +446,6 @@ async function resolveReadinessProfile(input: {
     sleep_quality?: number | null;
     readiness?: number | null;
     energy_level?: number | null;
-    fuel_hydration_status?: number | null;
     stress_level?: number | null;
     soreness_level?: number | null;
     pain_level?: number | null;
@@ -450,7 +477,7 @@ async function resolveReadinessProfile(input: {
     sleepQuality: todayCheckin?.sleep_quality ?? null,
     subjectiveReadiness: todayCheckin?.readiness ?? null,
     energyLevel: todayCheckin?.energy_level ?? null,
-    fuelHydrationStatus: todayCheckin?.fuel_hydration_status ?? null,
+    fuelHydrationStatus: null,
     painLevel: todayCheckin?.pain_level ?? null,
     confidenceLevel: todayCheckin?.confidence_level ?? null,
     stressLevel: todayCheckin?.stress_level ?? null,

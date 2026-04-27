@@ -15,7 +15,7 @@ export interface DailyPerformanceCheckInput {
   stressLevel: number;
   sorenessLevel: number;
   confidenceLevel: number;
-  fuelHydrationStatus: number;
+  fuelHydrationStatus?: number | null;
   painLevel?: number | null;
 }
 
@@ -52,19 +52,19 @@ export function estimateDailyPerformanceReadinessScore(input: DailyPerformanceCh
   const confidence = normalize1to5(input.confidenceLevel);
   const stressReserve = 100 - normalize1to5(input.stressLevel);
   const sorenessReserve = 100 - normalize1to5(input.sorenessLevel);
-  const fuel = normalize1to5(input.fuelHydrationStatus);
+  const fuel = input.fuelHydrationStatus == null ? null : normalize1to5(input.fuelHydrationStatus);
   const painReserve = input.painLevel == null ? 100 : 100 - normalize1to5(input.painLevel, 1);
 
   const neural = average([sleep, energy, confidence, stressReserve]);
   const structural = average([sorenessReserve, painReserve]);
-  const metabolic = average([energy, fuel, sleep]);
+  const metabolic = average(fuel == null ? [energy, sleep] : [energy, fuel, sleep]);
   let score = Math.round((neural * 0.4) + (structural * 0.3) + (metabolic * 0.3));
 
   if (input.sleepQuality <= 2) score = Math.min(score, 62);
   if (input.energyLevel <= 2) score = Math.min(score, 60);
   if (input.stressLevel >= 5) score = Math.min(score, 62);
   if (input.sorenessLevel >= 4) score = Math.min(score, 65);
-  if (input.fuelHydrationStatus <= 2) score = Math.min(score, 66);
+  if (input.fuelHydrationStatus != null && input.fuelHydrationStatus <= 2) score = Math.min(score, 66);
   if ((input.painLevel ?? 1) >= 4) score = Math.min(score, 54);
 
   const hardLimiters = [
@@ -72,7 +72,7 @@ export function estimateDailyPerformanceReadinessScore(input: DailyPerformanceCh
     input.energyLevel <= 2,
     input.sorenessLevel >= 4,
     input.stressLevel >= 4,
-    input.fuelHydrationStatus <= 2,
+    input.fuelHydrationStatus != null && input.fuelHydrationStatus <= 2,
     (input.painLevel ?? 1) >= 4,
   ].filter(Boolean).length;
   if (hardLimiters >= 3) score = Math.min(score, 44);
@@ -100,7 +100,6 @@ export function inferPrimaryLimiterFromDailyCheck(input: DailyPerformanceCheckIn
   if (input.sleepQuality <= 2) return 'sleep';
   if (input.stressLevel >= 4) return 'stress';
   if (input.sorenessLevel >= 4 || (input.painLevel ?? 1) >= 4) return 'soreness';
-  if (input.fuelHydrationStatus <= 2) return 'nutrition';
   return 'none';
 }
 
@@ -171,7 +170,7 @@ function adaptExercise<T extends WorkoutPrescriptionV2['exercises'][number]>(
     setPrescription,
     loadingNotes: band === 'Push'
       ? exercise.loadingNotes
-      : `${exercise.loadingNotes ? `${exercise.loadingNotes} ` : ''}${band} check-in: keep quality high and do not chase extra fatigue.`.trim(),
+      : `${exercise.loadingNotes ? `${exercise.loadingNotes} ` : ''}Daily check: keep the work controlled today.`.trim(),
   };
 
   return {
@@ -244,7 +243,7 @@ export function adaptPrescriptionToDailyReadiness(input: {
           volumeMultiplier: Math.min(prescription.performanceRisk.volumeMultiplier, constraintSet.volumeMultiplier),
           allowHighImpact: prescription.performanceRisk.allowHighImpact && constraintSet.hardCaps.allowImpact,
           protectMode: prescription.performanceRisk.protectMode || band === 'Protect',
-          reasons: [...prescription.performanceRisk.reasons, `Daily check set session to ${band}.`],
+          reasons: [...prescription.performanceRisk.reasons, `Daily check set session status to ${band}.`],
         }
       : {
           level: band === 'Protect' ? 'red' : band === 'Build' ? 'yellow' : 'green',
@@ -252,7 +251,7 @@ export function adaptPrescriptionToDailyReadiness(input: {
           volumeMultiplier: constraintSet.volumeMultiplier,
           cnsMultiplier: constraintSet.volumeMultiplier,
           allowHighImpact: constraintSet.hardCaps.allowImpact,
-          reasons: [`Daily check set session to ${band}.`],
+          reasons: [`Daily check set session status to ${band}.`],
           readinessProfile,
           constraintSet,
           protectMode: band === 'Protect',
@@ -264,11 +263,11 @@ export function adaptPrescriptionToDailyReadiness(input: {
           {
             code: band === 'Protect' ? 'daily_check_protect' : 'daily_check_build',
             level: band === 'Protect' ? 'restricted' : 'caution',
-            message: `Daily check set this session to ${band}.`,
+            message: `Daily check set this session status to ${band}.`,
           },
         ],
     primaryAdaptation: band === 'Protect' ? 'recovery' : prescription.primaryAdaptation,
-    message: `${prescription.message} Daily check: ${band}.`,
+    message: `${prescription.message} Daily check status: ${band}.`,
     decisionTrace: prescription.decisionTrace.includes(traceTag)
       ? prescription.decisionTrace
       : [...prescription.decisionTrace, traceTag, `daily_check_intensity_cap:${intensityCap}`, `daily_check_max_rpe:${maxExerciseRPE(safeExercises)}`],

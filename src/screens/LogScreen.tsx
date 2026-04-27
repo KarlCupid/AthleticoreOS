@@ -41,7 +41,22 @@ import { generateDailyCoachDebrief } from '../../lib/engine/calculateDailyCoachD
 import type { CoachingFocus, NutritionBarrier } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 
-type CheckKey = 'sleep' | 'energy' | 'stress' | 'soreness' | 'confidence' | 'fuel';
+type CheckKey = 'sleep' | 'energy' | 'stress' | 'soreness' | 'confidence';
+
+const DAILY_PERFORMANCE_CHECK_COLUMNS = [
+  'energy_level',
+  'pain_level',
+  'readiness_score',
+  'checkin_version',
+] as const;
+
+function isMissingDailyPerformanceCheckColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybe = error as { code?: string; message?: string };
+  const message = typeof maybe.message === 'string' ? maybe.message : '';
+  return (maybe.code === 'PGRST204' || maybe.code === '42703')
+    && DAILY_PERFORMANCE_CHECK_COLUMNS.some((column) => message.includes(column));
+}
 
 interface CheckScale {
   key: CheckKey;
@@ -55,59 +70,52 @@ const CHECK_SCALES: CheckScale[] = [
   {
     key: 'sleep',
     label: 'Sleep',
-    question: 'How was your sleep?',
-    tooltip: 'Score the sleep you actually got, not what you planned. If you woke up often or feel foggy, choose 1-2.',
-    values: ['Barely slept', 'Poor', 'OK', 'Good', 'Great'],
+    question: 'Sleep quality last night?',
+    tooltip: 'Rate the sleep you got, not the plan. If you woke often or feel foggy, score lower.',
+    values: ['Very poor', 'Poor', 'Fair', 'Good', 'Excellent'],
   },
   {
     key: 'energy',
     label: 'Energy',
-    question: 'How much energy do you have right now?',
-    tooltip: 'Score your current drive to move and focus. Low energy means warm-ups feel slow before training even starts.',
-    values: ['Empty', 'Low', 'Fine', 'Strong', 'Very strong'],
+    question: 'Current energy level?',
+    tooltip: 'Rate how ready your body feels to produce work now. Low energy means speed, focus, or output feels limited.',
+    values: ['Very low', 'Low', 'Moderate', 'High', 'Very high'],
   },
   {
     key: 'stress',
     label: 'Stress',
-    question: 'How heavy does life feel today?',
-    tooltip: 'This includes work, school, travel, emotions, and poor routine. High stress can make hard training cost more.',
-    values: ['Calm', 'Manageable', 'Busy', 'Heavy', 'Maxed out'],
+    question: 'Current life stress?',
+    tooltip: 'Include work, school, travel, and mental load. Higher stress increases recovery cost.',
+    values: ['Very low', 'Low', 'Moderate', 'High', 'Very high'],
   },
   {
     key: 'soreness',
     label: 'Soreness',
-    question: 'How sore or beat up do you feel?',
-    tooltip: 'Score what changes training today. Mild tightness is 2; soreness that changes speed, range, or contact is 4-5.',
-    values: ['Fresh', 'Mild', 'Noticeable', 'Stiff', 'Very sore'],
+    question: 'Muscle soreness today?',
+    tooltip: 'Score soreness that affects movement. If range, speed, or contact changes, use 4-5.',
+    values: ['None', 'Mild', 'Moderate', 'High', 'Severe'],
   },
   {
     key: 'confidence',
     label: 'Confidence',
-    question: 'How confident are you to train well today?',
-    tooltip: 'Score your confidence in executing clean work, not your motivation to suffer. If you need a simpler session, choose 1-2.',
-    values: ['Not ready', 'Unsure', 'OK', 'Ready', 'Locked in'],
-  },
-  {
-    key: 'fuel',
-    label: 'Fuel/Fluids',
-    question: 'Do food and fluids feel handled?',
-    tooltip: 'Score whether eating and drinking are ready for training. If you are behind on meals or fluids, choose 1-2.',
-    values: ['Not at all', 'Behind', 'OK', 'Good', 'Dialed'],
+    question: 'Confidence to train well?',
+    tooltip: 'Rate confidence to complete the planned work with control. This is not a toughness score.',
+    values: ['Very low', 'Low', 'Moderate', 'High', 'Very high'],
   },
 ];
 
 const BAND_COPY: Record<DailyPerformanceBand, { title: string; body: string }> = {
   Push: {
     title: 'Push',
-    body: 'Train as planned. Keep quality high and do not add extra work just because the score is good.',
+    body: 'Planned work is appropriate. Follow the prescription as written.',
   },
   Build: {
     title: 'Build',
-    body: 'Keep the main work. Trim extras if speed, range, or focus drops.',
+    body: 'Main work stays. Optional volume may be reduced.',
   },
   Protect: {
     title: 'Protect',
-    body: 'Lower the cost today. Keep intensity controlled and protect tomorrow.',
+    body: 'Training cost is reduced today to lower risk.',
   },
 };
 
@@ -146,7 +154,6 @@ export function LogScreen() {
     stress: 3,
     soreness: 3,
     confidence: 3,
-    fuel: 3,
   });
   const [painLevel, setPainLevel] = useState(1);
   const [showPainScale, setShowPainScale] = useState(false);
@@ -162,7 +169,6 @@ export function LogScreen() {
       stress: initial.stressLevel,
       soreness: initial.sorenessLevel,
       confidence: initial.confidenceLevel,
-      fuel: initial.fuelHydrationStatus,
     });
     setPainLevel(initial.painLevel);
     setShowPainScale(initial.painLevel > 1 || initial.sorenessLevel >= 4);
@@ -174,7 +180,6 @@ export function LogScreen() {
     stressLevel: values.stress,
     sorenessLevel: values.soreness,
     confidenceLevel: values.confidence,
-    fuelHydrationStatus: values.fuel,
     painLevel: showPainScale ? painLevel : null,
   }), [painLevel, showPainScale, values]);
   const estimatedScore = useMemo(() => estimateDailyPerformanceReadinessScore(checkInput), [checkInput]);
@@ -206,7 +211,6 @@ export function LogScreen() {
         sleepQuality: values.sleep,
         readiness: legacyReadiness,
         energyLevel: values.energy,
-        fuelHydrationStatus: values.fuel,
         painLevel: showPainScale ? painLevel : null,
         stressLevel: values.stress,
         sorenessLevel: Math.max(values.soreness, showPainScale ? painLevel : 1),
@@ -231,14 +235,13 @@ export function LogScreen() {
         previousDebrief: logScreenData.previousDebrief,
       });
 
-      const { error } = await supabase.from('daily_checkins').upsert({
+      const performancePayload = {
         user_id: userId,
         date: logScreenData.logDate,
         morning_weight: weight.trim() ? Number.parseFloat(weight) : null,
         sleep_quality: values.sleep,
         readiness: legacyReadiness,
         energy_level: values.energy,
-        fuel_hydration_status: values.fuel,
         stress_level: values.stress,
         soreness_level: values.soreness,
         pain_level: showPainScale ? painLevel : null,
@@ -249,19 +252,45 @@ export function LogScreen() {
         coach_debrief: debrief,
         readiness_score: estimatedScore,
         checkin_version: 2,
-      }, { onConflict: 'user_id,date' });
-      if (error) throw error;
+      };
+      const legacyPayload = {
+        user_id: userId,
+        date: logScreenData.logDate,
+        morning_weight: weight.trim() ? Number.parseFloat(weight) : null,
+        sleep_quality: values.sleep,
+        readiness: legacyReadiness,
+        stress_level: values.stress,
+        soreness_level: values.soreness,
+        confidence_level: values.confidence,
+        primary_limiter: primaryLimiter,
+        nutrition_barrier: 'none',
+        coaching_focus: getCoachingFocus(primaryLimiter),
+        coach_debrief: debrief,
+      };
+
+      const { error } = await supabase.from('daily_checkins').upsert(performancePayload, { onConflict: 'user_id,date' });
+      const savedWithPerformanceColumns = !error;
+      if (error) {
+        if (!isMissingDailyPerformanceCheckColumnError(error)) throw error;
+        const fallback = await supabase.from('daily_checkins').upsert(legacyPayload, { onConflict: 'user_id,date' });
+        if (fallback.error) throw fallback.error;
+      }
 
       invalidateEngineDataCache({ userId, date: logScreenData.logDate });
       const engineState = await getDailyEngineState(userId, logScreenData.logDate, { forceRefresh: true });
 
-      await supabase
-        .from('daily_checkins')
-        .update({
-          readiness_score: engineState.readinessProfile.overallReadiness,
-        })
-        .eq('user_id', userId)
-        .eq('date', logScreenData.logDate);
+      if (savedWithPerformanceColumns) {
+        const readinessUpdate = await supabase
+          .from('daily_checkins')
+          .update({
+            readiness_score: engineState.readinessProfile.overallReadiness,
+          })
+          .eq('user_id', userId)
+          .eq('date', logScreenData.logDate);
+        if (readinessUpdate.error && !isMissingDailyPerformanceCheckColumnError(readinessUpdate.error)) {
+          throw readinessUpdate.error;
+        }
+      }
 
       invalidateEngineDataCache({ userId, date: logScreenData.logDate });
       navigation.navigate('TodayHome');
@@ -278,7 +307,7 @@ export function LogScreen() {
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
         <View>
           <Text style={styles.headerTitle}>Daily Performance Check</Text>
-          <Text style={styles.headerSubtitle}>Answer based on how you feel right now. No perfect score needed.</Text>
+          <Text style={styles.headerSubtitle}>Score the factors that affect training today.</Text>
         </View>
       </View>
 
@@ -369,23 +398,23 @@ export function LogScreen() {
             <View style={styles.scaleHeader}>
               <View>
                 <Text style={styles.scaleLabel}>Pain</Text>
-                <Text style={styles.scaleQuestion}>Does pain change what you can do?</Text>
+                <Text style={styles.scaleQuestion}>Pain with movement?</Text>
               </View>
               <TouchableOpacity
                 style={styles.infoButton}
                 onPress={() => setTooltip({
                   key: 'soreness',
                   label: 'Pain',
-                  question: 'Does pain change what you can do?',
-                  tooltip: 'Score pain only when it changes movement, contact, range, or loading. Soreness is normal; sharp or limiting pain is not.',
-                  values: ['None', 'Small', 'Annoying', 'Limiting', 'Stop'],
+                  question: 'Pain with movement?',
+                  tooltip: 'Score pain only if it changes movement, range, loading, or contact. Sharp or limiting pain is 4-5.',
+                  values: ['None', 'Mild', 'Moderate', 'Limiting', 'Stop'],
                 })}
               >
                 <IconInfo size={16} color={COLORS.text.secondary} />
               </TouchableOpacity>
             </View>
             <View style={styles.choiceRow}>
-              {['None', 'Small', 'Annoying', 'Limiting', 'Stop'].map((label, idx) => {
+              {['None', 'Mild', 'Moderate', 'Limiting', 'Stop'].map((label, idx) => {
                 const value = idx + 1;
                 const selected = painLevel === value;
                 return (
@@ -419,7 +448,7 @@ export function LogScreen() {
             onPress={() => setShowPainScale(true)}
             activeOpacity={0.78}
           >
-            <Text style={[styles.addPainText, { color: themeColor }]}>Add pain flag</Text>
+            <Text style={[styles.addPainText, { color: themeColor }]}>Add pain score</Text>
           </TouchableOpacity>
         )}
       </ScrollView>

@@ -118,14 +118,14 @@ const EDUCATION_LIBRARY: Record<PrimaryLimiter, EducationEntry[]> = {
     {
       id: 'consistency_compound',
       title: 'Consistency Compound',
-      teaching: 'Good days in a row beat one perfect hero day.',
-      application: 'Stick to the plan, keep form sharp, and finish your key recovery actions.',
+      teaching: 'Consistent sessions matter more than one perfect day.',
+      application: 'Follow the plan, keep form clean, and complete the recovery basics.',
     },
     {
       id: 'load_progression_rule',
       title: 'Load Progression Rule',
       teaching: 'Progress comes fastest when hard work and recovery stay in balance.',
-      application: 'Push key sets and keep one rep in reserve on support work.',
+      application: 'Complete key sets as prescribed and keep one rep in reserve on support work.',
     },
   ],
 };
@@ -179,7 +179,6 @@ function inferPrimaryLimiter(input: DailyCoachDebriefInput): PrimaryLimiter {
   if (input.sleepQuality <= 2) return 'sleep';
   if ((input.stressLevel ?? 3) >= 4) return 'stress';
   if ((input.sorenessLevel ?? 3) >= 4 || (input.painLevel ?? 1) >= 4) return 'soreness';
-  if ((input.fuelHydrationStatus ?? 3) <= 2) return 'nutrition';
   if (input.nutritionAdherence === 'Missed It') return 'nutrition';
 
   return 'none';
@@ -190,14 +189,13 @@ function resolveReadinessBand(input: DailyCoachDebriefInput): DailyReadinessBand
   const lowSleep = input.sleepQuality <= 2;
   const lowReadiness = input.readiness <= 2;
   const lowEnergy = (input.energyLevel ?? 3) <= 2;
-  const lowFuel = (input.fuelHydrationStatus ?? 3) <= 2;
   const highPain = (input.painLevel ?? 1) >= 4;
   const highStress = (input.stressLevel ?? 3) >= 4;
   const highSoreness = (input.sorenessLevel ?? 3) >= 4;
   const lowConfidence = (input.confidenceLevel ?? 3) <= 2;
 
-  if (acwrStatus === 'redline' || lowSleep || lowReadiness || highPain || (lowEnergy && lowFuel)) return 'recover';
-  if (acwrStatus === 'caution' || input.readiness === 3 || input.sleepQuality === 3 || (input.energyLevel ?? 4) === 3 || (input.fuelHydrationStatus ?? 4) === 3 || highStress || highSoreness || lowConfidence) {
+  if (acwrStatus === 'redline' || lowSleep || lowReadiness || highPain || lowEnergy) return 'recover';
+  if (acwrStatus === 'caution' || input.readiness === 3 || input.sleepQuality === 3 || (input.energyLevel ?? 4) === 3 || highStress || highSoreness || lowConfidence) {
     return 'build';
   }
   return 'push';
@@ -212,7 +210,6 @@ function buildRiskFlags(input: DailyCoachDebriefInput, limiter: PrimaryLimiter):
   if (input.sleepQuality <= 2) flags.push('low_sleep');
   if (input.readiness <= 2) flags.push('low_readiness');
   if ((input.energyLevel ?? 3) <= 2) flags.push('low_energy');
-  if ((input.fuelHydrationStatus ?? 3) <= 2) flags.push('fuel_hydration_limiter');
   if ((input.stressLevel ?? 3) >= 4) flags.push('high_stress');
   if ((input.sorenessLevel ?? 3) >= 4) flags.push('high_soreness');
   if ((input.painLevel ?? 1) >= 4) flags.push('pain_restriction');
@@ -224,9 +221,9 @@ function buildRiskFlags(input: DailyCoachDebriefInput, limiter: PrimaryLimiter):
 }
 
 function buildHeadline(readinessBand: DailyReadinessBand): string {
-  if (readinessBand === 'push') return 'You are in a good spot today. Train hard with good form.';
-  if (readinessBand === 'build') return 'Solid day. Train with control and keep quality high.';
-  return 'Recovery day. Lower stress now so you can train better tomorrow.';
+  if (readinessBand === 'push') return 'Training can stay on plan.';
+  if (readinessBand === 'build') return 'Train, but keep a margin.';
+  return 'Reduce training cost today.';
 }
 
 function buildReasoning(input: DailyCoachDebriefInput, band: DailyReadinessBand, limiter: PrimaryLimiter): string {
@@ -239,15 +236,14 @@ function buildReasoning(input: DailyCoachDebriefInput, band: DailyReadinessBand,
   const limiterText = limiter === 'none' ? 'no clear main limiter' : `main limiter: ${limiter}`;
   const confidenceText = input.confidenceLevel != null ? `confidence ${input.confidenceLevel}/5` : 'confidence not logged';
   const energyText = input.energyLevel != null ? `energy ${input.energyLevel}/5` : `readiness ${input.readiness}/5`;
-  const fuelText = input.fuelHydrationStatus != null ? `fuel/fluids ${input.fuelHydrationStatus}/5` : 'fuel/fluids not logged';
 
   if (band === 'recover') {
-    return `Today is a lower-readiness day: ${loadText}, sleep ${input.sleepQuality}/5, ${energyText}, ${fuelText}. In ${phaseLabel}, recover first (${limiterText}; ${confidenceText}).`;
+    return `Readiness is low today: ${loadText}, sleep ${input.sleepQuality}/5, ${energyText}. In ${phaseLabel}, reduce session cost (${limiterText}; ${confidenceText}).`;
   }
   if (band === 'build') {
-    return `You can train today, but keep it controlled: ${loadText}, ${energyText}, ${fuelText}. In ${phaseLabel}, keep form clean and protect recovery (${limiterText}; ${confidenceText}).`;
+    return `Readiness is moderate today: ${loadText}, ${energyText}. In ${phaseLabel}, keep the main work controlled (${limiterText}; ${confidenceText}).`;
   }
-  return `You look ready to push: ${loadText}, sleep ${input.sleepQuality}/5, ${energyText}. In ${phaseLabel}, push key work and keep form sharp.`;
+  return `Readiness supports the plan: ${loadText}, sleep ${input.sleepQuality}/5, ${energyText}. In ${phaseLabel}, complete the key work as prescribed.`;
 }
 
 function buildTrainingAction(_input: DailyCoachDebriefInput, band: DailyReadinessBand): DailyCoachActionStep {
@@ -255,8 +251,8 @@ function buildTrainingAction(_input: DailyCoachDebriefInput, band: DailyReadines
     return {
       pillar: 'training',
       priority: 2,
-      action: 'Keep session intensity around RPE 5-6 and cut optional volume by 20%.',
-      why: 'This lowers stress and helps you recover.',
+      action: 'Cap hard work around RPE 5-6 and remove optional volume.',
+      why: 'This protects recovery when readiness is low.',
     };
   }
 
@@ -264,16 +260,16 @@ function buildTrainingAction(_input: DailyCoachDebriefInput, band: DailyReadines
     return {
       pillar: 'training',
       priority: 2,
-      action: 'Do planned work, but stop sets when form starts to drop.',
-      why: 'Good reps help you improve without digging a deep fatigue hole.',
+      action: 'Complete the planned main work. Stop a set when form or speed drops.',
+      why: 'This keeps the session productive without adding avoidable fatigue.',
     };
   }
 
   return {
     pillar: 'training',
     priority: 1,
-    action: 'Push your key sets to plan and keep support work clean.',
-    why: 'You have good readiness today, so hard quality work makes sense.',
+    action: 'Complete the key work as prescribed.',
+    why: 'Readiness supports planned training today.',
   };
 }
 

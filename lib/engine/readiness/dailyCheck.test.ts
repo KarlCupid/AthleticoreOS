@@ -114,7 +114,6 @@ console.log('\n-- daily performance check --');
     stressLevel: 1,
     sorenessLevel: 1,
     confidenceLevel: 5,
-    fuelHydrationStatus: 5,
   });
   assert('Strong subjective check maps to Push', mapScoreToPerformanceBand(score) === 'Push');
   assert('Strong subjective check keeps high legacy readiness', deriveLegacyReadinessFromDailyCheck({
@@ -123,7 +122,6 @@ console.log('\n-- daily performance check --');
     stressLevel: 1,
     sorenessLevel: 1,
     confidenceLevel: 5,
-    fuelHydrationStatus: 5,
   }) >= 4);
 }
 
@@ -134,7 +132,6 @@ console.log('\n-- daily performance check --');
     stressLevel: 4,
     sorenessLevel: 4,
     confidenceLevel: 2,
-    fuelHydrationStatus: 2,
     painLevel: 4,
   };
   const score = estimateDailyPerformanceReadinessScore(input);
