@@ -12,6 +12,8 @@ import {
 import { CircuitView } from '../../../components/workout/CircuitView';
 import { TimerDisplay } from '../../../components/workout/TimerDisplay';
 import RPESelector from '../../../components/RPESelector';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy, formatSecondsForCoach } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function CircuitRenderer(props: StrategyRendererProps) {
@@ -27,6 +29,7 @@ export function CircuitRenderer(props: StrategyRendererProps) {
 
   const movementCount = circuit?.movements.length ?? dose?.movementCount ?? 1;
   const restBetweenRoundsSec = circuit?.restBetweenRoundsSec ?? dose?.restSeconds ?? 0;
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   const logRound = useCallback((round: number) => {
     void onLogEffort({
@@ -81,6 +84,23 @@ export function CircuitRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
+      <TrainingCard
+        eyebrow="Circuit"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Round', value: `${Math.min(currentRound, totalRounds)}/${totalRounds}`, tone: 'accent' },
+          { label: 'Moves', value: movementCount },
+          { label: 'Rest', value: restBetweenRoundsSec > 0 ? formatSecondsForCoach(restBetweenRoundsSec) ?? '-' : 'As needed' },
+        ]}
+        compact
+      />
+
       {resting && restBetweenRoundsSec > 0 ? (
         <TimerDisplay
           mode="countdown"
@@ -128,7 +148,7 @@ export function CircuitRenderer(props: StrategyRendererProps) {
             activeOpacity={0.82}
           >
             <Text style={styles.completeText}>
-              {isLastExercise ? 'Finish Workout' : 'Complete ->'}
+              {isLastExercise ? 'Finish Session' : 'Next Exercise'}
             </Text>
           </TouchableOpacity>
         </View>

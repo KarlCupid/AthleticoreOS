@@ -188,11 +188,11 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         />
       )}
 
-      {/* Log Set / Complete Exercise button */}
+      {/* Set done / next exercise button */}
       {!allTargetSetsLogged ? (
         isGymFloor ? (
           <GymFloorPressable
-            label={isLoggingSet ? 'Logging...' : 'Log Set'}
+            label={isLoggingSet ? 'Saving...' : 'Set Done'}
             onPress={onLogSet}
             disabled={!canLogSet}
             variant="primary"
@@ -210,7 +210,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
             accessibilityRole="button"
           >
             <Text style={styles.primaryButtonText}>
-              {isLoggingSet ? 'Logging...' : 'Log Set'}
+              {isLoggingSet ? 'Saving...' : 'Set Done'}
             </Text>
           </TouchableOpacity>
         )
@@ -223,7 +223,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
           accessibilityRole="button"
         >
           <Text style={styles.primaryButtonText}>
-            {isLastExercise ? 'Finish Workout' : 'Complete Exercise â†’'}
+            {isLastExercise ? 'Finish Session' : 'Next Exercise'}
           </Text>
         </TouchableOpacity>
       )}
@@ -232,13 +232,13 @@ export function StrengthRenderer(props: StrategyRendererProps) {
       {!allTargetSetsLogged && (
         <View style={styles.footerLinks}>
           <TouchableOpacity onPress={onSkipExercise} activeOpacity={0.7} style={styles.footerLink}>
-            <Text style={styles.linkText}>Skip Exercise</Text>
+            <Text style={styles.linkText}>Skip This</Text>
           </TouchableOpacity>
           {workingSetsLogged > 0 && (
             <>
               <Text style={styles.footerDivider}>Â·</Text>
               <TouchableOpacity onPress={onFinishWorkout} activeOpacity={0.7} style={styles.footerLink}>
-                <Text style={styles.finishEarlyText}>End Workout</Text>
+                <Text style={styles.finishEarlyText}>End Session</Text>
               </TouchableOpacity>
             </>
           )}

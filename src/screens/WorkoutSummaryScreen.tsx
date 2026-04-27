@@ -34,14 +34,14 @@ function getRpeBgColor(rpe: number | null): string {
 }
 
 function getFatigueMessage(rpe: number | null): string {
-    if (rpe === null) return 'Session logged. Great work getting it done.';
+    if (rpe === null) return 'Session logged. Nice work. Start recovery now.';
     if (rpe < 6) {
-        return 'Great session. You left energy in the tank â€” consider pushing harder next time.';
+        return 'Good work. You had more in the tank. If readiness is good next time, nudge the effort up.';
     }
     if (rpe <= 7.5) {
-        return 'Solid effort. Good balance of intensity and recovery.';
+        return 'Solid dose. You trained hard and kept enough room to recover.';
     }
-    return 'High intensity session. Prioritize sleep and nutrition tonight.';
+    return 'Hard day logged. Eat, hydrate, and protect sleep tonight.';
 }
 
 function formatVolume(lbs: number): string {
@@ -186,7 +186,7 @@ export function WorkoutSummaryScreen() {
                     <View style={styles.checkCircle}>
                         <Text style={styles.checkMark}>âœ“</Text>
                     </View>
-                    <Text style={styles.heroTitle}>Workout Complete</Text>
+                    <Text style={styles.heroTitle}>Session Complete</Text>
                     <Text style={styles.heroSubtitle}>
                         {new Date().toLocaleDateString('en-US', {
                             weekday: 'long',
@@ -266,7 +266,7 @@ export function WorkoutSummaryScreen() {
                     onPress={handleViewHistory}
                     activeOpacity={0.8}
                 >
-                    <Text style={styles.outlinedButtonText}>Back to S&C</Text>
+                    <Text style={styles.outlinedButtonText}>Training Home</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>

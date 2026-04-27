@@ -209,7 +209,7 @@ export function WorkoutScreen() {
     : todayPlanEntry?.status === 'skipped'
       ? 'Review today\'s plan'
       : hasStructuredToday
-        ? 'Start workout'
+        ? 'Start session'
         : groupedWeeklyEntries.length === 0
           ? 'Set up weekly plan'
           : 'Open training';

@@ -23,6 +23,7 @@ import {
     ANIMATION,
 } from '../../theme/theme';
 import { getSessionFamilyLabel } from '../../../lib/engine/sessionLabels';
+import { formatRestForCoach, formatRpeForCoach } from '../../components/workout/trainingCopy';
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -52,6 +53,13 @@ export function mapPRType(
     if (prType === 'estimated_1rm') return 'e1rm';
     if (prType === 'reps') return 'reps';
     return 'weight';
+}
+
+function formatPreviewExerciseLine(exercise: any): string {
+    const setLine = exercise.setScheme ?? `${exercise.targetSets} x ${exercise.targetReps}`;
+    const effortLine = exercise.targetRPE ? formatRpeForCoach(exercise.targetRPE) : null;
+    const restLine = formatRestForCoach(exercise.restSeconds);
+    return [setLine, effortLine, restLine].filter(Boolean).join(' | ');
 }
 
 // ---------------------------------------------------------------------------
@@ -306,10 +314,15 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
         wizardKind: prescription.wizardKind,
         prescription,
     });
+    const sections = Array.isArray(prescription.sections) ? prescription.sections : [];
+    const exerciseCount = prescription.exercises?.length ?? 0;
+    const blockCount = sections.length > 0 ? sections.length : exerciseCount > 0 ? 1 : 0;
+    const whatToExpect = `${blockCount} block${blockCount === 1 ? '' : 's'} - ${exerciseCount} movement${exerciseCount === 1 ? '' : 's'} - about ${prescription.estimatedDurationMin} min.`;
+    const goal = prescription.sessionGoal ?? prescription.sessionIntent ?? prescription.message ?? 'Follow the plan. Keep the reps clean.';
 
     return (
         <Animated.View entering={FadeIn.duration(400)} style={ppStyles.container}>
-            <Text style={ppStyles.heading}>Today's Workout</Text>
+            <Text style={ppStyles.heading}>{sessionLabel}</Text>
 
             {gymProfile && (
                 <View style={ppStyles.gymRow}>
@@ -326,21 +339,21 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
                 </View>
                 <View style={ppStyles.metaBadge}>
                     <Text style={ppStyles.metaText}>
-                        {prescription.exercises.length} exercises
+                        {blockCount} blocks
                     </Text>
                 </View>
                 <View style={ppStyles.metaBadge}>
                     <Text style={ppStyles.metaText}>
-                        {sessionLabel}
+                        {exerciseCount} movements
                     </Text>
                 </View>
             </View>
 
-            {prescription.message ? (
-                <View style={ppStyles.messageCard}>
-                    <Text style={ppStyles.messageText}>{prescription.message}</Text>
-                </View>
-            ) : null}
+            <View style={ppStyles.messageCard}>
+                <Text style={ppStyles.messageLabel}>Session goal</Text>
+                <Text style={ppStyles.messageText}>{goal}</Text>
+                <Text style={ppStyles.expectText}>{whatToExpect}</Text>
+            </View>
 
             <View style={ppStyles.exerciseList}>
                 {prescription.exercises.map((ex: any, i: number) => (
@@ -355,10 +368,11 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
                         <View style={ppStyles.exerciseInfo}>
                             <Text style={ppStyles.exerciseName}>{ex.exercise.name}</Text>
                             <Text style={ppStyles.exerciseMeta}>
-                                {ex.targetSets} x {ex.targetReps} reps
-                                {ex.suggestedWeight ? ` | ${ex.suggestedWeight} lbs` : ''}
-                                {' | RPE '}{ex.targetRPE}
+                                {formatPreviewExerciseLine(ex)}
                             </Text>
+                            {ex.coachingCues?.[0] ? (
+                                <Text style={ppStyles.exerciseCue} numberOfLines={1}>Focus: {ex.coachingCues[0]}</Text>
+                            ) : null}
                         </View>
                         <View style={[ppStyles.muscleBadge]}>
                             <Text style={ppStyles.muscleBadgeText}>
@@ -380,7 +394,7 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
                     end={{ x: 1, y: 0 }}
                     style={ppStyles.beginButton}
                 >
-                    <Text style={ppStyles.beginText}>Begin Workout</Text>
+                    <Text style={ppStyles.beginText}>Start Session</Text>
                 </LinearGradient>
             </TouchableOpacity>
         </Animated.View>
@@ -447,6 +461,21 @@ const ppStyles = StyleSheet.create({
         color: COLORS.accent,
         lineHeight: 20,
     },
+    messageLabel: {
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 10,
+        color: COLORS.accent,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+        marginBottom: 3,
+    },
+    expectText: {
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 13,
+        color: COLORS.text.secondary,
+        lineHeight: 18,
+        marginTop: SPACING.xs,
+    },
     exerciseList: {
         gap: SPACING.sm,
         marginBottom: SPACING.xl,
@@ -486,6 +515,12 @@ const ppStyles = StyleSheet.create({
         fontFamily: FONT_FAMILY.regular,
         fontSize: 12,
         color: COLORS.text.secondary,
+    },
+    exerciseCue: {
+        fontFamily: FONT_FAMILY.regular,
+        fontSize: 11,
+        color: COLORS.text.tertiary,
+        marginTop: 2,
     },
     muscleBadge: {
         backgroundColor: COLORS.background,

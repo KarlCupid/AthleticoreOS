@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SPACING } from '../../../theme/theme';
 import { ActivationChecklist } from '../../../components/workout/ActivationChecklist';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 /**
@@ -32,6 +33,17 @@ export function ActivationRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
+      <TrainingCard
+        eyebrow="Activation"
+        title={currentSection?.title ?? exercise.name}
+        prescription={`${exercises.length} crisp movements`}
+        effort="Easy, sharp, no fatigue"
+        rest="Reset between moves"
+        focus={['Wake up positions', 'Move better before you train']}
+        feel="Ready, warm, and switched on."
+        compact
+      />
+
       <ActivationChecklist
         exercises={exercises}
         estimatedMinutes={estimatedMin}

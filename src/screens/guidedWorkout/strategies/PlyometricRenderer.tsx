@@ -9,6 +9,8 @@ import {
   TYPOGRAPHY_V2,
   TAP_TARGETS,
 } from '../../../theme/theme';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function PlyometricRenderer(props: StrategyRendererProps) {
@@ -30,6 +32,7 @@ export function PlyometricRenderer(props: StrategyRendererProps) {
   const [quality, setQuality] = useState(4);
   const [painFlag, setPainFlag] = useState(false);
   const done = completedSets >= totalSets;
+  const coachCopy = useMemo(() => buildTrainingCoachCopy(exercise), [exercise]);
 
   const subtitle = useMemo(() => {
     const jumpType = dose?.jumpType?.replace(/_/g, ' ') ?? 'jump';
@@ -61,17 +64,21 @@ export function PlyometricRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
-        <Text style={styles.kicker}>Plyometric</Text>
-        <Text style={styles.title}>{exercise.name}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
-
-      <View style={styles.metricRow}>
-        <Metric label="Set" value={`${Math.min(completedSets + 1, totalSets)}/${totalSets}`} />
-        <Metric label="Contacts" value={String(contacts)} />
-        <Metric label="Quality" value={`${quality}/5`} />
-      </View>
+      <TrainingCard
+        eyebrow="Plyometric"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Set', value: `${Math.min(completedSets + 1, totalSets)}/${totalSets}`, tone: 'accent' },
+          { label: 'Contacts', value: contacts },
+          { label: 'Surface', value: subtitle },
+        ]}
+      />
 
       {!done ? (
         <>
@@ -102,7 +109,7 @@ export function PlyometricRenderer(props: StrategyRendererProps) {
             disabled={isLoggingSet}
             activeOpacity={0.82}
           >
-            <Text style={styles.primaryText}>Log Plyo Set</Text>
+            <Text style={styles.primaryText}>Set Done</Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -114,19 +121,10 @@ export function PlyometricRenderer(props: StrategyRendererProps) {
             onPress={isLastExercise ? onFinishWorkout : onCompleteExercise}
             activeOpacity={0.82}
           >
-            <Text style={styles.completeText}>{isLastExercise ? 'Finish Workout' : 'Complete ->'}</Text>
+            <Text style={styles.completeText}>{isLastExercise ? 'Finish Session' : 'Next Exercise'}</Text>
           </TouchableOpacity>
         </View>
       )}
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
     </View>
   );
 }

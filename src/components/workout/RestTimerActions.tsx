@@ -24,7 +24,7 @@ export function RestTimerActions({ onSkip, onExtend, nextExerciseName }: RestTim
           activeScale={0.92}
           style={styles.skipButton}
         >
-          <Text style={styles.skipText}>Skip Rest</Text>
+          <Text style={styles.skipText}>Start Now</Text>
         </AnimatedPressable>
 
         <AnimatedPressable
@@ -33,7 +33,7 @@ export function RestTimerActions({ onSkip, onExtend, nextExerciseName }: RestTim
           activeScale={0.92}
           style={styles.extendButton}
         >
-          <Text style={styles.extendText}>+30s</Text>
+          <Text style={styles.extendText}>Add 30s</Text>
         </AnimatedPressable>
       </View>
 

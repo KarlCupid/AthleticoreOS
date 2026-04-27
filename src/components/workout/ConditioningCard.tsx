@@ -9,6 +9,8 @@ import {
   TYPOGRAPHY_V2,
 } from '../../theme/theme';
 import type { ConditioningVM, ConditioningDrillVM, ConditioningLogVM, ConditioningDrillLogVM } from './types';
+import { TrainingCard } from './TrainingCard';
+import { formatSecondsForCoach } from './trainingCopy';
 
 // ---------------------------------------------------------------------------
 // Intensity band colors
@@ -36,41 +38,33 @@ interface ConditioningCardProps {
 
 export function ConditioningCard({ conditioning, log }: ConditioningCardProps) {
   const intensity = INTENSITY_COLORS[conditioning.intensityLabel] ?? INTENSITY_COLORS.moderate;
+  const prescription = conditioning.workIntervalSec > 0
+    ? `${conditioning.rounds} rounds: ${conditioning.workIntervalSec}s work / ${conditioning.restIntervalSec}s rest`
+    : `${conditioning.rounds} rounds`;
+  const rest = conditioning.restIntervalSec > 0
+    ? `Rest ${formatSecondsForCoach(conditioning.restIntervalSec)}`
+    : null;
+  const effort = `${formatLabel(conditioning.intensityLabel)} effort`;
+  const focus = conditioning.message
+    ? [conditioning.message]
+    : ['Keep the pace repeatable', 'Recover on purpose'];
 
   return (
-    <View style={styles.container}>
-      {/* Header: type + intensity band */}
-      <View style={styles.header}>
-        <Text style={styles.type}>{formatLabel(conditioning.type)}</Text>
-        <View style={[styles.intensityBand, { backgroundColor: intensity.bg }]}>
-          <Text style={[styles.intensityText, { color: intensity.text }]}>
-            {formatLabel(conditioning.intensityLabel)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Meta row */}
-      <View style={styles.metaRow}>
-        <MetaPill label={`${conditioning.totalDurationMin} min`} />
-        <MetaPill label={`${conditioning.rounds} rounds`} />
-        {conditioning.workIntervalSec > 0 && (
-          <MetaPill label={`${conditioning.workIntervalSec}s work`} />
-        )}
-        {conditioning.restIntervalSec > 0 && (
-          <MetaPill label={`${conditioning.restIntervalSec}s rest`} />
-        )}
-        {conditioning.format && (
-          <MetaPill label={conditioning.format.toUpperCase()} />
-        )}
-        <MetaPill label={`Load: ${conditioning.estimatedLoad}`} />
-      </View>
-
-      {/* Message */}
-      {conditioning.message && (
-        <Text style={styles.message}>{conditioning.message}</Text>
-      )}
-
-      {/* Drills */}
+    <TrainingCard
+      eyebrow={conditioning.format ? conditioning.format.toUpperCase() : 'Conditioning'}
+      title={formatLabel(conditioning.type)}
+      prescription={prescription}
+      effort={effort}
+      rest={rest}
+      focus={focus}
+      feel="Hard, but repeatable."
+      metrics={[
+        { label: 'Time', value: `${conditioning.totalDurationMin} min`, tone: 'accent' },
+        { label: 'Rounds', value: conditioning.rounds },
+        { label: 'Load', value: conditioning.estimatedLoad, tone: intensity.text === COLORS.readiness.depleted ? 'warning' : 'default' },
+      ]}
+      compact
+    >
       {conditioning.drills.length > 0 && (
         <View style={styles.drillList}>
           <Text style={styles.drillHeader}>Drills</Text>
@@ -80,9 +74,8 @@ export function ConditioningCard({ conditioning, log }: ConditioningCardProps) {
         </View>
       )}
 
-      {/* Logged data */}
       {log && <ConditioningLogSection log={log} />}
-    </View>
+    </TrainingCard>
   );
 }
 

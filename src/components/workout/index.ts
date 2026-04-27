@@ -44,8 +44,17 @@ export { SectionCard } from './SectionCard';
 export { ComparisonRow } from './ComparisonRow';
 export { TimerDisplay } from './TimerDisplay';
 export type { TimerMode, TimerDisplayProps } from './TimerDisplay';
+export { TrainingCard } from './TrainingCard';
+export type { TrainingMetric } from './TrainingCard';
 export { LoadingPyramid } from './LoadingPyramid';
 export { CircuitView } from './CircuitView';
 export { ConditioningCard } from './ConditioningCard';
 export { RecoveryChecklist } from './RecoveryChecklist';
 export { ActivationChecklist } from './ActivationChecklist';
+export {
+  buildTrainingCoachCopy,
+  formatDisplayLabel as formatTrainingDisplayLabel,
+  formatRestForCoach,
+  formatRpeForCoach,
+  formatSecondsForCoach,
+} from './trainingCopy';

@@ -11,6 +11,8 @@ import {
 } from '../../../theme/theme';
 import { TimerDisplay } from '../../../components/workout/TimerDisplay';
 import RPESelector from '../../../components/RPESelector';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function TabataRenderer(props: StrategyRendererProps) {
@@ -32,12 +34,28 @@ export function TabataRenderer(props: StrategyRendererProps) {
   const totalRounds = timedWork?.roundCount ?? 8;
   const currentRound = Math.min((progress?.setsCompleted ?? 0) + 1, totalRounds);
   const allDone = (progress?.setsCompleted ?? 0) >= totalRounds;
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   return (
     <View style={styles.container}>
       {!allDone ? (
         <>
-          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          <TrainingCard
+            eyebrow="Tabata"
+            title={exercise.name}
+            prescription={coachCopy.prescription}
+            effort={coachCopy.effort}
+            rest={coachCopy.rest}
+            focus={coachCopy.focus}
+            feel={coachCopy.feel}
+            mistake={coachCopy.mistake}
+            metrics={[
+              { label: 'Round', value: `${currentRound}/${totalRounds}`, tone: 'accent' },
+              { label: 'Work', value: `${workSec}s` },
+              { label: 'Rest', value: `${restSec}s` },
+            ]}
+            compact
+          />
           <TimerDisplay
             mode="interval"
             workSeconds={workSec}
@@ -70,7 +88,7 @@ export function TabataRenderer(props: StrategyRendererProps) {
             activeOpacity={0.82}
           >
             <Text style={styles.completeText}>
-              {isLastExercise ? 'Finish Workout' : 'Complete ->'}
+              {isLastExercise ? 'Finish Session' : 'Next Exercise'}
             </Text>
           </TouchableOpacity>
         </View>

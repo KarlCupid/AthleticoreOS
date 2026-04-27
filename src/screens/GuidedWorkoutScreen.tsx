@@ -359,12 +359,12 @@ export function GuidedWorkoutScreen() {
 
     const handleFinishWorkout = () => {
         Alert.alert(
-            'Finish Workout?',
-            'Are you sure you want to finish the workout?',
+            'Finish session?',
+            'Stop here and save what you completed?',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Finish',
+                    text: 'Finish session',
                     style: 'default',
                     onPress: async () => {
                         await finalizeWorkoutAndNavigate();
@@ -399,7 +399,7 @@ export function GuidedWorkoutScreen() {
 
     const handleSkipExercise = () => {
         Alert.alert(
-            'Skip Exercise?',
+            'Skip this exercise?',
             `Skip ${currentExercise?.exercise.name ?? 'this exercise'}?`,
             [
                 { text: 'Cancel', style: 'cancel' },

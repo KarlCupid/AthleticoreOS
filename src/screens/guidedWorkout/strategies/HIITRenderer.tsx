@@ -11,6 +11,8 @@ import {
 } from '../../../theme/theme';
 import { TimerDisplay } from '../../../components/workout/TimerDisplay';
 import RPESelector from '../../../components/RPESelector';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function HIITRenderer(props: StrategyRendererProps) {
@@ -31,6 +33,7 @@ export function HIITRenderer(props: StrategyRendererProps) {
   const workSeconds = dose?.workSeconds ?? 60;
   const restSeconds = dose?.restSeconds ?? exercise.restSeconds ?? 60;
   const done = completedRounds >= totalRounds;
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   const handleLogRound = async () => {
     await onLogEffort({
@@ -55,13 +58,21 @@ export function HIITRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
-        <Text style={styles.kicker}>Intervals</Text>
-        <Text style={styles.title}>{exercise.name}</Text>
-        <Text style={styles.subtitle}>
-          {workSeconds}s work / {restSeconds}s rest | {dose?.modality ?? 'mixed'} | {dose?.targetIntensity?.replace(/_/g, ' ') ?? 'hard'}
-        </Text>
-      </View>
+      <TrainingCard
+        eyebrow="Conditioning"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Round', value: `${Math.min(completedRounds + 1, totalRounds)}/${totalRounds}`, tone: 'accent' },
+          { label: 'Work', value: `${workSeconds}s` },
+          { label: 'Rest', value: `${restSeconds}s` },
+        ]}
+      />
 
       {!done ? (
         <>
@@ -98,7 +109,7 @@ export function HIITRenderer(props: StrategyRendererProps) {
             disabled={selectedRPE === null}
             activeOpacity={0.82}
           >
-            <Text style={styles.completeText}>{isLastExercise ? 'Finish Workout' : 'Complete ->'}</Text>
+            <Text style={styles.completeText}>{isLastExercise ? 'Finish Session' : 'Next Exercise'}</Text>
           </TouchableOpacity>
         </View>
       )}

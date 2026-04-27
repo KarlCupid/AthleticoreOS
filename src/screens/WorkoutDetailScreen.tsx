@@ -24,6 +24,7 @@ import type {
 } from '../../lib/engine/types';
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 import { formatShortWeekday } from '../../lib/utils/date';
+import { formatRestForCoach, formatRpeForCoach } from '../components/workout/trainingCopy';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteProp = import('@react-navigation/native').RouteProp<TrainStackParamList, 'WorkoutDetail'>;
@@ -133,6 +134,12 @@ export function WorkoutDetailScreen() {
 
     const sections = prescription?.sections ?? [];
     const flatExercises = sections.length === 0 ? (prescription?.exercises ?? []) : [];
+    const blockCount = sections.length > 0 ? sections.length : flatExercises.length > 0 ? 1 : 0;
+    const movementCount = sections.length > 0
+        ? sections.reduce((total, section) => total + section.exercises.length, 0)
+        : flatExercises.length;
+    const effortSummary = intensity != null ? `Effort ${intensity}/10` : 'Coach-paced effort';
+    const whatToExpect = `${blockCount} block${blockCount === 1 ? '' : 's'}, ${movementCount} movement${movementCount === 1 ? '' : 's'}, about ${durationMin} min. ${effortSummary}.`;
 
     // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -221,20 +228,21 @@ export function WorkoutDetailScreen() {
                 {/* Session intent */}
                 {sessionGoal != null && (
                     <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.intentCard}>
-                        <Text style={styles.intentLabel}>SESSION GOAL</Text>
+                        <Text style={styles.intentLabel}>COACH BRIEF</Text>
                         <Text style={styles.intentText}>{sessionGoal}</Text>
+                        <Text style={styles.intentSubText}>{whatToExpect}</Text>
                     </Animated.View>
                 )}
 
                 <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
-                    <Text style={styles.actionLabel}>Session Actions</Text>
+                    <Text style={styles.actionLabel}>Ready to train?</Text>
                     {status === 'planned' || status === 'rescheduled' ? (
                         <View style={styles.ctaRow}>
                             <TouchableOpacity style={styles.skipBtn} onPress={handleSkipDay}>
                                 <Text style={styles.skipBtnText}>Skip Day</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.startBtn} onPress={handleStartWorkout}>
-                                <Text style={styles.startBtnText}>Start Workout →</Text>
+                                <Text style={styles.startBtnText}>Start Session</Text>
                             </TouchableOpacity>
                         </View>
                     ) : status === 'completed' ? (
@@ -320,7 +328,7 @@ export function WorkoutDetailScreen() {
                             <Text style={styles.skipBtnText}>Skip Day</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.startBtn} onPress={handleStartWorkout}>
-                            <Text style={styles.startBtnText}>Start Workout →</Text>
+                            <Text style={styles.startBtnText}>Start Session</Text>
                         </TouchableOpacity>
                     </View>
                 ) : status === 'completed' ? (
@@ -434,18 +442,15 @@ function ExerciseRow({
     onToggle,
     onSwap,
 }: ExerciseRowProps) {
-    const { exercise, setScheme, coachingCues, loadingNotes, substitutions, restSeconds } = ep;
+    const { exercise, setScheme, coachingCues, loadingNotes, substitutions, restSeconds, targetRPE, targetSets, targetReps } = ep;
     const hasDetails =
         Boolean(loadingNotes && loadingNotes.trim().length > 0)
         || (coachingCues && coachingCues.length > 0)
         || (substitutions && substitutions.length > 0);
-    const restMin = restSeconds ? Math.floor(restSeconds / 60) : null;
-    const restSec = restSeconds ? restSeconds % 60 : null;
-    const restLabel = restSeconds
-        ? restMin && restMin > 0
-            ? `${restMin}m${restSec ? ` ${restSec}s` : ''} rest`
-            : `${restSeconds}s rest`
-        : null;
+    const restLabel = formatRestForCoach(restSeconds);
+    const effortLabel = targetRPE ? formatRpeForCoach(targetRPE) : null;
+    const actionLine = setScheme ?? (targetSets && targetReps ? `${targetSets} x ${targetReps}` : null);
+    const focusCue = coachingCues?.[0] ?? null;
 
     return (
         <View style={styles.exerciseRow}>
@@ -467,9 +472,11 @@ function ExerciseRow({
                         <View style={styles.muscleChip}>
                             <Text style={styles.muscleChipText}>{exercise.muscle_group}</Text>
                         </View>
-                        {setScheme ? <Text style={styles.setSchemeText}>{setScheme}</Text> : null}
+                        {actionLine ? <Text style={styles.setSchemeText}>{actionLine}</Text> : null}
+                        {effortLabel ? <Text style={styles.effortText}>{effortLabel}</Text> : null}
                         {restLabel ? <Text style={styles.restText}>{restLabel}</Text> : null}
                     </View>
+                    {focusCue ? <Text style={styles.quickCue} numberOfLines={1}>Focus: {focusCue}</Text> : null}
                 </View>
                 {hasDetails && (
                     <Text style={[styles.chevron, isExpanded && styles.chevronOpen]}>›</Text>
@@ -694,6 +701,13 @@ const styles = StyleSheet.create({
         color: COLORS.text.primary,
         lineHeight: 20,
     },
+    intentSubText: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.secondary,
+        lineHeight: 19,
+        marginTop: SPACING.sm,
+    },
 
     // Session actions
     actionPanel: {
@@ -822,6 +836,17 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontFamily: FONT_FAMILY.regular,
         color: COLORS.text.tertiary,
+    },
+    effortText: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.accent,
+    },
+    quickCue: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        marginTop: 4,
     },
     chevron: {
         fontSize: 20,

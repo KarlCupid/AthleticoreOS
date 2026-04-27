@@ -9,9 +9,10 @@ import {
   TYPOGRAPHY_V2,
   TAP_TARGETS,
 } from '../../../theme/theme';
-import { ExerciseCard } from '../../../components/workout/ExerciseCard';
 import { TimerDisplay } from '../../../components/workout/TimerDisplay';
 import RPESelector from '../../../components/RPESelector';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy, formatSecondsForCoach } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 /**
@@ -31,6 +32,7 @@ export function AMRAPRenderer(props: StrategyRendererProps) {
   const timeCap = timedWork?.totalDurationSec ?? 0;
   const completedRounds = progress?.setsCompleted ?? 0;
   const [finished, setFinished] = useState(false);
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   return (
     <View style={styles.container}>
@@ -50,8 +52,21 @@ export function AMRAPRenderer(props: StrategyRendererProps) {
         <Text style={styles.roundNumber}>{completedRounds}</Text>
       </View>
 
-      {/* Exercise info */}
-      <ExerciseCard exercise={exercise} progress={progress} mode="interactive" />
+      <TrainingCard
+        eyebrow="AMRAP"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Rounds', value: completedRounds, tone: 'accent' },
+          { label: 'Cap', value: timeCap > 0 ? formatSecondsForCoach(timeCap) ?? '-' : 'Open' },
+        ]}
+        compact
+      />
 
       {/* Complete Round button */}
       {!finished ? (
@@ -76,7 +91,7 @@ export function AMRAPRenderer(props: StrategyRendererProps) {
             activeOpacity={0.82}
           >
             <Text style={styles.roundButtonText}>
-              {isLastExercise ? 'Finish Workout' : 'Complete →'}
+              {isLastExercise ? 'Finish Session' : 'Next Exercise'}
             </Text>
           </TouchableOpacity>
         </View>

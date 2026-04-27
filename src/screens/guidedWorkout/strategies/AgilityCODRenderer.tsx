@@ -9,6 +9,8 @@ import {
   TYPOGRAPHY_V2,
   TAP_TARGETS,
 } from '../../../theme/theme';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function AgilityCODRenderer(props: StrategyRendererProps) {
@@ -28,6 +30,7 @@ export function AgilityCODRenderer(props: StrategyRendererProps) {
   const [errors, setErrors] = useState(0);
   const [quality, setQuality] = useState(4);
   const done = completedReps >= totalReps;
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   const handleLogRep = async () => {
     const parsedTime = Number(timeSec);
@@ -54,22 +57,24 @@ export function AgilityCODRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
-        <Text style={styles.kicker}>Agility / COD</Text>
-        <Text style={styles.title}>{exercise.name}</Text>
-        <Text style={styles.subtitle}>
-          {dose?.drillDistanceMeters ?? 10} m | {dose?.directionChanges ?? 2} cuts | {dose?.reactionComponent ? 'reactive' : 'planned'}
-        </Text>
-      </View>
+      <TrainingCard
+        eyebrow="Agility"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Rep', value: `${Math.min(completedReps + 1, totalReps)}/${totalReps}`, tone: 'accent' },
+          { label: 'Errors', value: errors },
+          { label: 'Quality', value: `${quality}/5` },
+        ]}
+      />
 
       {!done ? (
         <>
-          <View style={styles.metricRow}>
-            <Metric label="Rep" value={`${completedReps + 1}/${totalReps}`} />
-            <Metric label="Errors" value={String(errors)} />
-            <Metric label="Quality" value={`${quality}/5`} />
-          </View>
-
           <View style={styles.inputRow}>
             <Text style={styles.inputLabel}>Best time</Text>
             <TextInput
@@ -96,7 +101,7 @@ export function AgilityCODRenderer(props: StrategyRendererProps) {
           />
 
           <TouchableOpacity style={styles.primaryButton} onPress={handleLogRep} activeOpacity={0.82}>
-            <Text style={styles.primaryText}>Log Agility Rep</Text>
+            <Text style={styles.primaryText}>Rep Done</Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -108,19 +113,10 @@ export function AgilityCODRenderer(props: StrategyRendererProps) {
             onPress={isLastExercise ? onFinishWorkout : onCompleteExercise}
             activeOpacity={0.82}
           >
-            <Text style={styles.completeText}>{isLastExercise ? 'Finish Workout' : 'Complete ->'}</Text>
+            <Text style={styles.completeText}>{isLastExercise ? 'Finish Session' : 'Next Exercise'}</Text>
           </TouchableOpacity>
         </View>
       )}
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
     </View>
   );
 }

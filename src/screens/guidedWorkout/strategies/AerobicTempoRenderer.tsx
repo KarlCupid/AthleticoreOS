@@ -10,6 +10,8 @@ import {
   TAP_TARGETS,
 } from '../../../theme/theme';
 import RPESelector from '../../../components/RPESelector';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function AerobicTempoRenderer(props: StrategyRendererProps) {
@@ -29,6 +31,7 @@ export function AerobicTempoRenderer(props: StrategyRendererProps) {
   const [durationMin, setDurationMin] = useState(String(targetMinutes));
   const [distance, setDistance] = useState('');
   const done = (progress?.effortsCompleted ?? 0) > 0;
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   const handleLogBlock = async () => {
     const minutes = Number(durationMin);
@@ -55,13 +58,21 @@ export function AerobicTempoRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
-        <Text style={styles.kicker}>Aerobic / Tempo</Text>
-        <Text style={styles.title}>{exercise.name}</Text>
-        <Text style={styles.subtitle}>
-          {targetMinutes} min | Zone {dose?.hrZone ?? 2} | RPE {dose?.targetRPE ?? exercise.targetRPE}
-        </Text>
-      </View>
+      <TrainingCard
+        eyebrow="Conditioning"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Time', value: `${targetMinutes} min`, tone: 'accent' },
+          { label: 'Zone', value: dose?.hrZone ?? 2 },
+          { label: 'RPE', value: dose?.targetRPE ?? exercise.targetRPE },
+        ]}
+      />
 
       {!done ? (
         <>
@@ -96,7 +107,7 @@ export function AerobicTempoRenderer(props: StrategyRendererProps) {
             disabled={selectedRPE === null}
             activeOpacity={0.82}
           >
-            <Text style={styles.primaryText}>Log Aerobic Block</Text>
+            <Text style={styles.primaryText}>Block Done</Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -108,7 +119,7 @@ export function AerobicTempoRenderer(props: StrategyRendererProps) {
             onPress={isLastExercise ? onFinishWorkout : onCompleteExercise}
             activeOpacity={0.82}
           >
-            <Text style={styles.completeText}>{isLastExercise ? 'Finish Workout' : 'Complete ->'}</Text>
+            <Text style={styles.completeText}>{isLastExercise ? 'Finish Session' : 'Next Exercise'}</Text>
           </TouchableOpacity>
         </View>
       )}

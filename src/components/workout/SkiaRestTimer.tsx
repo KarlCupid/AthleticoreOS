@@ -121,9 +121,9 @@ function SkiaRestTimerWeb({
           <Text style={[styles.digitText, isUrgent && styles.digitTextUrgent]}>
             {Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')}
           </Text>
-          <Text style={styles.restLabel}>REST</Text>
+          <Text style={styles.restLabel}>FULL REST</Text>
           <Text style={styles.exerciseLabel} numberOfLines={1}>
-            {exerciseType}
+            {nextExerciseName ? `Next: ${nextExerciseName}` : exerciseType}
           </Text>
         </View>
       </View>
@@ -223,9 +223,9 @@ function SkiaRestTimerNative({
           <Animated.View style={pulseStyle}>
             <RollingTimeDisplay remainingSeconds={remainingSeconds} isUrgent={isUrgent} />
           </Animated.View>
-          <Text style={styles.restLabel}>REST</Text>
+          <Text style={styles.restLabel}>FULL REST</Text>
           <Text style={styles.exerciseLabel} numberOfLines={1}>
-            {exerciseType}
+            {nextExerciseName ? `Next: ${nextExerciseName}` : exerciseType}
           </Text>
         </View>
       </View>

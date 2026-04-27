@@ -9,6 +9,7 @@ import {
   TAP_TARGETS,
 } from '../../../theme/theme';
 import { RecoveryChecklist } from '../../../components/workout/RecoveryChecklist';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function RecoveryRenderer(props: StrategyRendererProps) {
@@ -30,6 +31,18 @@ export function RecoveryRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
+      <TrainingCard
+        eyebrow="Recovery"
+        title={currentSection?.title ?? exercise.name}
+        prescription={`${exercises.length} easy movements`}
+        effort="Easy. No strain."
+        rest={null}
+        focus={['Breathe slow', 'Leave fresher than you started']}
+        feel="Calmer with each movement."
+        calm
+        compact
+      />
+
       <RecoveryChecklist
         exercises={exercises}
         completedIds={completedIds}
@@ -53,7 +66,7 @@ export function RecoveryRenderer(props: StrategyRendererProps) {
           styles.completeText,
           !allDone && styles.completeTextDisabled,
         ]}>
-          {isLastExercise ? 'Finish Workout' : 'Complete ->'}
+          {isLastExercise ? 'Finish Session' : 'Next Exercise'}
         </Text>
       </TouchableOpacity>
     </View>

@@ -9,6 +9,8 @@ import {
   TYPOGRAPHY_V2,
   TAP_TARGETS,
 } from '../../../theme/theme';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy, formatDisplayLabel } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function SprintRenderer(props: StrategyRendererProps) {
@@ -28,12 +30,9 @@ export function SprintRenderer(props: StrategyRendererProps) {
   const [timeSec, setTimeSec] = useState('');
   const [quality, setQuality] = useState(4);
   const done = completedReps >= totalReps || quality <= 2;
-
-  const subtitle = useMemo(() => {
-    const sprintType = dose?.sprintType?.replace(/_/g, ' ') ?? 'sprint';
-    const surface = dose?.surface?.replace(/_/g, ' ') ?? 'surface';
-    return `${repDistance} m ${sprintType} | ${dose?.intensityPercent ?? 90}% | ${surface}`;
-  }, [dose?.intensityPercent, dose?.sprintType, dose?.surface, repDistance]);
+  const coachCopy = useMemo(() => buildTrainingCoachCopy(exercise), [exercise]);
+  const sprintType = dose?.sprintType ? formatDisplayLabel(dose.sprintType) : 'Sprint';
+  const surface = dose?.surface ? formatDisplayLabel(dose.surface) : 'Surface';
 
   const handleLogRep = async () => {
     const parsedTime = Number(timeSec);
@@ -62,17 +61,21 @@ export function SprintRenderer(props: StrategyRendererProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
-        <Text style={styles.kicker}>Speed</Text>
-        <Text style={styles.title}>{exercise.name}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
-
-      <View style={styles.metricRow}>
-        <Metric label="Rep" value={`${Math.min(completedReps + 1, totalReps)}/${totalReps}`} />
-        <Metric label="Meters" value={`${completedReps * repDistance}/${totalReps * repDistance}`} />
-        <Metric label="Rest" value={`${dose?.restSeconds ?? exercise.restSeconds ?? 90}s`} />
-      </View>
+      <TrainingCard
+        eyebrow="Speed"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Rep', value: `${Math.min(completedReps + 1, totalReps)}/${totalReps}`, tone: 'accent' },
+          { label: 'Meters', value: `${completedReps * repDistance}/${totalReps * repDistance}` },
+          { label: surface, value: sprintType },
+        ]}
+      />
 
       {!done ? (
         <>
@@ -102,7 +105,7 @@ export function SprintRenderer(props: StrategyRendererProps) {
           </View>
 
           <TouchableOpacity style={styles.primaryButton} onPress={handleLogRep} activeOpacity={0.82}>
-            <Text style={styles.primaryText}>Log Sprint Rep</Text>
+            <Text style={styles.primaryText}>Sprint Done</Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -114,19 +117,10 @@ export function SprintRenderer(props: StrategyRendererProps) {
             onPress={isLastExercise ? onFinishWorkout : onCompleteExercise}
             activeOpacity={0.82}
           >
-            <Text style={styles.completeText}>{isLastExercise ? 'Finish Workout' : 'Complete ->'}</Text>
+            <Text style={styles.completeText}>{isLastExercise ? 'Finish Session' : 'Next Exercise'}</Text>
           </TouchableOpacity>
         </View>
       )}
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
     </View>
   );
 }

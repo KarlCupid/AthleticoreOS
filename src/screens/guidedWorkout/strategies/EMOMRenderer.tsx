@@ -9,9 +9,10 @@ import {
   TYPOGRAPHY_V2,
   TAP_TARGETS,
 } from '../../../theme/theme';
-import { ExerciseCard } from '../../../components/workout/ExerciseCard';
 import { TimerDisplay } from '../../../components/workout/TimerDisplay';
 import RPESelector from '../../../components/RPESelector';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function EMOMRenderer(props: StrategyRendererProps) {
@@ -35,6 +36,7 @@ export function EMOMRenderer(props: StrategyRendererProps) {
   const currentMinute = Math.min(completedMinutes + 1, totalMinutes);
   const allDone = completedMinutes >= totalMinutes;
   const [showRPE, setShowRPE] = useState(false);
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   return (
     <View style={styles.container}>
@@ -43,6 +45,22 @@ export function EMOMRenderer(props: StrategyRendererProps) {
         <Text style={styles.minuteNumber}>{currentMinute}</Text>
         <Text style={styles.minuteOf}>of {totalMinutes}</Text>
       </View>
+
+      <TrainingCard
+        eyebrow="EMOM"
+        title={exercise.name}
+        prescription={coachCopy.prescription}
+        effort={coachCopy.effort}
+        rest={coachCopy.rest}
+        focus={coachCopy.focus}
+        feel={coachCopy.feel}
+        mistake={coachCopy.mistake}
+        metrics={[
+          { label: 'Minute', value: `${currentMinute}/${totalMinutes}`, tone: 'accent' },
+          { label: 'Done', value: completedMinutes },
+        ]}
+        compact
+      />
 
       {!allDone && (
         <TimerDisplay
@@ -66,8 +84,6 @@ export function EMOMRenderer(props: StrategyRendererProps) {
           />
         ))}
       </View>
-
-      <ExerciseCard exercise={exercise} progress={progress} mode="interactive" />
 
       {!allDone ? (
         <TouchableOpacity
@@ -99,7 +115,7 @@ export function EMOMRenderer(props: StrategyRendererProps) {
                 activeOpacity={0.82}
               >
                 <Text style={styles.doneButtonText}>
-                  {isLastExercise ? 'Finish Workout' : 'Complete ->'}
+                  {isLastExercise ? 'Finish Session' : 'Next Exercise'}
                 </Text>
               </TouchableOpacity>
             </>

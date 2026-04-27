@@ -11,6 +11,8 @@ import {
 } from '../../../theme/theme';
 import { TimerDisplay } from '../../../components/workout/TimerDisplay';
 import RPESelector from '../../../components/RPESelector';
+import { TrainingCard } from '../../../components/workout/TrainingCard';
+import { buildTrainingCoachCopy, formatSecondsForCoach } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 export function DensityRenderer(props: StrategyRendererProps) {
@@ -30,6 +32,7 @@ export function DensityRenderer(props: StrategyRendererProps) {
   const timeCap = timedWork?.totalDurationSec ?? exercise.restSeconds ?? 300;
   const setsLogged = progress?.setsCompleted ?? 0;
   const [finished, setFinished] = useState(false);
+  const coachCopy = buildTrainingCoachCopy(exercise);
 
   return (
     <View style={styles.container}>
@@ -44,10 +47,21 @@ export function DensityRenderer(props: StrategyRendererProps) {
             onComplete={() => setFinished(true)}
           />
 
-          <View style={styles.exerciseSection}>
-            <Text style={styles.exerciseName}>{exercise.name}</Text>
-            <Text style={styles.setScheme}>{exercise.setScheme ?? `${exercise.targetReps} reps per set`}</Text>
-          </View>
+          <TrainingCard
+            eyebrow="Density"
+            title={exercise.name}
+            prescription={coachCopy.prescription}
+            effort={coachCopy.effort}
+            rest={coachCopy.rest}
+            focus={coachCopy.focus}
+            feel={coachCopy.feel}
+            mistake={coachCopy.mistake}
+            metrics={[
+              { label: 'Sets', value: setsLogged, tone: 'accent' },
+              { label: 'Block', value: formatSecondsForCoach(timeCap) ?? '-' },
+            ]}
+            compact
+          />
 
           <View style={styles.counter}>
             <Text style={styles.counterNumber}>{setsLogged}</Text>
@@ -76,7 +90,7 @@ export function DensityRenderer(props: StrategyRendererProps) {
             activeOpacity={0.82}
           >
             <Text style={styles.completeText}>
-              {isLastExercise ? 'Finish Workout' : 'Complete ->'}
+              {isLastExercise ? 'Finish Session' : 'Next Exercise'}
             </Text>
           </TouchableOpacity>
         </View>
