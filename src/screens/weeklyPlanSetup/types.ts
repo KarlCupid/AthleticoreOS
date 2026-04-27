@@ -18,7 +18,7 @@ export type EditableCommitment = {
   tier: ConstraintTier;
 };
 
-export type SetupPhaseKey = 'objective' | 'availability' | 'commitments' | 'planner';
+export type SetupPhaseKey = 'objective' | 'availability' | 'commitments';
 
 export type SetupPhase = {
   key: SetupPhaseKey;

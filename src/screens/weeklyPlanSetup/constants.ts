@@ -43,10 +43,10 @@ export const SECONDARY_CONSTRAINT_OPTIONS: {
   label: string;
   description: string;
 }[] = [
-  { value: 'protect_recovery', label: 'Protect Recovery', description: 'Keep progression high without burying recovery.' },
-  { value: 'weight_trajectory', label: 'Weight Trajectory', description: 'Keep bodyweight moving in the intended direction.' },
-  { value: 'skill_frequency', label: 'Skill Frequency', description: 'Protect boxing and sparring exposure while building.' },
-  { value: 'schedule_reliability', label: 'Schedule Reliability', description: 'Bias toward plans that are easier to actually complete.' },
+  { value: 'protect_recovery', label: 'Recovery', description: 'Keep progression high without burying recovery.' },
+  { value: 'weight_trajectory', label: 'Body Weight', description: 'Keep bodyweight moving in the intended direction.' },
+  { value: 'skill_frequency', label: 'Boxing Frequency', description: 'Protect boxing and sparring exposure while building.' },
+  { value: 'schedule_reliability', label: 'Consistency', description: 'Bias toward plans that are easier to actually complete.' },
   { value: 'injury_risk', label: 'Injury Risk', description: 'Limit spike risk and protect return-to-train consistency.' },
 ];
 
@@ -86,25 +86,19 @@ export const SETUP_PHASES: SetupPhase[] = [
   {
     key: 'objective',
     eyebrow: 'Phase 1',
-    title: 'Objective',
-    description: 'Define what this plan is for, when it starts, and the target the engine should optimize around.',
+    title: 'Training Goal',
+    description: 'Pick what you are training for and when this plan starts.',
   },
   {
     key: 'availability',
     eyebrow: 'Phase 2',
-    title: 'Availability',
-    description: 'Show us when training can happen so the engine only schedules work inside realistic windows.',
+    title: 'Training Days',
+    description: 'Choose the days you can realistically train.',
   },
   {
     key: 'commitments',
     eyebrow: 'Phase 3',
     title: 'Fixed Sessions',
-    description: 'List classes, sparring, and coach-prescribed work that should be treated as fixed or preferred anchors.',
-  },
-  {
-    key: 'planner',
-    eyebrow: 'Phase 4',
-    title: 'Planner Rules',
-    description: 'Finish with scheduling preferences the engine should use after fixed work is placed.',
+    description: 'Add fixed boxing or sparring sessions the plan should work around.',
   },
 ];

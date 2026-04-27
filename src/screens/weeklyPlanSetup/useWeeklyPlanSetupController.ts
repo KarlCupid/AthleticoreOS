@@ -112,8 +112,6 @@ export function useWeeklyPlanSetupController({
     () => getBuildMetricOption(buildGoalType, targetMetric) ?? buildRecommendation.metric,
     [buildGoalType, buildRecommendation.metric, targetMetric],
   );
-  const weeklyLockedSlots = commitments.length;
-  const estimatedRoundWorkMin = Math.round(((roundCount * roundDurationSec) + Math.max(0, roundCount - 1) * restDurationSec) / 6) / 10;
   const daysToFight = goalMode === 'fight_camp' && fightDate
     ? Math.max(0, daysBetween(todayLocalDate(), fightDate))
     : null;
@@ -268,7 +266,7 @@ export function useWeeklyPlanSetupController({
     const normalizedWindows = sortWindows(availabilityWindows);
     if (normalizedWindows.length === 0) {
       if (showAlerts) {
-        Alert.alert('Training days required', 'Select at least one day the planner can use when it builds the week.');
+        Alert.alert('Training days required', 'Select at least one day you can train.');
       }
       return false;
     }
@@ -301,7 +299,7 @@ export function useWeeklyPlanSetupController({
     if (goalMode === 'fight_camp') {
       if (!fightDate || !targetWeight.trim()) {
         if (showAlerts) {
-          Alert.alert('Camp setup incomplete', 'Fight Camp needs a fight date and target weight because the planner cannot build camp timing without them.');
+          Alert.alert('Camp setup incomplete', 'Fight Camp needs a fight date and target weight.');
         }
         return false;
       }
@@ -372,7 +370,6 @@ export function useWeeklyPlanSetupController({
         return validateAvailabilityPhase(false);
       case 'commitments':
         return validateCommitmentsPhase(false);
-      case 'planner':
       default:
         return true;
     }
@@ -520,8 +517,6 @@ export function useWeeklyPlanSetupController({
     buildGoalTypeLabel,
     buildRecommendation,
     selectedBuildMetric,
-    weeklyLockedSlots,
-    estimatedRoundWorkMin,
     daysToFight,
     startDate,
     setStartDate,

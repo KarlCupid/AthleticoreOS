@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { DAY_OPTIONS } from './constants';
-import { FieldNote, Section } from './shared';
+import { Section } from './shared';
 import { styles } from './styles';
 
 type AvailabilityPhaseProps = {
@@ -15,9 +15,7 @@ export function AvailabilityPhase({
   toggleAvailabilityDay,
 }: AvailabilityPhaseProps) {
   return (
-    <Section label="Training Days" description="Choose the days the planner can use when it builds the week.">
-      <FieldNote>The planner is day-based now. It selects the best training mix for each available day instead of fitting work into time blocks.</FieldNote>
-      <FieldNote>Fixed boxing and sparring commitments still stay locked to their day, but guided work is no longer capped by setup-time duration windows.</FieldNote>
+    <Section label="Training Days" description="Pick the days you can usually train. Start realistic; you can change this later.">
       <View style={styles.dayRow}>
         {DAY_OPTIONS.map((day) => {
           const selected = availableDays.includes(day.value);

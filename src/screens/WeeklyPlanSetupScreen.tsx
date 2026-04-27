@@ -20,7 +20,6 @@ import { COMMITMENT_DURATION_OPTIONS, SETUP_PHASES } from './weeklyPlanSetup/con
 import { AvailabilityPhase } from './weeklyPlanSetup/AvailabilityPhase';
 import { CommitmentsPhase } from './weeklyPlanSetup/CommitmentsPhase';
 import { ObjectivePhase } from './weeklyPlanSetup/ObjectivePhase';
-import { PlannerPhase } from './weeklyPlanSetup/PlannerPhase';
 import { styles } from './weeklyPlanSetup/styles';
 import { useWeeklyPlanSetupController } from './weeklyPlanSetup/useWeeklyPlanSetupController';
 import { getSetupPhaseIndex } from './weeklyPlanSetup/utils';
@@ -50,8 +49,6 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     buildGoalTypeLabel,
     buildRecommendation,
     selectedBuildMetric,
-    weeklyLockedSlots,
-    estimatedRoundWorkMin,
     daysToFight,
     startDate,
     setStartDate,
@@ -97,8 +94,6 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     updateCommitment,
     removeCommitment,
     addCommitment,
-    autoDeloadInterval,
-    setAutoDeloadInterval,
     durationPickerCommitmentId,
     setDurationPickerCommitmentId,
     canProceedPhase,
@@ -154,8 +149,6 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             setRoundDurationSec={setRoundDurationSec}
             restDurationSec={restDurationSec}
             setRestDurationSec={setRestDurationSec}
-            weeklyLockedSlots={weeklyLockedSlots}
-            estimatedRoundWorkMin={estimatedRoundWorkMin}
             daysToFight={daysToFight}
           />
         );
@@ -174,13 +167,6 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             removeCommitment={removeCommitment}
             addCommitment={addCommitment}
             setDurationPickerCommitmentId={setDurationPickerCommitmentId}
-          />
-        );
-      case 'planner':
-        return (
-          <PlannerPhase
-            autoDeloadInterval={autoDeloadInterval}
-            setAutoDeloadInterval={setAutoDeloadInterval}
           />
         );
       default:
@@ -254,7 +240,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                 end={{ x: 1, y: 0 }}
                 style={styles.saveButtonBg}
               >
-                 {saving ? <ActivityIndicator color="#000000" /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Save Planning Setup' : 'Continue'}</Text>}
+                 {saving ? <ActivityIndicator color="#000000" /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Build My Plan' : 'Continue'}</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </View>

@@ -14,7 +14,7 @@ import type {
 export type WeeklyPlanSetupParams =
   | {
     initialGoalMode?: AthleteGoalMode;
-    initialPhaseKey?: 'objective' | 'availability' | 'commitments' | 'planner';
+    initialPhaseKey?: 'objective' | 'availability' | 'commitments';
     source?: 'dashboard' | 'plan';
   }
   | undefined;
