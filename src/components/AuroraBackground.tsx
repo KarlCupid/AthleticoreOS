@@ -19,6 +19,7 @@ import {
 } from 'react-native-reanimated';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { useInteractionMode } from '../context/InteractionModeContext';
+import { APP_CHROME, COLORS } from '../theme/theme';
 
 export type AuroraBackgroundMood = 'calm' | 'energy' | 'hero';
 
@@ -30,35 +31,64 @@ interface AuroraBackgroundProps {
   mood?: AuroraBackgroundMood;
 }
 
-const METALLIC_FLOW_BASE = '#0A0A0A';
-const PALETTE = ['#0A0A0A', '#F5F5F0', '#171717', '#D4AF37', '#F5F5F0', '#0A0A0A'] as const;
+const DASHBOARD_AURORA = {
+  base: APP_CHROME.background,
+  carbon: '#111111',
+  graphite: '#171717',
+  warmShadow: '#151109',
+  bronze: COLORS.chart.fatigue,
+  antiqueGold: COLORS.readiness.caution,
+  gold: APP_CHROME.accent,
+  pearl: APP_CHROME.text,
+  steel: COLORS.chart.water,
+} as const;
+
+const METALLIC_FLOW_BASE = DASHBOARD_AURORA.base;
+const PALETTE = [
+  DASHBOARD_AURORA.base,
+  DASHBOARD_AURORA.carbon,
+  DASHBOARD_AURORA.bronze,
+  DASHBOARD_AURORA.antiqueGold,
+  DASHBOARD_AURORA.gold,
+  DASHBOARD_AURORA.steel,
+  DASHBOARD_AURORA.pearl,
+  DASHBOARD_AURORA.graphite,
+  DASHBOARD_AURORA.base,
+] as const;
+const PALETTE_STOPS = [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.72, 0.86, 1] as const;
 
 const MOOD_CONFIG = {
   calm: {
-    duration: 42000,
-    marbleOpacity: 0.34,
-    goldOpacity: 0.26,
-    antiqueOpacity: 0.025,
-    pearlOpacity: 0.18,
-    overlay: 'rgba(10, 10, 10, 0.44)',
-    ribbonScale: 0.9,
+    duration: 46000,
+    marbleOpacity: 0.3,
+    goldOpacity: 0.34,
+    antiqueOpacity: 0.08,
+    pearlOpacity: 0.15,
+    steelOpacity: 0.08,
+    glossOpacity: 0.18,
+    overlay: 'rgba(10, 10, 10, 0.5)',
+    ribbonScale: 0.92,
   },
   energy: {
-    duration: 26000,
-    marbleOpacity: 0.4,
-    goldOpacity: 0.38,
-    antiqueOpacity: 0.04,
-    pearlOpacity: 0.22,
-    overlay: 'rgba(10, 10, 10, 0.38)',
-    ribbonScale: 0.98,
+    duration: 30000,
+    marbleOpacity: 0.36,
+    goldOpacity: 0.44,
+    antiqueOpacity: 0.11,
+    pearlOpacity: 0.2,
+    steelOpacity: 0.1,
+    glossOpacity: 0.25,
+    overlay: 'rgba(10, 10, 10, 0.43)',
+    ribbonScale: 1,
   },
   hero: {
-    duration: 30000,
-    marbleOpacity: 0.48,
-    goldOpacity: 0.46,
-    antiqueOpacity: 0.055,
-    pearlOpacity: 0.28,
-    overlay: 'rgba(10, 10, 10, 0.32)',
+    duration: 32000,
+    marbleOpacity: 0.42,
+    goldOpacity: 0.5,
+    antiqueOpacity: 0.14,
+    pearlOpacity: 0.24,
+    steelOpacity: 0.12,
+    glossOpacity: 0.3,
+    overlay: 'rgba(10, 10, 10, 0.36)',
     ribbonScale: 1.06,
   },
 } as const;
@@ -78,18 +108,64 @@ function AuroraBackgroundWeb({ baseColor = METALLIC_FLOW_BASE, mood = 'calm' }: 
   const config = MOOD_CONFIG[mood];
 
   return (
-    <View style={StyleSheet.absoluteFillObject}>
+    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
       <ExpoLinearGradient
-        colors={[baseColor, '#F5F5F0', '#111111', '#0A0A0A']}
+        colors={[baseColor, DASHBOARD_AURORA.warmShadow, DASHBOARD_AURORA.graphite, baseColor]}
+        locations={[0, 0.34, 0.7, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      <View style={[styles.webPearlWash, { opacity: config.pearlOpacity + 0.2 }]} />
-      <View style={[styles.webRibbon, styles.webRibbonOne, { opacity: config.goldOpacity }]} />
-      <View style={[styles.webRibbon, styles.webRibbonTwo, { opacity: config.antiqueOpacity }]} />
-      <View style={[styles.webVein, { opacity: config.pearlOpacity + 0.06 }]} />
+      <ExpoLinearGradient
+        colors={['rgba(245, 245, 240, 0.18)', 'rgba(212, 175, 55, 0.08)', 'rgba(10, 10, 10, 0.16)', 'rgba(10, 10, 10, 0.56)']}
+        locations={[0, 0.22, 0.62, 1]}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.86, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { opacity: config.glossOpacity + 0.12 }]}
+      />
+      <ExpoLinearGradient
+        colors={['rgba(245, 245, 240, 0)', 'rgba(245, 245, 240, 0.34)', 'rgba(184, 137, 45, 0.12)', 'rgba(245, 245, 240, 0)']}
+        locations={[0, 0.34, 0.58, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.webPearlWash, { opacity: config.pearlOpacity + 0.1 }]}
+      />
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: config.overlay }]} />
+      <ExpoLinearGradient
+        colors={['rgba(212, 175, 55, 0)', 'rgba(245, 245, 240, 0.68)', 'rgba(212, 175, 55, 0.92)', 'rgba(140, 106, 30, 0.32)', 'rgba(212, 175, 55, 0)']}
+        locations={[0, 0.36, 0.52, 0.68, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.webRibbon, styles.webRibbonOne, { opacity: config.goldOpacity }]}
+      />
+      <ExpoLinearGradient
+        colors={['rgba(184, 137, 45, 0)', 'rgba(184, 137, 45, 0.5)', 'rgba(184, 192, 194, 0.16)', 'rgba(140, 106, 30, 0)']}
+        locations={[0, 0.42, 0.62, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.webRibbon, styles.webRibbonTwo, { opacity: config.antiqueOpacity + 0.08 }]}
+      />
+      <ExpoLinearGradient
+        colors={['rgba(245, 245, 240, 0)', 'rgba(245, 245, 240, 0.78)', 'rgba(212, 175, 55, 0.26)', 'rgba(245, 245, 240, 0)']}
+        locations={[0, 0.48, 0.6, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.webVein, { opacity: config.pearlOpacity + 0.12 }]}
+      />
+      <ExpoLinearGradient
+        colors={['rgba(184, 192, 194, 0)', 'rgba(184, 192, 194, 0.34)', 'rgba(245, 245, 240, 0.12)', 'rgba(184, 192, 194, 0)']}
+        locations={[0, 0.48, 0.6, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.webSteelSheen, { opacity: config.steelOpacity + 0.08 }]}
+      />
+      <ExpoLinearGradient
+        colors={['rgba(10, 10, 10, 0.26)', 'rgba(10, 10, 10, 0)', 'rgba(10, 10, 10, 0.62)']}
+        locations={[0, 0.46, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
     </View>
   );
 }
@@ -206,6 +282,31 @@ function AuroraBackgroundNative({
     };
   }, [config.pearlOpacity, height, width]);
 
+  const glossSweepStyle = useAnimatedStyle(() => {
+    const t = time.value * Math.PI * 2;
+    return {
+      opacity: config.glossOpacity + Math.sin(t * 1.1) * 0.04,
+      transform: [
+        { translateX: Math.sin(t * 0.72) * width * 0.13 },
+        { translateY: Math.cos(t * 0.86) * height * 0.02 },
+        { rotate: '-21deg' },
+        { scale: config.ribbonScale + Math.sin(t * 0.42) * 0.018 },
+      ],
+    };
+  }, [config.glossOpacity, config.ribbonScale, height, width]);
+
+  const steelSheenStyle = useAnimatedStyle(() => {
+    const t = time.value * Math.PI * 2;
+    return {
+      opacity: config.steelOpacity + Math.cos(t * 1.3) * 0.025,
+      transform: [
+        { translateX: Math.cos(t * 0.68) * width * 0.08 },
+        { translateY: Math.sin(t * 0.9) * height * 0.018 },
+        { rotate: '11deg' },
+      ],
+    };
+  }, [config.steelOpacity, height, width]);
+
   const secondGoldVeinStyle = useAnimatedStyle(() => {
     const t = time.value * Math.PI * 2;
     return {
@@ -242,12 +343,44 @@ function AuroraBackgroundNative({
 
         <Rect x={0} y={0} width={width} height={height} color={config.overlay} />
       </Canvas>
-      <Animated.View style={[styles.nativePearlWash, { top: height * 0.05 }, pearlVeinStyle]} />
-      <Animated.View style={[styles.nativeRibbonShadow, styles.nativeRibbonAntique, antiqueRibbonStyle]} />
+      <ExpoLinearGradient
+        colors={['rgba(245, 245, 240, 0.12)', 'rgba(212, 175, 55, 0.06)', 'rgba(10, 10, 10, 0.24)', 'rgba(10, 10, 10, 0.52)']}
+        locations={[0, 0.2, 0.62, 1]}
+        start={{ x: 0.08, y: 0 }}
+        end={{ x: 0.92, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { opacity: config.glossOpacity }]}
+      />
+      <Animated.View style={[styles.nativePearlWash, { top: height * 0.05 }, pearlVeinStyle]}>
+        <ExpoLinearGradient
+          colors={['rgba(245, 245, 240, 0)', 'rgba(245, 245, 240, 0.36)', 'rgba(184, 137, 45, 0.12)', 'rgba(245, 245, 240, 0)']}
+          locations={[0, 0.34, 0.58, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+      <Animated.View style={[styles.nativeRibbonShadow, styles.nativeRibbonAntique, antiqueRibbonStyle]}>
+        <ExpoLinearGradient
+          colors={['rgba(140, 106, 30, 0)', 'rgba(184, 137, 45, 0.44)', 'rgba(184, 192, 194, 0.12)', 'rgba(140, 106, 30, 0)']}
+          locations={[0, 0.44, 0.64, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+      <Animated.View style={[styles.nativeSpecularSweep, { top: height * 0.19 }, glossSweepStyle]}>
+        <ExpoLinearGradient
+          colors={['rgba(245, 245, 240, 0)', 'rgba(245, 245, 240, 0.82)', 'rgba(212, 175, 55, 0.38)', 'rgba(245, 245, 240, 0)']}
+          locations={[0, 0.5, 0.6, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
       <Animated.View style={[styles.nativeGoldVein, styles.nativeGoldVeinPrimary, goldRibbonStyle]}>
         <ExpoLinearGradient
-          colors={['rgba(212, 175, 55, 0)', 'rgba(245, 245, 240, 0.56)', 'rgba(212, 175, 55, 0.9)', 'rgba(212, 175, 55, 0)']}
-          locations={[0, 0.38, 0.58, 1]}
+          colors={['rgba(212, 175, 55, 0)', 'rgba(245, 245, 240, 0.62)', 'rgba(212, 175, 55, 0.92)', 'rgba(140, 106, 30, 0.32)', 'rgba(212, 175, 55, 0)']}
+          locations={[0, 0.36, 0.52, 0.68, 1]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFillObject}
@@ -255,14 +388,38 @@ function AuroraBackgroundNative({
       </Animated.View>
       <Animated.View style={[styles.nativeGoldVein, styles.nativeGoldVeinSecondary, secondGoldVeinStyle]}>
         <ExpoLinearGradient
-          colors={['rgba(212, 175, 55, 0)', 'rgba(212, 175, 55, 0.75)', 'rgba(245, 245, 240, 0.46)', 'rgba(212, 175, 55, 0)']}
-          locations={[0, 0.42, 0.62, 1]}
+          colors={['rgba(212, 175, 55, 0)', 'rgba(212, 175, 55, 0.78)', 'rgba(245, 245, 240, 0.5)', 'rgba(140, 106, 30, 0.2)', 'rgba(212, 175, 55, 0)']}
+          locations={[0, 0.4, 0.56, 0.68, 1]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFillObject}
         />
       </Animated.View>
-      <Animated.View style={[styles.nativeRibbonHighlight, { top: height * 0.34 }, pearlVeinStyle]} />
+      <Animated.View style={[styles.nativeRibbonHighlight, { top: height * 0.34 }, pearlVeinStyle]}>
+        <ExpoLinearGradient
+          colors={['rgba(245, 245, 240, 0)', 'rgba(245, 245, 240, 0.78)', 'rgba(212, 175, 55, 0.22)', 'rgba(245, 245, 240, 0)']}
+          locations={[0, 0.5, 0.62, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+      <Animated.View style={[styles.nativeSteelSheen, { top: height * 0.72 }, steelSheenStyle]}>
+        <ExpoLinearGradient
+          colors={['rgba(184, 192, 194, 0)', 'rgba(184, 192, 194, 0.34)', 'rgba(245, 245, 240, 0.12)', 'rgba(184, 192, 194, 0)']}
+          locations={[0, 0.48, 0.6, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+      <ExpoLinearGradient
+        colors={['rgba(10, 10, 10, 0.24)', 'rgba(10, 10, 10, 0)', 'rgba(10, 10, 10, 0.6)']}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
     </View>
   );
 }
@@ -270,7 +427,7 @@ function AuroraBackgroundNative({
 function useSmoothColor(time: ReturnType<typeof useSharedValue<number>>, offset: number) {
   return useDerivedValue(() => {
     const progress = (time.value + offset) % 1;
-    return interpolateColor(progress, [0, 0.2, 0.4, 0.6, 0.8, 1], PALETTE as unknown as string[]);
+    return interpolateColor(progress, PALETTE_STOPS as unknown as number[], PALETTE as unknown as string[]);
   });
 }
 
@@ -290,16 +447,14 @@ const styles = StyleSheet.create({
     top: '5%',
     left: '-8%',
     borderRadius: 999,
-    backgroundColor: 'rgba(245, 245, 240, 0.55)',
     transform: [{ rotate: '-16deg' }],
+    overflow: 'hidden',
   },
   webRibbonOne: {
     top: '28%',
-    backgroundColor: 'rgba(212, 175, 55, 0.9)',
   },
   webRibbonTwo: {
     top: '54%',
-    backgroundColor: 'rgba(140, 106, 30, 0.14)',
     transform: [{ rotate: '17deg' }],
   },
   webVein: {
@@ -309,8 +464,18 @@ const styles = StyleSheet.create({
     width: '120%',
     height: 18,
     borderRadius: 999,
-    backgroundColor: 'rgba(245, 245, 240, 0.28)',
     transform: [{ rotate: '-13deg' }],
+    overflow: 'hidden',
+  },
+  webSteelSheen: {
+    position: 'absolute',
+    top: '73%',
+    left: '-10%',
+    width: '120%',
+    height: 14,
+    borderRadius: 999,
+    transform: [{ rotate: '11deg' }],
+    overflow: 'hidden',
   },
   nativePearlWash: {
     position: 'absolute',
@@ -318,7 +483,7 @@ const styles = StyleSheet.create({
     height: '62%',
     left: '-16%',
     borderRadius: 999,
-    backgroundColor: 'rgba(245, 245, 240, 0.46)',
+    overflow: 'hidden',
   },
   nativeRibbonShadow: {
     position: 'absolute',
@@ -326,10 +491,18 @@ const styles = StyleSheet.create({
     height: 84,
     left: '-18%',
     borderRadius: 999,
+    overflow: 'hidden',
   },
   nativeRibbonAntique: {
     top: '48%',
-    backgroundColor: 'rgba(140, 106, 30, 0.16)',
+  },
+  nativeSpecularSweep: {
+    position: 'absolute',
+    width: '132%',
+    height: 18,
+    left: '-18%',
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   nativeGoldVein: {
     position: 'absolute',
@@ -352,6 +525,14 @@ const styles = StyleSheet.create({
     height: 12,
     left: '-16%',
     borderRadius: 999,
-    backgroundColor: 'rgba(245, 245, 240, 0.5)',
+    overflow: 'hidden',
+  },
+  nativeSteelSheen: {
+    position: 'absolute',
+    width: '124%',
+    height: 14,
+    left: '-12%',
+    borderRadius: 999,
+    overflow: 'hidden',
   },
 });

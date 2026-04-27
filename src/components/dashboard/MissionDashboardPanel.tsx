@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 
 import type {
   MissionDashboardTone,
@@ -23,7 +24,17 @@ import {
 import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../../theme/theme';
 
 const MISSION_BACKGROUND = require('../../../assets/images/dashboard/mission-card-bg.png');
-const SUPPORT_BACKGROUND = require('../../../assets/images/dashboard/support-card-bg.png');
+const SUPPORT_BACKGROUNDS: Record<
+  MissionSupportCardViewModel['kind'],
+  ImageSourcePropType
+> = {
+  training_trend: require('../../../assets/images/dashboard/training-trend-card-bg.png'),
+  risk_alert: require('../../../assets/images/dashboard/risk-alert-card-bg.png'),
+  consistency: require('../../../assets/images/dashboard/consistency-card-bg.png'),
+  bodyweight: require('../../../assets/images/dashboard/bodyweight-direction-card-bg.png'),
+  performance_pulse: require('../../../assets/images/dashboard/performance-pulse-card-bg.png'),
+  fight_camp: require('../../../assets/images/dashboard/camp-card-bg.png'),
+};
 
 interface MissionDashboardPanelProps {
   viewModel: MissionDashboardViewModel;
@@ -140,9 +151,15 @@ function SupportCard({ card }: { card: MissionSupportCardViewModel }) {
 
   return (
     <Card
-      style={[styles.supportCard, { borderColor: tone.border }]}
-      backgroundImage={SUPPORT_BACKGROUND}
-      backgroundScrimColor="rgba(10, 10, 10, 0.50)"
+      style={[
+        styles.supportCard,
+        {
+          borderColor: tone.border,
+          backgroundColor: card.tone === 'neutral' ? COLORS.surface : 'rgba(10, 10, 10, 0.58)',
+        },
+      ]}
+      backgroundImage={SUPPORT_BACKGROUNDS[card.kind]}
+      backgroundScrimColor={getSupportScrimColor(card.tone)}
     >
       <View style={styles.supportHeader}>
         <View style={[styles.supportIcon, { backgroundColor: tone.background, borderColor: tone.border }]}>
@@ -165,6 +182,13 @@ function SupportCard({ card }: { card: MissionSupportCardViewModel }) {
       ) : null}
     </Card>
   );
+}
+
+function getSupportScrimColor(tone: MissionDashboardTone): string {
+  if (tone === 'danger') return 'rgba(10, 10, 10, 0.52)';
+  if (tone === 'caution') return 'rgba(10, 10, 10, 0.46)';
+  if (tone === 'positive') return 'rgba(10, 10, 10, 0.42)';
+  return 'rgba(10, 10, 10, 0.56)';
 }
 
 function renderSupportIcon(card: MissionSupportCardViewModel, color: string) {
@@ -322,6 +346,7 @@ const styles = StyleSheet.create({
   supportCard: {
     padding: SPACING.md,
     borderWidth: 1,
+    minHeight: 150,
   },
   supportHeader: {
     flexDirection: 'row',

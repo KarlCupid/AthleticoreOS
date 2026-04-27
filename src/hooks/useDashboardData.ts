@@ -44,6 +44,12 @@ interface DailyCheckinRow {
   readiness: number;
 }
 
+interface RecentTrainingSessionRow {
+  date: string;
+  duration_minutes: number | null;
+  intensity_srpe: number | null;
+}
+
 const EMPTY_NUTRITION: DashboardNutritionTotals = {
   calories: 0,
   protein: 0,
@@ -200,7 +206,7 @@ export function useDashboardData() {
         }),
         supabase
           .from('training_sessions')
-          .select('date,total_volume,session_rpe,duration_minutes,workout_type')
+          .select('date,duration_minutes,intensity_srpe')
           .eq('user_id', userId)
           .gte('date', addDays(todayStr, -13))
           .lte('date', todayStr)
@@ -218,7 +224,12 @@ export function useDashboardData() {
       }
       const recentTrainingSessions = recentTrainingResult.error
         ? []
-        : ((recentTrainingResult.data ?? []) as RecentTrainingSessionSummary[]);
+        : ((recentTrainingResult.data ?? []) as RecentTrainingSessionRow[]).map((session) => ({
+          date: session.date,
+          total_volume: null,
+          session_rpe: session.intensity_srpe,
+          duration_minutes: session.duration_minutes,
+        }));
 
       let biology: BiologyResult | null = null;
       if (profile?.biological_sex === 'female' && profile.cycle_tracking && cycleDay != null) {

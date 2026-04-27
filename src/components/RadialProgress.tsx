@@ -12,10 +12,15 @@ interface RadialProgressProps {
   trackColor?: string;
   label?: string;
   sublabel?: string;
+  centerSublabel?: string;
   icon?: React.ReactNode;
   textColor?: string;
   labelStyle?: StyleProp<TextStyle>;
   sublabelStyle?: StyleProp<TextStyle>;
+  centerSublabelStyle?: StyleProp<TextStyle>;
+  glowColor?: string;
+  centerFillColor?: string;
+  centerBorderColor?: string;
 }
 
 export const RadialProgress = memo(function RadialProgress(props: RadialProgressProps) {
@@ -29,36 +34,62 @@ export const RadialProgress = memo(function RadialProgress(props: RadialProgress
 function RadialProgressWeb({
   size = 100,
   strokeWidth = 8,
+  progress,
+  color,
   trackColor = COLORS.borderLight,
   label,
   sublabel,
+  centerSublabel,
   icon,
   textColor = COLORS.text.primary,
   labelStyle,
   sublabelStyle,
+  centerSublabelStyle,
+  glowColor,
+  centerFillColor = 'rgba(10, 10, 10, 0.62)',
+  centerBorderColor = 'rgba(255, 255, 255, 0.08)',
 }: RadialProgressProps) {
+  const clampedProgress = Math.min(Math.max(progress, 0), 1);
+  const innerSize = Math.max(0, size - strokeWidth * 2.35);
+  const progressDegrees = Math.round(clampedProgress * 360);
+
   return (
     <View style={[styles.container, { width: size }]}>
       <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: strokeWidth,
-          borderColor: trackColor,
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
+        style={[
+          styles.webRing,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: trackColor,
+          },
+          {
+            backgroundImage: `conic-gradient(${color} ${progressDegrees}deg, ${trackColor} ${progressDegrees}deg 360deg)`,
+            boxShadow: glowColor ? `0 0 ${strokeWidth * 2}px ${glowColor}` : undefined,
+          } as any,
+        ]}
       >
-        <View style={styles.centerContent}>
-          {icon ? (
-            icon
-          ) : label ? (
-            <Text style={[styles.centerLabel, { color: textColor }, labelStyle]} numberOfLines={1}>
-              {label}
-            </Text>
-          ) : null}
+        <View
+          style={[
+            styles.webInnerDisc,
+            {
+              width: innerSize,
+              height: innerSize,
+              borderRadius: innerSize / 2,
+              backgroundColor: centerFillColor,
+              borderColor: centerBorderColor,
+            },
+          ]}
+        >
+          <CenterContent
+            icon={icon}
+            label={label}
+            centerSublabel={centerSublabel}
+            textColor={textColor}
+            labelStyle={labelStyle}
+            centerSublabelStyle={centerSublabelStyle}
+          />
         </View>
       </View>
       {sublabel ? (
@@ -78,14 +109,21 @@ function RadialProgressNative({
   trackColor = COLORS.borderLight,
   label,
   sublabel,
+  centerSublabel,
   icon,
   textColor = COLORS.text.primary,
   labelStyle,
   sublabelStyle,
+  centerSublabelStyle,
+  glowColor,
+  centerFillColor = 'rgba(10, 10, 10, 0.62)',
+  centerBorderColor = 'rgba(255, 255, 255, 0.08)',
 }: RadialProgressProps) {
-  const radius = (size - strokeWidth) / 2;
+  const glowStrokeWidth = strokeWidth + 8;
+  const radius = (size - glowStrokeWidth) / 2;
   const center = size / 2;
   const clampedProgress = Math.min(Math.max(progress, 0), 1);
+  const innerSize = Math.max(0, size - strokeWidth * 2.55);
 
   const trackPath = useMemo(() => {
     const path = Skia.Path.Make();
@@ -108,28 +146,58 @@ function RadialProgressNative({
           <Path
             path={trackPath}
             style="stroke"
+            strokeWidth={glowStrokeWidth}
+            color="rgba(255,255,255,0.035)"
+            strokeCap="round"
+          />
+          <Path
+            path={trackPath}
+            style="stroke"
             strokeWidth={strokeWidth}
             color={trackColor}
             strokeCap="round"
           />
           {clampedProgress > 0 ? (
-            <Path
-              path={progressPath}
-              style="stroke"
-              strokeWidth={strokeWidth}
-              color={color}
-              strokeCap="round"
-            />
+            <>
+              <Path
+                path={progressPath}
+                style="stroke"
+                strokeWidth={glowStrokeWidth}
+                color={glowColor ?? color}
+                strokeCap="round"
+              />
+              <Path
+                path={progressPath}
+                style="stroke"
+                strokeWidth={strokeWidth}
+                color={color}
+                strokeCap="round"
+              />
+            </>
           ) : null}
         </Canvas>
         <View style={styles.centerContent}>
-          {icon ? (
-            icon
-          ) : label ? (
-            <Text style={[styles.centerLabel, { color: textColor }, labelStyle]} numberOfLines={1}>
-              {label}
-            </Text>
-          ) : null}
+          <View
+            style={[
+              styles.centerDisc,
+              {
+                width: innerSize,
+                height: innerSize,
+                borderRadius: innerSize / 2,
+                backgroundColor: centerFillColor,
+                borderColor: centerBorderColor,
+              },
+            ]}
+          >
+            <CenterContent
+              icon={icon}
+              label={label}
+              centerSublabel={centerSublabel}
+              textColor={textColor}
+              labelStyle={labelStyle}
+              centerSublabelStyle={centerSublabelStyle}
+            />
+          </View>
         </View>
       </View>
       {sublabel ? (
@@ -141,19 +209,83 @@ function RadialProgressNative({
   );
 }
 
+function CenterContent({
+  icon,
+  label,
+  centerSublabel,
+  textColor,
+  labelStyle,
+  centerSublabelStyle,
+}: {
+  icon?: React.ReactNode;
+  label?: string;
+  centerSublabel?: string;
+  textColor: string;
+  labelStyle?: StyleProp<TextStyle>;
+  centerSublabelStyle?: StyleProp<TextStyle>;
+}) {
+  if (icon) return <>{icon}</>;
+
+  return (
+    <>
+      {label ? (
+        <Text
+          style={[styles.centerLabel, { color: textColor }, labelStyle]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.76}
+        >
+          {label}
+        </Text>
+      ) : null}
+      {centerSublabel ? (
+        <Text
+          style={[styles.centerSublabel, centerSublabelStyle]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
+          {centerSublabel}
+        </Text>
+      ) : null}
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+  },
+  webRing: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webInnerDisc: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   centerContent: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  centerDisc: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
   centerLabel: {
     fontSize: 16,
     fontFamily: FONT_FAMILY.extraBold,
     color: COLORS.text.primary,
+  },
+  centerSublabel: {
+    marginTop: -2,
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
   },
   sublabel: {
     fontSize: 11,

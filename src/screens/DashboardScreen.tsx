@@ -6,6 +6,7 @@ import {
   RefreshControl,
   ScrollView,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -15,6 +16,8 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Card } from "../components/Card";
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { SkeletonLoader } from "../components/SkeletonLoader";
+import { RadialProgress } from "../components/RadialProgress";
+import { WeightTrendCard } from "../components/WeightTrendCard";
 import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
   IconBarbell,
@@ -48,6 +51,8 @@ const BRAND_LOGO = require("../../assets/images/athleticore-logo.png");
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const useCompactReadinessHero = screenWidth < 380;
   const [firstRunGuidance, setFirstRunGuidance] =
     React.useState<FirstRunGuidanceState | null>(null);
   const [showFirstRunModal, setShowFirstRunModal] = React.useState(false);
@@ -97,7 +102,9 @@ export function DashboardScreen() {
     currentLevel,
     workoutPrescription,
     todayPlanEntry,
+    readinessScore,
     weightTrend,
+    weightHistory,
     activeCutProtocol,
     dailyMission,
     hasActiveFightCamp,
@@ -490,6 +497,93 @@ export function DashboardScreen() {
                 </View>
             </View>
 
+            <View style={styles.readinessHeroWrap}>
+              <Card
+                style={[
+                  styles.readinessHeroCard,
+                  useCompactReadinessHero && styles.readinessHeroCardCompact,
+                  { borderColor: getReadinessBorderColor(currentLevel) },
+                ]}
+              >
+                <View pointerEvents="none" style={styles.readinessHeroGlow} />
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.readinessHeroAccentLine,
+                    { backgroundColor: getReadinessColor(currentLevel) },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.readinessHeroCopy,
+                    useCompactReadinessHero && styles.readinessHeroCopyCompact,
+                  ]}
+                >
+                  <Text style={styles.readinessHeroKicker}>TODAY'S READINESS</Text>
+                  <Text style={styles.readinessHeroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.82}>
+                    {getReadinessHeadline(currentLevel, missionDashboard.statusLabel)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.readinessHeroBody,
+                      useCompactReadinessHero && styles.readinessHeroBodyCompact,
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {getReadinessCircleCopy(currentLevel)}
+                  </Text>
+                  <View
+                    style={[
+                      styles.readinessStatusPill,
+                      {
+                        borderColor: getReadinessBorderColor(currentLevel),
+                        backgroundColor: getReadinessPillBackground(currentLevel),
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.readinessStatusDot,
+                        { backgroundColor: getReadinessColor(currentLevel) },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.readinessStatusText,
+                        { color: getReadinessColor(currentLevel) },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {getReadinessSignalLabel(currentLevel)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.readinessHeroRingShell,
+                    useCompactReadinessHero && styles.readinessHeroRingShellCompact,
+                  ]}
+                >
+                  <RadialProgress
+                    progress={getReadinessProgress(readinessScore, currentLevel)}
+                    size={useCompactReadinessHero ? 156 : 168}
+                    strokeWidth={13}
+                    color={getReadinessColor(currentLevel)}
+                    trackColor="rgba(245,245,240,0.13)"
+                    label={getReadinessCircleValue(readinessScore)}
+                    centerSublabel={getReadinessCenterSublabel(readinessScore)}
+                    textColor="#F5F5F0"
+                    glowColor={getReadinessGlowColor(currentLevel)}
+                    centerFillColor="rgba(10, 10, 10, 0.78)"
+                    centerBorderColor={getReadinessBorderColor(currentLevel)}
+                    labelStyle={styles.readinessHeroCircleLabel}
+                    centerSublabelStyle={styles.readinessHeroCircleSublabel}
+                  />
+                </View>
+              </Card>
+            </View>
+
             <View style={styles.missionDashboardWrap}>
               <MissionDashboardPanel
                 viewModel={missionDashboard}
@@ -552,11 +646,31 @@ export function DashboardScreen() {
         </Animated.View>
 
         <View style={styles.content}>
+          {weightTrend ? (
+            <Animated.View
+              entering={FadeInDown.delay(D * 1.2)
+                .duration(ANIMATION.slow)
+                .springify()}
+            >
+              <WeightTrendCard
+                trend={weightTrend}
+                baseWeight={weightTrend.currentWeight - weightTrend.totalChangeLbs}
+                targetWeight={
+                  weightTrend.remainingLbs > 0
+                    ? weightTrend.currentWeight - weightTrend.remainingLbs
+                    : null
+                }
+                history={weightHistory}
+              />
+            </Animated.View>
+          ) : null}
+
           {shouldShowFirstRunChecklist && firstRunGuidance ? (
             <Animated.View
               entering={FadeInDown.delay(D)
                 .duration(ANIMATION.slow)
                 .springify()}
+              style={weightTrend ? styles.firstRunChecklistAfterBodyTrend : undefined}
             >
               <Card>
                 <View style={styles.firstRunHeaderRow}>
@@ -634,6 +748,83 @@ function isCutSafetyFlag(value: unknown): value is CutSafetyFlag {
 
 function normalizeCutSafetyFlags(flags: unknown): CutSafetyFlag[] {
   return Array.isArray(flags) ? flags.filter(isCutSafetyFlag) : [];
+}
+
+function getReadinessProgress(
+  score: number | null | undefined,
+  level: string | null,
+): number {
+  if (typeof score === "number" && Number.isFinite(score)) {
+    return Math.max(0, Math.min(1, score / 100));
+  }
+
+  if (level === "Prime") return 0.88;
+  if (level === "Caution") return 0.58;
+  if (level === "Depleted") return 0.28;
+  return 0.18;
+}
+
+function getReadinessColor(level: string | null): string {
+  if (level === "Prime") return COLORS.success;
+  if (level === "Caution") return COLORS.warning;
+  if (level === "Depleted") return COLORS.error;
+  return COLORS.text.tertiary;
+}
+
+function getReadinessBorderColor(level: string | null): string {
+  if (level === "Prime") return "rgba(183, 217, 168, 0.42)";
+  if (level === "Caution") return "rgba(212, 175, 55, 0.46)";
+  if (level === "Depleted") return "rgba(217, 130, 126, 0.46)";
+  return "rgba(245, 245, 240, 0.18)";
+}
+
+function getReadinessPillBackground(level: string | null): string {
+  if (level === "Prime") return "rgba(183, 217, 168, 0.14)";
+  if (level === "Caution") return "rgba(212, 175, 55, 0.15)";
+  if (level === "Depleted") return "rgba(217, 130, 126, 0.16)";
+  return "rgba(245, 245, 240, 0.08)";
+}
+
+function getReadinessSignalLabel(level: string | null): string {
+  if (level === "Prime") return "Recovered";
+  if (level === "Caution") return "Manage load";
+  if (level === "Depleted") return "Recover first";
+  return "Needs check-in";
+}
+
+function getReadinessHeadline(level: string | null, fallback: string): string {
+  if (level === "Prime") return "Ready to push";
+  if (level === "Caution") return "Train smart";
+  if (level === "Depleted") return "Pull back";
+  return fallback;
+}
+
+function getReadinessGlowColor(level: string | null): string {
+  if (level === "Prime") return "rgba(183, 217, 168, 0.28)";
+  if (level === "Caution") return "rgba(212, 175, 55, 0.30)";
+  if (level === "Depleted") return "rgba(217, 130, 126, 0.30)";
+  return "rgba(245, 245, 240, 0.16)";
+}
+
+function getReadinessCircleValue(
+  score: number | null | undefined,
+): string {
+  if (typeof score === "number" && Number.isFinite(score)) {
+    return `${Math.round(Math.max(0, Math.min(100, score)))}`;
+  }
+
+  return "Log";
+}
+
+function getReadinessCenterSublabel(score: number | null | undefined): string {
+  return typeof score === "number" && Number.isFinite(score) ? "/100" : "check in";
+}
+
+function getReadinessCircleCopy(level: string | null): string {
+  if (level === "Prime") return "Your body is ready for quality work.";
+  if (level === "Caution") return "Train, but leave room in the tank.";
+  if (level === "Depleted") return "Recovery needs to lead today.";
+  return "Check in to sharpen this signal.";
 }
 
 function getGreeting(): string {
