@@ -168,7 +168,7 @@ export function useWeeklyPlanSetupController({
         if (config) {
           const loadedWindows = config.availability_windows?.length > 0
             ? sortWindows(config.availability_windows)
-            : sortDays(config.available_days ?? [1, 3, 5]).map((dayOfWeek) => ({ dayOfWeek, ...DEFAULT_WINDOW }));
+            : sortDays(config.available_days ?? [1, 2, 3, 4, 5]).map((dayOfWeek) => ({ dayOfWeek, ...DEFAULT_WINDOW }));
           setAvailabilityWindows(loadedWindows);
           setAutoDeloadInterval(config.auto_deload_interval_weeks ?? 5);
         }

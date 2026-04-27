@@ -39,6 +39,7 @@ import {
 } from './weeklyPlanScreenUtils';
 
 import type { PlanStackParamList } from '../navigation/types';
+import type { TrainingSessionFamily } from '../../lib/engine/types';
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -47,6 +48,27 @@ type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 /** Return ISO date string -> short day name (Mon, Tue …) */
 
 // ─── Screen ──────────────────────────────────────────────────────────
+
+function formatTargetFamily(family: TrainingSessionFamily): string {
+    switch (family) {
+        case 'boxing_skill':
+            return 'Boxing';
+        case 'durability_core':
+            return 'Durability';
+        case 'sparring':
+            return 'Sparring';
+        case 'conditioning':
+            return 'Conditioning';
+        case 'strength':
+            return 'Strength';
+        case 'recovery':
+            return 'Recovery';
+        case 'rest':
+            return 'Rest';
+        default:
+            return String(family).replace(/_/g, ' ');
+    }
+}
 
 export function WeeklyPlanScreen() {
     const insets = useSafeAreaInsets();
@@ -123,6 +145,17 @@ export function WeeklyPlanScreen() {
     
     // Feature: Premium Wave Data
     const lineData = useMemo(() => buildWeeklyLineData(chartData), [chartData]);
+    const visibleTargets = useMemo(() => (
+        weekPlan?.weeklyMixPlan.sessionTargets
+            .filter((target) => target.family !== 'rest' && target.target > 0)
+            .slice(0, 5) ?? []
+    ), [weekPlan?.weeklyMixPlan.sessionTargets]);
+    const targetNotes = useMemo(() => (
+        weekPlan?.weeklyMixPlan.carryForwardAdjustments
+            .map((adjustment) => adjustment.reason)
+            .filter(Boolean)
+            .slice(0, 2) ?? []
+    ), [weekPlan?.weeklyMixPlan.carryForwardAdjustments]);
 
     // ─── Derived Metrics ───
     const totalSessions = entries.length;
@@ -292,6 +325,35 @@ export function WeeklyPlanScreen() {
                 ) : null}
 
                 {/* ─── Missed Sessions Banner ─── */}
+                {visibleTargets.length > 0 ? (
+                    <Animated.View entering={FadeInDown.delay(75).duration(ANIMATION.slow).springify()}>
+                        <Card variant="glass" style={styles.targetCard} noPadding>
+                            <View style={styles.targetCardInner}>
+                                <View style={styles.targetHeaderRow}>
+                                    <Text style={styles.targetTitle}>Programming targets</Text>
+                                    <Text style={styles.targetSubtitle}>Realized / planned</Text>
+                                </View>
+                                <View style={styles.targetRows}>
+                                    {visibleTargets.map((target) => (
+                                        <View key={target.family} style={styles.targetRow}>
+                                            <Text style={styles.targetLabel}>{formatTargetFamily(target.family)}</Text>
+                                            <Text style={[
+                                                styles.targetValue,
+                                                (target.debt ?? 0) > 0 && styles.targetValueDebt,
+                                            ]}>
+                                                {target.realized ?? target.scheduled}/{target.target}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                                {targetNotes.length > 0 ? (
+                                    <Text style={styles.targetNote} numberOfLines={2}>{targetNotes.join(' ')}</Text>
+                                ) : null}
+                            </View>
+                        </Card>
+                    </Animated.View>
+                ) : null}
+
                 {missedEntries.length > 0 && (
                     <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.slow).springify()}>
                         <AnimatedPressable onPress={handleMissedBannerPress}>
@@ -563,6 +625,66 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: COLORS.text.secondary,
         lineHeight: 20,
+    },
+    targetCard: {
+        marginBottom: SPACING.sm,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderWidth: 1,
+    },
+    targetCardInner: {
+        padding: SPACING.md,
+        gap: SPACING.sm,
+    },
+    targetHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: SPACING.sm,
+    },
+    targetTitle: {
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 14,
+        color: COLORS.text.primary,
+    },
+    targetSubtitle: {
+        fontFamily: FONT_FAMILY.regular,
+        fontSize: 12,
+        color: COLORS.text.tertiary,
+    },
+    targetRows: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: SPACING.sm,
+    },
+    targetRow: {
+        minWidth: 96,
+        flexGrow: 1,
+        flexBasis: '30%',
+        borderRadius: RADIUS.md,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        paddingHorizontal: SPACING.sm,
+        paddingVertical: SPACING.sm,
+    },
+    targetLabel: {
+        fontFamily: FONT_FAMILY.regular,
+        fontSize: 12,
+        color: COLORS.text.secondary,
+        marginBottom: 2,
+    },
+    targetValue: {
+        fontFamily: FONT_FAMILY.extraBold,
+        fontSize: 16,
+        color: COLORS.success,
+    },
+    targetValueDebt: {
+        color: COLORS.warning,
+    },
+    targetNote: {
+        fontFamily: FONT_FAMILY.regular,
+        fontSize: 12,
+        color: COLORS.text.tertiary,
+        lineHeight: 17,
     },
     // Charts & Metrics
     metricsRow: {

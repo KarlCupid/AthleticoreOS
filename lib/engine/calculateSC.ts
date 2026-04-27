@@ -28,6 +28,8 @@ import type {
     EquipmentItem,
     ConditioningPrescription,
     PerformanceRiskState,
+    SCModality,
+    SCSessionFamily,
     SessionModulePlan,
     SectionExercisePrescription,
     TrainingBlockContext,
@@ -49,7 +51,7 @@ import { buildSectionedWorkoutSession } from './workoutSessionBuilder.ts';
 import { getCalibratedCNSBudget } from './readiness/cnsBudget.ts';
 import { deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { getExerciseRecoveryCost, scoreExerciseCandidate } from './sc/exerciseScoring.ts';
-import { buildSessionPrescriptionForWorkout } from './resources/scProgrammingResources.ts';
+import { buildSessionPrescriptionForWorkout, getSessionTemplate } from './resources/scProgrammingResources.ts';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -127,6 +129,342 @@ function resolveTrainingAge(
     if (fitnessLevel === 'beginner') return 'novice';
     if (fitnessLevel === 'advanced' || fitnessLevel === 'elite') return 'advanced';
     return 'intermediate';
+}
+
+function getDesiredSCModality(scSessionFamily?: SCSessionFamily | null): SCModality | null {
+    if (!scSessionFamily) return null;
+    return getSessionTemplate(scSessionFamily)?.modality ?? null;
+}
+
+function exerciseMatchesSCModality(exercise: ExerciseLibraryRow, modality: SCModality | null): boolean {
+    if (!modality) return true;
+    if (exercise.modality === modality) return true;
+
+    if (modality === 'strength') return exercise.type === 'heavy_lift';
+    if (modality === 'power' || modality === 'plyometric') return exercise.type === 'power';
+    if (modality === 'sprint' || modality === 'conditioning' || modality === 'circuit') return exercise.type === 'conditioning';
+    if (modality === 'agility') return exercise.type === 'sport_specific';
+    if (modality === 'mobility') return exercise.type === 'mobility';
+    if (modality === 'recovery') return exercise.type === 'active_recovery' || exercise.type === 'mobility';
+
+    return true;
+}
+
+function bucketForSCModality(
+    modality: SCModality,
+    scSessionFamily: SCSessionFamily,
+    fallbackFocus: WorkoutFocus,
+    engineSessionFamily?: GenerateWorkoutInputV2['sessionFamily'],
+): WorkoutDoseBucket {
+    if (engineSessionFamily === 'strength' && (
+        modality === 'power'
+        || modality === 'plyometric'
+        || modality === 'sprint'
+    )) {
+        return 'strength';
+    }
+    if (modality === 'sprint' || modality === 'conditioning' || modality === 'circuit' || modality === 'agility') {
+        return 'conditioning';
+    }
+    if (modality === 'recovery' || modality === 'mobility') {
+        return scSessionFamily === 'tissue_capacity' || fallbackFocus === 'full_body' ? 'durability' : 'recovery';
+    }
+    return 'strength';
+}
+
+function sectionTemplateForSCModality(modality: SCModality): SectionExercisePrescription['sectionTemplate'] {
+    if (modality === 'power' || modality === 'plyometric') return 'power';
+    if (modality === 'recovery' || modality === 'mobility') return 'durability';
+    if (modality === 'circuit' || modality === 'conditioning' || modality === 'sprint' || modality === 'agility') return 'finisher';
+    return 'main_strength';
+}
+
+function buildSetPrescriptionForSCModality(
+    modality: SCModality,
+    dose: NonNullable<ReturnType<typeof buildSessionPrescriptionForWorkout>['sections'][number]>['dose'],
+): {
+    sets: number;
+    reps: number;
+    repsLabel: number | string;
+    targetRPE: number;
+    restSeconds: number;
+    label: string;
+} {
+    if (modality === 'sprint' && dose.sprint) {
+        const sets = Math.max(1, Math.round(dose.sprint.totalMeters / Math.max(1, dose.sprint.repDistanceMeters)));
+        return {
+            sets,
+            reps: 1,
+            repsLabel: `${dose.sprint.repDistanceMeters}m`,
+            targetRPE: dose.sprint.intensityPercent >= 95 ? 9 : 8,
+            restSeconds: dose.sprint.restSeconds,
+            label: 'Sprint reps',
+        };
+    }
+
+    if (modality === 'plyometric' && dose.plyometric) {
+        const sets = 3;
+        return {
+            sets,
+            reps: Math.max(1, Math.round(dose.plyometric.groundContacts / sets)),
+            repsLabel: Math.max(1, Math.round(dose.plyometric.groundContacts / sets)),
+            targetRPE: 6,
+            restSeconds: 90,
+            label: 'Quality contacts',
+        };
+    }
+
+    if ((modality === 'conditioning' || modality === 'circuit') && dose.interval) {
+        return {
+            sets: dose.interval.rounds,
+            reps: 1,
+            repsLabel: `${dose.interval.workSeconds}s`,
+            targetRPE: dose.interval.targetIntensity === 'all_out' ? 9 : 8,
+            restSeconds: dose.interval.restSeconds,
+            label: 'Intervals',
+        };
+    }
+
+    if (modality === 'circuit' && dose.circuit) {
+        return {
+            sets: dose.circuit.rounds,
+            reps: dose.circuit.movementCount,
+            repsLabel: `${dose.circuit.movementCount} moves`,
+            targetRPE: 7,
+            restSeconds: dose.circuit.restSeconds ?? 60,
+            label: 'Circuit rounds',
+        };
+    }
+
+    if (modality === 'agility' && dose.agility) {
+        return {
+            sets: dose.agility.reps,
+            reps: 1,
+            repsLabel: `${dose.agility.drillDistanceMeters}m`,
+            targetRPE: 7,
+            restSeconds: 75,
+            label: 'Agility reps',
+        };
+    }
+
+    if ((modality === 'recovery' || modality === 'mobility') && dose.recovery) {
+        return {
+            sets: 1,
+            reps: 1,
+            repsLabel: `${dose.recovery.durationMin} min`,
+            targetRPE: 3,
+            restSeconds: 0,
+            label: 'Recovery block',
+        };
+    }
+
+    if (dose.aerobic) {
+        return {
+            sets: 1,
+            reps: 1,
+            repsLabel: `${dose.aerobic.durationMin} min`,
+            targetRPE: dose.aerobic.targetRPE,
+            restSeconds: 0,
+            label: 'Aerobic block',
+        };
+    }
+
+    if (dose.strength) {
+        return {
+            sets: dose.strength.hardSets,
+            reps: typeof dose.strength.reps === 'number' ? dose.strength.reps : 5,
+            repsLabel: dose.strength.reps,
+            targetRPE: dose.strength.targetRPE,
+            restSeconds: dose.strength.restSeconds,
+            label: 'Strength sets',
+        };
+    }
+
+    return {
+        sets: 3,
+        reps: 5,
+        repsLabel: 5,
+        targetRPE: 7,
+        restSeconds: 90,
+        label: 'Quality work',
+    };
+}
+
+function buildTemplateResourceWorkoutV2(input: {
+    scSessionFamily: SCSessionFamily;
+    focus: WorkoutFocus;
+    engineSessionFamily: GenerateWorkoutInputV2['sessionFamily'];
+    candidateExercises: ExerciseLibraryRow[];
+    availableMinutes?: number;
+    gymEquipment?: EquipmentItem[];
+    campPhaseContext: CampPhase | null;
+    readinessProfile?: ReadinessProfile | null;
+    constraintSet: StimulusConstraintSet;
+    performanceRisk: PerformanceRiskState;
+    blockContext: TrainingBlockContext | null;
+    medStatus?: MEDStatus | null;
+    sessionModules?: SessionModulePlan[] | null;
+    isDeloadWeek: boolean;
+}): WorkoutPrescriptionV2 | null {
+    const sessionPrescription = buildSessionPrescriptionForWorkout({
+        focus: input.focus,
+        primaryAdaptation: 'mixed',
+        scSessionFamily: input.scSessionFamily,
+        engineSessionFamily: input.engineSessionFamily,
+    });
+    const modality = sessionPrescription.modality;
+    if (modality === 'strength') return null;
+
+    const templateSection = sessionPrescription.sections[0];
+    if (!templateSection) return null;
+
+    const selectedExercises = input.candidateExercises.slice(0, modality === 'recovery' || modality === 'mobility' ? 3 : 2);
+    if (selectedExercises.length === 0) return null;
+
+    const sectionTemplate = sectionTemplateForSCModality(modality);
+    const setPlan = buildSetPrescriptionForSCModality(modality, templateSection.dose);
+    const title = sessionPrescription.sessionFamily.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+    const estimatedDuration = input.availableMinutes
+        ?? getSessionTemplate(input.scSessionFamily)?.defaultDurationMin
+        ?? 30;
+    const bucket = bucketForSCModality(modality, input.scSessionFamily, input.focus, input.engineSessionFamily);
+    const moduleFocus = bucket === 'conditioning'
+        ? 'conditioning'
+        : bucket === 'recovery'
+            ? 'recovery'
+            : input.focus;
+    const sessionComposition = input.sessionModules?.length
+        ? input.sessionModules.map((module) => ({ ...module, bucket, focus: moduleFocus }))
+        : [{ bucket, focus: moduleFocus, durationMin: estimatedDuration, preserveOnYellow: true }];
+
+    const exercises: SectionExercisePrescription[] = selectedExercises.map((exercise, index) => {
+        const restSeconds = setPlan.restSeconds;
+        return {
+            exercise,
+            preferredExercise: exercise,
+            targetSets: setPlan.sets,
+            targetReps: setPlan.reps,
+            targetRPE: Math.min(setPlan.targetRPE, input.performanceRisk.intensityCap),
+            supersetGroup: null,
+            score: 95 - (index * 3),
+            recoveryCost: getExerciseRecoveryCost(exercise),
+            restSeconds,
+            formCues: exercise.cues,
+            isSubstitute: false,
+            role: modality === 'recovery' || modality === 'mobility' ? 'recovery' : modality === 'power' || modality === 'plyometric' ? 'explosive' : 'anchor',
+            loadingStrategy: templateSection.loadingStrategy,
+            progressionAnchor: null,
+            substitutions: [],
+            coachingCues: [exercise.cues, sessionPrescription.rationale].filter(Boolean),
+            fatigueCost: modality === 'sprint' || modality === 'plyometric' ? 'high' : modality === 'recovery' || modality === 'mobility' ? 'low' : 'moderate',
+            setScheme: `${setPlan.sets} x ${setPlan.repsLabel}`,
+            loadingNotes: sessionPrescription.rationale,
+            setPrescription: [{
+                label: setPlan.label,
+                sets: setPlan.sets,
+                reps: setPlan.repsLabel,
+                targetRPE: Math.min(setPlan.targetRPE, input.performanceRisk.intensityCap),
+                restSeconds,
+            }],
+            sectionId: `${input.scSessionFamily}-${index + 1}`,
+            sectionTemplate,
+            sectionIntent: templateSection.intent,
+            modality,
+            energySystem: sessionPrescription.energySystem,
+            modalityDose: templateSection.dose,
+            trackingSchemaId: sessionPrescription.trackingSchema.id,
+            wizardKind: sessionPrescription.wizardKind,
+        };
+    });
+
+    const sections: WorkoutSessionSection[] = [{
+        id: `${input.scSessionFamily}-main`,
+        template: sectionTemplate,
+        title,
+        intent: templateSection.intent,
+        timeCap: estimatedDuration,
+        restRule: restSecondsToRestRule(setPlan.restSeconds),
+        densityRule: sessionPrescription.progressionModel.description,
+        exercises,
+        decisionTrace: [
+            `template:${sectionTemplate}`,
+            `sc_family:${input.scSessionFamily}`,
+            `modality:${modality}`,
+        ],
+        finisherReason: null,
+    }];
+    const doseCredits: WorkoutDoseCredit[] = [{
+        bucket,
+        credit: 1,
+        preservedBySubstitution: false,
+        reason: `${title} dose credited from explicit S&C session family.`,
+    }];
+    const moduleBlocks: WorkoutModuleBlock[] = [{
+        bucket,
+        title,
+        focus: moduleFocus,
+        durationMin: estimatedDuration,
+        countedTowardDose: true,
+    }];
+    const resolvedSessionFamily = resolveSessionFamily(input.focus, input.engineSessionFamily);
+    const primaryAdaptation = sessionPrescription.primaryAdaptation;
+
+    return {
+        focus: moduleFocus,
+        workoutType: bucket === 'conditioning' ? 'conditioning' : bucket === 'recovery' ? 'recovery' : 'strength',
+        exercises,
+        payloadVersion: 'v3',
+        sessionFamily: resolvedSessionFamily,
+        scSessionFamily: sessionPrescription.sessionFamily,
+        sessionComposition,
+        secondaryAdaptations: [],
+        plannedBucket: bucket,
+        realizedBucket: bucket,
+        moduleBlocks,
+        doseCredits,
+        totalCNSBudget: Math.max(15, selectedExercises.reduce((sum, exercise) => sum + exercise.cns_load, 0) + 8),
+        usedCNS: selectedExercises.reduce((sum, exercise) => sum + exercise.cns_load, 0),
+        message: `${title} session. ${sessionPrescription.rationale} ${exercises.length} exercise${exercises.length === 1 ? '' : 's'}, ~${estimatedDuration} min.`,
+        estimatedDurationMin: estimatedDuration,
+        isDeloadWorkout: input.isDeloadWeek,
+        equipmentProfile: input.gymEquipment ? 'custom' : null,
+        campPhaseContext: input.campPhaseContext,
+        weeklyPlanDay: null,
+        sparringDayGuidance: null,
+        sessionTemplate: sections.map((section) => section.template),
+        sessionGoal: title,
+        sections,
+        sessionIntent: sessionPrescription.rationale,
+        primaryAdaptation,
+        sessionPrescription,
+        modality,
+        energySystem: sessionPrescription.energySystem,
+        trackingSchemaId: sessionPrescription.trackingSchema.id,
+        doseSummary: sessionPrescription.dose,
+        safetyFlags: sessionPrescription.safetyFlags,
+        wizardKind: sessionPrescription.wizardKind,
+        performanceRisk: input.performanceRisk,
+        readinessProfile: input.readinessProfile ?? null,
+        constraintSet: input.constraintSet,
+        medStatus: input.medStatus ?? null,
+        blockContext: input.blockContext,
+        decisionTrace: [
+            `focus:${moduleFocus}`,
+            `sc_family:${input.scSessionFamily}`,
+            `modality:${modality}`,
+            `wizard:${sessionPrescription.wizardKind}`,
+        ],
+        expectedActivationRPE: modality === 'recovery' || modality === 'mobility' ? null : 4,
+        activationGuidance: modality === 'recovery' || modality === 'mobility'
+            ? null
+            : 'Use the first warm-up block to confirm speed and landing quality before progressing.',
+        interferenceWarnings: [],
+    };
+}
+
+function restSecondsToRestRule(restSeconds: number): string {
+    if (restSeconds <= 0) return 'Flow continuously and keep breathing easy.';
+    return `Rest about ${restSeconds} seconds between quality efforts.`;
 }
 
 function resolveDayOfWeek(trainingDate?: string): number {
@@ -1062,6 +1400,7 @@ function buildConditioningWorkoutV2(input: {
     performanceRisk: PerformanceRiskState;
     blockContext: TrainingBlockContext | null;
     medStatus?: MEDStatus | null;
+    scSessionFamily?: SCSessionFamily | null;
 }): WorkoutPrescriptionV2 {
     const {
         prescription,
@@ -1073,6 +1412,7 @@ function buildConditioningWorkoutV2(input: {
         performanceRisk,
         blockContext,
         medStatus,
+        scSessionFamily,
     } = input;
 
     const sectionId = 'conditioning-main-1';
@@ -1165,6 +1505,7 @@ function buildConditioningWorkoutV2(input: {
     const sessionPrescription = buildSessionPrescriptionForWorkout({
         focus: 'conditioning',
         primaryAdaptation: 'conditioning',
+        scSessionFamily,
         engineSessionFamily: 'conditioning',
         conditioningType: prescription.type,
     });
@@ -1174,6 +1515,7 @@ function buildConditioningWorkoutV2(input: {
         workoutType: 'conditioning',
         exercises,
         payloadVersion: 'v3',
+        scSessionFamily: sessionPrescription.sessionFamily,
         sessionComposition: [{ bucket: 'conditioning', focus: 'conditioning', durationMin: estimatedDuration, preserveOnYellow: true }],
         secondaryAdaptations: [],
         plannedBucket: 'conditioning',
@@ -1275,6 +1617,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         constraintSet,
         medStatus = null,
         sessionFamily = null,
+        scSessionFamily = null,
         sessionModules = null,
     } = input;
     const resolvedPerformanceGoalType = performanceGoalType ?? 'conditioning';
@@ -1313,6 +1656,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             resolvedConstraintSet,
             medStatus,
             sessionFamily,
+            scSessionFamily,
         );
     }
 
@@ -1427,11 +1771,38 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             performanceRisk: resolvedPerformanceRisk,
             blockContext: resolvedBlockContext,
             medStatus,
+            scSessionFamily,
         });
     }
 
     const usableExercises = filterByEquipment(exerciseLibrary, gymEquipment);
-    const scored = usableExercises.map(exercise => ({
+    const desiredModality = getDesiredSCModality(scSessionFamily);
+    const modalityMatchedExercises = desiredModality
+        ? usableExercises.filter((exercise) => exerciseMatchesSCModality(exercise, desiredModality))
+        : [];
+    const candidateExercises = modalityMatchedExercises.length > 0 ? modalityMatchedExercises : usableExercises;
+    if (scSessionFamily && desiredModality && desiredModality !== 'strength') {
+        const templateWorkout = buildTemplateResourceWorkoutV2({
+            scSessionFamily,
+            focus: effectiveFocus,
+            engineSessionFamily: sessionFamily,
+            candidateExercises,
+            availableMinutes,
+            gymEquipment,
+            campPhaseContext,
+            readinessProfile: readinessProfile ?? null,
+            constraintSet: resolvedConstraintSet,
+            performanceRisk: resolvedPerformanceRisk,
+            blockContext: resolvedBlockContext,
+            medStatus,
+            sessionModules: resolvedSessionModules,
+            isDeloadWeek,
+        });
+        if (templateWorkout?.exercises.length) {
+            return templateWorkout;
+        }
+    }
+    const scored = candidateExercises.map(exercise => ({
         exercise,
         ...scoreExerciseCandidate(exercise, scoreExerciseForUser(exercise, {
             readinessState,
@@ -1536,6 +1907,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     const sessionPrescription = buildSessionPrescriptionForWorkout({
         focus: effectiveFocus,
         primaryAdaptation,
+        scSessionFamily,
         engineSessionFamily: resolvedSessionFamily,
     });
     const doseOutputs = buildDoseOutputs({
@@ -1581,6 +1953,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
         exercises,
         payloadVersion: 'v3',
         sessionFamily: resolvedSessionFamily,
+        scSessionFamily: sessionPrescription.sessionFamily,
         sessionComposition: resolvedSessionModules,
         secondaryAdaptations: doseOutputs.secondaryAdaptations,
         plannedBucket: doseOutputs.plannedBucket,
@@ -1727,6 +2100,7 @@ function buildSparringDayWorkout(
     constraintSet?: StimulusConstraintSet | null,
     medStatus?: MEDStatus | null,
     sessionFamily?: GenerateWorkoutInputV2['sessionFamily'],
+    scSessionFamily?: SCSessionFamily | null,
 ): WorkoutPrescriptionV2 {
     let exercises = library.filter(e =>
         e.type === 'mobility' || e.type === 'active_recovery' ||
@@ -1825,6 +2199,7 @@ function buildSparringDayWorkout(
     const sessionPrescription = buildSessionPrescriptionForWorkout({
         focus: 'recovery',
         primaryAdaptation: 'recovery',
+        scSessionFamily,
         engineSessionFamily: resolvedSupportFamily,
     });
 
@@ -1834,6 +2209,7 @@ function buildSparringDayWorkout(
         exercises: supportExercises,
         payloadVersion: 'v3',
         sessionFamily: resolvedSupportFamily,
+        scSessionFamily: sessionPrescription.sessionFamily,
         sessionComposition: [{ bucket: 'durability', focus: 'sport_specific', durationMin: 16, preserveOnYellow: true }],
         secondaryAdaptations: ['durability'],
         plannedBucket: 'durability',

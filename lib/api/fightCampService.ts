@@ -3,6 +3,7 @@ import { generateCampPlan, determineCampPhase, toCampEnginePhase } from '../engi
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getAthleteContext } from './athleteContextService';
 import { getEffectiveWeight } from './weightService';
+import { PLANNING_SETUP_VERSION } from './planningConstants';
 import type {
   CampConfig,
   CampPlanInput,
@@ -170,7 +171,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
       .update({
         athlete_goal_mode: 'build_phase',
         performance_goal_type: input.performanceGoalType ?? 'conditioning',
-        planning_setup_version: 1,
+        planning_setup_version: PLANNING_SETUP_VERSION,
         phase: 'off-season',
       })
       .eq('user_id', userId);
@@ -268,7 +269,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
       performance_goal_type: input.performanceGoalType ?? athleteContext.profile?.performance_goal_type ?? 'conditioning',
       fight_date: input.fightDate,
       target_weight: input.targetWeight ?? athleteContext.profile?.target_weight ?? null,
-      planning_setup_version: 1,
+      planning_setup_version: PLANNING_SETUP_VERSION,
       phase: phaseForToday ? toCampEnginePhase(phaseForToday) : 'fight-camp',
     })
     .eq('user_id', userId);

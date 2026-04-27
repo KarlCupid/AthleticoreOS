@@ -21,7 +21,7 @@ import { getActiveBuildPhaseGoal } from '../../lib/api/buildPhaseService';
 import { getAndSyncFirstRunGuidanceState, resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
-import { getPlanningSetupStatus } from '../../lib/api/planningSetupService';
+import { getPlanningSetupStatus, resetTrainingProgrammingForTester } from '../../lib/api/planningSetupService';
 import { getLatestWeight } from '../../lib/api/weightService';
 import { getWeeklyPlanConfig } from '../../lib/api/weeklyPlanService';
 import { getActiveWeightCutPlan } from '../../lib/api/weightCutService';
@@ -138,6 +138,7 @@ export function ProfileSettingsScreen() {
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editValue, setEditValue] = useState('');
   const [engineReplayVisible, setEngineReplayVisible] = useState(false);
+  const [resettingProgramming, setResettingProgramming] = useState(false);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [lastVersionTapAt, setLastVersionTapAt] = useState(0);
   const hasLoadedRef = useRef(false);
@@ -324,6 +325,38 @@ export function ProfileSettingsScreen() {
       logError('ProfileSettingsScreen.handleReplaySetupGuide', resetError);
       Alert.alert('Error', 'Could not reset the setup guide right now.');
     }
+  }
+
+  function handleResetTrainingProgramming() {
+    if (!__DEV__) return;
+
+    Alert.alert(
+      'Reset training programming?',
+      'This clears setup, active plans, generated sessions, recurring training commitments, and engine snapshots for this tester account. Workout, nutrition, check-in, PR, and exercise history stay intact.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) return;
+
+            setResettingProgramming(true);
+            try {
+              await resetTrainingProgrammingForTester(session.user.id);
+              await loadSnapshot('refresh');
+              Alert.alert('Training programming reset', 'Your tester account is ready for a clean planning setup.');
+            } catch (resetError) {
+              logError('ProfileSettingsScreen.handleResetTrainingProgramming', resetError);
+              Alert.alert('Reset failed', 'Could not reset training programming right now.');
+            } finally {
+              setResettingProgramming(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   function handleVersionPress() {
@@ -518,6 +551,20 @@ export function ProfileSettingsScreen() {
               <ActionButton label="Gym Profiles" onPress={openGymProfiles} />
               <ActionButton label="Weekly Setup" onPress={openWeeklySetup} variant="secondary" />
             </View>
+            {__DEV__ ? (
+              <AnimatedPressable
+                style={styles.resetProgrammingButton}
+                onPress={handleResetTrainingProgramming}
+                disabled={resettingProgramming}
+              >
+                {resettingProgramming ? (
+                  <ActivityIndicator size="small" color={COLORS.readiness.depleted} />
+                ) : null}
+                <Text style={styles.resetProgrammingButtonText}>
+                  {resettingProgramming ? 'Resetting programming...' : 'Reset Training Programming'}
+                </Text>
+              </AnimatedPressable>
+            ) : null}
           </Card>
         </Animated.View>
 
@@ -1066,6 +1113,24 @@ const styles = StyleSheet.create({
   },
   actionButtonTextSecondary: {
     color: COLORS.text.primary,
+  },
+  resetProgrammingButton: {
+    marginTop: SPACING.md,
+    minHeight: 48,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.28)',
+  },
+  resetProgrammingButtonText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.readiness.depleted,
   },
   primaryButton: {
     marginTop: SPACING.md,

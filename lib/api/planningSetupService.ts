@@ -1,8 +1,12 @@
 import { supabase } from '../supabase';
 import { getAthleteContext } from './athleteContextService';
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
+import { invalidateEngineDataCache } from './dailyMissionService';
 import { getActiveFightCamp } from './fightCampService';
+import { isPlanningSetupComplete } from './planningSetupLogic';
 import { getWeeklyPlanConfig } from './weeklyPlanService';
+
+export { isPlanningSetupComplete } from './planningSetupLogic';
 
 export interface PlanningSetupStatus {
   planningSetupVersion: number;
@@ -38,7 +42,11 @@ export async function getPlanningSetupStatus(userId: string): Promise<PlanningSe
     : Boolean(activeBuildGoal);
 
   const planningSetupVersion = athleteContext.planningSetupVersion ?? 0;
-  const isComplete = (planningSetupVersion >= 1 && hasAvailabilityWindows && hasActiveModeRecord) || legacyUsage;
+  const isComplete = isPlanningSetupComplete({
+    planningSetupVersion,
+    hasAvailabilityWindows,
+    hasActiveModeRecord,
+  });
 
   return {
     planningSetupVersion,
@@ -48,4 +56,86 @@ export async function getPlanningSetupStatus(userId: string): Promise<PlanningSe
     hasLegacyUsage: legacyUsage,
     isComplete,
   };
+}
+
+function throwIfError(error: unknown): void {
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * Dev/tester-only reset for programming state. Historical logs, nutrition,
+ * check-ins, PRs, and exercise history are intentionally preserved.
+ */
+export async function resetTrainingProgrammingForTester(userId: string): Promise<void> {
+  const now = new Date().toISOString();
+
+  const [
+    weeklyPlanConfigDelete,
+    weeklyPlanEntriesDelete,
+    scheduledActivitiesDelete,
+    recurringActivitiesDelete,
+    dailySnapshotsDelete,
+    buildGoalsUpdate,
+    fightCampsUpdate,
+    profileUpdate,
+  ] = await Promise.all([
+    supabase
+      .from('weekly_plan_config')
+      .delete()
+      .eq('user_id', userId),
+    supabase
+      .from('weekly_plan_entries')
+      .delete()
+      .eq('user_id', userId)
+      .neq('status', 'completed'),
+    supabase
+      .from('scheduled_activities')
+      .delete()
+      .eq('user_id', userId)
+      .eq('source', 'engine'),
+    supabase
+      .from('recurring_activities')
+      .delete()
+      .eq('user_id', userId),
+    supabase
+      .from('daily_engine_snapshots')
+      .delete()
+      .eq('user_id', userId),
+    supabase
+      .from('build_phase_goals')
+      .update({ status: 'abandoned', updated_at: now })
+      .eq('user_id', userId)
+      .eq('status', 'active'),
+    supabase
+      .from('fight_camps')
+      .update({ status: 'abandoned', updated_at: now })
+      .eq('user_id', userId)
+      .eq('status', 'active'),
+    supabase
+      .from('athlete_profiles')
+      .update({
+        athlete_goal_mode: 'build_phase',
+        performance_goal_type: 'conditioning',
+        planning_setup_version: 0,
+        phase: 'off-season',
+        active_cut_plan_id: null,
+        fight_date: null,
+      })
+      .eq('user_id', userId),
+  ]);
+
+  [
+    weeklyPlanConfigDelete.error,
+    weeklyPlanEntriesDelete.error,
+    scheduledActivitiesDelete.error,
+    recurringActivitiesDelete.error,
+    dailySnapshotsDelete.error,
+    buildGoalsUpdate.error,
+    fightCampsUpdate.error,
+    profileUpdate.error,
+  ].forEach(throwIfError);
+
+  invalidateEngineDataCache({ userId });
 }

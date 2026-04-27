@@ -18,7 +18,7 @@ import { getRecurringActivities } from '../../lib/api/scheduleService';
 import { getExerciseLibrary, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate, addDays } from '../../lib/utils/date';
-import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState, getWeeklyMission, invalidateEngineDataCache } from '../../lib/api/dailyMissionService';
 import { resolveWeeklyPlanWeekStart } from '../../lib/engine/weeklyPlanWeekStart';
 import type {
   WeeklyPlanConfigRow,
@@ -30,6 +30,10 @@ import type {
   MuscleGroup,
   CampPlanRow,
   WeightCutPlanRow,
+  TrainingSessionFamily,
+  WeeklyTrainingMixPlan,
+  WorkoutDoseBucket,
+  SessionDoseSummary,
 } from '../../lib/engine/types';
 
 const EMPTY_VOLUME: Record<MuscleGroup, number> = {
@@ -45,6 +49,134 @@ const EMPTY_VOLUME: Record<MuscleGroup, number> = {
   neck: 0,
   calves: 0,
 };
+
+const TARGET_FAMILIES: TrainingSessionFamily[] = ['sparring', 'boxing_skill', 'conditioning', 'strength', 'durability_core', 'recovery', 'rest'];
+
+function mapDoseBucketToFamily(bucket: WorkoutDoseBucket): TrainingSessionFamily {
+  if (bucket === 'conditioning') return 'conditioning';
+  if (bucket === 'durability') return 'durability_core';
+  if (bucket === 'recovery') return 'recovery';
+  return 'strength';
+}
+
+function inferEntryFamily(entry: WeeklyPlanEntryRow): TrainingSessionFamily {
+  if (entry.session_family) return entry.session_family;
+  if (entry.session_type === 'sparring') return 'sparring';
+  if (entry.session_type === 'boxing_practice') return 'boxing_skill';
+  if (entry.focus === 'conditioning' || entry.session_type === 'conditioning') return 'conditioning';
+  if (entry.focus === 'recovery' || entry.session_type === 'active_recovery') return 'recovery';
+  if (entry.focus != null) return 'strength';
+  return 'rest';
+}
+
+function emptyDoseSummary(): Required<SessionDoseSummary> {
+  return {
+    hardSets: 0,
+    sprintMeters: 0,
+    plyoContacts: 0,
+    hiitMinutes: 0,
+    aerobicMinutes: 0,
+    circuitRounds: 0,
+    highImpactCount: 0,
+    tissueStressLoad: 0,
+  };
+}
+
+function buildWeeklyMixPlanFromSavedEntries(
+  entries: WeeklyPlanEntryRow[],
+  summary: string,
+): WeeklyTrainingMixPlan {
+  const placementCounts = new Map<TrainingSessionFamily, number>();
+  const realizedCounts = new Map<TrainingSessionFamily, number>();
+  const scDoseSummary = emptyDoseSummary();
+
+  for (const entry of entries) {
+    const family = inferEntryFamily(entry);
+    placementCounts.set(family, (placementCounts.get(family) ?? 0) + 1);
+
+    const realizedBuckets = entry.realized_dose_buckets?.length
+      ? entry.realized_dose_buckets
+      : entry.prescription_snapshot?.realizedBucket
+        ? [entry.prescription_snapshot.realizedBucket]
+        : [];
+
+    if (realizedBuckets.length > 0) {
+      for (const bucket of realizedBuckets) {
+        const realizedFamily = mapDoseBucketToFamily(bucket);
+        realizedCounts.set(realizedFamily, (realizedCounts.get(realizedFamily) ?? 0) + 1);
+      }
+    } else if (entry.focus != null && entry.prescription_snapshot?.exercises?.length) {
+      realizedCounts.set(family, (realizedCounts.get(family) ?? 0) + 1);
+    }
+
+    const dose = entry.dose_summary ?? entry.prescription_snapshot?.doseSummary ?? entry.prescription_snapshot?.sessionPrescription?.dose ?? null;
+    if (dose) {
+      scDoseSummary.hardSets += dose.hardSets ?? 0;
+      scDoseSummary.sprintMeters += dose.sprintMeters ?? 0;
+      scDoseSummary.plyoContacts += dose.plyoContacts ?? 0;
+      scDoseSummary.hiitMinutes += dose.hiitMinutes ?? 0;
+      scDoseSummary.aerobicMinutes += dose.aerobicMinutes ?? 0;
+      scDoseSummary.circuitRounds += dose.circuitRounds ?? 0;
+      scDoseSummary.highImpactCount += dose.highImpactCount ?? 0;
+      scDoseSummary.tissueStressLoad += dose.tissueStressLoad ?? 0;
+    }
+  }
+
+  const sessionTargets = TARGET_FAMILIES.map((family) => {
+    const target = placementCounts.get(family) ?? 0;
+    const realized = realizedCounts.get(family) ?? (family === 'sparring' || family === 'boxing_skill' ? target : 0);
+    return {
+      family,
+      min: target > 0 ? 1 : 0,
+      target,
+      max: target,
+      scheduled: realized,
+      completed: entries.filter((entry) => inferEntryFamily(entry) === family && entry.status === 'completed').length,
+      floor: target > 0 ? 1 : 0,
+      realized,
+      debt: Math.max(0, target - realized),
+      metBySubstitution: 0,
+      missReason: target > 0 && realized === 0 ? 'No realized dose was saved for this target.' : null,
+    };
+  });
+
+  return {
+    weekStartDate: entries[0]?.week_start_date ?? todayStr(),
+    weekIntent: summary,
+    sessionTargets,
+    scDoseSummary,
+    dailyPlacements: entries.map((entry) => ({
+      date: entry.date,
+      day_of_week: entry.day_of_week,
+      slot: entry.slot,
+      dayOrder: entry.day_order ?? null,
+      sessionFamily: inferEntryFamily(entry),
+      scSessionFamily: entry.sc_session_family ?? entry.prescription_snapshot?.scSessionFamily ?? null,
+      sessionType: entry.session_type as any,
+      focus: entry.focus,
+      durationMin: entry.estimated_duration_min,
+      targetIntensity: entry.target_intensity,
+      source: entry.placement_source ?? 'generated',
+      locked: entry.placement_source === 'locked',
+      progressionIntent: entry.progression_intent ?? null,
+      notes: entry.engine_notes,
+      sessionModules: entry.session_modules ?? entry.prescription_snapshot?.sessionComposition ?? null,
+      doseCredits: entry.dose_credits ?? entry.prescription_snapshot?.doseCredits ?? [],
+      doseSummary: entry.dose_summary ?? entry.prescription_snapshot?.doseSummary ?? entry.prescription_snapshot?.sessionPrescription?.dose ?? null,
+      realizedDoseBuckets: entry.realized_dose_buckets ?? (entry.prescription_snapshot?.realizedBucket ? [entry.prescription_snapshot.realizedBucket] : []),
+      recurringActivityId: null,
+    })),
+    carryForwardAdjustments: entries
+      .filter((entry) => Boolean(entry.carry_forward_reason))
+      .map((entry) => ({
+        family: inferEntryFamily(entry),
+        fromDate: entry.date,
+        suggestedDate: null,
+        reason: entry.carry_forward_reason as string,
+        status: 'deferred' as const,
+      })),
+  };
+}
 
 function todayStr(): string {
   return todayLocalDate();
@@ -136,6 +268,10 @@ export async function generateAndSaveWeeklyPlan(
     getRecentMuscleVolume(userId),
   ]);
 
+  if (exerciseLibrary.length === 0) {
+    throw new Error('Exercise library is empty. Apply the S&C resource migration before generating a weekly plan.');
+  }
+
   const result = generateSmartWeekPlan({
     config: planConfig,
     readinessState: readinessContext.readinessState,
@@ -154,7 +290,16 @@ export async function generateAndSaveWeeklyPlan(
     recurringActivities,
   });
 
+  const guidedWithoutPrescription = result.entries.filter((entry) =>
+    entry.focus != null && !(entry.prescription_snapshot?.exercises?.length),
+  );
+  if (guidedWithoutPrescription.length > 0) {
+    throw new Error(`Weekly plan generated ${guidedWithoutPrescription.length} guided session(s) without S&C prescriptions.`);
+  }
+
+  invalidateEngineDataCache({ userId, weekStart });
   await saveWeekPlan(userId, result.entries);
+  invalidateEngineDataCache({ userId, weekStart });
   const weeklyMission = await getWeeklyMission(userId, weekStart, { forceRefresh: true });
 
   return {
@@ -195,21 +340,7 @@ export function useWeeklyPlan() {
       deloadReason: null,
       weeklyFocusSplit: {},
       weeklyMixPlan: {
-        weekStartDate: nextEntries[0]?.week_start_date ?? todayStr(),
-        weekIntent: weeklyMission.summary,
-        sessionTargets: [],
-        scDoseSummary: {
-          hardSets: 0,
-          sprintMeters: 0,
-          plyoContacts: 0,
-          hiitMinutes: 0,
-          aerobicMinutes: 0,
-          circuitRounds: 0,
-          highImpactCount: 0,
-          tissueStressLoad: 0,
-        },
-        dailyPlacements: [],
-        carryForwardAdjustments: [],
+        ...buildWeeklyMixPlanFromSavedEntries(nextEntries, weeklyMission.summary),
       },
       message: weeklyMission.summary,
     });

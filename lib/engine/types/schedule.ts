@@ -20,6 +20,7 @@ import type {
   ExerciseLibraryRow,
   PrescribedExercise,
   RoadWorkPrescription,
+  SCSessionFamily,
   SessionModulePlan,
   SessionDoseSummary,
   WorkoutDoseBucket,
@@ -260,9 +261,14 @@ export interface WeeklyPlanEntryRow {
   session_type: string;
   focus: WorkoutFocus | null;
   session_family?: TrainingSessionFamily | null;
+  sc_session_family?: SCSessionFamily | null;
   placement_source?: PlacementSource | null;
   progression_intent?: string | null;
   carry_forward_reason?: string | null;
+  session_modules?: SessionModulePlan[] | null;
+  dose_credits?: WorkoutDoseCredit[] | null;
+  dose_summary?: SessionDoseSummary | null;
+  realized_dose_buckets?: WorkoutDoseBucket[] | null;
   estimated_duration_min: number;
   target_intensity: number | null;
   status: PlanEntryStatus;
@@ -296,6 +302,7 @@ export interface DailyTrainingPlacement {
   slot: PlanSlot;
   dayOrder?: number | null;
   sessionFamily: TrainingSessionFamily;
+  scSessionFamily?: SCSessionFamily | null;
   sessionType: ActivityType | 'sc';
   focus: WorkoutFocus | null;
   durationMin: number;

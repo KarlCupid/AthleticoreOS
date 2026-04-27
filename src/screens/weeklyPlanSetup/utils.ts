@@ -187,7 +187,9 @@ export function isGuidedBuildGoal(buildGoal: BuildPhaseGoalRow, recommendation: 
 export function createDefaultAvailabilityWindows(): AvailabilityWindow[] {
   return [
     { dayOfWeek: 1, ...DEFAULT_WINDOW },
+    { dayOfWeek: 2, ...DEFAULT_WINDOW },
     { dayOfWeek: 3, ...DEFAULT_WINDOW },
+    { dayOfWeek: 4, ...DEFAULT_WINDOW },
     { dayOfWeek: 5, ...DEFAULT_WINDOW },
   ];
 }

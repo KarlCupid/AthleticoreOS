@@ -2,11 +2,15 @@ import { supabase } from '../supabase';
 import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow, DailyMission } from '../engine/types';
 import { toScheduledActivityPayload } from '../engine/sessionOwnership';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
+import { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
+
+export { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
 
 const today = todayLocalDate;
 let hasScheduledActivityIdColumn: boolean | null = null;
 let hasScheduledActivitiesWeeklyPlanEntryIdColumn: boolean | null = null;
 let hasDailyMissionSnapshotColumn: boolean | null = null;
+let hasWeeklyPlanMetadataColumns: boolean | null = null;
 
 function isMissingScheduledActivityIdColumnError(error: unknown): boolean {
     if (!error || typeof error !== 'object') return false;
@@ -33,6 +37,28 @@ function isMissingDailyMissionSnapshotColumnError(error: unknown): boolean {
         && typeof maybe.message === 'string'
         && maybe.message.includes('daily_mission_snapshot')
         && maybe.message.includes('weekly_plan_entries');
+}
+
+const WEEKLY_PLAN_METADATA_COLUMNS = [
+    'day_order',
+    'session_family',
+    'sc_session_family',
+    'placement_source',
+    'progression_intent',
+    'carry_forward_reason',
+    'session_modules',
+    'dose_credits',
+    'dose_summary',
+    'realized_dose_buckets',
+] as const;
+
+function isMissingWeeklyPlanMetadataColumnError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const maybe = error as { code?: string; message?: string };
+    const message = typeof maybe.message === 'string' ? maybe.message : '';
+    return (maybe.code === 'PGRST204' || maybe.code === '42703')
+        && message.includes('weekly_plan_entries')
+        && WEEKLY_PLAN_METADATA_COLUMNS.some((column) => message.includes(column));
 }
 
 function normalizeDay(day: number): number | null {
@@ -66,6 +92,37 @@ function normalizeAvailabilityWindows(windows: AvailabilityWindow[] | null | und
         }))
         .filter((window) => typeof window.startTime === 'string' && typeof window.endTime === 'string')
         .sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
+}
+
+function stripMissionSnapshotPayload<T extends Record<string, unknown>>(payload: T) {
+    const { daily_mission_snapshot: _daily_mission_snapshot, ...rest } = payload;
+    return rest;
+}
+
+function stripWeeklyPlanMetadataPayload<T extends Record<string, unknown>>(payload: T) {
+    const {
+        day_order: _day_order,
+        session_family: _session_family,
+        sc_session_family: _sc_session_family,
+        placement_source: _placement_source,
+        progression_intent: _progression_intent,
+        carry_forward_reason: _carry_forward_reason,
+        session_modules: _session_modules,
+        dose_credits: _dose_credits,
+        dose_summary: _dose_summary,
+        realized_dose_buckets: _realized_dose_buckets,
+        ...rest
+    } = payload;
+    return rest;
+}
+
+function applyWeeklyPlanColumnCompatibility<T extends Record<string, unknown>>(payload: T) {
+    const withoutMission = hasDailyMissionSnapshotColumn === false
+        ? stripMissionSnapshotPayload(payload)
+        : payload;
+    return hasWeeklyPlanMetadataColumns === false
+        ? stripWeeklyPlanMetadataPayload(withoutMission)
+        : withoutMission;
 }
 
 async function getScheduledActivityIdForEntry(entryId: string): Promise<string | null> {
@@ -108,7 +165,7 @@ export async function getWeeklyPlanConfig(userId: string): Promise<WeeklyPlanCon
     const config = data as WeeklyPlanConfigRow;
     return {
         ...config,
-        available_days: normalizeDays(config.available_days, [1, 3, 5]),
+        available_days: normalizeDays(config.available_days, [1, 2, 3, 4, 5]),
         availability_windows: normalizeAvailabilityWindows(config.availability_windows),
         two_a_day_days: normalizeDays(config.two_a_day_days, []),
     };
@@ -153,7 +210,7 @@ export async function saveWeeklyPlanConfig(
     const saved = data as WeeklyPlanConfigRow;
     return {
         ...saved,
-        available_days: normalizeDays(saved.available_days, [1, 3, 5]),
+        available_days: normalizeDays(saved.available_days, [1, 2, 3, 4, 5]),
         availability_windows: normalizeAvailabilityWindows(saved.availability_windows),
         two_a_day_days: normalizeDays(saved.two_a_day_days, []),
     };
@@ -291,29 +348,10 @@ export async function saveWeekPlan(
         return (finalCompletedOnly ?? []) as WeeklyPlanEntryRow[];
     }
 
-    const baseInsertPayload = entriesToInsert.map((e) => ({
-        user_id: userId,
-        week_start_date: e.week_start_date,
-        day_of_week: e.day_of_week,
-        date: e.date,
-        slot: e.slot,
-        session_type: e.session_type,
-        focus: e.focus,
-        estimated_duration_min: e.estimated_duration_min,
-        target_intensity: e.target_intensity,
-        status: e.status,
-        rescheduled_to: e.rescheduled_to,
-        workout_log_id: e.workout_log_id,
-        prescription_snapshot: e.prescription_snapshot,
-        daily_mission_snapshot: e.daily_mission_snapshot ?? null,
-        engine_notes: e.engine_notes,
-        is_deload: e.is_deload,
-    }));
-
-    const insertPayloadWithoutMission = baseInsertPayload.map(({ daily_mission_snapshot: _daily_mission_snapshot, ...payload }) => payload);
+    const baseInsertPayload = entriesToInsert.map((entry) => buildWeeklyPlanEntryInsertPayload(userId, entry));
 
     const withScheduledActivityPayload = entriesToInsert.map((e, index) => ({
-        ...(hasDailyMissionSnapshotColumn === false ? insertPayloadWithoutMission[index] : baseInsertPayload[index]),
+        ...applyWeeklyPlanColumnCompatibility(baseInsertPayload[index]),
         scheduled_activity_id: e.scheduled_activity_id ?? null,
     }));
 
@@ -328,13 +366,17 @@ export async function saveWeekPlan(
         if (error) {
             const missingScheduledActivityId = isMissingScheduledActivityIdColumnError(error);
             const missingDailyMissionSnapshot = isMissingDailyMissionSnapshotColumnError(error);
+            const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
 
-            if (missingScheduledActivityId || missingDailyMissionSnapshot) {
+            if (missingScheduledActivityId || missingDailyMissionSnapshot || missingWeeklyPlanMetadata) {
                 if (missingScheduledActivityId) {
                     hasScheduledActivityIdColumn = false;
                 }
                 if (missingDailyMissionSnapshot) {
                     hasDailyMissionSnapshotColumn = false;
+                }
+                if (missingWeeklyPlanMetadata) {
+                    hasWeeklyPlanMetadataColumns = false;
                 }
             } else {
                 throw error;
@@ -343,22 +385,27 @@ export async function saveWeekPlan(
             generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
             hasScheduledActivityIdColumn = true;
             hasDailyMissionSnapshotColumn = true;
+            hasWeeklyPlanMetadataColumns = true;
         }
     }
 
     if (!generatedEntries) {
-        const payload = hasDailyMissionSnapshotColumn === false ? insertPayloadWithoutMission : baseInsertPayload;
+        const payload = baseInsertPayload.map(applyWeeklyPlanColumnCompatibility);
         const { data, error } = await supabase
             .from('weekly_plan_entries')
             .insert(payload)
             .select();
 
         if (error) {
-            if (isMissingDailyMissionSnapshotColumnError(error)) {
-                hasDailyMissionSnapshotColumn = false;
+            const missingDailyMissionSnapshot = isMissingDailyMissionSnapshotColumnError(error);
+            const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
+
+            if (missingDailyMissionSnapshot || missingWeeklyPlanMetadata) {
+                if (missingDailyMissionSnapshot) hasDailyMissionSnapshotColumn = false;
+                if (missingWeeklyPlanMetadata) hasWeeklyPlanMetadataColumns = false;
                 const retry = await supabase
                     .from('weekly_plan_entries')
-                    .insert(insertPayloadWithoutMission)
+                    .insert(baseInsertPayload.map(applyWeeklyPlanColumnCompatibility))
                     .select();
                 if (retry.error) throw retry.error;
                 generatedEntries = (retry.data ?? []) as WeeklyPlanEntryRow[];
@@ -367,6 +414,7 @@ export async function saveWeekPlan(
             }
         } else {
             hasDailyMissionSnapshotColumn = true;
+            hasWeeklyPlanMetadataColumns = true;
             generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
         }
     }
@@ -648,11 +696,34 @@ export async function updatePlanEntryPrescription(
     entryId: string,
     prescription: import('../engine/types').WorkoutPrescriptionV2,
 ): Promise<void> {
+    const metadataPayload = {
+        prescription_snapshot: prescription,
+        sc_session_family: prescription.scSessionFamily ?? prescription.sessionPrescription?.sessionFamily ?? null,
+        session_modules: prescription.sessionComposition ?? null,
+        dose_credits: prescription.doseCredits ?? [],
+        dose_summary: prescription.doseSummary ?? prescription.sessionPrescription?.dose ?? null,
+        realized_dose_buckets: prescription.realizedBucket ? [prescription.realizedBucket] : [],
+    };
+
     const { error } = await supabase
         .from('weekly_plan_entries')
-        .update({ prescription_snapshot: prescription })
+        .update(applyWeeklyPlanColumnCompatibility(metadataPayload))
         .eq('id', entryId);
-    if (error) throw error;
+
+    if (error) {
+        if (isMissingWeeklyPlanMetadataColumnError(error)) {
+            hasWeeklyPlanMetadataColumns = false;
+            const retry = await supabase
+                .from('weekly_plan_entries')
+                .update({ prescription_snapshot: prescription })
+                .eq('id', entryId);
+            if (retry.error) throw retry.error;
+            return;
+        }
+        throw error;
+    }
+
+    hasWeeklyPlanMetadataColumns = true;
 }
 
 export async function restorePlanEntry(entryId: string): Promise<void> {
@@ -684,6 +755,9 @@ export async function regenerateDayWorkout(
     const exerciseHistory = await import('./scService').then((m) =>
         m.getExerciseHistoryBatch(userId, exerciseLibrary.map((exercise) => exercise.id)),
     );
+    if (exerciseLibrary.length === 0) {
+        throw new Error('Exercise library is empty. Apply the S&C resource migration before regenerating guided workouts.');
+    }
 
     const { generateWorkoutV2 } = await import('../engine/calculateSC');
 
@@ -706,6 +780,9 @@ export async function regenerateDayWorkout(
         trainingDate: entry.date,
         performanceGoalType: engineState.objectiveContext.performanceGoalType,
         medStatus: engineState.medStatus,
+        sessionFamily: entry.session_family ?? undefined,
+        scSessionFamily: entry.sc_session_family ?? entry.prescription_snapshot?.scSessionFamily ?? null,
+        sessionModules: entry.session_modules ?? entry.prescription_snapshot?.sessionComposition ?? null,
     });
 
     await updatePlanEntryPrescription(entryId, prescription);

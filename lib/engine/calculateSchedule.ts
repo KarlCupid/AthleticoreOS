@@ -30,6 +30,7 @@ import type {
     MuscleGroup,
     SessionModulePlan,
     SessionDoseSummary,
+    SCSessionFamily,
     WorkoutDoseBucket,
 } from './types.ts';
 import { getFitnessModifiers } from './calculateFitness.ts';
@@ -42,6 +43,7 @@ import { generateWorkoutV2 } from './calculateSC.ts';
 import { assessPerformanceRisk, getGoalBasedFocusRotation, resolveTrainingBlockContext } from './performancePlanner.ts';
 import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { classifyGuidedSessionType } from './sessionOwnership.ts';
+import { getSessionTemplate } from './resources/scProgrammingResources.ts';
 import { todayLocalDate } from '../utils/date.ts';
 
 import {
@@ -383,6 +385,7 @@ export function buildCampMicrocycleTemplate(input: {
 
 interface GuidedSessionBlueprint {
     family: TrainingSessionFamily;
+    scSessionFamily: SCSessionFamily;
     focus: WorkoutFocus;
     progressionIntent: string;
     sessionModules: SessionModulePlan[];
@@ -393,6 +396,20 @@ function mapDoseBucketToFamily(bucket: WorkoutDoseBucket): TrainingSessionFamily
     if (bucket === 'conditioning') return 'conditioning';
     if (bucket === 'durability') return 'durability_core';
     if (bucket === 'recovery') return 'recovery';
+    return 'strength';
+}
+
+function defaultBucketForBlueprint(
+    family: TrainingSessionFamily,
+    scSessionFamily: SCSessionFamily,
+): WorkoutDoseBucket {
+    if (family === 'strength') return 'strength';
+    const modality = getSessionTemplate(scSessionFamily)?.modality ?? null;
+    if (modality === 'sprint' || modality === 'conditioning' || modality === 'circuit' || modality === 'agility') {
+        return 'conditioning';
+    }
+    if (family === 'durability_core' || scSessionFamily === 'tissue_capacity') return 'durability';
+    if (family === 'recovery' || modality === 'recovery' || modality === 'mobility') return 'recovery';
     return 'strength';
 }
 
@@ -409,11 +426,25 @@ export function getFamilyForFocus(focus: WorkoutFocus): TrainingSessionFamily {
 
 function getProgressionIntent(input: {
     family: TrainingSessionFamily;
+    scSessionFamily?: SCSessionFamily | null;
     focus: WorkoutFocus;
     campPhase: CampPhase | null;
     performanceGoalType: SmartWeekPlanInput['performanceGoalType'];
 }): string {
-    const { family, focus, campPhase, performanceGoalType } = input;
+    const { family, scSessionFamily, focus, campPhase, performanceGoalType } = input;
+    if (scSessionFamily) {
+        const familyLabel = scSessionFamily.replace(/_/g, ' ');
+        if (scSessionFamily.includes('plyometric')) return `Build elastic power through ${familyLabel} while tracking contact dose.`;
+        if (scSessionFamily.includes('sprint') || scSessionFamily === 'acceleration' || scSessionFamily === 'max_velocity') {
+            return `Build speed through ${familyLabel} while tracking meters, rest, and speed drop.`;
+        }
+        if (scSessionFamily.includes('agility') || scSessionFamily === 'planned_cod' || scSessionFamily === 'deceleration') {
+            return `Build change-of-direction quality through ${familyLabel} while tracking errors and best reps.`;
+        }
+        if (scSessionFamily === 'hiit' || scSessionFamily === 'sit' || scSessionFamily === 'tempo' || scSessionFamily === 'threshold') {
+            return `Build engine capacity through ${familyLabel} with modality-specific interval tracking.`;
+        }
+    }
     if (family === 'conditioning') {
         return campPhase === 'peak'
             ? 'Keep the engine sharp without stealing freshness from skill work.'
@@ -430,6 +461,39 @@ function getProgressionIntent(input: {
     }
     const goalLabel = String(performanceGoalType ?? 'conditioning').replace(/_/g, ' ');
     return `Push ${goalLabel} forward through ${focus.replace(/_/g, ' ')} work.`;
+}
+
+function primaryStrengthSCFamily(
+    performanceGoalType: SmartWeekPlanInput['performanceGoalType'],
+    slotIndex: number,
+): SCSessionFamily {
+    if (performanceGoalType === 'weight_class_prep') return slotIndex === 0 ? 'strength_endurance' : 'unilateral_strength';
+    if (performanceGoalType === 'conditioning') return slotIndex === 0 ? 'max_strength' : 'strength_endurance';
+    if (performanceGoalType === 'boxing_skill') return slotIndex === 0 ? 'unilateral_strength' : 'strength_endurance';
+    return slotIndex === 0 ? 'max_strength' : 'unilateral_strength';
+}
+
+function powerSCFamily(
+    performanceGoalType: SmartWeekPlanInput['performanceGoalType'],
+    campPhase: CampPhase | null,
+): SCSessionFamily {
+    if (campPhase === 'peak') return 'med_ball_power';
+    if (performanceGoalType === 'strength') return 'loaded_jump_power';
+    if (performanceGoalType === 'boxing_skill') return 'med_ball_power';
+    if (performanceGoalType === 'weight_class_prep') return 'low_contact_plyometrics';
+    return 'acceleration';
+}
+
+function conditioningSCFamily(
+    performanceGoalType: SmartWeekPlanInput['performanceGoalType'],
+    campPhase: CampPhase | null,
+    slotIndex: number,
+): SCSessionFamily {
+    if (campPhase === 'peak') return slotIndex === 0 ? 'repeated_sprint_ability' : 'sport_round_conditioning';
+    if (performanceGoalType === 'strength') return slotIndex === 0 ? 'tempo' : 'mixed_intervals';
+    if (performanceGoalType === 'boxing_skill') return slotIndex === 0 ? 'planned_cod' : 'sport_round_conditioning';
+    if (performanceGoalType === 'weight_class_prep') return slotIndex === 0 ? 'tempo' : 'aerobic_base';
+    return slotIndex === 0 ? 'hiit' : 'tempo';
 }
 
 function buildGuidedSessionBlueprints(input: {
@@ -463,28 +527,25 @@ function buildGuidedSessionBlueprints(input: {
     const pushBlueprint = (
         list: GuidedSessionBlueprint[],
         family: TrainingSessionFamily,
+        scSessionFamily: SCSessionFamily,
         focus: WorkoutFocus,
         preferredDurationMin: number,
         sessionModules?: SessionModulePlan[],
     ) => {
         list.push({
             family,
+            scSessionFamily,
             focus,
             preferredDurationMin,
             sessionModules: sessionModules ?? [{
-                bucket: family === 'conditioning'
-                    ? 'conditioning'
-                    : family === 'durability_core'
-                        ? 'durability'
-                        : family === 'recovery'
-                            ? 'recovery'
-                            : 'strength',
+                bucket: defaultBucketForBlueprint(family, scSessionFamily),
                 focus,
                 durationMin: preferredDurationMin,
                 preserveOnYellow: true,
             }],
             progressionIntent: getProgressionIntent({
                 family,
+                scSessionFamily,
                 focus,
                 campPhase,
                 performanceGoalType,
@@ -495,24 +556,24 @@ function buildGuidedSessionBlueprints(input: {
     const blueprints: GuidedSessionBlueprint[] = [];
 
     if (isDeloadWeek || campPhase === 'taper') {
-        pushBlueprint(blueprints, 'recovery', 'recovery', 35);
-        if (guidedCapacity >= 2) pushBlueprint(blueprints, 'recovery', 'recovery', 30);
+        pushBlueprint(blueprints, 'recovery', 'mobility_flow', 'recovery', 35);
+        if (guidedCapacity >= 2) pushBlueprint(blueprints, 'recovery', 'easy_aerobic_flush', 'recovery', 30);
         return blueprints.slice(0, guidedCapacity);
     }
 
     if (campPhase === 'peak') {
-        pushBlueprint(blueprints, 'strength', strengthFocuses[0] ?? 'full_body', 70);
-        if (guidedCapacity >= 2) pushBlueprint(blueprints, 'conditioning', 'conditioning', 40);
-        if (guidedCapacity >= 3) pushBlueprint(blueprints, 'durability_core', 'full_body', 35);
+        pushBlueprint(blueprints, 'strength', primaryStrengthSCFamily(performanceGoalType, 0), strengthFocuses[0] ?? 'full_body', 70);
+        if (guidedCapacity >= 2) pushBlueprint(blueprints, 'conditioning', conditioningSCFamily(performanceGoalType, campPhase, 0), 'conditioning', 40);
+        if (guidedCapacity >= 3) pushBlueprint(blueprints, 'durability_core', 'tissue_capacity', 'full_body', 35);
         return blueprints.slice(0, guidedCapacity);
     }
 
     if (guidedCapacity >= 5) {
-        pushBlueprint(blueprints, 'strength', strengthFocuses[0] ?? 'lower', 80);
-        pushBlueprint(blueprints, 'conditioning', 'conditioning', 45);
-        pushBlueprint(blueprints, 'strength', strengthFocuses[1] ?? 'upper_pull', 78);
-        pushBlueprint(blueprints, 'durability_core', 'full_body', 35);
-        pushBlueprint(blueprints, 'conditioning', 'conditioning', 42);
+        pushBlueprint(blueprints, 'strength', primaryStrengthSCFamily(performanceGoalType, 0), strengthFocuses[0] ?? 'lower', 80);
+        pushBlueprint(blueprints, 'conditioning', conditioningSCFamily(performanceGoalType, campPhase, 0), 'conditioning', 45);
+        pushBlueprint(blueprints, 'strength', powerSCFamily(performanceGoalType, campPhase), strengthFocuses[1] ?? 'upper_pull', 72);
+        pushBlueprint(blueprints, 'durability_core', 'tissue_capacity', 'full_body', 35);
+        pushBlueprint(blueprints, 'conditioning', conditioningSCFamily(performanceGoalType, campPhase, 1), 'conditioning', 42);
         return blueprints.slice(0, guidedCapacity);
     }
 
@@ -520,6 +581,7 @@ function buildGuidedSessionBlueprints(input: {
         pushBlueprint(
             blueprints,
             'strength',
+            primaryStrengthSCFamily(performanceGoalType, 0),
             strengthFocuses[0] ?? 'full_body',
             92,
             [
@@ -527,9 +589,9 @@ function buildGuidedSessionBlueprints(input: {
                 { bucket: 'conditioning', focus: 'conditioning', durationMin: 18, preserveOnYellow: true },
             ],
         );
-        pushBlueprint(blueprints, 'strength', strengthFocuses[1] ?? 'upper_pull', 75);
-        pushBlueprint(blueprints, 'conditioning', 'conditioning', 42);
-        pushBlueprint(blueprints, 'durability_core', 'full_body', 35);
+        pushBlueprint(blueprints, 'strength', powerSCFamily(performanceGoalType, campPhase), strengthFocuses[1] ?? 'upper_pull', 75);
+        pushBlueprint(blueprints, 'conditioning', conditioningSCFamily(performanceGoalType, campPhase, 0), 'conditioning', 42);
+        pushBlueprint(blueprints, 'durability_core', 'tissue_capacity', 'full_body', 35);
         return blueprints;
     }
 
@@ -537,6 +599,7 @@ function buildGuidedSessionBlueprints(input: {
         pushBlueprint(
             blueprints,
             'strength',
+            primaryStrengthSCFamily(performanceGoalType, 0),
             strengthFocuses[0] ?? 'full_body',
             90,
             [
@@ -544,8 +607,8 @@ function buildGuidedSessionBlueprints(input: {
                 { bucket: 'conditioning', focus: 'conditioning', durationMin: 18, preserveOnYellow: true },
             ],
         );
-        pushBlueprint(blueprints, 'strength', strengthFocuses[1] ?? 'upper_pull', 70);
-        pushBlueprint(blueprints, 'conditioning', 'conditioning', 40);
+        pushBlueprint(blueprints, 'strength', powerSCFamily(performanceGoalType, campPhase), strengthFocuses[1] ?? 'upper_pull', 70);
+        pushBlueprint(blueprints, 'conditioning', conditioningSCFamily(performanceGoalType, campPhase, 0), 'conditioning', 40);
         return blueprints;
     }
 
@@ -553,6 +616,7 @@ function buildGuidedSessionBlueprints(input: {
         pushBlueprint(
             blueprints,
             'strength',
+            primaryStrengthSCFamily(performanceGoalType, 0),
             strengthFocuses[0] ?? 'full_body',
             88,
             [
@@ -560,11 +624,11 @@ function buildGuidedSessionBlueprints(input: {
                 { bucket: 'conditioning', focus: 'conditioning', durationMin: 18, preserveOnYellow: true },
             ],
         );
-        pushBlueprint(blueprints, 'durability_core', 'full_body', 30);
+        pushBlueprint(blueprints, 'durability_core', 'tissue_capacity', 'full_body', 30);
         return blueprints;
     }
 
-    pushBlueprint(blueprints, 'strength', strengthFocuses[0] ?? 'full_body', 85);
+    pushBlueprint(blueprints, 'strength', primaryStrengthSCFamily(performanceGoalType, 0), strengthFocuses[0] ?? 'full_body', 85);
     return blueprints;
 }
 
@@ -611,6 +675,7 @@ function consumeBlueprint(
 ): void {
     const index = queue.findIndex((item) =>
         item.family === blueprint.family
+        && item.scSessionFamily === blueprint.scSessionFamily
         && item.focus === blueprint.focus
         && item.progressionIntent === blueprint.progressionIntent,
     );
@@ -1779,6 +1844,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 session_type: primaryCombatAnchor.activity_type,
                 focus: null,
                 session_family: familyForRecurringActivity(primaryCombatAnchor),
+                sc_session_family: null,
                 placement_source: 'locked',
                 progression_intent: getProgressionIntent({
                     family: familyForRecurringActivity(primaryCombatAnchor),
@@ -1787,6 +1853,10 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                     performanceGoalType,
                 }),
                 carry_forward_reason: null,
+                session_modules: null,
+                dose_credits: [],
+                dose_summary: null,
+                realized_dose_buckets: [],
                 estimated_duration_min: primaryCombatAnchor.estimated_duration_min,
                 target_intensity: primaryCombatAnchor.expected_intensity,
                 status: 'planned',
@@ -1803,6 +1873,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 slot,
                 dayOrder,
                 sessionFamily: familyForRecurringActivity(primaryCombatAnchor),
+                scSessionFamily: null,
                 sessionType: primaryCombatAnchor.activity_type,
                 focus: null,
                 durationMin: primaryCombatAnchor.estimated_duration_min,
@@ -2034,7 +2105,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 trainingDate: entryDate,
                 fitnessLevel,
                 availableMinutes: duration,
-                gymEquipment: gymProfile?.equipment ?? [],
+                gymEquipment: gymProfile?.equipment ?? undefined,
                 exerciseHistory: rollingExerciseHistory,
                 isDeloadWeek,
                 weeklyPlanFocus: focus,
@@ -2043,6 +2114,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 performanceRisk,
                 blockContext,
                 sessionFamily: blueprint.family,
+                scSessionFamily: blueprint.scSessionFamily,
                 sessionModules,
             })
             : null;
@@ -2068,9 +2140,14 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             session_type: sessionType,
             focus,
             session_family: blueprint.family,
+            sc_session_family: prescriptionSnapshot?.scSessionFamily ?? blueprint.scSessionFamily,
             placement_source: 'generated',
             progression_intent: blueprint.progressionIntent,
             carry_forward_reason: null,
+            session_modules: prescriptionSnapshot?.sessionComposition ?? sessionModules,
+            dose_credits: prescriptionSnapshot?.doseCredits ?? [],
+            dose_summary: prescriptionSnapshot?.doseSummary ?? prescriptionSnapshot?.sessionPrescription?.dose ?? null,
+            realized_dose_buckets: realizedDoseBuckets,
             estimated_duration_min: duration,
             target_intensity: targetIntensity,
             status: 'planned',
@@ -2088,6 +2165,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             slot: guidedSlot,
             dayOrder: 0,
             sessionFamily: blueprint.family,
+            scSessionFamily: prescriptionSnapshot?.scSessionFamily ?? blueprint.scSessionFamily,
             sessionType,
             focus,
             durationMin: duration,
@@ -2096,7 +2174,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             locked: false,
             progressionIntent: blueprint.progressionIntent,
             notes: notes.join(' ') || null,
-            sessionModules,
+            sessionModules: prescriptionSnapshot?.sessionComposition ?? sessionModules,
             doseCredits: prescriptionSnapshot?.doseCredits ?? [],
             doseSummary: prescriptionSnapshot?.doseSummary ?? prescriptionSnapshot?.sessionPrescription?.dose ?? null,
             realizedDoseBuckets,
@@ -2127,6 +2205,15 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             fromDate: null,
             suggestedDate: null,
             reason: 'No safe placement remained in the current week after constraints were applied.',
+            status: 'deferred',
+        });
+    }
+    if (!isDeloadWeek && guidedCapacity > 0 && guidedCapacity < 5) {
+        carryForwardAdjustments.push({
+            family: 'recovery',
+            fromDate: null,
+            suggestedDate: null,
+            reason: `${guidedCapacity}-day availability compressed the S&C week; lower-priority durability or recovery dose was folded into combo sessions where possible.`,
             status: 'deferred',
         });
     }

@@ -688,6 +688,67 @@ console.log('\n── generateSmartWeekPlan ──');
 })();
 
 (() => {
+    const result = generateSmartWeekPlan({
+        config: makeSmartConfig({
+            available_days: [1, 2, 3, 4, 5],
+            session_duration_min: 75,
+        }),
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'conditioning',
+        exerciseLibrary: ROTATION_LIBRARY,
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-02',
+        recurringActivities: [],
+    });
+    const guided = getGuidedEntries(result);
+    const scFamilies = new Set(guided.map((entry) => entry.sc_session_family));
+
+    assert('Clean 5-day build phase creates five guided S&C sessions', guided.length === 5);
+    assert('Clean 5-day build phase persists max strength family', scFamilies.has('max_strength'));
+    assert('Clean 5-day build phase includes speed or power family', scFamilies.has('acceleration') || scFamilies.has('loaded_jump_power') || scFamilies.has('med_ball_power'));
+    assert('Clean 5-day build phase includes conditioning family', scFamilies.has('hiit') || scFamilies.has('tempo') || scFamilies.has('mixed_intervals'));
+    assert('Clean 5-day build phase includes durability family', scFamilies.has('tissue_capacity'));
+    assert('Clean 5-day build phase saves prescriptions for every guided entry', guided.every((entry) => (entry.prescription_snapshot?.exercises.length ?? 0) > 0));
+    assert('Clean 5-day build phase realizes multiple dose buckets', result.weeklyMixPlan.sessionTargets.filter((target) => (target.realized ?? 0) > 0).length >= 3);
+})();
+
+(() => {
+    const result = generateSmartWeekPlan({
+        config: makeSmartConfig({
+            available_days: [1, 3, 5],
+            session_duration_min: 75,
+        }),
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'conditioning',
+        exerciseLibrary: ROTATION_LIBRARY,
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-02',
+        recurringActivities: [],
+    });
+    const guided = getGuidedEntries(result);
+    const comboSession = guided.find((entry) => (entry.session_modules?.length ?? 0) > 1) ?? null;
+
+    assert('Three-day availability respects three guided sessions', guided.length === 3);
+    assert('Three-day availability creates a compressed combo session', comboSession != null);
+    assert('Three-day availability persists explicit S&C families', guided.every((entry) => Boolean(entry.sc_session_family)));
+    assert('Three-day availability records reduced-capacity rationale', result.weeklyMixPlan.carryForwardAdjustments.some((adjustment) => adjustment.reason.includes('3-day availability compressed')));
+})();
+
+(() => {
     const { camp, weekStartDate } = makeCampPhaseContext('build');
     const result = generateSmartWeekPlan({
         config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),

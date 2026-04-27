@@ -68,6 +68,14 @@ const sprint = buildSessionPrescriptionFromTemplate('acceleration');
 assert('speed templates route to sprint wizard', sprint.wizardKind === 'sprint');
 assert('speed templates summarize meters', (sprint.dose.sprintMeters ?? 0) > 0);
 
+const explicitSprint = buildSessionPrescriptionForWorkout({
+  focus: 'lower',
+  primaryAdaptation: 'strength',
+  scSessionFamily: 'acceleration',
+});
+assert('explicit S&C family overrides broad strength focus', explicitSprint.sessionFamily === 'acceleration');
+assert('explicit S&C family drives sprint wizard', explicitSprint.wizardKind === 'sprint');
+
 const hiit = buildSessionPrescriptionFromTemplate(mapConditioningTypeToSessionFamily('assault_bike'));
 assert('HIIT conditioning maps to HIIT wizard', hiit.wizardKind === 'hiit');
 assert('HIIT templates summarize work minutes', (hiit.dose.hiitMinutes ?? 0) > 0);

@@ -5,6 +5,7 @@ import type {
   BuildPhaseGoalType,
   ObjectiveSecondaryConstraint,
 } from '../engine/types';
+import { PLANNING_SETUP_VERSION } from './planningConstants';
 
 function normalizeGoalType(value: unknown): BuildPhaseGoalType {
   switch (value) {
@@ -104,7 +105,7 @@ export async function setupBuildPhaseGoal(userId: string, input: BuildPhaseSetup
       athlete_goal_mode: 'build_phase',
       performance_goal_type: input.goalType,
       fight_date: null,
-      planning_setup_version: 1,
+      planning_setup_version: PLANNING_SETUP_VERSION,
       phase: input.goalType === 'weight_class_prep' ? 'pre-camp' : 'off-season',
     })
     .eq('user_id', userId);

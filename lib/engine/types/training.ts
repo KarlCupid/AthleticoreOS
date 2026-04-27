@@ -869,6 +869,7 @@ export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
   blockContext?: TrainingBlockContext | null;
   medStatus?: MEDStatus | null;
   sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
+  scSessionFamily?: SCSessionFamily | null;
   sessionModules?: SessionModulePlan[] | null;
 }
 
@@ -1029,6 +1030,7 @@ export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   exercises: PrescribedExerciseV2[];
   payloadVersion?: 'v2' | 'v3';
   sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
+  scSessionFamily?: SCSessionFamily | null;
   sessionComposition?: SessionModulePlan[] | null;
   secondaryAdaptations?: WorkoutDoseBucket[];
   plannedBucket?: WorkoutDoseBucket | null;
