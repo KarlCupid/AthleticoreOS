@@ -57,11 +57,11 @@ console.log('\n── Upshift: activation RPE <= expected - 2 ──');
 
 const up = autoregulateSession(makeSession(), 2, 4);
 assert('upshift: main sets unchanged', up.exercises[0].targetSets === 4);
-assert('upshift: main RPE increased by 1', up.exercises[0].targetRPE === 8);
-assert('upshift: main weight increased to 105%', up.exercises[0].suggestedWeight === 105);
+assert('upshift: main RPE unchanged', up.exercises[0].targetRPE === 7);
+assert('upshift: main weight unchanged', up.exercises[0].suggestedWeight === 100);
 assert('upshift: cooldown unchanged', up.exercises[2].targetSets === 1);
-assert('upshift: decisionTrace has upshift tag', (up.decisionTrace as string[]).includes('autoregulation:upshift'));
-assert('upshift: message updated', up.message.includes('upshifted'));
+assert('upshift: decisionTrace unchanged', (up.decisionTrace as string[]).length === 0);
+assert('upshift: message unchanged', up.message === 'Base session.');
 
 console.log('\n── Edge cases ──');
 
@@ -75,7 +75,7 @@ assert('downshift: sets cannot go below 1', minSets.exercises[0].targetSets === 
 const maxRPE = autoregulateSession(makeSession([
   { sectionTemplate: 'main', targetSets: 3, targetRPE: 10, suggestedWeight: 100 },
 ], { decisionTrace: [], message: '' }), 2, 4);
-assert('upshift: RPE capped at 10', maxRPE.exercises[0].targetRPE === 10);
+assert('easy activation does not raise RPE', maxRPE.exercises[0].targetRPE === 10);
 
 // Min RPE = 4 on downshift
 const minRPE = autoregulateSession(makeSession([
@@ -112,6 +112,10 @@ const withTrace = autoregulateSession(
   4,
 );
 assert('existing trace entries preserved', (withTrace.decisionTrace as string[]).includes('existing_entry'));
+
+const severe = autoregulateSession(makeSession(), 7, 4);
+assert('severe downshift blocks high-speed/high-impact sections', severe.exercises.every((exercise: any) => exercise.sectionTemplate !== 'power' && exercise.sectionTemplate !== 'finisher'));
+assert('severe downshift has severe trace tag', (severe.decisionTrace as string[]).includes('autoregulation:severe_downshift'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

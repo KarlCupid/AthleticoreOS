@@ -58,6 +58,9 @@ export interface DailyCoachDebriefHistory {
 export interface DailyCoachDebriefInput {
   sleepQuality: number;
   readiness: number;
+  energyLevel?: number | null;
+  fuelHydrationStatus?: number | null;
+  painLevel?: number | null;
   stressLevel?: number | null;
   sorenessLevel?: number | null;
   confidenceLevel?: number | null;

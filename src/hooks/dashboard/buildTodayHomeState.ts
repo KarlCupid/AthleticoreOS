@@ -20,6 +20,7 @@ interface BuildTodayHomeStateInput {
   checkinDone: boolean;
   sessionDone: boolean;
   currentLevel: ReadinessLevel;
+  readinessScore: number | null;
   workoutPrescription: WorkoutPrescription | null;
   todayPlanEntry: WeeklyPlanEntryRow | null;
   todayActivities: ScheduledActivityRow[];
@@ -173,6 +174,7 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
     hydration,
     checkinDone: _checkinDone,
     currentLevel,
+    readinessScore: engineReadinessScore,
     workoutPrescription,
     todayPlanEntry,
     todayActivities,
@@ -184,7 +186,9 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
     todayCutProtocol,
   } = input;
 
-  const readinessScore = currentLevel === 'Prime' ? 92 : currentLevel === 'Caution' ? 58 : 25;
+  const readinessScore = typeof engineReadinessScore === 'number' && Number.isFinite(engineReadinessScore)
+    ? Math.round(Math.max(0, Math.min(100, engineReadinessScore)))
+    : currentLevel === 'Prime' ? 92 : currentLevel === 'Caution' ? 58 : 25;
   const isDemoMode = (acwr?.chronic || 0) === 0 && (acwr?.acute || 0) === 0;
   const chronic = isDemoMode ? 450 : (acwr?.chronic || 0);
   const acute = isDemoMode ? 380 : (acwr?.acute || 0);

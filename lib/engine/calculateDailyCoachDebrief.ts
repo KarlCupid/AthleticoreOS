@@ -147,6 +147,9 @@ export function validateDailyCoachDebriefInput(input: DailyCoachDebriefInput): s
 
   if (!inRange(input.sleepQuality)) errors.push('sleepQuality must be between 1 and 5.');
   if (!inRange(input.readiness)) errors.push('readiness must be between 1 and 5.');
+  if (!inRange(input.energyLevel)) errors.push('energyLevel must be between 1 and 5 when provided.');
+  if (!inRange(input.fuelHydrationStatus)) errors.push('fuelHydrationStatus must be between 1 and 5 when provided.');
+  if (!inRange(input.painLevel)) errors.push('painLevel must be between 1 and 5 when provided.');
   if (!inRange(input.stressLevel)) errors.push('stressLevel must be between 1 and 5 when provided.');
   if (!inRange(input.sorenessLevel)) errors.push('sorenessLevel must be between 1 and 5 when provided.');
   if (!inRange(input.confidenceLevel)) errors.push('confidenceLevel must be between 1 and 5 when provided.');
@@ -175,7 +178,8 @@ function inferPrimaryLimiter(input: DailyCoachDebriefInput): PrimaryLimiter {
 
   if (input.sleepQuality <= 2) return 'sleep';
   if ((input.stressLevel ?? 3) >= 4) return 'stress';
-  if ((input.sorenessLevel ?? 3) >= 4) return 'soreness';
+  if ((input.sorenessLevel ?? 3) >= 4 || (input.painLevel ?? 1) >= 4) return 'soreness';
+  if ((input.fuelHydrationStatus ?? 3) <= 2) return 'nutrition';
   if (input.nutritionAdherence === 'Missed It') return 'nutrition';
 
   return 'none';
@@ -185,11 +189,15 @@ function resolveReadinessBand(input: DailyCoachDebriefInput): DailyReadinessBand
   const { acwrStatus } = input.trainingLoadSummary;
   const lowSleep = input.sleepQuality <= 2;
   const lowReadiness = input.readiness <= 2;
+  const lowEnergy = (input.energyLevel ?? 3) <= 2;
+  const lowFuel = (input.fuelHydrationStatus ?? 3) <= 2;
+  const highPain = (input.painLevel ?? 1) >= 4;
   const highStress = (input.stressLevel ?? 3) >= 4;
+  const highSoreness = (input.sorenessLevel ?? 3) >= 4;
   const lowConfidence = (input.confidenceLevel ?? 3) <= 2;
 
-  if (acwrStatus === 'redline' || lowSleep || lowReadiness) return 'recover';
-  if (acwrStatus === 'caution' || input.readiness === 3 || input.sleepQuality === 3 || highStress || lowConfidence) {
+  if (acwrStatus === 'redline' || lowSleep || lowReadiness || highPain || (lowEnergy && lowFuel)) return 'recover';
+  if (acwrStatus === 'caution' || input.readiness === 3 || input.sleepQuality === 3 || (input.energyLevel ?? 4) === 3 || (input.fuelHydrationStatus ?? 4) === 3 || highStress || highSoreness || lowConfidence) {
     return 'build';
   }
   return 'push';
@@ -203,8 +211,11 @@ function buildRiskFlags(input: DailyCoachDebriefInput, limiter: PrimaryLimiter):
 
   if (input.sleepQuality <= 2) flags.push('low_sleep');
   if (input.readiness <= 2) flags.push('low_readiness');
+  if ((input.energyLevel ?? 3) <= 2) flags.push('low_energy');
+  if ((input.fuelHydrationStatus ?? 3) <= 2) flags.push('fuel_hydration_limiter');
   if ((input.stressLevel ?? 3) >= 4) flags.push('high_stress');
   if ((input.sorenessLevel ?? 3) >= 4) flags.push('high_soreness');
+  if ((input.painLevel ?? 1) >= 4) flags.push('pain_restriction');
   if (input.nutritionAdherence === 'Missed It') flags.push('fuel_miss');
   if (input.context.isOnActiveCut) flags.push('active_cut');
   if (limiter === 'time') flags.push('time_constrained');
@@ -227,14 +238,16 @@ function buildReasoning(input: DailyCoachDebriefInput, band: DailyReadinessBand,
       : 'training load is very high';
   const limiterText = limiter === 'none' ? 'no clear main limiter' : `main limiter: ${limiter}`;
   const confidenceText = input.confidenceLevel != null ? `confidence ${input.confidenceLevel}/5` : 'confidence not logged';
+  const energyText = input.energyLevel != null ? `energy ${input.energyLevel}/5` : `readiness ${input.readiness}/5`;
+  const fuelText = input.fuelHydrationStatus != null ? `fuel/fluids ${input.fuelHydrationStatus}/5` : 'fuel/fluids not logged';
 
   if (band === 'recover') {
-    return `Today is a lower-readiness day: ${loadText}, sleep ${input.sleepQuality}/5, readiness ${input.readiness}/5. In ${phaseLabel}, recover first (${limiterText}; ${confidenceText}).`;
+    return `Today is a lower-readiness day: ${loadText}, sleep ${input.sleepQuality}/5, ${energyText}, ${fuelText}. In ${phaseLabel}, recover first (${limiterText}; ${confidenceText}).`;
   }
   if (band === 'build') {
-    return `You can train today, but keep it controlled: ${loadText}. In ${phaseLabel}, keep form clean and protect recovery (${limiterText}; ${confidenceText}).`;
+    return `You can train today, but keep it controlled: ${loadText}, ${energyText}, ${fuelText}. In ${phaseLabel}, keep form clean and protect recovery (${limiterText}; ${confidenceText}).`;
   }
-  return `You look ready to push: ${loadText}, sleep ${input.sleepQuality}/5, readiness ${input.readiness}/5. In ${phaseLabel}, push key work and keep form sharp.`;
+  return `You look ready to push: ${loadText}, sleep ${input.sleepQuality}/5, ${energyText}. In ${phaseLabel}, push key work and keep form sharp.`;
 }
 
 function buildTrainingAction(_input: DailyCoachDebriefInput, band: DailyReadinessBand): DailyCoachActionStep {
@@ -403,6 +416,9 @@ export function generateDailyCoachDebrief(rawInput: DailyCoachDebriefInput): Dai
     readiness: clamp(Math.round(rawInput.readiness), 1, 5),
     stressLevel: rawInput.stressLevel == null ? null : clamp(Math.round(rawInput.stressLevel), 1, 5),
     sorenessLevel: rawInput.sorenessLevel == null ? null : clamp(Math.round(rawInput.sorenessLevel), 1, 5),
+    energyLevel: rawInput.energyLevel == null ? null : clamp(Math.round(rawInput.energyLevel), 1, 5),
+    fuelHydrationStatus: rawInput.fuelHydrationStatus == null ? null : clamp(Math.round(rawInput.fuelHydrationStatus), 1, 5),
+    painLevel: rawInput.painLevel == null ? null : clamp(Math.round(rawInput.painLevel), 1, 5),
     confidenceLevel: rawInput.confidenceLevel == null ? null : clamp(Math.round(rawInput.confidenceLevel), 1, 5),
   };
 

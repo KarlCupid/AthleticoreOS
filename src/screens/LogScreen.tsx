@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -10,78 +11,105 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 
-import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
-import { NutritionCheckIn, type NutritionStatus } from '../components/NutritionCheckIn';
-import {
-  useLogScreenData,
-  type NutritionActualDraft,
-  type NutritionTrackerState,
-} from '../hooks/useLogScreenData';
+import { IconInfo } from '../components/icons';
+import { useLogScreenData } from '../hooks/useLogScreenData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { supabase } from '../../lib/supabase';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
+import {
+  getDailyEngineState,
+  invalidateEngineDataCache,
+} from '../../lib/api/dailyMissionService';
+import { supabase } from '../../lib/supabase';
+import {
+  deriveLegacyReadinessFromDailyCheck,
+  estimateDailyPerformanceReadinessScore,
+  inferPrimaryLimiterFromDailyCheck,
+  mapScoreToPerformanceBand,
+  type DailyPerformanceBand,
+  type DailyPerformanceCheckInput,
+} from '../../lib/engine/readiness/dailyCheck';
 import { generateDailyCoachDebrief } from '../../lib/engine/calculateDailyCoachDebrief';
-import type {
-  CoachingFocus,
-  DailyCoachDebrief,
-  NutritionBarrier,
-  PrimaryLimiter,
-} from '../../lib/engine/types';
+import type { CoachingFocus, NutritionBarrier } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
-import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 
-type Step = 'recovery' | 'nutrition' | 'debrief';
+type CheckKey = 'sleep' | 'energy' | 'stress' | 'soreness' | 'confidence' | 'fuel';
 
-const STEPS: Step[] = ['recovery', 'nutrition', 'debrief'];
-const PRIMARY_LIMITER_OPTIONS: Array<{ value: PrimaryLimiter; label: string }> = [
-  { value: 'sleep', label: 'Sleep' },
-  { value: 'stress', label: 'Stress' },
-  { value: 'soreness', label: 'Soreness' },
-  { value: 'nutrition', label: 'Nutrition' },
-  { value: 'hydration', label: 'Hydration' },
-  { value: 'time', label: 'Time' },
-  { value: 'none', label: 'No major limiter' },
-];
-const NUTRITION_BARRIER_OPTIONS: Array<{ value: NutritionBarrier; label: string }> = [
-  { value: 'appetite', label: 'Low appetite' },
-  { value: 'timing', label: 'Timing' },
-  { value: 'cravings', label: 'Cravings' },
-  { value: 'prep', label: 'Meal prep' },
-  { value: 'social', label: 'Social events' },
-  { value: 'none', label: 'No major barrier' },
-];
-const COACHING_FOCUS_OPTIONS: Array<{ value: CoachingFocus; label: string }> = [
-  { value: 'recovery', label: 'Recovery' },
-  { value: 'execution', label: 'Execution' },
-  { value: 'consistency', label: 'Consistency' },
-  { value: 'nutrition', label: 'Nutrition' },
-];
-const NUTRITION_METRICS: Array<{ key: keyof NutritionTrackerState['actual']; label: string; unit: string }> = [
-  { key: 'calories', label: 'Calories', unit: '' },
-  { key: 'protein', label: 'Protein', unit: 'g' },
-  { key: 'carbs', label: 'Carbs', unit: 'g' },
-  { key: 'fat', label: 'Fat', unit: 'g' },
-];
-
-function roundPercent(actual: number, target: number): number {
-  if (!Number.isFinite(target) || target <= 0) return 0;
-  return Math.round((actual / target) * 100);
+interface CheckScale {
+  key: CheckKey;
+  label: string;
+  question: string;
+  tooltip: string;
+  values: [string, string, string, string, string];
 }
 
-function pctDelta(actual: number, target: number): number {
-  if (!Number.isFinite(target) || target <= 0) return 1;
-  return Math.abs(actual - target) / target;
-}
+const CHECK_SCALES: CheckScale[] = [
+  {
+    key: 'sleep',
+    label: 'Sleep',
+    question: 'How was your sleep?',
+    tooltip: 'Score the sleep you actually got, not what you planned. If you woke up often or feel foggy, choose 1-2.',
+    values: ['Barely slept', 'Poor', 'OK', 'Good', 'Great'],
+  },
+  {
+    key: 'energy',
+    label: 'Energy',
+    question: 'How much energy do you have right now?',
+    tooltip: 'Score your current drive to move and focus. Low energy means warm-ups feel slow before training even starts.',
+    values: ['Empty', 'Low', 'Fine', 'Strong', 'Very strong'],
+  },
+  {
+    key: 'stress',
+    label: 'Stress',
+    question: 'How heavy does life feel today?',
+    tooltip: 'This includes work, school, travel, emotions, and poor routine. High stress can make hard training cost more.',
+    values: ['Calm', 'Manageable', 'Busy', 'Heavy', 'Maxed out'],
+  },
+  {
+    key: 'soreness',
+    label: 'Soreness',
+    question: 'How sore or beat up do you feel?',
+    tooltip: 'Score what changes training today. Mild tightness is 2; soreness that changes speed, range, or contact is 4-5.',
+    values: ['Fresh', 'Mild', 'Noticeable', 'Stiff', 'Very sore'],
+  },
+  {
+    key: 'confidence',
+    label: 'Confidence',
+    question: 'How confident are you to train well today?',
+    tooltip: 'Score your confidence in executing clean work, not your motivation to suffer. If you need a simpler session, choose 1-2.',
+    values: ['Not ready', 'Unsure', 'OK', 'Ready', 'Locked in'],
+  },
+  {
+    key: 'fuel',
+    label: 'Fuel/Fluids',
+    question: 'Do food and fluids feel handled?',
+    tooltip: 'Score whether eating and drinking are ready for training. If you are behind on meals or fluids, choose 1-2.',
+    values: ['Not at all', 'Behind', 'OK', 'Good', 'Dialed'],
+  },
+];
+
+const BAND_COPY: Record<DailyPerformanceBand, { title: string; body: string }> = {
+  Push: {
+    title: 'Push',
+    body: 'Train as planned. Keep quality high and do not add extra work just because the score is good.',
+  },
+  Build: {
+    title: 'Build',
+    body: 'Keep the main work. Trim extras if speed, range, or focus drops.',
+  },
+  Protect: {
+    title: 'Protect',
+    body: 'Lower the cost today. Keep intensity controlled and protect tomorrow.',
+  },
+};
 
 function sanitizeNumericInput(value: string): string {
   const cleaned = value.replace(/[^0-9.]/g, '');
@@ -89,213 +117,81 @@ function sanitizeNumericInput(value: string): string {
   return rest.length > 0 ? `${whole}.${rest.join('')}` : whole;
 }
 
-function parseNonNegativeNumber(value: string): number {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+function getBandColor(band: DailyPerformanceBand): string {
+  if (band === 'Push') return COLORS.readiness.prime;
+  if (band === 'Build') return COLORS.readiness.caution;
+  return COLORS.readiness.depleted;
 }
 
-function simplifyDebriefCopy(text: string): string {
-  return text
-    .replace(/\bACWR\b/gi, 'training load')
-    .replace(/load ratio/gi, 'training load trend')
-    .replace(/\badaptation\b/gi, 'progress')
-    .replace(/\bexecution\b/gi, 'performance')
-    .replace(/\bCNS\b/gi, 'nervous system');
+function getCoachingFocus(primaryLimiter: ReturnType<typeof inferPrimaryLimiterFromDailyCheck>): CoachingFocus {
+  if (primaryLimiter === 'nutrition' || primaryLimiter === 'hydration') return 'nutrition';
+  if (primaryLimiter === 'none') return 'execution';
+  return 'recovery';
 }
 
-function assessTrackedNutrition(
-  targets: NutritionTrackerState['targets'],
-  actual: NutritionTrackerState['actual'],
-): { status: NutritionStatus; reason: string } | null {
-  if (!targets) return null;
-
-  const hasAnyActual = actual.calories > 0 || actual.protein > 0 || actual.carbs > 0 || actual.fat > 0;
-  if (!hasAnyActual) return null;
-
-  const calDelta = pctDelta(actual.calories, targets.calories);
-  const macroDeltas = [
-    pctDelta(actual.protein, targets.protein),
-    pctDelta(actual.carbs, targets.carbs),
-    pctDelta(actual.fat, targets.fat),
-  ];
-  const macroTight = macroDeltas.filter((delta) => delta <= 0.15).length;
-  const macroLoose = macroDeltas.filter((delta) => delta <= 0.25).length;
-
-  const status: NutritionStatus = calDelta <= 0.1 && macroTight >= 2
-    ? 'Target Met'
-    : calDelta <= 0.2 && macroLoose >= 2
-      ? 'Close Enough'
-      : 'Missed It';
-
-  const reason = `Tracked vs target: ${roundPercent(actual.calories, targets.calories)}% kcal, ${roundPercent(actual.protein, targets.protein)}% protein, ${roundPercent(actual.carbs, targets.carbs)}% carbs, ${roundPercent(actual.fat, targets.fat)}% fat.`;
-  return { status, reason };
-}
-
-function sliderHint(field: 'sleep' | 'readiness' | 'stress' | 'soreness' | 'confidence', value: number): string {
-  const hintsByField: Record<'sleep' | 'readiness' | 'stress' | 'soreness' | 'confidence', string[]> = {
-    sleep: [
-      '1/5 sleep: severe recovery debt, keep effort minimal.',
-      '2/5 sleep: below target, reduce intensity and extend warmup.',
-      '3/5 sleep: adequate baseline, train at planned control.',
-      '4/5 sleep: good recovery, support normal progression.',
-      '5/5 sleep: excellent recovery, highest quality output window.',
-    ],
-    readiness: [
-      '1/5 readiness: prioritize movement quality over load.',
-      '2/5 readiness: conservative session with strict technique.',
-      '3/5 readiness: steady baseline, execute the planned work.',
-      '4/5 readiness: strong state, progress with intent.',
-      '5/5 readiness: peak state, ideal for your top session.',
-    ],
-    stress: [
-      '1/5 stress: very low strain, capacity is well preserved.',
-      '2/5 stress: manageable strain, stay consistent with routine.',
-      '3/5 stress: moderate strain, pace hard efforts carefully.',
-      '4/5 stress: high strain, trim optional volume today.',
-      '5/5 stress: extreme strain, protect recovery and simplify work.',
-    ],
-    soreness: [
-      '1/5 soreness: fully fresh, no restriction from soreness.',
-      '2/5 soreness: mild tightness, prep tissue before loading.',
-      '3/5 soreness: moderate soreness, monitor range and speed.',
-      '4/5 soreness: high soreness, cut nonessential intensity.',
-      '5/5 soreness: severe soreness, recovery-first day is advised.',
-    ],
-    confidence: [
-      '1/5 confidence: simplify goals and stack small wins.',
-      '2/5 confidence: keep cues simple and repeat clean reps.',
-      '3/5 confidence: neutral confidence, trust your normal process.',
-      '4/5 confidence: strong confidence, execute assertively.',
-      '5/5 confidence: elite confidence, attack key priorities.',
-    ],
-  };
-
-  const clamped = Math.min(5, Math.max(1, Math.round(value)));
-  return hintsByField[field][clamped - 1];
+function getValue(values: Record<CheckKey, number>, key: CheckKey): number {
+  return values[key];
 }
 
 export function LogScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<any>();
-  const { themeColor, lightTint, gradient } = useReadinessTheme();
+  const { themeColor, gradient, lightTint } = useReadinessTheme();
   const logScreenData = useLogScreenData();
-
-  const [step, setStep] = useState<Step>('recovery');
   const [weight, setWeight] = useState('');
-  const [sleep, setSleep] = useState(3);
-  const [readiness, setReadiness] = useState(3);
-  const [stressLevel, setStressLevel] = useState(3);
-  const [sorenessLevel, setSorenessLevel] = useState(3);
-  const [confidenceLevel, setConfidenceLevel] = useState(3);
-  const [primaryLimiter, setPrimaryLimiter] = useState<PrimaryLimiter>('none');
-  const [macroAdherence, setMacroAdherence] = useState<NutritionStatus>(null);
-  const [nutritionBarrier, setNutritionBarrier] = useState<NutritionBarrier>('none');
-  const [coachingFocus, setCoachingFocus] = useState<CoachingFocus>('recovery');
-  const [savedDebrief, setSavedDebrief] = useState<DailyCoachDebrief | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [nutritionActualDraft, setNutritionActualDraft] = useState<NutritionActualDraft>({
-    calories: '0',
-    protein: '0',
-    carbs: '0',
-    fat: '0',
+  const [values, setValues] = useState<Record<CheckKey, number>>({
+    sleep: 3,
+    energy: 3,
+    stress: 3,
+    soreness: 3,
+    confidence: 3,
+    fuel: 3,
   });
-  const [nutritionWaterDraft, setNutritionWaterDraft] = useState('0');
-  const [hasManualNutritionEdits, setHasManualNutritionEdits] = useState(false);
-  const {
-    loadingContext,
-    logDate,
-    nutritionLogDate,
-    nutritionFormatted,
-    todayFormatted,
-    todayTrainingLoad,
-    previousDebrief,
-    acwrContext,
-  } = logScreenData;
-  const nutritionTracker = logScreenData.nutritionTracker;
-  const stepIndex = STEPS.indexOf(step);
-  const hasRecoveryCoreInput = weight.trim().length > 0 || sleep !== 3 || readiness !== 3;
-  const effectiveNutritionActual = useMemo(
-    () => ({
-      calories: parseNonNegativeNumber(nutritionActualDraft.calories),
-      protein: parseNonNegativeNumber(nutritionActualDraft.protein),
-      carbs: parseNonNegativeNumber(nutritionActualDraft.carbs),
-      fat: parseNonNegativeNumber(nutritionActualDraft.fat),
-    }),
-    [nutritionActualDraft],
-  );
-  const nutritionAssessment = useMemo(
-    () => assessTrackedNutrition(nutritionTracker.targets, effectiveNutritionActual),
-    [nutritionTracker.targets, effectiveNutritionActual],
-  );
-  const effectiveNutritionWater = useMemo(
-    () => parseNonNegativeNumber(nutritionWaterDraft),
-    [nutritionWaterDraft],
-  );
+  const [painLevel, setPainLevel] = useState(1);
+  const [showPainScale, setShowPainScale] = useState(false);
+  const [tooltip, setTooltip] = useState<CheckScale | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setWeight(logScreenData.initialValues.weight);
-    setSleep(logScreenData.initialValues.sleep);
-    setReadiness(logScreenData.initialValues.readiness);
-    setStressLevel(logScreenData.initialValues.stressLevel);
-    setSorenessLevel(logScreenData.initialValues.sorenessLevel);
-    setConfidenceLevel(logScreenData.initialValues.confidenceLevel);
-    setPrimaryLimiter(logScreenData.initialValues.primaryLimiter);
-    setMacroAdherence(logScreenData.initialValues.macroAdherence);
-    setNutritionBarrier(logScreenData.initialValues.nutritionBarrier);
-    setCoachingFocus(logScreenData.initialValues.coachingFocus);
-    setSavedDebrief(logScreenData.initialValues.savedDebrief);
-    setNutritionActualDraft(logScreenData.nutritionActualDraft);
-    setNutritionWaterDraft(logScreenData.nutritionWaterDraft);
-    setHasManualNutritionEdits(false);
-  }, [logScreenData.version, logScreenData.initialValues, logScreenData.nutritionActualDraft, logScreenData.nutritionWaterDraft]);
+    const initial = logScreenData.initialValues;
+    setWeight(initial.weight);
+    setValues({
+      sleep: initial.sleep,
+      energy: initial.energyLevel,
+      stress: initial.stressLevel,
+      soreness: initial.sorenessLevel,
+      confidence: initial.confidenceLevel,
+      fuel: initial.fuelHydrationStatus,
+    });
+    setPainLevel(initial.painLevel);
+    setShowPainScale(initial.painLevel > 1 || initial.sorenessLevel >= 4);
+  }, [logScreenData.version, logScreenData.initialValues]);
 
-  useEffect(() => {
-    if (macroAdherence === 'Target Met' && nutritionBarrier !== 'none') {
-      setNutritionBarrier('none');
+  const checkInput: DailyPerformanceCheckInput = useMemo(() => ({
+    sleepQuality: values.sleep,
+    energyLevel: values.energy,
+    stressLevel: values.stress,
+    sorenessLevel: values.soreness,
+    confidenceLevel: values.confidence,
+    fuelHydrationStatus: values.fuel,
+    painLevel: showPainScale ? painLevel : null,
+  }), [painLevel, showPainScale, values]);
+  const estimatedScore = useMemo(() => estimateDailyPerformanceReadinessScore(checkInput), [checkInput]);
+  const band = useMemo(() => mapScoreToPerformanceBand(estimatedScore), [estimatedScore]);
+  const bandColor = getBandColor(band);
+  const bandCopy = BAND_COPY[band];
+  const bottomActionClearance = Math.max(tabBarHeight, insets.bottom) + SPACING.lg;
+
+  const setScaleValue = (key: CheckKey, value: number) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    if (key === 'soreness' && value >= 4) {
+      setShowPainScale(true);
     }
-  }, [macroAdherence, nutritionBarrier]);
-
-  useEffect(() => {
-    if (!macroAdherence && nutritionAssessment?.status) {
-      setMacroAdherence(nutritionAssessment.status);
-    }
-  }, [macroAdherence, nutritionAssessment]);
-
-  const handleSlider = (setter: (value: number) => void) => (value: number) => {
-    setter(value);
     Haptics.selectionAsync();
   };
 
-  const handleNutritionActualChange = (field: keyof NutritionTrackerState['actual'], rawValue: string) => {
-    setHasManualNutritionEdits(true);
-    const sanitized = sanitizeNumericInput(rawValue);
-    setNutritionActualDraft((prev) => ({ ...prev, [field]: sanitized }));
-  };
-
-  const handleNutritionWaterChange = (rawValue: string) => {
-    setHasManualNutritionEdits(true);
-    const sanitized = sanitizeNumericInput(rawValue);
-    setNutritionWaterDraft(sanitized);
-  };
-
-  const resetNutritionToTracked = () => {
-    setNutritionActualDraft({
-      calories: String(Math.round(nutritionTracker.actual.calories)),
-      protein: String(Math.round(nutritionTracker.actual.protein)),
-      carbs: String(Math.round(nutritionTracker.actual.carbs)),
-      fat: String(Math.round(nutritionTracker.actual.fat)),
-    });
-    setNutritionWaterDraft(String(Math.round(nutritionTracker.waterOz)));
-    setHasManualNutritionEdits(false);
-  };
-
-  const saveAndGenerateDebrief = async () => {
-    if (!macroAdherence) {
-      Alert.alert('Nutrition check required', `Select adherence for ${nutritionFormatted} to generate your coaching debrief.`);
-      return;
-    }
-
+  const saveCheck = async () => {
     setIsSaving(true);
     try {
       const userId = await getActiveUserId();
@@ -304,443 +200,500 @@ export function LogScreen() {
         return;
       }
 
+      const legacyReadiness = deriveLegacyReadinessFromDailyCheck(checkInput);
+      const primaryLimiter = inferPrimaryLimiterFromDailyCheck(checkInput);
       const debrief = generateDailyCoachDebrief({
-        sleepQuality: sleep,
-        readiness,
-        stressLevel,
-        sorenessLevel,
-        confidenceLevel,
+        sleepQuality: values.sleep,
+        readiness: legacyReadiness,
+        energyLevel: values.energy,
+        fuelHydrationStatus: values.fuel,
+        painLevel: showPainScale ? painLevel : null,
+        stressLevel: values.stress,
+        sorenessLevel: Math.max(values.soreness, showPainScale ? painLevel : 1),
+        confidenceLevel: values.confidence,
         primaryLimiter,
-        nutritionAdherence: macroAdherence,
-        nutritionBarrier,
-        coachingFocus,
+        nutritionAdherence: null,
+        nutritionBarrier: 'none' as NutritionBarrier,
+        coachingFocus: getCoachingFocus(primaryLimiter),
         trainingLoadSummary: {
-          plannedMinutes: todayTrainingLoad.totalMinutes,
-          plannedIntensity: todayTrainingLoad.weightedIntensity,
-          totalLoad: todayTrainingLoad.totalLoad,
-          acuteLoad: acwrContext.acute,
-          chronicLoad: acwrContext.chronic,
-          acwrRatio: acwrContext.ratio,
-          acwrStatus: acwrContext.status,
+          plannedMinutes: logScreenData.todayTrainingLoad.totalMinutes,
+          plannedIntensity: logScreenData.todayTrainingLoad.weightedIntensity,
+          totalLoad: logScreenData.todayTrainingLoad.totalLoad,
+          acuteLoad: logScreenData.acwrContext.acute,
+          chronicLoad: logScreenData.acwrContext.chronic,
+          acwrRatio: logScreenData.acwrContext.ratio,
+          acwrStatus: logScreenData.acwrContext.status,
         },
         context: {
-          phase: acwrContext.phase,
-          isOnActiveCut: acwrContext.isOnActiveCut,
+          phase: logScreenData.acwrContext.phase,
+          isOnActiveCut: logScreenData.acwrContext.isOnActiveCut,
         },
-        previousDebrief,
+        previousDebrief: logScreenData.previousDebrief,
       });
 
-      const { error: dailyError } = await supabase.from('daily_checkins').upsert({
+      const { error } = await supabase.from('daily_checkins').upsert({
         user_id: userId,
-        date: logDate,
-        morning_weight: weight ? Number.parseFloat(weight) : null,
-        sleep_quality: sleep,
-        readiness,
-        macro_adherence: macroAdherence,
-        stress_level: stressLevel,
-        soreness_level: sorenessLevel,
-        confidence_level: confidenceLevel,
+        date: logScreenData.logDate,
+        morning_weight: weight.trim() ? Number.parseFloat(weight) : null,
+        sleep_quality: values.sleep,
+        readiness: legacyReadiness,
+        energy_level: values.energy,
+        fuel_hydration_status: values.fuel,
+        stress_level: values.stress,
+        soreness_level: values.soreness,
+        pain_level: showPainScale ? painLevel : null,
+        confidence_level: values.confidence,
         primary_limiter: primaryLimiter,
-        nutrition_barrier: nutritionBarrier,
-        coaching_focus: coachingFocus,
+        nutrition_barrier: 'none',
+        coaching_focus: getCoachingFocus(primaryLimiter),
         coach_debrief: debrief,
+        readiness_score: estimatedScore,
+        checkin_version: 2,
       }, { onConflict: 'user_id,date' });
-      if (dailyError) throw dailyError;
+      if (error) throw error;
 
-      const { error: nutritionSummaryUpsertError } = await supabase.from('daily_nutrition_summary').upsert({
-        user_id: userId,
-        date: nutritionLogDate,
-        total_calories: calculateCaloriesFromMacros(
-          effectiveNutritionActual.protein,
-          effectiveNutritionActual.carbs,
-          effectiveNutritionActual.fat,
-        ),
-        total_protein: Math.round(effectiveNutritionActual.protein * 10) / 10,
-        total_carbs: Math.round(effectiveNutritionActual.carbs * 10) / 10,
-        total_fat: Math.round(effectiveNutritionActual.fat * 10) / 10,
-        total_water_oz: Math.round(effectiveNutritionWater),
-        meal_count: nutritionTracker.mealCount,
-      }, { onConflict: 'user_id,date' });
-      if (nutritionSummaryUpsertError) throw nutritionSummaryUpsertError;
+      invalidateEngineDataCache({ userId, date: logScreenData.logDate });
+      const engineState = await getDailyEngineState(userId, logScreenData.logDate, { forceRefresh: true });
 
-      const { error: ledgerActualUpdateError } = await supabase
-        .from('macro_ledger')
+      await supabase
+        .from('daily_checkins')
         .update({
-          actual_calories: calculateCaloriesFromMacros(
-            effectiveNutritionActual.protein,
-            effectiveNutritionActual.carbs,
-            effectiveNutritionActual.fat,
-          ),
-          actual_protein: Math.round(effectiveNutritionActual.protein),
-          actual_carbs: Math.round(effectiveNutritionActual.carbs),
-          actual_fat: Math.round(effectiveNutritionActual.fat),
+          readiness_score: engineState.readinessProfile.overallReadiness,
         })
         .eq('user_id', userId)
-        .eq('date', nutritionLogDate);
-      if (ledgerActualUpdateError) throw ledgerActualUpdateError;
+        .eq('date', logScreenData.logDate);
 
-      setSavedDebrief(debrief);
-      setStep('debrief');
+      invalidateEngineDataCache({ userId, date: logScreenData.logDate });
+      navigation.navigate('TodayHome');
     } catch (error) {
-      logError('LogScreen.saveLog', error, { targetDate: logDate });
-      Alert.alert('Error', 'Could not save log.');
+      logError('LogScreen.savePerformanceCheck', error, { targetDate: logScreenData.logDate });
+      Alert.alert('Error', 'Could not save your daily check.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const renderOptionPills = <T extends string>(
-    options: Array<{ value: T; label: string }>,
-    selected: T,
-    setter: (value: T) => void,
-  ) => (
-    <View style={styles.pillWrap}>
-      {options.map((option) => {
-        const active = selected === option.value;
-        return (
-          <TouchableOpacity
-            key={option.value}
-            style={[styles.pill, active && { borderColor: themeColor, backgroundColor: lightTint }]}
-            onPress={() => setter(option.value)}
-          >
-            <Text style={[styles.pillText, active && { color: themeColor }]}>{option.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-
-  const renderRecovery = () => (
-    <Card title="Recovery baseline" subtitle="Today's inputs">
-      <View style={styles.group}>
-        <Text style={styles.label}>Morning Weight (lbs)</Text>
-        <TextInput
-          style={styles.input}
-          value={weight}
-          onChangeText={setWeight}
-          keyboardType="decimal-pad"
-          placeholder="155.0"
-          placeholderTextColor={COLORS.text.tertiary}
-        />
-      </View>
-      <View style={styles.group}>
-        <Text style={styles.label}>Sleep Quality {sleep}/5</Text>
-        <Text style={styles.hint}>{sliderHint('sleep', sleep)}</Text>
-        <Slider minimumValue={1} maximumValue={5} step={1} value={sleep} onValueChange={handleSlider(setSleep)} minimumTrackTintColor={themeColor} maximumTrackTintColor={COLORS.border} thumbTintColor={themeColor} />
-      </View>
-      <View style={styles.group}>
-        <Text style={styles.label}>Readiness {readiness}/5</Text>
-        <Text style={styles.hint}>{sliderHint('readiness', readiness)}</Text>
-        <Slider minimumValue={1} maximumValue={5} step={1} value={readiness} onValueChange={handleSlider(setReadiness)} minimumTrackTintColor={themeColor} maximumTrackTintColor={COLORS.border} thumbTintColor={themeColor} />
-      </View>
-      {hasRecoveryCoreInput ? (
-        <View style={styles.reveal}>
-          <Text style={styles.subhead}>Deeper reflection unlocked</Text>
-          <View style={styles.group}>
-            <Text style={styles.label}>Stress {stressLevel}/5</Text>
-            <Text style={styles.hint}>{sliderHint('stress', stressLevel)}</Text>
-            <Slider minimumValue={1} maximumValue={5} step={1} value={stressLevel} onValueChange={handleSlider(setStressLevel)} minimumTrackTintColor={themeColor} maximumTrackTintColor={COLORS.border} thumbTintColor={themeColor} />
-          </View>
-          <View style={styles.group}>
-            <Text style={styles.label}>Soreness {sorenessLevel}/5</Text>
-            <Text style={styles.hint}>{sliderHint('soreness', sorenessLevel)}</Text>
-            <Slider minimumValue={1} maximumValue={5} step={1} value={sorenessLevel} onValueChange={handleSlider(setSorenessLevel)} minimumTrackTintColor={themeColor} maximumTrackTintColor={COLORS.border} thumbTintColor={themeColor} />
-          </View>
-          <View style={styles.group}>
-            <Text style={styles.label}>Training Confidence {confidenceLevel}/5</Text>
-            <Text style={styles.hint}>{sliderHint('confidence', confidenceLevel)}</Text>
-            <Slider minimumValue={1} maximumValue={5} step={1} value={confidenceLevel} onValueChange={handleSlider(setConfidenceLevel)} minimumTrackTintColor={themeColor} maximumTrackTintColor={COLORS.border} thumbTintColor={themeColor} />
-          </View>
-          <Text style={styles.label}>Primary limiter today</Text>
-          {renderOptionPills(PRIMARY_LIMITER_OPTIONS, primaryLimiter, setPrimaryLimiter)}
-        </View>
-      ) : null}
-    </Card>
-  );
-
-  const renderNutrition = () => (
-    <Card title="Nutrition reflection" subtitle="Yesterday's intake">
-      <Text style={styles.hint}>
-        Training load is pulled from Workout Log: {todayTrainingLoad.sessionCount} session{todayTrainingLoad.sessionCount === 1 ? '' : 's'}
-        {todayTrainingLoad.totalMinutes > 0 ? `, ${todayTrainingLoad.totalMinutes} min at avg RPE ${todayTrainingLoad.weightedIntensity} (${todayTrainingLoad.totalLoad} load).` : ', no load logged yet.'}
-      </Text>
-      <View style={styles.trackerBox}>
-        <View style={styles.trackerHeader}>
-          <Text style={styles.subhead}>Nutrition snapshot ({nutritionFormatted})</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Fuel', { screen: 'NutritionHome' })}>
-            <Text style={[styles.linkText, { color: themeColor }]}>Open tracker</Text>
-          </TouchableOpacity>
-        </View>
-        {nutritionTracker.targets ? (
-          <View style={styles.metricGrid}>
-            {NUTRITION_METRICS.map((metric) => {
-              const target = nutritionTracker.targets?.[metric.key] ?? 0;
-              const trackedActual = nutritionTracker.actual[metric.key];
-              return (
-                <View key={metric.key} style={styles.metricTile}>
-                  <Text style={styles.metricLabel}>{metric.label}</Text>
-                  <Text style={styles.metricTargetValue}>Target: {Math.round(target)}{metric.unit}</Text>
-                  <Text style={styles.metricTrackedValue}>Tracked: {Math.round(trackedActual)}{metric.unit}</Text>
-                  <Text style={styles.metricPct}>Tracked hit: {roundPercent(trackedActual, target)}%</Text>
-                </View>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={styles.hint}>No nutrition targets found for {nutritionFormatted} yet. You can still rate adherence manually below.</Text>
-        )}
-        <View style={styles.manualEntryBox}>
-          <View style={styles.trackerHeader}>
-            <Text style={styles.subhead}>Quick manual entry</Text>
-            <TouchableOpacity onPress={resetNutritionToTracked}>
-              <Text style={[styles.linkText, { color: themeColor }]}>Reset to tracked</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.hint}>Enter totals if tracker data is missing.</Text>
-          <View style={styles.manualGrid}>
-            {NUTRITION_METRICS.map((metric) => (
-              <View key={`manual-${metric.key}`} style={styles.manualField}>
-                <Text style={styles.manualFieldLabel}>{metric.label}</Text>
-                <View style={styles.manualInputRow}>
-                  <TextInput
-                    style={styles.manualInput}
-                    value={nutritionActualDraft[metric.key]}
-                    onChangeText={(value) => handleNutritionActualChange(metric.key, value)}
-                    keyboardType="decimal-pad"
-                    placeholder="0"
-                    placeholderTextColor={COLORS.text.tertiary}
-                  />
-                  <Text style={styles.manualInputUnit}>{metric.unit}</Text>
-                </View>
-              </View>
-            ))}
-            <View style={styles.manualFieldFull}>
-              <Text style={styles.manualFieldLabel}>Water</Text>
-              <View style={styles.manualInputRow}>
-                <TextInput
-                  style={styles.manualInput}
-                  value={nutritionWaterDraft}
-                  onChangeText={handleNutritionWaterChange}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={COLORS.text.tertiary}
-                />
-                <Text style={styles.manualInputUnit}>oz</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-        {hasManualNutritionEdits ? <Text style={styles.hint}>Manual totals will be used.</Text> : null}
-        <Text style={[styles.hint, { marginBottom: 0 }]}>
-          Meals logged: {nutritionTracker.mealCount} | Water: {Math.round(effectiveNutritionWater)} oz
-        </Text>
-      </View>
-      {nutritionAssessment ? (
-        <View style={styles.group}>
-          <Text style={styles.label}>Tracker assessment</Text>
-          <View
-            style={[
-              styles.assessmentBox,
-              {
-                borderColor: nutritionAssessment.status === 'Target Met'
-                  ? COLORS.readiness.prime
-                  : nutritionAssessment.status === 'Close Enough'
-                    ? COLORS.readiness.caution
-                    : COLORS.readiness.depleted,
-              },
-            ]}
-          >
-            <Text style={styles.assessmentTitle}>{nutritionAssessment.status}</Text>
-            <Text style={[styles.hint, { marginBottom: SPACING.sm }]}>{nutritionAssessment.reason}</Text>
-            <AnimatedPressable
-              style={[styles.useTrackedButton, { borderColor: themeColor, backgroundColor: lightTint }]}
-              onPress={() => setMacroAdherence(nutritionAssessment.status)}
-            >
-              <Text style={[styles.useTrackedButtonText, { color: themeColor }]}>Use this assessment</Text>
-            </AnimatedPressable>
-          </View>
-        </View>
-      ) : null}
-      <Text style={styles.label}>Final nutrition call for coaching</Text>
-      <Text style={styles.hint}>Adjust only if tracking is incomplete.</Text>
-      <NutritionCheckIn status={macroAdherence} setStatus={setMacroAdherence} />
-      {macroAdherence ? (
-        <View style={styles.reveal}>
-          {macroAdherence !== 'Target Met' ? (
-            <>
-              <Text style={styles.label}>Main barrier</Text>
-              {renderOptionPills(NUTRITION_BARRIER_OPTIONS, nutritionBarrier, setNutritionBarrier)}
-            </>
-          ) : (
-            <Text style={styles.hint}>Barrier skipped because you marked targets as met.</Text>
-          )}
-          <Text style={[styles.label, { marginTop: SPACING.md }]}>Coaching focus for tomorrow</Text>
-          {renderOptionPills(COACHING_FOCUS_OPTIONS, coachingFocus, setCoachingFocus)}
-        </View>
-      ) : null}
-    </Card>
-  );
-
-  const renderDebrief = () => (
-    <Card title="Coach debrief" subtitle="Today and next">
-      {savedDebrief ? (
-        <>
-          <View style={styles.debriefSummaryBox}>
-            <Text style={styles.summaryLabel}>Today</Text>
-            <Text style={styles.debriefHeadline}>{simplifyDebriefCopy(savedDebrief.headline)}</Text>
-            <Text style={styles.summaryBody}>{simplifyDebriefCopy(savedDebrief.reasoning)}</Text>
-          </View>
-          <Text style={styles.subhead}>Do This Next</Text>
-          {savedDebrief.action_steps.map((stepItem) => (
-            <View key={`${stepItem.pillar}-${stepItem.priority}`} style={styles.actionItem}>
-              <Text style={styles.actionStep}>Step {stepItem.priority}: {simplifyDebriefCopy(stepItem.action)}</Text>
-              <Text style={styles.actionWhy}>Why: {simplifyDebriefCopy(stepItem.why)}</Text>
-            </View>
-          ))}
-          <Text style={styles.subhead}>Learn One Thing</Text>
-          <View style={styles.skillBox}>
-            <Text style={styles.skillTitle}>{savedDebrief.education_title}</Text>
-            <Text style={styles.summaryBody}>{simplifyDebriefCopy(savedDebrief.teaching_snippet)}</Text>
-            <Text style={[styles.summaryLabel, { marginTop: SPACING.sm }]}>Try this today</Text>
-            <Text style={styles.summaryBody}>{simplifyDebriefCopy(savedDebrief.today_application)}</Text>
-          </View>
-        </>
-      ) : <Text style={styles.hint}>Save your entry to generate a coaching debrief.</Text>}
-    </Card>
-  );
-
-  const nextStep = () => {
-    if (step === 'recovery') setStep('nutrition');
-  };
-  const prevStep = () => {
-    if (step === 'nutrition') setStep('recovery');
-  };
-
-  const finish = () => {
-    if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('HomeMain');
-  };
-
-  const buttonLabel = step === 'recovery'
-    ? 'Next: Nutrition'
-    : step === 'nutrition'
-      ? (isSaving ? 'Saving...' : 'Save + Generate Debrief')
-      : 'Done';
-
-  const primaryAction = step === 'recovery'
-    ? nextStep
-    : step === 'nutrition'
-      ? saveAndGenerateDebrief
-      : finish;
-  const showBackButton = step === 'nutrition';
-  const bottomActionClearance = Math.max(tabBarHeight, insets.bottom) + SPACING.lg;
-
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
-        <Text style={styles.headerTitle}>Daily Coaching Log</Text>
-        <Text style={styles.headerDate}>{todayFormatted}</Text>
+        <View>
+          <Text style={styles.headerTitle}>Daily Performance Check</Text>
+          <Text style={styles.headerSubtitle}>Answer based on how you feel right now. No perfect score needed.</Text>
+        </View>
       </View>
-      <View style={styles.notice}>
-        <Text style={[styles.noticeText, { color: themeColor }]}>Check-in date: {todayFormatted} ({logDate}) | Nutrition date: {nutritionFormatted} ({nutritionLogDate})</Text>
-      </View>
+
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: bottomActionClearance }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.stepKicker}>Step {stepIndex + 1} of {STEPS.length}</Text>
-        <View style={styles.stepRow}>
-          {STEPS.map((entry, index) => (
-            <View key={entry} style={[styles.stepChip, index <= stepIndex && { backgroundColor: lightTint, borderColor: themeColor }]}>
-              <Text style={[styles.stepChipText, index <= stepIndex && { color: themeColor }]}>{index + 1}</Text>
+        <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()} style={[styles.resultPanel, { borderColor: bandColor }]}>
+          <View style={styles.resultHeaderRow}>
+            <View>
+              <Text style={styles.resultLabel}>TODAY</Text>
+              <Text style={[styles.resultBand, { color: bandColor }]}>{bandCopy.title}</Text>
             </View>
-          ))}
-        </View>
-
-        <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()}>
-          {step === 'recovery' && renderRecovery()}
-          {step === 'nutrition' && renderNutrition()}
-          {step === 'debrief' && renderDebrief()}
+            <View style={[styles.scoreBadge, { backgroundColor: `${bandColor}22`, borderColor: `${bandColor}55` }]}>
+              <Text style={[styles.scoreText, { color: bandColor }]}>{estimatedScore}</Text>
+            </View>
+          </View>
+          <Text style={styles.resultBody}>{bandCopy.body}</Text>
         </Animated.View>
 
-        {loadingContext ? <Text style={styles.loadingText}>Loading ACWR and prior coaching context...</Text> : null}
-
-        <View style={styles.footer}>
-          {showBackButton ? (
-            <AnimatedPressable style={styles.backButton} onPress={prevStep} disabled={isSaving}>
-              <Text style={styles.backButtonText}>Back</Text>
-            </AnimatedPressable>
-          ) : null}
-          <AnimatedPressable style={[styles.primaryWrap, !showBackButton && styles.primaryWrapFull, isSaving && styles.disabled]} onPress={primaryAction} disabled={isSaving}>
-            <LinearGradient colors={gradient as [string, string, ...string[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{buttonLabel}</Text>
-            </LinearGradient>
-          </AnimatedPressable>
+        <View style={styles.weightGroup}>
+          <Text style={styles.fieldLabel}>Morning Weight (optional)</Text>
+          <TextInput
+            style={styles.weightInput}
+            value={weight}
+            onChangeText={(next) => setWeight(sanitizeNumericInput(next))}
+            keyboardType="decimal-pad"
+            placeholder="155.0"
+            placeholderTextColor={COLORS.text.tertiary}
+            returnKeyType="done"
+          />
         </View>
+
+        {CHECK_SCALES.map((scale, index) => (
+          <Animated.View
+            key={scale.key}
+            entering={FadeInDown.delay(index * 35).duration(ANIMATION.normal).springify()}
+            style={styles.scaleGroup}
+          >
+            <View style={styles.scaleHeader}>
+              <View>
+                <Text style={styles.scaleLabel}>{scale.label}</Text>
+                <Text style={styles.scaleQuestion}>{scale.question}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.infoButton}
+                onPress={() => setTooltip(scale)}
+                accessibilityLabel={`${scale.label} scoring help`}
+                accessibilityRole="button"
+              >
+                <IconInfo size={16} color={COLORS.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.choiceRow}>
+              {scale.values.map((label, valueIndex) => {
+                const value = valueIndex + 1;
+                const selected = getValue(values, scale.key) === value;
+                return (
+                  <TouchableOpacity
+                    key={`${scale.key}-${value}`}
+                    style={[
+                      styles.choiceButton,
+                      selected && {
+                        borderColor: bandColor,
+                        backgroundColor: `${bandColor}1F`,
+                      },
+                    ]}
+                    onPress={() => setScaleValue(scale.key, value)}
+                    activeOpacity={0.78}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`${scale.label} ${value} ${label}`}
+                  >
+                    <Text style={[styles.choiceNumber, selected && { color: bandColor }]}>{value}</Text>
+                    <Text style={[styles.choiceLabel, selected && { color: COLORS.text.primary }]} numberOfLines={2}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Animated.View>
+        ))}
+
+        {showPainScale ? (
+          <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()} style={styles.scaleGroup}>
+            <View style={styles.scaleHeader}>
+              <View>
+                <Text style={styles.scaleLabel}>Pain</Text>
+                <Text style={styles.scaleQuestion}>Does pain change what you can do?</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.infoButton}
+                onPress={() => setTooltip({
+                  key: 'soreness',
+                  label: 'Pain',
+                  question: 'Does pain change what you can do?',
+                  tooltip: 'Score pain only when it changes movement, contact, range, or loading. Soreness is normal; sharp or limiting pain is not.',
+                  values: ['None', 'Small', 'Annoying', 'Limiting', 'Stop'],
+                })}
+              >
+                <IconInfo size={16} color={COLORS.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.choiceRow}>
+              {['None', 'Small', 'Annoying', 'Limiting', 'Stop'].map((label, idx) => {
+                const value = idx + 1;
+                const selected = painLevel === value;
+                return (
+                  <TouchableOpacity
+                    key={`pain-${value}`}
+                    style={[
+                      styles.choiceButton,
+                      selected && {
+                        borderColor: bandColor,
+                        backgroundColor: `${bandColor}1F`,
+                      },
+                    ]}
+                    onPress={() => {
+                      setPainLevel(value);
+                      Haptics.selectionAsync();
+                    }}
+                    activeOpacity={0.78}
+                  >
+                    <Text style={[styles.choiceNumber, selected && { color: bandColor }]}>{value}</Text>
+                    <Text style={[styles.choiceLabel, selected && { color: COLORS.text.primary }]} numberOfLines={2}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Animated.View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.addPainButton, { borderColor: themeColor, backgroundColor: lightTint }]}
+            onPress={() => setShowPainScale(true)}
+            activeOpacity={0.78}
+          >
+            <Text style={[styles.addPainText, { color: themeColor }]}>Add pain flag</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]}>
+        <AnimatedPressable
+          style={[styles.primaryWrap, isSaving && styles.disabled]}
+          onPress={saveCheck}
+          disabled={isSaving}
+          haptic
+        >
+          <LinearGradient
+            colors={gradient as [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save Check'}</Text>
+          </LinearGradient>
+        </AnimatedPressable>
+      </View>
+
+      <Modal
+        visible={tooltip !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTooltip(null)}
+      >
+        <TouchableOpacity style={styles.modalScrim} activeOpacity={1} onPress={() => setTooltip(null)}>
+          <View style={[styles.tooltipSheet, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}>
+            <Text style={styles.tooltipTitle}>{tooltip?.label}</Text>
+            <Text style={styles.tooltipQuestion}>{tooltip?.question}</Text>
+            <Text style={styles.tooltipBody}>{tooltip?.tooltip}</Text>
+            <TouchableOpacity style={styles.tooltipClose} onPress={() => setTooltip(null)}>
+              <Text style={styles.tooltipCloseText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
-  headerTitle: { fontSize: 27, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
-  headerDate: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  notice: { marginHorizontal: SPACING.lg, backgroundColor: COLORS.readiness.primeLight, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
-  noticeText: { textAlign: 'center', fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.readiness.prime },
-  content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
-  stepKicker: { marginTop: SPACING.sm, fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  stepRow: { flexDirection: 'row', gap: SPACING.xs, marginTop: SPACING.sm, marginBottom: SPACING.md },
-  stepChip: { width: 26, height: 26, borderWidth: 1, borderColor: COLORS.border, borderRadius: 13, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.surface },
-  stepChipText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  group: { marginBottom: SPACING.md },
-  label: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
-  input: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, padding: SPACING.md, backgroundColor: COLORS.background, color: COLORS.text.primary, textAlign: 'center', fontSize: 17, fontFamily: FONT_FAMILY.extraBold },
-  hint: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 17, marginBottom: SPACING.xs },
-  trackerBox: { marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
-  trackerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
-  linkText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold },
-  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginBottom: SPACING.xs },
-  metricTile: { width: '48%', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, backgroundColor: COLORS.surface, paddingVertical: SPACING.xs + 2, paddingHorizontal: SPACING.sm },
-  metricLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
-  metricTargetValue: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
-  metricTrackedValue: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
-  metricPct: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, marginTop: 2 },
-  manualEntryBox: { borderTopWidth: 1, borderTopColor: COLORS.borderLight, paddingTop: SPACING.sm, marginTop: SPACING.xs },
-  manualGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
-  manualField: { width: '48%' },
-  manualFieldFull: { width: '100%' },
-  manualFieldLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
-  manualInputRow: { flexDirection: 'row', alignItems: 'center' },
-  manualInput: { flex: 1, borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.sm, backgroundColor: COLORS.background, color: COLORS.text.primary, paddingVertical: 6, paddingHorizontal: 8, fontSize: 13, fontFamily: FONT_FAMILY.semiBold },
-  manualInputUnit: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, marginLeft: SPACING.xs, minWidth: 10 },
-  assessmentBox: { borderWidth: 1, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
-  assessmentTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: 2 },
-  useTrackedButton: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
-  useTrackedButtonText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold },
-  reveal: { borderTopWidth: 1, borderTopColor: COLORS.borderLight, marginTop: SPACING.sm, paddingTop: SPACING.sm },
-  subhead: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
-  pillWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
-  pill: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2, backgroundColor: COLORS.surface },
-  pillText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  debriefSummaryBox: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm, marginBottom: SPACING.sm },
-  summaryLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 2 },
-  debriefHeadline: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 22, marginBottom: SPACING.xs },
-  summaryBody: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
-  actionItem: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surface, padding: SPACING.sm, marginBottom: SPACING.xs },
-  actionStep: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 19, marginBottom: 2 },
-  actionWhy: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 17 },
-  skillBox: { borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceSecondary, padding: SPACING.sm },
-  skillTitle: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.xs },
-  loadingText: { marginTop: SPACING.md, fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary },
-  footer: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.lg, alignItems: 'center' },
-  backButton: { flex: 0.4, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, paddingVertical: SPACING.md, minHeight: 52, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.surface },
-  backButtonText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  primaryWrap: { flex: 1, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOWS.colored.prime },
-  primaryWrapFull: { flex: 1 },
-  primaryButton: { minHeight: 52, paddingVertical: SPACING.md + 1, justifyContent: 'center', alignItems: 'center' },
-  primaryButtonText: { color: '#F5F5F0', fontSize: 15, fontFamily: FONT_FAMILY.semiBold },
-  disabled: { opacity: 0.5 },
+  header: {
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.md,
+  },
+  headerTitle: {
+    fontSize: 27,
+    fontFamily: FONT_FAMILY.black,
+    color: COLORS.text.primary,
+  },
+  headerSubtitle: {
+    marginTop: SPACING.xs,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  content: {
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xxl,
+  },
+  resultPanel: {
+    borderWidth: 1,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOWS.card,
+  },
+  resultHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  resultLabel: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    letterSpacing: 0.8,
+  },
+  resultBand: {
+    marginTop: 2,
+    fontSize: 30,
+    fontFamily: FONT_FAMILY.black,
+  },
+  resultBody: {
+    marginTop: SPACING.sm,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  scoreBadge: {
+    minWidth: 64,
+    height: 56,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreText: {
+    fontSize: 25,
+    fontFamily: FONT_FAMILY.black,
+  },
+  weightGroup: {
+    marginBottom: SPACING.md,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
+  },
+  weightInput: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.background,
+    color: COLORS.text.primary,
+    textAlign: 'center',
+    fontSize: 18,
+    fontFamily: FONT_FAMILY.extraBold,
+  },
+  scaleGroup: {
+    marginBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+    paddingBottom: SPACING.md,
+  },
+  scaleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  scaleLabel: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  scaleQuestion: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  infoButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceSecondary,
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  choiceButton: {
+    flex: 1,
+    minHeight: 72,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: SPACING.xs,
+  },
+  choiceNumber: {
+    fontSize: 15,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.tertiary,
+    marginBottom: 2,
+  },
+  choiceLabel: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+  },
+  addPainButton: {
+    minHeight: 48,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+  },
+  addPainText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  primaryWrap: {
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    ...SHADOWS.colored.prime,
+  },
+  primaryButton: {
+    minHeight: 54,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+  },
+  primaryButtonText: {
+    color: '#F5F5F0',
+    fontSize: 15,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  disabled: {
+    opacity: 0.55,
+  },
+  modalScrim: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.52)',
+  },
+  tooltipSheet: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    padding: SPACING.lg,
+  },
+  tooltipTitle: {
+    fontSize: 20,
+    fontFamily: FONT_FAMILY.black,
+    color: COLORS.text.primary,
+  },
+  tooltipQuestion: {
+    marginTop: SPACING.xs,
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  tooltipBody: {
+    marginTop: SPACING.md,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  tooltipClose: {
+    marginTop: SPACING.lg,
+    minHeight: 48,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accent,
+  },
+  tooltipCloseText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.inverse,
+  },
 });

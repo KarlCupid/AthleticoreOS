@@ -57,6 +57,7 @@ interface DashboardDataState {
   sleepQuality: number | null;
   morningWeight: string | null;
   readinessSubjective: number | null;
+  readinessScore: number | null;
   todayActivities: ScheduledActivityRow[];
   primaryActivity: ScheduledActivityRow | null;
   currentLedger: MacroLedgerRow | null;
@@ -84,6 +85,7 @@ const INITIAL_STATE: DashboardDataState = {
   sleepQuality: null,
   morningWeight: null,
   readinessSubjective: null,
+  readinessScore: null,
   todayActivities: [],
   primaryActivity: null,
   currentLedger: null,
@@ -199,6 +201,7 @@ export function useDashboardData() {
         sleepQuality: checkin?.sleep_quality ?? null,
         morningWeight: checkin?.morning_weight != null ? String(checkin.morning_weight) : null,
         readinessSubjective: checkin?.readiness ?? null,
+        readinessScore: engineState.readinessProfile.overallReadiness,
         todayActivities: engineState.scheduledActivities ?? [],
         primaryActivity: engineState.primaryScheduledActivity,
         currentLedger: (ledger as MacroLedgerRow | null) ?? null,

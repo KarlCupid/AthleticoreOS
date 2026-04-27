@@ -145,3 +145,7 @@ export const IconScale = ({ color = '#000', size = DEFAULT_SIZE, focused = false
 export const IconAlertTriangle = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
     <Feather name="alert-triangle" size={size} color={color} style={style} />
 );
+
+export const IconInfo = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
+    <Feather name="info" size={size} color={color} style={style} />
+);

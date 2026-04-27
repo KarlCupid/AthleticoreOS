@@ -8,24 +8,25 @@ export function autoregulateSession(
   const expected = expectedActivationRPE ?? plannedSession.expectedActivationRPE ?? 4;
   const rpeDeviation = activationRPE - expected;
 
-  if (Math.abs(rpeDeviation) < 2) {
+  if (rpeDeviation < 2) {
     return plannedSession;
   }
 
-  const downshift = rpeDeviation >= 2;
-  const adjustedExercises = plannedSession.exercises.map((exercise) => {
+  const severeDownshift = rpeDeviation >= 3;
+  const adjustedExercises = plannedSession.exercises
+  .filter((exercise) => {
+    if (!severeDownshift) return true;
+    return exercise.sectionTemplate !== 'power' && exercise.sectionTemplate !== 'finisher';
+  })
+  .map((exercise) => {
     if (exercise.sectionTemplate === 'activation' || exercise.sectionTemplate === 'cooldown') {
       return exercise;
     }
 
-    const nextSets = downshift
-      ? Math.max(1, exercise.targetSets - 1)
-      : exercise.targetSets;
-    const nextRPE = downshift
-      ? Math.max(4, exercise.targetRPE - 1)
-      : Math.min(10, exercise.targetRPE + 1);
+    const nextSets = Math.max(1, exercise.targetSets - (severeDownshift ? 2 : 1));
+    const nextRPE = Math.max(4, exercise.targetRPE - (severeDownshift ? 2 : 1));
     const nextWeight = typeof exercise.suggestedWeight === 'number'
-      ? Math.round(exercise.suggestedWeight * (downshift ? 0.9 : 1.05))
+      ? Math.round(exercise.suggestedWeight * (severeDownshift ? 0.85 : 0.9))
       : exercise.suggestedWeight;
 
     return {
@@ -36,14 +37,48 @@ export function autoregulateSession(
     };
   });
 
-  const message = downshift
-    ? `Autoregulated: activation RPE ${activationRPE} vs expected ${expected}. Main work was downshifted.`
-    : `Autoregulated: activation RPE ${activationRPE} vs expected ${expected}. Main work was slightly upshifted.`;
+  const adjustedSections = plannedSession.sections
+    ?.map((section) => ({
+      ...section,
+      exercises: section.exercises
+        .filter((exercise) => {
+          if (!severeDownshift) return true;
+          return exercise.sectionTemplate !== 'power' && exercise.sectionTemplate !== 'finisher';
+        })
+        .map((exercise) => {
+          if (exercise.sectionTemplate === 'activation' || exercise.sectionTemplate === 'cooldown') {
+            return exercise;
+          }
+          const nextSets = Math.max(1, exercise.targetSets - (severeDownshift ? 2 : 1));
+          const nextRPE = Math.max(4, exercise.targetRPE - (severeDownshift ? 2 : 1));
+          const nextWeight = typeof exercise.suggestedWeight === 'number'
+            ? Math.round(exercise.suggestedWeight * (severeDownshift ? 0.85 : 0.9))
+            : exercise.suggestedWeight;
+          return {
+            ...exercise,
+            targetSets: nextSets,
+            targetRPE: nextRPE,
+            suggestedWeight: nextWeight,
+            setPrescription: exercise.setPrescription?.map((entry) => ({
+              ...entry,
+              sets: Math.max(1, entry.sets - (severeDownshift ? 2 : 1)),
+              targetRPE: Math.max(4, entry.targetRPE - (severeDownshift ? 2 : 1)),
+            })),
+          };
+        }),
+      decisionTrace: [...section.decisionTrace, severeDownshift ? 'autoregulation:severe_downshift' : 'autoregulation:downshift'],
+    }))
+    .filter((section) => section.exercises.length > 0);
+
+  const message = severeDownshift
+    ? `Autoregulated: activation RPE ${activationRPE} vs expected ${expected}. Main work was downshifted and high-speed/high-impact work was blocked.`
+    : `Autoregulated: activation RPE ${activationRPE} vs expected ${expected}. Main work was downshifted.`;
 
   return {
     ...plannedSession,
     exercises: adjustedExercises,
-    decisionTrace: [...plannedSession.decisionTrace, `activation_rpe:${activationRPE}`, downshift ? 'autoregulation:downshift' : 'autoregulation:upshift'],
+    sections: adjustedSections,
+    decisionTrace: [...plannedSession.decisionTrace, `activation_rpe:${activationRPE}`, severeDownshift ? 'autoregulation:severe_downshift' : 'autoregulation:downshift'],
     message: `${plannedSession.message} ${message}`,
   };
 }

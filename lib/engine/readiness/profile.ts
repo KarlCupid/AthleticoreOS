@@ -115,10 +115,12 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
   const proteinModifier = biology?.proteinModifier ?? 1;
 
   const sleepScore = normalize1to5(input.sleepQuality, 3);
-  const readinessScore = normalize1to5(input.subjectiveReadiness, 3);
+  const energyScore = normalize1to5(input.energyLevel ?? input.subjectiveReadiness, 3);
+  const fuelHydrationScore = normalize1to5(input.fuelHydrationStatus, 3);
   const confidenceScore = normalize1to5(input.confidenceLevel, 3);
   const stressPenalty = normalize1to5(input.stressLevel, 3);
   const sorenessPenalty = normalize1to5(input.sorenessLevel, 3);
+  const painPenalty = input.painLevel != null ? normalize1to5(input.painLevel, 1) : 0;
   const acwrPenalty = input.acwrRatio >= 1.55 ? 32 : input.acwrRatio >= 1.42 ? 22 : input.acwrRatio >= 1.28 ? 10 : 0;
   const rollingFatiguePenalty = clamp((input.loadMetrics?.rollingFatigueScore ?? 0) / 2, 0, 35);
   const externalLoadPenalty = clamp((input.externalHeartRateLoad ?? 0) / 4, 0, 22);
@@ -151,14 +153,15 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
 
   const neuralReadiness = clamp(Math.round(average([
     sleepScore,
-    readinessScore,
+    energyScore,
     confidenceScore,
     100 - clamp(stressPenalty * 0.45, 0, 45),
   ]) - (activationDelta > 0 ? activationDelta * 8 : 0) - cognitiveDeclinePenalty), 8, 100);
 
   const structuralReadiness = clamp(Math.round(average([
-    readinessScore,
+    energyScore,
     100 - sorenessPenalty,
+    100 - painPenalty,
     100 - acwrPenalty,
     100 - Math.min(34, Math.round((input.recentSparringDecayLoad5d ?? (input.recentSparringCount48h ?? 0) * 0.8) * 12)),
     100 - Math.min(18, (input.recentHighImpactCount48h ?? 0) * 8),
@@ -167,7 +170,8 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
 
   const metabolicReadiness = clamp(Math.round(average([
     sleepScore,
-    readinessScore,
+    energyScore,
+    fuelHydrationScore,
     100 - rollingFatiguePenalty,
     100 - externalLoadPenalty,
     100 - cutPenalty,
@@ -198,6 +202,33 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
       level: 'yellow',
       dimension: 'structural',
       reason: 'Soreness is elevated and tissue-heavy work should be substituted.',
+    });
+  }
+
+  if ((input.painLevel ?? 1) >= 4) {
+    addFlag(flags, {
+      code: 'pain_restriction',
+      level: (input.painLevel ?? 1) >= 5 ? 'red' : 'yellow',
+      dimension: 'structural',
+      reason: 'Pain is high enough to restrict loading, contact, or range today.',
+    });
+  }
+
+  if ((input.energyLevel ?? input.subjectiveReadiness ?? 3) <= 2) {
+    addFlag(flags, {
+      code: 'low_energy',
+      level: 'yellow',
+      dimension: 'neural',
+      reason: 'Energy is low enough that quality and decision speed may drop.',
+    });
+  }
+
+  if ((input.fuelHydrationStatus ?? 3) <= 2) {
+    addFlag(flags, {
+      code: 'fuel_hydration_limiter',
+      level: 'yellow',
+      dimension: 'metabolic',
+      reason: 'Food or fluids feel behind, so training support should increase before hard work.',
     });
   }
 

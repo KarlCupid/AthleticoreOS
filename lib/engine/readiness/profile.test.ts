@@ -65,6 +65,8 @@ console.log('\n── readiness profile ──');
 (() => {
   const profile = deriveReadinessProfile(makeProfileInput({
     sleepQuality: 2,
+    energyLevel: 2,
+    fuelHydrationStatus: 2,
     externalHeartRateLoad: 70,
     weightCutIntensityCap: 4,
     isOnActiveCut: true,
@@ -78,6 +80,22 @@ console.log('\n── readiness profile ──');
 
   assert('low metabolic blocks glycolytic conditioning', constraints.blockedStimuli.includes('glycolytic_conditioning'));
   assert('low metabolic retains aerobic conditioning', constraints.allowedStimuli.includes('aerobic_conditioning'));
+  assert('low fuel/fluids adds metabolic limiter flag', profile.flags.some((flag) => flag.code === 'fuel_hydration_limiter'));
+})();
+
+(() => {
+  const profile = deriveReadinessProfile(makeProfileInput({
+    sorenessLevel: 4,
+    painLevel: 4,
+  }));
+  const constraints = deriveStimulusConstraintSet(profile, {
+    phase: 'camp-build',
+    goalMode: 'fight_camp',
+    daysOut: 18,
+  });
+
+  assert('pain restriction adds structural flag', profile.flags.some((flag) => flag.code === 'pain_restriction'));
+  assert('pain restriction blocks high impact', constraints.blockedStimuli.includes('high_impact'));
 })();
 
 (() => {

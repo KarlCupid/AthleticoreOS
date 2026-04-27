@@ -132,6 +132,9 @@ export interface ReadinessProfile {
 export interface ReadinessProfileInput {
   sleepQuality: number | null;
   subjectiveReadiness: number | null;
+  energyLevel?: number | null;
+  fuelHydrationStatus?: number | null;
+  painLevel?: number | null;
   confidenceLevel?: number | null;
   stressLevel?: number | null;
   sorenessLevel?: number | null;
