@@ -294,18 +294,6 @@ function resolveEffectiveAvailableDays(input: {
         ...configuredDays,
         ...Array.from(combatAnchorDays),
     ]);
-    const hasOnlyCombatAnchorDays = configuredPlusAnchors.length > 0
-        && configuredPlusAnchors.length <= 2
-        && configuredPlusAnchors.every((day) => combatAnchorDays.has(day));
-
-    // Legacy/first-run configs can accidentally capture only fixed sparring
-    // days as availability. Those are locked anchors, not a complete S&C week.
-    if (hasOnlyCombatAnchorDays) {
-        return uniquePlanDays([
-            ...DEFAULT_GUIDED_AVAILABLE_DAYS,
-            ...configuredPlusAnchors,
-        ]);
-    }
 
     return configuredPlusAnchors.length > 0
         ? configuredPlusAnchors
@@ -1901,6 +1889,29 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
                 return (b.expected_intensity ?? 0) - (a.expected_intensity ?? 0);
             })[0] ?? null;
         const hasHighAnchor = scaledRecurringAnchors.some((activity) => activity.expected_intensity >= 7);
+        const primaryCombatAnchorStart = primaryCombatAnchor
+            ? parseTimeToMinutes(primaryCombatAnchor.start_time)
+            : null;
+        const primaryCombatAnchorEnd = primaryCombatAnchorStart != null && primaryCombatAnchor
+            ? primaryCombatAnchorStart + primaryCombatAnchor.estimated_duration_min
+            : null;
+        const configuredDays = uniquePlanDays(config.available_days);
+        const fallbackMaxMinutes = config.availability_windows.length === 0 && configuredDays.includes(dayOfWeek)
+            ? Math.max(0, config.session_duration_min)
+            : 0;
+        const guidedAvailability = config.availability_windows.length > 0
+            ? resolveGuidedAvailability({
+                dayWindows: config.availability_windows,
+                dayOfWeek,
+                recurringAnchors: scaledRecurringAnchors,
+                primaryCombatAnchorStart,
+                primaryCombatAnchorEnd,
+            })
+            : { maxMinutes: fallbackMaxMinutes, placement: null as GuidedPlacement };
+        const configuredSessionMax = config.session_duration_min > 0
+            ? config.session_duration_min
+            : guidedAvailability.maxMinutes;
+        const maxGuidedMinutes = Math.min(guidedAvailability.maxMinutes, configuredSessionMax);
 
         // Only treat as a sparring day if there is an actual sparring anchor on this day.
         // The camp-estimation fallback (i < sparringDaysThisWeek) was mis-marking non-sparring
@@ -1977,6 +1988,22 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             continue;
         }
 
+        if (maxGuidedMinutes < MIN_GUIDED_DURATION_MIN) {
+            carryForwardAdjustments.push({
+                family: blueprint.family,
+                fromDate: entryDate,
+                suggestedDate: null,
+                reason: config.availability_windows.length > 0
+                    ? 'No availability window could fit the minimum guided session after fixed calendar anchors were blocked out.'
+                    : 'No configured availability window was present for guided training on this day.',
+                status: 'moved',
+            });
+            if (primaryCombatAnchor) {
+                pushCombatEntry('single', 'Fixed combat session. Guided work skipped because no safe availability window remained.', 1);
+            }
+            continue;
+        }
+
         // Reserve sport_specific only for days with an actual sparring anchor.
         // Boxing practice days follow the normal periodised rotation so athletes
         // still get lower / upper_push / upper_pull / full_body sessions.
@@ -2025,7 +2052,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         if (isDeloadWeek) notes.push('Deload week - reduced volume and intensity.');
         if (isSparringDay) notes.push('Sparring day - activation-only S&C.');
         if (hasCombatAnchor) {
-            notes.push('Fixed combat anchor on the day - guided work is paired against the same training day without AM/PM slot locking.');
+            notes.push('Fixed combat anchor on the day - guided work is placed only inside remaining availability.');
         }
         if (readinessState !== 'Prime') notes.push(`Readiness: ${readinessState}.`);
 
@@ -2123,6 +2150,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             performanceRisk,
             blockContext,
         });
+        duration = Math.min(duration, maxGuidedMinutes);
 
         targetIntensity = Math.min(targetIntensity, performanceRisk.intensityCap);
         if (hasCombatAnchor && performanceRisk.level === 'yellow') {
@@ -2202,7 +2230,12 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
             focus,
             prescription: prescriptionSnapshot,
         });
-        const guidedSlot: PlanSlot = primaryCombatAnchor ? 'am' : 'single';
+        const guidedSlot: PlanSlot = primaryCombatAnchor
+            ? guidedAvailability.placement === 'after' ? 'pm' : 'am'
+            : 'single';
+        const combatSlot: PlanSlot = primaryCombatAnchor
+            ? guidedAvailability.placement === 'after' ? 'am' : 'pm'
+            : 'single';
         const realizedDoseBuckets = Array.from(new Set(
             (prescriptionSnapshot?.doseCredits ?? [])
                 .filter((credit) => credit.credit > 0)
@@ -2272,7 +2305,7 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
         });
 
         if (primaryCombatAnchor) {
-            pushCombatEntry('pm', 'Fixed combat session.', 1);
+            pushCombatEntry(combatSlot, 'Fixed combat session.', 1);
             continue;
         }
 

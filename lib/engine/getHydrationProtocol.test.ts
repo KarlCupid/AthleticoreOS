@@ -138,12 +138,13 @@ console.log('\n-- getCutHydrationProtocol --');
   });
   assert('Fight week load 6d: oz = round(100*2.0) = 200', r6.dailyWaterOz === 200);
   assert('Fight week load 6d sodium elevated', r6.sodiumInstruction.includes('elevated'));
+  assert('Fight week load avoids aggressive drinking copy', !r6.instruction.toLowerCase().includes('drink aggressively'));
 
   const r5 = getCutHydrationProtocol({
     cutPhase: 'fight_week_load', daysToWeighIn: 5, currentWeightLbs: 170, baseHydrationOz: 100, fightStatus: 'pro',
   });
   assert('Fight week load 5d: oz = round(100*1.5) = 150', r5.dailyWaterOz === 150);
-  assert('Fight week load 5d sodium normal', r5.sodiumInstruction.includes('Normal'));
+  assert('Fight week load 5d sodium predictable', r5.sodiumInstruction.includes('predictable'));
 })();
 
 (() => {
@@ -151,14 +152,15 @@ console.log('\n-- getCutHydrationProtocol --');
     cutPhase: 'fight_week_cut', daysToWeighIn: 3, currentWeightLbs: 170, baseHydrationOz: 120, fightStatus: 'amateur',
   });
   assert('Fight week cut day 3: oz = 64', r3.dailyWaterOz === 64);
-  assert('Day 3 sodium under 500mg', r3.sodiumInstruction.includes('500mg'));
+  assert('Day 3 sodium stays reduced but supervised', r3.sodiumInstruction.includes('Reduced sodium'));
   assert('Day 3 is restricting', r3.isRestricting === true);
+  assert('Day 3 avoids water restriction copy', !r3.instruction.toLowerCase().includes('water restriction'));
 
   const r2 = getCutHydrationProtocol({
     cutPhase: 'fight_week_cut', daysToWeighIn: 2, currentWeightLbs: 170, baseHydrationOz: 120, fightStatus: 'amateur',
   });
   assert('Fight week cut day 2: oz = 32', r2.dailyWaterOz === 32);
-  assert('Day 2 zero sodium', r2.sodiumInstruction.includes('Zero'));
+  assert('Day 2 avoids zero-sodium recommendation', !r2.sodiumInstruction.toLowerCase().includes('zero added sodium'));
 
   const r1 = getCutHydrationProtocol({
     cutPhase: 'fight_week_cut', daysToWeighIn: 1, currentWeightLbs: 170, baseHydrationOz: 120, fightStatus: 'amateur',
@@ -172,7 +174,7 @@ console.log('\n-- getCutHydrationProtocol --');
   });
   assert('Weigh-in: oz = 8', r.dailyWaterOz === 8);
   assert('Weigh-in is restricting', r.isRestricting === true);
-  assert('Weigh-in zero sodium', r.sodiumInstruction.includes('Zero'));
+  assert('Weigh-in avoids zero-sodium recommendation', !r.sodiumInstruction.toLowerCase().includes('zero sodium until'));
 })();
 
 (() => {

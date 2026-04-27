@@ -270,8 +270,8 @@ function checkInterventionStatus(
 }
 
 function getAcwrInterpretation(status: BuildDailyMissionInput['acwr']['status']): string | null {
-  if (status === 'redline') return 'You are digging a hole. Stop before you break.';
-  if (status === 'caution') return 'Load is running hot. Keep the lid on before this turns into a breakdown.';
+  if (status === 'redline') return 'ACWR is above redline. Protect the next session before loading again.';
+  if (status === 'caution') return 'Load is elevated. Keep the next hard effort controlled and watch recovery.';
   return null;
 }
 
@@ -281,20 +281,37 @@ function getCutDepletionInterpretation(
 ): string | null {
   const cutPhase = input.cutProtocol?.cut_phase ?? null;
   if (cutPhase === 'fight_week_cut' || cutPhase === 'intensified' || fuelDirective.state === 'cut_protect') {
-    return 'Tank is empty. You will feel slow and foggy today.';
+    return 'Energy availability is constrained today, so output and decision speed may be lower than normal.';
   }
 
   return null;
+}
+
+function hasAggressiveSodiumLanguage(value: string | null | undefined): boolean {
+  const text = value?.toLowerCase() ?? '';
+  return text.includes('water dump')
+    || text.includes('zero sodium')
+    || text.includes('no sodium')
+    || text.includes('minimal sodium')
+    || text.includes('stay away from salt');
 }
 
 function getSodiumRestrictionInterpretation(input: BuildDailyMissionInput): string | null {
   const sodiumTargetMg = input.cutProtocol?.sodium_target_mg ?? null;
   const sodiumInstruction = input.cutProtocol?.sodium_instruction?.toLowerCase() ?? '';
   if ((sodiumTargetMg != null && sodiumTargetMg <= 500) || sodiumInstruction.includes('zero') || sodiumInstruction.includes('minimal')) {
-    return 'Stay away from salt. Water dump starts now.';
+    return 'Sodium is restricted in the plan. Keep it predictable, monitor dehydration signs, and do not escalate restriction without qualified support.';
   }
 
   return null;
+}
+
+function getSafeSodiumRestrictionDetail(input: BuildDailyMissionInput): string {
+  const sodiumInstruction = input.cutProtocol?.sodium_instruction?.trim() ?? '';
+  if (!sodiumInstruction || hasAggressiveSodiumLanguage(sodiumInstruction)) {
+    return 'Sodium is being managed conservatively by the active cut protocol; avoid unsupervised restriction and monitor dehydration signs.';
+  }
+  return sodiumInstruction;
 }
 
 function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
@@ -628,14 +645,16 @@ function buildHydrationDirective(input: BuildDailyMissionInput): HydrationDirect
   const protocol = input.cutProtocol?.morning_protocol
     ?? input.cutProtocol?.training_recommendation
     ?? input.hydration.message;
+  const message = input.cutProtocol?.sodium_instruction
+    ? getSafeSodiumRestrictionDetail(input)
+    : input.cutProtocol?.fiber_instruction
+      ?? input.hydration.message;
 
   return {
     waterTargetOz: Math.round(waterTargetOz),
     sodiumTargetMg,
     protocol,
-    message: input.cutProtocol?.sodium_instruction
-      ?? input.cutProtocol?.fiber_instruction
-      ?? input.hydration.message,
+    message,
   };
 }
 
@@ -749,7 +768,7 @@ function buildDecisionTrace(
       trace.push({
         subsystem: 'hydration',
         title: 'Sodium restriction',
-        detail: input.cutProtocol?.sodium_instruction ?? 'Sodium is being restricted to accelerate the water cut.',
+        detail: getSafeSodiumRestrictionDetail(input),
         humanInterpretation: sodiumRestrictionInterpretation,
         impact: 'restricted',
       });

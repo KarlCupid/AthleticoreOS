@@ -132,8 +132,8 @@ export function getCutHydrationProtocol(input: CutHydrationInput): CutHydrationR
       const oz = Math.round(baseHydrationOz * multiplier);
       return {
         dailyWaterOz: oz,
-        instruction: `${oz} oz — SUPERHYDRATION PHASE. Drink aggressively. This loads your body with water so you can shed it quickly later.`,
-        sodiumInstruction: daysToWeighIn >= 6 ? 'Normal to slightly elevated — sodium helps water retention during loading.' : 'Normal.',
+        instruction: `${oz} oz - structured loading phase. Drink steadily across the day, avoid chugging, and stop escalating if nausea, sloshing, or dizziness shows up.`,
+        sodiumInstruction: daysToWeighIn >= 6 ? 'Normal to slightly elevated - keep sodium predictable during loading.' : 'Normal and predictable.',
         isRestricting: false,
       };
     }
@@ -143,8 +143,10 @@ export function getCutHydrationProtocol(input: CutHydrationInput): CutHydrationR
       const oz = ozByDay[daysToWeighIn] ?? 64;
       return {
         dailyWaterOz: oz,
-        instruction: `${oz} oz maximum — WATER RESTRICTION PHASE. Sip slowly throughout the day. Do not gulp.`,
-        sodiumInstruction: daysToWeighIn === 3 ? 'Minimal sodium — under 500mg.' : 'Zero added sodium. Avoid all processed foods.',
+        instruction: `${oz} oz planning cap - conservative final-cut phase. Sip slowly as needed and do not add heat, extra conditioning, or unsupervised restriction.`,
+        sodiumInstruction: daysToWeighIn === 3
+          ? 'Reduced sodium only if prescribed - keep intake predictable and avoid zero-chasing.'
+          : 'Reduced added sodium - avoid zero-chasing and use qualified support for any further restriction.',
         isRestricting: true,
       };
     }
@@ -152,8 +154,8 @@ export function getCutHydrationProtocol(input: CutHydrationInput): CutHydrationR
     case 'weigh_in': {
       return {
         dailyWaterOz: 8,
-        instruction: 'Sips only (8 oz max) until after weigh-in.',
-        sodiumInstruction: 'Zero sodium until after weigh-in.',
+        instruction: 'Small sips as needed until after weigh-in. Do not force thirst or use heat-based tactics.',
+        sodiumInstruction: 'Keep sodium predictable until after weigh-in; avoid unsupervised zero-sodium rules.',
         isRestricting: true,
       };
     }

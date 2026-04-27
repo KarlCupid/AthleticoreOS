@@ -375,7 +375,7 @@ export function suggestAlternative(
         return {
             shouldSwap: false,
             alternative: type,
-            message: 'You\'re in peak readiness. Full send.',
+            message: 'You are in peak readiness. Execute the planned work and keep quality high.',
         };
     }
 

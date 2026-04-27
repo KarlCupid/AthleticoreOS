@@ -314,6 +314,66 @@ console.log('\n── Session role inference ──');
     assert('Soft intervention on combat day clamps duration', (mission.trainingDirective.durationMin ?? 0) <= 30);
 })();
 
+(() => {
+    // Fight-camp caution without red flags should cap output without forcing a recovery replacement.
+    const mission = buildDailyMission(makeInput({
+        readinessState: 'Caution',
+        readinessProfile: {
+            ...makeInput().readinessProfile,
+            flags: [],
+        },
+        weeklyPlanEntry: {
+            session_type: 'sc',
+            focus: 'lower',
+            target_intensity: 7,
+            estimated_duration_min: 60,
+        },
+        riskScore: 24,
+    }));
+    assert('Fight camp low readiness without red flags avoids hard intervention', mission.trainingDirective.interventionState !== 'hard');
+    assert('Fight camp low readiness without red flags preserves non-recovery training role', mission.trainingDirective.sessionRole !== 'recover' && mission.trainingDirective.sessionRole !== 'rest');
+})();
+
+(() => {
+    // Red structural flags should protect the session even when the athlete has planned work.
+    const redFlagProfile = deriveReadinessProfile({
+        sleepQuality: 4,
+        subjectiveReadiness: 3,
+        confidenceLevel: 3,
+        stressLevel: 2,
+        sorenessLevel: 3,
+        painLevel: 5,
+        acwrRatio: 1.0,
+        readinessHistory: [4, 4, 4, 4, 4, 4, 4],
+    });
+    const constraintSet = deriveStimulusConstraintSet(redFlagProfile, {
+        phase: 'fight-camp',
+        goalMode: 'fight_camp',
+        daysOut: 24,
+    });
+    const mission = buildDailyMission(makeInput({
+        readinessState: redFlagProfile.readinessState,
+        readinessProfile: redFlagProfile,
+        constraintSet,
+        weeklyPlanEntry: {
+            session_type: 'sc',
+            focus: 'lower',
+            target_intensity: 8,
+            estimated_duration_min: 60,
+        },
+        workoutPrescription: {
+            focus: 'lower',
+            workoutType: 'strength',
+            estimatedDurationMin: 60,
+            summary: 'Heavy lower',
+            exercises: [],
+        },
+    }));
+    assert('Fight camp red flag caps intensity to protection range', (mission.trainingDirective.intensityCap ?? 10) <= 4);
+    assert('Fight camp red flag routes planned work to recovery', mission.trainingDirective.sessionRole === 'recover');
+    assert('Fight camp red flag clears unsafe carried prescription', mission.trainingDirective.prescription == null);
+})();
+
 // ─── Risk state scoring ──────────────────────────────────────
 
 console.log('\n── Risk state scoring ──');
@@ -438,7 +498,7 @@ console.log('\n── Decision trace ──');
     }));
     const riskTrace = mission.decisionTrace.find(t => t.title === 'Risk control');
     assert('Decision trace includes risk control', riskTrace != null);
-    assert('ACWR redline interpretation present', riskTrace?.humanInterpretation?.includes('digging a hole') ?? false);
+    assert('ACWR redline interpretation present', riskTrace?.humanInterpretation?.includes('above redline') ?? false);
 })();
 
 (() => {
@@ -456,7 +516,9 @@ console.log('\n── Decision trace ──');
     }));
     const sodiumTrace = mission.decisionTrace.find(t => t.title === 'Sodium restriction');
     assert('Sodium restriction trace present', sodiumTrace != null);
-    assert('Sodium interpretation present', sodiumTrace?.humanInterpretation?.includes('Stay away from salt') ?? false);
+    assert('Sodium interpretation present', sodiumTrace?.humanInterpretation?.includes('do not escalate restriction') ?? false);
+    assert('Sodium trace detail sanitizes unsafe copy', !(sodiumTrace?.detail.toLowerCase().includes('water dump') ?? true));
+    assert('Hydration directive sanitizes unsafe copy', !mission.hydrationDirective.message.toLowerCase().includes('water dump'));
 })();
 
 // ─── Output structure ─────────────────────────────────────────

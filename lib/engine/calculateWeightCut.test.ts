@@ -620,6 +620,18 @@ console.log('\n-- calculateWeightCut --');
     assert('5lb deficit yields 3.5L fluid target', result.totalFluidTargetLiters === 3.5);
     assert('Phase 2 gets 40% of fluid target (1.4L)', result.phases[1].fluidTargetLiters === 1.4);
   }
+
+  {
+    const result = computeRehydrationProtocol({
+      currentWeight: 172,
+      targetWeight: 170,
+      biologicalSex: 'male',
+      weighInTime: '2026-06-14T09:00:00',
+      fightTime: '2026-06-14T19:00:00',
+    });
+    assert('Over-target weigh-in does not create fluid target from absolute weight gap', result.totalFluidTargetLiters === 0);
+    assert('Over-target weigh-in phases do not prescribe extra fluid volume', result.phases.every((phase) => phase.fluidTargetLiters === 0 && phase.targetFluidOz === 0));
+  }
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);

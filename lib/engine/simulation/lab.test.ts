@@ -5,7 +5,7 @@
  */
 
 import { buildEngineReplayRun } from './lab.ts';
-import { TheCoachablePro } from './personas.ts';
+import { TheCoachablePro, TheGrinder } from './personas.ts';
 import { runSimulation } from './runner.ts';
 
 let passed = 0;
@@ -64,9 +64,28 @@ async function main() {
   assert('Simulation yields recovery outputs', recoveryDays.length > 0);
   assert('Simulation clean slate has no pre-scheduled combat anchors', combatDays.length === 0);
   assert('Simulation yields guided training days from a clean slate', guidedTrainingDays.length > 0);
-  assert('Simulation yields non-low risk days', nonLowRiskDays.length > 0);
+  assert('Simulation clean-slate compliant camp keeps non-low risk days bounded', nonLowRiskDays.length <= Math.ceil(simulation.dailyLogs.length * 0.2));
   assert('Simulation still produces strength days from a clean slate', cleanSlateStrengthDays.length > 0);
   assert('Simulation still produces conditioning days from a clean slate', cleanSlateConditioningDays.length > 0);
+
+  const pressureSimulation = await runSimulation({
+    startDate: '2026-02-02',
+    weeks: 4,
+    seed: 17,
+    persona: TheGrinder,
+    initialState: {
+      weightLbs: 185,
+      fitnessLevel: 'advanced',
+      goalMode: 'fight_camp',
+      targetWeight: 170,
+      fightDate: '2026-03-02',
+    },
+  });
+  const pressureNonLowRiskDays = pressureSimulation.dailyLogs.filter((log) =>
+    log.engineState.mission.riskState.level !== 'low',
+  );
+
+  assert('Simulation pressure persona yields non-low risk days', pressureNonLowRiskDays.length > 0);
 
   console.log('\n--- Replay mapping ---');
 

@@ -14,6 +14,7 @@ import {
     generateBlockPlan,
     generateWeekPlan,
     getBoxingIntensityScalar,
+    resolveGuidedAvailability,
     updateRollingPlanContextFromPrescription,
 } from './calculateSchedule.ts';
 import { generateWorkoutV2 } from './calculateSC.ts';
@@ -246,6 +247,43 @@ console.log('\n── getBoxingIntensityScalar ──');
 
 (() => {
     assert('Not on cut, null daysOut -> 1.0', getBoxingIntensityScalar({ isOnActiveCut: false, daysOut: null }) === 1);
+})();
+
+// Calendar availability
+
+console.log('\n-- resolveGuidedAvailability --');
+
+(() => {
+    const result = resolveGuidedAvailability({
+        dayWindows: [{ dayOfWeek: 2, startTime: '17:00', endTime: '20:00' }],
+        dayOfWeek: 2,
+        recurringAnchors: [
+            makeRecurringActivity('sparring', [2], {
+                start_time: '18:00:00',
+                estimated_duration_min: 60,
+            }),
+        ],
+        primaryCombatAnchorStart: 18 * 60,
+        primaryCombatAnchorEnd: 19 * 60,
+    });
+    assert('Availability helper subtracts fixed combat time', result.maxMinutes === 60);
+    assert('Availability helper prefers before/after combat placement', result.placement === 'before' || result.placement === 'after');
+})();
+
+(() => {
+    const result = resolveGuidedAvailability({
+        dayWindows: [{ dayOfWeek: 2, startTime: '18:00', endTime: '19:00' }],
+        dayOfWeek: 2,
+        recurringAnchors: [
+            makeRecurringActivity('sparring', [2], {
+                start_time: '18:00:00',
+                estimated_duration_min: 60,
+            }),
+        ],
+        primaryCombatAnchorStart: 18 * 60,
+        primaryCombatAnchorEnd: 19 * 60,
+    });
+    assert('Availability helper returns zero when fixed combat consumes the window', result.maxMinutes === 0);
 })();
 
 // ─── suggestAlternative ───────────────────────────────────────
@@ -651,8 +689,9 @@ console.log('\n── generateSmartWeekPlan ──');
     const standaloneGuided = guided.filter((entry) => entry.day_of_week !== 2 && entry.day_of_week !== 5);
     const sparringEntries = result.entries.filter((entry) => entry.session_type === 'sparring');
 
-    assert('Sparse availability made only of fixed sparring days expands into a full training week', standaloneGuided.length >= 3);
-    assert('Expanded sparse availability still keeps both fixed sparring anchors', sparringEntries.length === 2);
+    assert('Sparse availability made only of fixed sparring days does not expand onto rest days', standaloneGuided.length === 0);
+    assert('Sparse availability still keeps both fixed sparring anchors', sparringEntries.length === 2);
+    assert('Sparse availability keeps guided work only on configured days', guided.every((entry) => entry.day_of_week === 2 || entry.day_of_week === 5));
 })();
 
 (() => {
@@ -704,15 +743,9 @@ console.log('\n── generateSmartWeekPlan ──');
         recurringActivities: [],
     });
     const guided = getGuidedEntries(result);
-    const comboSession = guided.find((entry) => (entry.prescription_snapshot?.sessionComposition?.length ?? 0) > 1) ?? null;
-    const conditioningTarget = result.weeklyMixPlan.sessionTargets.find((target) => target.family === 'conditioning');
-    const strengthTarget = result.weeklyMixPlan.sessionTargets.find((target) => target.family === 'strength');
 
-    assert('Planner ignores tiny availability windows when building day-based sessions', guided.length === 4);
-    assert('Four-day weeks can use a combo block to close dose', comboSession != null);
-    assert('Combo block carries both strength and conditioning dose credits', (comboSession?.prescription_snapshot?.doseCredits?.length ?? 0) >= 2);
-    assert('Combo block helps realize two conditioning touches across the week', (conditioningTarget?.realized ?? 0) >= 2);
-    assert('Combo block helps realize two strength touches across the week', (strengthTarget?.realized ?? 0) >= 2);
+    assert('Planner rejects tiny availability windows below minimum guided dose', guided.length === 0);
+    assert('Tiny availability windows record carry-forward reasons', result.weeklyMixPlan.carryForwardAdjustments.some((adjustment) => adjustment.reason.includes('minimum guided session')));
 })();
 
 (() => {
