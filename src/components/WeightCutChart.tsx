@@ -105,8 +105,14 @@ export function WeightCutChart({
           <View style={[styles.legendLine, { backgroundColor: COLORS.readiness.caution }]} />
           <Text style={styles.legendLabel}>Projected</Text>
         </View>
-        <View style={[styles.targetBadge, { backgroundColor: onTrack ? '#DCFCE7' : '#FEE2E2' }]}>
-          <Text style={[styles.targetText, { color: onTrack ? '#B7D9A8' : '#D9827E' }]}>
+        <View style={[
+          styles.targetBadge,
+          {
+            backgroundColor: onTrack ? `${COLORS.success}18` : `${COLORS.error}18`,
+            borderColor: onTrack ? `${COLORS.success}44` : `${COLORS.error}44`,
+          },
+        ]}>
+          <Text style={[styles.targetText, { color: onTrack ? COLORS.success : COLORS.error }]}>
             Target: {targetWeight} lbs
           </Text>
         </View>
@@ -147,7 +153,7 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLine: { width: 18, height: 3, borderRadius: 2 },
   legendLabel: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary },
-  targetBadge: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.sm },
+  targetBadge: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.sm, borderWidth: 1 },
   targetText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 12 },
   projectionNote: {
     fontFamily: FONT_FAMILY.regular,

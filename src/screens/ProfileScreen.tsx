@@ -175,9 +175,9 @@ const styles = StyleSheet.create({
     avatarGlassRing: {
         padding: 4,
         borderRadius: 50,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(10, 10, 10, 0.58)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(212, 175, 55, 0.24)',
         marginBottom: SPACING.md,
     },
     avatar: {
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
     },
     statusBadge: {
         fontSize: 10,

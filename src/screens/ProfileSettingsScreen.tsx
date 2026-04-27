@@ -926,7 +926,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(10, 10, 10, 0.58)',
   },
   heroIdentity: {
     flex: 1,
@@ -954,7 +954,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   badgeMuted: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
   badgeText: {
     fontSize: 11,
@@ -1123,9 +1125,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: `${COLORS.error}18`,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.28)',
+    borderColor: `${COLORS.error}44`,
   },
   resetProgrammingButtonText: {
     fontSize: 14,
@@ -1167,11 +1169,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   progressPillComplete: {
-    backgroundColor: 'rgba(74, 222, 128, 0.14)',
-    borderColor: 'rgba(74, 222, 128, 0.35)',
+    backgroundColor: `${COLORS.success}18`,
+    borderColor: `${COLORS.success}44`,
   },
   progressPillPending: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: COLORS.surfaceSecondary,
     borderColor: COLORS.borderLight,
   },
   progressPillText: {
@@ -1213,8 +1215,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   accountLinkButtonDanger: {
-    backgroundColor: 'rgba(251, 113, 133, 0.08)',
-    borderColor: 'rgba(251, 113, 133, 0.22)',
+    backgroundColor: `${COLORS.error}12`,
+    borderColor: `${COLORS.error}36`,
   },
   accountLinkText: {
     fontSize: 14,
@@ -1238,9 +1240,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    backgroundColor: 'rgba(251, 113, 133, 0.12)',
+    backgroundColor: `${COLORS.error}18`,
     borderWidth: 1,
-    borderColor: 'rgba(251, 113, 133, 0.25)',
+    borderColor: `${COLORS.error}40`,
   },
   signOutText: {
     fontSize: 15,

@@ -17,7 +17,7 @@ import type { TrainStackParamList } from '../navigation/types';
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RoutePropType = RouteProp<TrainStackParamList, 'WorkoutSummary'>;
 
-// ─── Helpers ──────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getRpeColor(rpe: number | null): string {
     if (rpe === null) return COLORS.text.tertiary;
@@ -36,7 +36,7 @@ function getRpeBgColor(rpe: number | null): string {
 function getFatigueMessage(rpe: number | null): string {
     if (rpe === null) return 'Session logged. Great work getting it done.';
     if (rpe < 6) {
-        return 'Great session. You left energy in the tank — consider pushing harder next time.';
+        return 'Great session. You left energy in the tank â€” consider pushing harder next time.';
     }
     if (rpe <= 7.5) {
         return 'Solid effort. Good balance of intensity and recovery.';
@@ -51,7 +51,7 @@ function formatVolume(lbs: number): string {
     return lbs.toLocaleString();
 }
 
-// ─── Sub-components ───────────────────────────────────────────
+// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ConfettiDots() {
     const dots = [
@@ -127,7 +127,7 @@ const statPillStyles = StyleSheet.create({
         fontFamily: FONT_FAMILY.black,
         fontSize: 22,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
     },
     label: {
         fontFamily: FONT_FAMILY.regular,
@@ -139,7 +139,7 @@ const statPillStyles = StyleSheet.create({
     },
 });
 
-// ─── Screen ───────────────────────────────────────────────────
+// â”€â”€â”€ Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function WorkoutSummaryScreen() {
     const insets = useSafeAreaInsets();
@@ -178,13 +178,13 @@ export function WorkoutSummaryScreen() {
                 ]}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── Confetti decoration ── */}
+                {/* â”€â”€ Confetti decoration â”€â”€ */}
                 <ConfettiDots />
 
-                {/* ── Checkmark hero ── */}
+                {/* â”€â”€ Checkmark hero â”€â”€ */}
                 <Animated.View entering={ZoomIn.delay(50).duration(500)} style={styles.heroCenter}>
                     <View style={styles.checkCircle}>
-                        <Text style={styles.checkMark}>✓</Text>
+                        <Text style={styles.checkMark}>âœ“</Text>
                     </View>
                     <Text style={styles.heroTitle}>Workout Complete</Text>
                     <Text style={styles.heroSubtitle}>
@@ -196,13 +196,13 @@ export function WorkoutSummaryScreen() {
                     </Text>
                 </Animated.View>
 
-                {/* ── Duration stat ── */}
+                {/* â”€â”€ Duration stat â”€â”€ */}
                 <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.durationBlock}>
                     <Text style={styles.durationNumber}>{durationMin}</Text>
                     <Text style={styles.durationUnit}>min</Text>
                 </Animated.View>
 
-                {/* ── Stats row ── */}
+                {/* â”€â”€ Stats row â”€â”€ */}
                 <Animated.View entering={FadeInDown.delay(280).duration(400)} style={styles.statsRow}>
                     <StatPill label="Sets" value={totalSets} delay={280} />
                     <View style={styles.statsGap} />
@@ -211,7 +211,7 @@ export function WorkoutSummaryScreen() {
                     <StatPill label="Volume (lbs)" value={formatVolume(totalVolume)} delay={400} />
                 </Animated.View>
 
-                {/* ── RPE Badge ── */}
+                {/* â”€â”€ RPE Badge â”€â”€ */}
                 {avgRPE !== null && (
                     <Animated.View entering={FadeInDown.delay(460).duration(400)}>
                         <View style={[styles.rpeBadge, { backgroundColor: rpeBgColor }]}>
@@ -223,11 +223,11 @@ export function WorkoutSummaryScreen() {
                     </Animated.View>
                 )}
 
-                {/* ── PR Celebration Card ── */}
+                {/* â”€â”€ PR Celebration Card â”€â”€ */}
                 {hadPR && prExerciseName && (
                     <Animated.View entering={FadeInDown.delay(520).duration(450)}>
                         <View style={styles.prCard}>
-                            <Text style={styles.prIcon}>🏆</Text>
+                            <Text style={styles.prIcon}>ðŸ†</Text>
                             <View style={styles.prTextBlock}>
                                 <Text style={styles.prTitle}>New Personal Record!</Text>
                                 <Text style={styles.prExercise}>{prExerciseName}</Text>
@@ -236,7 +236,7 @@ export function WorkoutSummaryScreen() {
                     </Animated.View>
                 )}
 
-                {/* ── Fatigue / Recovery Message ── */}
+                {/* â”€â”€ Fatigue / Recovery Message â”€â”€ */}
                 <Animated.View entering={FadeInDown.delay(580).duration(400)}>
                     <View style={styles.messageCard}>
                         <Text style={styles.messageLabel}>Coach Note</Text>
@@ -245,7 +245,7 @@ export function WorkoutSummaryScreen() {
                 </Animated.View>
             </ScrollView>
 
-            {/* ── Sticky bottom buttons ── */}
+            {/* â”€â”€ Sticky bottom buttons â”€â”€ */}
             <Animated.View
                 entering={FadeInDown.delay(660).duration(400)}
                 style={[
@@ -273,7 +273,7 @@ export function WorkoutSummaryScreen() {
     );
 }
 
-// ─── Styles ───────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const styles = StyleSheet.create({
     container: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.black,
         fontSize: 28,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
         marginBottom: SPACING.xs,
     },
     heroSubtitle: {
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.black,
         fontSize: 72,
         color: COLORS.text.primary,
-        letterSpacing: -3,
+        letterSpacing: 0,
         lineHeight: 80,
     },
     durationUnit: {
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     prTitle: {
         fontFamily: FONT_FAMILY.extraBold,
         fontSize: 15,
-        color: '#92400E',
+        color: COLORS.warning,
         marginBottom: 2,
     },
     prExercise: {
@@ -469,5 +469,3 @@ const styles = StyleSheet.create({
         color: COLORS.text.secondary,
     },
 });
-
-

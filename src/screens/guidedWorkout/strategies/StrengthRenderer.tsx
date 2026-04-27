@@ -25,7 +25,7 @@ import { SetCompletionFlash } from '../../../components/workout/SetCompletionFla
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 // ---------------------------------------------------------------------------
-// StrengthRenderer — handles straight_sets and top_set_backoff
+// StrengthRenderer â€” handles straight_sets and top_set_backoff
 // ---------------------------------------------------------------------------
 
 export function StrengthRenderer(props: StrategyRendererProps) {
@@ -120,7 +120,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         </ExerciseCard>
       </Animated.View>
 
-      {/* Set tracker — tight to exercise */}
+      {/* Set tracker â€” tight to exercise */}
       <Animated.View
         style={styles.setRow}
         entering={FadeInDown.delay(60).duration(280).springify().damping(16)}
@@ -223,12 +223,12 @@ export function StrengthRenderer(props: StrategyRendererProps) {
           accessibilityRole="button"
         >
           <Text style={styles.primaryButtonText}>
-            {isLastExercise ? 'Finish Workout' : 'Complete Exercise →'}
+            {isLastExercise ? 'Finish Workout' : 'Complete Exercise â†’'}
           </Text>
         </TouchableOpacity>
       )}
 
-      {/* Footer links — skip / finish early */}
+      {/* Footer links â€” skip / finish early */}
       {!allTargetSetsLogged && (
         <View style={styles.footerLinks}>
           <TouchableOpacity onPress={onSkipExercise} activeOpacity={0.7} style={styles.footerLink}>
@@ -236,7 +236,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
           </TouchableOpacity>
           {workingSetsLogged > 0 && (
             <>
-              <Text style={styles.footerDivider}>·</Text>
+              <Text style={styles.footerDivider}>Â·</Text>
               <TouchableOpacity onPress={onFinishWorkout} activeOpacity={0.7} style={styles.footerLink}>
                 <Text style={styles.finishEarlyText}>End Workout</Text>
               </TouchableOpacity>
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 18,
     color: COLORS.text.primary,
-    letterSpacing: -0.3,
+    letterSpacing: 0,
   },
   setLabelFocus: {
     ...TYPOGRAPHY_V2.focus.action,

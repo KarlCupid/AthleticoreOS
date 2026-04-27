@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
         marginBottom: SPACING.sm,
         gap: SPACING.xs,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.15)',
+        borderColor: 'rgba(212, 175, 55, 0.22)',
     },
     cutBannerTop: {
         flexDirection: 'row',
@@ -23,12 +23,14 @@ export const styles = StyleSheet.create({
     cutBannerPhase: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 12,
-        color: '#C7D2FE',
+        color: COLORS.accent,
         flex: 1,
         letterSpacing: 0.4,
     },
     cutBadge: {
-        backgroundColor: '#FEF9C3',
+        backgroundColor: COLORS.accentLight,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.28)',
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: RADIUS.sm,
@@ -36,13 +38,13 @@ export const styles = StyleSheet.create({
     cutBadgeText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 10,
-        color: '#92400E',
+        color: COLORS.accent,
         letterSpacing: 0.5,
     },
     cutBannerInstruction: {
         fontFamily: FONT_FAMILY.regular,
         fontSize: 12,
-        color: '#A5B4FC',
+        color: COLORS.text.secondary,
         lineHeight: 18,
     },
     cardTitle: {
@@ -72,11 +74,11 @@ export const styles = StyleSheet.create({
     modeSwitch: {
         flexDirection: 'row',
         gap: SPACING.sm,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(10, 10, 10, 0.46)',
         borderRadius: RADIUS.xl,
         padding: 4,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(245, 245, 240, 0.12)',
     },
     modeChip: {
         flex: 1,

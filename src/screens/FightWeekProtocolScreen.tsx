@@ -193,9 +193,9 @@ export function FightWeekProtocolScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={phaseColors} style={styles.header}>
+      <LinearGradient colors={['rgba(10, 10, 10, 0.94)', `${phaseColors[0]}33`]} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <IconChevronLeft size={24} color="#fff" />
+          <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Fight Week Protocol</Text>
         <Text style={styles.headerSub}>{activePlan.weight_class_name ?? 'Weight Cut'}</Text>
@@ -217,15 +217,15 @@ export function FightWeekProtocolScreen() {
             key={day.date}
             style={[
               styles.dayTab,
-              selectedDay === day.daysToWeighIn && { backgroundColor: phaseColors[0] },
+              selectedDay === day.daysToWeighIn && { backgroundColor: `${phaseColors[0]}22`, borderColor: phaseColors[0] },
               day.date === todayLocalDate() && styles.dayTabToday,
             ]}
             onPress={() => setSelectedDay(day.daysToWeighIn)}
           >
-            <Text style={[styles.dayTabLabel, selectedDay === day.daysToWeighIn && { color: '#fff' }]}>
+            <Text style={[styles.dayTabLabel, selectedDay === day.daysToWeighIn && { color: COLORS.text.primary }]}>
               {day.label}
             </Text>
-            <Text style={[styles.dayTabPhase, selectedDay === day.daysToWeighIn && { color: 'rgba(255,255,255,0.82)' }]}>
+            <Text style={[styles.dayTabPhase, selectedDay === day.daysToWeighIn && { color: COLORS.text.secondary }]}>
               {day.phaseLabel}
             </Text>
           </TouchableOpacity>
@@ -330,7 +330,7 @@ export function FightWeekProtocolScreen() {
                 ) : null}
 
                 <TouchableOpacity
-                  style={[styles.vitalButton, { backgroundColor: '#DCFCE7', borderColor: COLORS.success }]}
+                  style={[styles.vitalButton, { backgroundColor: `${COLORS.success}18`, borderColor: COLORS.success }]}
                   onPress={() => setShowCognitive((current) => !current)}
                 >
                   <Text style={[styles.vitalButtonText, { color: COLORS.success }]}>Reaction time test</Text>
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   centerBlock: {
     backgroundColor: COLORS.surface,
@@ -411,12 +411,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontFamily: FONT_FAMILY.black,
-    color: '#fff',
+    color: COLORS.text.primary,
+    letterSpacing: 0,
   },
   headerSub: {
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
-    color: 'rgba(255,255,255,0.82)',
+    color: COLORS.text.secondary,
   },
   daySelector: {
     maxHeight: 80,
@@ -432,6 +433,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     alignItems: 'center',
     minWidth: 96,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     ...SHADOWS.sm,
   },
   dayTabToday: {
@@ -505,6 +508,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     borderLeftWidth: 3,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    borderRightColor: COLORS.borderLight,
+    borderBottomColor: COLORS.borderLight,
     ...SHADOWS.sm,
   },
   sectionHeader: {
@@ -546,7 +555,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   vitalButton: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: 'rgba(183, 217, 168, 0.12)',
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',

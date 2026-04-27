@@ -78,8 +78,14 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
           <Text style={styles.cutTitle}>{cut.start_weight} → {cut.target_weight} lbs</Text>
           <Text style={styles.cutDate}>{cutDate}</Text>
         </View>
-        <View style={[styles.madeWeightBadge, { backgroundColor: madeWeight ? '#DCFCE7' : '#FEE2E2' }]}>
-          <Text style={[styles.madeWeightText, { color: madeWeight ? '#B7D9A8' : '#D9827E' }]}>
+        <View style={[
+          styles.madeWeightBadge,
+          {
+            backgroundColor: madeWeight ? `${COLORS.success}18` : `${COLORS.error}18`,
+            borderColor: madeWeight ? `${COLORS.success}44` : `${COLORS.error}44`,
+          },
+        ]}>
+          <Text style={[styles.madeWeightText, { color: madeWeight ? COLORS.success : COLORS.error }]}>
             {madeWeight ? '✓ MADE WEIGHT' : '✗ MISSED'}
           </Text>
         </View>
@@ -163,13 +169,15 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: SPACING.md,
     marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     ...SHADOWS.card,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm },
   cardTitleBlock: { flex: 1, marginRight: SPACING.sm },
   cutTitle: { fontFamily: FONT_FAMILY.semiBold, fontSize: 16, color: COLORS.text.primary },
   cutDate: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, marginTop: 2 },
-  madeWeightBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm },
+  madeWeightBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm, borderWidth: 1 },
   madeWeightText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 11, letterSpacing: 0.4 },
   statsRow: { flexDirection: 'row', gap: SPACING.xs },
   pill: {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
+import { COLORS, FONT_FAMILY, RADIUS, SPACING, TYPOGRAPHY_V2 } from '../theme/theme';
 
 interface SectionHeaderProps {
     title: string;
@@ -59,19 +59,20 @@ const styles = StyleSheet.create({
         gap: SPACING.sm,
     },
     title: {
-        fontSize: 22,
-        fontFamily: FONT_FAMILY.black,
+        ...TYPOGRAPHY_V2.plan.headline,
+        fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
-        textTransform: 'uppercase',
+        letterSpacing: 0,
     },
     badge: {
-        backgroundColor: COLORS.accentLight,
-        borderRadius: 10,
+        backgroundColor: 'rgba(212, 175, 55, 0.14)',
+        borderRadius: RADIUS.full,
         paddingHorizontal: 8,
         paddingVertical: 2,
         minWidth: 22,
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.30)',
     },
     badgeText: {
         fontSize: 11,
@@ -82,6 +83,7 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.accent,
+        letterSpacing: 0,
     },
     divider: {
         height: 2,

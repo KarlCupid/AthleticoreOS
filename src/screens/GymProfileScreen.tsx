@@ -27,11 +27,11 @@ import { supabase } from '../../lib/supabase';
 import { GymProfileRow, EquipmentItem } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 
-// ─── Types ───────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type FormMode = 'idle' | 'adding' | 'editing';
 
-// ─── Component ───────────────────────────────────────────────
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function GymProfileScreen() {
     const insets = useSafeAreaInsets();
@@ -46,7 +46,7 @@ export function GymProfileScreen() {
     const [newName, setNewName] = useState('');
     const [newEquipment, setNewEquipment] = useState<string[]>([]);
 
-    // ─── Load ───────────────────────────────────────────────
+    // â”€â”€â”€ Load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     useEffect(() => {
         (async () => {
@@ -68,7 +68,7 @@ export function GymProfileScreen() {
         }
     }, []);
 
-    // ─── Form helpers ────────────────────────────────────────
+    // â”€â”€â”€ Form helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function openAddForm() {
         setEditingProfile(null);
@@ -91,7 +91,7 @@ export function GymProfileScreen() {
         setNewEquipment([]);
     }
 
-    // ─── Actions ─────────────────────────────────────────────
+    // â”€â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async function handleSave() {
         if (!userId) return;
@@ -159,7 +159,7 @@ export function GymProfileScreen() {
         );
     }
 
-    // ─── Render ──────────────────────────────────────────────
+    // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     if (loading) {
         return (
@@ -177,7 +177,7 @@ export function GymProfileScreen() {
                 style={styles.flex}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                {/* ── Header ── */}
+                {/* â”€â”€ Header â”€â”€ */}
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Gym Profiles</Text>
                     {!isFormOpen && (
@@ -200,12 +200,12 @@ export function GymProfileScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* ── Profile list ── */}
+                    {/* â”€â”€ Profile list â”€â”€ */}
                     {!isFormOpen && (
                         <>
                             {profiles.length === 0 ? (
                                 <View style={styles.emptyState}>
-                                    <Text style={styles.emptyIcon}>🏋️</Text>
+                                    <Text style={styles.emptyIcon}>ðŸ‹ï¸</Text>
                                     <Text style={styles.emptyTitle}>No gym profiles yet</Text>
                                     <Text style={styles.emptySubtitle}>
                                         Add one to get equipment-aware workouts.
@@ -232,7 +232,7 @@ export function GymProfileScreen() {
                         </>
                     )}
 
-                    {/* ── Add / Edit form ── */}
+                    {/* â”€â”€ Add / Edit form â”€â”€ */}
                     {isFormOpen && (
                         <ProfileForm
                             mode={formMode}
@@ -251,7 +251,7 @@ export function GymProfileScreen() {
     );
 }
 
-// ─── ProfileCard ─────────────────────────────────────────────
+// â”€â”€â”€ ProfileCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ProfileCardProps {
     profile: GymProfileRow;
@@ -308,7 +308,7 @@ function ProfileCard({ profile, onSetDefault, onEdit, onDelete }: ProfileCardPro
     );
 }
 
-// ─── ProfileForm ─────────────────────────────────────────────
+// â”€â”€â”€ ProfileForm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ProfileFormProps {
     mode: FormMode;
@@ -392,7 +392,7 @@ function ProfileForm({
     );
 }
 
-// ─── Styles ──────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const styles = StyleSheet.create({
     root: {
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
         fontSize: 26,
         fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
-        letterSpacing: -0.3,
+        letterSpacing: 0,
     },
     addButton: {
         backgroundColor: COLORS.accent,
@@ -505,8 +505,8 @@ const styles = StyleSheet.create({
     },
     actionButtonDestructive: {
         borderWidth: 1.5,
-        borderColor: '#FECACA',
-        backgroundColor: '#FEF2F2',
+        borderColor: `${COLORS.error}44`,
+        backgroundColor: `${COLORS.error}18`,
     },
     actionButtonDestructiveText: {
         fontSize: 13,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
         marginBottom: SPACING.lg,
-        letterSpacing: -0.2,
+        letterSpacing: 0,
     },
     fieldGroup: {
         marginBottom: SPACING.lg,

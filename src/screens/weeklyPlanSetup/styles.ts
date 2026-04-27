@@ -10,7 +10,7 @@ export const styles = StyleSheet.create({
   backButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   headerTitle: { ...TYPOGRAPHY_V2.plan.headline, color: COLORS.text.primary },
   headerRight: { minWidth: 64, alignItems: 'flex-end' },
-  progressShell: { marginHorizontal: SPACING.lg, marginBottom: SPACING.md, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.10)' },
+  progressShell: { marginHorizontal: SPACING.lg, marginBottom: SPACING.md, backgroundColor: 'rgba(10, 10, 10, 0.68)', borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.22)', ...SHADOWS.card },
   progressHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xs },
   progressEyebrow: { ...TYPOGRAPHY_V2.plan.caption, fontSize: 11, color: COLORS.text.tertiary, textTransform: 'uppercase', letterSpacing: 1.2 },
   progressCount: { ...TYPOGRAPHY_V2.plan.caption, color: COLORS.text.tertiary },
@@ -120,7 +120,7 @@ export const styles = StyleSheet.create({
   saveButtonWrap: { borderRadius: RADIUS.full, overflow: 'hidden', ...SHADOWS.colored.accent },
   saveButtonBg: { height: 56, alignItems: 'center', justifyContent: 'center' },
   saveButtonDisabled: { opacity: 0.5 },
-  saveButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.extraBold, color: '#000000', letterSpacing: 0.5 },
+  saveButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.inverse, letterSpacing: 0.5 },
   
   durationPickerOverlay: {
     flex: 1,

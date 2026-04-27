@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
         fontSize: 26,
         fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
     },
     centerLabel: {
         fontSize: 13,

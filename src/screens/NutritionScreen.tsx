@@ -350,8 +350,8 @@ export function NutritionScreen() {
               </View>
             ) : null}
             {viewModel.activeCutProtocol.is_carb_cycle_high ? (
-              <View style={[styles.cutBadge, { backgroundColor: '#DBEAFE' }]}>
-                <Text style={[styles.cutBadgeText, { color: '#1D4ED8' }]}>HIGH CARB</Text>
+              <View style={styles.cutBadge}>
+                <Text style={styles.cutBadgeText}>HIGH CARB</Text>
               </View>
             ) : null}
           </View>

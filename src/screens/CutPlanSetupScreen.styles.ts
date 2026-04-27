@@ -9,10 +9,10 @@ export const styles = StyleSheet.create({
         gap: SPACING.sm,
     },
     backButton: { marginBottom: SPACING.xs },
-    headerTitle: { fontSize: 22, fontFamily: FONT_FAMILY.black, color: '#fff' },
+    headerTitle: { fontSize: 22, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
     stepDots: { flexDirection: 'row', gap: 6, marginTop: SPACING.sm },
-    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
-    dotActive: { backgroundColor: '#fff' },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.border },
+    dotActive: { backgroundColor: COLORS.accent },
 
     stepContainer: { gap: SPACING.md },
     stepTitle: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, letterSpacing: 1, textTransform: 'uppercase' },
@@ -23,7 +23,9 @@ export const styles = StyleSheet.create({
     // ── Step 1: Intro ─────────────────────────────────────────────
     introHero: {
         alignItems: 'center',
-        backgroundColor: '#DCFCE7',
+        backgroundColor: 'rgba(10, 10, 10, 0.78)',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.26)',
         borderRadius: RADIUS.xl,
         padding: SPACING.xl,
         gap: SPACING.sm,
@@ -33,13 +35,13 @@ export const styles = StyleSheet.create({
     introHeroTitle: {
         fontSize: 22,
         fontFamily: FONT_FAMILY.black,
-        color: '#3730A3',
+        color: COLORS.text.primary,
         textAlign: 'center',
     },
     introHeroSub: {
         fontSize: 14,
         fontFamily: FONT_FAMILY.regular,
-        color: '#4338CA',
+        color: COLORS.text.secondary,
         textAlign: 'center',
         lineHeight: 22,
     },
@@ -166,15 +168,15 @@ export const styles = StyleSheet.create({
         flex: 1, padding: SPACING.md, backgroundColor: COLORS.surface,
         borderRadius: RADIUS.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,
     },
-    toggleOptionActive: { backgroundColor: '#DCFCE7', borderColor: '#B7D9A8' },
+    toggleOptionActive: { backgroundColor: COLORS.accentLight, borderColor: COLORS.accent },
     toggleText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: COLORS.text.secondary },
-    toggleTextActive: { color: '#B7D9A8' },
+    toggleTextActive: { color: COLORS.accent },
     suggestionRow: {
         flexDirection: 'row', alignItems: 'center', padding: SPACING.md,
         backgroundColor: COLORS.surface, borderRadius: RADIUS.md, gap: SPACING.sm,
         borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.sm,
     },
-    suggestionRowActive: { borderColor: '#B7D9A8', backgroundColor: '#DCFCE7' },
+    suggestionRowActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accentLight },
     suggestionRowDisabled: { opacity: 0.5 },
     suggestionName: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
     suggestionSub: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
@@ -184,9 +186,9 @@ export const styles = StyleSheet.create({
     infoText: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 20 },
 
     // ── Plan preview ──────────────────────────────────────────────
-    errorBox: { backgroundColor: '#FEE2E2', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
+    errorBox: { backgroundColor: 'rgba(217, 130, 126, 0.14)', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm, borderWidth: 1, borderColor: 'rgba(217, 130, 126, 0.34)' },
     errorText: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.error, lineHeight: 20 },
-    warningBox: { backgroundColor: '#FEF3C7', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
+    warningBox: { backgroundColor: 'rgba(212, 175, 55, 0.14)', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm, borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.30)' },
     warningText: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary, lineHeight: 20 },
     planSummaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
     planStat: {
@@ -203,8 +205,9 @@ export const styles = StyleSheet.create({
 
     // ── Confirmation ──────────────────────────────────────────────
     confirmBox: {
-        flexDirection: 'row', backgroundColor: '#DCFCE7', borderRadius: RADIUS.md,
+        flexDirection: 'row', backgroundColor: 'rgba(183, 217, 168, 0.12)', borderRadius: RADIUS.md,
         padding: SPACING.md, gap: SPACING.sm, alignItems: 'flex-start',
+        borderWidth: 1, borderColor: 'rgba(183, 217, 168, 0.32)',
     },
     confirmText: { flex: 1, fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary, lineHeight: 22 },
 
@@ -212,41 +215,43 @@ export const styles = StyleSheet.create({
     footer: {
         padding: SPACING.lg,
         paddingBottom: Platform.OS === 'ios' ? 110 : 80,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.92)',
+        borderTopWidth: 1,
+        borderTopColor: COLORS.borderLight,
     },
-    nextButton: { backgroundColor: '#B7D9A8', borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
+    nextButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center', ...SHADOWS.colored.accent },
     nextButtonDisabled: { backgroundColor: COLORS.text.tertiary },
-    activateButton: { backgroundColor: COLORS.readiness.prime, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center' },
-    nextButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#fff' },
+    activateButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center', ...SHADOWS.colored.accent },
+    nextButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
 
     // ── Extreme cut disclaimer ────────────────────────────────────
     extremeWarningBox: {
-        backgroundColor: '#1C0A0A', borderRadius: RADIUS.xl,
-        borderWidth: 2, borderColor: '#D9827E',
+        backgroundColor: 'rgba(28, 10, 10, 0.82)', borderRadius: RADIUS.xl,
+        borderWidth: 2, borderColor: COLORS.error,
         padding: SPACING.md, marginBottom: SPACING.md, gap: SPACING.xs,
     },
     extremeWarningHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginBottom: SPACING.xs },
     extremeWarningIcon: { fontSize: 22 },
-    extremeWarningTitle: { fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: '#FCA5A5', letterSpacing: 0.4, flex: 1 },
-    extremeWarningSubheading: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#FCA5A5', marginTop: SPACING.xs },
-    extremeWarningBody: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: '#FEE2E2', lineHeight: 20 },
-    extremeRiskItem: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: '#FCA5A5', paddingLeft: SPACING.xs, lineHeight: 20 },
+    extremeWarningTitle: { fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: COLORS.error, letterSpacing: 0.4, flex: 1 },
+    extremeWarningSubheading: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.error, marginTop: SPACING.xs },
+    extremeWarningBody: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: COLORS.text.secondary, lineHeight: 20 },
+    extremeRiskItem: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: COLORS.error, paddingLeft: SPACING.xs, lineHeight: 20 },
     ackRow: {
         flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: SPACING.sm,
-        backgroundColor: 'rgba(220,38,38,0.15)', borderRadius: RADIUS.lg,
-        padding: SPACING.sm, borderWidth: 1, borderColor: '#D9827E',
+        backgroundColor: 'rgba(217, 130, 126, 0.14)', borderRadius: RADIUS.lg,
+        padding: SPACING.sm, borderWidth: 1, borderColor: COLORS.error,
     },
     ackCheckbox: {
-        width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#D9827E',
+        width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: COLORS.error,
         justifyContent: 'center', alignItems: 'center', marginTop: 1, flexShrink: 0,
     },
-    ackCheckboxChecked: { backgroundColor: '#D9827E', borderColor: '#D9827E' },
-    ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#F5F5F0' },
-    ackText: { flex: 1, fontFamily: FONT_FAMILY.regular, fontSize: 12, color: '#FEE2E2', lineHeight: 18 },
+    ackCheckboxChecked: { backgroundColor: COLORS.error, borderColor: COLORS.error },
+    ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.text.primary },
+    ackText: { flex: 1, fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, lineHeight: 18 },
     extremeReminderBanner: {
-        backgroundColor: '#FEE2E2', borderRadius: RADIUS.lg,
-        borderWidth: 1, borderColor: '#FECACA', padding: SPACING.sm, marginBottom: SPACING.md,
+        backgroundColor: 'rgba(217, 130, 126, 0.14)', borderRadius: RADIUS.lg,
+        borderWidth: 1, borderColor: 'rgba(217, 130, 126, 0.34)', padding: SPACING.sm, marginBottom: SPACING.md,
     },
-    extremeReminderText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#D9827E', textAlign: 'center' },
+    extremeReminderText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.error, textAlign: 'center' },
 });
 

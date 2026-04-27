@@ -282,7 +282,7 @@ const stepStyles = StyleSheet.create({
         fontFamily: FONT_FAMILY.extraBold,
         fontSize: 28,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
     },
 });
 
@@ -387,7 +387,7 @@ const ppStyles = StyleSheet.create({
         fontFamily: FONT_FAMILY.black,
         fontSize: 30,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
         marginBottom: SPACING.sm,
     },
     gymRow: {
@@ -508,5 +508,3 @@ const ppStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-
-

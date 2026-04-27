@@ -104,8 +104,7 @@ export function WeightCutHomeScreen() {
   }, [abandon]);
 
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
-
-  // ── Loading (auth not resolved yet, or data fetching) ─────────
+  // Loading
   if (userId === null || loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -113,8 +112,7 @@ export function WeightCutHomeScreen() {
       </View>
     );
   }
-
-  // ── Error state ───────────────────────────────────────────────
+  // Error state
   if (error) {
     return (
       <View style={styles.loadingContainer}>
@@ -127,13 +125,12 @@ export function WeightCutHomeScreen() {
       </View>
     );
   }
-
-  // ── No active cut ─────────────────────────────────────────────
+  // No active cut
   if (!activePlan) {
     return (
       <View style={styles.noCutContainer}>
-        <LinearGradient colors={['#B7D9A8', '#15803D']} style={styles.noCutGradient}>
-          <IconScale size={64} color="#fff" />
+        <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(212, 175, 55, 0.20)']} style={styles.noCutGradient}>
+          <IconScale size={64} color={COLORS.accent} />
           <Text style={styles.noCutTitle}>No Active Weight Cut</Text>
           <Text style={styles.noCutSubtitle}>
             Build a cut plan for fight date and class.
@@ -171,8 +168,8 @@ export function WeightCutHomeScreen() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Hero ─────────────────────────────────── */}
-      <LinearGradient colors={phaseColors} style={styles.hero}>
+      {/* Hero */}
+      <LinearGradient colors={['rgba(10, 10, 10, 0.94)', `${phaseColors[0]}30`]} style={styles.hero}>
         <View style={styles.heroTop}>
           <View>
             <Text style={styles.phaseLabel}>{PHASE_LABELS[phase]}</Text>
@@ -192,14 +189,14 @@ export function WeightCutHomeScreen() {
             <Text style={styles.heroStatLabel}>Current (lbs)</Text>
           </View>
           <View style={styles.heroArrow}>
-            <IconTrendDown size={28} color="rgba(255,255,255,0.7)" />
+            <IconTrendDown size={28} color={COLORS.text.secondary} />
           </View>
           <View style={styles.heroStat}>
             <Text style={styles.heroStatValue}>{activePlan.target_weight}</Text>
             <Text style={styles.heroStatLabel}>Target (lbs)</Text>
           </View>
           <View style={styles.heroStat}>
-            <Text style={[styles.heroStatValue, { color: Number(remaining) > 5 ? '#FEF3C7' : '#DCFCE7' }]}>
+            <Text style={[styles.heroStatValue, { color: Number(remaining) > 5 ? COLORS.warning : COLORS.success }]}>
               {remaining}
             </Text>
             <Text style={styles.heroStatLabel}>Remaining (lbs)</Text>
@@ -215,13 +212,11 @@ export function WeightCutHomeScreen() {
           </View>
         )}
       </LinearGradient>
-
-      {/* ── Safety flags ─────────────────────────── */}
+      {/* Safety flags */}
       {dangerFlags.length > 0 && (
         <SafetyStatusIndicator flags={todayProtocol?.safety_flags ?? []} />
       )}
-
-      {/* ── Today's protocol ─────────────────────── */}
+      {/* Today's protocol */}
       {todayProtocol ? (
         <DailyProtocolCard protocol={todayProtocol} />
       ) : (
@@ -240,8 +235,7 @@ export function WeightCutHomeScreen() {
           diagnosis, or emergency care.
         </Text>
       </View>
-
-      {/* ── Weight chart ─────────────────────────── */}
+      {/* Weight chart */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Weight Trend</Text>
         <WeightCutChart
@@ -251,14 +245,12 @@ export function WeightCutHomeScreen() {
           weighInDate={activePlan.weigh_in_date}
         />
       </View>
-
-      {/* ── Phase timeline ────────────────────────── */}
+      {/* Phase timeline */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Cut Timeline</Text>
         <CutPhaseTimeline plan={activePlan} currentPhase={phase} />
       </View>
-
-      {/* ── Quick actions ────────────────────────── */}
+      {/* Quick actions */}
       <View style={styles.quickActions}>
         {phase === 'fight_week_load' || phase === 'fight_week_cut' || phase === 'weigh_in' ? (
           <TouchableOpacity
@@ -266,7 +258,7 @@ export function WeightCutHomeScreen() {
             onPress={() => nav.navigate('FightWeekProtocol')}
           >
             <Text style={styles.actionButtonText}>Fight Week Protocol</Text>
-            <IconChevronRight size={18} color="#fff" />
+            <IconChevronRight size={18} color={COLORS.text.inverse} />
           </TouchableOpacity>
         ) : null}
 
@@ -279,7 +271,7 @@ export function WeightCutHomeScreen() {
             })}
           >
             <Text style={styles.actionButtonText}>Rehydration Protocol</Text>
-            <IconChevronRight size={18} color="#fff" />
+            <IconChevronRight size={18} color={COLORS.text.inverse} />
           </TouchableOpacity>
         ) : null}
 
@@ -298,13 +290,12 @@ export function WeightCutHomeScreen() {
           <Text style={styles.endCutText}>End Cut</Text>
         </TouchableOpacity>
       </View>
-
-      {/* ── Weight class info ────────────────────── */}
+      {/* Weight class info */}
       {activePlan.weight_class_name && (
         <View style={[styles.card, styles.weightClassCard]}>
           <IconTarget size={16} color={COLORS.text.secondary} />
           <Text style={styles.weightClassText}>
-            {activePlan.weight_class_name} � {activePlan.sport?.toUpperCase()} � {activePlan.fight_status}
+            {activePlan.weight_class_name} - {activePlan.sport?.toUpperCase()} - {activePlan.fight_status}
           </Text>
         </View>
       )}
@@ -320,12 +311,12 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   noCutContainer: { flex: 1 },
   noCutGradient: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, gap: SPACING.md },
-  noCutTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: '#fff', textAlign: 'center' },
-  noCutSubtitle: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 24 },
-  startButton: { backgroundColor: '#fff', borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.md },
-  startButtonText: { fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: '#B7D9A8' },
+  noCutTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, textAlign: 'center', letterSpacing: 0 },
+  noCutSubtitle: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, textAlign: 'center', lineHeight: 24 },
+  startButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.md, ...SHADOWS.colored.accent },
+  startButtonText: { fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
   historyLink: { marginTop: SPACING.sm },
-  historyLinkText: { color: 'rgba(255,255,255,0.8)', fontFamily: FONT_FAMILY.semiBold, fontSize: 14 },
+  historyLinkText: { color: COLORS.text.secondary, fontFamily: FONT_FAMILY.semiBold, fontSize: 14 },
   hero: {
     paddingTop: Platform.OS === 'ios' ? 60 : 48,
     paddingBottom: SPACING.xl,
@@ -333,28 +324,32 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  phaseLabel: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: 'rgba(255,255,255,0.8)', letterSpacing: 1, textTransform: 'uppercase' },
-  countdownText: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: '#fff', marginTop: 2 },
-  adherenceBadge: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 8 },
-  adherenceValue: { fontSize: 20, fontFamily: FONT_FAMILY.black, color: '#fff' },
-  adherenceLabel: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: 'rgba(255,255,255,0.75)', letterSpacing: 0.5 },
+  phaseLabel: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent, letterSpacing: 1, textTransform: 'uppercase' },
+  countdownText: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, marginTop: 2, letterSpacing: 0 },
+  adherenceBadge: { alignItems: 'center', backgroundColor: 'rgba(10, 10, 10, 0.48)', borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: COLORS.borderLight },
+  adherenceValue: { fontSize: 20, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
+  adherenceLabel: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, letterSpacing: 0.5 },
   heroNumbers: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroStat: { flex: 1, alignItems: 'center' },
-  heroStatValue: { fontSize: 26, fontFamily: FONT_FAMILY.black, color: '#fff' },
-  heroStatLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  heroStatValue: { fontSize: 26, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
+  heroStatLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, marginTop: 2 },
   heroArrow: { alignItems: 'center' },
   projectionBanner: {
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(10, 10, 10, 0.48)',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
   },
-  projectionText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: '#fff' },
+  projectionText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   card: {
     margin: SPACING.md,
     padding: SPACING.md,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     ...SHADOWS.card,
   },
   sectionTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.sm },
@@ -368,8 +363,9 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     padding: SPACING.md, borderRadius: RADIUS.lg,
+    ...SHADOWS.card,
   },
-  actionButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: '#fff' },
+  actionButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
   weightClassCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, padding: SPACING.sm },
   weightClassText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   endCutButton: {
@@ -386,4 +382,3 @@ const styles = StyleSheet.create({
     color: COLORS.error,
   },
 });
-

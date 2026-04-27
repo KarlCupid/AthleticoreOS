@@ -39,8 +39,8 @@ export function DailyProtocolCard({ protocol }: Props) {
           </View>
         )}
         {protocol.is_carb_cycle_high && !protocol.is_refeed_day && (
-          <View style={[styles.refeedBadge, { backgroundColor: '#EFF6FF' }]}>
-            <Text style={[styles.refeedText, { color: '#8C6A1E' }]}>HIGH CARB</Text>
+          <View style={styles.refeedBadge}>
+            <Text style={styles.refeedText}>HIGH CARB</Text>
           </View>
         )}
       </View>
@@ -137,6 +137,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
   header: {
     flexDirection: 'row',
@@ -146,12 +148,14 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: FONT_FAMILY.semiBold, fontSize: 16, color: COLORS.text.primary },
   refeedBadge: {
-    backgroundColor: '#FEF9C3',
+    backgroundColor: COLORS.accentLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.28)',
   },
-  refeedText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 10, color: '#CA8A04', letterSpacing: 0.5 },
+  refeedText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 10, color: COLORS.accent, letterSpacing: 0.5 },
   macroGrid: {
     flexDirection: 'row',
     backgroundColor: COLORS.surfaceSecondary,

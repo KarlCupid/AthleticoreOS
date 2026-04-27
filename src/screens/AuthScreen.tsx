@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
         textAlign: 'center',
-        letterSpacing: -0.5,
+        letterSpacing: 0,
     },
     subtitle: {
         fontSize: 16,

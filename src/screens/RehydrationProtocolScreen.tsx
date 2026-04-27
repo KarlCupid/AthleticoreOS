@@ -78,9 +78,9 @@ export function RehydrationProtocolScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#10B981', '#059669']} style={styles.header}>
+      <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(183, 217, 168, 0.22)']} style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <IconChevronLeft size={24} color="#fff" />
+          <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rehydration Protocol</Text>
         <Text style={styles.headerSub}>
@@ -119,7 +119,7 @@ export function RehydrationProtocolScreen() {
           >
             <View style={styles.phaseHeader}>
               <View style={[styles.checkBox, completedPhases.has(idx) && styles.checkBoxDone]}>
-                {completedPhases.has(idx) && <IconCheckCircle size={16} color="#fff" />}
+                {completedPhases.has(idx) && <IconCheckCircle size={16} color={COLORS.text.inverse} />}
               </View>
               <Text style={styles.phaseWindow}>{phase.timeWindow ?? phase.name ?? 'Phase'}</Text>
             </View>
@@ -236,12 +236,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontFamily: FONT_FAMILY.black,
-    color: '#fff',
+    color: COLORS.text.primary,
+    letterSpacing: 0,
   },
   headerSub: {
     fontSize: 13,
     fontFamily: FONT_FAMILY.semiBold,
-    color: 'rgba(255,255,255,0.85)',
+    color: COLORS.text.secondary,
   },
   scrollView: {
     flex: 1,
@@ -251,10 +252,12 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   goalCard: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: 'rgba(10, 10, 10, 0.78)',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(183, 217, 168, 0.34)',
     ...SHADOWS.sm,
   },
   goalTitle: {
@@ -314,10 +317,13 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     ...SHADOWS.sm,
   },
   phaseCardDone: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: 'rgba(183, 217, 168, 0.12)',
+    borderColor: 'rgba(183, 217, 168, 0.34)',
     opacity: 0.8,
   },
   phaseHeader: {
@@ -415,7 +421,7 @@ const styles = StyleSheet.create({
   logButtonText: {
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#fff',
+    color: COLORS.text.inverse,
   },
   coachNote: {
     backgroundColor: COLORS.accentLight,
@@ -437,7 +443,7 @@ const styles = StyleSheet.create({
   completeButtonText: {
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#fff',
+    color: COLORS.text.inverse,
   },
   bottomSpacer: {
     height: 80,

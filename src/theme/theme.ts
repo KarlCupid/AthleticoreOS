@@ -82,19 +82,19 @@ export const TYPOGRAPHY_LEGACY = {
     display: {
         fontSize: 36,
         fontFamily: FONT_FAMILY.black,
-        letterSpacing: -0.8,
+        letterSpacing: 0,
         color: COLORS.text.primary,
     },
     heading1: {
         fontSize: 30,
         fontFamily: FONT_FAMILY.black,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
         color: COLORS.text.primary,
     },
     heading2: {
         fontSize: 22,
         fontFamily: FONT_FAMILY.extraBold,
-        letterSpacing: -0.3,
+        letterSpacing: 0,
         color: COLORS.text.primary,
     },
     heading3: {

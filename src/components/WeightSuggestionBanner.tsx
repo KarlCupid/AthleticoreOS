@@ -51,12 +51,12 @@ const WeightSuggestionBanner: React.FC<WeightSuggestionBannerProps> = ({
           </View>
         )}
         <Text style={styles.lastLine}>
-          Last: {lastWeight}×{lastReps}{rpeDisplay}
+          Last: {lastWeight}Ã—{lastReps}{rpeDisplay}
         </Text>
       </View>
 
       <Text style={styles.suggestion}>
-        Try {suggestedWeight} × {suggestedReps}
+        Try {suggestedWeight} Ã— {suggestedReps}
       </Text>
 
       <Text style={styles.reasoning}>{reasoning}</Text>
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.extraBold,
     fontSize: 24,
     color: COLORS.text.primary,
-    letterSpacing: -0.3,
+    letterSpacing: 0,
   },
   reasoning: {
     fontFamily: FONT_FAMILY.regular,

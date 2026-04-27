@@ -75,11 +75,11 @@ export function StatCard({
 const styles = StyleSheet.create({
     card: {
         width: '47%',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(10, 10, 10, 0.58)',
         borderRadius: RADIUS.xl,
         padding: SPACING.md,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(245, 245, 240, 0.14)',
         ...SHADOWS.card,
     },
     header: {
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
         color: COLORS.text.secondary,
         flex: 1,
         textTransform: 'uppercase',
-        letterSpacing: 0.3,
+        letterSpacing: 0.6,
     },
     valueRow: {
         flexDirection: 'row',
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
     },
     trend: {
         fontSize: 16,

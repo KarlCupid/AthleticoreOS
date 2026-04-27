@@ -60,17 +60,17 @@ export const DailyMissionCard = memo(function DailyMissionCard({ mission, compac
             <Text style={styles.sectionTitle}>Training</Text>
             <Text style={styles.sectionLine}>{mission.trainingDirective.intent}</Text>
             <Text style={styles.metaLine}>
-              {sessionLabel} · {roleLabel} · {mission.trainingDirective.volumeTarget}
+              {sessionLabel} Â· {roleLabel} Â· {mission.trainingDirective.volumeTarget}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Fuel</Text>
             <Text style={styles.sectionLine}>
-              {missionCalories} kcal · P {mission.fuelDirective.protein} · C {mission.fuelDirective.carbs} · F {mission.fuelDirective.fat}
+              {missionCalories} kcal Â· P {mission.fuelDirective.protein} Â· C {mission.fuelDirective.carbs} Â· F {mission.fuelDirective.fat}
             </Text>
             <Text style={styles.metaLine}>
-              Pre {mission.fuelDirective.preSessionCarbsG}g carbs · Post {mission.fuelDirective.postSessionProteinG}g protein · Water {mission.hydrationDirective.waterTargetOz} oz
+              Pre {mission.fuelDirective.preSessionCarbsG}g carbs Â· Post {mission.fuelDirective.postSessionProteinG}g protein Â· Water {mission.hydrationDirective.waterTargetOz} oz
             </Text>
           </View>
 
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   headline: {
     fontFamily: FONT_FAMILY.black,
     fontSize: 24,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
     color: COLORS.text.primary,
   },
   headlineCompact: {

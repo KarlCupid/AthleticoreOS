@@ -65,7 +65,7 @@ export function CutPlanPreviewStep({
               name="Intensified Cut"
               start={planResult.intensifiedPhaseDates.start}
               end={planResult.intensifiedPhaseDates.end}
-              color="#15803D"
+              color={COLORS.success}
               weeks={planResult.intensifiedPhaseWeeks}
             />
             <PhaseRow
@@ -173,9 +173,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   heading: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
-  errorBox: { backgroundColor: '#FEE2E2', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
+  errorBox: { backgroundColor: `${COLORS.error}18`, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm, borderWidth: 1, borderColor: `${COLORS.error}44` },
   errorText: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.error, lineHeight: 20 },
-  warningBox: { backgroundColor: '#FEF3C7', borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
+  warningBox: { backgroundColor: `${COLORS.warning}18`, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm, borderWidth: 1, borderColor: `${COLORS.warning}44` },
   warningText: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary, lineHeight: 20 },
   planSummaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   planStat: {
@@ -184,6 +184,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     ...SHADOWS.sm,
   },
   planStatValue: { fontSize: 18, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
@@ -202,14 +204,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
   phaseColor: { width: 4, height: 40, borderRadius: 2 },
   phaseName: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   phaseDates: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
   noteBox: {
-    backgroundColor: 'rgba(59, 130, 246, 0.10)',
+    backgroundColor: COLORS.accentLight,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.24)',
   },
   noteTitle: {
     fontSize: 12,
@@ -226,10 +232,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   extremeWarningBox: {
-    backgroundColor: '#1C0A0A',
+    backgroundColor: 'rgba(28, 10, 10, 0.82)',
     borderRadius: RADIUS.xl,
     borderWidth: 2,
-    borderColor: '#D9827E',
+    borderColor: COLORS.error,
     padding: SPACING.md,
     gap: SPACING.xs,
   },
@@ -238,21 +244,21 @@ const styles = StyleSheet.create({
   extremeWarningTitle: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 14,
-    color: '#FCA5A5',
+    color: COLORS.error,
     letterSpacing: 0.4,
     flex: 1,
   },
   extremeWarningSubheading: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 13,
-    color: '#FCA5A5',
+    color: COLORS.error,
     marginTop: SPACING.xs,
   },
-  extremeWarningBody: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: '#FEE2E2', lineHeight: 20 },
+  extremeWarningBody: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: COLORS.text.secondary, lineHeight: 20 },
   extremeRiskItem: {
     fontFamily: FONT_FAMILY.regular,
     fontSize: 13,
-    color: '#FCA5A5',
+    color: COLORS.error,
     paddingLeft: SPACING.xs,
     lineHeight: 20,
   },
@@ -261,24 +267,24 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: SPACING.sm,
     marginTop: SPACING.sm,
-    backgroundColor: 'rgba(220,38,38,0.15)',
+    backgroundColor: `${COLORS.error}18`,
     borderRadius: RADIUS.lg,
     padding: SPACING.sm,
     borderWidth: 1,
-    borderColor: '#D9827E',
+    borderColor: COLORS.error,
   },
   ackCheckbox: {
     width: 22,
     height: 22,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#D9827E',
+    borderColor: COLORS.error,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 1,
     flexShrink: 0,
   },
-  ackCheckboxChecked: { backgroundColor: '#D9827E', borderColor: '#D9827E' },
-  ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 11, color: '#F5F5F0' },
-  ackText: { flex: 1, fontFamily: FONT_FAMILY.regular, fontSize: 12, color: '#FEE2E2', lineHeight: 18 },
+  ackCheckboxChecked: { backgroundColor: COLORS.error, borderColor: COLORS.error },
+  ackCheckmark: { fontFamily: FONT_FAMILY.semiBold, fontSize: 11, color: COLORS.text.primary },
+  ackText: { flex: 1, fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, lineHeight: 18 },
 });

@@ -120,8 +120,8 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
       {state === 'done' && result !== null && (
         <View style={styles.resultBlock}>
           {declineStatus === 'danger' && (
-            <View style={[styles.resultBanner, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#D9827E' }]}>⛔ Reaction Severely Slowed</Text>
+            <View style={[styles.resultBanner, { backgroundColor: `${COLORS.error}18`, borderColor: `${COLORS.error}44` }]}>
+              <Text style={[styles.resultBannerTitle, { color: COLORS.error }]}>⛔ Reaction Severely Slowed</Text>
               <Text style={styles.resultBannerBody}>
                 {result} ms — {Math.round(((result - baselineMs!) / baselineMs!) * 100)}% slower than your baseline.
                 This indicates significant cognitive impairment from dehydration. Consult your corner.
@@ -129,8 +129,8 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
             </View>
           )}
           {declineStatus === 'warning' && (
-            <View style={[styles.resultBanner, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#B8892D' }]}>⚠️ Reaction Slowed</Text>
+            <View style={[styles.resultBanner, { backgroundColor: `${COLORS.warning}18`, borderColor: `${COLORS.warning}44` }]}>
+              <Text style={[styles.resultBannerTitle, { color: COLORS.warning }]}>⚠️ Reaction Slowed</Text>
               <Text style={styles.resultBannerBody}>
                 {result} ms — {Math.round(((result - baselineMs!) / baselineMs!) * 100)}% slower than baseline.
                 Monitor closely and increase rehydration.
@@ -138,16 +138,16 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
             </View>
           )}
           {declineStatus === 'improved' && (
-            <View style={[styles.resultBanner, { backgroundColor: '#DCFCE7', borderColor: '#BBF7D0' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#B7D9A8' }]}>✅ Reaction Normal</Text>
+            <View style={[styles.resultBanner, { backgroundColor: `${COLORS.success}18`, borderColor: `${COLORS.success}44` }]}>
+              <Text style={[styles.resultBannerTitle, { color: COLORS.success }]}>✅ Reaction Normal</Text>
               <Text style={styles.resultBannerBody}>
                 {result} ms — within normal range of baseline ({baselineMs} ms).
               </Text>
             </View>
           )}
           {declineStatus === null && (
-            <View style={[styles.resultBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-              <Text style={[styles.resultBannerTitle, { color: '#8C6A1E' }]}>Result: {result} ms</Text>
+            <View style={[styles.resultBanner, { backgroundColor: COLORS.surfaceSecondary, borderColor: COLORS.borderLight }]}>
+              <Text style={[styles.resultBannerTitle, { color: COLORS.accent }]}>Result: {result} ms</Text>
               {!baselineMs && (
                 <Text style={styles.resultBannerBody}>
                   This result will become your baseline. Complete the test again tomorrow to track changes.
@@ -176,6 +176,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
   title: { fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: COLORS.text.primary, marginBottom: 2 },
   subtitle: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, marginBottom: 4 },
@@ -201,7 +203,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
   falseStartBanner: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: `${COLORS.warning}18`,
+    borderWidth: 1,
+    borderColor: `${COLORS.warning}44`,
     borderRadius: RADIUS.lg,
     padding: SPACING.sm,
     flexDirection: 'row',
@@ -209,8 +213,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
-  falseStartText: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: '#92400E' },
-  retryText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: '#B8892D' },
+  falseStartText: { fontFamily: FONT_FAMILY.regular, fontSize: 13, color: COLORS.warning },
+  retryText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 13, color: COLORS.accent },
   resultBlock: { gap: SPACING.sm },
   resultBanner: {
     borderRadius: RADIUS.lg,
@@ -233,5 +237,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.sm,
   },
-  startButtonText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: '#F5F5F0' },
+  startButtonText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: COLORS.text.inverse },
 });

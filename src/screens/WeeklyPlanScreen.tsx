@@ -525,12 +525,12 @@ const styles = StyleSheet.create({
     },
     navBtn: {
         flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(10, 10, 10, 0.46)',
         paddingVertical: 8,
         borderRadius: RADIUS.lg,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: COLORS.borderLight,
     },
     navBtnToday: {
         backgroundColor: COLORS.accent,
@@ -545,11 +545,11 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: RADIUS.full,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(10, 10, 10, 0.46)',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: COLORS.borderLight,
     },
     scroll: {
         flex: 1,
@@ -626,8 +626,8 @@ const styles = StyleSheet.create({
     // Coach Note
     coachNoteCard: {
         marginBottom: SPACING.sm,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(10, 10, 10, 0.58)',
+        borderColor: COLORS.borderLight,
         borderWidth: 1,
     },
     coachNoteInner: {
@@ -660,8 +660,8 @@ const styles = StyleSheet.create({
     },
     targetCard: {
         marginBottom: SPACING.sm,
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(10, 10, 10, 0.58)',
+        borderColor: COLORS.borderLight,
         borderWidth: 1,
     },
     targetCardInner: {
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         flexBasis: '30%',
         borderRadius: RADIUS.md,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: COLORS.surfaceSecondary,
         paddingHorizontal: SPACING.sm,
         paddingVertical: SPACING.sm,
     },
@@ -732,9 +732,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 0,
         paddingTop: SPACING.md,
         paddingBottom: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'rgba(10, 10, 10, 0.50)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderColor: COLORS.borderLight,
         overflow: 'visible', // Ensure numeric labels aren't clipped
     },
     chartHeader: {

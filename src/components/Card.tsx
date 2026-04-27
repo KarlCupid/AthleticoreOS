@@ -128,17 +128,17 @@ export const Card = memo(function Card({
 
 const variantMap: Record<CardVariant, ViewStyle> = {
     default: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.68)',
         ...SHADOWS.card,
         ...BORDERS.card,
     },
     elevated: {
-        backgroundColor: COLORS.surfaceElevated,
+        backgroundColor: 'rgba(10, 10, 10, 0.86)',
         ...SHADOWS.cardElevated,
         ...BORDERS.elevated,
     },
     outlined: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.56)',
         borderWidth: 1,
         borderColor: COLORS.border,
     },
@@ -146,9 +146,9 @@ const variantMap: Record<CardVariant, ViewStyle> = {
         backgroundColor: COLORS.surfaceSecondary,
     },
     glass: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(10, 10, 10, 0.58)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(245, 245, 240, 0.14)',
     },
 };
 
@@ -168,6 +168,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.text.primary,
+        letterSpacing: 0,
     },
     subtitle: {
         fontSize: 13,

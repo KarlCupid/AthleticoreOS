@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
@@ -453,8 +453,6 @@ const styles = StyleSheet.create({
   inlineScore: {
     fontSize: 24,
     fontFamily: FONT_FAMILY.black,
-    letterSpacing: -0.3,
+    letterSpacing: 0,
   },
 });
-
-

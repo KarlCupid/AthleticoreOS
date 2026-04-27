@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
-        letterSpacing: -0.5,
+        letterSpacing: 0,
     },
     content: {
         padding: SPACING.lg,

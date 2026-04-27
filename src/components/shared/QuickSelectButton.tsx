@@ -23,11 +23,11 @@ interface QuickSelectButtonProps {
 
 export function QuickSelectButton({ label, sublabel, selected, onPress, disabled = false, style }: QuickSelectButtonProps) {
     const borderColor = useSharedValue(selected ? APP_CHROME.accent : COLORS.border);
-    const bgColor = useSharedValue(selected ? '#F0FFF8' : COLORS.surface);
+    const bgColor = useSharedValue(selected ? COLORS.accentLight : COLORS.surface);
 
     React.useEffect(() => {
         borderColor.value = withTiming(selected ? APP_CHROME.accent : COLORS.border, { duration: 150 });
-        bgColor.value = withTiming(selected ? '#F0FFF8' : COLORS.surface, { duration: 150 });
+        bgColor.value = withTiming(selected ? COLORS.accentLight : COLORS.surface, { duration: 150 });
     }, [selected]);
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
         color: COLORS.text.primary,
     },
     labelSelected: {
-        color: APP_CHROME.accent,
+        color: COLORS.text.primary,
         fontFamily: FONT_FAMILY.extraBold,
     },
     sublabel: {

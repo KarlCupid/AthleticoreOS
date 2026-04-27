@@ -42,7 +42,7 @@ interface ExerciseCardProps {
 }
 
 // ---------------------------------------------------------------------------
-// Interactive mode — bold, cardless, gym floor
+// Interactive mode â€” bold, cardless, gym floor
 // ---------------------------------------------------------------------------
 
 function InteractiveExercise({
@@ -57,11 +57,11 @@ function InteractiveExercise({
 
   const scheme =
     exercise.setScheme ??
-    `${exercise.targetSets} × ${exercise.targetReps}${exercise.targetRPE > 0 ? `  @RPE ${exercise.targetRPE}` : ''}`;
+    `${exercise.targetSets} Ã— ${exercise.targetReps}${exercise.targetRPE > 0 ? `  @RPE ${exercise.targetRPE}` : ''}`;
 
   return (
     <View style={ix.container}>
-      {/* Exercise name — dominant */}
+      {/* Exercise name â€” dominant */}
       <Text style={ix.name} numberOfLines={2}>
         {exercise.name}
       </Text>
@@ -94,7 +94,7 @@ const ix = StyleSheet.create({
     fontSize: 26,
     lineHeight: 32,
     color: COLORS.text.primary,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   metaRow: {
     flexDirection: 'row',
@@ -130,7 +130,7 @@ const ix = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// Readonly mode — the traditional card (unchanged)
+// Readonly mode â€” the traditional card (unchanged)
 // ---------------------------------------------------------------------------
 
 export function ExerciseCard({
@@ -148,12 +148,12 @@ export function ExerciseCard({
     setShowHowItWorksDetails(false);
   }, [exercise.id, mode]);
 
-  // ── Interactive: bold gym-floor layout ──
+  // â”€â”€ Interactive: bold gym-floor layout â”€â”€
   if (mode === 'interactive') {
     return <InteractiveExercise exercise={exercise}>{children}</InteractiveExercise>;
   }
 
-  // ── Readonly: traditional card ──
+  // â”€â”€ Readonly: traditional card â”€â”€
   const strategyMeta = getLoadingStrategyMeta(exercise.loadingStrategy);
   const strategy = strategyMeta
     ? {

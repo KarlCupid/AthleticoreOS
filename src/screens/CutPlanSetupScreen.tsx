@@ -395,12 +395,12 @@ export function CutPlanSetupScreen() {
       style={{ flex: 1, backgroundColor: 'transparent' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient colors={['#B7D9A8', '#15803D']} style={styles.header}>
+      <LinearGradient colors={['rgba(10, 10, 10, 0.92)', 'rgba(212, 175, 55, 0.22)']} style={styles.header}>
         <TouchableOpacity
           onPress={() => (step === 1 ? nav.goBack() : setStep((current) => (current - 1) as Step))}
           style={styles.backButton}
         >
-          <IconChevronLeft size={24} color="#fff" />
+          <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{step === 1 ? 'How It Works' : 'Weight Cut Setup'}</Text>
         <View style={styles.stepDots}>
@@ -449,7 +449,7 @@ export function CutPlanSetupScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.activateButton} onPress={handleActivate} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.nextButtonText}>Activate cut plan</Text>}
+            {loading ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.nextButtonText}>Activate cut plan</Text>}
           </TouchableOpacity>
         )}
       </View>

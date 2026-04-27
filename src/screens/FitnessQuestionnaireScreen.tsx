@@ -5,15 +5,24 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { submitFitnessQuestionnaire } from '../../lib/api/fitnessService';
 import { FitnessAssessmentInput } from '../../lib/engine/types';
+import {
+    APP_CHROME,
+    COLORS as THEME_COLORS,
+    FONT_FAMILY,
+    RADIUS,
+    SHADOWS,
+    SPACING,
+} from '../theme/theme';
 
 const COLORS = {
-    background: '#09090B',
-    card: '#18181B',
-    cardLight: '#27272A',
-    text: '#FAFAFA',
-    textMuted: '#A1A1AA',
-    primary: '#EAB308',
-    danger: '#D9827E',
+    background: APP_CHROME.background,
+    card: 'rgba(10, 10, 10, 0.68)',
+    cardLight: THEME_COLORS.border,
+    cardSubtle: THEME_COLORS.surfaceSecondary,
+    text: THEME_COLORS.text.primary,
+    textMuted: THEME_COLORS.text.secondary,
+    primary: APP_CHROME.accent,
+    danger: THEME_COLORS.error,
 };
 
 export function FitnessQuestionnaireScreen() {
@@ -68,7 +77,7 @@ export function FitnessQuestionnaireScreen() {
             onPress={() => onSelect(value)}
         >
             <Text style={[styles.optionText, selectedValue === value && styles.optionTextSelected]}>{label}</Text>
-            {selectedValue === value && <Text style={{ color: COLORS.primary, fontSize: 18, fontWeight: 'bold' }}>{"\u2713"}</Text>}
+            {selectedValue === value && <Text style={styles.inlineCheck}>{"\u2713"}</Text>}
         </TouchableOpacity>
     );
 
@@ -154,7 +163,7 @@ export function FitnessQuestionnaireScreen() {
                                 style={[styles.unknownBtn, runTimeUnknown && styles.unknownBtnActive]}
                                 onPress={() => setRunTimeUnknown(!runTimeUnknown)}
                             >
-                                <Text style={[styles.unknownBtnText, runTimeUnknown && { color: COLORS.background }]}>I don't run</Text>
+                                <Text style={[styles.unknownBtnText, runTimeUnknown && styles.unknownBtnTextActive]}>I don't run</Text>
                             </TouchableOpacity>
                         </View>
                         {!runTimeUnknown && (
@@ -169,13 +178,13 @@ export function FitnessQuestionnaireScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Medical</Text>
                     <TouchableOpacity
-                        style={[styles.optionRow, form.hasSignificantInjuries && { borderColor: COLORS.danger, backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                        style={[styles.optionRow, form.hasSignificantInjuries && styles.optionDanger]}
                         onPress={() => setForm(f => ({ ...f, hasSignificantInjuries: !f.hasSignificantInjuries }))}
                     >
                         <Text style={[styles.optionText, form.hasSignificantInjuries && { color: COLORS.danger }]}>
                             I have significant current injuries
                         </Text>
-                        {form.hasSignificantInjuries && <Text style={{ color: COLORS.danger, fontSize: 18, fontWeight: 'bold' }}>{"\u2713"}</Text>}
+                        {form.hasSignificantInjuries && <Text style={styles.inlineDangerCheck}>{"\u2713"}</Text>}
                     </TouchableOpacity>
                 </View>
 
@@ -188,7 +197,7 @@ export function FitnessQuestionnaireScreen() {
                     disabled={submitting}
                 >
                     <Text style={styles.saveBtnText}>{submitting ? 'Calculating...' : 'Calculate Baseline'}</Text>
-                    <Text style={{ color: '#000', fontSize: 20, fontWeight: 'bold' }}>{"\u203A"}</Text>
+                    <Text style={styles.saveArrow}>{"\u203A"}</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -197,45 +206,52 @@ export function FitnessQuestionnaireScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: 'transparent' },
-    header: { padding: 24, paddingBottom: 16 },
-    title: { fontSize: 28, fontWeight: '800', color: COLORS.text, marginBottom: 8 },
-    subtitle: { fontSize: 16, color: COLORS.textMuted },
+    header: { padding: SPACING.lg, paddingBottom: SPACING.md },
+    title: { fontSize: 30, lineHeight: 36, fontFamily: FONT_FAMILY.black, color: COLORS.text, marginBottom: 8, letterSpacing: 0 },
+    subtitle: { fontSize: 16, lineHeight: 22, fontFamily: FONT_FAMILY.regular, color: COLORS.textMuted },
     scroll: { flex: 1 },
-    scrollContent: { padding: 24, paddingTop: 0, paddingBottom: 100 },
-    section: { marginBottom: 32 },
-    sectionTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
-    label: { fontSize: 14, fontWeight: '600', color: COLORS.textMuted, marginBottom: 8, textTransform: 'uppercase' },
+    scrollContent: { padding: SPACING.lg, paddingTop: 0, paddingBottom: 100 },
+    section: { marginBottom: SPACING.xl },
+    sectionTitle: { fontSize: 20, lineHeight: 26, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text, marginBottom: SPACING.md, letterSpacing: 0 },
+    label: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.textMuted, marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 0.6 },
     optionRow: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: COLORS.card, padding: 16, borderRadius: 12, marginBottom: 8,
+        backgroundColor: COLORS.card, padding: SPACING.md, borderRadius: RADIUS.lg, marginBottom: SPACING.sm,
         borderWidth: 1, borderColor: COLORS.cardLight,
+        ...SHADOWS.sm,
     },
-    optionSelected: { borderColor: COLORS.primary, backgroundColor: 'rgba(234, 179, 8, 0.1)' },
-    optionText: { fontSize: 16, color: COLORS.textMuted, fontWeight: '500' },
-    optionTextSelected: { color: COLORS.text, fontWeight: '700' },
-    grid: { flexDirection: 'row', flex: 1, marginBottom: 16 },
+    optionSelected: { borderColor: COLORS.primary, backgroundColor: THEME_COLORS.accentLight },
+    optionDanger: { borderColor: COLORS.danger, backgroundColor: 'rgba(217, 130, 126, 0.14)' },
+    optionText: { fontSize: 16, color: COLORS.textMuted, fontFamily: FONT_FAMILY.regular },
+    optionTextSelected: { color: COLORS.text, fontFamily: FONT_FAMILY.semiBold },
+    inlineCheck: { color: COLORS.primary, fontSize: 18, fontFamily: FONT_FAMILY.black },
+    inlineDangerCheck: { color: COLORS.danger, fontSize: 18, fontFamily: FONT_FAMILY.black },
+    grid: { flexDirection: 'row', flex: 1, marginBottom: SPACING.md },
     numberControlContainer: { flex: 1 },
     numberControl: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: COLORS.card, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: COLORS.cardLight,
+        backgroundColor: COLORS.card, padding: SPACING.sm, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.cardLight,
     },
-    numberBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: COLORS.cardLight, alignItems: 'center', justifyContent: 'center' },
-    numberBtnText: { color: COLORS.text, fontSize: 20, fontWeight: '700' },
-    numberValue: { fontSize: 18, color: COLORS.text, fontWeight: '700' },
+    numberBtn: { width: 40, height: 40, borderRadius: RADIUS.md, backgroundColor: COLORS.cardSubtle, alignItems: 'center', justifyContent: 'center' },
+    numberBtnText: { color: COLORS.text, fontSize: 20, fontFamily: FONT_FAMILY.extraBold },
+    numberValue: { fontSize: 18, color: COLORS.text, fontFamily: FONT_FAMILY.extraBold },
     unknownBtn: {
-        paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12,
+        paddingHorizontal: SPACING.md, paddingVertical: SPACING.md - 2, borderRadius: RADIUS.lg,
         backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.cardLight
     },
-    unknownBtnActive: { backgroundColor: COLORS.textMuted, borderColor: COLORS.textMuted },
-    unknownBtnText: { color: COLORS.textMuted, fontWeight: '600' },
-    helperText: { color: COLORS.primary, fontSize: 14, marginTop: 8, fontWeight: '600' },
+    unknownBtnActive: { backgroundColor: THEME_COLORS.accentLight, borderColor: COLORS.primary },
+    unknownBtnText: { color: COLORS.textMuted, fontFamily: FONT_FAMILY.semiBold },
+    unknownBtnTextActive: { color: COLORS.text },
+    helperText: { color: COLORS.primary, fontSize: 14, marginTop: SPACING.sm, fontFamily: FONT_FAMILY.semiBold },
     footer: {
-        padding: 24, borderTopWidth: 1, borderTopColor: COLORS.cardLight,
-        backgroundColor: COLORS.background,
+        padding: SPACING.lg, borderTopWidth: 1, borderTopColor: COLORS.cardLight,
+        backgroundColor: 'rgba(10, 10, 10, 0.92)',
     },
     saveBtn: {
-        backgroundColor: COLORS.primary, padding: 18, borderRadius: 16,
+        backgroundColor: COLORS.primary, padding: SPACING.md + 2, borderRadius: RADIUS.lg,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        ...SHADOWS.colored.accent,
     },
-    saveBtnText: { color: '#000', fontSize: 16, fontWeight: '800', marginRight: 8 },
+    saveBtnText: { color: THEME_COLORS.text.inverse, fontSize: 16, fontFamily: FONT_FAMILY.extraBold, marginRight: 8 },
+    saveArrow: { color: THEME_COLORS.text.inverse, fontSize: 20, fontFamily: FONT_FAMILY.black },
 });

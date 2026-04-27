@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
 import type { ViewStyle } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
+import { COLORS, FONT_FAMILY, RADIUS, SPACING, TYPOGRAPHY_V2 } from '../theme/theme';
 
 interface ScreenHeaderProps {
   title: string;
@@ -40,7 +40,7 @@ export function ScreenHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: SPACING.sm, // Tighter gap
+    gap: SPACING.sm,
   },
   topRow: {
     flexDirection: 'row',
@@ -52,28 +52,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kicker: {
-    fontSize: 11, // Slightly smaller
+    ...TYPOGRAPHY_V2.plan.caption,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.accent,
-    letterSpacing: 0.5,
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 4, // Tighter
+    marginBottom: 4,
   },
   title: {
-    fontSize: 26, // Reduced from 30
+    fontSize: 30,
+    lineHeight: 36,
     fontFamily: FONT_FAMILY.black,
     color: COLORS.text.primary,
-    letterSpacing: -0.6,
+    letterSpacing: 0,
   },
   subtitle: {
-    marginTop: 2, // Reduced from 4
-    fontSize: 13, // Slightly smaller
+    marginTop: 2,
+    fontSize: 14,
+    lineHeight: 20,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
-    lineHeight: 18, // Tighter
   },
   action: {
     alignSelf: 'center',
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 10, 10, 0.46)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.30)',
   },
   bottom: {
     gap: SPACING.sm,
