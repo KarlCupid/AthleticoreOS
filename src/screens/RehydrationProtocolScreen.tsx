@@ -17,6 +17,7 @@ import { computeRehydrationProtocol } from '../../lib/engine/calculateWeightCut'
 import { useWeightCutData } from '../hooks/useWeightCutData';
 import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { Card } from '../components/Card';
 import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList>;
@@ -93,13 +94,21 @@ export function RehydrationProtocolScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.goalCard}>
+        <Card
+          style={styles.goalCard}
+          backgroundTone="fuelQuiet"
+          backgroundScrimColor="rgba(10, 10, 10, 0.62)"
+        >
           <Text style={styles.goalTitle}>Target Weight by Fight</Text>
           <Text style={styles.goalValue}>{protocol.targetWeightByFight.toFixed(1)} lbs</Text>
           <Text style={styles.goalSub}>Approx. 6% body weight regain</Text>
-        </View>
+        </Card>
 
-        <View style={styles.monitorCard}>
+        <Card
+          style={styles.monitorCard}
+          backgroundTone="fuelQuiet"
+          backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+        >
           <Text style={styles.monitorTitle}>Monitor</Text>
           {protocol.monitorMetrics.map((metric, index) => (
             <View key={index} style={styles.monitorRow}>
@@ -107,16 +116,20 @@ export function RehydrationProtocolScreen() {
               <Text style={styles.monitorText}>{metric}</Text>
             </View>
           ))}
-        </View>
+        </Card>
 
         <Text style={styles.sectionHeader}>Phased Protocol</Text>
         {protocol.phases.map((phase, idx) => (
           <TouchableOpacity
             key={idx}
-            style={[styles.phaseCard, completedPhases.has(idx) && styles.phaseCardDone]}
             onPress={() => togglePhase(idx)}
             activeOpacity={0.8}
           >
+            <Card
+              style={[styles.phaseCard, completedPhases.has(idx) && styles.phaseCardDone]}
+              backgroundTone="fuelQuiet"
+              backgroundScrimColor={completedPhases.has(idx) ? 'rgba(10, 10, 10, 0.70)' : 'rgba(10, 10, 10, 0.76)'}
+            >
             <View style={styles.phaseHeader}>
               <View style={[styles.checkBox, completedPhases.has(idx) && styles.checkBoxDone]}>
                 {completedPhases.has(idx) && <IconCheckCircle size={16} color={COLORS.text.inverse} />}
@@ -133,10 +146,15 @@ export function RehydrationProtocolScreen() {
               {phase.sodiumInstruction && <PhaseDetail icon="Na" text={phase.sodiumInstruction} />}
               <PhaseDetail icon="Target" text={`Target: ${phase.targetFluidOz ?? 0} oz this phase`} />
             </View>
+            </Card>
           </TouchableOpacity>
         ))}
 
-        <View style={styles.trackCard}>
+        <Card
+          style={styles.trackCard}
+          backgroundTone="fuelQuiet"
+          backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+        >
           <Text style={styles.trackTitle}>Current Regained Weight</Text>
           <Text style={styles.trackSub}>Weigh yourself every 1-2 hours</Text>
           <View style={styles.trackRow}>
@@ -177,13 +195,17 @@ export function RehydrationProtocolScreen() {
               <Text style={styles.logButtonText}>Log Weight</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </Card>
 
-        <View style={styles.coachNote}>
+        <Card
+          style={styles.coachNote}
+          backgroundTone="fuelQuiet"
+          backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+        >
           <Text style={styles.coachNoteText}>
             {HEALTH_GUIDANCE_NOTE} {protocol.message}
           </Text>
-        </View>
+        </Card>
 
         {userId && (
           <TouchableOpacity

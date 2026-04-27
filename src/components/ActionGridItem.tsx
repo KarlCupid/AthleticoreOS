@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { ImageBackground, View, Text, StyleSheet } from 'react-native';
 import { AnimatedPressable } from './AnimatedPressable';
 import { IconCheckCircle, IconChevronRight } from './icons';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING, SHADOWS } from '../theme/theme';
+import { CARD_BACKGROUNDS } from '../theme/cardBackgrounds';
 
 export interface ActionGridItemProps {
     icon: React.ReactNode;
@@ -17,6 +18,14 @@ export function ActionGridItem({ icon, iconBg, label, sub, done, onPress }: Acti
     return (
         <AnimatedPressable onPress={onPress} style={styles.actionGridItem}>
             <View style={styles.actionGridCard}>
+                <ImageBackground
+                    source={CARD_BACKGROUNDS.default}
+                    resizeMode="cover"
+                    style={StyleSheet.absoluteFillObject}
+                    imageStyle={styles.actionGridImage}
+                >
+                    <View style={styles.actionGridScrim} />
+                </ImageBackground>
                 <View style={[styles.actionGridIcon, { backgroundColor: iconBg }]}>
                     {done ? <IconCheckCircle size={20} color={COLORS.success} /> : icon}
                 </View>
@@ -42,6 +51,14 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(245, 245, 240, 0.14)',
         ...SHADOWS.card,
         minHeight: 120,
+        overflow: 'hidden',
+    },
+    actionGridImage: {
+        borderRadius: RADIUS.xl,
+    },
+    actionGridScrim: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(10, 10, 10, 0.74)',
     },
     actionGridIcon: {
         width: 40,

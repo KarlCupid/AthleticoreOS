@@ -94,7 +94,10 @@ function StateCard({
   onPress: () => void;
 }) {
   return (
-    <Card>
+    <Card
+      backgroundTone="workoutFloor"
+      backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+    >
       <View style={styles.stateCard}>
         <Text style={styles.stateTitle}>{title}</Text>
         <Text style={styles.stateBody}>{body}</Text>
@@ -265,7 +268,11 @@ export function WorkoutScreen() {
             {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
             {!initialLoadError && hasStructuredToday ? (
               <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}>
-                <Card style={[styles.heroCard, { borderColor: heroToneStyles.borderColor }]}>
+                <Card
+                  style={[styles.heroCard, { borderColor: heroToneStyles.borderColor }]}
+                  backgroundTone="workoutFloor"
+                  backgroundScrimColor="rgba(10, 10, 10, 0.64)"
+                >
                   <View style={styles.heroTopRow}>
                     <View style={[styles.heroBadge, { backgroundColor: heroToneStyles.badgeBackground }]}><Text style={[styles.heroBadgeText, { color: heroToneStyles.badgeColor }]}>{todayPlanEntry?.status === 'completed' ? 'Done today' : floorVM.isDeload ? 'Lighter day' : 'Today'}</Text></View>
                     {todaySummary.durationLabel ? <Text style={styles.heroDuration}>{todaySummary.durationLabel}</Text> : null}
@@ -301,7 +308,12 @@ export function WorkoutScreen() {
             ) : null}
             {!initialLoadError && contextualTodayActivities.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
-                <Card title="Also today" subtitle="Other sessions">
+                <Card
+                  title="Also today"
+                  subtitle="Other sessions"
+                  backgroundTone="schedule"
+                  backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+                >
                   <View style={styles.alsoTodayList}>
                     {contextualTodayActivities.map((activity, index) => (
                       <View key={activity.id} style={[styles.alsoTodayRow, index === contextualTodayActivities.length - 1 && styles.alsoTodayRowLast]}>

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
 } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { Card } from './Card';
 
 interface Props {
   baselineMs?: number | null;
@@ -79,7 +80,11 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
   });
 
   return (
-    <View style={styles.card}>
+    <Card
+      style={styles.card}
+      backgroundTone="cutProtocol"
+      backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+    >
       <Text style={styles.title}>Cognitive Reaction Test</Text>
       <Text style={styles.subtitle}>
         Tap when the circle turns green. Dehydration slows reaction time.
@@ -167,7 +172,7 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
           <Text style={styles.startButtonText}>Start Test</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </Card>
   );
 }
 

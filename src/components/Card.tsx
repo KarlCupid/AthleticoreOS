@@ -7,6 +7,7 @@ import Animated, {
     withSpring,
 } from 'react-native-reanimated';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS, ANIMATION } from '../theme/theme';
+import { CARD_BACKGROUNDS, type CardBackgroundKey } from '../theme/cardBackgrounds';
 
 type CardVariant = 'default' | 'elevated' | 'outlined' | 'filled' | 'glass';
 
@@ -23,7 +24,8 @@ interface CardProps {
     entering?: boolean;
     enteringDelay?: number;
     subtitleLines?: number;
-    backgroundImage?: ImageSourcePropType;
+    backgroundImage?: ImageSourcePropType | null;
+    backgroundTone?: CardBackgroundKey | 'none';
     backgroundScrimColor?: string;
 }
 
@@ -43,7 +45,8 @@ export const Card = memo(function Card({
     enteringDelay = 0,
     subtitleLines = 1,
     backgroundImage,
-    backgroundScrimColor = 'rgba(10, 10, 10, 0.38)',
+    backgroundTone = 'default',
+    backgroundScrimColor,
 }: CardProps) {
     const scale = useSharedValue(1);
 
@@ -80,14 +83,21 @@ export const Card = memo(function Card({
         ? FadeInDown.delay(enteringDelay).duration(ANIMATION.slow).springify()
         : undefined;
 
-    const backgroundLayer = backgroundImage ? (
+    const resolvedBackgroundImage =
+        backgroundImage === null || backgroundTone === 'none'
+            ? undefined
+            : backgroundImage ?? CARD_BACKGROUNDS[backgroundTone];
+    const resolvedScrimColor =
+        backgroundScrimColor ?? (backgroundImage ? 'rgba(10, 10, 10, 0.42)' : 'rgba(10, 10, 10, 0.68)');
+
+    const backgroundLayer = resolvedBackgroundImage ? (
         <ImageBackground
-            source={backgroundImage}
+            source={resolvedBackgroundImage}
             resizeMode="cover"
             style={StyleSheet.absoluteFillObject}
             imageStyle={styles.backgroundImage}
         >
-            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: backgroundScrimColor }]} />
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: resolvedScrimColor }]} />
         </ImageBackground>
     ) : null;
 

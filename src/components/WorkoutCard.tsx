@@ -42,7 +42,11 @@ export function WorkoutCard({ prescription, primaryActivity = null, isCompleted,
         if (primaryActivity) {
             const label = primaryActivity.custom_label ?? primaryActivity.activity_type.replace(/_/g, ' ');
             return wrapWithEntering(
-                <Card style={styles.card}>
+                <Card
+                    style={styles.card}
+                    backgroundTone="workoutFloor"
+                    backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+                >
                     <View style={[styles.iconContainer, { backgroundColor: themeColor + '20' }]}>
                         <IconFire size={24} color={themeColor} />
                     </View>
@@ -57,7 +61,11 @@ export function WorkoutCard({ prescription, primaryActivity = null, isCompleted,
         }
 
         return wrapWithEntering(
-            <Card style={styles.card}>
+            <Card
+                style={styles.card}
+                backgroundTone="workoutFloor"
+                backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+            >
                 <View style={[styles.iconContainer, { backgroundColor: COLORS.surfaceSecondary }]}>
                     <IconFire size={24} color={COLORS.text.tertiary} />
                 </View>
@@ -71,7 +79,11 @@ export function WorkoutCard({ prescription, primaryActivity = null, isCompleted,
 
     if (isCompleted) {
         return wrapWithEntering(
-            <Card style={styles.card}>
+            <Card
+                style={styles.card}
+                backgroundTone="workoutFloor"
+                backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+            >
                 <View style={[styles.iconContainer, { backgroundColor: COLORS.success + '20' }]}>
                     <IconCheckCircle size={24} color={COLORS.success} />
                 </View>
@@ -88,7 +100,11 @@ export function WorkoutCard({ prescription, primaryActivity = null, isCompleted,
 
     return wrapWithEntering(
         <AnimatedPressable onPress={onPress}>
-            <Card style={styles.card}>
+            <Card
+                style={styles.card}
+                backgroundTone="workoutFloor"
+                backgroundScrimColor="rgba(10, 10, 10, 0.66)"
+            >
                 <View style={styles.topRow}>
                     <View style={[styles.iconContainer, { backgroundColor: themeColor + '20' }]}>
                         <IconFire size={24} color={themeColor} />

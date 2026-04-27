@@ -4,11 +4,11 @@ import { todayLocalDate } from '../utils/date';
 
 const today = todayLocalDate;
 
-function mapPRRow(row: any): PRRecord {
+function mapPRRow(row: any, exerciseNames?: Map<string, string>): PRRecord {
     return {
         id: row.id,
         exerciseId: row.exercise_library_id,
-        exerciseName: row.exercise_library?.name ?? 'Unknown',
+        exerciseName: row.exercise_library?.name ?? exerciseNames?.get(row.exercise_library_id) ?? 'Unknown',
         prType: row.pr_type,
         value: Number(row.value),
         repsAtPR: row.reps_at_pr,
@@ -17,6 +17,28 @@ function mapPRRow(row: any): PRRecord {
         estimated1RM: row.estimated_1rm ? Number(row.estimated_1rm) : null,
         achievedDate: row.achieved_date,
     };
+}
+
+async function getExerciseNamesById(exerciseIds: string[]): Promise<Map<string, string>> {
+    const uniqueIds = [...new Set(exerciseIds.filter(Boolean))];
+    const names = new Map<string, string>();
+
+    if (uniqueIds.length === 0) {
+        return names;
+    }
+
+    const { data, error } = await supabase
+        .from('exercise_library')
+        .select('id, name')
+        .in('id', uniqueIds);
+
+    if (error) throw error;
+
+    for (const row of (data ?? []) as any[]) {
+        names.set(row.id, row.name);
+    }
+
+    return names;
 }
 
 // ─── Exercise History ────────────────────────────────────────
@@ -140,7 +162,7 @@ export async function getPRs(
 ): Promise<PRRecord[]> {
     let q = supabase
         .from('exercise_pr_log')
-        .select('*, exercise_library(name)')
+        .select('*')
         .eq('user_id', userId)
         .order('achieved_date', { ascending: false });
 
@@ -151,7 +173,10 @@ export async function getPRs(
     const { data, error } = await q;
     if (error) throw error;
 
-    return (data ?? []).map(mapPRRow);
+    const rows = (data ?? []) as any[];
+    const exerciseNames = await getExerciseNamesById(rows.map((row) => row.exercise_library_id));
+
+    return rows.map((row) => mapPRRow(row, exerciseNames));
 }
 
 export async function getPRsForExercises(
@@ -168,17 +193,20 @@ export async function getPRsForExercises(
         return result;
     }
 
-    const { data, error } = await supabase
-        .from('exercise_pr_log')
-        .select('*, exercise_library(name)')
-        .eq('user_id', userId)
-        .in('exercise_library_id', exerciseIds)
-        .order('achieved_date', { ascending: false });
+    const [{ data, error }, exerciseNames] = await Promise.all([
+        supabase
+            .from('exercise_pr_log')
+            .select('*')
+            .eq('user_id', userId)
+            .in('exercise_library_id', exerciseIds)
+            .order('achieved_date', { ascending: false }),
+        getExerciseNamesById(exerciseIds),
+    ]);
 
     if (error) throw error;
 
     for (const row of (data ?? []) as any[]) {
-        const mapped = mapPRRow(row);
+        const mapped = mapPRRow(row, exerciseNames);
         const existing = result.get(mapped.exerciseId);
         if (existing) {
             existing.push(mapped);

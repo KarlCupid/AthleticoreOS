@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { CutPlanResult } from '../../lib/engine/types';
 import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../theme/theme';
+import { Card } from './Card';
 import { IconAlertTriangle } from './icons';
 
 interface CutPlanPreviewStepProps {
@@ -32,14 +33,18 @@ export function CutPlanPreviewStep({
       <Text style={styles.heading}>Plan Preview</Text>
 
       {hasErrors ? (
-        <View style={styles.errorBox}>
+        <Card
+          style={styles.errorBox}
+          backgroundTone="risk"
+          backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+        >
           <IconAlertTriangle size={20} color={COLORS.error} />
           {planResult.validationErrors.map((error, index) => (
             <Text key={index} style={styles.errorText}>
               {error}
             </Text>
           ))}
-        </View>
+        </Card>
       ) : (
         <>
           <View style={styles.planSummaryGrid}>
@@ -77,13 +82,21 @@ export function CutPlanPreviewStep({
             />
           </View>
 
-          <View style={styles.noteBox}>
+          <Card
+            style={styles.noteBox}
+            backgroundTone="cutProtocol"
+            backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+          >
             <Text style={styles.noteTitle}>Health guidance note</Text>
             <Text style={styles.noteBody}>{HEALTH_GUIDANCE_NOTE}</Text>
-          </View>
+          </Card>
 
           {planResult.cutWarning ? (
-            <View style={styles.extremeWarningBox}>
+            <Card
+              style={styles.extremeWarningBox}
+              backgroundTone="risk"
+              backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+            >
               <View style={styles.extremeWarningHeader}>
                 <Text style={styles.extremeWarningIcon}>!</Text>
                 <Text style={styles.extremeWarningTitle}>{riskTitle}</Text>
@@ -119,18 +132,22 @@ export function CutPlanPreviewStep({
                   </Text>
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </Card>
           ) : null}
 
           {planResult.safetyWarnings.length > 0 && !planResult.cutWarning ? (
-            <View style={styles.warningBox}>
+            <Card
+              style={styles.warningBox}
+              backgroundTone="risk"
+              backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+            >
               <IconAlertTriangle size={16} color={COLORS.warning} />
               {planResult.safetyWarnings.map((warning, index) => (
                 <Text key={`${warning}-${index}`} style={styles.warningText}>
                   {warning}
                 </Text>
               ))}
-            </View>
+            </Card>
           ) : null}
         </>
       )}
@@ -140,10 +157,14 @@ export function CutPlanPreviewStep({
 
 function PlanStat({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.planStat}>
+    <Card
+      style={styles.planStat}
+      backgroundTone="cutProtocol"
+      backgroundScrimColor="rgba(10, 10, 10, 0.80)"
+    >
       <Text style={styles.planStatValue}>{value}</Text>
       <Text style={styles.planStatLabel}>{label}</Text>
-    </View>
+    </Card>
   );
 }
 
@@ -151,7 +172,11 @@ function PhaseRow(props: { name: string; start: string; end: string; color: stri
   const { name, start, end, color, weeks } = props;
 
   return (
-    <View style={styles.phaseRow}>
+    <Card
+      style={styles.phaseRow}
+      backgroundTone="cutProtocol"
+      backgroundScrimColor="rgba(10, 10, 10, 0.80)"
+    >
       <View style={[styles.phaseColor, { backgroundColor: color }]} />
       <View style={{ flex: 1 }}>
         <Text style={styles.phaseName}>{name}</Text>
@@ -159,7 +184,7 @@ function PhaseRow(props: { name: string; start: string; end: string; color: stri
           {start} to {end} ({Math.round(weeks)}w)
         </Text>
       </View>
-    </View>
+    </Card>
   );
 }
 

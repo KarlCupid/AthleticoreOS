@@ -1,7 +1,8 @@
 import React, { ReactNode } from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { ImageBackground, View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { CARD_BACKGROUNDS, type CardBackgroundKey } from '../theme/cardBackgrounds';
 import { AnimatedNumber } from './AnimatedNumber';
 
 interface StatCardProps {
@@ -16,6 +17,8 @@ interface StatCardProps {
     style?: StyleProp<ViewStyle>;
     entering?: boolean;
     enteringDelay?: number;
+    backgroundTone?: CardBackgroundKey | 'none';
+    backgroundScrimColor?: string;
 }
 
 export function StatCard({
@@ -30,12 +33,24 @@ export function StatCard({
     style,
     entering = false,
     enteringDelay = 0,
+    backgroundTone = 'default',
+    backgroundScrimColor = 'rgba(10, 10, 10, 0.72)',
 }: StatCardProps) {
     const trendArrow = trend === 'up' ? '\u2191' : trend === 'down' ? '\u2193' : trend === 'flat' ? '\u2192' : null;
     const trendColor = trend === 'up' ? COLORS.success : trend === 'down' ? COLORS.error : COLORS.text.tertiary;
 
     const card = (
         <View style={[styles.card, style]}>
+            {backgroundTone !== 'none' ? (
+                <ImageBackground
+                    source={CARD_BACKGROUNDS[backgroundTone]}
+                    resizeMode="cover"
+                    style={StyleSheet.absoluteFillObject}
+                    imageStyle={styles.backgroundImage}
+                >
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: backgroundScrimColor }]} />
+                </ImageBackground>
+            ) : null}
             <View style={styles.header}>
                 <View style={[styles.iconCircle, color ? { backgroundColor: color + '15' } : undefined]}>
                     {icon}
@@ -80,7 +95,11 @@ const styles = StyleSheet.create({
         padding: SPACING.md,
         borderWidth: 1,
         borderColor: 'rgba(245, 245, 240, 0.14)',
+        overflow: 'hidden',
         ...SHADOWS.card,
+    },
+    backgroundImage: {
+        borderRadius: RADIUS.xl,
     },
     header: {
         flexDirection: 'row',

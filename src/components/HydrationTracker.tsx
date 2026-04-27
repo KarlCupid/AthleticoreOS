@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { Card } from './Card';
 import { IconWaterDrop } from './icons';
 
 interface HydrationTrackerProps {
@@ -19,7 +20,11 @@ export function HydrationTracker({
   const pct = targetOz > 0 ? Math.min(currentOz / targetOz, 1) : 0;
 
   return (
-    <View style={styles.container}>
+    <Card
+      style={styles.container}
+      backgroundTone="fuelQuiet"
+      backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+    >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <IconWaterDrop size={18} color={COLORS.chart.water} />
@@ -52,7 +57,7 @@ export function HydrationTracker({
           </TouchableOpacity>
         ))}
       </View>
-    </View>
+    </Card>
   );
 }
 

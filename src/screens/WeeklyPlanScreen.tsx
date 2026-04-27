@@ -202,7 +202,12 @@ export function WeeklyPlanScreen() {
                 </View>
                 <View style={styles.scrollContent}>
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
-                        <Card variant="glass" style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}>
+                        <Card
+                            variant="glass"
+                            style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}
+                            backgroundTone="planning"
+                            backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+                        >
                             <Text style={styles.emptyTitle}>Create a gym profile</Text>
                             <Text style={styles.emptySubtitle}>
                                 Workout plans need your available equipment first.
@@ -225,7 +230,12 @@ export function WeeklyPlanScreen() {
                 </View>
                 <View style={styles.scrollContent}>
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
-                        <Card variant="glass" style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}>
+                        <Card
+                            variant="glass"
+                            style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}
+                            backgroundTone="planning"
+                            backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+                        >
                             <Text style={styles.emptyTitle}>No Plan Found</Text>
                             <Text style={styles.emptySubtitle}>
                                 {activeWeekStart && !isCurrentWeek 
@@ -316,7 +326,13 @@ export function WeeklyPlanScreen() {
                 {/* ─── Feature: Up Next Hero Card ─── */}
                 {nextSession && (
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>
-                        <Card variant="glass" style={styles.heroCard} noPadding>
+                        <Card
+                            variant="glass"
+                            style={styles.heroCard}
+                            noPadding
+                            backgroundTone="workoutFloor"
+                            backgroundScrimColor="rgba(10, 10, 10, 0.60)"
+                        >
                             <AnimatedPressable style={styles.heroCardInner} onPress={() => handleDayPress(nextSession)}>
                                 <View style={styles.heroHeader}>
                                     <View style={styles.heroBadge}>
@@ -342,7 +358,13 @@ export function WeeklyPlanScreen() {
                 {/* ─── Feature: Coach's Note ─── */}
                 {weekPlan?.message ? (
                     <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.slow).springify()}>
-                        <Card variant="glass" style={styles.coachNoteCard} noPadding>
+                        <Card
+                            variant="glass"
+                            style={styles.coachNoteCard}
+                            noPadding
+                            backgroundTone="planning"
+                            backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+                        >
                             <View style={styles.coachNoteInner}>
                                 <View style={styles.coachIconBox}>
                                     <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color={COLORS.accent} />
@@ -359,7 +381,13 @@ export function WeeklyPlanScreen() {
                 {/* ─── Missed Sessions Banner ─── */}
                 {visibleTargets.length > 0 ? (
                     <Animated.View entering={FadeInDown.delay(75).duration(ANIMATION.slow).springify()}>
-                        <Card variant="glass" style={styles.targetCard} noPadding>
+                        <Card
+                            variant="glass"
+                            style={styles.targetCard}
+                            noPadding
+                            backgroundTone="planning"
+                            backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+                        >
                             <View style={styles.targetCardInner}>
                                 <View style={styles.targetHeaderRow}>
                                     <Text style={styles.targetTitle}>Programming targets</Text>
@@ -389,7 +417,13 @@ export function WeeklyPlanScreen() {
                 {missedEntries.length > 0 && (
                     <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.slow).springify()}>
                         <AnimatedPressable onPress={handleMissedBannerPress}>
-                            <Card variant="glass" style={styles.cautionBanner} noPadding>
+                            <Card
+                                variant="glass"
+                                style={styles.cautionBanner}
+                                noPadding
+                                backgroundTone="risk"
+                                backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+                            >
                                 <View style={styles.cautionBannerInner}>
                                     <View style={styles.cautionIconBox}>
                                         <MaterialCommunityIcons name="alert" size={14} color="#F5F5F0" />
@@ -414,7 +448,13 @@ export function WeeklyPlanScreen() {
                         <StatCard icon={<MaterialCommunityIcons name="timer-outline" size={16} color={COLORS.accent} />} color={COLORS.accent} label="Active Time" value={`${completedHours}h`} sub={`of ${totalHours}h`} style={styles.metricCard} />
                     </View>
 
-                    <Card variant="glass" style={styles.chartCard} noPadding>
+                    <Card
+                        variant="glass"
+                        style={styles.chartCard}
+                        noPadding
+                        backgroundTone="trainingLoad"
+                        backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+                    >
                         <View style={styles.chartHeader}>
                             <Text style={styles.chartTitle}>Projected Load</Text>
                             <Text style={styles.chartSubtitle}>Minutes and load</Text>

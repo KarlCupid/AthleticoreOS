@@ -40,7 +40,11 @@ export const DailyMissionCard = memo(function DailyMissionCard({ mission, compac
   const roleLabel = getSessionRoleLabel(mission.trainingDirective.sessionRole);
 
   return (
-    <Card style={styles.card}>
+    <Card
+      style={styles.card}
+      backgroundTone="mission"
+      backgroundScrimColor="rgba(10, 10, 10, 0.58)"
+    >
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={styles.kicker}>DAILY MISSION</Text>

@@ -91,7 +91,12 @@ export function WorkoutPrescriptionSection({
     const hasSections = Array.isArray(prescription.sections) && prescription.sections.length > 0;
 
     return (
-      <Card title="Workout details" subtitle={sessionLabel}>
+      <Card
+        title="Workout details"
+        subtitle={sessionLabel}
+        backgroundTone="workoutFloor"
+        backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+      >
         {prescription.sessionGoal ? (
           <View style={styles.sessionCopy}>
             <Text style={styles.sessionGoal}>{prescription.sessionGoal}</Text>
@@ -143,7 +148,12 @@ export function WorkoutPrescriptionSection({
   };
 
   const renderRoadWork = () => (
-    <Card title="Workout details" subtitle={sessionLabel}>
+    <Card
+      title="Workout details"
+      subtitle={sessionLabel}
+      backgroundTone="workoutFloor"
+      backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+    >
       <View style={styles.sessionCopy}>
         <Text style={styles.sessionGoal}>Pace guidance</Text>
         <Text style={styles.sessionIntent}>{prescription.paceGuidance}</Text>
@@ -170,7 +180,12 @@ export function WorkoutPrescriptionSection({
   );
 
   const renderConditioning = () => (
-    <Card title="Workout details" subtitle={sessionLabel}>
+    <Card
+      title="Workout details"
+      subtitle={sessionLabel}
+      backgroundTone="workoutFloor"
+      backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+    >
       <View style={styles.sessionCopy}>
         <Text style={styles.sessionGoal}>Conditioning structure</Text>
         <Text style={styles.sessionIntent}>

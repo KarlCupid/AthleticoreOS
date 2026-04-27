@@ -13,6 +13,7 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import {
   IconTarget, IconChevronRight, IconTrendDown, IconScale,
 } from '../components/icons';
+import { Card } from '../components/Card';
 import { CutPhaseTimeline } from '../components/CutPhaseTimeline';
 import { WeightCutChart } from '../components/WeightCutChart';
 import { DailyProtocolCard } from '../components/DailyProtocolCard';
@@ -220,23 +221,35 @@ export function WeightCutHomeScreen() {
       {todayProtocol ? (
         <DailyProtocolCard protocol={todayProtocol} />
       ) : (
-        <View style={styles.card}>
+        <Card
+          style={styles.card}
+          backgroundTone="cutProtocol"
+          backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+        >
           <Text style={styles.sectionTitle}>Today's protocol</Text>
           <Text style={styles.guidanceBody}>
             Today's cut protocol is not ready yet. Pull to refresh or open fight-week protocol to trigger a fresh engine pass.
           </Text>
-        </View>
+        </Card>
       )}
 
-      <View style={styles.card}>
+      <Card
+        style={styles.card}
+        backgroundTone="cutProtocol"
+        backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+      >
         <Text style={styles.sectionTitle}>Health guidance note</Text>
         <Text style={styles.guidanceBody}>
           This feature provides coaching-oriented educational guidance. It does not replace licensed medical advice,
           diagnosis, or emergency care.
         </Text>
-      </View>
+      </Card>
       {/* Weight chart */}
-      <View style={styles.card}>
+      <Card
+        style={styles.card}
+        backgroundTone="bodyTrend"
+        backgroundScrimColor="rgba(10, 10, 10, 0.80)"
+      >
         <Text style={styles.sectionTitle}>Weight Trend</Text>
         <WeightCutChart
           weightHistory={weightHistory}
@@ -244,12 +257,16 @@ export function WeightCutHomeScreen() {
           projectedWeight={projectedWeightByWeighIn}
           weighInDate={activePlan.weigh_in_date}
         />
-      </View>
+      </Card>
       {/* Phase timeline */}
-      <View style={styles.card}>
+      <Card
+        style={styles.card}
+        backgroundTone="cutProtocol"
+        backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+      >
         <Text style={styles.sectionTitle}>Cut Timeline</Text>
         <CutPhaseTimeline plan={activePlan} currentPhase={phase} />
-      </View>
+      </Card>
       {/* Quick actions */}
       <View style={styles.quickActions}>
         {phase === 'fight_week_load' || phase === 'fight_week_cut' || phase === 'weigh_in' ? (
@@ -292,12 +309,16 @@ export function WeightCutHomeScreen() {
       </View>
       {/* Weight class info */}
       {activePlan.weight_class_name && (
-        <View style={[styles.card, styles.weightClassCard]}>
+        <Card
+          style={[styles.card, styles.weightClassCard]}
+          backgroundTone="cutProtocol"
+          backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+        >
           <IconTarget size={16} color={COLORS.text.secondary} />
           <Text style={styles.weightClassText}>
             {activePlan.weight_class_name} - {activePlan.sport?.toUpperCase()} - {activePlan.fight_status}
           </Text>
-        </View>
+        </Card>
       )}
 
       <View style={{ height: 100 }} />

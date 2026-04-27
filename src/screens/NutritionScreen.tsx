@@ -193,7 +193,11 @@ export function NutritionScreen() {
     }
 
     return (
-      <Card style={{ marginBottom: SPACING.md }}>
+      <Card
+        style={{ marginBottom: SPACING.md }}
+        backgroundTone="risk"
+        backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+      >
         <Text style={inline.errorTitle}>Fuel is temporarily unavailable</Text>
         <Text style={inline.copyMuted}>{error}</Text>
         <AnimatedPressable style={inline.secondaryButton} onPress={() => void reload(true)}>
@@ -213,7 +217,11 @@ export function NutritionScreen() {
 
     return (
       <>
-        <Card style={{ marginBottom: SPACING.md }}>
+        <Card
+          style={{ marginBottom: SPACING.md }}
+          backgroundTone="fuelQuiet"
+          backgroundScrimColor="rgba(10, 10, 10, 0.66)"
+        >
           <Text style={inline.sectionEyebrow}>Fuel mission</Text>
           <Text style={inline.cardHeadline}>
             {humanizeCoachSentence(
@@ -246,7 +254,11 @@ export function NutritionScreen() {
     return (
       <>
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)}>
-          <Card style={{ marginBottom: SPACING.md }}>
+          <Card
+            style={{ marginBottom: SPACING.md }}
+            backgroundTone="fuelQuiet"
+            backgroundScrimColor="rgba(10, 10, 10, 0.66)"
+          >
             <Text style={inline.cardHeadline}>{quickVM.fuelDirectiveHeadline}</Text>
             {[quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
               .filter(Boolean)
@@ -293,7 +305,11 @@ export function NutritionScreen() {
         {renderMissionCards()}
 
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.normal)}>
-          <Card style={{ marginBottom: SPACING.md }}>
+          <Card
+            style={{ marginBottom: SPACING.md }}
+            backgroundTone="nutrition"
+            backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+          >
             <MacroProgressBar
               label="Calories"
               current={viewModel.totals.calories}
@@ -369,7 +385,11 @@ export function NutritionScreen() {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.normal)}>
-        <Card style={{ marginBottom: SPACING.md }}>
+        <Card
+          style={{ marginBottom: SPACING.md }}
+          backgroundTone="nutrition"
+          backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+        >
           <MacroProgressBar
             label="Calories"
             current={viewModel.totals.calories}

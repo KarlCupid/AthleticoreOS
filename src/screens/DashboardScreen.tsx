@@ -504,6 +504,8 @@ export function DashboardScreen() {
                   useCompactReadinessHero && styles.readinessHeroCardCompact,
                   { borderColor: getReadinessBorderColor(currentLevel) },
                 ]}
+                backgroundTone="readiness"
+                backgroundScrimColor="rgba(10, 10, 10, 0.50)"
               >
                 <View pointerEvents="none" style={styles.readinessHeroGlow} />
                 <View
@@ -672,7 +674,7 @@ export function DashboardScreen() {
                 .springify()}
               style={weightTrend ? styles.firstRunChecklistAfterBodyTrend : undefined}
             >
-              <Card>
+              <Card backgroundTone="planning" backgroundScrimColor="rgba(10, 10, 10, 0.72)">
                 <View style={styles.firstRunHeaderRow}>
                   <Text style={styles.firstRunKicker}>START HERE</Text>
                   <Text style={styles.firstRunProgress}>

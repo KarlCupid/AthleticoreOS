@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { IconPlus, IconChevronRight } from './icons';
+import { Card } from './Card';
 import { MealType } from '../../lib/engine/types';
 import type { MealLogEntryViewModel } from '../hooks/fuel/types';
 
@@ -42,7 +43,12 @@ export function MealSection({
   const hasFoods = foods.length > 0;
 
   return (
-    <View style={styles.container}>
+    <Card
+      style={styles.container}
+      noPadding
+      backgroundTone="fuelQuiet"
+      backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+    >
       <TouchableOpacity
         style={styles.header}
         onPress={() => setExpanded(!expanded)}
@@ -100,7 +106,7 @@ export function MealSection({
           <Text style={styles.addText}>Add</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </Card>
   );
 }
 

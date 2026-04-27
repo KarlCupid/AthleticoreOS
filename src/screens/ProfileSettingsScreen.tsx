@@ -424,7 +424,11 @@ export function ProfileSettingsScreen() {
           />
         </View>
         <View style={styles.emptyState}>
-          <Card variant="glass">
+          <Card
+            variant="glass"
+            backgroundTone="profile"
+            backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+          >
             <Text style={styles.emptyTitle}>We couldn't load your profile.</Text>
             <Text style={styles.emptyBody}>{error ?? 'Try refreshing this screen in a moment.'}</Text>
             <AnimatedPressable style={styles.primaryButton} onPress={() => void loadSnapshot('initial')}>
@@ -452,7 +456,13 @@ export function ProfileSettingsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadSnapshot('refresh')} tintColor={themeColor} />}
       >
         <Animated.View entering={FadeInDown.delay(40).duration(ANIMATION.normal).springify()}>
-          <Card variant="glass" style={styles.heroCard} noPadding>
+          <Card
+            variant="glass"
+            style={styles.heroCard}
+            noPadding
+            backgroundTone="profile"
+            backgroundScrimColor="rgba(10, 10, 10, 0.58)"
+          >
             <View style={styles.heroContent}>
               <View style={[styles.avatarGlow, { borderColor: themeColor + '80' }]}>
                 <View style={styles.avatar}>
@@ -485,7 +495,13 @@ export function ProfileSettingsScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" style={styles.statsMosaic} noPadding>
+          <Card
+            variant="glass"
+            style={styles.statsMosaic}
+            noPadding
+            backgroundTone="profile"
+            backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+          >
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{snapshot.totalSessions}</Text>
               <Text style={styles.statLabel}>SESSIONS</Text>
@@ -504,7 +520,13 @@ export function ProfileSettingsScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(130).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Current program" subtitle="Active plan">
+          <Card
+            variant="glass"
+            title="Current program"
+            subtitle="Active plan"
+            backgroundTone={snapshot.activeCutPlan ? 'cutProtocol' : 'camp'}
+            backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+          >
             <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Mode" value={formatGoalMode(goalMode)} />
             <DetailRow icon={<IconBarChart size={18} color={themeColor} />} label="Phase" value={phaseLabel} />
             <DetailRow
@@ -536,7 +558,13 @@ export function ProfileSettingsScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(170).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Training setup" subtitle="Plan and gym">
+          <Card
+            variant="glass"
+            title="Training setup"
+            subtitle="Plan and gym"
+            backgroundTone="workoutFloor"
+            backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+          >
             <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Plan" value={setupSummary} />
             <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Default Gym" value={snapshot.defaultGymProfile?.name ?? 'Not set'} />
             <DetailRow
@@ -570,7 +598,13 @@ export function ProfileSettingsScreen() {
 
         {profile ? (
           <Animated.View entering={FadeInDown.delay(210).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-            <Card variant="glass" title="Profile inputs" subtitle="Editable basics">
+            <Card
+              variant="glass"
+              title="Profile inputs"
+              subtitle="Editable basics"
+              backgroundTone="profile"
+              backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+            >
               <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Fight Status" value={formatTitleCase(profile.fight_status)} />
               <DetailRow icon={<IconPerson size={18} color={themeColor} />} label="Biological Sex" value={formatTitleCase(profile.biological_sex)} />
               <EditableRow
@@ -654,7 +688,13 @@ export function ProfileSettingsScreen() {
 
         {profile ? (
           <Animated.View entering={FadeInDown.delay(250).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-            <Card variant="glass" title="Nutrition & recovery" subtitle="Planning inputs">
+            <Card
+              variant="glass"
+              title="Nutrition & recovery"
+              subtitle="Planning inputs"
+              backgroundTone="fuelQuiet"
+              backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+            >
               <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Activity Level" value={formatTitleCase(profile.activity_level, 'Moderate')} />
               <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Nutrition Goal" value={formatTitleCase(profile.nutrition_goal, 'Maintain')} />
               <View style={[styles.settingRow, styles.detailRowLast]}>
@@ -674,7 +714,13 @@ export function ProfileSettingsScreen() {
         ) : null}
 
         <Animated.View entering={FadeInDown.delay(290).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Setup guide" subtitle="First wins">
+          <Card
+            variant="glass"
+            title="Setup guide"
+            subtitle="First wins"
+            backgroundTone="planning"
+            backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+          >
             <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Guide Status" value={formatGuidanceStatus(snapshot.guidanceState)} />
             <DetailRow
               icon={<IconCheck size={18} color={themeColor} />}
@@ -697,7 +743,13 @@ export function ProfileSettingsScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(330).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Account" subtitle={snapshot.email || 'Signed in'}>
+          <Card
+            variant="glass"
+            title="Account"
+            subtitle={snapshot.email || 'Signed in'}
+            backgroundTone="profile"
+            backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+          >
             {error ? <Text style={styles.inlineError}>{error}</Text> : null}
             <View style={styles.accountActionStack}>
               <AccountLinkButton label="Privacy & support" onPress={openLegalSupport} />

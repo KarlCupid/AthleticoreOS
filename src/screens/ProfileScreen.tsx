@@ -82,7 +82,12 @@ export function ProfileScreen() {
                 </View>
 
                 {/* Stats Row */}
-                <Card style={styles.statsRow} noPadding>
+                <Card
+                    style={styles.statsRow}
+                    noPadding
+                    backgroundTone="profile"
+                    backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+                >
                     <View style={styles.statBox}>
                         <Text style={styles.statValue}>{totalSessions}</Text>
                         <Text style={styles.statLabel}>Sessions</Text>
@@ -101,7 +106,12 @@ export function ProfileScreen() {
 
                 {/* Details */}
                 {profile && (
-                    <Card variant="glass" style={{ marginBottom: SPACING.lg }}>
+                    <Card
+                        variant="glass"
+                        style={{ marginBottom: SPACING.lg }}
+                        backgroundTone="profile"
+                        backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+                    >
                         <Text style={styles.sectionTitle}>Training Details</Text>
                         <DetailRow label="Fight Status" value={profile.fight_status.charAt(0).toUpperCase() + profile.fight_status.slice(1)} />
                         <DetailRow label="Biological Sex" value={profile.biological_sex.charAt(0).toUpperCase() + profile.biological_sex.slice(1)} />

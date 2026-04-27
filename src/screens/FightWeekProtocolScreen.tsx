@@ -18,6 +18,7 @@ import { useWeightCutData } from '../hooks/useWeightCutData';
 import type { DailyCutProtocolRow, CutPhase, WeightCutPlanRow } from '../../lib/engine/types';
 import type { FightWeekDayViewModel } from '../hooks/fuel/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { Card } from '../components/Card';
 import { IconChevronLeft, IconDroplets } from '../components/icons';
 import { UrineColorPicker } from '../components/UrineColorPicker';
 import { CognitiveTestCard } from '../components/CognitiveTestCard';
@@ -81,7 +82,11 @@ function ProtocolSection({
   }
 
   return (
-    <View style={[styles.sectionCard, { borderLeftColor: color }]}>
+    <Card
+      style={[styles.sectionCard, { borderLeftColor: color }]}
+      backgroundTone="cutProtocol"
+      backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+    >
       <View style={styles.sectionHeader}>
         {icon}
         <Text style={styles.sectionTitle}>{title}</Text>
@@ -91,7 +96,7 @@ function ProtocolSection({
           - {item}
         </Text>
       ))}
-    </View>
+    </Card>
   );
 }
 
@@ -233,7 +238,11 @@ export function FightWeekProtocolScreen() {
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: SPACING.md, gap: SPACING.md }}>
-        <View style={[styles.dayCard, { borderLeftColor: phaseColors[0] }]}>
+        <Card
+          style={[styles.dayCard, { borderLeftColor: phaseColors[0] }]}
+          backgroundTone="cutProtocol"
+          backgroundScrimColor="rgba(10, 10, 10, 0.68)"
+        >
           <View>
             <Text style={styles.dayCardTitle}>
               {selectedDayView?.label ?? 'Fight week'} · {selectedDayView?.phaseLabel ?? 'Protocol'}
@@ -247,12 +256,16 @@ export function FightWeekProtocolScreen() {
           {protocol?.protocol_adherence ? (
             <Text style={styles.statusBadge}>{protocol.protocol_adherence.toUpperCase()}</Text>
           ) : null}
-        </View>
+        </Card>
 
-        <View style={styles.briefCard}>
+        <Card
+          style={styles.briefCard}
+          backgroundTone="cutProtocol"
+          backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+        >
           <Text style={styles.briefTitle}>Health guidance note</Text>
           <Text style={styles.briefText}>{HEALTH_GUIDANCE_NOTE}</Text>
-        </View>
+        </Card>
 
         {loadingProtocol ? (
           <View style={styles.centerBlock}>
@@ -298,7 +311,11 @@ export function FightWeekProtocolScreen() {
             <ProtocolSection title="Evening" color={phaseColors[0]} items={[protocol.evening_protocol ?? '']} />
 
             {isSelectedToday ? (
-              <View style={styles.sectionCard}>
+              <Card
+                style={styles.sectionCard}
+                backgroundTone="cutProtocol"
+                backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+              >
                 <Text style={styles.sectionTitle}>Compliance</Text>
                 <Text style={styles.sectionItem}>Log how closely you followed today's protocol.</Text>
                 <View style={styles.complianceRow}>
@@ -312,7 +329,7 @@ export function FightWeekProtocolScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
-              </View>
+              </Card>
             ) : null}
 
             {isSelectedToday && (protocol.cut_phase === 'fight_week_load' || protocol.cut_phase === 'fight_week_cut' || protocol.cut_phase === 'weigh_in') ? (
@@ -351,11 +368,16 @@ export function FightWeekProtocolScreen() {
               <View style={styles.flagsContainer}>
                 <Text style={styles.flagsTitle}>Safety flags</Text>
                 {protocol.safety_flags.map((flag, index) => (
-                  <View key={`${flag.code}-${index}`} style={[styles.flagCard, { borderLeftColor: FLAG_COLORS[flag.severity] ?? COLORS.accent }]}>
+                  <Card
+                    key={`${flag.code}-${index}`}
+                    style={[styles.flagCard, { borderLeftColor: FLAG_COLORS[flag.severity] ?? COLORS.accent }]}
+                    backgroundTone="risk"
+                    backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+                  >
                     <Text style={styles.flagTitle}>{flag.title}</Text>
                     <Text style={styles.flagMessage}>{flag.message}</Text>
                     <Text style={styles.flagRec}>{flag.recommendation}</Text>
-                  </View>
+                  </Card>
                 ))}
               </View>
             ) : null}

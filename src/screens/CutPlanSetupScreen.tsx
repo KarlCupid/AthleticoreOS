@@ -23,6 +23,7 @@ import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
 import type { CutPlanResult, CutSport, FightStatus } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { CutPlanPreviewStep } from '../components/CutPlanPreviewStep';
+import { Card } from '../components/Card';
 import { DatePickerField } from '../components/DatePickerField';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';
 import { APP_IMPACTS, CUT_PHASES } from '../constants/cutPlanSetup';
@@ -218,7 +219,12 @@ export function CutPlanSetupScreen() {
 
       <Text style={styles.introSectionLabel}>What Changes</Text>
       {APP_IMPACTS.map(({ icon, feature, timing, color, bg, detail }) => (
-        <View key={feature} style={[styles.impactCard, { backgroundColor: bg, borderColor: `${color}40` }]}>
+        <Card
+          key={feature}
+          style={[styles.impactCard, { backgroundColor: bg, borderColor: `${color}40` }]}
+          backgroundTone="cutProtocol"
+          backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+        >
           <View style={styles.impactCardTop}>
             <View style={[styles.impactIconBox, { backgroundColor: `${color}20` }]}>
               <Text style={styles.impactIcon}>{icon}</Text>
@@ -231,12 +237,17 @@ export function CutPlanSetupScreen() {
             </View>
           </View>
           <Text style={styles.impactDetail}>{detail}</Text>
-        </View>
+        </Card>
       ))}
 
       <Text style={[styles.introSectionLabel, { marginTop: SPACING.md }]}>Cut Phases</Text>
       {CUT_PHASES.map(({ label, when, color, bg, description }) => (
-        <View key={label} style={[styles.phaseCard, { backgroundColor: bg }]}>
+        <Card
+          key={label}
+          style={[styles.phaseCard, { backgroundColor: bg }]}
+          backgroundTone="cutProtocol"
+          backgroundScrimColor="rgba(10, 10, 10, 0.80)"
+        >
           <View style={[styles.phaseCardBar, { backgroundColor: color }]} />
           <View style={{ flex: 1 }}>
             <View style={styles.phaseCardHeader}>
@@ -247,15 +258,19 @@ export function CutPlanSetupScreen() {
             </View>
             <Text style={styles.phaseCardDesc}>{description}</Text>
           </View>
-        </View>
+        </Card>
       ))}
 
-      <View style={styles.introNote}>
+      <Card
+        style={styles.introNote}
+        backgroundTone="risk"
+        backgroundScrimColor="rgba(10, 10, 10, 0.78)"
+      >
         <Text style={styles.introNoteIcon}>i</Text>
         <Text style={styles.introNoteText}>
           Estimates use your logs. Keep your coach informed and get medical help for safety concerns.
         </Text>
-      </View>
+      </Card>
     </View>
   );
 

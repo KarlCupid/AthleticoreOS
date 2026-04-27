@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { DailyCutProtocolRow } from '../../lib/engine/types';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
+import { Card } from './Card';
 
 interface Props {
   protocol: DailyCutProtocolRow;
@@ -30,7 +31,11 @@ export function DailyProtocolCard({ protocol }: Props) {
   const sodiumK = sodiumTargetMg / 1000;
 
   return (
-    <View style={styles.card}>
+    <Card
+      style={styles.card}
+      backgroundTone="cutProtocol"
+      backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Today's Protocol</Text>
         {protocol.is_refeed_day && (
@@ -116,7 +121,7 @@ export function DailyProtocolCard({ protocol }: Props) {
             ))}
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
