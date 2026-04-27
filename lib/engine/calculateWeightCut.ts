@@ -20,6 +20,7 @@ import type { FightStatus } from './types/foundational.ts';
 import { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol.ts';
 import { formatLocalDate } from '../utils/date.ts';
 import {
+  computeRehydrationFluidTargetLiters,
   evaluateCutPlanSafety,
   getPolicyWaterCutPct,
   isAgeUnknown,
@@ -1117,9 +1118,11 @@ export function computeRehydrationProtocol(input: RehydrationInput): Rehydration
   const fightTime = input.fightTime ?? addHours(weighInTime, input.hoursToFight ?? 0);
   const { biologicalSex } = input;
 
-  const weightDeficitLbs = Math.max(0, targetWeight - currentWeight);
   const targetRegainLbs = Math.round((targetWeight * (biologicalSex === 'female' ? 0.05 : 0.07)) * 10) / 10;
-  const totalFluidTargetLiters = Math.round((weightDeficitLbs * 0.7) * 10) / 10;
+  const totalFluidTargetLiters = computeRehydrationFluidTargetLiters({
+    currentWeight,
+    targetWeight,
+  });
 
   const hoursAvailable = (new Date(fightTime).getTime() - new Date(weighInTime).getTime()) / 3600000;
   const totalFluidOz = Math.round(totalFluidTargetLiters * 33.814);

@@ -1,8 +1,6 @@
 import React from "react";
 import {
-  Alert,
   Image,
-  ImageBackground,
   InteractionManager,
   Modal,
   RefreshControl,
@@ -15,59 +13,35 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
 import { Card } from "../components/Card";
-import { SectionHeader } from "../components/SectionHeader";
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { SkeletonLoader } from "../components/SkeletonLoader";
 import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
-  IconActivity,
-  IconArrowUp,
   IconBarbell,
   IconBell,
   IconCheckCircle,
   IconDroplets,
-  IconFire,
   IconCalendar,
-  IconChevronRight,
-  IconLightning,
-  IconTarget,
 } from "../components/icons";
-import { DashboardNutritionCard } from "../components/DashboardNutritionCard";
-import { DailyMissionCard } from "../components/DailyMissionCard";
-import {
-  buildCompassViewModel,
-  getAllDecisionReasons,
-} from "../../lib/engine/presentation";
-import { PrescriptionCard } from "../components/PrescriptionCard";
-import { WeightTrendCard } from "../components/WeightTrendCard";
-import { SafetyStatusIndicator } from "../components/SafetyStatusIndicator";
-import { ActivityCard } from "../components/ActivityCard";
-import { ActiveCampBanner } from "../components/ActiveCampBanner";
-import { RadialProgress } from "../components/RadialProgress";
+import { MissionDashboardPanel } from "../components/dashboard/MissionDashboardPanel";
+import { buildCompassViewModel } from "../../lib/engine/presentation";
+import { buildMissionDashboardViewModel } from "../../lib/engine/presentation/missionDashboard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 
-import type { CutSafetyFlag, ScheduledActivityRow } from "../../lib/engine/types";
+import type { CutSafetyFlag } from "../../lib/engine/types";
 import { getActiveUserId } from "../../lib/api/athleteContextService";
 import {
   getAndSyncFirstRunGuidanceState,
   markFirstRunGuidanceIntroSeen,
   type FirstRunGuidanceState,
 } from "../../lib/api/firstRunGuidanceService";
-import { applySameDayOverride } from "../../lib/api/scheduleService";
 import { supabase } from "../../lib/supabase";
 import { todayLocalDate } from "../../lib/utils/date";
 import { logError } from "../../lib/utils/logger";
 import { useDashboardData } from "../hooks/useDashboardData";
-import { buildTodayHomeState } from "../hooks/dashboard/buildTodayHomeState";
 import { styles } from "./DashboardScreen.styles";
 import { getGuidedWorkoutContext } from "../../lib/api/fightCampService";
 import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
-
-const DASHBOARD_BACKGROUNDS = {
-  readiness: require("../../assets/images/dashboard/readiness-console-bg.png"),
-  mission: require("../../assets/images/dashboard/mission-card-bg.png"),
-  support: require("../../assets/images/dashboard/support-card-bg.png"),
-};
 
 const BRAND_LOGO = require("../../assets/images/athleticore-logo.png");
 
@@ -116,32 +90,22 @@ export function DashboardScreen() {
     refreshing,
     onRefresh,
     acwr,
-    hydration,
     checkinDone,
     sessionDone,
-    sleepQuality,
-    morningWeight,
-    readinessScore,
     todayActivities,
     primaryActivity,
     currentLevel,
-    prescriptionMessage,
     workoutPrescription,
     todayPlanEntry,
     weightTrend,
-    weightHistory,
-    nutritionTargets,
-    actualNutrition,
-    currentLedger,
     activeCutProtocol,
-    campRisk,
     dailyMission,
-    goalMode,
     hasActiveFightCamp,
     hasActiveCutPlan,
+    weeklyReview,
+    recentTrainingSessions,
   } = useDashboardData();
 
-  const [showWhyToday, setShowWhyToday] = React.useState(false);
   const compassVM = React.useMemo(
     () =>
       buildCompassViewModel(
@@ -153,47 +117,44 @@ export function DashboardScreen() {
     [dailyMission, workoutPrescription, todayPlanEntry, checkinDone, sessionDone],
   );
 
-  const homeState = React.useMemo(
-    () =>
-      buildTodayHomeState({
-        acwr,
-        hydration,
-        checkinDone,
-        sessionDone,
-        currentLevel,
-        readinessScore,
-        workoutPrescription,
-        todayPlanEntry,
-        todayActivities,
-        primaryActivity,
-        nutritionTargets,
-        actualNutrition,
-        currentLedger,
-        hasActiveCutPlan,
-        todayCutProtocol: activeCutProtocol,
-      }),
-    [
-      acwr,
-      hydration,
-      checkinDone,
-      sessionDone,
-      currentLevel,
-      readinessScore,
-      workoutPrescription,
-      todayPlanEntry,
-      todayActivities,
-      primaryActivity,
-      nutritionTargets,
-      actualNutrition,
-      currentLedger,
-      hasActiveCutPlan,
-      activeCutProtocol,
-    ],
-  );
   const activeCutSafetyFlags = React.useMemo(
     () => normalizeCutSafetyFlags(activeCutProtocol?.safety_flags),
     [activeCutProtocol?.safety_flags],
   );
+  const missionDashboard = React.useMemo(
+    () =>
+      buildMissionDashboardViewModel({
+        mission: dailyMission,
+        acwr,
+        readinessState: currentLevel,
+        checkinDone,
+        sessionDone,
+        hasActiveFightCamp,
+        hasActiveCutPlan,
+        todayPlanEntryIsDeload: Boolean(todayPlanEntry?.is_deload),
+        activeCutProtocol,
+        weightTrend,
+        weeklyReview,
+        recentTrainingSessions,
+        cutSafetyFlags: activeCutSafetyFlags,
+      }),
+    [
+      dailyMission,
+      acwr,
+      currentLevel,
+      checkinDone,
+      sessionDone,
+      hasActiveFightCamp,
+      hasActiveCutPlan,
+      todayPlanEntry?.is_deload,
+      activeCutProtocol,
+      weightTrend,
+      weeklyReview,
+      recentTrainingSessions,
+      activeCutSafetyFlags,
+    ],
+  );
+  const hasLivePlanningState = Boolean(todayPlanEntry) || todayActivities.length > 0;
   const D = 50;
   const openTrainScreen = React.useCallback(
     (screen: string, params?: Record<string, unknown>) => {
@@ -286,14 +247,14 @@ export function DashboardScreen() {
   }, [openPlanScreen]);
 
   const openPlanningSurface = React.useCallback(() => {
-    if (homeState.schedule.hasLivePlanningState) {
+    if (hasLivePlanningState) {
       openPlanScreen("CalendarMain");
       return;
     }
 
     openBuildPhaseSetup();
   }, [
-    homeState.schedule.hasLivePlanningState,
+    hasLivePlanningState,
     openBuildPhaseSetup,
     openPlanScreen,
   ]);
@@ -348,45 +309,6 @@ export function DashboardScreen() {
     onRefresh();
     void loadFirstRunGuidance();
   }, [onRefresh, loadFirstRunGuidance]);
-
-  const handleScheduleOverride = async (
-    activity: ScheduledActivityRow,
-    type: "lighter" | "harder" | "skipped",
-  ) => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user) {
-      return;
-    }
-
-    try {
-      await applySameDayOverride(session.user.id, activity, { type });
-      handleRefresh();
-    } catch (error) {
-      logError("DashboardScreen.applyOverride", error);
-      Alert.alert(
-        "Update failed",
-        "Could not update this session. Please try again.",
-      );
-    }
-  };
-
-  const handleLogActivity = (activity: ScheduledActivityRow) => {
-    if (
-      isGuidedEngineActivityType(activity.activity_type) &&
-      activity.weekly_plan_entry_id
-    ) {
-      void openTodayTraining();
-      return;
-    }
-
-    navigation.navigate("ActivityLog", {
-      activityId: activity.id,
-      date: activity.date,
-    });
-  };
 
   const dismissFirstRunModal = React.useCallback(async () => {
     setShowFirstRunModal(false);
@@ -568,148 +490,15 @@ export function DashboardScreen() {
                 </View>
             </View>
 
-            <ImageBackground
-              source={DASHBOARD_BACKGROUNDS.readiness}
-              style={styles.heroMetricsBlock}
-              imageStyle={styles.windowImage}
-              resizeMode="cover"
-            >
-                <View style={styles.readinessScrim} />
-                <View style={styles.readinessMain}>
-                    <Text style={styles.readinessLabel}>READINESS</Text>
-                    <RadialProgress
-                        progress={homeState.training.readinessScore / 100}
-                        size={132}
-                        strokeWidth={10}
-                        color={getReadinessColor(homeState.training.readinessScore)}
-                        trackColor="rgba(245,245,240,0.14)"
-                        label={Math.round(homeState.training.readinessScore).toString()}
-                        sublabel={getReadinessGuidance(currentLevel)}
-                        textColor="#F5F5F0"
-                        labelStyle={styles.readinessScoreText}
-                        sublabelStyle={styles.readinessSublabelText}
-                    />
-                </View>
-                
-                <View style={styles.secondaryMetricsList}>
-                    <View style={styles.secondaryMetricItem}>
-                        <View style={styles.metricIconBubble}>
-                          <IconLightning size={18} color={COLORS.accent} />
-                        </View>
-                        <View style={styles.metricCopy}>
-                          <Text style={styles.secondaryMetricLabel}>Today</Text>
-                          <Text style={styles.secondaryMetricValue}>{homeState.training.workload.label}</Text>
-                        </View>
-                    </View>
-                    {typeof sleepQuality === "number" && (
-                        <View style={styles.secondaryMetricItem}>
-                            <View style={styles.metricIconBubble}>
-                              <IconActivity size={18} color={COLORS.accent} />
-                            </View>
-                            <View style={styles.metricCopy}>
-                              <Text style={styles.secondaryMetricLabel}>Sleep</Text>
-                              <Text style={styles.secondaryMetricValue}>{sleepQuality}/5</Text>
-                            </View>
-                            <View style={styles.metricTrendBubble}>
-                              <IconArrowUp size={14} color={COLORS.success} />
-                            </View>
-                        </View>
-                    )}
-                    {typeof morningWeight === "number" && (
-                        <View style={styles.secondaryMetricItem}>
-                            <View style={styles.metricIconBubble}>
-                              <IconFire size={18} color={COLORS.accent} />
-                            </View>
-                            <View style={styles.metricCopy}>
-                              <Text style={styles.secondaryMetricLabel}>Weight</Text>
-                              <Text style={styles.secondaryMetricValue}>{morningWeight} lb</Text>
-                            </View>
-                            <View style={styles.metricTrendBubble}>
-                              <IconArrowUp size={14} color={COLORS.success} />
-                            </View>
-                        </View>
-                    )}
-                </View>
-            </ImageBackground>
-
-            <ImageBackground
-              source={DASHBOARD_BACKGROUNDS.mission}
-              style={styles.compassCard}
-              imageStyle={styles.windowImage}
-              resizeMode="cover"
-            >
-               <View style={styles.missionScrim} />
-               <Text style={styles.compassWatermark}>A</Text>
-               <View style={styles.compassHeaderRow}>
-                 <View style={styles.missionIconBubble}>
-                   <IconTarget size={20} color={COLORS.accent} />
-                 </View>
-                 <View style={styles.compassHeaderCopy}>
-                   <View style={styles.compassTitleRow}>
-                     <Text style={styles.compassSessionRole} numberOfLines={1}>
-                       Today's Mission
-                     </Text>
-                     <Text
-                       style={styles.compassRolePill}
-                       numberOfLines={1}
-                       adjustsFontSizeToFit
-                       minimumFontScale={0.84}
-                     >
-                        {compassVM.sessionRoleLabel.toUpperCase()}
-                     </Text>
-                   </View>
-                 </View>
-               </View>
-               <Text
-                 style={styles.compassHeadline}
-                 numberOfLines={3}
-                 adjustsFontSizeToFit
-                 minimumFontScale={0.88}
-               >
-                 {compassVM.headline}
-               </Text>
-               <Text style={styles.compassSummary} numberOfLines={3}>
-                 {compassVM.summaryLine}
-               </Text>
-               
-               {dailyMission?.decisionTrace?.length ? (
-                 <View style={styles.compassReasonRow}>
-                   <View style={styles.compassReasonBar} />
-                   <Text style={styles.compassReasonText}>{compassVM.reasonSentence}</Text>
-                 </View>
-               ) : null}
-
-               <AnimatedPressable style={styles.compassPrimaryButton} onPress={handleCompassCTA}>
-                  <Text
-                    style={styles.compassPrimaryText}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.86}
-                  >
-                    {compassVM.primaryCTALabel}
-                  </Text>
-                  <IconChevronRight size={18} color={COLORS.text.inverse} />
-               </AnimatedPressable>
-
-               {compassVM.secondaryCTALabel ? (
-                  <AnimatedPressable style={styles.compassSecondaryButton} onPress={handleCompassSecondaryCTA}>
-                    <Text
-                      style={styles.compassSecondaryText}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.86}
-                    >
-                      {compassVM.secondaryCTALabel}
-                    </Text>
-                  </AnimatedPressable>
-               ) : null}
-
-               {dailyMission ? (
-                  <AnimatedPressable onPress={() => setShowWhyToday(true)}>
-                     <Text style={styles.compassMissionLink}>Mission details &gt;</Text>
-                  </AnimatedPressable>
-               ) : null}
-            </ImageBackground>
+            <View style={styles.missionDashboardWrap}>
+              <MissionDashboardPanel
+                viewModel={missionDashboard}
+                primaryActionLabel={compassVM.primaryCTALabel}
+                onPrimaryAction={handleCompassCTA}
+                secondaryActionLabel={compassVM.secondaryCTALabel}
+                onSecondaryAction={handleCompassSecondaryCTA}
+              />
+            </View>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={styles.quickActionGrid}>
@@ -757,160 +546,19 @@ export function DashboardScreen() {
                    <IconCalendar size={28} color={COLORS.accent} />
                 </View>
                 <Text style={styles.quickActionLabelBlock}>
-                   {homeState.schedule.hasLivePlanningState ? "Calendar" : "Setup"}
+                   {hasLivePlanningState ? "Calendar" : "Setup"}
                 </Text>
             </AnimatedPressable>
         </Animated.View>
 
-        {/* Active camp context stays close to the mission controls. */}
-        {hasActiveFightCamp && (
-            <Animated.View entering={FadeInDown.delay(D * 1.5).duration(ANIMATION.slow).springify()}>
-                <ActiveCampBanner goalMode={goalMode} />
-            </Animated.View>
-        )}
-
         <View style={styles.content}>
-          {showWhyToday && dailyMission ? (
-            <Animated.View
-              entering={FadeInDown.delay(D * 0.4)
-                .duration(ANIMATION.slow)
-                .springify()}
-            >
-              <Card
-                backgroundImage={DASHBOARD_BACKGROUNDS.support}
-                backgroundScrimColor="rgba(10, 10, 10, 0.46)"
-              >
-                <AnimatedPressable
-                  style={styles.whyTodayHeader}
-                  onPress={() => setShowWhyToday((v) => !v)}
-                >
-                  <Text style={styles.whyTodayTitle}>Mission details</Text>
-                  <Text style={styles.whyTodayChevron}>
-                    {showWhyToday ? "^" : "v"}
-                  </Text>
-                </AnimatedPressable>
-                {showWhyToday &&
-                  getAllDecisionReasons(dailyMission.decisionTrace).map(
-                    (reason, idx) => (
-                      <View key={idx} style={styles.whyTodayItem}>
-                        <Text style={styles.whyTodayItemTitle}>
-                          {reason.title}
-                        </Text>
-                        <Text style={styles.whyTodayItemSentence}>
-                          {reason.sentence}
-                        </Text>
-                      </View>
-                    ),
-                  )}
-              </Card>
-              <View style={{ marginTop: SPACING.md }}>
-                <DailyMissionCard mission={dailyMission} compact />
-              </View>
-            </Animated.View>
-          ) : !dailyMission ? (
-            <PrescriptionCard
-              message={prescriptionMessage}
-              entering
-              enteringDelay={D}
-            />
-          ) : null}
-
-          {homeState.schedule.contextualActivities.length > 0 && (
-            <Animated.View
-              entering={FadeInDown.delay(D * 1.8)
-                .duration(ANIMATION.slow)
-                .springify()}
-              style={{ marginTop: SPACING.md }}
-            >
-              <SectionHeader
-                title={
-                  todayPlanEntry
-                    ? "Also today"
-                    : "Today's schedule"
-                }
-                actionLabel="View day"
-                onAction={() =>
-                  navigation.navigate("DayDetail", { date: todayLocalDate() })
-                }
-              />
-              {todayPlanEntry && (
-                <Text style={styles.contextScheduleNote}>
-                  Training is shown above. These are the rest.
-                </Text>
-              )}
-              {homeState.schedule.contextualActivities.map((activity) => (
-                <ActivityCard
-                  key={activity.id}
-                  activity={activity}
-                  onPress={() => handleLogActivity(activity)}
-                  onLog={() => handleLogActivity(activity)}
-                  onSkip={() => handleScheduleOverride(activity, "skipped")}
-                  onEdit={() =>
-                    navigation.navigate("DayDetail", { date: activity.date })
-                  }
-                  onLighter={() => handleScheduleOverride(activity, "lighter")}
-                  onHarder={() => handleScheduleOverride(activity, "harder")}
-                  showActions
-                />
-              ))}
-            </Animated.View>
-          )}
-
-          {weightTrend && (
-            <Animated.View
-              entering={FadeInDown.delay(D * 4)
-                .duration(ANIMATION.slow)
-                .springify()}
-              style={{ marginTop: SPACING.md }}
-            >
-              <SectionHeader title="Body trends" />
-              <WeightTrendCard
-                trend={weightTrend}
-                baseWeight={
-                  weightTrend.currentWeight - weightTrend.totalChangeLbs
-                }
-                targetWeight={
-                  weightTrend.remainingLbs > 0
-                    ? weightTrend.currentWeight - weightTrend.remainingLbs
-                    : null
-                }
-                history={weightHistory}
-              />
-            </Animated.View>
-          )}
-
-          <Animated.View
-            entering={FadeInDown.delay(D * 5)
-              .duration(ANIMATION.slow)
-              .springify()}
-            style={{ marginTop: SPACING.md }}
-          >
-            <SectionHeader
-              title="Fuel"
-              actionLabel="Details"
-              onAction={() => openFuelScreen("NutritionHome")}
-            />
-            <AnimatedPressable onPress={() => openFuelScreen("NutritionHome")}>
-              <DashboardNutritionCard
-                actualNutrition={homeState.fuel.actual}
-                targets={homeState.fuel.targets}
-                cutProtocol={hasActiveCutPlan ? activeCutProtocol : undefined}
-              />
-            </AnimatedPressable>
-          </Animated.View>
-
-
           {shouldShowFirstRunChecklist && firstRunGuidance ? (
             <Animated.View
               entering={FadeInDown.delay(D)
                 .duration(ANIMATION.slow)
                 .springify()}
-              style={{ marginTop: SPACING.md }}
             >
-              <Card
-                backgroundImage={DASHBOARD_BACKGROUNDS.support}
-                backgroundScrimColor="rgba(10, 10, 10, 0.46)"
-              >
+              <Card>
                 <View style={styles.firstRunHeaderRow}>
                   <Text style={styles.firstRunKicker}>START HERE</Text>
                   <Text style={styles.firstRunProgress}>
@@ -963,48 +611,6 @@ export function DashboardScreen() {
             </Animated.View>
           ) : null}
 
-          {campRisk ? (
-            <Animated.View
-              entering={FadeInDown.delay(D * 1.2)
-                .duration(ANIMATION.slow)
-                .springify()}
-              style={{ marginTop: SPACING.md }}
-            >
-              <Card
-                backgroundImage={DASHBOARD_BACKGROUNDS.support}
-                backgroundScrimColor="rgba(10, 10, 10, 0.50)"
-              >
-                <Text
-                  style={[
-                    styles.biologyTitle,
-                    { color: getCampRiskColor(campRisk.level) },
-                  ]}
-                >
-                  Camp Risk {campRisk.score}/100 -{" "}
-                  {formatCampRiskLevel(campRisk.level)}
-                </Text>
-                <Text style={[styles.biologyDesc, { marginTop: SPACING.xs }]}>
-                  {campRisk.projectedMakeWeightStatus}
-                </Text>
-                <Text style={[styles.biologyDesc, { marginTop: SPACING.xs }]}>
-                  {campRisk.drivers[0]}
-                </Text>
-              </Card>
-            </Animated.View>
-          ) : null}
-
-          {activeCutSafetyFlags.filter((flag) => flag.severity === "danger").length > 0 && (
-            <Animated.View
-              entering={FadeInDown.delay(D * 1.5)
-                .duration(ANIMATION.slow)
-                .springify()}
-            >
-              <SafetyStatusIndicator
-                flags={activeCutSafetyFlags}
-              />
-            </Animated.View>
-          )}
-
           <View style={{ height: SPACING.xxl }} />
         </View>
       </ScrollView>
@@ -1028,37 +634,6 @@ function isCutSafetyFlag(value: unknown): value is CutSafetyFlag {
 
 function normalizeCutSafetyFlags(flags: unknown): CutSafetyFlag[] {
   return Array.isArray(flags) ? flags.filter(isCutSafetyFlag) : [];
-}
-
-function formatCampRiskLevel(
-  level: "low" | "moderate" | "high" | "critical",
-): string {
-  if (level === "critical") return "Critical";
-  if (level === "high") return "High";
-  if (level === "moderate") return "Moderate";
-  return "Low";
-}
-
-function getCampRiskColor(
-  level: "low" | "moderate" | "high" | "critical",
-): string {
-  if (level === "critical") return COLORS.error;
-  if (level === "high") return COLORS.readiness.depleted;
-  if (level === "moderate") return COLORS.warning;
-  return COLORS.success;
-}
-
-function getReadinessColor(score: number): string {
-    if (score >= 70) return COLORS.readiness.prime;
-    if (score >= 40) return COLORS.readiness.caution;
-    return COLORS.readiness.depleted;
-}
-
-function getReadinessGuidance(level: string | null): string {
-    if (level === "Prime") return "Clear to train";
-    if (level === "Caution") return "Keep controlled";
-    if (level === "Depleted") return "Recovery first";
-    return "Check in first";
 }
 
 function getGreeting(): string {

@@ -20,6 +20,11 @@ import type {
   WorkoutType,
 } from './types.ts';
 import { getInterferencePenalty, type SessionType } from './load/interferenceModel.ts';
+import {
+  FIGHT_CAMP_SAFETY_POLICY,
+  getFightCampSodiumRestrictionInterpretation,
+  getSafeFightCampSodiumRestrictionDetail,
+} from './safety/policy.ts';
 
 export const DAILY_ENGINE_VERSION = 'daily-engine-v3';
 
@@ -121,14 +126,14 @@ function inferSessionRole(input: {
 }): TrainingSessionRole {
   const { campPhase, focus, intensityCap, isOnActiveCut, hasSparring } = input;
 
-  if ((intensityCap ?? 10) <= 4) {
+  if ((intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap) {
     return isOnActiveCut ? 'cut_protect' : 'recover';
   }
   if (campPhase === 'taper') return 'taper_sharpen';
   if (hasSparring) return 'spar_support';
   if (campPhase === 'peak') return 'express';
   if (campPhase === 'build' || campPhase === 'base') return 'develop';
-  if ((intensityCap ?? 0) >= 8 && !isOnActiveCut) return 'express';
+  if ((intensityCap ?? 0) >= FIGHT_CAMP_SAFETY_POLICY.intervention.expressIntensityFloor && !isOnActiveCut) return 'express';
   if (focus === 'recovery') return 'recover';
   return 'develop';
 }
@@ -189,8 +194,8 @@ function resolveProtectWindowRole(input: {
 }): TrainingSessionRole | null {
   const { protectWindow, intensityCap, isOnActiveCut, hasCombatAnchor } = input;
   if (!protectWindow?.active) return null;
-  if (isOnActiveCut && (intensityCap ?? 10) <= 4) return 'cut_protect';
-  if (hasCombatAnchor && (intensityCap ?? 10) > 4) return 'spar_support';
+  if (isOnActiveCut && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap) return 'cut_protect';
+  if (hasCombatAnchor && (intensityCap ?? 10) > FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap) return 'spar_support';
   return isOnActiveCut ? 'cut_protect' : 'recover';
 }
 
@@ -243,7 +248,9 @@ function checkInterventionStatus(
   if (riskState.level === 'critical') {
     return {
       interventionState: 'hard',
-      enforcedIntensityCap: plannedIntensityCap === null ? 3 : Math.min(plannedIntensityCap, 3),
+      enforcedIntensityCap: plannedIntensityCap === null
+        ? FIGHT_CAMP_SAFETY_POLICY.intervention.hardIntensityCap
+        : Math.min(plannedIntensityCap, FIGHT_CAMP_SAFETY_POLICY.intervention.hardIntensityCap),
       forcedSessionRole: 'recover',
       isMandatoryRecovery: true,
       reason: 'Critical risk is active. Recovery is mandatory today to stop the fatigue spiral.',
@@ -253,7 +260,9 @@ function checkInterventionStatus(
   if (riskState.level === 'high') {
     return {
       interventionState: 'soft',
-      enforcedIntensityCap: plannedIntensityCap === null ? 5 : Math.min(plannedIntensityCap, 5),
+      enforcedIntensityCap: plannedIntensityCap === null
+        ? FIGHT_CAMP_SAFETY_POLICY.intervention.softIntensityCap
+        : Math.min(plannedIntensityCap, FIGHT_CAMP_SAFETY_POLICY.intervention.softIntensityCap),
       forcedSessionRole: null,
       isMandatoryRecovery: false,
       reason: 'Risk is elevated. Output is capped today to protect recovery and keep the block on line.',
@@ -287,31 +296,15 @@ function getCutDepletionInterpretation(
   return null;
 }
 
-function hasAggressiveSodiumLanguage(value: string | null | undefined): boolean {
-  const text = value?.toLowerCase() ?? '';
-  return text.includes('water dump')
-    || text.includes('zero sodium')
-    || text.includes('no sodium')
-    || text.includes('minimal sodium')
-    || text.includes('stay away from salt');
-}
-
 function getSodiumRestrictionInterpretation(input: BuildDailyMissionInput): string | null {
-  const sodiumTargetMg = input.cutProtocol?.sodium_target_mg ?? null;
-  const sodiumInstruction = input.cutProtocol?.sodium_instruction?.toLowerCase() ?? '';
-  if ((sodiumTargetMg != null && sodiumTargetMg <= 500) || sodiumInstruction.includes('zero') || sodiumInstruction.includes('minimal')) {
-    return 'Sodium is restricted in the plan. Keep it predictable, monitor dehydration signs, and do not escalate restriction without qualified support.';
-  }
-
-  return null;
+  return getFightCampSodiumRestrictionInterpretation({
+    sodiumTargetMg: input.cutProtocol?.sodium_target_mg ?? null,
+    sodiumInstruction: input.cutProtocol?.sodium_instruction ?? null,
+  });
 }
 
 function getSafeSodiumRestrictionDetail(input: BuildDailyMissionInput): string {
-  const sodiumInstruction = input.cutProtocol?.sodium_instruction?.trim() ?? '';
-  if (!sodiumInstruction || hasAggressiveSodiumLanguage(sodiumInstruction)) {
-    return 'Sodium is being managed conservatively by the active cut protocol; avoid unsupervised restriction and monitor dehydration signs.';
-  }
-  return sodiumInstruction;
+  return getSafeFightCampSodiumRestrictionDetail(input.cutProtocol?.sodium_instruction ?? null);
 }
 
 function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
@@ -353,7 +346,10 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
     drivers.push('Travel window is active.');
   }
 
-  if (input.cutProtocol?.training_intensity_cap != null && input.cutProtocol.training_intensity_cap <= 4) {
+  if (
+    input.cutProtocol?.training_intensity_cap != null
+    && input.cutProtocol.training_intensity_cap <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
+  ) {
     score += 16;
     drivers.push('Fight-week cut is restricting training intensity.');
   } else if (input.macrocycleContext.weightCutState === 'driving') {
@@ -368,13 +364,19 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
 
   let level: MissionRiskLevel = input.riskLevel ?? 'low';
   if (input.riskLevel == null) {
-    if (score >= 75) level = 'critical';
-    else if (score >= 55) level = 'high';
-    else if (score >= 35) level = 'moderate';
+    if (score >= FIGHT_CAMP_SAFETY_POLICY.riskScore.critical) level = 'critical';
+    else if (score >= FIGHT_CAMP_SAFETY_POLICY.riskScore.high) level = 'high';
+    else if (score >= FIGHT_CAMP_SAFETY_POLICY.riskScore.moderate) level = 'moderate';
   } else {
     score = Math.max(
       score,
-      input.riskLevel === 'critical' ? 75 : input.riskLevel === 'high' ? 55 : input.riskLevel === 'moderate' ? 35 : 0,
+      input.riskLevel === 'critical'
+        ? FIGHT_CAMP_SAFETY_POLICY.riskScore.critical
+        : input.riskLevel === 'high'
+          ? FIGHT_CAMP_SAFETY_POLICY.riskScore.high
+          : input.riskLevel === 'moderate'
+            ? FIGHT_CAMP_SAFETY_POLICY.riskScore.moderate
+            : 0,
     );
   }
 
@@ -479,20 +481,45 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
         hasCombatAnchor,
       });
   const softCombatRole = intervention.interventionState === 'soft' && hasCombatAnchor
-    ? (input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= 4
+    ? (input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
       ? 'cut_protect'
       : 'spar_support')
     : null;
   const sessionRole = intervention.forcedSessionRole ?? protectWindowRole ?? softCombatRole ?? inferredRole;
-  const isProtectCutWindow = sessionRole === 'cut_protect' && input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= 4;
+  const isProtectCutWindow = sessionRole === 'cut_protect'
+    && input.macrocycleContext.isOnActiveCut
+    && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap;
   const focus = sessionRole === 'recover' || isProtectCutWindow ? 'recovery' : plannedFocus;
   const workoutType = sessionRole === 'recover' || isProtectCutWindow ? 'recovery' : plannedWorkoutType;
   const durationMin = sessionRole === 'recover'
-    ? Math.min(plannedDurationMin ?? (intervention.isMandatoryRecovery ? 20 : 30), intervention.isMandatoryRecovery ? 20 : 30)
-    : sessionRole === 'cut_protect' && input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= 4
-      ? Math.max(20, Math.min(plannedDurationMin ?? 25, 30))
+    ? Math.min(
+        plannedDurationMin ?? (
+          intervention.isMandatoryRecovery
+            ? FIGHT_CAMP_SAFETY_POLICY.intervention.mandatoryRecoveryMaxDurationMin
+            : FIGHT_CAMP_SAFETY_POLICY.intervention.softMaxDurationMin
+        ),
+        intervention.isMandatoryRecovery
+          ? FIGHT_CAMP_SAFETY_POLICY.intervention.mandatoryRecoveryMaxDurationMin
+          : FIGHT_CAMP_SAFETY_POLICY.intervention.softMaxDurationMin,
+      )
+    : sessionRole === 'cut_protect'
+      && input.macrocycleContext.isOnActiveCut
+      && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
+      ? Math.max(
+          FIGHT_CAMP_SAFETY_POLICY.intervention.constrainedMinDurationMin,
+          Math.min(
+            plannedDurationMin ?? FIGHT_CAMP_SAFETY_POLICY.intervention.cutProtectDefaultDurationMin,
+            FIGHT_CAMP_SAFETY_POLICY.intervention.cutProtectMaxDurationMin,
+          ),
+        )
       : sessionRole === 'spar_support' && (protectWindowRole === 'spar_support' || softCombatRole === 'spar_support')
-        ? Math.max(20, Math.min(plannedDurationMin ?? 30, 30))
+        ? Math.max(
+            FIGHT_CAMP_SAFETY_POLICY.intervention.constrainedMinDurationMin,
+            Math.min(
+              plannedDurationMin ?? FIGHT_CAMP_SAFETY_POLICY.intervention.softMaxDurationMin,
+              FIGHT_CAMP_SAFETY_POLICY.intervention.softMaxDurationMin,
+            ),
+          )
     : plannedDurationMin;
   const prescription = sessionRole === 'recover' || isProtectCutWindow ? null : input.workoutPrescription;
   const protectWindowReason = input.protectWindow?.active
@@ -673,7 +700,10 @@ function buildRecoveryDirective(
   if (input.macrocycleContext.isTravelWindow) {
     modalities.push('Pack hydration early', 'Use mobility breaks during travel');
   }
-  if (input.cutProtocol?.training_intensity_cap != null && input.cutProtocol.training_intensity_cap <= 4) {
+  if (
+    input.cutProtocol?.training_intensity_cap != null
+    && input.cutProtocol.training_intensity_cap <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
+  ) {
     restrictions.push('No extra conditioning after the planned work.');
   }
   if (trainingDirective.sessionRole === 'recover' || trainingDirective.sessionRole === 'cut_protect') {

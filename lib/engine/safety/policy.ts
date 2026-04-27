@@ -7,6 +7,134 @@ import {
   type EngineSafetyWarningTier,
 } from '../types/safety.ts';
 
+export const FIGHT_CAMP_SAFETY_POLICY = {
+  riskScore: {
+    moderate: 35,
+    high: 55,
+    critical: 75,
+  },
+  intervention: {
+    hardIntensityCap: 3,
+    softIntensityCap: 5,
+    protectIntensityCap: 4,
+    expressIntensityFloor: 8,
+    constrainedMinDurationMin: 20,
+    mandatoryRecoveryMaxDurationMin: 20,
+    softMaxDurationMin: 30,
+    cutProtectDefaultDurationMin: 25,
+    cutProtectMaxDurationMin: 30,
+  },
+  scheduling: {
+    minimumGuidedSessionMin: 20,
+  },
+  sodium: {
+    restrictedTargetMg: 500,
+    unsafeInstructionFragments: [
+      'water dump',
+      'zero sodium',
+      'no sodium',
+      'minimal sodium',
+      'stay away from salt',
+    ],
+  },
+  hydration: {
+    fightWeekLoadHighDaysOutMin: 6,
+    fightWeekLoadHighMultiplier: 2.0,
+    fightWeekLoadLowMultiplier: 1.5,
+    fightWeekCutTargetOzByDaysOut: {
+      1: 16,
+      2: 32,
+      3: 64,
+    } as Record<number, number>,
+    fightWeekCutFallbackOz: 64,
+    weighInWaterOz: 8,
+    rehydrationOzPerLb: 0.7,
+  },
+  rehydration: {
+    fluidLitersPerPoundDeficit: 0.7,
+  },
+} as const;
+
+export function hasUnsafeFightCampSodiumLanguage(value: string | null | undefined): boolean {
+  const text = value?.toLowerCase() ?? '';
+  return FIGHT_CAMP_SAFETY_POLICY.sodium.unsafeInstructionFragments.some((fragment) =>
+    text.includes(fragment),
+  );
+}
+
+export function isFightCampSodiumRestricted(input: {
+  sodiumTargetMg?: number | null;
+  sodiumInstruction?: string | null;
+}): boolean {
+  const sodiumInstruction = input.sodiumInstruction?.toLowerCase() ?? '';
+  return (input.sodiumTargetMg != null && input.sodiumTargetMg <= FIGHT_CAMP_SAFETY_POLICY.sodium.restrictedTargetMg)
+    || sodiumInstruction.includes('zero')
+    || sodiumInstruction.includes('minimal');
+}
+
+export function getSafeFightCampSodiumRestrictionDetail(sodiumInstruction: string | null | undefined): string {
+  const trimmed = sodiumInstruction?.trim() ?? '';
+  if (!trimmed || hasUnsafeFightCampSodiumLanguage(trimmed)) {
+    return 'Sodium is being managed conservatively by the active cut protocol; avoid unsupervised restriction and monitor dehydration signs.';
+  }
+  return trimmed;
+}
+
+export function getFightCampSodiumRestrictionInterpretation(input: {
+  sodiumTargetMg?: number | null;
+  sodiumInstruction?: string | null;
+}): string | null {
+  if (!isFightCampSodiumRestricted(input)) return null;
+  return 'Sodium is restricted in the plan. Keep it predictable, monitor dehydration signs, and do not escalate restriction without qualified support.';
+}
+
+export function getFightWeekLoadHydrationMultiplier(daysToWeighIn: number): number {
+  return daysToWeighIn >= FIGHT_CAMP_SAFETY_POLICY.hydration.fightWeekLoadHighDaysOutMin
+    ? FIGHT_CAMP_SAFETY_POLICY.hydration.fightWeekLoadHighMultiplier
+    : FIGHT_CAMP_SAFETY_POLICY.hydration.fightWeekLoadLowMultiplier;
+}
+
+export function getFightWeekLoadHydrationInstruction(oz: number): string {
+  return `${oz} oz - structured loading phase. Drink steadily across the day, avoid chugging, and stop escalating if nausea, sloshing, or dizziness shows up.`;
+}
+
+export function getFightWeekLoadSodiumInstruction(daysToWeighIn: number): string {
+  return daysToWeighIn >= FIGHT_CAMP_SAFETY_POLICY.hydration.fightWeekLoadHighDaysOutMin
+    ? 'Normal to slightly elevated - keep sodium predictable during loading.'
+    : 'Normal and predictable.';
+}
+
+export function getFightWeekCutWaterTargetOz(daysToWeighIn: number): number {
+  return FIGHT_CAMP_SAFETY_POLICY.hydration.fightWeekCutTargetOzByDaysOut[daysToWeighIn]
+    ?? FIGHT_CAMP_SAFETY_POLICY.hydration.fightWeekCutFallbackOz;
+}
+
+export function getFightWeekCutHydrationInstruction(oz: number): string {
+  return `${oz} oz planning cap - conservative final-cut phase. Sip slowly as needed and do not add heat, extra conditioning, or unsupervised restriction.`;
+}
+
+export function getFightWeekCutSodiumInstruction(daysToWeighIn: number): string {
+  return daysToWeighIn === 3
+    ? 'Reduced sodium only if prescribed - keep intake predictable and avoid zero-chasing.'
+    : 'Reduced added sodium - avoid zero-chasing and use qualified support for any further restriction.';
+}
+
+export function getWeighInHydrationInstruction(): string {
+  return 'Small sips as needed until after weigh-in. Do not force thirst or use heat-based tactics.';
+}
+
+export function getWeighInSodiumInstruction(): string {
+  return 'Keep sodium predictable until after weigh-in; avoid unsupervised zero-sodium rules.';
+}
+
+export function computeRehydrationFluidTargetLiters(input: {
+  currentWeight: number;
+  targetWeight: number;
+}): number {
+  const weightDeficitLbs = Math.max(0, input.targetWeight - input.currentWeight);
+  return Math.round((weightDeficitLbs * FIGHT_CAMP_SAFETY_POLICY.rehydration.fluidLitersPerPoundDeficit) * 10) / 10;
+}
+
 function makeWarning(input: {
   code: string;
   tier: EngineSafetyWarningTier;

@@ -1,5 +1,16 @@
 import type { HydrationInput, HydrationResult } from './types.ts';
 import type { CutHydrationInput, CutHydrationResult } from './types.ts';
+import {
+  FIGHT_CAMP_SAFETY_POLICY,
+  getFightWeekCutHydrationInstruction,
+  getFightWeekCutSodiumInstruction,
+  getFightWeekCutWaterTargetOz,
+  getFightWeekLoadHydrationInstruction,
+  getFightWeekLoadHydrationMultiplier,
+  getFightWeekLoadSodiumInstruction,
+  getWeighInHydrationInstruction,
+  getWeighInSodiumInstruction,
+} from './safety/policy.ts';
 
 /**
  * @ANTI-WIRING:
@@ -128,40 +139,37 @@ export function getCutHydrationProtocol(input: CutHydrationInput): CutHydrationR
     }
 
     case 'fight_week_load': {
-      const multiplier = daysToWeighIn >= 6 ? 2.0 : 1.5;
+      const multiplier = getFightWeekLoadHydrationMultiplier(daysToWeighIn);
       const oz = Math.round(baseHydrationOz * multiplier);
       return {
         dailyWaterOz: oz,
-        instruction: `${oz} oz - structured loading phase. Drink steadily across the day, avoid chugging, and stop escalating if nausea, sloshing, or dizziness shows up.`,
-        sodiumInstruction: daysToWeighIn >= 6 ? 'Normal to slightly elevated - keep sodium predictable during loading.' : 'Normal and predictable.',
+        instruction: getFightWeekLoadHydrationInstruction(oz),
+        sodiumInstruction: getFightWeekLoadSodiumInstruction(daysToWeighIn),
         isRestricting: false,
       };
     }
 
     case 'fight_week_cut': {
-      const ozByDay: Record<number, number> = { 3: 64, 2: 32, 1: 16 };
-      const oz = ozByDay[daysToWeighIn] ?? 64;
+      const oz = getFightWeekCutWaterTargetOz(daysToWeighIn);
       return {
         dailyWaterOz: oz,
-        instruction: `${oz} oz planning cap - conservative final-cut phase. Sip slowly as needed and do not add heat, extra conditioning, or unsupervised restriction.`,
-        sodiumInstruction: daysToWeighIn === 3
-          ? 'Reduced sodium only if prescribed - keep intake predictable and avoid zero-chasing.'
-          : 'Reduced added sodium - avoid zero-chasing and use qualified support for any further restriction.',
+        instruction: getFightWeekCutHydrationInstruction(oz),
+        sodiumInstruction: getFightWeekCutSodiumInstruction(daysToWeighIn),
         isRestricting: true,
       };
     }
 
     case 'weigh_in': {
       return {
-        dailyWaterOz: 8,
-        instruction: 'Small sips as needed until after weigh-in. Do not force thirst or use heat-based tactics.',
-        sodiumInstruction: 'Keep sodium predictable until after weigh-in; avoid unsupervised zero-sodium rules.',
+        dailyWaterOz: FIGHT_CAMP_SAFETY_POLICY.hydration.weighInWaterOz,
+        instruction: getWeighInHydrationInstruction(),
+        sodiumInstruction: getWeighInSodiumInstruction(),
         isRestricting: true,
       };
     }
 
     case 'rehydration': {
-      const oz = Math.round(currentWeightLbs * 0.7);
+      const oz = Math.round(currentWeightLbs * FIGHT_CAMP_SAFETY_POLICY.hydration.rehydrationOzPerLb);
       const shedCapLbs = Math.round((currentWeightLbs * shedCapPct) / 100 * 10) / 10;
       return {
         dailyWaterOz: oz,

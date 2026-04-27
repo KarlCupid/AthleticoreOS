@@ -44,6 +44,7 @@ import { assessPerformanceRisk, getGoalBasedFocusRotation, resolveTrainingBlockC
 import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { classifyGuidedSessionType } from './sessionOwnership.ts';
 import { getSessionTemplate } from './resources/scProgrammingResources.ts';
+import { FIGHT_CAMP_SAFETY_POLICY } from './safety/policy.ts';
 import { todayLocalDate } from '../utils/date.ts';
 
 import {
@@ -1584,7 +1585,7 @@ type TimeRange = {
 
 type GuidedPlacement = 'before' | 'after' | null;
 
-const MIN_GUIDED_DURATION_MIN = 20;
+const MIN_GUIDED_DURATION_MIN = FIGHT_CAMP_SAFETY_POLICY.scheduling.minimumGuidedSessionMin;
 
 function parseTimeToMinutes(time: string | null | undefined): number | null {
     if (!time) return null;

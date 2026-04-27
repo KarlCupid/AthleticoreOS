@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
-import { generateRollingSchedule } from '../../lib/api/scheduleService';
+import { generateRollingSchedule, getWeeklyReview } from '../../lib/api/scheduleService';
 import {
   getAthleteContext,
   getActiveUserId,
@@ -25,9 +25,11 @@ import type {
   DailyCutProtocolRow,
   WeeklyPlanEntryRow,
   WeightDataPoint,
+  WeeklyComplianceReport,
 } from '../../lib/engine/types';
+import type { RecentTrainingSessionSummary } from '../../lib/engine/presentation/missionDashboard';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { todayLocalDate } from '../../lib/utils/date';
+import { addDays, todayLocalDate } from '../../lib/utils/date';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
 import type { CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
 import {
@@ -72,6 +74,8 @@ interface DashboardDataState {
   nutritionTargets: ResolvedNutritionTargets | null;
   actualNutrition: DashboardNutritionTotals;
   activeCutProtocol: DailyCutProtocolRow | null;
+  weeklyReview: WeeklyComplianceReport | null;
+  recentTrainingSessions: RecentTrainingSessionSummary[];
   campStatusLabel: string;
   campRisk: CampRiskAssessment | null;
   goalMode: 'fight_camp' | 'build_phase';
@@ -101,12 +105,21 @@ const INITIAL_STATE: DashboardDataState = {
   nutritionTargets: null,
   actualNutrition: EMPTY_NUTRITION,
   activeCutProtocol: null,
+  weeklyReview: null,
+  recentTrainingSessions: [],
   campStatusLabel: 'Build Phase',
   campRisk: null,
   goalMode: 'build_phase',
   hasActiveFightCamp: false,
   hasActiveCutPlan: false,
 };
+
+function getWeekStart(dateStr: string): string {
+  const target = new Date(`${dateStr}T00:00:00`);
+  const day = target.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return addDays(dateStr, mondayOffset);
+}
 
 export function useDashboardData() {
   const [loading, setLoading] = useState(true);
@@ -159,6 +172,8 @@ export function useDashboardData() {
         { data: ledger },
         engineState,
         weightHistory,
+        weeklyReview,
+        recentTrainingResult,
       ] = await Promise.all([
         supabase
           .from('daily_checkins')
@@ -179,6 +194,17 @@ export function useDashboardData() {
           .maybeSingle(),
         getDailyEngineState(userId, todayStr, { forceRefresh }),
         getWeightHistory(userId, 30),
+        getWeeklyReview(userId, getWeekStart(todayStr)).catch((error) => {
+          logError('useDashboardData.getWeeklyReview', error, { userId });
+          return null;
+        }),
+        supabase
+          .from('training_sessions')
+          .select('date,total_volume,session_rpe,duration_minutes,workout_type')
+          .eq('user_id', userId)
+          .gte('date', addDays(todayStr, -13))
+          .lte('date', todayStr)
+          .order('date', { ascending: true }),
       ]);
 
       if (!isCurrentRequest()) {
@@ -187,6 +213,12 @@ export function useDashboardData() {
 
       const checkin = (checkinData as DailyCheckinRow | null) ?? null;
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
+      if (recentTrainingResult.error) {
+        logError('useDashboardData.recentTrainingSessions', recentTrainingResult.error, { userId });
+      }
+      const recentTrainingSessions = recentTrainingResult.error
+        ? []
+        : ((recentTrainingResult.data ?? []) as RecentTrainingSessionSummary[]);
 
       let biology: BiologyResult | null = null;
       if (profile?.biological_sex === 'female' && profile.cycle_tracking && cycleDay != null) {
@@ -220,6 +252,8 @@ export function useDashboardData() {
         nutritionTargets: engineState.nutritionTargets,
         actualNutrition: EMPTY_NUTRITION,
         activeCutProtocol: (engineState.cutProtocol as DailyCutProtocolRow | null) ?? null,
+        weeklyReview,
+        recentTrainingSessions,
         campStatusLabel,
         campRisk: engineState.campRisk,
         goalMode: athleteContext.goalMode,

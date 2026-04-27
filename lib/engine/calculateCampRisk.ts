@@ -1,4 +1,5 @@
 import type { AthleteGoalMode, WeightCutInfluenceState, WeighInTiming } from './types.ts';
+import { FIGHT_CAMP_SAFETY_POLICY } from './safety/policy.ts';
 
 export type CampRiskLevel = 'low' | 'moderate' | 'high' | 'critical';
 
@@ -27,9 +28,9 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function toRiskLevel(score: number): CampRiskLevel {
-  if (score >= 75) return 'critical';
-  if (score >= 55) return 'high';
-  if (score >= 35) return 'moderate';
+  if (score >= FIGHT_CAMP_SAFETY_POLICY.riskScore.critical) return 'critical';
+  if (score >= FIGHT_CAMP_SAFETY_POLICY.riskScore.high) return 'high';
+  if (score >= FIGHT_CAMP_SAFETY_POLICY.riskScore.moderate) return 'moderate';
   return 'low';
 }
 

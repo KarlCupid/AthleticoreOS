@@ -17,6 +17,7 @@ import type { MacrocycleContext } from './types/mission.ts';
 import type { MEDStatus, ReadinessProfile, StimulusConstraintSet } from './types/readiness.ts';
 import { adjustForBiology } from './adjustForBiology.ts';
 import { adjustNutritionForDay } from './schedule/safety.ts';
+import { getSafeFightCampSodiumRestrictionDetail } from './safety/policy.ts';
 import { calculateCaloriesFromMacros } from '../utils/nutrition.ts';
 import {
   applyFuelingFloor,
@@ -301,7 +302,7 @@ function buildHydrationPlan(input: {
     notes.push('Low metabolic readiness today. Use fluids plus electrolytes early, not only after training.');
   }
   if (cutProtocol?.sodium_instruction) {
-    notes.push(cutProtocol.sodium_instruction);
+    notes.push(getSafeFightCampSodiumRestrictionDetail(cutProtocol.sodium_instruction));
   } else if (emphasis === 'performance') {
     notes.push('Add sodium around training to hold fluid and support repeat efforts.');
   }

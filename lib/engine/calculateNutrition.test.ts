@@ -402,6 +402,7 @@ console.log('\n-- resolveDailyMacros --');
       training_intensity_cap: 4,
       water_target_oz: 140,
       sodium_target_mg: 600,
+      sodium_instruction: 'Minimal sodium. Water dump starts now.',
       days_to_weigh_in: 3,
     } as any,
     [{ activity_type: 'boxing_practice' as any, expected_intensity: 5, estimated_duration_min: 40 }],
@@ -410,6 +411,7 @@ console.log('\n-- resolveDailyMacros --');
   assert('Cut protocol still uses cut-protect fuel state', resolved.fuelState === 'cut_protect');
   assert('Cut protocol still builds session fueling plan', resolved.sessionFuelingPlan.preSession.carbsG > 0);
   assert('Cut protocol hydration plan follows cut target', resolved.hydrationPlan.dailyTargetOz >= 140);
+  assert('Cut protocol hydration notes sanitize unsafe sodium copy', !resolved.hydrationPlan.notes.join(' ').toLowerCase().includes('water dump'));
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
