@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
-    KeyboardAvoidingView, Platform, ScrollView, Alert, Keyboard,
+    KeyboardAvoidingView, Platform, ScrollView, Alert, Keyboard, Image,
+    ImageBackground,
 } from 'react-native';
 import Animated, { FadeInRight, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, GRADIENTS, ANIMATION } from '../theme/theme';
+import { COLORS, SPACING, ANIMATION } from '../theme/theme';
 import { supabase } from '../../lib/supabase';
 import { IconChevronLeft, IconChevronRight, IconCheckCircle } from '../components/icons';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DatePickerField } from '../components/DatePickerField';
+import { TimePickerField } from '../components/TimePickerField';
 import { DAY_OPTIONS } from './weeklyPlanSetup/constants';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
 import type { AthleteGoalMode, BuildPhaseGoalType } from '../../lib/engine/types';
@@ -28,21 +29,28 @@ interface OnboardingScreenProps {
 
 const TOTAL_STEPS = 3;
 
+const ONBOARDING_BACKGROUNDS = {
+    phase: require('../../assets/images/dashboard/readiness-console-bg.png'),
+    welcome: require('../../assets/images/dashboard/mission-card-bg.png'),
+};
+
+const BRAND_LOGO = require('../../assets/images/athleticore-logo.png');
+
 const STEP_META = [
     {
         eyebrow: 'Step 1',
-        title: 'Meet Your Coach',
-        description: 'We will build momentum first, then dial in the details as you train.',
+        title: 'Starting Profile',
+        description: 'Set the core inputs used for training, fuel, and recovery.',
     },
     {
         eyebrow: 'Step 2',
-        title: 'Your Baseline',
-        description: 'Just enough context to keep the first plan safe.',
+        title: 'Body & Training',
+        description: 'Add the essentials that shape safe starting targets.',
     },
     {
         eyebrow: 'Step 3',
-        title: 'First Week',
-        description: 'Pick a clear direction and realistic training days.',
+        title: 'Objective & Schedule',
+        description: 'Choose the first objective and the days the plan can use.',
     },
 ] as const;
 
@@ -56,9 +64,9 @@ const TRAINING_BACKGROUND_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'new', label: 'New to structure', descriptor: 'Start conservative and learn the basics.' },
-    { value: 'some', label: 'Some experience', descriptor: 'I train consistently, but still want guidance.' },
-    { value: 'advanced', label: 'Advanced', descriptor: 'I have years of structured training.' },
+    { value: 'new', label: 'New to structure', descriptor: 'Lower starting load while the system learns your response.' },
+    { value: 'some', label: 'Some experience', descriptor: 'Consistent training with room for guided progression.' },
+    { value: 'advanced', label: 'Advanced', descriptor: 'Higher training tolerance and more structured history.' },
 ];
 
 type MainGoal = BuildPhaseGoalType | 'fight_camp';
@@ -68,11 +76,11 @@ const MAIN_GOAL_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'conditioning', label: 'Build gas tank', descriptor: 'Improve pace and repeatability.' },
-    { value: 'strength', label: 'Get stronger', descriptor: 'Build useful strength without overdoing it.' },
-    { value: 'boxing_skill', label: 'Sharpen boxing', descriptor: 'Protect technical work and skill rhythm.' },
-    { value: 'weight_class_prep', label: 'Move weight', descriptor: 'Start bodyweight prep steadily.' },
-    { value: 'fight_camp', label: 'Fight booked', descriptor: 'Build toward a fight date.' },
+    { value: 'conditioning', label: 'Conditioning', descriptor: 'Improve pace, output, and repeatability.' },
+    { value: 'strength', label: 'Strength', descriptor: 'Build strength while managing total load.' },
+    { value: 'boxing_skill', label: 'Boxing skill', descriptor: 'Protect technical work and skill rhythm.' },
+    { value: 'weight_class_prep', label: 'Weight-class prep', descriptor: 'Start bodyweight prep with controlled targets.' },
+    { value: 'fight_camp', label: 'Fight camp', descriptor: 'Build toward a confirmed fight date.' },
 ];
 
 const SESSION_TYPE_OPTIONS: Array<{ value: IntakeFixedSessionType; label: string }> = [
@@ -80,11 +88,41 @@ const SESSION_TYPE_OPTIONS: Array<{ value: IntakeFixedSessionType; label: string
     { value: 'sparring', label: 'Sparring' },
 ];
 
+const DAY_DISPLAY_OPTIONS = DAY_OPTIONS.map((day) => {
+    const dayNames: Record<number, string> = {
+        0: 'Sunday',
+        1: 'Monday',
+        2: 'Tuesday',
+        3: 'Wednesday',
+        4: 'Thursday',
+        5: 'Friday',
+        6: 'Saturday',
+    };
+
+    return {
+        ...day,
+        shortLabel: day.label,
+        fullLabel: dayNames[day.value],
+    };
+});
+
 const DURATION_OPTIONS = [60, 90, 120];
 const INTENSITY_OPTIONS = [
-    { value: 5, label: 'Easy' },
-    { value: 7, label: 'Solid' },
-    { value: 9, label: 'Hard' },
+    {
+        value: 5,
+        label: 'Easy',
+        tooltip: 'Low strain. Skill work, light drilling, or a session you should recover from quickly.',
+    },
+    {
+        value: 7,
+        label: 'Solid',
+        tooltip: 'Moderate-hard. Productive work with clear fatigue, but no redline finish.',
+    },
+    {
+        value: 9,
+        label: 'Hard',
+        tooltip: 'High strain. Sparring, hard conditioning, or sessions that affect tomorrow.',
+    },
 ];
 
 function parsePositiveNumber(value: string): number | null {
@@ -122,6 +160,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [fightDate, setFightDate] = useState(addDays(todayLocalDate(), 84));
     const [availableDays, setAvailableDays] = useState<number[]>([1, 3, 5]);
     const [fixedSessions, setFixedSessions] = useState<IntakeFixedSession[]>([]);
+    const [effortTooltipBySessionId, setEffortTooltipBySessionId] = useState<Record<string, number>>({});
     const [saving, setSaving] = useState(false);
 
     const currentStepMeta = STEP_META[step];
@@ -172,6 +211,36 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             session.id === id ? { ...session, ...patch } : session
         )));
     };
+
+    const renderDayGrid = (
+        selectedDayValues: number[],
+        onPressDay: (dayOfWeek: number) => void,
+        mode: 'multi' | 'single',
+    ) => (
+        <View style={styles.dayGrid}>
+            {DAY_DISPLAY_OPTIONS.map((day) => {
+                const selected = selectedDayValues.includes(day.value);
+                return (
+                    <TouchableOpacity
+                        key={day.value}
+                        style={[styles.dayCard, selected && styles.dayCardActive]}
+                        onPress={() => onPressDay(day.value)}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`${day.fullLabel}${selected ? ', selected' : ''}`}
+                    >
+                        <Text style={[styles.dayCardLabel, selected && styles.dayCardLabelActive]}>
+                            {day.shortLabel}
+                        </Text>
+                        <Text style={[styles.dayCardCaption, selected && styles.dayCardCaptionActive]}>
+                            {mode === 'multi' ? (selected ? 'On' : 'Off') : day.label}
+                        </Text>
+                    </TouchableOpacity>
+                );
+            })}
+        </View>
+    );
 
     const handleNext = () => {
         if (step < TOTAL_STEPS - 1) {
@@ -249,6 +318,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             style={[styles.activityOptionCard, selected && styles.activityOptionCardActive]}
             onPress={() => onPress(option.value)}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
         >
             <View style={styles.activityOptionCopy}>
                 <Text style={[styles.activityOptionTitle, selected && styles.activityOptionTitleActive]}>
@@ -261,7 +332,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 ) : null}
             </View>
             <View style={[styles.activityOptionIndicator, selected && styles.activityOptionIndicatorActive]}>
-                {selected ? <IconCheckCircle size={14} color={COLORS.readiness.prime} /> : null}
+                {selected ? <IconCheckCircle size={14} color={COLORS.accent} /> : null}
             </View>
         </TouchableOpacity>
     );
@@ -291,30 +362,19 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             </View>
 
             <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>Day</Text>
-            <View style={styles.pillRow}>
-                {DAY_OPTIONS.map((day) => {
-                    const selected = session.dayOfWeek === day.value;
-                    return (
-                        <TouchableOpacity
-                            key={day.value}
-                            style={[styles.pill, selected && styles.pillActive]}
-                            onPress={() => updateFixedSession(session.id, { dayOfWeek: day.value })}
-                        >
-                            <Text style={[styles.pillText, selected && styles.pillTextActive]}>{day.label}</Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
+            {renderDayGrid(
+                [session.dayOfWeek],
+                (dayOfWeek) => updateFixedSession(session.id, { dayOfWeek }),
+                'single',
+            )}
 
             <View style={[styles.inputRow, { marginTop: SPACING.md }]}>
                 <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
                     <Text style={styles.inputLabel}>Start</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="19:00"
-                        placeholderTextColor={COLORS.text.tertiary}
+                    <TimePickerField
+                        label={`${session.label || 'Fixed session'} Start`}
                         value={session.startTime}
-                        onChangeText={(value) => updateFixedSession(session.id, { startTime: value })}
+                        onChange={(value) => updateFixedSession(session.id, { startTime: value })}
                     />
                 </View>
                 <View style={{ width: SPACING.md }} />
@@ -347,20 +407,51 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             </View>
 
             <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>Usual effort</Text>
-            <View style={styles.pillRow}>
+            <View style={styles.effortGrid}>
                 {INTENSITY_OPTIONS.map((option) => {
                     const selected = session.expectedIntensity === option.value;
+                    const tooltipVisible = (effortTooltipBySessionId[session.id] ?? session.expectedIntensity) === option.value;
                     return (
                         <TouchableOpacity
                             key={option.value}
-                            style={[styles.pill, selected && styles.pillActive]}
-                            onPress={() => updateFixedSession(session.id, { expectedIntensity: option.value })}
+                            style={[styles.effortCard, selected && styles.effortCardActive]}
+                            onPress={() => {
+                                updateFixedSession(session.id, { expectedIntensity: option.value });
+                                setEffortTooltipBySessionId((current) => ({
+                                    ...current,
+                                    [session.id]: option.value,
+                                }));
+                            }}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            accessibilityHint={option.tooltip}
                         >
-                            <Text style={[styles.pillText, selected && styles.pillTextActive]}>{option.label}</Text>
+                            <View style={styles.effortCardHeader}>
+                                <Text style={[styles.effortValue, selected && styles.effortValueActive]}>
+                                    {option.value}
+                                </Text>
+                                <View style={[styles.tooltipBadge, tooltipVisible && styles.tooltipBadgeActive]}>
+                                    <Text style={[styles.tooltipBadgeText, tooltipVisible && styles.tooltipBadgeTextActive]}>
+                                        ?
+                                    </Text>
+                                </View>
+                            </View>
+                            <Text style={[styles.effortLabel, selected && styles.effortLabelActive]}>
+                                {option.label}
+                            </Text>
                         </TouchableOpacity>
                     );
                 })}
             </View>
+            {INTENSITY_OPTIONS.map((option) => {
+                const tooltipVisible = (effortTooltipBySessionId[session.id] ?? session.expectedIntensity) === option.value;
+                return tooltipVisible ? (
+                    <View key={option.value} style={styles.effortTooltip}>
+                        <Text style={styles.effortTooltipTitle}>{option.label} effort</Text>
+                        <Text style={styles.effortTooltipText}>{option.tooltip}</Text>
+                    </View>
+                ) : null;
+            })}
         </View>
     );
 
@@ -369,30 +460,47 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 0:
                 return (
                     <View style={styles.stepContent}>
-                        <View style={styles.welcomeIcon}>
-                            <LinearGradient
-                                colors={[...GRADIENTS.prime]}
-                                style={styles.welcomeIconGradient}
-                            >
-                                <IconCheckCircle size={48} color="#F5F5F0" strokeWidth={2} />
-                            </LinearGradient>
-                        </View>
-                        <Text style={styles.welcomeTitle}>Start simple. Build momentum.</Text>
-                        <Text style={styles.welcomeSubtitle}>
-                            A good coach does not hand you the whole system on day one. We will set your first week, then teach the rest as you go.
-                        </Text>
+                        <ImageBackground
+                            source={ONBOARDING_BACKGROUNDS.welcome}
+                            style={styles.welcomePanel}
+                            imageStyle={styles.welcomePanelImage}
+                            resizeMode="cover"
+                        >
+                            <View style={styles.welcomePanelScrim} />
+                            <View style={styles.welcomeHeaderRow}>
+                                <View style={styles.welcomeIcon}>
+                                    <Image
+                                        source={BRAND_LOGO}
+                                        style={styles.welcomeLogo}
+                                        resizeMode="cover"
+                                        accessibilityLabel="AthletiCore OS logo"
+                                    />
+                                </View>
+                                <View style={styles.welcomeHeaderCopy}>
+                                    <Text style={styles.welcomeKicker}>START PROFILE</Text>
+                                    <Text style={styles.welcomeSignal}>Training foundation</Text>
+                                </View>
+                            </View>
+                            <Text style={styles.welcomeTitle}>Set Your Training Foundation</Text>
+                            <Text style={styles.welcomeSubtitle}>
+                                AthletiCore starts with the minimum profile needed to generate week one. Recommendations sharpen as training data comes in.
+                            </Text>
+                        </ImageBackground>
                         <View style={styles.coachPointList}>
                             <View style={styles.coachPoint}>
-                                <Text style={styles.coachPointTitle}>1. Baseline</Text>
-                                <Text style={styles.coachPointText}>A few details to keep training and fuel targets safe.</Text>
+                                <View style={styles.coachPointRail} />
+                                <Text style={styles.coachPointTitle}>1. Profile</Text>
+                                <Text style={styles.coachPointText}>Age, weight, physiology, and training history.</Text>
                             </View>
                             <View style={styles.coachPoint}>
-                                <Text style={styles.coachPointTitle}>2. First week</Text>
-                                <Text style={styles.coachPointText}>Realistic days, a clear goal, and any fixed boxing work.</Text>
+                                <View style={styles.coachPointRail} />
+                                <Text style={styles.coachPointTitle}>2. Objective</Text>
+                                <Text style={styles.coachPointText}>One primary direction for the first training block.</Text>
                             </View>
                             <View style={styles.coachPoint}>
-                                <Text style={styles.coachPointTitle}>3. First wins</Text>
-                                <Text style={styles.coachPointText}>Check in once, train once, and log one meal.</Text>
+                                <View style={styles.coachPointRail} />
+                                <Text style={styles.coachPointTitle}>3. Schedule</Text>
+                                <Text style={styles.coachPointText}>Available days plus fixed boxing or sparring.</Text>
                             </View>
                         </View>
                     </View>
@@ -400,8 +508,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 1:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Coach Intake</Text>
-                        <Text style={styles.stepSubtitle}>No perfect answers needed. Start where you are.</Text>
+                        <Text style={styles.stepTitle}>Body & Training</Text>
+                        <Text style={styles.stepSubtitle}>These inputs set your first load and fuel defaults.</Text>
 
                         <View style={styles.inputRow}>
                             <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -451,8 +559,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 2:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>First Plan</Text>
-                        <Text style={styles.stepSubtitle}>Pick the first direction. You can adjust it later.</Text>
+                        <Text style={styles.stepTitle}>Objective & Schedule</Text>
+                        <Text style={styles.stepSubtitle}>Set the training objective, availability, and fixed sessions.</Text>
 
                         <Text style={styles.inputLabel}>Main goal</Text>
                         <View style={styles.activityOptionsList}>
@@ -473,7 +581,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         {needsTargetWeight ? (
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Target weight (optional)</Text>
-                                <Text style={styles.helperText}>Leave this blank if you are not sure yet.</Text>
+                                <Text style={styles.helperText}>Skip this for now if the target is not set.</Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="145"
@@ -486,27 +594,14 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         ) : null}
 
                         <Text style={styles.inputLabel}>Realistic training days</Text>
-                        <Text style={styles.helperText}>Pick days you can usually show up. Three is a strong start.</Text>
-                        <View style={styles.pillRow}>
-                            {DAY_OPTIONS.map((day) => {
-                                const selected = availableDays.includes(day.value);
-                                return (
-                                    <TouchableOpacity
-                                        key={day.value}
-                                        style={[styles.pill, selected && styles.pillActive]}
-                                        onPress={() => toggleAvailableDay(day.value)}
-                                    >
-                                        <Text style={[styles.pillText, selected && styles.pillTextActive]}>{day.label}</Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                        <Text style={styles.helperText}>Select the days the plan can reliably use.</Text>
+                        {renderDayGrid(availableDays, toggleAvailableDay, 'multi')}
 
                         <View style={styles.optionalBlock}>
                             <View style={styles.optionalHeader}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.inputLabel}>Fixed boxing or sparring</Text>
-                                    <Text style={styles.helperText}>Only add sessions that already happen every week.</Text>
+                                    <Text style={styles.helperText}>Add recurring sessions already on the weekly schedule.</Text>
                                 </View>
                                 <TouchableOpacity
                                     style={styles.addSmallButton}
@@ -530,11 +625,28 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior="height"
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <View style={[styles.inner, { paddingTop: insets.top + (keyboardVisible ? SPACING.sm : SPACING.lg) }]}>
                 <View style={styles.topNav}>
-                    <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.signOutButtonIcon}>
+                    <View style={styles.brandHeader}>
+                        <Image
+                            source={BRAND_LOGO}
+                            style={styles.brandMarkImage}
+                            resizeMode="cover"
+                            accessibilityLabel="AthletiCore OS logo"
+                        />
+                        <View style={styles.brandTitleBlock}>
+                            <Text style={styles.brandEyebrow}>ATHLETICORE OS</Text>
+                            <Text style={styles.brandTitle}>Setup</Text>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity
+                        onPress={() => supabase.auth.signOut()}
+                        style={styles.signOutButtonIcon}
+                        accessibilityRole="button"
+                    >
                         <IconChevronLeft size={24} color={COLORS.text.tertiary} />
                         <Text style={styles.signOutButtonText}>Sign Out</Text>
                     </TouchableOpacity>
@@ -547,11 +659,25 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     <Text style={styles.stepIndicator}>{step + 1} of {TOTAL_STEPS}</Text>
                 </View>
 
-                <View style={[styles.phaseCard, keyboardVisible && styles.phaseCardKeyboard]}>
-                    <Text style={styles.phaseEyebrow}>{currentStepMeta.eyebrow}</Text>
-                    <Text style={styles.phaseTitle}>{currentStepMeta.title}</Text>
+                <ImageBackground
+                    source={ONBOARDING_BACKGROUNDS.phase}
+                    style={[styles.phaseCard, keyboardVisible && styles.phaseCardKeyboard]}
+                    imageStyle={styles.phaseCardImage}
+                    resizeMode="cover"
+                >
+                    <View style={styles.phaseCardScrim} />
+                    <View style={styles.phaseHeaderRow}>
+                        <View style={styles.phaseStepBadge}>
+                            <Text style={styles.phaseStepBadgeText}>{step + 1}</Text>
+                        </View>
+                        <View style={styles.phaseHeaderCopy}>
+                            <Text style={styles.phaseEyebrow}>{currentStepMeta.eyebrow}</Text>
+                            <Text style={styles.phaseTitle}>{currentStepMeta.title}</Text>
+                        </View>
+                        <Text style={styles.phaseStepPill}>{step + 1}/{TOTAL_STEPS}</Text>
+                    </View>
                     <Text style={styles.phaseDescription}>{currentStepMeta.description}</Text>
-                </View>
+                </ImageBackground>
 
                 <ScrollView
                     contentContainerStyle={[styles.scrollContent, keyboardVisible && styles.scrollContentKeyboard]}
@@ -581,21 +707,14 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     )}
 
                     <AnimatedPressable
-                        style={[styles.nextButtonWrapper, !canProceed() && styles.nextButtonDisabled]}
+                        style={[styles.nextButton, (!canProceed() || saving) && styles.nextButtonDisabled]}
                         onPress={handleNext}
                         disabled={!canProceed() || saving}
                     >
-                        <LinearGradient
-                            colors={canProceed() ? [...GRADIENTS.accent] : [COLORS.text.tertiary, COLORS.text.tertiary]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.nextButton}
-                        >
-                            <Text style={styles.nextText}>
-                                {saving ? 'Building...' : step === TOTAL_STEPS - 1 ? 'Build My First Week' : 'Continue'}
-                            </Text>
-                            {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color="#F5F5F0" /> : null}
-                        </LinearGradient>
+                        <Text style={styles.nextText}>
+                            {saving ? 'Building...' : step === TOTAL_STEPS - 1 ? 'Generate First Week' : 'Continue'}
+                        </Text>
+                        {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color={COLORS.text.inverse} /> : null}
                     </AnimatedPressable>
                 </View>
             </View>

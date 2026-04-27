@@ -125,15 +125,18 @@ const styles = StyleSheet.create({
   fieldText: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(10, 10, 10, 0.82)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(212, 175, 55, 0.24)',
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.lg,
     overflow: 'hidden',
+    ...SHADOWS.xl,
   },
   header: {
     flexDirection: 'row',
@@ -142,12 +145,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: 'rgba(245, 245, 240, 0.12)',
   },
   cancel: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
   title: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   done: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
-  wheels: { flexDirection: 'row', position: 'relative' },
+  wheels: {
+    flexDirection: 'row',
+    position: 'relative',
+    backgroundColor: COLORS.background,
+  },
   highlight: {
     position: 'absolute',
     left: 0,
@@ -156,6 +163,7 @@ const styles = StyleSheet.create({
     height: ITEM_H,
     borderTopWidth: 1.5,
     borderBottomWidth: 1.5,
-    borderColor: COLORS.accent,
+    borderColor: 'rgba(212, 175, 55, 0.62)',
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
   },
 });

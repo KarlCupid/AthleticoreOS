@@ -78,11 +78,20 @@ function assertValidTime(value: string): void {
   }
 }
 
+async function ensureCurrentUserMirror(): Promise<void> {
+  const { error } = await supabase.rpc('ensure_current_user');
+  if (error) {
+    throw error;
+  }
+}
+
 export async function completeCoachIntake(input: CoachIntakeInput): Promise<void> {
   const userId = await getActiveUserId();
   if (!userId) {
     throw new Error('Not authenticated');
   }
+
+  await ensureCurrentUserMirror();
 
   const availableDays = sortDays(input.availableDays);
   if (availableDays.length === 0) {
