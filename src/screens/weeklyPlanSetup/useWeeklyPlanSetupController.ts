@@ -47,6 +47,9 @@ import {
 type NavigationLike = {
   canGoBack: () => boolean;
   goBack: () => void;
+  getParent?: () => { navigate?: (route: string, params?: unknown) => void } | undefined;
+  getState?: () => { routeNames?: string[] };
+  navigate?: (route: string, params?: unknown) => void;
 };
 
 type UseWeeklyPlanSetupControllerArgs = {
@@ -399,6 +402,16 @@ export function useWeeklyPlanSetupController({
     }
   }
 
+  function openGymProfiles() {
+    const currentRouteNames = navigation.getState?.().routeNames ?? [];
+    if (currentRouteNames.includes('GymProfiles')) {
+      navigation.navigate?.('GymProfiles');
+      return;
+    }
+
+    navigation.getParent?.()?.navigate?.('Train', { screen: 'GymProfiles' });
+  }
+
   async function handleSave() {
     if (!userId) return;
 
@@ -483,6 +496,18 @@ export function useWeeklyPlanSetupController({
       });
 
       const gym = await getDefaultGymProfile(userId);
+      if (!gym) {
+        Alert.alert(
+          'Gym profile required',
+          'Create a default gym profile so the workout plan can match your available equipment.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Create Gym Profile', onPress: openGymProfiles },
+          ],
+        );
+        return;
+      }
+
       const generatedWeek = await generateAndSaveWeeklyPlan(userId, savedConfig as never, gym, startDate);
       if (generatedWeek.entries.length === 0) {
         throw new Error('Weekly plan generation completed without entries.');

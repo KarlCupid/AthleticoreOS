@@ -10,6 +10,7 @@ import {
   getActiveUserId,
   normalizeCycleDay,
 } from '../../lib/api/athleteContextService';
+import { getWeightHistory } from '../../lib/api/weightService';
 import { logError } from '../../lib/utils/logger';
 import type {
   ACWRResult,
@@ -23,6 +24,7 @@ import type {
   WorkoutPrescription,
   DailyCutProtocolRow,
   WeeklyPlanEntryRow,
+  WeightDataPoint,
 } from '../../lib/engine/types';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { todayLocalDate } from '../../lib/utils/date';
@@ -64,6 +66,7 @@ interface DashboardDataState {
   prescriptionMessage: string | null;
   workoutPrescription: WorkoutPrescription | null;
   weightTrend: WeightTrendResult | null;
+  weightHistory: WeightDataPoint[];
   dailyMission: DailyMission | null;
   todayPlanEntry: WeeklyPlanEntryRow | null;
   nutritionTargets: ResolvedNutritionTargets | null;
@@ -92,6 +95,7 @@ const INITIAL_STATE: DashboardDataState = {
   prescriptionMessage: null,
   workoutPrescription: null,
   weightTrend: null,
+  weightHistory: [],
   dailyMission: null,
   todayPlanEntry: null,
   nutritionTargets: null,
@@ -154,6 +158,7 @@ export function useDashboardData() {
         { data: trainingSessions },
         { data: ledger },
         engineState,
+        weightHistory,
       ] = await Promise.all([
         supabase
           .from('daily_checkins')
@@ -173,6 +178,7 @@ export function useDashboardData() {
           .eq('date', todayStr)
           .maybeSingle(),
         getDailyEngineState(userId, todayStr, { forceRefresh }),
+        getWeightHistory(userId, 30),
       ]);
 
       if (!isCurrentRequest()) {
@@ -208,6 +214,7 @@ export function useDashboardData() {
         prescriptionMessage: engineState.mission.summary,
         workoutPrescription: (engineState.workoutPrescription as WorkoutPrescription | null) ?? null,
         weightTrend: engineState.objectiveContext.weightTrend ?? null,
+        weightHistory,
         dailyMission: engineState.mission,
         todayPlanEntry: (engineState.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
         nutritionTargets: engineState.nutritionTargets,

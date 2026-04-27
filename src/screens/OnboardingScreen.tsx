@@ -288,7 +288,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
         setSaving(true);
         try {
-            await completeCoachIntake({
+            const result = await completeCoachIntake({
                 age: parsedAge,
                 currentWeightLbs: parsedWeight,
                 biologicalSex: bioSex,
@@ -300,6 +300,15 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 availableDays,
                 fixedSessions,
             });
+            if (!result.generatedPlan) {
+                setSaving(false);
+                Alert.alert(
+                    'Gym profile needed',
+                    'Your training setup is saved. Add a gym profile next so workout plans match your equipment.',
+                    [{ text: 'Continue', onPress: onComplete }],
+                );
+                return;
+            }
             onComplete();
         } catch (err: any) {
             Alert.alert('Could not build your first week', err.message || 'Please try again.');

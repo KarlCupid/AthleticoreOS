@@ -855,6 +855,9 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
     ]);
 
     if (!config) return;
+    if (!gymProfile) {
+        throw new Error('Create a default gym profile before generating a workout plan.');
+    }
 
     let activeCutPlan: WeightCutPlanRow | null = null;
     if (athleteContext.profile?.active_cut_plan_id) {

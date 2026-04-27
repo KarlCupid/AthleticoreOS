@@ -43,6 +43,10 @@ export type CoachIntakeInput = {
   fixedSessions: IntakeFixedSession[];
 };
 
+export type CoachIntakeResult = {
+  generatedPlan: boolean;
+};
+
 function resolveTrainingBackground(background: IntakeTrainingBackground): {
   fitnessLevel: 'beginner' | 'intermediate' | 'advanced';
   trainingAge: TrainingAge;
@@ -85,7 +89,7 @@ async function ensureCurrentUserMirror(): Promise<void> {
   }
 }
 
-export async function completeCoachIntake(input: CoachIntakeInput): Promise<void> {
+export async function completeCoachIntake(input: CoachIntakeInput): Promise<CoachIntakeResult> {
   const userId = await getActiveUserId();
   if (!userId) {
     throw new Error('Not authenticated');
@@ -199,12 +203,18 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<void
     }
 
     const gym = await getDefaultGymProfile(userId);
+    if (!gym) {
+      invalidateEngineDataCache({ userId });
+      return { generatedPlan: false };
+    }
+
     const generatedWeek = await generateAndSaveWeeklyPlan(userId, config as never, gym, todayLocalDate());
     if (generatedWeek.entries.length === 0) {
       throw new Error('Your first week could not be built. Try choosing more training days.');
     }
 
     invalidateEngineDataCache({ userId });
+    return { generatedPlan: true };
   } catch (error) {
     await supabase
       .from('athlete_profiles')

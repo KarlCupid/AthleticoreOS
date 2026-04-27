@@ -20,7 +20,6 @@ import { AnimatedPressable } from "../components/AnimatedPressable";
 import { SkeletonLoader } from "../components/SkeletonLoader";
 import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
-  IconRestaurant,
   IconActivity,
   IconArrowUp,
   IconBarbell,
@@ -39,7 +38,6 @@ import {
   buildCompassViewModel,
   getAllDecisionReasons,
 } from "../../lib/engine/presentation";
-import { TrainingLoadChartCard } from "../components/TrainingLoadChartCard";
 import { PrescriptionCard } from "../components/PrescriptionCard";
 import { WeightTrendCard } from "../components/WeightTrendCard";
 import { SafetyStatusIndicator } from "../components/SafetyStatusIndicator";
@@ -131,6 +129,7 @@ export function DashboardScreen() {
     workoutPrescription,
     todayPlanEntry,
     weightTrend,
+    weightHistory,
     nutritionTargets,
     actualNutrition,
     currentLedger,
@@ -196,35 +195,6 @@ export function DashboardScreen() {
     [activeCutProtocol?.safety_flags],
   );
   const D = 50;
-  const fuelPreview = React.useMemo(
-    () => [
-      {
-        label: "Energy",
-        value: percentOf(homeState.fuel.actual.calories, homeState.fuel.targets.calories),
-        icon: <IconLightning size={16} color={COLORS.accent} />,
-      },
-      {
-        label: "Hydration",
-        value: percentOf(homeState.fuel.actual.water, homeState.fuel.targets.water),
-        icon: <IconDroplets size={16} color={COLORS.accent} />,
-      },
-      {
-        label: "Nutrition",
-        value: averagePercent([
-          percentOf(homeState.fuel.actual.protein, homeState.fuel.targets.protein),
-          percentOf(homeState.fuel.actual.carbs, homeState.fuel.targets.carbs),
-          percentOf(homeState.fuel.actual.fat, homeState.fuel.targets.fat),
-        ]),
-        icon: <IconRestaurant size={16} color={COLORS.accent} />,
-      },
-    ],
-    [homeState.fuel.actual, homeState.fuel.targets],
-  );
-  const loadChartMax = React.useMemo(
-    () => Math.max(...homeState.training.loadChart.map((point) => point.value), 1),
-    [homeState.training.loadChart],
-  );
-
   const openTrainScreen = React.useCallback(
     (screen: string, params?: Record<string, unknown>) => {
       navigation.navigate("Train", { screen, params });
@@ -674,13 +644,33 @@ export function DashboardScreen() {
                  <View style={styles.missionIconBubble}>
                    <IconTarget size={20} color={COLORS.accent} />
                  </View>
-                 <Text style={styles.compassSessionRole}>Today's Mission</Text>
-                 <Text style={styles.compassRolePill}>
-                    {compassVM.sessionRoleLabel.toUpperCase()}
-                 </Text>
+                 <View style={styles.compassHeaderCopy}>
+                   <View style={styles.compassTitleRow}>
+                     <Text style={styles.compassSessionRole} numberOfLines={1}>
+                       Today's Mission
+                     </Text>
+                     <Text
+                       style={styles.compassRolePill}
+                       numberOfLines={1}
+                       adjustsFontSizeToFit
+                       minimumFontScale={0.84}
+                     >
+                        {compassVM.sessionRoleLabel.toUpperCase()}
+                     </Text>
+                   </View>
+                 </View>
                </View>
-               <Text style={styles.compassHeadline} numberOfLines={2}>{compassVM.headline}</Text>
-               <Text style={styles.compassSummary} numberOfLines={2}>{compassVM.summaryLine}</Text>
+               <Text
+                 style={styles.compassHeadline}
+                 numberOfLines={3}
+                 adjustsFontSizeToFit
+                 minimumFontScale={0.88}
+               >
+                 {compassVM.headline}
+               </Text>
+               <Text style={styles.compassSummary} numberOfLines={3}>
+                 {compassVM.summaryLine}
+               </Text>
                
                {dailyMission?.decisionTrace?.length ? (
                  <View style={styles.compassReasonRow}>
@@ -690,13 +680,27 @@ export function DashboardScreen() {
                ) : null}
 
                <AnimatedPressable style={styles.compassPrimaryButton} onPress={handleCompassCTA}>
-                  <Text style={styles.compassPrimaryText}>{compassVM.primaryCTALabel}</Text>
+                  <Text
+                    style={styles.compassPrimaryText}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.86}
+                  >
+                    {compassVM.primaryCTALabel}
+                  </Text>
                   <IconChevronRight size={18} color={COLORS.text.inverse} />
                </AnimatedPressable>
 
                {compassVM.secondaryCTALabel ? (
                   <AnimatedPressable style={styles.compassSecondaryButton} onPress={handleCompassSecondaryCTA}>
-                    <Text style={styles.compassSecondaryText}>{compassVM.secondaryCTALabel}</Text>
+                    <Text
+                      style={styles.compassSecondaryText}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.86}
+                    >
+                      {compassVM.secondaryCTALabel}
+                    </Text>
                   </AnimatedPressable>
                ) : null}
 
@@ -758,71 +762,7 @@ export function DashboardScreen() {
             </AnimatedPressable>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(D * 1.2).duration(ANIMATION.slow).springify()} style={styles.previewGrid}>
-          <View style={styles.previewCard}>
-            <View style={styles.previewAccentRail} />
-            <View style={styles.previewCornerMark} />
-            <View style={styles.previewHeaderRow}>
-              <Text style={styles.previewTitle}>Training Guidance</Text>
-              <View style={styles.previewArrow}>
-                <IconChevronRight size={16} color={COLORS.text.primary} />
-              </View>
-            </View>
-            <View style={styles.previewValueRow}>
-              <Text style={styles.previewGuidanceValue} numberOfLines={2}>
-                {homeState.training.workload.headline}
-              </Text>
-            </View>
-            <Text style={styles.previewDelta}>
-              {homeState.training.workload.guidance}
-            </Text>
-            <View style={styles.previewBarChart}>
-              {homeState.training.loadChart.map((point, idx) => (
-                <View key={`${point.label}-${idx}`} style={styles.previewBarSlot}>
-                  <View
-                    style={[
-                      styles.previewBar,
-                      point.isToday && styles.previewBarToday,
-                      { height: `${Math.max(16, (point.value / loadChartMax) * 100)}%` },
-                    ]}
-                  />
-                  <Text style={[styles.previewBarLabel, point.isToday && styles.previewBarLabelToday]}>
-                    {point.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.previewCard}>
-            <View style={styles.previewAccentRail} />
-            <View style={styles.previewCornerMark} />
-            <View style={styles.previewHeaderRow}>
-              <Text style={styles.previewTitle}>Fuel</Text>
-              <View style={styles.previewArrow}>
-                <IconChevronRight size={16} color={COLORS.text.primary} />
-              </View>
-            </View>
-            <View style={styles.fuelPreviewList}>
-              {fuelPreview.map((item) => (
-                <View key={item.label} style={styles.fuelPreviewRow}>
-                  <View style={styles.fuelPreviewIcon}>{item.icon}</View>
-                  <View style={styles.fuelPreviewCopy}>
-                    <View style={styles.fuelPreviewLabelRow}>
-                      <Text style={styles.fuelPreviewLabel}>{item.label}</Text>
-                      <Text style={styles.fuelPreviewValue}>{item.value}%</Text>
-                    </View>
-                    <View style={styles.fuelPreviewTrack}>
-                      <View style={[styles.fuelPreviewFill, { width: `${item.value}%` }]} />
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* The New Active Camp Banner positioned right below the grid */}
+        {/* Active camp context stays close to the mission controls. */}
         {hasActiveFightCamp && (
             <Animated.View entering={FadeInDown.delay(D * 1.5).duration(ANIMATION.slow).springify()}>
                 <ActiveCampBanner goalMode={goalMode} />
@@ -916,22 +856,9 @@ export function DashboardScreen() {
             </Animated.View>
           )}
 
-          <Animated.View
-            entering={FadeInDown.delay(D * 4)
-              .duration(ANIMATION.slow)
-              .springify()}
-            style={{ marginTop: SPACING.md }}
-          >
-            <SectionHeader title="Load trend" />
-            <TrainingLoadChartCard
-              trainingLoadData={homeState.training.loadChart}
-              workload={homeState.training.workload}
-            />
-          </Animated.View>
-
           {weightTrend && (
             <Animated.View
-              entering={FadeInDown.delay(D * 4.5)
+              entering={FadeInDown.delay(D * 4)
                 .duration(ANIMATION.slow)
                 .springify()}
               style={{ marginTop: SPACING.md }}
@@ -947,6 +874,7 @@ export function DashboardScreen() {
                     ? weightTrend.currentWeight - weightTrend.remainingLbs
                     : null
                 }
+                history={weightHistory}
               />
             </Animated.View>
           )}
@@ -1145,18 +1073,4 @@ function formatDashboardDate(isoDate: string): string {
   return date
     .toLocaleDateString("en-US", { month: "short", day: "numeric" })
     .toUpperCase();
-}
-
-function percentOf(actual: number, target: number): number {
-  if (!target || target <= 0) return 0;
-  return Math.round(clamp((actual / target) * 100, 0, 100));
-}
-
-function averagePercent(values: number[]): number {
-  if (!values.length) return 0;
-  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
 }

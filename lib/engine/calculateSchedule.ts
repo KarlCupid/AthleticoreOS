@@ -226,6 +226,92 @@ function resolveRecurringAnchorsForDay(
     });
 }
 
+const DEFAULT_GUIDED_AVAILABLE_DAYS = [1, 2, 3, 4, 5];
+
+function normalizePlanDay(day: number): number | null {
+    if (day === 7) return 0;
+    if (!Number.isFinite(day) || day < 0 || day > 6) return null;
+    return day;
+}
+
+function uniquePlanDays(days: number[]): number[] {
+    return Array.from(
+        new Set(
+            days
+                .map((day) => normalizePlanDay(Number(day)))
+                .filter((day): day is number => day != null),
+        ),
+    );
+}
+
+function sortPlanDaysFromWeekStart(days: number[], weekStartDay: number): number[] {
+    return [...days].sort((a, b) => {
+        let aOffset = a - weekStartDay;
+        if (aOffset < 0) aOffset += 7;
+        let bOffset = b - weekStartDay;
+        if (bOffset < 0) bOffset += 7;
+        return aOffset - bOffset;
+    });
+}
+
+function getDateForDayOfWeek(weekStartDate: string, weekStartDay: number, dayOfWeek: number): string {
+    let offset = dayOfWeek - weekStartDay;
+    if (offset < 0) offset += 7;
+    return addDays(weekStartDate, offset);
+}
+
+function getCombatAnchorDaysForWeek(input: {
+    recurringActivities: RecurringActivityRow[];
+    weekStartDate: string;
+    weekStartDay: number;
+}): Set<number> {
+    const anchorDays = new Set<number>();
+
+    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek += 1) {
+        const entryDate = getDateForDayOfWeek(input.weekStartDate, input.weekStartDay, dayOfWeek);
+        const anchors = resolveRecurringAnchorsForDay(input.recurringActivities, dayOfWeek, entryDate);
+        if (anchors.some((activity) => isBoxingActivityType(activity.activity_type))) {
+            anchorDays.add(dayOfWeek);
+        }
+    }
+
+    return anchorDays;
+}
+
+function resolveEffectiveAvailableDays(input: {
+    configuredDays: number[];
+    recurringActivities: RecurringActivityRow[];
+    weekStartDate: string;
+    weekStartDay: number;
+}): number[] {
+    const configuredDays = uniquePlanDays(input.configuredDays);
+    const combatAnchorDays = getCombatAnchorDaysForWeek({
+        recurringActivities: input.recurringActivities,
+        weekStartDate: input.weekStartDate,
+        weekStartDay: input.weekStartDay,
+    });
+    const configuredPlusAnchors = uniquePlanDays([
+        ...configuredDays,
+        ...Array.from(combatAnchorDays),
+    ]);
+    const hasOnlyCombatAnchorDays = configuredPlusAnchors.length > 0
+        && configuredPlusAnchors.length <= 2
+        && configuredPlusAnchors.every((day) => combatAnchorDays.has(day));
+
+    // Legacy/first-run configs can accidentally capture only fixed sparring
+    // days as availability. Those are locked anchors, not a complete S&C week.
+    if (hasOnlyCombatAnchorDays) {
+        return uniquePlanDays([
+            ...DEFAULT_GUIDED_AVAILABLE_DAYS,
+            ...configuredPlusAnchors,
+        ]);
+    }
+
+    return configuredPlusAnchors.length > 0
+        ? configuredPlusAnchors
+        : [...DEFAULT_GUIDED_AVAILABLE_DAYS];
+}
+
 function getCampStrengthFocusSequence(input: {
     performanceGoalType: SmartWeekPlanInput['performanceGoalType'];
     blockContext: ReturnType<typeof resolveTrainingBlockContext>;
@@ -1725,7 +1811,13 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
     }
 
     // ── 3. Determine guided-session capacity ──
-    const availableDays = config.available_days; // 0=Sun..6=Sat
+    const weekStartDay = dateFromISO(weekStartDate).getDay();
+    const availableDays = resolveEffectiveAvailableDays({
+        configuredDays: config.available_days,
+        recurringActivities,
+        weekStartDate,
+        weekStartDay,
+    }); // 0=Sun..6=Sat
     const guidedCapacity = isDeloadWeek
         ? Math.min(availableDays.length, 3) // deload: max 3 sessions
         : availableDays.length;
@@ -1737,20 +1829,10 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
     });
 
     // Sort available days to place them chronologically starting from weekStartDate
-    const weekStartDay = dateFromISO(weekStartDate).getDay();
-
-    const sortedDays = [...availableDays].sort((a, b) => {
-        let aOffset = a - weekStartDay;
-        if (aOffset < 0) aOffset += 7;
-        let bOffset = b - weekStartDay;
-        if (bOffset < 0) bOffset += 7;
-        return aOffset - bOffset;
-    });
+    const sortedDays = sortPlanDaysFromWeekStart(availableDays, weekStartDay);
 
     const actualSparringDaysThisWeek = sortedDays.filter((dayOfWeek) => {
-        let offset = dayOfWeek - weekStartDay;
-        if (offset < 0) offset += 7;
-        const entryDate = addDays(weekStartDate, offset);
+        const entryDate = getDateForDayOfWeek(weekStartDate, weekStartDay, dayOfWeek);
         const recurringAnchors = resolveRecurringAnchorsForDay(recurringActivities, dayOfWeek, entryDate);
         return recurringAnchors.some((activity) => activity.activity_type === 'sparring');
     }).length;
@@ -1780,10 +1862,8 @@ export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanR
     for (let i = 0; i < sortedDays.length; i++) {
 
         const dayOfWeek = sortedDays[i];
-        // Calculate offset from week start
-        let offset = dayOfWeek - weekStartDay;
-        if (offset < 0) offset += 7;
-        const entryDate = addDays(weekStartDate, offset);
+        // Calculate date from week start
+        const entryDate = getDateForDayOfWeek(weekStartDate, weekStartDay, dayOfWeek);
         decayPlanningMuscleVolume(rollingRecentMuscleVolume, getDaysBetweenPlanDates(lastPlanningDate, entryDate));
         lastPlanningDate = entryDate;
         const daysOut = activeCutPlan

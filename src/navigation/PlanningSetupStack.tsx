@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WeeklyPlanSetupScreen } from '../screens/WeeklyPlanSetupScreen';
+import { GymProfileScreen } from '../screens/GymProfileScreen';
 import { APP_STACK_SCREEN_OPTIONS } from './stackOptions';
 
 const Stack = createNativeStackNavigator();
@@ -19,6 +20,7 @@ export function PlanningSetupStackNavigator({ onComplete }: PlanningSetupStackPr
       <Stack.Screen name="PlanningSetup">
         {() => <PlanningSetupGateScreen onComplete={onComplete} />}
       </Stack.Screen>
+      <Stack.Screen name="GymProfiles" component={GymProfileScreen} />
     </Stack.Navigator>
   );
 }

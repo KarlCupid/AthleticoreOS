@@ -23,7 +23,6 @@ import type {
 
 const ALL_AGE_BANDS: AgeBand[] = ['teen_13_17', 'adult_18_49', 'masters_50_64', 'older_adult_65_plus'];
 const ADULT_AGE_BANDS: AgeBand[] = ['adult_18_49', 'masters_50_64', 'older_adult_65_plus'];
-const ATHLETE_AGE_BANDS: AgeBand[] = ['teen_13_17', 'adult_18_49', 'masters_50_64'];
 
 export const REQUIRED_SC_SESSION_FAMILIES: SCSessionFamily[] = [
   'max_strength',

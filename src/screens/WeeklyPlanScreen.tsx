@@ -80,6 +80,7 @@ export function WeeklyPlanScreen() {
         loading,
         entries,
         missedEntries,
+        hasDefaultGymProfile,
         isDeloadWeek,
         isCurrentWeek,
         activeWeekStart,
@@ -129,6 +130,10 @@ export function WeeklyPlanScreen() {
     // ─── Grouped display data ───
 
     const grouped = useMemo(() => buildWeeklyPlanGroups(entries, activeWeekStart), [entries, activeWeekStart]);
+    const handleGymProfilePress = useCallback(() => {
+        const parentNavigation = navigation.getParent() as { navigate?: (route: string, params?: unknown) => void } | undefined;
+        parentNavigation?.navigate?.('Train', { screen: 'GymProfiles' });
+    }, [navigation]);
     
     // Feature: Up Next Session
     const nextSession = useMemo(() => {
@@ -180,6 +185,33 @@ export function WeeklyPlanScreen() {
                 <View style={styles.scrollContent}>
                    <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
                    <SkeletonLoader width="100%" height={140} borderRadius={RADIUS.xl} style={{ marginBottom: SPACING.sm }} />
+                </View>
+            </ScreenWrapper>
+        );
+    }
+
+    if (!loading && !hasDefaultGymProfile) {
+        return (
+            <ScreenWrapper useSafeArea={true}>
+                <View style={styles.header}>
+                    <ScreenHeader
+                        kicker="Plan"
+                        title="Gym profile needed"
+                        subtitle="Set equipment before workouts."
+                    />
+                </View>
+                <View style={styles.scrollContent}>
+                    <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
+                        <Card variant="glass" style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}>
+                            <Text style={styles.emptyTitle}>Create a gym profile</Text>
+                            <Text style={styles.emptySubtitle}>
+                                Workout plans need your available equipment first.
+                            </Text>
+                            <AnimatedPressable style={styles.setupButton} onPress={handleGymProfilePress}>
+                                <Text style={styles.setupButtonText}>Create Gym Profile</Text>
+                            </AnimatedPressable>
+                        </Card>
+                    </Animated.View>
                 </View>
             </ScreenWrapper>
         );

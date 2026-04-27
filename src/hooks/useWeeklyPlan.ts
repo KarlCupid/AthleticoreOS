@@ -182,6 +182,46 @@ function todayStr(): string {
   return todayLocalDate();
 }
 
+function isFixedCombatEntry(entry: WeeklyPlanEntryRow): boolean {
+  return (
+    entry.session_type === 'sparring'
+    || entry.session_type === 'boxing_practice'
+  ) && (
+    entry.placement_source === 'locked'
+    || entry.focus == null
+  );
+}
+
+function shouldRepairUnderfilledWeek(
+  entries: WeeklyPlanEntryRow[],
+  weekStart: string,
+): boolean {
+  if (entries.length === 0 || entries.some((entry) => entry.is_deload)) {
+    return false;
+  }
+
+  const weekEnd = addDays(weekStart, 6);
+  if (weekEnd < todayStr()) {
+    return false;
+  }
+
+  const fixedCombatDates = new Set(
+    entries
+      .filter(isFixedCombatEntry)
+      .map((entry) => entry.date),
+  );
+
+  if (fixedCombatDates.size === 0) {
+    return false;
+  }
+
+  const hasStandaloneGuidedSession = entries.some((entry) =>
+    entry.focus != null && !fixedCombatDates.has(entry.date),
+  );
+
+  return !hasStandaloneGuidedSession;
+}
+
 function normalizeCampConfig(raw: CampPlanRow | CampConfig): CampConfig {
   if ('fightDate' in raw && 'campStartDate' in raw) {
     return raw;
@@ -234,6 +274,10 @@ export async function generateAndSaveWeeklyPlan(
   gym: GymProfileRow | null,
   weekStart: string,
 ): Promise<SmartWeekPlanResult> {
+  if (!gym) {
+    throw new Error('Create a default gym profile before generating a workout plan.');
+  }
+
   const readinessContext = await getCurrentReadinessContext(userId, todayStr());
   const athleteContext = await getAthleteContext(userId);
 
@@ -397,7 +441,19 @@ export function useWeeklyPlan() {
         setActiveWeekStart(null);
       } else {
         const weeklyMission = await getWeeklyMission(userId, weekStart, { forceRefresh: Boolean(forceStartDate) });
-        applyWeeklyMission(weeklyMission);
+        if (gym && shouldRepairUnderfilledWeek(weeklyMission.entries, weekStart)) {
+          const repairedWeek = await generateAndSaveWeeklyPlan(userId, planConfig, gym, weekStart);
+          applyWeeklyMission({
+            entries: repairedWeek.entries.map((entry) => ({
+              ...entry,
+              daily_mission_snapshot: entry.daily_mission_snapshot ?? null,
+            })),
+            headline: 'Weekly mission',
+            summary: repairedWeek.message,
+          });
+        } else {
+          applyWeeklyMission(weeklyMission);
+        }
       }
     } catch (err: unknown) {
       logError('useWeeklyPlan.loadPlan', err);
@@ -493,6 +549,10 @@ export function useWeeklyPlan() {
     if (!activeWeekStart || !config) return;
     const userId = await getActiveUserId();
     if (!userId) return;
+    if (!gymProfile) {
+      setError('Create a default gym profile before generating a workout plan.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -522,10 +582,11 @@ export function useWeeklyPlan() {
     error,
     config,
     weekPlan,
+    gymProfile,
+    hasDefaultGymProfile: Boolean(gymProfile),
     entries,
     todayEntry,
     missedEntries,
-    gymProfile,
     isDeloadWeek,
     isCurrentWeek,
     activeWeekStart,

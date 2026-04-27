@@ -629,6 +629,34 @@ console.log('\n── generateSmartWeekPlan ──');
 
 (() => {
     const result = generateSmartWeekPlan({
+        config: makeSmartConfig({ available_days: [2, 5] }),
+        readinessState: 'Prime',
+        phase: 'off-season',
+        acwr: 1.0,
+        fitnessLevel: 'intermediate',
+        performanceGoalType: 'conditioning',
+        exerciseLibrary: [],
+        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
+        campConfig: null,
+        activeCutPlan: null,
+        weeksSinceLastDeload: 1,
+        gymProfile: null,
+        weekStartDate: '2026-03-02',
+        recurringActivities: [
+            makeRecurringActivity('sparring', [2]),
+            makeRecurringActivity('sparring', [5]),
+        ],
+    });
+    const guided = getGuidedEntries(result);
+    const standaloneGuided = guided.filter((entry) => entry.day_of_week !== 2 && entry.day_of_week !== 5);
+    const sparringEntries = result.entries.filter((entry) => entry.session_type === 'sparring');
+
+    assert('Sparse availability made only of fixed sparring days expands into a full training week', standaloneGuided.length >= 3);
+    assert('Expanded sparse availability still keeps both fixed sparring anchors', sparringEntries.length === 2);
+})();
+
+(() => {
+    const result = generateSmartWeekPlan({
         config: makeSmartConfig({ available_days: [1, 2, 4, 5] }),
         readinessState: 'Prime',
         phase: 'fight-camp',
