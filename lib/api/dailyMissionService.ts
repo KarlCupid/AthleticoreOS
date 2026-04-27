@@ -1273,35 +1273,44 @@ async function computeDailyEngineState(
     protectWindow,
   });
 
-  await upsertDailyEngineSnapshot({
-    userId,
-    date,
-    engineVersion: mission.engineVersion ?? DAILY_ENGINE_VERSION,
-    objectiveContext,
-    nutritionTargets,
-    workoutPrescription: workoutPrescription ?? null,
-    mission,
-  });
-  await updateDailyMissionSnapshotsByDate(userId, [{ date, mission }]);
+  const persistedObjectiveContext = snapshot ? snapshot.objective_context_snapshot : objectiveContext;
+  const persistedNutritionTargets = snapshot ? snapshot.nutrition_targets_snapshot : nutritionTargets;
+  const persistedWorkoutPrescription = snapshot ? snapshot.workout_prescription_snapshot : workoutPrescription ?? null;
+  const persistedMission = snapshot ? snapshot.mission_snapshot : mission;
+
+  if (!snapshot) {
+    await upsertDailyEngineSnapshot({
+      userId,
+      date,
+      engineVersion: mission.engineVersion ?? DAILY_ENGINE_VERSION,
+      objectiveContext,
+      nutritionTargets,
+      workoutPrescription: workoutPrescription ?? null,
+      mission,
+    });
+    await updateDailyMissionSnapshotsByDate(userId, [{ date, mission }]);
+  } else {
+    await updateDailyMissionSnapshotsByDate(userId, [{ date, mission: persistedMission }]);
+  }
 
   return {
     date,
-    engineVersion: mission.engineVersion ?? DAILY_ENGINE_VERSION,
-    objectiveContext,
+    engineVersion: persistedMission.engineVersion ?? DAILY_ENGINE_VERSION,
+    objectiveContext: persistedObjectiveContext,
     acwr,
     readinessState,
     readinessProfile,
     constraintSet,
     cutProtocol,
-    nutritionTargets: snapshot?.nutrition_targets_snapshot ?? nutritionTargets,
+    nutritionTargets: persistedNutritionTargets,
     hydration,
     scheduledActivities,
     weeklyPlanEntries,
     primaryScheduledActivity: pickPrimaryScheduledActivity(scheduledActivities),
     primaryPlanEntry,
     primaryEnginePlanEntry,
-    workoutPrescription: workoutPrescription ?? null,
-    mission,
+    workoutPrescription: persistedWorkoutPrescription,
+    mission: persistedMission,
     campRisk: riskAssessment ?? null,
     medStatus,
   };

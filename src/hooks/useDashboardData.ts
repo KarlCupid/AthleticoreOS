@@ -238,11 +238,7 @@ export function useDashboardData() {
             carbs: engineState.mission.fuelDirective.carbs,
             fat: engineState.mission.fuelDirective.fat,
             weightCorrectionDeficit: engineState.nutritionTargets.weightCorrectionDeficit,
-            targetSource: engineState.mission.fuelDirective.source === 'weight_cut_protocol'
-              ? 'weight_cut_protocol'
-              : engineState.mission.fuelDirective.source === 'daily_engine'
-                ? 'daily_activity_adjusted'
-                : 'base',
+            targetSource: engineState.nutritionTargets.source,
           });
         } catch (error) {
             logError('useDashboardData.ensureDailyLedger', error, { userId });

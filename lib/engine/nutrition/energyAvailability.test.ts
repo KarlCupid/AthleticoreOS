@@ -99,12 +99,25 @@ console.log('\n-- nutrition/energyAvailability --');
 
   const restResult = floor({
     targetCalories: 1500,
-    estimatedExpenditure: 500,
+    estimatedExpenditure: 0,
     leanMassKg: 60,
     isTrainingDay: false,
   });
-  assert('Non-training day does not trigger floor', restResult.fuelingFloorTriggered === false);
-  assert('Non-training day keeps original calories', restResult.adjustedCalories === 1500);
+  assert('Non-training day above hard floor does not trigger floor', restResult.fuelingFloorTriggered === false);
+  assert('Non-training day above hard floor keeps original calories', restResult.adjustedCalories === 1500);
+})();
+
+(() => {
+  const result = floor({
+    targetCalories: 900,
+    estimatedExpenditure: 0,
+    leanMassKg: 60,
+    isTrainingDay: false,
+  });
+
+  assert('Non-training day below hard EA floor raises calories', result.adjustedCalories === 1200);
+  assert('Non-training floor protects EA to 20+', result.energyAvailability >= 20);
+  assert('Non-training floor reports fueling floor warning', result.safetyWarning === 'fueling_floor_applied');
 })();
 
 (() => {

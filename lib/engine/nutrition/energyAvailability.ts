@@ -62,7 +62,7 @@ function getEnergyAvailabilityFloor(input: {
   isTrainingDay: boolean;
   daysToWeighIn: number | null;
 }): number {
-  // 20 kcal/kg FFM is reserved for the final cut window; everyday training floors stay higher.
+  // 20 kcal/kg FFM is the hard floor for any day; everyday training floors stay higher.
   if (!input.isTrainingDay) return 20;
   if (input.daysToWeighIn != null && input.daysToWeighIn <= 3) return 20;
   if (input.daysToWeighIn != null && input.daysToWeighIn <= 7) return 23;
@@ -99,18 +99,6 @@ export function applyFuelingFloor(input: {
   const traceLines: string[] = [];
   const safetyEvents: NutritionSafetyEvent[] = [];
 
-  if (!isTrainingDay) {
-    return {
-      adjustedCalories: targetCalories,
-      energyAvailability,
-      fuelingFloorTriggered: false,
-      deficitBankDelta: 0,
-      safetyWarning: getNutritionSafetyWarning(energyAvailability, false, daysToWeighIn),
-      safetyEvents,
-      traceLines,
-    };
-  }
-
   const energyAvailabilityFloor = Math.max(
     getEnergyAvailabilityFloor({ isTrainingDay, daysToWeighIn }),
     minimumEnergyAvailability ?? 0,
@@ -137,9 +125,11 @@ export function applyFuelingFloor(input: {
     energyAvailability: adjustedEA,
     fuelingFloorTriggered: triggered,
     deficitBankDelta: triggered ? Math.round(safeCalories - targetCalories) : 0,
-    safetyWarning: floorSource === 'cut_readiness_floor' && triggered
-      ? 'cut_readiness_floor_applied'
-      : getNutritionSafetyWarning(adjustedEA, true, daysToWeighIn),
+    safetyWarning: triggered
+      ? floorSource === 'cut_readiness_floor'
+        ? 'cut_readiness_floor_applied'
+        : 'fueling_floor_applied'
+      : getNutritionSafetyWarning(adjustedEA, isTrainingDay, daysToWeighIn),
     safetyEvents,
     traceLines,
   };

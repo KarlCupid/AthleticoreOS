@@ -116,8 +116,9 @@ export interface NutritionProfileInput {
 }
 
 export interface ProteinTargetPolicy {
-  baseProteinPerLb: number;
-  deficitScalerCap: number;
+  baseProteinPerKg: number;
+  maxProteinPerKg: number;
+  deficitScalerCapPerKg: number;
 }
 
 export interface NutritionTargets {
