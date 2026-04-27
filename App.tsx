@@ -150,7 +150,7 @@ export default function App() {
       <OceanLoader color={COLORS.readiness.prime} />
     </View>
   ) : !hasProfile ? (
-    <OnboardingScreen onComplete={() => { setHasProfile(true); setHasPlanningSetup(false); }} />
+    <OnboardingScreen onComplete={() => { setHasProfile(true); setHasPlanningSetup(true); }} />
   ) : !hasPlanningSetup ? (
     <PlanningSetupStackNavigator onComplete={() => setHasPlanningSetup(true)} />
   ) : (

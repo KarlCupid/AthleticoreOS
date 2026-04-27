@@ -119,6 +119,29 @@ export const styles = StyleSheet.create({
         lineHeight: 24,
         paddingHorizontal: SPACING.lg,
     },
+    coachPointList: {
+        gap: SPACING.sm,
+        marginTop: SPACING.xl,
+    },
+    coachPoint: {
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surface,
+        padding: SPACING.md,
+    },
+    coachPointTitle: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+        marginBottom: 3,
+    },
+    coachPointText: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        lineHeight: 19,
+    },
     stepTitle: {
         fontSize: 28,
         fontFamily: FONT_FAMILY.black,
@@ -251,6 +274,57 @@ export const styles = StyleSheet.create({
     activityOptionIndicatorActive: {
         borderColor: COLORS.readiness.prime,
         backgroundColor: '#F5F5F0',
+    },
+    optionalBlock: {
+        marginTop: SPACING.xl,
+        paddingTop: SPACING.lg,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.borderLight,
+    },
+    optionalHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: SPACING.md,
+        marginBottom: SPACING.md,
+    },
+    addSmallButton: {
+        minHeight: 44,
+        paddingHorizontal: SPACING.lg,
+        borderRadius: RADIUS.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.accentLight,
+    },
+    addSmallButtonText: {
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.accent,
+    },
+    fixedSessionCard: {
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surface,
+        padding: SPACING.md,
+        marginBottom: SPACING.md,
+    },
+    fixedSessionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: SPACING.md,
+        marginBottom: SPACING.md,
+    },
+    fixedSessionTitle: {
+        flex: 1,
+        fontSize: 15,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+    },
+    removeText: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.readiness.depleted,
     },
     navRow: {
         flexDirection: 'row',

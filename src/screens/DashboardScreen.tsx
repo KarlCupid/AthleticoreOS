@@ -463,20 +463,20 @@ export function DashboardScreen() {
     ? [
         {
           id: "checkin" as const,
-            title: "Log your first check-in",
-            subtitle: "Set today's readiness.",
-            done: firstRunGuidance.progress.checkinDone,
-          },
+          title: "Check in once",
+          subtitle: "Tell coach how you feel today.",
+          done: firstRunGuidance.progress.checkinDone,
+        },
         {
           id: "workout" as const,
-          title: "Complete first training",
-          subtitle: "Start training history.",
+          title: "Complete today's training",
+          subtitle: "Get one session in the books.",
           done: firstRunGuidance.progress.workoutDone,
         },
         {
           id: "nutrition" as const,
-          title: "Log your first meal",
-          subtitle: "Start fuel feedback.",
+          title: "Log one meal",
+          subtitle: "Start your fuel picture.",
           done: firstRunGuidance.progress.nutritionDone,
         },
       ]
@@ -539,10 +539,10 @@ export function DashboardScreen() {
           <View style={styles.firstRunModalCard}>
             <Text style={styles.firstRunModalKicker}>WELCOME</Text>
             <Text style={styles.firstRunModalTitle}>
-              Start Here in 3 Quick Wins
+              Your First Wins Start Here
             </Text>
             <Text style={styles.firstRunModalBody}>
-              Complete one check-in, workout, and meal.
+              First, check in. Then complete today's training and log one meal. We will tighten the details as you build rhythm.
             </Text>
 
             <AnimatedPressable
@@ -552,7 +552,7 @@ export function DashboardScreen() {
                 openFirstRunStep("checkin");
               }}
             >
-              <Text style={styles.firstRunModalPrimaryText}>Start Step 1</Text>
+              <Text style={styles.firstRunModalPrimaryText}>Check In</Text>
             </AnimatedPressable>
 
             <AnimatedPressable
@@ -989,7 +989,7 @@ export function DashboardScreen() {
                 </View>
                 <Text style={styles.firstRunTitle}>Your first 3 wins</Text>
                 <Text style={styles.firstRunSubtitle}>
-                  Do these once to unlock your plan.
+                  Build rhythm first. Precision comes after reps.
                 </Text>
 
                 <View style={styles.firstRunStepList}>

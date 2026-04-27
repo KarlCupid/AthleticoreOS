@@ -10,6 +10,16 @@ import { COLORS, SPACING, GRADIENTS, ANIMATION } from '../theme/theme';
 import { supabase } from '../../lib/supabase';
 import { IconChevronLeft, IconChevronRight, IconCheckCircle } from '../components/icons';
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { DatePickerField } from '../components/DatePickerField';
+import { DAY_OPTIONS } from './weeklyPlanSetup/constants';
+import { addDays, todayLocalDate } from '../../lib/utils/date';
+import type { AthleteGoalMode, BuildPhaseGoalType } from '../../lib/engine/types';
+import {
+    completeCoachIntake,
+    type IntakeFixedSession,
+    type IntakeFixedSessionType,
+    type IntakeTrainingBackground,
+} from './onboarding/completeCoachIntake';
 import { styles } from './OnboardingScreen.styles';
 
 interface OnboardingScreenProps {
@@ -20,55 +30,102 @@ const TOTAL_STEPS = 3;
 
 const STEP_META = [
     {
-        eyebrow: 'Phase 1',
-        title: 'Welcome',
-        description: 'Add the basics that power your plan.',
+        eyebrow: 'Step 1',
+        title: 'Meet Your Coach',
+        description: 'We will build momentum first, then dial in the details as you train.',
     },
     {
-        eyebrow: 'Phase 2',
-        title: 'Body Stats',
-        description: 'Set your weight baseline.',
+        eyebrow: 'Step 2',
+        title: 'Your Baseline',
+        description: 'Just enough context to keep the first plan safe.',
     },
     {
-        eyebrow: 'Phase 3',
-        title: 'Athlete Profile',
-        description: 'Set athlete context.',
+        eyebrow: 'Step 3',
+        title: 'First Week',
+        description: 'Pick a clear direction and realistic training days.',
     },
-] as const;
-
-const FIGHT_STATUS_OPTIONS = [
-    { value: 'amateur', label: 'Amateur', descriptor: 'Building competitive experience' },
-    { value: 'pro', label: 'Pro', descriptor: 'Competing at professional level' },
 ] as const;
 
 const BIO_SEX_OPTIONS = [
-    { value: 'male', label: 'Male', descriptor: 'Uses male physiology defaults' },
-    { value: 'female', label: 'Female', descriptor: 'Supports cycle-aware readiness options' },
+    { value: 'male', label: 'Male physiology', descriptor: 'Uses male nutrition and recovery defaults.' },
+    { value: 'female', label: 'Female physiology', descriptor: 'Uses female nutrition and recovery defaults.' },
 ] as const;
 
-const CYCLE_TRACKING_OPTIONS = [
-    { value: true, label: 'Enable', descriptor: 'Use cycle phases in readiness guidance' },
-    { value: false, label: 'Skip', descriptor: 'Use standard readiness guidance only' },
-] as const;
+const TRAINING_BACKGROUND_OPTIONS: Array<{
+    value: IntakeTrainingBackground;
+    label: string;
+    descriptor: string;
+}> = [
+    { value: 'new', label: 'New to structure', descriptor: 'Start conservative and learn the basics.' },
+    { value: 'some', label: 'Some experience', descriptor: 'I train consistently, but still want guidance.' },
+    { value: 'advanced', label: 'Advanced', descriptor: 'I have years of structured training.' },
+];
+
+type MainGoal = BuildPhaseGoalType | 'fight_camp';
+
+const MAIN_GOAL_OPTIONS: Array<{
+    value: MainGoal;
+    label: string;
+    descriptor: string;
+}> = [
+    { value: 'conditioning', label: 'Build gas tank', descriptor: 'Improve pace and repeatability.' },
+    { value: 'strength', label: 'Get stronger', descriptor: 'Build useful strength without overdoing it.' },
+    { value: 'boxing_skill', label: 'Sharpen boxing', descriptor: 'Protect technical work and skill rhythm.' },
+    { value: 'weight_class_prep', label: 'Move weight', descriptor: 'Start bodyweight prep steadily.' },
+    { value: 'fight_camp', label: 'Fight booked', descriptor: 'Build toward a fight date.' },
+];
+
+const SESSION_TYPE_OPTIONS: Array<{ value: IntakeFixedSessionType; label: string }> = [
+    { value: 'boxing_practice', label: 'Boxing' },
+    { value: 'sparring', label: 'Sparring' },
+];
+
+const DURATION_OPTIONS = [60, 90, 120];
+const INTENSITY_OPTIONS = [
+    { value: 5, label: 'Easy' },
+    { value: 7, label: 'Solid' },
+    { value: 9, label: 'Hard' },
+];
+
+function parsePositiveNumber(value: string): number | null {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function createFixedSession(dayOfWeek: number = 1): IntakeFixedSession {
+    return {
+        id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        activityType: 'boxing_practice',
+        dayOfWeek,
+        startTime: '19:00',
+        durationMin: 90,
+        expectedIntensity: 7,
+        label: '',
+    };
+}
+
+function isValidTime(value: string): boolean {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const insets = useSafeAreaInsets();
     const [step, setStep] = useState(0);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
 
-    const [name, setName] = useState('');
-    const [heightFeet, setHeightFeet] = useState('');
-    const [heightInches, setHeightInches] = useState('');
     const [age, setAge] = useState('');
     const [weight, setWeight] = useState('');
-    const [fightStatus, setFightStatus] = useState<'amateur' | 'pro'>('amateur');
     const [bioSex, setBioSex] = useState<'male' | 'female'>('male');
-    const [cycleTracking, setCycleTracking] = useState(false);
-    const [activityLevel, _setActivityLevel] = useState<'sedentary' | 'light' | 'moderate' | 'very_active' | 'extra_active'>('moderate');
-    const [nutritionGoal, _setNutritionGoal] = useState<'maintain' | 'cut' | 'bulk'>('maintain');
+    const [trainingBackground, setTrainingBackground] = useState<IntakeTrainingBackground>('new');
+    const [mainGoal, setMainGoal] = useState<MainGoal>('conditioning');
+    const [targetWeight, setTargetWeight] = useState('');
+    const [fightDate, setFightDate] = useState(addDays(todayLocalDate(), 84));
+    const [availableDays, setAvailableDays] = useState<number[]>([1, 3, 5]);
+    const [fixedSessions, setFixedSessions] = useState<IntakeFixedSession[]>([]);
     const [saving, setSaving] = useState(false);
 
     const currentStepMeta = STEP_META[step];
+    const needsTargetWeight = mainGoal === 'weight_class_prep' || mainGoal === 'fight_camp';
 
     React.useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -88,10 +145,32 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 0:
                 return true;
             case 1:
-                return weight.trim().length > 0;
+                return parsePositiveNumber(age) != null && parsePositiveNumber(weight) != null;
             default:
-                return true;
+                return availableDays.length > 0 && (mainGoal !== 'fight_camp' || Boolean(fightDate));
         }
+    };
+
+    const progressStyle = useAnimatedStyle(() => ({
+        width: withTiming(`${((step + 1) / TOTAL_STEPS) * 100}%`, { duration: 400 }),
+    }));
+
+    const toggleAvailableDay = (dayOfWeek: number) => {
+        setAvailableDays((current) => {
+            if (current.includes(dayOfWeek)) {
+                return current.filter((day) => day !== dayOfWeek);
+            }
+            return [...current, dayOfWeek].sort((a, b) => {
+                const order = [1, 2, 3, 4, 5, 6, 0];
+                return order.indexOf(a) - order.indexOf(b);
+            });
+        });
+    };
+
+    const updateFixedSession = (id: string, patch: Partial<IntakeFixedSession>) => {
+        setFixedSessions((current) => current.map((session) => (
+            session.id === id ? { ...session, ...patch } : session
+        )));
     };
 
     const handleNext = () => {
@@ -100,7 +179,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             return;
         }
 
-        handleComplete();
+        void handleComplete();
     };
 
     const handleBack = () => {
@@ -109,48 +188,181 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         }
     };
 
-    const progressStyle = useAnimatedStyle(() => ({
-        width: withTiming(`${((step + 1) / TOTAL_STEPS) * 100}%`, { duration: 400 }),
-    }));
-
     const handleComplete = async () => {
+        const parsedAge = parsePositiveNumber(age);
+        const parsedWeight = parsePositiveNumber(weight);
+        const parsedTargetWeight = targetWeight.trim() ? parsePositiveNumber(targetWeight) : null;
+
+        if (parsedAge == null || parsedWeight == null) {
+            Alert.alert('Baseline needed', 'Add your age and current body weight so your first plan starts safely.');
+            return;
+        }
+
+        if (targetWeight.trim() && parsedTargetWeight == null) {
+            Alert.alert('Check target weight', 'Target weight should be a number, or leave it blank for now.');
+            return;
+        }
+
+        if (availableDays.length === 0) {
+            Alert.alert('Training days needed', 'Pick at least one day you can train.');
+            return;
+        }
+
+        const invalidSession = fixedSessions.find((session) => !isValidTime(session.startTime));
+        if (invalidSession) {
+            Alert.alert('Check fixed session', 'Use a start time like 18:30.');
+            return;
+        }
+
+        const goalMode: AthleteGoalMode = mainGoal === 'fight_camp' ? 'fight_camp' : 'build_phase';
+        const buildGoalType: BuildPhaseGoalType = mainGoal === 'fight_camp' ? 'conditioning' : mainGoal;
+
         setSaving(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user) throw new Error('Not authenticated');
-
-            const totalInches = heightFeet || heightInches
-                ? (parseInt(heightFeet, 10) || 0) * 12 + (parseInt(heightInches, 10) || 0)
-                : null;
-
-            const { error } = await supabase.from('athlete_profiles').insert({
-                user_id: session.user.id,
-                biological_sex: bioSex,
-                fight_status: fightStatus,
-                phase: 'off-season',
-                target_weight: null,
-                base_weight: weight ? parseFloat(weight) : null,
-                cycle_tracking: cycleTracking,
-                height_inches: totalInches,
-                age: age ? parseInt(age, 10) : null,
-                activity_level: activityLevel,
-                nutrition_goal: nutritionGoal,
-                athlete_goal_mode: 'build_phase',
-                performance_goal_type: 'conditioning',
-                planning_setup_version: 0,
-                fight_date: null,
+            await completeCoachIntake({
+                age: parsedAge,
+                currentWeightLbs: parsedWeight,
+                biologicalSex: bioSex,
+                trainingBackground,
+                goalMode,
+                buildGoalType,
+                fightDate: goalMode === 'fight_camp' ? fightDate : null,
+                targetWeightLbs: parsedTargetWeight,
+                availableDays,
+                fixedSessions,
             });
-
-            if (error) {
-                Alert.alert('Error', error.message);
-            } else {
-                onComplete();
-            }
+            onComplete();
         } catch (err: any) {
-            Alert.alert('Error', err.message || 'Could not save profile.');
+            Alert.alert('Could not build your first week', err.message || 'Please try again.');
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
+
+    const renderOptionCard = <T extends string>(
+        selected: boolean,
+        option: { value: T; label: string; descriptor?: string },
+        onPress: (value: T) => void,
+    ) => (
+        <TouchableOpacity
+            key={option.value}
+            style={[styles.activityOptionCard, selected && styles.activityOptionCardActive]}
+            onPress={() => onPress(option.value)}
+            activeOpacity={0.85}
+        >
+            <View style={styles.activityOptionCopy}>
+                <Text style={[styles.activityOptionTitle, selected && styles.activityOptionTitleActive]}>
+                    {option.label}
+                </Text>
+                {option.descriptor ? (
+                    <Text style={[styles.activityOptionDescription, selected && styles.activityOptionDescriptionActive]}>
+                        {option.descriptor}
+                    </Text>
+                ) : null}
+            </View>
+            <View style={[styles.activityOptionIndicator, selected && styles.activityOptionIndicatorActive]}>
+                {selected ? <IconCheckCircle size={14} color={COLORS.readiness.prime} /> : null}
+            </View>
+        </TouchableOpacity>
+    );
+
+    const renderFixedSession = (session: IntakeFixedSession) => (
+        <View key={session.id} style={styles.fixedSessionCard}>
+            <View style={styles.fixedSessionHeader}>
+                <Text style={styles.fixedSessionTitle}>{session.label || 'Fixed session'}</Text>
+                <TouchableOpacity onPress={() => setFixedSessions((current) => current.filter((item) => item.id !== session.id))}>
+                    <Text style={styles.removeText}>Remove</Text>
+                </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>Type</Text>
+            <View style={styles.pillRow}>
+                {SESSION_TYPE_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                        key={option.value}
+                        style={[styles.pill, session.activityType === option.value && styles.pillActive]}
+                        onPress={() => updateFixedSession(session.id, { activityType: option.value })}
+                    >
+                        <Text style={[styles.pillText, session.activityType === option.value && styles.pillTextActive]}>
+                            {option.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>Day</Text>
+            <View style={styles.pillRow}>
+                {DAY_OPTIONS.map((day) => {
+                    const selected = session.dayOfWeek === day.value;
+                    return (
+                        <TouchableOpacity
+                            key={day.value}
+                            style={[styles.pill, selected && styles.pillActive]}
+                            onPress={() => updateFixedSession(session.id, { dayOfWeek: day.value })}
+                        >
+                            <Text style={[styles.pillText, selected && styles.pillTextActive]}>{day.label}</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
+            <View style={[styles.inputRow, { marginTop: SPACING.md }]}>
+                <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
+                    <Text style={styles.inputLabel}>Start</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="19:00"
+                        placeholderTextColor={COLORS.text.tertiary}
+                        value={session.startTime}
+                        onChangeText={(value) => updateFixedSession(session.id, { startTime: value })}
+                    />
+                </View>
+                <View style={{ width: SPACING.md }} />
+                <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
+                    <Text style={styles.inputLabel}>Name (optional)</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Team class"
+                        placeholderTextColor={COLORS.text.tertiary}
+                        value={session.label}
+                        onChangeText={(value) => updateFixedSession(session.id, { label: value })}
+                    />
+                </View>
+            </View>
+
+            <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>Duration</Text>
+            <View style={styles.pillRow}>
+                {DURATION_OPTIONS.map((minutes) => {
+                    const selected = session.durationMin === minutes;
+                    return (
+                        <TouchableOpacity
+                            key={minutes}
+                            style={[styles.pill, selected && styles.pillActive]}
+                            onPress={() => updateFixedSession(session.id, { durationMin: minutes })}
+                        >
+                            <Text style={[styles.pillText, selected && styles.pillTextActive]}>{minutes} min</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
+            <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>Usual effort</Text>
+            <View style={styles.pillRow}>
+                {INTENSITY_OPTIONS.map((option) => {
+                    const selected = session.expectedIntensity === option.value;
+                    return (
+                        <TouchableOpacity
+                            key={option.value}
+                            style={[styles.pill, selected && styles.pillActive]}
+                            onPress={() => updateFixedSession(session.id, { expectedIntensity: option.value })}
+                        >
+                            <Text style={[styles.pillText, selected && styles.pillTextActive]}>{option.label}</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+        </View>
+    );
 
     const renderStep = () => {
         switch (step) {
@@ -165,58 +377,35 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <IconCheckCircle size={48} color="#F5F5F0" strokeWidth={2} />
                             </LinearGradient>
                         </View>
-                        <Text style={styles.welcomeTitle}>Welcome to Athleticore</Text>
+                        <Text style={styles.welcomeTitle}>Start simple. Build momentum.</Text>
                         <Text style={styles.welcomeSubtitle}>
-                            Three quick steps. Add what your plan needs.
+                            A good coach does not hand you the whole system on day one. We will set your first week, then teach the rest as you go.
                         </Text>
+                        <View style={styles.coachPointList}>
+                            <View style={styles.coachPoint}>
+                                <Text style={styles.coachPointTitle}>1. Baseline</Text>
+                                <Text style={styles.coachPointText}>A few details to keep training and fuel targets safe.</Text>
+                            </View>
+                            <View style={styles.coachPoint}>
+                                <Text style={styles.coachPointTitle}>2. First week</Text>
+                                <Text style={styles.coachPointText}>Realistic days, a clear goal, and any fixed boxing work.</Text>
+                            </View>
+                            <View style={styles.coachPoint}>
+                                <Text style={styles.coachPointTitle}>3. First wins</Text>
+                                <Text style={styles.coachPointText}>Check in once, train once, and log one meal.</Text>
+                            </View>
+                        </View>
                     </View>
                 );
             case 1:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Body Stats</Text>
-                        <Text style={styles.stepSubtitle}>Add your baseline.</Text>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Name (optional)</Text>
-                            <Text style={styles.helperText}>Shown in your profile.</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Your name"
-                                placeholderTextColor={COLORS.text.tertiary}
-                                value={name}
-                                onChangeText={setName}
-                            />
-                        </View>
+                        <Text style={styles.stepTitle}>Coach Intake</Text>
+                        <Text style={styles.stepSubtitle}>No perfect answers needed. Start where you are.</Text>
 
                         <View style={styles.inputRow}>
                             <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>Height (optional)</Text>
-                                <Text style={styles.helperText}>Improves calorie estimates.</Text>
-                                <View style={styles.inputRow}>
-                                    <TextInput
-                                        style={[styles.input, { flex: 1 }]}
-                                        placeholder="ft"
-                                        placeholderTextColor={COLORS.text.tertiary}
-                                        keyboardType="numeric"
-                                        value={heightFeet}
-                                        onChangeText={setHeightFeet}
-                                    />
-                                    <View style={{ width: SPACING.sm }} />
-                                    <TextInput
-                                        style={[styles.input, { flex: 1 }]}
-                                        placeholder="in"
-                                        placeholderTextColor={COLORS.text.tertiary}
-                                        keyboardType="numeric"
-                                        value={heightInches}
-                                        onChangeText={setHeightInches}
-                                    />
-                                </View>
-                            </View>
-                            <View style={{ width: SPACING.md }} />
-                            <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>Age (optional)</Text>
-                                <Text style={styles.helperText}>Sets recovery context.</Text>
+                                <Text style={styles.inputLabel}>Age</Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="25"
@@ -226,115 +415,111 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                     onChangeText={setAge}
                                 />
                             </View>
+                            <View style={{ width: SPACING.md }} />
+                            <View style={[styles.inputGroup, { flex: 1 }]}>
+                                <Text style={styles.inputLabel}>Current weight (lbs)</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="155"
+                                    placeholderTextColor={COLORS.text.tertiary}
+                                    keyboardType="decimal-pad"
+                                    value={weight}
+                                    onChangeText={setWeight}
+                                />
+                            </View>
                         </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Body Weight (lbs)</Text>
-                            <Text style={styles.helperText}>Required.</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="155"
-                                placeholderTextColor={COLORS.text.tertiary}
-                                keyboardType="numeric"
-                                value={weight}
-                                onChangeText={setWeight}
-                            />
+                        <Text style={styles.inputLabel}>Physiology defaults</Text>
+                        <View style={styles.activityOptionsList}>
+                            {BIO_SEX_OPTIONS.map((option) => renderOptionCard(
+                                bioSex === option.value,
+                                option,
+                                setBioSex,
+                            ))}
+                        </View>
+
+                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Training background</Text>
+                        <View style={styles.activityOptionsList}>
+                            {TRAINING_BACKGROUND_OPTIONS.map((option) => renderOptionCard(
+                                trainingBackground === option.value,
+                                option,
+                                setTrainingBackground,
+                            ))}
                         </View>
                     </View>
                 );
             case 2:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Athlete Profile</Text>
-                        <Text style={styles.stepSubtitle}>Set planning context.</Text>
+                        <Text style={styles.stepTitle}>First Plan</Text>
+                        <Text style={styles.stepSubtitle}>Pick the first direction. You can adjust it later.</Text>
 
-                        <Text style={styles.inputLabel}>Fight Status</Text>
-                        <Text style={styles.helperText}>Match your competition level.</Text>
+                        <Text style={styles.inputLabel}>Main goal</Text>
                         <View style={styles.activityOptionsList}>
-                            {FIGHT_STATUS_OPTIONS.map((option) => (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[styles.activityOptionCard, fightStatus === option.value && styles.activityOptionCardActive]}
-                                    onPress={() => setFightStatus(option.value)}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={styles.activityOptionCopy}>
-                                        <Text style={[styles.activityOptionTitle, fightStatus === option.value && styles.activityOptionTitleActive]}>
-                                            {option.label}
-                                        </Text>
-                                        <Text style={[styles.activityOptionDescription, fightStatus === option.value && styles.activityOptionDescriptionActive]}>
-                                            {option.descriptor}
-                                        </Text>
-                                    </View>
-                                    <View style={[styles.activityOptionIndicator, fightStatus === option.value && styles.activityOptionIndicatorActive]}>
-                                        {fightStatus === option.value ? (
-                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
-                                        ) : null}
-                                    </View>
-                                </TouchableOpacity>
+                            {MAIN_GOAL_OPTIONS.map((option) => renderOptionCard(
+                                mainGoal === option.value,
+                                option,
+                                setMainGoal,
                             ))}
                         </View>
 
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Biological Sex</Text>
-                        <Text style={styles.helperText}>Sets physiology defaults.</Text>
-                        <View style={styles.activityOptionsList}>
-                            {BIO_SEX_OPTIONS.map((option) => (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[styles.activityOptionCard, bioSex === option.value && styles.activityOptionCardActive]}
-                                    onPress={() => {
-                                        setBioSex(option.value);
-                                        if (option.value === 'male') setCycleTracking(false);
-                                    }}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={styles.activityOptionCopy}>
-                                        <Text style={[styles.activityOptionTitle, bioSex === option.value && styles.activityOptionTitleActive]}>
-                                            {option.label}
-                                        </Text>
-                                        <Text style={[styles.activityOptionDescription, bioSex === option.value && styles.activityOptionDescriptionActive]}>
-                                            {option.descriptor}
-                                        </Text>
-                                    </View>
-                                    <View style={[styles.activityOptionIndicator, bioSex === option.value && styles.activityOptionIndicatorActive]}>
-                                        {bioSex === option.value ? (
-                                            <IconCheckCircle size={14} color={COLORS.readiness.prime} />
-                                        ) : null}
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {bioSex === 'female' ? (
-                            <View style={{ marginTop: SPACING.lg }}>
-                                <Text style={styles.inputLabel}>Cycle Tracking</Text>
-                                <Text style={styles.helperText}>Include cycle phases in readiness.</Text>
-                                <View style={styles.activityOptionsList}>
-                                    {CYCLE_TRACKING_OPTIONS.map((option) => (
-                                        <TouchableOpacity
-                                            key={option.label}
-                                            style={[styles.activityOptionCard, cycleTracking === option.value && styles.activityOptionCardActive]}
-                                            onPress={() => setCycleTracking(option.value)}
-                                            activeOpacity={0.85}
-                                        >
-                                            <View style={styles.activityOptionCopy}>
-                                                <Text style={[styles.activityOptionTitle, cycleTracking === option.value && styles.activityOptionTitleActive]}>
-                                                    {option.label}
-                                                </Text>
-                                                <Text style={[styles.activityOptionDescription, cycleTracking === option.value && styles.activityOptionDescriptionActive]}>
-                                                    {option.descriptor}
-                                                </Text>
-                                            </View>
-                                            <View style={[styles.activityOptionIndicator, cycleTracking === option.value && styles.activityOptionIndicatorActive]}>
-                                                {cycleTracking === option.value ? (
-                                                    <IconCheckCircle size={14} color={COLORS.readiness.prime} />
-                                                ) : null}
-                                            </View>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
+                        {mainGoal === 'fight_camp' ? (
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Fight date</Text>
+                                <DatePickerField label="Fight Date" value={fightDate} onChange={setFightDate} />
                             </View>
                         ) : null}
+
+                        {needsTargetWeight ? (
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Target weight (optional)</Text>
+                                <Text style={styles.helperText}>Leave this blank if you are not sure yet.</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="145"
+                                    placeholderTextColor={COLORS.text.tertiary}
+                                    keyboardType="decimal-pad"
+                                    value={targetWeight}
+                                    onChangeText={setTargetWeight}
+                                />
+                            </View>
+                        ) : null}
+
+                        <Text style={styles.inputLabel}>Realistic training days</Text>
+                        <Text style={styles.helperText}>Pick days you can usually show up. Three is a strong start.</Text>
+                        <View style={styles.pillRow}>
+                            {DAY_OPTIONS.map((day) => {
+                                const selected = availableDays.includes(day.value);
+                                return (
+                                    <TouchableOpacity
+                                        key={day.value}
+                                        style={[styles.pill, selected && styles.pillActive]}
+                                        onPress={() => toggleAvailableDay(day.value)}
+                                    >
+                                        <Text style={[styles.pillText, selected && styles.pillTextActive]}>{day.label}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        <View style={styles.optionalBlock}>
+                            <View style={styles.optionalHeader}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.inputLabel}>Fixed boxing or sparring</Text>
+                                    <Text style={styles.helperText}>Only add sessions that already happen every week.</Text>
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.addSmallButton}
+                                    onPress={() => setFixedSessions((current) => [
+                                        ...current,
+                                        createFixedSession(availableDays[0] ?? 1),
+                                    ])}
+                                >
+                                    <Text style={styles.addSmallButtonText}>Add</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {fixedSessions.map(renderFixedSession)}
+                        </View>
                     </View>
                 );
             default:
@@ -407,7 +592,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             style={styles.nextButton}
                         >
                             <Text style={styles.nextText}>
-                                {saving ? 'Saving...' : step === TOTAL_STEPS - 1 ? 'Finish Profile' : 'Continue'}
+                                {saving ? 'Building...' : step === TOTAL_STEPS - 1 ? 'Build My First Week' : 'Continue'}
                             </Text>
                             {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color="#F5F5F0" /> : null}
                         </LinearGradient>
@@ -417,4 +602,3 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         </KeyboardAvoidingView>
     );
 }
-

@@ -58,7 +58,7 @@ export function useWeeklyPlanScreenController({
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Regenerate Plan',
+          text: 'Adjust Plan',
           onPress: handleSetupPress,
         },
         {

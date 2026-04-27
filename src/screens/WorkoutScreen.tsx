@@ -352,7 +352,7 @@ export function WorkoutScreen() {
                     </Animated.View>
                   );
                 })}
-                <AnimatedPressable style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust weekly plan</Text></AnimatedPressable>
+                <AnimatedPressable style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust Plan</Text></AnimatedPressable>
               </>
             )}
           </View>

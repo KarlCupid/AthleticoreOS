@@ -529,27 +529,27 @@ export function ProfileSettingsScreen() {
 
             <View style={styles.actionRow}>
               <ActionButton label={snapshot.activeCutPlan ? 'Open Cut' : 'Start Cut'} onPress={openWeightCut} />
-              <ActionButton label="Weekly Setup" onPress={openWeeklySetup} variant="secondary" />
+              <ActionButton label="Adjust Plan" onPress={openWeeklySetup} variant="secondary" />
               <ActionButton label="Log Check-in" onPress={openCheckIn} variant="secondary" />
             </View>
           </Card>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(170).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
-          <Card variant="glass" title="Training setup" subtitle="Planner and gym">
-            <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Weekly Planner" value={setupSummary} />
+          <Card variant="glass" title="Training setup" subtitle="Plan and gym">
+            <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Plan" value={setupSummary} />
             <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Default Gym" value={snapshot.defaultGymProfile?.name ?? 'Not set'} />
             <DetailRow
               icon={<IconShieldCheck size={18} color={themeColor} />}
               label="Planning Setup"
               value={snapshot.planningStatus.isComplete ? 'Connected' : 'Needs attention'}
-              note={snapshot.planningStatus.isComplete ? 'Planner inputs are connected.' : 'Finish setup to personalize scheduling.'}
+              note={snapshot.planningStatus.isComplete ? 'Plan inputs are connected.' : 'Finish setup to personalize scheduling.'}
               isLast
             />
 
             <View style={styles.actionRow}>
               <ActionButton label="Gym Profiles" onPress={openGymProfiles} />
-              <ActionButton label="Weekly Setup" onPress={openWeeklySetup} variant="secondary" />
+              <ActionButton label="Adjust Plan" onPress={openWeeklySetup} variant="secondary" />
             </View>
             {__DEV__ ? (
               <AnimatedPressable
