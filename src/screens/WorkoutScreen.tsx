@@ -182,7 +182,12 @@ export function WorkoutScreen() {
   const floorVM = useMemo(() => buildTrainingFloorViewModel(prescription as any, dailyMission), [prescription, dailyMission]);
 
   const todaySessionLabel = useMemo(() => {
-    if (todayPlanEntry) return getWorkoutFocusLabel(todayPlanEntry.focus, todayPlanEntry.session_type, todayPlanEntry.prescription_snapshot);
+    if (todayPlanEntry) return getWorkoutFocusLabel(
+      todayPlanEntry.focus,
+      todayPlanEntry.session_type,
+      todayPlanEntry.prescription_snapshot,
+      todayPlanEntry.sc_session_family,
+    );
     if (prescription) return getSessionFamilyLabel({ workoutType: prescription.workoutType, focus: prescription.focus, prescription: prescription as any });
     if (contextualTodayActivities.length > 0) return formatActivityLabel(contextualTodayActivities[0]);
     return null;
@@ -339,7 +344,12 @@ export function WorkoutScreen() {
                   const extraSessions = Math.max(0, group.sessions.length - 1);
                   const status = getWeekStatus(group);
                   const chipStyles = getChipStyles(status.tone);
-                  const sessionLabel = getWorkoutFocusLabel(primaryEntry.focus, primaryEntry.session_type, primaryEntry.prescription_snapshot);
+                  const sessionLabel = getWorkoutFocusLabel(
+                    primaryEntry.focus,
+                    primaryEntry.session_type,
+                    primaryEntry.prescription_snapshot,
+                    primaryEntry.sc_session_family,
+                  );
                   const handlePress = () => {
                     if (group.date === todayLocalDate() && primaryEntry.status === 'planned') { void openGuidedWorkout(primaryEntry); return; }
                     void openWorkoutDetail(primaryEntry);

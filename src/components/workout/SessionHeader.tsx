@@ -13,19 +13,30 @@ import {
   getPrimaryAdaptationLabel,
   getWorkoutTypeLabel,
 } from './metadata';
+import { getSessionFamilyLabel } from '../../../lib/engine/sessionLabels';
 
 interface SessionHeaderProps {
   session: WorkoutSessionVM;
 }
 
 export function SessionHeader({ session }: SessionHeaderProps) {
+  const typeLabel = session.sessionPrescription || session.modality || session.wizardKind
+    ? getSessionFamilyLabel({
+        workoutType: session.workoutType,
+        focus: session.focus,
+        scSessionFamily: session.sessionPrescription?.sessionFamily ?? session.sessionFamily,
+        modality: session.modality,
+        wizardKind: session.wizardKind,
+      })
+    : getWorkoutTypeLabel(session.workoutType);
+
   return (
     <View style={styles.container}>
       {/* Type + adaptation badge row */}
       <View style={styles.badgeRow}>
         <View style={styles.typeBadge}>
           <Text style={styles.typeBadgeText}>
-            {getWorkoutTypeLabel(session.workoutType)}
+            {typeLabel}
           </Text>
         </View>
         <View style={styles.adaptationBadge}>

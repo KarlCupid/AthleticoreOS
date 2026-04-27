@@ -22,6 +22,7 @@ import {
     GRADIENTS,
     ANIMATION,
 } from '../../theme/theme';
+import { getSessionFamilyLabel } from '../../../lib/engine/sessionLabels';
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -297,6 +298,15 @@ interface PrescriptionPreviewProps {
 }
 
 export function PrescriptionPreview({ prescription, gymProfile, onBegin }: PrescriptionPreviewProps) {
+    const sessionLabel = getSessionFamilyLabel({
+        workoutType: prescription.workoutType,
+        focus: prescription.focus,
+        scSessionFamily: prescription.scSessionFamily,
+        modality: prescription.modality,
+        wizardKind: prescription.wizardKind,
+        prescription,
+    });
+
     return (
         <Animated.View entering={FadeIn.duration(400)} style={ppStyles.container}>
             <Text style={ppStyles.heading}>Today's Workout</Text>
@@ -321,7 +331,7 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
                 </View>
                 <View style={ppStyles.metaBadge}>
                     <Text style={ppStyles.metaText}>
-                        {prescription.focus.replace(/_/g, ' ')}
+                        {sessionLabel}
                     </Text>
                 </View>
             </View>

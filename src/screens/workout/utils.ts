@@ -70,12 +70,22 @@ export function buildTrainingLoadData(sessions: TrainingSession[]) {
 export function getWorkoutFocusLabel(
   focus: string | null | undefined,
   sessionType: string,
-  prescription?: { sessionFamily?: string | null; workoutType?: string | null; focus?: string | null } | null,
+  prescription?: {
+    sessionFamily?: string | null;
+    scSessionFamily?: string | null;
+    sessionPrescription?: { sessionFamily?: string | null; modality?: string | null; wizardKind?: string | null } | null;
+    workoutType?: string | null;
+    focus?: string | null;
+    modality?: string | null;
+    wizardKind?: string | null;
+  } | null,
+  scSessionFamily?: string | null,
 ): string {
   return getSessionFamilyLabel({
     sessionType,
     workoutType: (prescription?.workoutType as any) ?? null,
     focus: (prescription?.focus as any) ?? focus,
+    scSessionFamily: (prescription?.scSessionFamily as any) ?? scSessionFamily ?? null,
     prescription: prescription as any,
   });
 }
