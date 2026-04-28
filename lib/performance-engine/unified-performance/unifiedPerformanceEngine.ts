@@ -518,11 +518,11 @@ function persistencePlan(weightClass: WeightClassManagementResult | null): Unifi
       'explanations',
     ],
     supersedes: [
-      'legacy scheduler integration',
-      'legacy macro-only nutrition target integration',
-      'legacy readiness-only planning integration',
-      'legacy phase switch integration',
-      'legacy weight-cut protocol integration',
+      'retired standalone scheduler integration',
+      'retired macro-only nutrition target integration',
+      'retired readiness-only planning integration',
+      'retired phase switch integration',
+      'retired daily weight-cut protocol integration',
     ],
   };
 }

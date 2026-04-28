@@ -1,5 +1,5 @@
 export { calculateACWR } from './calculateACWR.ts';
-export { getHydrationProtocol, getCutHydrationProtocol } from './getHydrationProtocol.ts';
+export { getHydrationProtocol } from './getHydrationProtocol.ts';
 export { adjustForBiology } from './adjustForBiology.ts';
 export { getGlobalReadinessState } from './getGlobalReadinessState.ts';
 export { handleTimelineShift, autoRegulateSC } from './adaptive.ts';
@@ -28,9 +28,7 @@ export {
   validateDayLoad,
   suggestAlternative,
   detectOvertrainingRisk,
-  generateWeekPlan,
   generateBlockPlan,
-  getBoxingIntensityScalar,
   calculateWeeklyCompliance,
   getTrainingStreak,
 } from './calculateSchedule.ts';
@@ -44,12 +42,6 @@ export * from './readiness/profile.ts';
 export * from './safety/policy.ts';
 export * from './sessionOwnership.ts';
 export * from './sessionLabels.ts';
-export { 
-  generateCutPlan, 
-  determineCutPhase, 
-  computeDailyCutProtocol,
-  getDailyCutIntensityCap
-} from './calculateWeightCut.ts';
 
 export * from './types.ts';
 

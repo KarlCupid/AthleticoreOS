@@ -8,7 +8,6 @@ import type { StimulusConstraintSet } from '../types/readiness.ts';
 import type {
     ScheduledActivityRow,
     DayLoadValidation,
-    WeekPlanEntry,
 } from '../types/training.ts';
 import { formatLocalDate, todayLocalDate } from '../../utils/date.ts';
 import { getPersonalizedACWRThresholds } from '../calculateACWR.ts';
@@ -225,36 +224,6 @@ function getAcwrPlanningThresholds(
     };
 }
 
-function buildDayLoadMap(
-    activities: Pick<ScheduledActivityRow | WeekPlanEntry, 'date' | 'estimated_duration_min' | 'expected_intensity'>[],
-): Map<string, number> {
-    const map = new Map<string, number>();
-    for (const a of activities) {
-        if (!a.date) continue;
-        const load = getSessionLoad(a.estimated_duration_min, a.expected_intensity);
-        map.set(a.date, (map.get(a.date) ?? 0) + load);
-    }
-    return map;
-}
-
-function findCandidateDays(
-    weekStartDate: string,
-    activities: Pick<ScheduledActivityRow | WeekPlanEntry, 'date' | 'activity_type' | 'expected_intensity' | 'estimated_duration_min'>[],
-    dayLoads: Map<string, number>,
-    filter: (dayActs: typeof activities) => boolean,
-    _loadCap: number,
-): string[] {
-    const candidates: string[] = [];
-    for (let offset = 0; offset < 7; offset++) {
-        const date = addDays(weekStartDate, offset);
-        const dayActs = activities.filter(a => a.date === date);
-        if (filter(dayActs)) {
-            candidates.push(date);
-        }
-    }
-    return candidates.sort((a, b) => (dayLoads.get(a) ?? 0) - (dayLoads.get(b) ?? 0));
-}
-
 // ─── getRecoveryWindow ─────────────────────────────────────────
 
 /**
@@ -445,6 +414,4 @@ export {
     getDefaultChronicLoad,
     computeWeekLoadMetrics,
     getAcwrPlanningThresholds,
-    buildDayLoadMap,
-    findCandidateDays,
 };

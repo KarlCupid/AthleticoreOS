@@ -96,8 +96,8 @@ function makeInput() {
       proteinModifier: 1,
       phaseMultiplier: 0,
       weightCorrectionDeficit: 0,
-      message: 'Weight cut protocol, safety-adjusted.',
-      source: 'weight_cut_protocol_safety_adjusted',
+      message: 'Canonical Nutrition and Fueling Engine, safety-adjusted.',
+      source: 'daily_activity_adjusted',
       fuelState: 'cut_protect',
       prioritySession: 'cut_protect',
       deficitClass: 'steady_cut',
@@ -107,7 +107,7 @@ function makeInput() {
       hydrationPlan: {
         dailyTargetOz: 140,
         sodiumTargetMg: 600,
-        emphasis: 'cut',
+        emphasis: 'performance',
         notes: [],
       },
       sessionFuelingPlan: {
@@ -121,7 +121,7 @@ function makeInput() {
         hydrationNotes: [],
         coachingNotes: [],
       },
-      reasonLines: ['Active weight-class context is safety-adjusted by the normal day engine.'],
+      reasonLines: ['Active weight-class context is safety-adjusted by the canonical engine.'],
       energyAvailability: 25,
       fuelingFloorTriggered: true,
       deficitBankDelta: 450,
@@ -145,16 +145,6 @@ function makeInput() {
         status: 'planned',
       },
     ],
-    cutProtocol: {
-      cut_phase: 'fight_week_cut',
-      training_intensity_cap: 4,
-      prescribed_calories: 1450,
-      prescribed_protein: 190,
-      prescribed_carbs: 80,
-      prescribed_fat: 41,
-      water_target_oz: 140,
-      sodium_target_mg: 600,
-    },
     workoutPrescription: null,
     weeklyPlanEntry: null,
     medStatus: null,
@@ -168,10 +158,10 @@ console.log('\n-- calculateMission fuel safety --');
 (() => {
   const mission = buildDailyMission(makeInput());
 
-  assert('Cut mission uses safety-adjusted calories, not raw cut protocol', mission.fuelDirective.calories === 1900);
-  assert('Cut mission uses safety-adjusted macros, not raw cut protocol', mission.fuelDirective.carbs === 205);
-  assert('Cut mission keeps weight-cut source after safety adjustment', mission.fuelDirective.source === 'weight_cut_protocol');
-  assert('Cut mission carries fueling floor warning', mission.fuelDirective.safetyWarning === 'fueling_floor_applied');
+  assert('Body-mass mission uses safety-adjusted calories from canonical nutrition', mission.fuelDirective.calories === 1900);
+  assert('Body-mass mission uses safety-adjusted macros from canonical nutrition', mission.fuelDirective.carbs === 205);
+  assert('Body-mass mission source is the daily engine, not a protocol shim', mission.fuelDirective.source === 'daily_engine');
+  assert('Body-mass mission carries fueling floor warning', mission.fuelDirective.safetyWarning === 'fueling_floor_applied');
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);

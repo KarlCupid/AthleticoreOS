@@ -20,11 +20,7 @@ import type {
   WorkoutType,
 } from './types.ts';
 import { getInterferencePenalty, type SessionType } from './load/interferenceModel.ts';
-import {
-  FIGHT_CAMP_SAFETY_POLICY,
-  getFightCampSodiumRestrictionInterpretation,
-  getSafeFightCampSodiumRestrictionDetail,
-} from './safety/policy.ts';
+import { FIGHT_CAMP_SAFETY_POLICY } from './safety/policy.ts';
 
 export const DAILY_ENGINE_VERSION = 'daily-engine-v3';
 
@@ -284,27 +280,12 @@ function getAcwrInterpretation(status: BuildDailyMissionInput['acwr']['status'])
   return null;
 }
 
-function getCutDepletionInterpretation(
-  input: BuildDailyMissionInput,
-  fuelDirective: FuelDirective,
-): string | null {
-  const cutPhase = input.cutProtocol?.cut_phase ?? null;
-  if (cutPhase === 'fight_week_cut' || cutPhase === 'intensified' || fuelDirective.state === 'cut_protect') {
+function getCutDepletionInterpretation(fuelDirective: FuelDirective): string | null {
+  if (fuelDirective.state === 'cut_protect') {
     return 'Energy availability is constrained today, so output and decision speed may be lower than normal.';
   }
 
   return null;
-}
-
-function getSodiumRestrictionInterpretation(input: BuildDailyMissionInput): string | null {
-  return getFightCampSodiumRestrictionInterpretation({
-    sodiumTargetMg: input.cutProtocol?.sodium_target_mg ?? null,
-    sodiumInstruction: input.cutProtocol?.sodium_instruction ?? null,
-  });
-}
-
-function getSafeSodiumRestrictionDetail(input: BuildDailyMissionInput): string {
-  return getSafeFightCampSodiumRestrictionDetail(input.cutProtocol?.sodium_instruction ?? null);
 }
 
 function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
@@ -346,15 +327,9 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
     drivers.push('Travel window is active.');
   }
 
-  if (
-    input.cutProtocol?.training_intensity_cap != null
-    && input.cutProtocol.training_intensity_cap <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
-  ) {
-    score += 16;
-    drivers.push('Fight-week cut is restricting training intensity.');
-  } else if (input.macrocycleContext.weightCutState === 'driving') {
+  if (input.macrocycleContext.weightCutState === 'driving') {
     score += 12;
-    drivers.push('Weight cut is driving planning decisions.');
+    drivers.push('Weight-class context is driving planning decisions.');
   }
 
   if (input.macrocycleContext.campPhase === 'taper') {
@@ -425,8 +400,7 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     ?? input.workoutPrescription?.estimatedDurationMin
     ?? primaryScheduledActivity?.estimated_duration_min
     ?? null;
-  const plannedIntensityCap = input.cutProtocol?.training_intensity_cap
-    ?? input.constraintSet.hardCaps.intensityCap
+  const plannedIntensityCap = input.constraintSet.hardCaps.intensityCap
     ?? input.weeklyPlanEntry?.target_intensity
     ?? primaryScheduledActivity?.expected_intensity
     ?? null;
@@ -437,8 +411,7 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
   const intensityCap = intervention.enforcedIntensityCap;
 
   const hasSparring = input.scheduledActivities.some((activity) => activity.activity_type === 'sparring');
-  const source: DirectiveSource = input.cutProtocol ? 'weight_cut_protocol'
-    : input.weeklyPlanEntry?.prescription_snapshot ? 'weekly_plan_snapshot'
+  const source: DirectiveSource = input.weeklyPlanEntry?.prescription_snapshot ? 'weekly_plan_snapshot'
       : 'daily_engine';
 
   if (isTrueRestDay) {
@@ -607,20 +580,14 @@ function buildFuelDirective(
   const intraSessionHydrationOz = sessionFuelingPlan.intraSession.fluidsOz;
 
   let compliancePriority: FuelDirective['compliancePriority'] = 'consistency';
-  if (input.cutProtocol || input.macrocycleContext.weightCutState === 'driving') compliancePriority = 'weight';
+  if (input.macrocycleContext.weightCutState === 'driving') compliancePriority = 'weight';
   else if (!isRestDay && (riskState.level === 'high' || riskState.level === 'critical')) compliancePriority = 'recovery';
   else if (highDemand || hasMultipleSessions) compliancePriority = 'performance';
 
-  const source: DirectiveSource = input.cutProtocol
-    ? 'weight_cut_protocol'
-    : input.weeklyPlanEntry?.prescription_snapshot
+  const source: DirectiveSource = input.weeklyPlanEntry?.prescription_snapshot
       ? 'weekly_plan_snapshot'
       : 'daily_engine';
-  let message = input.cutProtocol
-    ? (isRestDay
-      ? 'No training window is scheduled today. Hit the cut targets through normal meals and hydration to keep weight on line.'
-      : 'Cut protocol is leading intake today. Hit the exact macro and hydration targets to keep weight on line.')
-    : isRestDay
+  let message = isRestDay
       ? 'No training fueling window is needed today. Use normal meals and hydration to absorb the block.'
     : compliancePriority === 'performance'
       ? 'Fuel the key work first. Front-load carbs before training and keep recovery intake tight after the session.'
@@ -632,8 +599,7 @@ function buildFuelDirective(
   } else if (input.nutritionTargets.recoveryNutritionFocus === 'impact_recovery') {
     message += ' Protein timing matters today because tissue recovery is part of the workload.';
   }
-  const weightDriftLbs = input.cutProtocol?.weight_drift_lbs ?? null;
-  const hasDriftCorrection = weightDriftLbs != null && weightDriftLbs > 0.5;
+  const hasDriftCorrection = false;
 
   return {
     state: isRestDay ? 'rest' as const : fuelState,
@@ -650,7 +616,7 @@ function buildFuelDirective(
     postSessionProteinG,
     intraSessionHydrationOz,
     hydrationBoostOz: input.nutritionTargets.hydrationBoostOz,
-    sodiumTargetMg: input.cutProtocol?.sodium_target_mg ?? null,
+    sodiumTargetMg: input.nutritionTargets.hydrationPlan.sodiumTargetMg,
     compliancePriority,
     adjustmentFlag: hasDriftCorrection ? 'drift_correction' : null,
     source,
@@ -666,16 +632,10 @@ function buildFuelDirective(
 }
 
 function buildHydrationDirective(input: BuildDailyMissionInput): HydrationDirective {
-  const waterTargetOz = input.cutProtocol?.water_target_oz
-    ?? (input.hydration.dailyWaterOz + input.nutritionTargets.hydrationBoostOz);
-  const sodiumTargetMg = input.cutProtocol?.sodium_target_mg ?? null;
-  const protocol = input.cutProtocol?.morning_protocol
-    ?? input.cutProtocol?.training_recommendation
-    ?? input.hydration.message;
-  const message = input.cutProtocol?.sodium_instruction
-    ? getSafeSodiumRestrictionDetail(input)
-    : input.cutProtocol?.fiber_instruction
-      ?? input.hydration.message;
+  const waterTargetOz = input.hydration.dailyWaterOz + input.nutritionTargets.hydrationBoostOz;
+  const sodiumTargetMg = input.nutritionTargets.hydrationPlan.sodiumTargetMg;
+  const protocol = input.hydration.message;
+  const message = input.hydration.message;
 
   return {
     waterTargetOz: Math.round(waterTargetOz),
@@ -699,12 +659,6 @@ function buildRecoveryDirective(
   }
   if (input.macrocycleContext.isTravelWindow) {
     modalities.push('Pack hydration early', 'Use mobility breaks during travel');
-  }
-  if (
-    input.cutProtocol?.training_intensity_cap != null
-    && input.cutProtocol.training_intensity_cap <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
-  ) {
-    restrictions.push('No extra conditioning after the planned work.');
   }
   if (trainingDirective.sessionRole === 'recover' || trainingDirective.sessionRole === 'cut_protect') {
     modalities.push('Mobility reset', 'Early bedtime');
@@ -759,8 +713,7 @@ function buildDecisionTrace(
   trainingDirective: TrainingDirective,
   fuelDirective: FuelDirective,
 ): DecisionTraceItem[] {
-  const depletionInterpretation = getCutDepletionInterpretation(input, fuelDirective);
-  const sodiumRestrictionInterpretation = getSodiumRestrictionInterpretation(input);
+  const depletionInterpretation = getCutDepletionInterpretation(fuelDirective);
   const trace: DecisionTraceItem[] = [
     {
       subsystem: 'objective',
@@ -785,35 +738,15 @@ function buildDecisionTrace(
     });
   }
 
-  if (input.cutProtocol) {
-    const phaseName = input.cutProtocol.cut_phase || 'active_cut';
-    trace.push({
-      subsystem: 'fuel',
-      title: 'Cut protocol authority',
-      detail: `Macros, hydration, and training cap are being overridden by the active cut protocol for ${titleize(phaseName)}.`,
-      humanInterpretation: depletionInterpretation,
-      impact: 'restricted',
-    });
-    if (sodiumRestrictionInterpretation) {
-      trace.push({
-        subsystem: 'hydration',
-        title: 'Sodium restriction',
-        detail: getSafeSodiumRestrictionDetail(input),
-        humanInterpretation: sodiumRestrictionInterpretation,
-        impact: 'restricted',
-      });
-    }
-  } else {
-    trace.push({
-      subsystem: 'fuel',
-      title: 'Fuel timing match',
-      detail: trainingDirective.sessionRole === 'rest'
-        ? 'Rest day nutrition stays on baseline meals and hydration. No timed training fuel is required.'
-        : `${fuelDirective.sessionFuelingPlan?.priorityLabel ?? 'Training'} is supported with ${fuelDirective.preSessionCarbsG}g pre-session carbs, ${fuelDirective.intraSessionHydrationOz} oz fluids during training, and ${fuelDirective.postSessionProteinG}g protein after.`,
-      humanInterpretation: depletionInterpretation,
-      impact: 'adjusted',
-    });
-  }
+  trace.push({
+    subsystem: 'fuel',
+    title: 'Fuel timing match',
+    detail: trainingDirective.sessionRole === 'rest'
+      ? 'Rest day nutrition stays on baseline meals and hydration. No timed training fuel is required.'
+      : `${fuelDirective.sessionFuelingPlan?.priorityLabel ?? 'Training'} is supported with ${fuelDirective.preSessionCarbsG}g pre-session carbs, ${fuelDirective.intraSessionHydrationOz} oz fluids during training, and ${fuelDirective.postSessionProteinG}g protein after.`,
+    humanInterpretation: depletionInterpretation,
+    impact: 'adjusted',
+  });
 
   if (input.nutritionTargets.fuelingFloorTriggered) {
     trace.push({
@@ -952,7 +885,6 @@ export function buildMicrocyclePlan(input: BuildMicrocyclePlanInput): WeeklyMiss
         expected_intensity: candidate.target_intensity ?? 5,
         status: candidate.status === 'planned' ? 'scheduled' : candidate.status === 'rescheduled' ? 'modified' : candidate.status,
       })),
-      cutProtocol: null,
       workoutPrescription: entry.prescription_snapshot ?? null,
       weeklyPlanEntry: entry,
       medStatus: input.medStatus ?? null,

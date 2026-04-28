@@ -146,7 +146,6 @@ function makeInput(overrides: Record<string, any> = {}) {
                 status: 'planned',
             },
         ],
-        cutProtocol: null,
         workoutPrescription: null,
         weeklyPlanEntry: null,
         medStatus: null,
@@ -161,32 +160,38 @@ function makeInput(overrides: Record<string, any> = {}) {
 console.log('\n── Session role inference ──');
 
 (() => {
-    // intensityCap <= 4 + active cut -> cut_protect
+    // intensityCap <= 4 + active body-mass context -> cut_protect
+    const base = makeInput();
     const mission = buildDailyMission(makeInput({
         macrocycleContext: {
-            ...makeInput().macrocycleContext,
+            ...base.macrocycleContext,
             isOnActiveCut: true,
         },
-        cutProtocol: {
-            cut_phase: 'fight_week_cut',
-            training_intensity_cap: 4,
-            sodium_target_mg: 500,
-            water_target_oz: 96,
+        constraintSet: {
+            ...base.constraintSet,
+            hardCaps: {
+                ...base.constraintSet.hardCaps,
+                intensityCap: 4,
+            },
         },
     }));
-    assert('intensityCap<=4 + cut -> cut_protect', mission.trainingDirective.sessionRole === 'cut_protect');
-    assert('intensityCap<=4 + cut clamps duration into protect range', (mission.trainingDirective.durationMin ?? 0) >= 20 && (mission.trainingDirective.durationMin ?? 0) <= 30);
+    assert('intensityCap<=4 + body-mass context -> cut_protect', mission.trainingDirective.sessionRole === 'cut_protect');
+    assert('intensityCap<=4 + body-mass context clamps duration into protect range', (mission.trainingDirective.durationMin ?? 0) >= 20 && (mission.trainingDirective.durationMin ?? 0) <= 30);
 })();
 
 (() => {
-    // intensityCap <= 4 + no cut -> recover
+    // intensityCap <= 4 + no active body-mass context -> recover
+    const base = makeInput();
     const mission = buildDailyMission(makeInput({
-        cutProtocol: {
-            cut_phase: 'baseline',
-            training_intensity_cap: 3,
+        constraintSet: {
+            ...base.constraintSet,
+            hardCaps: {
+                ...base.constraintSet.hardCaps,
+                intensityCap: 3,
+            },
         },
     }));
-    assert('intensityCap<=4 + no cut -> recover', mission.trainingDirective.sessionRole === 'recover');
+    assert('intensityCap<=4 + no active body-mass context -> recover', mission.trainingDirective.sessionRole === 'recover');
 })();
 
 (() => {
@@ -407,15 +412,11 @@ console.log('\n── Risk state scoring ──');
 })();
 
 (() => {
-    // Critical risk: Depleted + redline ACWR + fight week cut
+    // Critical risk: Depleted + redline ACWR + active body-mass pressure
     const mission = buildDailyMission(makeInput({
         readinessState: 'Depleted',
         acwr: makeAcwr({ status: 'redline', ratio: 1.7 }),
         riskScore: 30,
-        cutProtocol: {
-            cut_phase: 'fight_week_cut',
-            training_intensity_cap: 3,
-        },
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             weightCutState: 'driving',
@@ -436,10 +437,6 @@ console.log('\n── Intervention thresholds ──');
         readinessState: 'Depleted',
         acwr: makeAcwr({ status: 'redline', ratio: 1.9 }),
         riskScore: 50,
-        cutProtocol: {
-            cut_phase: 'fight_week_cut',
-            training_intensity_cap: 3,
-        },
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             weightCutState: 'driving',
@@ -503,21 +500,13 @@ console.log('\n── Decision trace ──');
 
 (() => {
     const mission = buildDailyMission(makeInput({
-        cutProtocol: {
-            cut_phase: 'fight_week_cut',
-            training_intensity_cap: 4,
-            sodium_target_mg: 400,
-            sodium_instruction: 'Minimal sodium. Water dump starts now.',
-        },
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             isOnActiveCut: true,
         },
     }));
     const sodiumTrace = mission.decisionTrace.find(t => t.title === 'Sodium restriction');
-    assert('Sodium restriction trace present', sodiumTrace != null);
-    assert('Sodium interpretation present', sodiumTrace?.humanInterpretation?.includes('qualified support') ?? false);
-    assert('Sodium trace detail sanitizes unsafe copy', !(sodiumTrace?.detail.toLowerCase().includes('water dump') ?? true));
+    assert('Obsolete sodium restriction trace is not generated', sodiumTrace == null);
     assert('Hydration directive sanitizes unsafe copy', !mission.hydrationDirective.message.toLowerCase().includes('water dump'));
 })();
 

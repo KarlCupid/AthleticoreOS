@@ -1,5 +1,4 @@
 import type { Phase, WeighInTiming } from './foundational.ts';
-import type { CutPhase } from './weight_cut.ts';
 
 export const ENGINE_SAFETY_POLICY_VERSION = '2026-04-launch-safety-v1';
 
@@ -27,7 +26,7 @@ export interface AthleteSafetyContext {
   age: number | null;
   sex: 'male' | 'female' | null;
   weighInTiming: WeighInTiming | null;
-  competitionPhase: Phase | CutPhase | null;
+  competitionPhase: Phase | string | null;
   asOfDate: string;
   urineColor?: number | null;
   bodyTempF?: number | null;

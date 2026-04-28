@@ -198,7 +198,7 @@ export interface EngineReplayDay {
   index: number;
   date: string;
   phase: string;
-  cutPhase: string;
+  bodyMassSupportPhase: string;
   readinessState: string;
   readinessLogged: number;
   sleepLogged: number;
@@ -276,8 +276,8 @@ export interface EngineReplayRun {
     weightChangeLbs: number;
     avgReadiness: number;
     interventionDays: number;
-    preCutInterventionDays: number;
-    cutPhaseInterventionDays: number;
+    nonBodyMassInterventionDays: number;
+    bodyMassSupportInterventionDays: number;
     mandatoryRecoveryDays: number;
     highRiskDays: number;
     engineDangerDays: number;
@@ -480,7 +480,6 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
   const { mission } = engineState;
   const findings: EngineReplayFinding[] = [];
   const intensityCap = mission.trainingDirective.intensityCap;
-  const cutCap = engineState.cutProtocol?.training_intensity_cap ?? null;
   const completedSessions = personaAction.sessionsCompleted ?? [];
   const underlyingRiskLevel = mission.riskState.underlyingLevel ?? mission.riskState.level;
   const isRestDayOverride = mission.riskState.displayOverride === 'rest_day_recovery_window';
@@ -526,16 +525,6 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
     });
   }
 
-  if (cutCap != null && completedSessions.some((session) => session.actualRpe > cutCap)) {
-    findings.push({
-      severity: 'danger',
-      origin: 'athlete',
-      subsystem: 'weight',
-      title: 'Actual effort exceeded cut cap',
-      detail: `At least one completed session went above the cut protection cap of ${cutCap}.`,
-    });
-  }
-
   if (mission.fuelDirective.safetyWarning === 'critical_energy_availability') {
     findings.push({
       severity: 'danger',
@@ -576,16 +565,6 @@ function buildFindings(log: DailySimulationLog): EngineReplayFinding[] {
       subsystem: 'weight',
       title: 'Cheat-day rebound',
       detail: 'Weight jumped materially on a cheat day, which is useful for correction-logic review.',
-    });
-  }
-
-  if (engineState.cutProtocol?.intervention_reason) {
-    findings.push({
-      severity: 'warning',
-      origin: 'scenario',
-      subsystem: 'weight',
-      title: 'Cut intervention applied',
-      detail: engineState.cutProtocol.intervention_reason,
     });
   }
 
@@ -644,11 +623,10 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
   const orderedDrivers = orderDrivers(mission.riskState.drivers ?? []);
   const engineDangerDay = findings.some((finding) => finding.origin === 'engine' && finding.severity === 'danger');
   const athleteOverrideDay = findings.some((finding) =>
-    finding.origin === 'athlete'
+      finding.origin === 'athlete'
     && (
       finding.title === 'Mandatory recovery overridden'
       || finding.title === 'Actual effort exceeded mission cap'
-      || finding.title === 'Actual effort exceeded cut cap'
     ),
   );
   const scenarioPressureDay = findings.some((finding) => finding.origin === 'scenario');
@@ -657,7 +635,7 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     index,
     date: log.date,
     phase: engineState.objectiveContext.phase,
-    cutPhase: personaAction.cutPhase ?? 'none',
+    bodyMassSupportPhase: personaAction.bodyMassSupportPhase ?? 'none',
     readinessState: engineState.readinessState,
     readinessLogged: personaAction.readinessLogged,
     sleepLogged: personaAction.sleepLogged,
@@ -885,8 +863,8 @@ function buildSummary(scenario: EngineReplayScenario, days: EngineReplayDay[]): 
     weightChangeLbs: (finalDay?.bodyWeightEnd ?? scenario.config.initialState.weightLbs) - (firstDay?.bodyWeightStart ?? scenario.config.initialState.weightLbs),
     avgReadiness: Number((days.reduce((sum, day) => sum + day.readinessLogged, 0) / Math.max(days.length, 1)).toFixed(1)),
     interventionDays: days.filter((day) => day.interventionState !== 'none').length,
-    preCutInterventionDays: days.filter((day) => day.interventionState !== 'none' && day.cutPhase === 'none').length,
-    cutPhaseInterventionDays: days.filter((day) => day.interventionState !== 'none' && day.cutPhase !== 'none').length,
+    nonBodyMassInterventionDays: days.filter((day) => day.interventionState !== 'none' && day.bodyMassSupportPhase === 'none').length,
+    bodyMassSupportInterventionDays: days.filter((day) => day.interventionState !== 'none' && day.bodyMassSupportPhase !== 'none').length,
     mandatoryRecoveryDays: days.filter((day) => day.isMandatoryRecovery).length,
     highRiskDays: days.filter((day) => day.riskLevel === 'high' || day.riskLevel === 'critical').length,
     engineDangerDays: days.filter((day) => day.engineDangerDay).length,

@@ -1,4 +1,4 @@
-import { getCutHydrationProtocol, getHydrationProtocol } from './getHydrationProtocol.ts';
+import { getHydrationProtocol } from './getHydrationProtocol.ts';
 
 let passed = 0;
 let failed = 0;
@@ -71,33 +71,6 @@ console.log('\n-- getHydrationProtocol safety-first --');
     currentWeightLbs: 0,
     targetWeightLbs: 0,
   }));
-})();
-
-(() => {
-  const result = getCutHydrationProtocol({
-    cutPhase: 'fight_week_cut',
-    daysToWeighIn: 2,
-    currentWeightLbs: 170,
-    baseHydrationOz: 120,
-    fightStatus: 'amateur',
-  });
-
-  assert('cut hydration returns baseline amount', result.dailyWaterOz === 120);
-  assert('cut hydration never restricts', result.isRestricting === false);
-  assert('cut hydration rejects acute fluid tactics', result.instruction.includes('does not generate acute'));
-})();
-
-(() => {
-  const result = getCutHydrationProtocol({
-    cutPhase: 'weigh_in',
-    daysToWeighIn: 0,
-    currentWeightLbs: 160,
-    baseHydrationOz: 0,
-    fightStatus: 'pro',
-  });
-
-  assert('weigh-in fallback uses baseline body mass formula', result.dailyWaterOz === 107);
-  assert('weigh-in still does not restrict', !result.isRestricting);
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);

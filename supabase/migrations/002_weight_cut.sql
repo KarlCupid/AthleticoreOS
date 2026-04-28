@@ -51,56 +51,6 @@ CREATE TABLE public.weight_cut_plans (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Daily Cut Protocols: one row per day during an active cut
-CREATE TABLE public.daily_cut_protocols (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.Users(id) NOT NULL,
-    plan_id UUID REFERENCES public.weight_cut_plans(id) NOT NULL,
-    date DATE NOT NULL,
-
-    -- Phase
-    cut_phase TEXT NOT NULL CHECK (cut_phase IN (
-        'chronic', 'intensified', 'fight_week_load',
-        'fight_week_cut', 'weigh_in', 'rehydration'
-    )),
-    days_to_weigh_in INTEGER NOT NULL,
-
-    -- Nutrition targets
-    prescribed_calories INTEGER NOT NULL,
-    prescribed_protein INTEGER NOT NULL,
-    prescribed_carbs INTEGER NOT NULL,
-    prescribed_fat INTEGER NOT NULL,
-    is_refeed_day BOOLEAN NOT NULL DEFAULT FALSE,
-    is_carb_cycle_high BOOLEAN NOT NULL DEFAULT FALSE,
-
-    -- Hydration targets
-    water_target_oz NUMERIC NOT NULL,
-    sodium_target_mg NUMERIC,
-    sodium_instruction TEXT,
-    fiber_instruction TEXT,
-
-    -- Training guidance
-    training_intensity_cap INTEGER,
-    training_recommendation TEXT,
-
-    -- Protocol instructions (human-readable daily brief)
-    morning_protocol TEXT,
-    afternoon_protocol TEXT,
-    evening_protocol TEXT,
-
-    -- Safety flags (serialized JSON array of CutSafetyFlag objects)
-    safety_flags JSONB NOT NULL DEFAULT '[]',
-
-    -- Compliance tracking (filled in by athlete check-in)
-    actual_weight NUMERIC,
-    water_consumed_oz NUMERIC,
-    sodium_consumed_mg NUMERIC,
-    protocol_adherence TEXT CHECK (protocol_adherence IN ('followed', 'partial', 'missed')),
-
-    created_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(user_id, date)
-);
-
 -- Cut Safety Checks: fight-week enhanced vitals
 CREATE TABLE public.cut_safety_checks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -189,16 +139,11 @@ ALTER TABLE public.macro_ledger
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE public.weight_cut_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.daily_cut_protocols ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cut_safety_checks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.weight_cut_history ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Athletes can manage their own cut plans"
     ON public.weight_cut_plans FOR ALL
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Athletes can manage their own cut protocols"
-    ON public.daily_cut_protocols FOR ALL
     USING (auth.uid() = user_id);
 
 CREATE POLICY "Athletes can manage their own safety checks"

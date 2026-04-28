@@ -18,7 +18,7 @@ export const CARD_BACKGROUNDS = {
   camp: require('../../assets/images/dashboard/camp-card-bg.png'),
   workoutFloor: require('../../assets/images/cards/workout-floor-card-bg.png'),
   fuelQuiet: require('../../assets/images/cards/nutrition-hydration-card-bg.png'),
-  cutProtocol: require('../../assets/images/cards/fight-week-card-bg.png'),
+  bodyMassSupport: require('../../assets/images/cards/fight-week-card-bg.png'),
   planning: require('../../assets/images/cards/planning-card-bg.png'),
   profile: require('../../assets/images/cards/profile-recovery-card-bg.png'),
 } satisfies Record<string, ImageSourcePropType>;

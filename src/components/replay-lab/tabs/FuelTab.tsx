@@ -39,7 +39,7 @@ export function FuelTab({ day }: FuelTabProps) {
         <MetricTile label="Protein" value={`${day.actualProtein} / ${day.prescribedProtein}g`} tone={macroTone(day.actualProtein, day.prescribedProtein)} />
         <MetricTile label="Carbs" value={`${day.actualCarbs} / ${day.prescribedCarbs}g`} tone={macroTone(day.actualCarbs, day.prescribedCarbs)} />
         <MetricTile label="Fat" value={`${day.actualFat} / ${day.prescribedFat}g`} tone={macroTone(day.actualFat, day.prescribedFat)} />
-        <MetricTile label="Cut Phase" value={formatPhase(day.cutPhase)} />
+        <MetricTile label="Body Mass" value={formatPhase(day.bodyMassSupportPhase)} />
       </View>
     </Card>
   );

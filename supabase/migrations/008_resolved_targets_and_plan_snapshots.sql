@@ -1,7 +1,7 @@
 ALTER TABLE public.macro_ledger
     ADD COLUMN IF NOT EXISTS prescribed_calories INTEGER,
     ADD COLUMN IF NOT EXISTS target_source TEXT
-        CHECK (target_source IN ('base', 'daily_activity_adjusted', 'weight_cut_protocol'));
+        CHECK (target_source IN ('base', 'daily_activity_adjusted'));
 
 UPDATE public.macro_ledger
 SET prescribed_calories = COALESCE(

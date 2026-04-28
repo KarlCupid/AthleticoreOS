@@ -124,7 +124,6 @@ export type {
   ActivityType,
   DayLoadValidation,
   ScheduledActivityRow,
-  WeekPlanEntry,
 } from './schedule.ts';
 export type { FuelState, NutritionTargets } from './nutrition.ts';
 export type {

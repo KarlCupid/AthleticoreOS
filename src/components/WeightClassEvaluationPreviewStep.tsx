@@ -52,7 +52,7 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
 
       <Card
         style={[styles.statusCard, { borderLeftColor: canPrepareAutomaticSupport ? COLORS.success : riskColor }]}
-        backgroundTone={canPrepareAutomaticSupport ? 'cutProtocol' : 'risk'}
+        backgroundTone={canPrepareAutomaticSupport ? 'bodyMassSupport' : 'risk'}
         backgroundScrimColor="rgba(10, 10, 10, 0.78)"
       >
         <View style={styles.statusHeader}>
@@ -83,7 +83,7 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
 
       <Card
         style={styles.noteBox}
-        backgroundTone="cutProtocol"
+        backgroundTone="bodyMassSupport"
         backgroundScrimColor="rgba(10, 10, 10, 0.78)"
       >
         <Text style={styles.noteTitle}>Health guidance note</Text>
@@ -136,7 +136,7 @@ function PlanStat({ label, value }: { label: string; value: string }) {
   return (
     <Card
       style={styles.planStat}
-      backgroundTone="cutProtocol"
+      backgroundTone="bodyMassSupport"
       backgroundScrimColor="rgba(10, 10, 10, 0.80)"
     >
       <Text style={styles.planStatValue}>{value}</Text>
@@ -152,7 +152,7 @@ function SectionCard({ title, items, color }: { title: string; items: string[]; 
   return (
     <Card
       style={[styles.sectionCard, { borderLeftColor: color }]}
-      backgroundTone="cutProtocol"
+      backgroundTone="bodyMassSupport"
       backgroundScrimColor="rgba(10, 10, 10, 0.78)"
     >
       <Text style={styles.sectionTitle}>{title}</Text>

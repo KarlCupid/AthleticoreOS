@@ -11,11 +11,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
-import { determineCutPhase } from '../../lib/engine/calculateWeightCut';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
 import { useWeightCutData } from '../hooks/useWeightCutData';
-import type { DailyCutProtocolRow, CutPhase, WeightCutPlanRow } from '../../lib/engine/types';
+import type { WeightCutPlanRow } from '../../lib/engine/types';
+import { getBodyMassSupportPhase, type BodyMassSupportPhase } from '../../lib/performance-engine';
 import type { FightWeekDayViewModel } from '../hooks/fuel/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { Card } from '../components/Card';
@@ -26,27 +25,31 @@ import { CognitiveTestCard } from '../components/CognitiveTestCard';
 const HEALTH_GUIDANCE_NOTE =
   'Fight-week body-mass guidance is coaching-oriented education. Escalate to qualified medical support if symptoms worsen or the target becomes unsafe.';
 
-const PHASE_LABELS: Record<CutPhase, string> = {
-  chronic: 'Long-Term Management',
-  intensified: 'Weight-Class Prep',
-  fight_week_load: 'Competition Week Monitoring',
-  fight_week_cut: 'Safety Review',
-  weigh_in: 'Weigh-In Day',
-  rehydration: 'Post Weigh-In Recovery',
+const PHASE_LABELS: Record<BodyMassSupportPhase, string> = {
+  unknown: 'Body-Mass Context',
+  long_term_body_composition: 'Long-Term Management',
+  gradual_weight_class_preparation: 'Weight-Class Prep',
+  competition_week_body_mass_monitoring: 'Competition Week Monitoring',
+  weigh_in_logistics: 'Weigh-In Day',
+  post_weigh_in_recovery_tracking: 'Post Weigh-In Recovery',
+  high_risk_review: 'Safety Review',
 };
 
-const PHASE_COLORS: Record<CutPhase, [string, string]> = {
-  chronic: ['#D4AF37', '#8C6A1E'],
-  intensified: ['#15803D', '#166534'],
-  fight_week_load: ['#B8C0C2', '#6F7778'],
-  fight_week_cut: ['#D4AF37', '#B8892D'],
-  weigh_in: ['#D9827E', '#D9827E'],
-  rehydration: ['#10B981', '#059669'],
+const PHASE_COLORS: Record<BodyMassSupportPhase, [string, string]> = {
+  unknown: ['#B8C0C2', '#6F7778'],
+  long_term_body_composition: ['#D4AF37', '#8C6A1E'],
+  gradual_weight_class_preparation: ['#15803D', '#166534'],
+  competition_week_body_mass_monitoring: ['#B8C0C2', '#6F7778'],
+  weigh_in_logistics: ['#D9827E', '#D9827E'],
+  post_weigh_in_recovery_tracking: ['#10B981', '#059669'],
+  high_risk_review: ['#D4AF37', '#B8892D'],
 };
 
 const FLAG_COLORS: Record<string, string> = {
-  danger: COLORS.error,
-  warning: COLORS.warning,
+  critical: COLORS.error,
+  high: COLORS.error,
+  moderate: COLORS.warning,
+  low: COLORS.accent,
   info: COLORS.accent,
 };
 
@@ -54,7 +57,7 @@ function buildFightWeekDays(weighInDate: string, plan: WeightCutPlanRow): FightW
   return Array.from({ length: 8 }, (_, index) => {
     const daysToWeighIn = 7 - index;
     const date = addDays(weighInDate, -daysToWeighIn);
-    const phase = determineCutPhase(plan, date);
+    const phase = getBodyMassSupportPhase(plan, date);
     return {
       date,
       daysToWeighIn,
@@ -76,7 +79,7 @@ function ProtocolSection({
   items: string[];
   icon?: React.ReactNode;
 }) {
-  const filtered = items.filter(Boolean);
+  const filtered = items.filter((item) => item.trim().length > 0);
   if (filtered.length === 0) {
     return null;
   }
@@ -84,7 +87,7 @@ function ProtocolSection({
   return (
     <Card
       style={[styles.sectionCard, { borderLeftColor: color }]}
-      backgroundTone="cutProtocol"
+      backgroundTone="bodyMassSupport"
       backgroundScrimColor="rgba(10, 10, 10, 0.76)"
     >
       <View style={styles.sectionHeader}>
@@ -104,10 +107,6 @@ export function FightWeekProtocolScreen() {
   const navigation = useNavigation<any>();
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(7);
-  const [selectedProtocol, setSelectedProtocol] = useState<DailyCutProtocolRow | null>(null);
-  const [loadingProtocol, setLoadingProtocol] = useState(false);
-  const [protocolError, setProtocolError] = useState<string | null>(null);
-  const [protocolReloadKey, setProtocolReloadKey] = useState(0);
   const [showUrine, setShowUrine] = useState(false);
   const [showCognitive, setShowCognitive] = useState(false);
 
@@ -117,10 +116,9 @@ export function FightWeekProtocolScreen() {
 
   const {
     activePlan,
-    todayProtocol,
     loading,
     logSafetyCheck,
-    logCompliance,
+    performanceContext,
   } = useWeightCutData(userId);
 
   const fightWeekDays = useMemo(
@@ -131,59 +129,11 @@ export function FightWeekProtocolScreen() {
   const isSelectedToday = selectedDayView?.date === todayLocalDate();
 
   useEffect(() => {
-    if (todayProtocol?.days_to_weigh_in != null) {
-      setSelectedDay(Math.min(7, Math.max(0, todayProtocol.days_to_weigh_in)));
+    const todayView = fightWeekDays.find((day) => day.date === todayLocalDate());
+    if (todayView) {
+      setSelectedDay(todayView.daysToWeighIn);
     }
-  }, [todayProtocol]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadProtocolForSelectedDay() {
-      if (!userId || !activePlan || !selectedDayView) {
-        if (isActive) {
-          setSelectedProtocol(null);
-        }
-        return;
-      }
-
-      if (isSelectedToday && todayProtocol) {
-        setSelectedProtocol(todayProtocol);
-        setProtocolError(null);
-        return;
-      }
-
-      setLoadingProtocol(true);
-      setProtocolError(null);
-
-      try {
-        const engineState = await getDailyEngineState(userId, selectedDayView.date, { forceRefresh: true });
-        if (!isActive) {
-          return;
-        }
-
-        setSelectedProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
-        if (!engineState.cutProtocol) {
-          setProtocolError('No generated guidance is available for this day yet.');
-        }
-      } catch {
-        if (isActive) {
-          setSelectedProtocol(null);
-          setProtocolError('We could not load that day right now.');
-        }
-      } finally {
-        if (isActive) {
-          setLoadingProtocol(false);
-        }
-      }
-    }
-
-    void loadProtocolForSelectedDay();
-
-    return () => {
-      isActive = false;
-    };
-  }, [userId, activePlan, selectedDayView, isSelectedToday, todayProtocol, protocolReloadKey]);
+  }, [fightWeekDays]);
 
   if (loading || !activePlan) {
     return (
@@ -193,8 +143,15 @@ export function FightWeekProtocolScreen() {
     );
   }
 
-  const phaseColors = selectedDayView?.phaseColors ?? PHASE_COLORS.fight_week_load;
-  const protocol = selectedProtocol;
+  const phaseColors = selectedDayView?.phaseColors ?? PHASE_COLORS.competition_week_body_mass_monitoring;
+  const selectedPhase = selectedDayView
+    ? getBodyMassSupportPhase(activePlan, selectedDayView.date)
+    : 'competition_week_body_mass_monitoring';
+  const selectedDayIsFightWeek =
+    selectedPhase === 'competition_week_body_mass_monitoring'
+    || selectedPhase === 'weigh_in_logistics';
+  const currentRiskFlags = performanceContext.riskFlags;
+  const blocked = currentRiskFlags.some((flag) => flag.blocksPlan);
 
   return (
     <View style={styles.container}>
@@ -206,7 +163,7 @@ export function FightWeekProtocolScreen() {
         <Text style={styles.headerSub}>{activePlan.weight_class_name ?? 'Weight Class'}</Text>
         {selectedDayView ? (
           <Text style={styles.headerSub}>
-            {selectedDayView.label} · {selectedDayView.phaseLabel} · {selectedDayView.date}
+            {selectedDayView.label} - {selectedDayView.phaseLabel} - {selectedDayView.date}
           </Text>
         ) : null}
       </LinearGradient>
@@ -240,156 +197,123 @@ export function FightWeekProtocolScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: SPACING.md, gap: SPACING.md }}>
         <Card
           style={[styles.dayCard, { borderLeftColor: phaseColors[0] }]}
-          backgroundTone="cutProtocol"
+          backgroundTone="bodyMassSupport"
           backgroundScrimColor="rgba(10, 10, 10, 0.68)"
         >
           <View>
             <Text style={styles.dayCardTitle}>
-              {selectedDayView?.label ?? 'Fight week'} · {selectedDayView?.phaseLabel ?? 'Support'}
+              {selectedDayView?.label ?? 'Fight week'} - {selectedDayView?.phaseLabel ?? 'Support'}
             </Text>
             {selectedDayView ? (
               <Text style={styles.dayCardMeta}>
-                {selectedDayView.date}{isSelectedToday ? ' · today' : ''}
+                {selectedDayView.date}{isSelectedToday ? ' - today' : ''}
               </Text>
             ) : null}
           </View>
-          {protocol?.protocol_adherence ? (
-            <Text style={styles.statusBadge}>{protocol.protocol_adherence.toUpperCase()}</Text>
-          ) : null}
+          {blocked ? <Text style={styles.statusBadge}>SAFETY BLOCK</Text> : null}
         </Card>
 
         <Card
           style={styles.briefCard}
-          backgroundTone="cutProtocol"
+          backgroundTone="bodyMassSupport"
           backgroundScrimColor="rgba(10, 10, 10, 0.78)"
         >
           <Text style={styles.briefTitle}>Health guidance note</Text>
           <Text style={styles.briefText}>{HEALTH_GUIDANCE_NOTE}</Text>
         </Card>
 
-        {loadingProtocol ? (
-          <View style={styles.centerBlock}>
-            <ActivityIndicator color={COLORS.accent} />
-            <Text style={styles.emptyText}>Loading guidance...</Text>
-          </View>
-        ) : protocol ? (
+        <ProtocolSection
+          title="Hydration Monitoring"
+          color={COLORS.chart.water}
+          icon={<IconDroplets size={18} color={COLORS.chart.water} />}
+          items={[
+            'Use familiar fluids and normal electrolyte habits; do not use dehydration methods.',
+            'Escalate dizziness, faintness, severe headache, cramps, or illness symptoms.',
+            performanceContext.lowConfidence ? performanceContext.confidenceSummary : '',
+          ]}
+        />
+
+        <ProtocolSection
+          title="Fueling"
+          color={COLORS.chart.protein}
+          items={[
+            performanceContext.nutrition.targetLabel,
+            performanceContext.nutrition.explanation,
+            performanceContext.nutrition.sessionFuelingSummary ?? '',
+          ]}
+        />
+
+        <ProtocolSection
+          title="Training"
+          color={COLORS.chart.fitness}
+          items={[
+            performanceContext.focus.training,
+            performanceContext.readiness.recommendedTrainingAdjustmentLabel
+              ? `Adjustment: ${performanceContext.readiness.recommendedTrainingAdjustmentLabel}`
+              : performanceContext.readiness.explanation,
+            blocked ? 'Automatic high-intensity work is constrained while blocking risk flags are active.' : '',
+          ]}
+        />
+
+        <ProtocolSection
+          title="Body-Mass Safety"
+          color={phaseColors[0]}
+          items={[
+            performanceContext.bodyMass?.explanation ?? 'Body-mass support is monitored through the Unified Performance Engine.',
+            performanceContext.bodyMass?.feasibilityLabel ? `Feasibility: ${performanceContext.bodyMass.feasibilityLabel}` : '',
+            performanceContext.bodyMass?.safetyLabel ? `Safety: ${performanceContext.bodyMass.safetyLabel}` : '',
+          ]}
+        />
+
+        {isSelectedToday && selectedDayIsFightWeek ? (
           <>
-            <ProtocolSection
-              title="Hydration"
-              color={COLORS.chart.water}
-              icon={<IconDroplets size={18} color={COLORS.chart.water} />}
-              items={[
-                `Target: ${Math.round(protocol.water_target_oz)} oz`,
-                protocol.sodium_instruction ?? '',
-                protocol.fiber_instruction ?? '',
-              ]}
-            />
-
-            <ProtocolSection
-              title="Nutrition Targets"
-              color={COLORS.chart.protein}
-              items={[
-                `${protocol.prescribed_calories} calories`,
-                `${protocol.prescribed_protein}g protein · ${protocol.prescribed_carbs}g carbs · ${protocol.prescribed_fat}g fat`,
-                protocol.is_refeed_day ? 'Refeed day active.' : '',
-                protocol.is_carb_cycle_high ? 'High-carb day active.' : '',
-              ]}
-            />
-
-            <ProtocolSection
-              title="Training"
-              color={COLORS.chart.fitness}
-              items={[
-                protocol.training_recommendation ?? 'No training recommendation available.',
-                protocol.training_intensity_cap != null ? `Max RPE ${protocol.training_intensity_cap}/10` : '',
-                protocol.intervention_reason ?? '',
-              ]}
-            />
-
-            <ProtocolSection title="Morning" color={phaseColors[0]} items={[protocol.morning_protocol ?? '']} />
-            <ProtocolSection title="Afternoon" color={phaseColors[0]} items={[protocol.afternoon_protocol ?? '']} />
-            <ProtocolSection title="Evening" color={phaseColors[0]} items={[protocol.evening_protocol ?? '']} />
-
-            {isSelectedToday ? (
-              <Card
-                style={styles.sectionCard}
-                backgroundTone="cutProtocol"
-                backgroundScrimColor="rgba(10, 10, 10, 0.76)"
-              >
-                <Text style={styles.sectionTitle}>Compliance</Text>
-                <Text style={styles.sectionItem}>Log how closely you followed today's support guidance.</Text>
-                <View style={styles.complianceRow}>
-                  {(['followed', 'partial', 'missed'] as const).map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={styles.complianceChip}
-                      onPress={() => void logCompliance(status, protocol.date)}
-                    >
-                      <Text style={styles.complianceChipText}>{status}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </Card>
+            <TouchableOpacity style={styles.vitalButton} onPress={() => setShowUrine((current) => !current)}>
+              <Text style={styles.vitalButtonText}>Log urine color check</Text>
+            </TouchableOpacity>
+            {showUrine ? (
+              <UrineColorPicker
+                onSelect={async (color) => {
+                  await logSafetyCheck({ urineColor: color });
+                  setShowUrine(false);
+                }}
+              />
             ) : null}
 
-            {isSelectedToday && (protocol.cut_phase === 'fight_week_load' || protocol.cut_phase === 'fight_week_cut' || protocol.cut_phase === 'weigh_in') ? (
-              <>
-                <TouchableOpacity style={styles.vitalButton} onPress={() => setShowUrine((current) => !current)}>
-                  <Text style={styles.vitalButtonText}>Log urine color check</Text>
-                </TouchableOpacity>
-                {showUrine ? (
-                  <UrineColorPicker
-                    onSelect={async (color) => {
-                      await logSafetyCheck({ urineColor: color });
-                      setShowUrine(false);
-                    }}
-                  />
-                ) : null}
-
-                <TouchableOpacity
-                  style={[styles.vitalButton, { backgroundColor: `${COLORS.success}18`, borderColor: COLORS.success }]}
-                  onPress={() => setShowCognitive((current) => !current)}
-                >
-                  <Text style={[styles.vitalButtonText, { color: COLORS.success }]}>Reaction time test</Text>
-                </TouchableOpacity>
-                {showCognitive ? (
-                  <CognitiveTestCard
-                    baseline={activePlan.baseline_cognitive_score}
-                    onResult={async (ms) => {
-                      await logSafetyCheck({ cognitiveScore: ms });
-                      setShowCognitive(false);
-                    }}
-                  />
-                ) : null}
-              </>
-            ) : null}
-
-            {(protocol.safety_flags?.length ?? 0) > 0 ? (
-              <View style={styles.flagsContainer}>
-                <Text style={styles.flagsTitle}>Safety flags</Text>
-                {protocol.safety_flags.map((flag, index) => (
-                  <Card
-                    key={`${flag.code}-${index}`}
-                    style={[styles.flagCard, { borderLeftColor: FLAG_COLORS[flag.severity] ?? COLORS.accent }]}
-                    backgroundTone="risk"
-                    backgroundScrimColor="rgba(10, 10, 10, 0.76)"
-                  >
-                    <Text style={styles.flagTitle}>{flag.title}</Text>
-                    <Text style={styles.flagMessage}>{flag.message}</Text>
-                    <Text style={styles.flagRec}>{flag.recommendation}</Text>
-                  </Card>
-                ))}
-              </View>
+            <TouchableOpacity
+              style={[styles.vitalButton, { backgroundColor: `${COLORS.success}18`, borderColor: COLORS.success }]}
+              onPress={() => setShowCognitive((current) => !current)}
+            >
+              <Text style={[styles.vitalButtonText, { color: COLORS.success }]}>Reaction time test</Text>
+            </TouchableOpacity>
+            {showCognitive ? (
+              <CognitiveTestCard
+                baseline={activePlan.baseline_cognitive_score}
+                onResult={async (ms) => {
+                  await logSafetyCheck({ cognitiveScore: ms });
+                  setShowCognitive(false);
+                }}
+              />
             ) : null}
           </>
-        ) : (
-          <View style={styles.centerBlock}>
-            <Text style={styles.emptyText}>{protocolError ?? 'No guidance is available for this day.'}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => setProtocolReloadKey((current) => current + 1)}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
+        ) : null}
+
+        {currentRiskFlags.length > 0 ? (
+          <View style={styles.flagsContainer}>
+            <Text style={styles.flagsTitle}>Risk flags</Text>
+            {currentRiskFlags.map((flag) => (
+              <Card
+                key={flag.id}
+                style={[styles.flagCard, { borderLeftColor: FLAG_COLORS[flag.severity] ?? COLORS.accent }]}
+                backgroundTone="risk"
+                backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+              >
+                <Text style={styles.flagTitle}>{flag.label}</Text>
+                <Text style={styles.flagMessage}>{flag.message}</Text>
+                {flag.explanation ? <Text style={styles.flagRec}>{flag.explanation}</Text> : null}
+              </Card>
+            ))}
           </View>
-        )}
+        ) : null}
 
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -407,14 +331,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
-  },
-  centerBlock: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.lg,
-    alignItems: 'center',
-    gap: SPACING.sm,
-    ...SHADOWS.sm,
   },
   emptyText: {
     fontFamily: FONT_FAMILY.regular,
@@ -499,8 +415,8 @@ const styles = StyleSheet.create({
   statusBadge: {
     fontSize: 11,
     fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.accent,
-    backgroundColor: COLORS.accentLight,
+    color: COLORS.error,
+    backgroundColor: COLORS.readiness.depletedLight,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: RADIUS.full,
@@ -556,26 +472,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 2,
   },
-  complianceRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginTop: SPACING.md,
-    flexWrap: 'wrap',
-  },
-  complianceChip: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surfaceSecondary,
-  },
-  complianceChipText: {
-    fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
-    textTransform: 'capitalize',
-  },
   vitalButton: {
     backgroundColor: 'rgba(183, 217, 168, 0.12)',
     borderRadius: RADIUS.md,
@@ -617,21 +513,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   flagRec: {
-    fontSize: 13,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.accent,
-    marginTop: 4,
-  },
-  retryButton: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  retryButtonText: {
     fontSize: 12,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.primary,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    lineHeight: 18,
   },
 });

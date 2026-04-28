@@ -31,7 +31,7 @@ interface LedgerData {
     prescribed_protein: number;
     prescribed_carbs: number;
     prescribed_fats: number;
-    target_source?: 'base' | 'daily_activity_adjusted' | 'weight_cut_protocol' | null;
+    target_source?: 'base' | 'daily_activity_adjusted' | null;
     actual_protein?: number;
     actual_carbs?: number;
     actual_fat?: number;

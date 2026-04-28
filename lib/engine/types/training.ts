@@ -1083,5 +1083,4 @@ export type {
 export type {
   DayLoadValidation,
   ScheduledActivityRow,
-  WeekPlanEntry,
 } from './schedule.ts';

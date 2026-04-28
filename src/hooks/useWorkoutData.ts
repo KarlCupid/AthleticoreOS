@@ -15,7 +15,6 @@ import type {
   WorkoutPrescriptionV2,
   WorkoutLogRow,
   ScheduledActivityRow,
-  DailyCutProtocolRow,
   DailyEngineState,
   DailyMission,
   WeeklyPlanEntryRow,
@@ -48,7 +47,6 @@ export function useWorkoutData() {
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [userId, setUserId] = useState<string>('');
-  const [cutProtocol, setCutProtocol] = useState<DailyCutProtocolRow | null>(null);
   const [engineState, setEngineState] = useState<DailyEngineState | null>(null);
   const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
   const [weeklyEntries, setWeeklyEntries] = useState<WeeklyPlanEntryRow[]>([]);
@@ -147,7 +145,6 @@ export function useWorkoutData() {
       setTodayActivities(engineState.scheduledActivities ?? []);
       setWeeklyEntries(weeklyMission.entries ?? []);
       setIsDeloadWeek((weeklyMission.entries ?? []).some((entry) => entry.is_deload));
-      setCutProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
       setPrescription((engineState.workoutPrescription as WorkoutPrescriptionV2 | null) ?? null);
 
       const backgroundLoads: Array<Promise<void>> = [];
@@ -192,7 +189,6 @@ export function useWorkoutData() {
     checkins,
     sessions,
     userId,
-    cutProtocol,
     engineState,
     performanceContext,
     dailyMission,

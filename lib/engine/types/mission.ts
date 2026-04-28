@@ -28,7 +28,7 @@ import type {
   SessionFuelingPlan,
 } from './nutrition.ts';
 import type { WorkoutPrescriptionV2 } from './training.ts';
-import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut.ts';
+import type { WeightTrendResult } from './weight_cut.ts';
 import type { CampRiskAssessment } from '../calculateCampRisk.ts';
 import type { UnifiedPerformanceEngineResult } from '../../performance-engine/index.ts';
 
@@ -50,8 +50,7 @@ export type MissionOverrideStatus =
 
 export type DirectiveSource =
   | 'weekly_plan_snapshot'
-  | 'daily_engine'
-  | 'weight_cut_protocol';
+  | 'daily_engine';
 
 export interface PerformanceObjective {
   mode: AthleteGoalMode;
@@ -229,7 +228,6 @@ export interface BuildDailyMissionInput {
   nutritionTargets: ResolvedNutritionTargets;
   hydration: HydrationResult;
   scheduledActivities: MissionScheduledActivity[];
-  cutProtocol: DailyCutProtocolRow | null;
   workoutPrescription: WorkoutPrescriptionV2 | null;
   weeklyPlanEntry: WeeklyPlanEntryRow | null;
   medStatus?: MEDStatus | null;
@@ -265,7 +263,6 @@ export interface DailyEngineState {
   readinessState: ReadinessState;
   readinessProfile: ReadinessProfile;
   constraintSet: StimulusConstraintSet;
-  cutProtocol: DailyCutProtocolRow | null;
   nutritionTargets: ResolvedNutritionTargets;
   hydration: HydrationResult;
   scheduledActivities: ScheduledActivityRow[];

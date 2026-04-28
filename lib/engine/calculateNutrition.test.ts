@@ -162,18 +162,7 @@ console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine 
   }));
   const resolved = resolveDailyNutritionTargets(
     base,
-    {
-      prescribed_calories: 1500,
-      prescribed_protein: 180,
-      prescribed_carbs: 90,
-      prescribed_fat: 35,
-      cut_phase: 'fight_week_cut',
-      training_intensity_cap: 4,
-      water_target_oz: 140,
-      sodium_target_mg: 600,
-      sodium_instruction: 'Minimal sodium. Water dump starts now.',
-      days_to_weigh_in: 3,
-    } as any,
+    null,
     [{ activity_type: 'boxing_practice' as any, expected_intensity: 6, estimated_duration_min: 45 }],
     {
       bodyweightLbs: 180,
@@ -181,10 +170,9 @@ console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine 
     },
   );
 
-  assert('cut protocol is safety-adjusted when too low', resolved.source === 'weight_cut_protocol_safety_adjusted');
-  assert('cut protocol cannot bypass fueling floor', resolved.fuelingFloorTriggered);
-  assert('cut-protect fuel state is retained', resolved.fuelState === 'cut_protect');
-  assert('unsafe sodium copy is sanitized', !resolved.hydrationPlan.notes.join(' ').toLowerCase().includes('water dump'));
+  assert('body-mass context no longer uses old weight-cut protocol source', !String(resolved.source).includes('weight_cut_protocol'));
+  assert('body-mass context still applies safety floor when needed', resolved.adjustedCalories >= 180 * 11.5);
+  assert('hydration guidance avoids unsafe dehydration copy', !resolved.hydrationPlan.notes.join(' ').toLowerCase().includes('water dump'));
 })();
 
 (() => {

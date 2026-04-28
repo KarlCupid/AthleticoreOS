@@ -123,11 +123,6 @@ npx tsx scripts/run-simulation.ts perfect 8
 
 Outputs are written to `sim_results/`. `tsx` is not currently declared as a project script or dependency, so use your preferred local TS execution flow.
 
-Other simulation utilities:
-
-- `scripts/simulate_full_app.ts`
-- `scripts/simulate_weight_cut.ts`
-
 ## Runtime architecture
 
 ### Daily engine flow
@@ -137,7 +132,7 @@ Other simulation utilities:
 - objective context
 - ACWR
 - readiness profile and stimulus constraints
-- cut protocol
+- unified body-mass and weight-class context
 - nutrition targets
 - hydration
 - workout prescription

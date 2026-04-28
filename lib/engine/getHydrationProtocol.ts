@@ -1,5 +1,4 @@
 import type { HydrationInput, HydrationResult } from './types.ts';
-import type { CutHydrationInput, CutHydrationResult } from './types.ts';
 
 function round(value: number): number {
   return Math.round(value);
@@ -38,18 +37,5 @@ export function getHydrationProtocol(input: HydrationInput): HydrationResult {
     message: velocityBoostOz > 0
       ? `Baseline fluid target: ${dailyFluidOz} oz. Rapid body-mass change is present, so keep intake steady and review the trend.`
       : `Baseline fluid target: ${dailyFluidOz} oz. Keep intake steady and familiar.`,
-  };
-}
-
-export function getCutHydrationProtocol(input: CutHydrationInput): CutHydrationResult {
-  const dailyFluidOz = input.baseHydrationOz > 0
-    ? round(input.baseHydrationOz)
-    : baselineFluidOz(input.currentWeightLbs);
-
-  return {
-    dailyWaterOz: dailyFluidOz,
-    instruction: `${dailyFluidOz} oz baseline support. The app does not generate acute scale-based fluid tactics.`,
-    sodiumInstruction: 'Keep sodium and electrolytes familiar and predictable.',
-    isRestricting: false,
   };
 }

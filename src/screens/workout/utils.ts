@@ -1,6 +1,5 @@
 import type { DailyCheckin, TrainingSession } from '../../hooks/useWorkoutData';
 import { getSessionFamilyLabel } from '../../../lib/engine/sessionLabels';
-import type { DailyCutProtocolRow } from '../../../lib/engine/types';
 import type { TrainingFloorViewModel } from '../../../lib/engine/presentation/types';
 
 export const WORKOUT_TABS = ['today', 'plan', 'history', 'analytics'] as const;
@@ -98,35 +97,9 @@ export function formatWorkoutTabLabel(tab: WorkoutTabKey): string {
 }
 
 function getEffortGuidance(input: {
-  cutProtocol: DailyCutProtocolRow | null;
   targetIntensity: number | null;
 }): Pick<TrainTodaySummary, 'effortTitle' | 'effortDetail' | 'effortTone'> {
-  const { cutProtocol, targetIntensity } = input;
-  const cap = cutProtocol?.training_intensity_cap ?? null;
-
-  if (cap != null) {
-    if (cap <= 4) {
-      return {
-        effortTitle: 'Keep it easy today',
-        effortDetail: `Stay at RPE ${cap}/10 or lower. You should finish feeling better than when you started.`,
-        effortTone: 'caution',
-      };
-    }
-
-    if (cap <= 6) {
-      return {
-        effortTitle: 'Stay smooth and controlled',
-        effortDetail: `Work up to about RPE ${cap}/10 and keep every rep smooth.`,
-        effortTone: 'steady',
-      };
-    }
-
-    return {
-      effortTitle: 'Push with control',
-      effortDetail: `You can work up to about RPE ${cap}/10 today. Push, but shut it down before form slips.`,
-      effortTone: 'push',
-    };
-  }
+  const { targetIntensity } = input;
 
   if (targetIntensity == null) {
     return {
@@ -160,25 +133,14 @@ function getEffortGuidance(input: {
 }
 
 function buildGuardrails(input: {
-  cutProtocol: DailyCutProtocolRow | null;
   floorVM: Partial<TrainingFloorViewModel> | null;
 }): string[] {
-  const { cutProtocol, floorVM } = input;
+  const { floorVM } = input;
   const guardrails: string[] = [];
-  const cap = cutProtocol?.training_intensity_cap ?? null;
   const activationGuidance = floorVM?.activationGuidance?.trim();
-  const cutRecommendation = cutProtocol?.training_recommendation?.trim();
-
-  if (cap != null) {
-    guardrails.push(`Cap the effort at RPE ${cap}/10 today.`);
-  }
 
   if (activationGuidance) {
     guardrails.push(activationGuidance);
-  }
-
-  if (cutRecommendation) {
-    guardrails.push(cutRecommendation);
   }
 
   return guardrails.slice(0, 2);
@@ -187,11 +149,10 @@ function buildGuardrails(input: {
 export function buildTrainTodaySummary(input: {
   floorVM: Partial<TrainingFloorViewModel> | null;
   sessionLabel: string | null;
-  cutProtocol: DailyCutProtocolRow | null;
   targetIntensity: number | null;
   durationMin: number | null;
 }): TrainTodaySummary {
-  const { floorVM, sessionLabel, cutProtocol, targetIntensity, durationMin } = input;
+  const { floorVM, sessionLabel, targetIntensity, durationMin } = input;
   const goal = floorVM?.sessionGoal?.trim() || 'Get good work done today.';
   const reason = floorVM?.reasonSentence?.trim() || 'Stick with today\'s plan and keep it clean.';
   const resolvedDuration = durationMin ?? floorVM?.estimatedDurationMin ?? 0;
@@ -201,8 +162,8 @@ export function buildTrainTodaySummary(input: {
     goal,
     reason,
     durationLabel: resolvedDuration > 0 ? `${resolvedDuration} min` : null,
-    ...getEffortGuidance({ cutProtocol, targetIntensity }),
-    guardrails: buildGuardrails({ cutProtocol, floorVM }),
+    ...getEffortGuidance({ targetIntensity }),
+    guardrails: buildGuardrails({ floorVM }),
   };
 }
 

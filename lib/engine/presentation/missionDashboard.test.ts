@@ -218,7 +218,6 @@ const baseInput = {
   hasActiveFightCamp: false,
   hasActiveCutPlan: false,
   todayPlanEntryIsDeload: false,
-  activeCutProtocol: null,
   weightTrend: null,
   weeklyReview: makeWeeklyReport(),
   recentTrainingSessions: [

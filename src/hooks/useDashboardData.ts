@@ -22,7 +22,6 @@ import type {
   ScheduledActivityRow,
   MacroLedgerRow,
   WorkoutPrescription,
-  DailyCutProtocolRow,
   WeeklyPlanEntryRow,
   WeightDataPoint,
   WeeklyComplianceReport,
@@ -85,7 +84,6 @@ interface DashboardDataState {
   todayPlanEntry: WeeklyPlanEntryRow | null;
   nutritionTargets: ResolvedNutritionTargets | null;
   actualNutrition: DashboardNutritionTotals;
-  activeCutProtocol: DailyCutProtocolRow | null;
   weeklyReview: WeeklyComplianceReport | null;
   recentTrainingSessions: RecentTrainingSessionSummary[];
   campStatusLabel: string;
@@ -117,7 +115,6 @@ const INITIAL_STATE: DashboardDataState = {
   todayPlanEntry: null,
   nutritionTargets: null,
   actualNutrition: EMPTY_NUTRITION,
-  activeCutProtocol: null,
   weeklyReview: null,
   recentTrainingSessions: [],
   campStatusLabel: 'Build Phase',
@@ -298,7 +295,6 @@ export function useDashboardData() {
           message: performanceContext.nutrition.explanation,
         },
         actualNutrition: EMPTY_NUTRITION,
-        activeCutProtocol: (engineState.cutProtocol as DailyCutProtocolRow | null) ?? null,
         weeklyReview,
         recentTrainingSessions,
         campStatusLabel,

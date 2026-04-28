@@ -1,6 +1,5 @@
 import type {
   ACWRResult,
-  DailyCutProtocolRow,
   DailyMission,
   ReadinessFlag,
   ReadinessState,
@@ -60,7 +59,6 @@ interface MissionDashboardInput {
   hasActiveFightCamp: boolean;
   hasActiveCutPlan: boolean;
   todayPlanEntryIsDeload: boolean;
-  activeCutProtocol: DailyCutProtocolRow | null;
   weightTrend: WeightTrendResult | null;
   weeklyReview: WeeklyComplianceReport | null;
   recentTrainingSessions: RecentTrainingSessionSummary[];
@@ -102,15 +100,9 @@ function isFightCamp(input: MissionDashboardInput): boolean {
 
 function isFightWeek(input: MissionDashboardInput): boolean {
   const daysOut = input.mission?.macrocycleContext.daysOut;
-  const daysToWeighIn = input.activeCutProtocol?.days_to_weigh_in;
-  const cutPhase = input.activeCutProtocol?.cut_phase;
 
   return (
-    (typeof daysOut === 'number' && daysOut <= 7) ||
-    (typeof daysToWeighIn === 'number' && daysToWeighIn <= 7) ||
-    cutPhase === 'fight_week_load' ||
-    cutPhase === 'fight_week_cut' ||
-    cutPhase === 'weigh_in'
+    typeof daysOut === 'number' && daysOut <= 7
   );
 }
 
@@ -219,7 +211,7 @@ function buildWhy(input: MissionDashboardInput, status: MissionDashboardStatus):
   if (isFightWeek(input)) {
     pushReason(reasons, 'The fight is close, so freshness matters more than extra work.');
     if (input.hasActiveCutPlan) {
-      pushReason(reasons, 'Weight cut is active, so keep decisions simple today.');
+      pushReason(reasons, 'Weight-class context is active, so keep decisions simple today.');
     } else {
       pushReason(reasons, 'Fatigue is expected at this stage of camp.');
     }

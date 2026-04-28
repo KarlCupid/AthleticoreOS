@@ -13,7 +13,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../../lib/supabase';
-import { computeRehydrationProtocol } from '../../lib/engine/calculateWeightCut';
+import { buildPostWeighInRecoverySupport } from '../../lib/performance-engine';
 import { useWeightCutData } from '../hooks/useWeightCutData';
 import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
@@ -22,10 +22,6 @@ import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList>;
 type RouteProps = RouteProp<FuelStackParamList, 'RehydrationProtocol'>;
-
-type AthleteProfile = {
-  biological_sex?: 'male' | 'female' | null;
-};
 
 const HEALTH_GUIDANCE_NOTE =
   'Post weigh-in recovery guidance is coaching-oriented and educational. It does not replace licensed medical advice, diagnosis, or emergency support.';
@@ -36,32 +32,20 @@ export function RehydrationProtocolScreen() {
   const { weighInWeightLbs, hoursToFight } = route.params;
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [profile, setProfile] = useState<AthleteProfile | null>(null);
   const [currentRegainLbs, setCurrentRegainLbs] = useState('');
   const [completedPhases, setCompletedPhases] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return;
-
-      setUserId(data.user.id);
-      const { data: athleteProfile } = await supabase
-        .from('athlete_profiles')
-        .select('biological_sex')
-        .eq('user_id', data.user.id)
-        .single();
-
-      setProfile(athleteProfile);
-    });
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
 
   const { complete, logSafetyCheck } = useWeightCutData(userId);
 
-  const protocol = computeRehydrationProtocol({
+  const protocol = buildPostWeighInRecoverySupport({
     weighInWeightLbs,
     targetWeightLbs: weighInWeightLbs,
+    currentWeightLbs: weighInWeightLbs,
     hoursToFight,
-    biologicalSex: profile?.biological_sex ?? 'male',
   });
 
   const togglePhase = (idx: number) => {
@@ -140,7 +124,7 @@ export function RehydrationProtocolScreen() {
             <View style={styles.phaseDetails}>
               <PhaseDetail
                 icon="H2O"
-                text={phase.fluidInstruction ?? phase.protocol ?? 'Follow the recovery fluid plan for this phase.'}
+                text={phase.fluidInstruction ?? 'Follow the recovery fluid plan for this phase.'}
               />
               {phase.foodInstruction && <PhaseDetail icon="Meal" text={phase.foodInstruction} />}
               {phase.sodiumInstruction && <PhaseDetail icon="Na" text={phase.sodiumInstruction} />}

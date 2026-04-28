@@ -24,7 +24,7 @@ const CARB_GRAMS_PER_INTENSITY_POINT = 8;
  * UI Parameters Expected:
  *   - skippedBlock: DailyTimelineRow (the block whose status just changed to 'Skipped')
  *   - currentLedger: MacroLedgerRow  (today's row from macro_ledger for this user)
- *   - cutPhase?: CutPhase | null     (from active cut protocol, if any)
+ *   - bodyMassSupportPhase?: string | null (canonical body-mass support context, if any)
  *
  * Returns: HandleTimelineShiftResult
  *   - updatedCarbs: number   (new prescribed_carbs after reduction)
@@ -40,7 +40,7 @@ const CARB_GRAMS_PER_INTENSITY_POINT = 8;
 export function handleTimelineShift({
     skippedBlock,
     currentLedger,
-    cutPhase,
+    bodyMassSupportPhase,
 }: HandleTimelineShiftInput): HandleTimelineShiftResult {
     if (skippedBlock.status !== 'Skipped') {
         throw new Error(
@@ -48,7 +48,7 @@ export function handleTimelineShift({
         );
     }
 
-    const hasBodyMassContext = cutPhase != null;
+    const hasBodyMassContext = bodyMassSupportPhase != null;
     const coefficient = CARB_GRAMS_PER_INTENSITY_POINT;
 
     const carbReduction =

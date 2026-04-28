@@ -1,6 +1,5 @@
 import type {
   ACWRResult,
-  DailyCutProtocolRow,
   HydrationResult,
   MacroLedgerRow,
   ResolvedNutritionTargets,
@@ -9,7 +8,6 @@ import type {
   WorkoutPrescription,
 } from '../../../lib/engine/types';
 import { isGuidedEngineActivityType } from '../../../lib/engine/sessionOwnership';
-import { calculateCaloriesFromMacros } from '../../../lib/utils/nutrition';
 import type { DashboardNutritionTotals } from './utils';
 
 type ReadinessLevel = 'Prime' | 'Caution' | 'Depleted' | null;
@@ -28,8 +26,6 @@ interface BuildTodayHomeStateInput {
   nutritionTargets: ResolvedNutritionTargets | null;
   actualNutrition: DashboardNutritionTotals;
   currentLedger: MacroLedgerRow | null;
-  hasActiveCutPlan: boolean;
-  todayCutProtocol: DailyCutProtocolRow | null;
 }
 
 export interface TodayHomeState {
@@ -49,7 +45,6 @@ export interface TodayHomeState {
       fat: number;
       water: number;
     };
-    hasActiveCutProtocol: boolean;
   };
   schedule: {
     contextualActivities: ScheduledActivityRow[];
@@ -182,8 +177,6 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
     nutritionTargets,
     actualNutrition,
     currentLedger,
-    hasActiveCutPlan,
-    todayCutProtocol,
   } = input;
 
   const readinessScore = typeof engineReadinessScore === 'number' && Number.isFinite(engineReadinessScore)
@@ -230,25 +223,13 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
     ? todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type))
     : todayActivities;
 
-  const targets = todayCutProtocol
-    ? {
-        calories: calculateCaloriesFromMacros(
-          todayCutProtocol.prescribed_protein,
-          todayCutProtocol.prescribed_carbs,
-          todayCutProtocol.prescribed_fat,
-        ),
-        protein: todayCutProtocol.prescribed_protein,
-        carbs: todayCutProtocol.prescribed_carbs,
-        fat: todayCutProtocol.prescribed_fat,
-        water: todayCutProtocol.water_target_oz,
-      }
-    : {
-        calories: nutritionTargets?.adjustedCalories ?? 0,
-        protein: nutritionTargets?.protein ?? (currentLedger?.prescribed_protein ?? 150),
-        carbs: nutritionTargets?.carbs ?? (currentLedger?.prescribed_carbs ?? 200),
-        fat: nutritionTargets?.fat ?? (currentLedger?.prescribed_fats ?? 60),
-        water: hydration?.dailyWaterOz ?? 100,
-      };
+  const targets = {
+    calories: nutritionTargets?.adjustedCalories ?? 0,
+    protein: nutritionTargets?.protein ?? (currentLedger?.prescribed_protein ?? 150),
+    carbs: nutritionTargets?.carbs ?? (currentLedger?.prescribed_carbs ?? 200),
+    fat: nutritionTargets?.fat ?? (currentLedger?.prescribed_fats ?? 60),
+    water: hydration?.dailyWaterOz ?? 100,
+  };
 
   return {
     training: {
@@ -261,7 +242,6 @@ export function buildTodayHomeState(input: BuildTodayHomeStateInput): TodayHomeS
     fuel: {
       actual: actualNutrition,
       targets,
-      hasActiveCutProtocol: Boolean(hasActiveCutPlan && todayCutProtocol),
     },
     schedule: {
       contextualActivities: contextualActivities,

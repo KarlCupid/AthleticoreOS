@@ -32,7 +32,6 @@ import { buildCompassViewModel } from "../../lib/engine/presentation";
 import { buildMissionDashboardViewModel } from "../../lib/engine/presentation/missionDashboard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 
-import type { CutSafetyFlag } from "../../lib/engine/types";
 import { getActiveUserId } from "../../lib/api/athleteContextService";
 import {
   getAndSyncFirstRunGuidanceState,
@@ -106,7 +105,6 @@ export function DashboardScreen() {
     readinessScore,
     weightTrend,
     weightHistory,
-    activeCutProtocol,
     dailyMission,
     hasActiveFightCamp,
     hasActiveCutPlan,
@@ -126,10 +124,6 @@ export function DashboardScreen() {
     [dailyMission, workoutPrescription, todayPlanEntry, checkinDone, sessionDone],
   );
 
-  const activeCutSafetyFlags = React.useMemo(
-    () => normalizeCutSafetyFlags(activeCutProtocol?.safety_flags),
-    [activeCutProtocol?.safety_flags],
-  );
   const missionDashboard = React.useMemo(
     () =>
       buildMissionDashboardViewModel({
@@ -141,11 +135,10 @@ export function DashboardScreen() {
         hasActiveFightCamp,
         hasActiveCutPlan,
         todayPlanEntryIsDeload: Boolean(todayPlanEntry?.is_deload),
-        activeCutProtocol,
         weightTrend,
         weeklyReview,
         recentTrainingSessions,
-        cutSafetyFlags: activeCutSafetyFlags,
+        cutSafetyFlags: [],
       }),
     [
       dailyMission,
@@ -156,11 +149,9 @@ export function DashboardScreen() {
       hasActiveFightCamp,
       hasActiveCutPlan,
       todayPlanEntry?.is_deload,
-      activeCutProtocol,
       weightTrend,
       weeklyReview,
       recentTrainingSessions,
-      activeCutSafetyFlags,
     ],
   );
   const hasLivePlanningState = Boolean(todayPlanEntry) || todayActivities.length > 0;
@@ -742,24 +733,6 @@ export function DashboardScreen() {
       </ScrollView>
     </ScreenWrapper>
   );
-}
-
-function isCutSafetyFlag(value: unknown): value is CutSafetyFlag {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<CutSafetyFlag>;
-  return (
-    (candidate.severity === "info" ||
-      candidate.severity === "warning" ||
-      candidate.severity === "danger") &&
-    typeof candidate.code === "string" &&
-    typeof candidate.title === "string" &&
-    typeof candidate.message === "string" &&
-    typeof candidate.recommendation === "string"
-  );
-}
-
-function normalizeCutSafetyFlags(flags: unknown): CutSafetyFlag[] {
-  return Array.isArray(flags) ? flags.filter(isCutSafetyFlag) : [];
 }
 
 function getReadinessProgress(

@@ -38,8 +38,9 @@ async function main() {
     },
   });
 
-  const recoveryDays = simulation.dailyLogs.filter((log) =>
+  const restorativeDays = simulation.dailyLogs.filter((log) =>
     log.engineState.mission.trainingDirective.workoutType === 'recovery'
+    || log.engineState.mission.trainingDirective.sessionRole === 'rest'
     || log.engineState.mission.trainingDirective.sessionRole === 'recover',
   );
   const guidedTrainingDays = simulation.dailyLogs.filter((log) =>
@@ -61,7 +62,7 @@ async function main() {
     log.engineState.mission.trainingDirective.workoutType === 'conditioning',
   );
 
-  assert('Simulation yields recovery outputs', recoveryDays.length > 0);
+  assert('Simulation yields restorative outputs', restorativeDays.length > 0);
   assert('Simulation clean slate has no pre-scheduled combat anchors', combatDays.length === 0);
   assert('Simulation yields guided training days from a clean slate', guidedTrainingDays.length > 0);
   assert('Simulation clean-slate compliant camp keeps non-low risk days bounded', nonLowRiskDays.length <= Math.ceil(simulation.dailyLogs.length * 0.2));
@@ -148,18 +149,20 @@ async function main() {
   assert('Replay override seed is reflected in the run metadata', replayRunSeedA.scenario.config.seed === 101);
   assert('Different replay seeds produce different replay outputs', replaySignatureA !== replaySignatureB);
 
-  console.log('\n--- Active cut replay semantics ---');
+  console.log('\n--- Body-mass support replay semantics ---');
 
   const activeCutRun = await buildEngineReplayRun('camp-active-cut');
+  const bodyMassSupportDays = activeCutRun.days.filter((day) => day.bodyMassSupportPhase !== 'none');
 
-  assert('Active cut replay can remain intervention-free on a clean slate', activeCutRun.summary.interventionDays === 0);
-  assert('Active cut replay has no pre-cut interventions on a clean slate', activeCutRun.summary.preCutInterventionDays === 0);
-  assert('Active cut replay reduces pre-cut interventions below the prior 27-day baseline', activeCutRun.summary.preCutInterventionDays < 27);
-  assert('Active cut replay reduces overall interventions below the prior 31-day baseline', activeCutRun.summary.interventionDays < 31);
-  assert('Active cut replay reduces high-risk days below the prior 24-day baseline', activeCutRun.summary.highRiskDays < 24);
-  assert('Active cut replay can show zero engine danger days on a clean slate', activeCutRun.summary.engineDangerDays === 0);
-  assert('Active cut replay keeps athlete override days low for a compliant athlete', activeCutRun.summary.athleteOverrideDays <= Math.ceil(activeCutRun.summary.totalDays * 0.1));
-  assert('Scenario pressure remains visible separately from athlete overrides', activeCutRun.summary.scenarioPressureDays > activeCutRun.summary.athleteOverrideDays);
+  assert('Body-mass support replay can remain intervention-free on a clean slate', activeCutRun.summary.interventionDays === 0);
+  assert('Body-mass support context is visible in replay days', bodyMassSupportDays.length > 0);
+  assert('Body-mass support replay has no unrelated interventions on a clean slate', activeCutRun.summary.nonBodyMassInterventionDays === 0);
+  assert('Body-mass support replay reduces unrelated interventions below the prior 27-day baseline', activeCutRun.summary.nonBodyMassInterventionDays < 27);
+  assert('Body-mass support replay reduces overall interventions below the prior 31-day baseline', activeCutRun.summary.interventionDays < 31);
+  assert('Body-mass support replay reduces high-risk days below the prior 24-day baseline', activeCutRun.summary.highRiskDays < 24);
+  assert('Body-mass support replay can show zero engine danger days on a clean slate', activeCutRun.summary.engineDangerDays === 0);
+  assert('Body-mass support replay keeps athlete override days low for a compliant athlete', activeCutRun.summary.athleteOverrideDays <= Math.ceil(activeCutRun.summary.totalDays * 0.1));
+  assert('Retired protocol intervention no longer creates scenario pressure', activeCutRun.summary.scenarioPressureDays === 0);
 
   console.log('\n--- Safety scenario replays ---');
 

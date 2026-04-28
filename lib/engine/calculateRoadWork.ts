@@ -25,7 +25,7 @@ import type {
     WeightCutPlanRow,
     HRZone,
 } from './types.ts';
-import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
+import { getBodyMassTrainingIntensityCap } from '../performance-engine/body-mass-weight-class/index.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
 // â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -298,7 +298,7 @@ export function prescribeRoadWork(input: {
     const effectiveDate = todayLocalDate();
     const effectiveIntensityCap = resolvedIntensityCap !== undefined
         ? resolvedIntensityCap
-        : getDailyCutIntensityCap(activeCutPlan, effectiveDate);
+        : getBodyMassTrainingIntensityCap(activeCutPlan, effectiveDate);
 
     // Apply intensity cap from weight-class safety context.
     // Walk down the intensity ladder until the type fits within the cap
@@ -486,7 +486,7 @@ export function getWeeklyRoadWorkPlan(
         // If surrounded by high intensity, downgrade this session to easy
         const forceEasy = prevIsIntense && nextIsIntense;
 
-        const trainingIntensityCap = getDailyCutIntensityCap(activeCutPlan, day.date);
+        const trainingIntensityCap = getBodyMassTrainingIntensityCap(activeCutPlan, day.date);
 
         const prescription = forceEasy
             ? prescribeRoadWork({

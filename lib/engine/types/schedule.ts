@@ -16,10 +16,8 @@ import type {
 } from './foundational.ts';
 import type { CampConfig } from './camp.ts';
 import type {
-  ConditioningPrescription,
   ExerciseLibraryRow,
   PrescribedExercise,
-  RoadWorkPrescription,
   SCSessionFamily,
   SessionModulePlan,
   SessionDoseSummary,
@@ -27,7 +25,7 @@ import type {
   WorkoutDoseCredit,
   WorkoutPrescriptionV2,
 } from './training.ts';
-import type { CutPhase, WeightCutPlanRow } from './weight_cut.ts';
+import type { WeightCutPlanRow } from './weight_cut.ts';
 import type { DailyMission } from './mission.ts';
 
 export interface DailyTimelineRow {
@@ -43,7 +41,7 @@ export interface DailyTimelineRow {
 export interface HandleTimelineShiftInput {
   skippedBlock: DailyTimelineRow;
   currentLedger: MacroLedgerRow;
-  cutPhase?: CutPhase | null;
+  bodyMassSupportPhase?: string | null;
 }
 
 export interface HandleTimelineShiftResult {
@@ -195,22 +193,6 @@ export interface WeeklyComplianceReport {
   message: string;
 }
 
-export interface ScheduleGenerationInput {
-  readinessState: ReadinessState;
-  phase: Phase;
-  acwr: number;
-  recurringActivities: RecurringActivityRow[];
-  existingActivities: ScheduledActivityRow[];
-  exerciseLibrary: ExerciseLibraryRow[];
-  weeklyTargets: WeeklyTargetsRow;
-  sleepTrendAvg: number;
-  weekStartDate: string;
-  activeCutPlan?: WeightCutPlanRow | null;
-  fitnessLevel?: FitnessLevel;
-  campConfig?: CampConfig | null;
-  age?: number | null;
-}
-
 export type PlanSlot = 'am' | 'pm' | 'single';
 export type PlanEntryStatus = 'planned' | 'completed' | 'skipped' | 'rescheduled';
 export type TrainingSessionFamily =
@@ -322,27 +304,6 @@ export interface WeeklyTrainingMixPlan {
   scDoseSummary: Required<SessionDoseSummary>;
   dailyPlacements: DailyTrainingPlacement[];
   carryForwardAdjustments: CarryForwardAdjustment[];
-}
-
-export interface WeekPlanEntry
-  extends Pick<
-    ScheduledActivityRow,
-    | 'date'
-    | 'activity_type'
-    | 'start_time'
-    | 'estimated_duration_min'
-    | 'expected_intensity'
-    | 'source'
-    | 'engine_recommendation'
-  > {
-  road_work_prescription?: RoadWorkPrescription | null;
-  conditioning_prescription?: ConditioningPrescription | null;
-  recommendation_reason?: string;
-  recommendation_severity?: 'info' | 'recommended' | 'strongly_recommended';
-  recommendation_affected_subsystem?: string;
-  recommendation_change?: string;
-  recommendation_education?: string;
-  recommendation_status?: RecommendationLifecycleStatus;
 }
 
 export interface SmartWeekPlanInput {

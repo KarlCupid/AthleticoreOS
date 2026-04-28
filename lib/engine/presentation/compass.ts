@@ -94,8 +94,8 @@ function buildMissionReason(mission: DailyMission, fallbackReason: string): stri
     return 'No training is scheduled, so recovery is the job.';
   }
 
-  if (directive.sessionRole === 'cut_protect' || directive.source === 'weight_cut_protocol') {
-    return 'The cut is setting today\'s limits.';
+  if (directive.sessionRole === 'cut_protect') {
+    return 'Body-mass and recovery context are setting today\'s limits.';
   }
 
   if (directive.sessionRole === 'spar_support') {

@@ -129,7 +129,7 @@ export function WorkoutScreen() {
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
   const {
     loading, refreshing, loadData, onRefresh, prescription, todayActivities, workoutHistory,
-    checkins, sessions, userId, cutProtocol, dailyMission, todayPlanEntry, weeklyEntries,
+    checkins, sessions, userId, dailyMission, todayPlanEntry, weeklyEntries,
     historyLoaded, analyticsLoaded, historyLoading, analyticsLoading, initialLoadError,
     historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
     performanceContext,
@@ -198,10 +198,9 @@ export function WorkoutScreen() {
   const todaySummary = useMemo(() => buildTrainTodaySummary({
     floorVM,
     sessionLabel: todaySessionLabel,
-    cutProtocol,
     targetIntensity: todayPlanEntry?.target_intensity ?? null,
     durationMin: todayPlanEntry?.estimated_duration_min ?? prescription?.estimatedDurationMin ?? null,
-  }), [floorVM, todaySessionLabel, cutProtocol, todayPlanEntry?.target_intensity, todayPlanEntry?.estimated_duration_min, prescription?.estimatedDurationMin]);
+  }), [floorVM, todaySessionLabel, todayPlanEntry?.target_intensity, todayPlanEntry?.estimated_duration_min, prescription?.estimatedDurationMin]);
 
   const heroToneStyles = getHeroToneStyles(todaySummary.effortTone);
   const hasStructuredToday = Boolean(todayPlanEntry || prescription);

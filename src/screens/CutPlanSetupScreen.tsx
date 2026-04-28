@@ -19,13 +19,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { createWeightCutPlan } from '../../lib/api/weightCutService';
 import { getLatestWeight } from '../../lib/api/weightService';
-import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
 import {
   evaluateWeightClassPlan,
   normalizeBodyMassOrNull,
   type WeightClassManagementResult,
 } from '../../lib/performance-engine';
-import type { CutPlanResult, CutSport, FightStatus } from '../../lib/engine/types';
+import type { CutSport, FightStatus } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { WeightClassEvaluationPreviewStep } from '../components/WeightClassEvaluationPreviewStep';
 import { Card } from '../components/Card';
@@ -200,21 +199,6 @@ export function CutPlanSetupScreen() {
     }
   };
 
-  function buildPersistencePlanResult(actualStartWeight: number, targetWeight: number): CutPlanResult {
-    return generateCutPlan({
-      asOfDate: todayLocalDate(),
-      startWeight: actualStartWeight,
-      targetWeight,
-      fightDate: form.fightDate,
-      weighInDate: form.weighInDate,
-      fightStatus: profile?.fight_status ?? 'amateur',
-      biologicalSex: profile?.biological_sex ?? 'male',
-      sport: form.sport,
-      athleteAge: profile?.age ?? null,
-      weighInTiming: form.fightDate === form.weighInDate ? 'same_day' : 'next_day',
-    });
-  }
-
   const handleActivate = async () => {
     if (!userId || !weightClassEvaluation) return;
 
@@ -227,15 +211,6 @@ export function CutPlanSetupScreen() {
         throw new Error('This weight-class target needs a safer class, longer timeline, or qualified review before activation.');
       }
 
-      const planResult = buildPersistencePlanResult(actualStartWeight, targetWeight);
-      if (!planResult.valid) {
-        throw new Error(planResult.validationErrors.join('\n') || 'The persistence plan could not be created safely.');
-      }
-
-      if (planResult.cutWarning?.requiresAcknowledgement) {
-        throw new Error('This target requires qualified review before Athleticore can activate automatic body-mass guidance.');
-      }
-
       await createWeightCutPlan(userId, {
         startWeight: actualStartWeight,
         targetWeight,
@@ -245,9 +220,8 @@ export function CutPlanSetupScreen() {
         weighInDate: form.weighInDate,
         fightStatus: profile?.fight_status ?? 'amateur',
         biologicalSex: profile?.biological_sex ?? 'male',
-        planResult,
+        weightClassEvaluation,
         coachNotes: form.coachNotes || undefined,
-        riskAcknowledgedAt: null,
       });
 
       nav.navigate('WeightCutHome');
@@ -273,7 +247,7 @@ export function CutPlanSetupScreen() {
         <Card
           key={feature}
           style={[styles.impactCard, { backgroundColor: bg, borderColor: `${color}40` }]}
-          backgroundTone="cutProtocol"
+          backgroundTone="bodyMassSupport"
           backgroundScrimColor="rgba(10, 10, 10, 0.78)"
         >
           <View style={styles.impactCardTop}>
@@ -296,7 +270,7 @@ export function CutPlanSetupScreen() {
         <Card
           key={label}
           style={[styles.phaseCard, { backgroundColor: bg }]}
-          backgroundTone="cutProtocol"
+          backgroundTone="bodyMassSupport"
           backgroundScrimColor="rgba(10, 10, 10, 0.80)"
         >
           <View style={[styles.phaseCardBar, { backgroundColor: color }]} />

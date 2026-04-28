@@ -35,7 +35,6 @@ export interface DailyEngineState {
   readinessState: ReadinessState;
   readinessProfile: any;
   constraintSet: any;
-  cutProtocol: any;
   nutritionTargets: any;
   hydration: any;
   scheduledActivities: any[];
@@ -110,14 +109,14 @@ export type DailySimulationLog = {
     actualProtein: number;
     actualCarbs: number;
     actualFat: number;
-    cutPhase?: string; 
+    bodyMassSupportPhase?: string;
     waterTargetOz?: number;
     sodiumTargetMg?: number | null;
     fiberState?: string;
     interventionState?: 'none' | 'soft' | 'hard';
     isMandatoryRecovery?: boolean;
     weightDriftLbs?: number | null;
-    cutInterventionReason?: string | null;
+    bodyMassInterventionReason?: string | null;
     workoutBlueprint?: string; 
     coachingInsight?: string; 
     athleteMonologue?: string;

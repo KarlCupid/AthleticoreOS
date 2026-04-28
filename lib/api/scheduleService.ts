@@ -837,7 +837,7 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
         fitnessLevel: athleteContext.fitnessLevel,
         phase: engineState.objectiveContext.phase,
         campConfig,
-        trainingIntensityCap: engineState.cutProtocol?.training_intensity_cap ?? null,
+        trainingIntensityCap: null,
         exerciseLibrary,
     });
 }

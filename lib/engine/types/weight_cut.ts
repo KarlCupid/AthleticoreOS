@@ -1,7 +1,5 @@
-import type { FightStatus, Phase, ReadinessState, WeighInTiming } from './foundational.ts';
-import type { NutritionTargets } from './nutrition.ts';
-import type { ActivityType } from './schedule.ts';
-import type { AthleteSafetyContext, EngineSafetyWarning } from './safety.ts';
+import type { FightStatus, Phase } from './foundational.ts';
+import type { EngineSafetyWarning } from './safety.ts';
 
 export type WeightCutStatus =
   | 'on_track'
@@ -65,77 +63,8 @@ export interface WeightReadinessPenalty {
   message: string;
 }
 
-export type CutPhase =
-  | 'chronic'
-  | 'intensified'
-  | 'fight_week_load'
-  | 'fight_week_cut'
-  | 'weigh_in'
-  | 'rehydration';
-
 export type CutPlanStatus = 'active' | 'completed' | 'abandoned' | 'paused';
 export type CutSport = 'boxing' | 'mma';
-
-export interface CutPlanInput {
-  asOfDate: string;
-  startWeight: number;
-  targetWeight: number;
-  fightDate: string;
-  weighInDate: string;
-  fightStatus: FightStatus;
-  biologicalSex: 'male' | 'female';
-  sport: CutSport;
-  athleteAge?: number | null;
-  weighInTiming?: WeighInTiming | null;
-}
-
-export interface CutPhaseDates {
-  start: string;
-  end: string;
-}
-
-export interface CutPlanResult {
-  valid: boolean;
-  asOfDate: string;
-  validationErrors: string[];
-  safetyWarnings: string[];
-  safetyWarningDetails: EngineSafetyWarning[];
-  cutWarning: CutPlanWarning | null;
-  totalCutLbs: number;
-  totalCutPct: number;
-  dietPhaseTargetLbs: number;
-  waterCutAllocationLbs: number;
-  chronicPhaseWeeks: number;
-  intensifiedPhaseWeeks: number;
-  chronicPhaseDates: CutPhaseDates | null;
-  intensifiedPhaseDates: CutPhaseDates;
-  fightWeekDates: CutPhaseDates;
-  weighInDate: string;
-  safeWeeklyLossRateLbs: number;
-  calorieFloor: number;
-  maxWaterCutPct: number;
-  estimatedDailyDeficitChronic: number;
-  estimatedDailyDeficitIntensified: number;
-}
-
-export type CutPlanWarningSeverity = 'info' | 'caution' | 'severe' | 'medical';
-
-export interface CutPlanWarning {
-  severity: CutPlanWarningSeverity;
-  tier: CutPlanWarningSeverity;
-  code: string;
-  message: string;
-  requiresAcknowledgement: boolean;
-  persistent: boolean;
-  allowProceed: true;
-  policyVersion: string;
-  source: EngineSafetyWarning['source'];
-  amateurAdjusted: boolean;
-  teenSensitive: boolean;
-  ageUnknown: boolean;
-  daysToWeighIn: number | null;
-  cutPct: number;
-}
 
 export interface CutSafetyFlag {
   severity: 'info' | 'warning' | 'danger';
@@ -143,185 +72,6 @@ export interface CutSafetyFlag {
   title: string;
   message: string;
   recommendation: string;
-}
-
-export interface DailyCutProtocolInput {
-  plan: WeightCutPlanRow;
-  date: string;
-  currentWeight: number;
-  weightHistory: WeightDataPoint[];
-  baseNutritionTargets: NutritionTargets;
-  dayActivities: Array<{
-    activity_type: ActivityType;
-    expected_intensity: number;
-    estimated_duration_min: number;
-  }>;
-  readinessState: ReadinessState;
-  acwr: number;
-  biologicalSex: 'male' | 'female';
-  cycleDay: number | null;
-  weeklyVelocityLbs: number;
-  lastRefeedDate: string | null;
-  lastDietBreakDate: string | null;
-  baselineCognitiveScore: number | null;
-  latestCognitiveScore: number | null;
-  urineColor: number | null;
-  bodyTempF: number | null;
-  consecutiveDepletedDays: number;
-  safetyContext: AthleteSafetyContext;
-}
-
-export interface DailyCutProtocolResult {
-  date: string;
-  cutPhase: CutPhase;
-  daysToWeighIn: number;
-  activeCutWarning: CutPlanWarning | null;
-  weightDriftLbs: number | null;
-  prescribedCalories: number;
-  prescribedProtein: number;
-  prescribedCarbs: number;
-  prescribedFat: number;
-  isRefeedDay: boolean;
-  isCarbCycleHigh: boolean;
-  waterTargetOz: number;
-  sodiumTargetMg: number | null;
-  sodiumInstruction: string;
-  fiberInstruction: string;
-  trainingIntensityCap: number | null;
-  trainingRecommendation: string;
-  interventionReason: string | null;
-  morningProtocol: string;
-  afternoonProtocol: string;
-  eveningProtocol: string;
-  safetyFlags: CutSafetyFlag[];
-  rehydrationProtocol?: RehydrationProtocolResult | null;
-}
-
-export interface StallDetectionInput {
-  weightHistory: WeightDataPoint[];
-  daysAtDeficit: number;
-  lastRefeedDate: string | null;
-  lastDietBreakDate: string | null;
-}
-
-export interface StallDetectionResult {
-  stalled: boolean;
-  stallDurationDays: number;
-  recommendation: 'none' | 'refeed' | 'diet_break';
-  refeedDurationDays: number;
-  message: string;
-}
-
-export interface CarbCycleInput {
-  baseCalories: number;
-  baseProtein: number;
-  baseCarbs: number;
-  baseFat: number;
-  isTrainingDay: boolean;
-  hasHighIntensitySession: boolean;
-  cutPhase: CutPhase;
-}
-
-export interface CarbCycleResult {
-  adjustedCalories: number;
-  adjustedCarbs: number;
-  adjustedFat: number;
-  adjustedProtein: number;
-  cycleType: 'high' | 'moderate' | 'low';
-  message: string;
-}
-
-export interface CutSafetyInput {
-  cutPhase: CutPhase;
-  startWeightLbs: number;
-  currentWeightLbs: number;
-  weeklyVelocityLbs: number;
-  prescribedCalories: number;
-  calorieFloor: number;
-  readinessState: ReadinessState;
-  consecutiveDepletedDays: number;
-  acwr: number;
-  urineColor: number | null;
-  bodyTempF: number | null;
-  baselineCognitiveScore: number | null;
-  latestCognitiveScore: number | null;
-  waterCutAllocationLbs: number;
-  remainingLbsToTarget: number;
-  daysToWeighIn: number;
-  fightStatus: FightStatus;
-  safetyContext?: AthleteSafetyContext;
-  projectedWeightByWeighIn?: number | null;
-}
-
-export interface RehydrationPhase {
-  name?: string;
-  startTime?: string;
-  fluidTargetLiters?: number;
-  sodiumTargetMg?: number;
-  protocol?: string;
-  timeWindow?: string;
-  fluidInstruction?: string;
-  foodInstruction?: string | null;
-  sodiumInstruction?: string | null;
-  targetFluidOz?: number;
-}
-
-export interface RehydrationInput {
-  weighInWeightLbs?: number;
-  targetWeightLbs?: number;
-  hoursToFight?: number;
-  currentWeight?: number;
-  targetWeight?: number;
-  weighInTime?: string;
-  fightTime?: string;
-  biologicalSex: 'male' | 'female';
-}
-
-export interface RehydrationProtocolResult {
-  phases: RehydrationPhase[];
-  targetRegainLbs: number;
-  totalFluidTargetLiters: number;
-  totalSodiumTargetMg: number;
-  hoursAvailable: number;
-  targetWeightByFight: number;
-  weightToRegainLbs: number;
-  totalFluidOz: number;
-  monitorMetrics: string[];
-  message: string;
-}
-
-export type WeightClassRiskLevel = 'low' | 'moderate' | 'high' | 'unsafe';
-
-export interface WeightClass {
-  name: string;
-  maxLbs: number;
-  sport: CutSport;
-  level: 'amateur' | 'pro';
-}
-
-export interface WeightClassSuggestion {
-  weightClass: WeightClass;
-  cutRequired: number;
-  cutPct: number;
-  feasible: boolean;
-  isCurrent: boolean;
-  risk: WeightClassRiskLevel;
-  riskReason: string;
-}
-
-export interface CutHydrationInput {
-  cutPhase: CutPhase;
-  daysToWeighIn: number;
-  currentWeightLbs: number;
-  baseHydrationOz: number;
-  fightStatus: FightStatus;
-}
-
-export interface CutHydrationResult {
-  dailyWaterOz: number;
-  instruction: string;
-  sodiumInstruction: string;
-  isRestricting: boolean;
 }
 
 export interface WeightCutPlanRow {
@@ -358,39 +108,6 @@ export interface WeightCutPlanRow {
   risk_warning_snapshot?: EngineSafetyWarning[] | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface DailyCutProtocolRow {
-  id: string;
-  user_id: string;
-  plan_id: string;
-  date: string;
-  cut_phase: CutPhase;
-  days_to_weigh_in: number;
-  active_cut_warning?: CutPlanWarning | null;
-  weight_drift_lbs: number | null;
-  prescribed_calories: number;
-  prescribed_protein: number;
-  prescribed_carbs: number;
-  prescribed_fat: number;
-  is_refeed_day: boolean;
-  is_carb_cycle_high: boolean;
-  water_target_oz: number;
-  sodium_target_mg: number | null;
-  sodium_instruction: string | null;
-  fiber_instruction: string | null;
-  training_intensity_cap: number | null;
-  training_recommendation: string | null;
-  intervention_reason: string | null;
-  safety_flags: CutSafetyFlag[];
-  morning_protocol: string | null;
-  afternoon_protocol: string | null;
-  evening_protocol: string | null;
-  actual_weight: number | null;
-  water_consumed_oz: number | null;
-  sodium_consumed_mg: number | null;
-  protocol_adherence: 'followed' | 'partial' | 'missed' | null;
-  created_at: string;
 }
 
 export interface CutSafetyCheckRow {
@@ -435,7 +152,6 @@ export interface WeightCutHistoryRow {
 
 export interface WeightCutDashboardData {
   activePlan: WeightCutPlanRow | null;
-  todayProtocol: DailyCutProtocolRow | null;
   weightHistory: WeightDataPoint[];
   safetyChecks: CutSafetyCheckRow[];
   cutHistory: WeightCutHistoryRow[];

@@ -1,5 +1,4 @@
 import type { FightStatus, WeighInTiming } from '../types/foundational.ts';
-import type { CutPlanWarning } from '../types/weight_cut.ts';
 import {
   ENGINE_SAFETY_POLICY_VERSION,
   type EngineSafetyWarning,
@@ -220,29 +219,4 @@ export function evaluateCutPlanSafety(input: {
   }
 
   return warnings.sort((a, b) => tierRank(b.tier) - tierRank(a.tier));
-}
-
-export function toCutPlanWarning(input: {
-  warning: EngineSafetyWarning;
-  fightStatus: FightStatus;
-  athleteAge?: number | null;
-  daysToWeighIn: number | null;
-  cutPct: number;
-}): CutPlanWarning {
-  return {
-    severity: input.warning.tier,
-    tier: input.warning.tier,
-    code: input.warning.code,
-    message: input.warning.message,
-    requiresAcknowledgement: input.warning.requiresAcknowledgement,
-    persistent: input.warning.persistent,
-    allowProceed: input.warning.allowProceed,
-    policyVersion: input.warning.policyVersion,
-    source: input.warning.source,
-    amateurAdjusted: input.fightStatus === 'amateur',
-    teenSensitive: isTeenAthlete(input.athleteAge),
-    ageUnknown: isAgeUnknown(input.athleteAge),
-    daysToWeighIn: input.daysToWeighIn,
-    cutPct: input.cutPct,
-  };
 }

@@ -1,16 +1,40 @@
 import { supabase } from '../supabase';
 import {
   WeightCutPlanRow,
-  DailyCutProtocolRow,
   CutSafetyCheckRow,
   WeightCutHistoryRow,
   WeightCutDashboardData,
-  CutPlanResult,
-  DailyCutProtocolResult,
   CutPlanStatus,
   WeightDataPoint,
 } from '../engine/types';
+import type { WeightClassManagementResult } from '../performance-engine';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
+
+function addDays(dateStr: string, days: number): string {
+  const date = new Date(`${dateStr}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return formatLocalDate(date);
+}
+
+function daysBetween(start: string, end: string): number {
+  return Math.round((new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / 86_400_000);
+}
+
+function bodyMassPlanDates(evaluation: WeightClassManagementResult, asOfDate: string) {
+  const weighInDate = evaluation.plan.weighInDate ?? evaluation.plan.competitionDate ?? asOfDate;
+  const timeframeDays = evaluation.plan.timeframeDays ?? Math.max(0, daysBetween(asOfDate, weighInDate));
+  const competitionWeekStart = addDays(weighInDate, -Math.min(7, timeframeDays));
+  const prepEnd = addDays(competitionWeekStart, -1);
+
+  return {
+    weighInDate,
+    chronicPhaseStart: timeframeDays > 56 ? asOfDate : null,
+    chronicPhaseEnd: timeframeDays > 56 ? addDays(weighInDate, -57) : null,
+    intensifiedPhaseStart: timeframeDays > 7 ? asOfDate : competitionWeekStart,
+    intensifiedPhaseEnd: timeframeDays > 7 ? prepEnd : weighInDate,
+    competitionWeekStart,
+  };
+}
 
 // ─── Plan CRUD ─────────────────────────────────────────────────
 
@@ -25,19 +49,20 @@ export async function createWeightCutPlan(
     weighInDate: string;
     fightStatus: 'amateur' | 'pro';
     biologicalSex: 'male' | 'female';
-    planResult: CutPlanResult;
+    weightClassEvaluation: WeightClassManagementResult;
     coachNotes?: string;
-    riskAcknowledgedAt?: string | null;
   }
 ): Promise<WeightCutPlanRow> {
-  const { planResult } = input;
-  const riskRequiresAcknowledgement = planResult.cutWarning?.requiresAcknowledgement === true;
-  const riskAcknowledgedAt = riskRequiresAcknowledgement
-    ? input.riskAcknowledgedAt ?? null
-    : null;
-  if (riskRequiresAcknowledgement && !riskAcknowledgedAt) {
-    throw new Error('Risk acknowledgement is required before activating this cut plan.');
+  const { weightClassEvaluation } = input;
+  const { plan } = weightClassEvaluation;
+
+  if (!weightClassEvaluation.shouldGenerateProtocol || plan.professionalReviewRequired) {
+    throw new Error('This weight-class target requires a safer class, longer timeline, or qualified review before activation.');
   }
+
+  const asOfDate = todayLocalDate();
+  const dates = bodyMassPlanDates(weightClassEvaluation, asOfDate);
+  const requiredChange = Math.max(0, plan.requiredChange.value ?? input.startWeight - input.targetWeight);
 
   const row = {
     user_id: userId,
@@ -47,27 +72,27 @@ export async function createWeightCutPlan(
     sport: input.sport,
     fight_date: input.fightDate,
     weigh_in_date: input.weighInDate,
-    plan_created_date: planResult.asOfDate,
+    plan_created_date: asOfDate,
     fight_status: input.fightStatus,
-    max_water_cut_pct: planResult.maxWaterCutPct,
-    total_cut_lbs: planResult.totalCutLbs,
-    diet_phase_target_lbs: planResult.dietPhaseTargetLbs,
-    water_cut_allocation_lbs: planResult.waterCutAllocationLbs,
-    chronic_phase_start: planResult.chronicPhaseDates?.start ?? null,
-    chronic_phase_end: planResult.chronicPhaseDates?.end ?? null,
-    intensified_phase_start: planResult.intensifiedPhaseDates.start,
-    intensified_phase_end: planResult.intensifiedPhaseDates.end,
-    fight_week_start: planResult.fightWeekDates.start,
-    weigh_in_day: planResult.weighInDate,
-    rehydration_start: planResult.weighInDate,
+    max_water_cut_pct: 0,
+    total_cut_lbs: requiredChange,
+    diet_phase_target_lbs: requiredChange,
+    water_cut_allocation_lbs: 0,
+    chronic_phase_start: dates.chronicPhaseStart,
+    chronic_phase_end: dates.chronicPhaseEnd,
+    intensified_phase_start: dates.intensifiedPhaseStart,
+    intensified_phase_end: dates.intensifiedPhaseEnd,
+    fight_week_start: dates.competitionWeekStart,
+    weigh_in_day: dates.weighInDate,
+    rehydration_start: dates.weighInDate,
     status: 'active' as CutPlanStatus,
-    safe_weekly_loss_rate: planResult.safeWeeklyLossRateLbs,
-    calorie_floor: planResult.calorieFloor,
+    safe_weekly_loss_rate: Math.max(0, plan.requiredRateOfChange.value ?? 0),
+    calorie_floor: 1800,
     coach_notes: input.coachNotes ?? null,
     baseline_cognitive_score: null,
-    risk_acknowledged_at: riskAcknowledgedAt,
-    risk_acknowledgement_version: riskAcknowledgedAt ? planResult.cutWarning?.policyVersion ?? null : null,
-    risk_warning_snapshot: planResult.safetyWarningDetails.length > 0 ? planResult.safetyWarningDetails : null,
+    risk_acknowledged_at: null,
+    risk_acknowledgement_version: null,
+    risk_warning_snapshot: [...plan.safetyFlags, ...plan.riskFlags],
   };
 
   const { data, error } = await supabase
@@ -78,20 +103,12 @@ export async function createWeightCutPlan(
 
   if (error) throw error;
 
-  // Determine phase from days-to-fight
-  const daysToFight = Math.round(
-    (new Date(input.fightDate).getTime() - new Date(planResult.asOfDate).getTime()) / 86400000
-  );
-  const newPhase = daysToFight <= 84 ? 'fight-camp' : daysToFight <= 168 ? 'pre-camp' : 'off-season';
-
-  // Link plan to profile + override fight_date, sport, and phase
   await supabase
     .from('athlete_profiles')
     .update({
       active_cut_plan_id: data.id,
       fight_date: input.fightDate,
       sport: input.sport,
-      phase: newPhase,
     })
     .eq('user_id', userId);
 
@@ -137,140 +154,13 @@ export async function abandonWeightCutPlan(
   reason: 'fight_fell_through' | 'made_weight' | 'other' = 'other'
 ): Promise<void> {
   await updateWeightCutPlanStatus(planId, reason === 'made_weight' ? 'completed' : 'abandoned');
-  // Clear the active cut and reset phase to off-season so other systems stop using cut targets
   await supabase
     .from('athlete_profiles')
-    .update({ active_cut_plan_id: null, phase: 'off-season' })
+    .update({ active_cut_plan_id: null })
     .eq('user_id', userId);
 }
 
 // ─── Daily Protocol ────────────────────────────────────────────
-
-export async function upsertDailyCutProtocol(
-  userId: string,
-  planId: string,
-  date: string,
-  protocol: DailyCutProtocolResult
-): Promise<void> {
-  const row = {
-    user_id: userId,
-    plan_id: planId,
-    date,
-    cut_phase: protocol.cutPhase,
-    days_to_weigh_in: protocol.daysToWeighIn,
-    weight_drift_lbs: protocol.weightDriftLbs,
-    prescribed_calories: protocol.prescribedCalories,
-    prescribed_protein: protocol.prescribedProtein,
-    prescribed_carbs: protocol.prescribedCarbs,
-    prescribed_fat: protocol.prescribedFat,
-    is_refeed_day: protocol.isRefeedDay,
-    is_carb_cycle_high: protocol.isCarbCycleHigh,
-    water_target_oz: protocol.waterTargetOz,
-    sodium_target_mg: protocol.sodiumTargetMg,
-    sodium_instruction: protocol.sodiumInstruction,
-    fiber_instruction: protocol.fiberInstruction,
-    training_intensity_cap: protocol.trainingIntensityCap,
-    training_recommendation: protocol.trainingRecommendation,
-    intervention_reason: protocol.interventionReason,
-    morning_protocol: protocol.morningProtocol,
-    afternoon_protocol: protocol.afternoonProtocol,
-    evening_protocol: protocol.eveningProtocol,
-    safety_flags: protocol.safetyFlags,
-    active_cut_warning: protocol.activeCutWarning,
-  };
-
-  const { error } = await supabase
-    .from('daily_cut_protocols')
-    .upsert(row, { onConflict: 'user_id,date' });
-  if (error) throw error;
-
-  // Also update macro_ledger with cut phase + sodium info
-  await supabase
-    .from('macro_ledger')
-    .update({
-      cut_phase: protocol.cutPhase,
-      sodium_target_mg: protocol.sodiumTargetMg,
-      is_refeed_day: protocol.isRefeedDay,
-      is_carb_cycle_high: protocol.isCarbCycleHigh,
-    })
-    .eq('user_id', userId)
-    .eq('date', date);
-}
-
-export async function getDailyCutProtocol(
-  userId: string,
-  date: string
-): Promise<DailyCutProtocolRow | null> {
-  const { data, error } = await supabase
-    .from('daily_cut_protocols')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('date', date)
-    .single();
-
-  if (error && error.code !== 'PGRST116') throw error;
-  return (data as DailyCutProtocolRow) ?? null;
-}
-
-export async function updateProtocolCompliance(
-  userId: string,
-  date: string,
-  fields: {
-    actualWeight?: number;
-    waterConsumedOz?: number;
-    sodiumConsumedMg?: number;
-    adherence?: 'followed' | 'partial' | 'missed';
-  }
-): Promise<void> {
-  const { error } = await supabase
-    .from('daily_cut_protocols')
-    .update({
-      actual_weight: fields.actualWeight,
-      water_consumed_oz: fields.waterConsumedOz,
-      sodium_consumed_mg: fields.sodiumConsumedMg,
-      protocol_adherence: fields.adherence,
-    })
-    .eq('user_id', userId)
-    .eq('date', date);
-  if (error) throw error;
-}
-
-export async function getLastRefeedDate(userId: string, planId: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('daily_cut_protocols')
-    .select('date')
-    .eq('user_id', userId)
-    .eq('plan_id', planId)
-    .eq('is_refeed_day', true)
-    .order('date', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error && error.code !== 'PGRST116') throw error;
-  return data?.date ?? null;
-}
-
-export async function getConsecutiveDepletedDays(userId: string): Promise<number> {
-  const { data, error } = await supabase
-    .from('daily_checkins')
-    .select('date, readiness')
-    .eq('user_id', userId)
-    .order('date', { ascending: false })
-    .limit(10);
-
-  if (error) return 0;
-  if (!data || data.length === 0) return 0;
-
-  let count = 0;
-  for (const row of data) {
-    if (row.readiness !== null && row.readiness <= 2) {
-      count++;
-    } else {
-      break;
-    }
-  }
-  return count;
-}
 
 // ─── Safety Checks ─────────────────────────────────────────────
 
@@ -333,18 +223,6 @@ export async function completeCutPlan(
 
   if (!planData) return;
 
-  // Compute adherence
-  const { data: protocols } = await supabase
-    .from('daily_cut_protocols')
-    .select('protocol_adherence, is_refeed_day')
-    .eq('user_id', userId)
-    .eq('plan_id', planId);
-
-  const totalDays = protocols?.length ?? 0;
-  const followedDays = protocols?.filter(p => p.protocol_adherence === 'followed').length ?? 0;
-  const refeedDays = protocols?.filter(p => p.is_refeed_day).length ?? 0;
-  const adherencePct = totalDays > 0 ? Math.round((followedDays / totalDays) * 100) : null;
-
   const durationDays = Math.round(
     (new Date().getTime() - new Date(planData.plan_created_date).getTime()) / 86400000
   );
@@ -364,8 +242,8 @@ export async function completeCutPlan(
     avg_weekly_loss_rate: durationDays > 7 ? Math.round(((planData.start_weight - (outcome.finalWeighInWeight ?? planData.target_weight)) / (durationDays / 7)) * 10) / 10 : null,
     rehydration_weight_regained: outcome.rehydrationWeightRegained ?? null,
     fight_day_weight: outcome.fightDayWeight ?? null,
-    protocol_adherence_pct: adherencePct,
-    refeed_days_used: refeedDays,
+    protocol_adherence_pct: null,
+    refeed_days_used: 0,
     fight_date: planData.fight_date,
   });
 }
@@ -388,9 +266,8 @@ export async function getWeightCutDashboardData(
 ): Promise<WeightCutDashboardData> {
   const todayStr = todayLocalDate();
 
-  const [planRes, protocolRes, historyRes] = await Promise.all([
+  const [planRes, historyRes] = await Promise.all([
     getActiveWeightCutPlan(userId),
-    getDailyCutProtocol(userId, todayStr),
     getCutHistory(userId),
   ]);
 
@@ -403,7 +280,7 @@ export async function getWeightCutDashboardData(
     const since = new Date();
     since.setDate(since.getDate() - 90);
 
-    const [weightRes, safetyRes, protocols7d] = await Promise.all([
+    const [weightRes, safetyRes] = await Promise.all([
       supabase
         .from('daily_checkins')
         .select('date, morning_weight')
@@ -412,21 +289,10 @@ export async function getWeightCutDashboardData(
         .gte('date', formatLocalDate(since))
         .order('date', { ascending: true }),
       getRecentSafetyChecks(userId, planRes.id, 7),
-      supabase
-        .from('daily_cut_protocols')
-        .select('protocol_adherence')
-        .eq('user_id', userId)
-        .eq('plan_id', planRes.id)
-        .not('protocol_adherence', 'is', null)
-        .gte('date', formatLocalDate(new Date(Date.now() - 7 * 86400000))),
     ]);
 
     weightHistory = (weightRes.data ?? []).map(r => ({ date: r.date, weight: r.morning_weight }));
     safetyChecks = safetyRes;
-
-    const p7 = protocols7d.data ?? [];
-    const followed = p7.filter(p => p.protocol_adherence === 'followed').length;
-    adherenceLast7Days = p7.length > 0 ? Math.round((followed / p7.length) * 100) : 0;
 
     // Project weight by weigh-in using linear trend
     if (weightHistory.length >= 7) {
@@ -444,7 +310,6 @@ export async function getWeightCutDashboardData(
 
   return {
     activePlan: planRes,
-    todayProtocol: protocolRes,
     weightHistory,
     safetyChecks,
     cutHistory: historyRes,

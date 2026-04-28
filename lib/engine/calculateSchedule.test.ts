@@ -11,8 +11,6 @@ import {
     detectOvertrainingRisk,
     generateSmartWeekPlan,
     generateBlockPlan,
-    generateWeekPlan,
-    getBoxingIntensityScalar,
     resolveGuidedAvailability,
     updateRollingPlanContextFromPrescription,
 } from './calculateSchedule.ts';
@@ -23,7 +21,6 @@ import type {
     ExerciseLibraryRow,
     MuscleGroup,
     RecurringActivityRow,
-    WeeklyTargetsRow,
 } from './types.ts';
 
 // ─── Test Runner ───────────────────────────────────────────────
@@ -227,26 +224,6 @@ console.log('\n── validateDayLoad ──');
     assert('Sparring + heavy SC is unsafe', result.safe === false);
 })();
 
-// ─── Boxing intensity scalar ──────────────────────────────────
-
-console.log('\n── getBoxingIntensityScalar ──');
-
-(() => {
-    assert('Active cut -> 0.6', getBoxingIntensityScalar({ isOnActiveCut: true, daysOut: 10 }) === 0.6);
-})();
-
-(() => {
-    assert('7 days out -> 0.6', getBoxingIntensityScalar({ isOnActiveCut: false, daysOut: 7 }) === 0.6);
-})();
-
-(() => {
-    assert('Not on cut, 21 days out -> 1.0', getBoxingIntensityScalar({ isOnActiveCut: false, daysOut: 21 }) === 1);
-})();
-
-(() => {
-    assert('Not on cut, null daysOut -> 1.0', getBoxingIntensityScalar({ isOnActiveCut: false, daysOut: null }) === 1);
-})();
-
 // Calendar availability
 
 console.log('\n-- resolveGuidedAvailability --');
@@ -339,94 +316,6 @@ console.log('\n── detectOvertrainingRisk ──');
     ], 1.0, 2.5);
     assert('Poor sleep -> warning', warnings.length > 0);
 })();
-
-// ─── generateWeekPlan ─────────────────────────────────────────
-
-console.log('\n── generateWeekPlan ──');
-
-const mockTemplate: RecurringActivityRow[] = [
-    {
-        id: 't1', user_id: 'u1', activity_type: 'sparring',
-        custom_label: 'Tuesday Sparring', start_time: '18:00:00',
-        estimated_duration_min: 90, expected_intensity: 8,
-        session_components: [], is_active: true,
-        recurrence: { frequency: 'weekly', interval: 1, days_of_week: [2] },
-    },
-    {
-        id: 't2', user_id: 'u1', activity_type: 'boxing_practice',
-        custom_label: 'Thursday Pads', start_time: '17:00:00',
-        estimated_duration_min: 60, expected_intensity: 6,
-        session_components: [], is_active: true,
-        recurrence: { frequency: 'weekly', interval: 1, days_of_week: [4] },
-    },
-];
-
-const mockTargets: WeeklyTargetsRow = {
-    id: 'wt1', user_id: 'u1',
-    sc_sessions: 3, running_sessions: 0, boxing_sessions: 2,
-    conditioning_sessions: 0, recovery_sessions: 1,
-    road_work_sessions: 0,
-    total_weekly_load_cap: 5000,
-};
-
-(() => {
-    const plan = generateWeekPlan({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        recurringActivities: mockTemplate,
-        existingActivities: [],
-        exerciseLibrary: [],
-        weeklyTargets: mockTargets,
-        sleepTrendAvg: 4.0,
-        weekStartDate: '2026-01-05',
-    });
-    const templateEntries = plan.filter(a => a.source === 'template');
-    const engineEntries = plan.filter(a => a.source === 'engine');
-    assert('Template entries present', templateEntries.length === 2);
-    assert('Engine fills SC sessions', engineEntries.length > 0);
-})();
-
-(() => {
-    const plan = generateWeekPlan({
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        recurringActivities: mockTemplate,
-        existingActivities: [],
-        exerciseLibrary: [],
-        weeklyTargets: mockTargets,
-        sleepTrendAvg: 4.0,
-        weekStartDate: '2026-01-05',
-    });
-    const sparringDates = plan.filter(a => a.activity_type === 'sparring').map(a => a.date);
-    const scDates = plan.filter(a => a.source === 'engine' && a.activity_type === 'sc').map(a => a.date);
-    for (const sd of sparringDates) {
-        assert(`SC not placed on sparring day ${sd}`, !scDates.includes(sd));
-    }
-})();
-
-(() => {
-    const plan = generateWeekPlan({
-        readinessState: 'Prime',
-        phase: 'fight-camp',
-        acwr: 1.0,
-        recurringActivities: mockTemplate,
-        existingActivities: [],
-        exerciseLibrary: [],
-        weeklyTargets: mockTargets,
-        sleepTrendAvg: 4.0,
-        weekStartDate: '2026-01-05',
-        activeCutPlan: { weigh_in_date: '2026-01-12' } as any,
-    });
-    const sparring = plan.find(a => a.activity_type === 'sparring');
-    assert('Weight-class support constrains boxing intensity', sparring != null && sparring.expected_intensity <= 5);
-})();
-
-// ─── Summary ───────────────────────────────────────────────────
-
-console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
-// Adaptive Training Engine weekly planning
 
 console.log('\n-- generateSmartWeekPlan adaptive path --');
 

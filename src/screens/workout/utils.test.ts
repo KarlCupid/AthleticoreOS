@@ -22,7 +22,6 @@ console.log('\n-- train today summary fallbacks --');
 const fallbackSummary = buildTrainTodaySummary({
   floorVM: null,
   sessionLabel: null,
-  cutProtocol: null,
   targetIntensity: null,
   durationMin: null,
 });
@@ -44,23 +43,18 @@ const cappedSummary = buildTrainTodaySummary({
     estimatedDurationMin: 45,
   },
   sessionLabel: 'Full Body Power',
-  cutProtocol: {
-    training_intensity_cap: 4,
-    training_recommendation: 'Keep the session short and crisp.',
-  } as any,
-  targetIntensity: 8,
+  targetIntensity: 4,
   durationMin: 50,
 });
 
-assert('cut cap overrides harder target intensity title', cappedSummary.effortTitle === 'Keep it easy today');
-assert('cut cap detail references cap', cappedSummary.effortDetail.includes('RPE 4/10'));
+assert('canonical target intensity drives easy-day title', cappedSummary.effortTitle === 'Keep it easy today');
+assert('canonical target intensity detail references cap', cappedSummary.effortDetail.includes('RPE 4/10'));
 assert(
   'guardrails include activation guidance',
   cappedSummary.guardrails.includes('Finish the activation block before the main work.'),
 );
-assert('guardrails keep the explicit cap', cappedSummary.guardrails.includes('Cap the effort at RPE 4/10 today.'));
 
-const cutOnlySummary = buildTrainTodaySummary({
+const noActivationSummary = buildTrainTodaySummary({
   floorVM: {
     sessionGoal: 'Move well today',
     reasonSentence: 'Recovery matters here.',
@@ -68,15 +62,11 @@ const cutOnlySummary = buildTrainTodaySummary({
     estimatedDurationMin: 25,
   },
   sessionLabel: 'Recovery Session',
-  cutProtocol: {
-    training_intensity_cap: 5,
-    training_recommendation: 'Keep the session short and crisp.',
-  } as any,
   targetIntensity: 6,
   durationMin: 25,
 });
 
-assert('guardrails include cut recommendation when activation is absent', cutOnlySummary.guardrails.includes('Keep the session short and crisp.'));
+assert('guardrails stay empty when canonical floor has no activation guidance', noActivationSummary.guardrails.length === 0);
 
 console.log('\n-- workout progress summary labels --');
 

@@ -4,7 +4,6 @@ import {
   getWeightCutDashboardData,
   abandonWeightCutPlan,
   completeCutPlan,
-  updateProtocolCompliance,
   upsertCutSafetyCheck,
   setBaselineCognitiveScore,
 } from '../../lib/api/weightCutService';
@@ -37,7 +36,7 @@ export function useWeightCutData(userId: string | null) {
     try {
       const dashboardData = await getWeightCutDashboardData(userId);
       const todayStr = todayLocalDate();
-      const forceRefresh = Boolean(dashboardData.activePlan && !dashboardData.todayProtocol);
+      const forceRefresh = Boolean(dashboardData.activePlan);
       let performanceContext = buildUnifiedPerformanceViewModel(null);
 
       try {
@@ -71,7 +70,7 @@ export function useWeightCutData(userId: string | null) {
     const planId = state.data.activePlan.id;
     setState((prev) => ({
       ...prev,
-      data: prev.data ? { ...prev.data, activePlan: null, todayProtocol: null } : null,
+      data: prev.data ? { ...prev.data, activePlan: null } : null,
     }));
     try {
       await abandonWeightCutPlan(userId, planId, reason);
@@ -122,17 +121,10 @@ export function useWeightCutData(userId: string | null) {
     await refresh();
   }, [userId, state.data?.activePlan, refresh]);
 
-  const logCompliance = useCallback(async (adherence: 'followed' | 'partial' | 'missed', date: string = todayLocalDate()) => {
-    if (!userId) return;
-    await updateProtocolCompliance(userId, date, { adherence });
-    await refresh();
-  }, [userId, refresh]);
-
   return {
     loading: state.loading,
     error: state.error,
     activePlan: state.data?.activePlan ?? null,
-    todayProtocol: state.data?.todayProtocol ?? null,
     weightHistory: state.data?.weightHistory ?? [],
     safetyChecks: state.data?.safetyChecks ?? [],
     cutHistory: state.data?.cutHistory ?? [],
@@ -143,6 +135,5 @@ export function useWeightCutData(userId: string | null) {
     abandon,
     complete,
     logSafetyCheck,
-    logCompliance,
   };
 }

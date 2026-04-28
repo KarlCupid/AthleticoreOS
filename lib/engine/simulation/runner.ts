@@ -14,10 +14,13 @@ import {
   generateCampPlan,
   generateSmartWeekPlan,
   prescribeConditioning,
-  toCampEnginePhase,
-  generateCutPlan,
-  computeDailyCutProtocol
+  toCampEnginePhase
 } from '../index.ts';
+import {
+  evaluateWeightClassPlan,
+  getBodyMassSupportPhase,
+  normalizeBodyMassOrNull,
+} from '../../performance-engine/index.ts';
 import { EXERCISE_SEED } from '../../data/exerciseSeed.ts';
 import type { ExerciseLibraryRow } from '../types.ts';
 import type {
@@ -55,18 +58,35 @@ function buildSimulationCutPlan(input: {
   targetWeight: number;
 }) {
   const { startDate, fightDate, startWeight, targetWeight } = input;
-  const plan = generateCutPlan({
+  const evaluation = evaluateWeightClassPlan({
+    athleteId: 'sim-user',
     asOfDate: startDate,
-    startWeight,
-    targetWeight,
-    fightDate: addIsoDays(fightDate, 1),
-    weighInDate: fightDate,
-    fightStatus: 'pro',
-    biologicalSex: 'male',
+    currentBodyMass: normalizeBodyMassOrNull({
+      value: startWeight,
+      unit: 'lb',
+      measuredOn: startDate,
+    }),
+    targetClassMass: normalizeBodyMassOrNull({
+      value: targetWeight,
+      unit: 'lb',
+      measuredOn: fightDate,
+    }),
+    desiredScaleWeight: normalizeBodyMassOrNull({
+      value: targetWeight,
+      unit: 'lb',
+      measuredOn: fightDate,
+    }),
+    competitionDate: addIsoDays(fightDate, 1),
+    competitionDateTime: `${addIsoDays(fightDate, 1)}T04:00:00.000Z`,
+    weighInDateTime: `${fightDate}T18:00:00.000Z`,
     sport: 'boxing',
-    athleteAge: 25,
-    weighInTiming: 'next_day',
+    athleteAgeYears: 25,
   });
+  const plan = evaluation.plan;
+  const timeframeDays = plan.timeframeDays ?? Math.max(0, Math.round(
+    (new Date(`${fightDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) / 86_400_000,
+  ));
+  const competitionWeekStart = addIsoDays(fightDate, -Math.min(7, timeframeDays));
 
   return {
     id: 'sim-cut-plan',
@@ -79,50 +99,29 @@ function buildSimulationCutPlan(input: {
     weigh_in_date: fightDate,
     plan_created_date: startDate,
     fight_status: 'pro',
-    max_water_cut_pct: plan.maxWaterCutPct,
-    total_cut_lbs: plan.totalCutLbs,
-    diet_phase_target_lbs: plan.dietPhaseTargetLbs,
-    water_cut_allocation_lbs: plan.waterCutAllocationLbs,
-    chronic_phase_start: plan.chronicPhaseDates?.start ?? startDate,
-    chronic_phase_end: plan.chronicPhaseDates?.end ?? plan.intensifiedPhaseDates.start,
-    intensified_phase_start: plan.intensifiedPhaseDates.start,
-    intensified_phase_end: plan.intensifiedPhaseDates.end,
-    fight_week_start: plan.fightWeekDates.start,
+    max_water_cut_pct: 0,
+    total_cut_lbs: Math.max(0, plan.requiredChange.value ?? startWeight - targetWeight),
+    diet_phase_target_lbs: Math.max(0, plan.requiredChange.value ?? startWeight - targetWeight),
+    water_cut_allocation_lbs: 0,
+    chronic_phase_start: timeframeDays > 56 ? startDate : null,
+    chronic_phase_end: timeframeDays > 56 ? addIsoDays(fightDate, -57) : null,
+    intensified_phase_start: timeframeDays > 7 ? startDate : competitionWeekStart,
+    intensified_phase_end: timeframeDays > 7 ? addIsoDays(competitionWeekStart, -1) : fightDate,
+    fight_week_start: competitionWeekStart,
     weigh_in_day: fightDate,
     rehydration_start: addIsoDays(fightDate, 1),
     status: 'active',
     completed_at: null,
-    safe_weekly_loss_rate: plan.safeWeeklyLossRateLbs,
-    calorie_floor: plan.calorieFloor,
+    safe_weekly_loss_rate: Math.max(0, plan.requiredRateOfChange.value ?? 0),
+    calorie_floor: 1800,
     baseline_cognitive_score: 100,
     coach_notes: null,
+    biological_sex: null,
+    risk_acknowledged_at: null,
+    risk_acknowledgement_version: null,
+    risk_warning_snapshot: [...plan.safetyFlags, ...plan.riskFlags],
     created_at: `${startDate}T00:00:00Z`,
     updated_at: `${startDate}T00:00:00Z`,
-  };
-}
-
-function normalizeCutProtocol(protocol: any) {
-  if (!protocol) return null;
-  return {
-    ...protocol,
-    cut_phase: protocol.cutPhase,
-    days_to_weigh_in: protocol.daysToWeighIn,
-    weight_drift_lbs: protocol.weightDriftLbs,
-    prescribed_calories: protocol.prescribedCalories,
-    prescribed_protein: protocol.prescribedProtein,
-    prescribed_carbs: protocol.prescribedCarbs,
-    prescribed_fat: protocol.prescribedFat,
-    water_target_oz: protocol.waterTargetOz,
-    sodium_target_mg: protocol.sodiumTargetMg,
-    sodium_instruction: protocol.sodiumInstruction,
-    fiber_instruction: protocol.fiberInstruction,
-    training_recommendation: protocol.trainingRecommendation,
-    training_intensity_cap: protocol.trainingIntensityCap,
-    intervention_reason: protocol.interventionReason,
-    morning_protocol: protocol.morningProtocol,
-    afternoon_protocol: protocol.afternoonProtocol,
-    evening_protocol: protocol.eveningProtocol,
-    rehydration_protocol: protocol.rehydrationProtocol,
   };
 }
 
@@ -489,7 +488,6 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     const resolvedCampPhase = simulationCampConfig
       ? determineCampPhase(simulationCampConfig as any, dateStr)
       : null;
-    const isFightWeek = resolvedCampPhase === 'taper' && daysOut <= 7;
     const isOnActiveCut = initialState.goalMode === 'fight_camp' && simulationCutPlan != null && daysOut <= 14;
     const simulatedCampPhase = resolvedCampPhase ?? (daysOut <= 7 ? 'taper' : daysOut <= 14 ? 'peak' : 'build');
     const simulatedPerformanceGoalType = initialState.goalMode === 'fight_camp' ? 'boxing_skill' : 'strength';
@@ -600,52 +598,9 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       weightTrend: null
     };
 
-    // Trigger Weight Cut Protocol (Simulation 6.0)
-    let cutProtocol: any = null;
-    if (simulationCutPlan && isOnActiveCut) {
-      const rawCutProtocol = computeDailyCutProtocol({
-        plan: simulationCutPlan as any,
-        date: dateStr,
-        currentWeight: simState.metabolism.currentWeightLbs,
-        weightHistory: dailyLogs.slice(-14).map((log) => ({
-          date: log.date,
-          weight: log.stateAfter.metabolism.currentWeightLbs,
-        })),
-        baseNutritionTargets: { 
-          tdee: baselineTdee,
-          adjustedCalories: baselineTdee,
-          protein: 180,
-          carbs: 300,
-          fat: 80,
-          fuelState: 'aerobic'
-        } as any,
-        dayActivities: scheduledActivities as any,
-        readinessState,
-        acwr: mockACWR.ratio,
-        cycleDay: null,
-        weeklyVelocityLbs: -1.5,
-        lastRefeedDate: null,
-        lastDietBreakDate: null,
-        baselineCognitiveScore: 100,
-        latestCognitiveScore: isFightWeek ? 85 : 100,
-        urineColor: isFightWeek ? 5 : 2,
-        bodyTempF: 98.6,
-        consecutiveDepletedDays: simState.consecutiveDepletedDays,
-        biologicalSex: 'male',
-        safetyContext: {
-          age: 25,
-          sex: 'male',
-          weighInTiming: 'next_day',
-          competitionPhase: macrocycleContext.phase,
-          asOfDate: dateStr,
-          urineColor: isFightWeek ? 5 : 2,
-          bodyTempF: 98.6,
-          latestCognitiveScore: isFightWeek ? 85 : 100,
-          baselineCognitiveScore: 100,
-        },
-      });
-      cutProtocol = normalizeCutProtocol(rawCutProtocol);
-    }
+    const bodyMassSupportPhase = simulationCutPlan && isOnActiveCut
+      ? getBodyMassSupportPhase(simulationCutPlan as any, dateStr)
+      : 'unknown';
 
     const simulatedRiskDrivers: string[] = [];
     const combatLoad = scheduledActivities
@@ -715,9 +670,9 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         sessionDemandScore: 50,
         hydrationBoostOz: 0,
         hydrationPlan: {
-          dailyTargetOz: cutProtocol?.water_target_oz || 128,
-          sodiumTargetMg: cutProtocol?.sodium_target_mg || null,
-          emphasis: cutProtocol ? 'cut' : 'performance',
+          dailyTargetOz: 128,
+          sodiumTargetMg: null,
+          emphasis: 'performance',
           notes: [],
         },
         sessionFuelingPlan: {
@@ -750,14 +705,13 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         safetyWarning: 'none',
         traceLines: []
       } as any,
-      hydration: { dailyWaterOz: cutProtocol?.water_target_oz || 128, message: 'Simulated' } as any,
+      hydration: { dailyWaterOz: 128, message: 'Simulated' } as any,
       scheduledActivities: scheduledActivities.map(a => ({
         date: a.date,
         activity_type: a.activity_type,
         estimated_duration_min: a.estimated_duration_min,
         expected_intensity: a.expected_intensity
       })),
-      cutProtocol: cutProtocol as any,
       workoutPrescription: primaryPlanEntry?.prescription_snapshot ?? null,
       weeklyPlanEntry: primaryPlanEntry as any,
       medStatus: null,
@@ -793,28 +747,6 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         mission.trainingDirective.workoutType != null
         && (mission.trainingDirective.durationMin ?? 0) > 0
       );
-
-    // --- STEP 2.5: Weight Cut & Fatigue Physics (Simulation 6.0) ---
-    if (cutProtocol) {
-      // Acute Weight Shift Physics
-      if (cutProtocol.cutPhase === 'fight_week_cut') {
-        const waterLoss = (random() * 1.5) + 1.0;
-        simState.metabolism.currentWeightLbs -= waterLoss;
-        // Severe fatigue penalty for dehydration/fog
-        simState.fatigue.centralFatigue = Math.min(100, simState.fatigue.centralFatigue + 20);
-      } else if (cutProtocol.cutPhase === 'rehydration') {
-        const waterRegain = (random() * 4) + 3;
-        simState.metabolism.currentWeightLbs += waterRegain;
-      }
-
-      // Glycogen Stores impact
-      if (cutProtocol.cutPhase === 'intensified' || cutProtocol.cutPhase === 'fight_week_cut') {
-        simState.metabolism.glycogenStores = Math.max(0.1, simState.metabolism.glycogenStores - 0.2);
-        simState.consecutiveDepletedDays++;
-      } else {
-        simState.consecutiveDepletedDays = 0;
-      }
-    }
 
     const workoutBlueprint = hasStructuredPrescription
       ? mission.trainingDirective.prescription?.exercises.map((e: any) =>
@@ -996,7 +928,6 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         readinessState,
         readinessProfile,
         constraintSet,
-        cutProtocol: cutProtocol as any,
         nutritionTargets: mission.fuelDirective as any,
         hydration: mission.hydrationDirective as any,
         scheduledActivities: scheduledActivities as any,
@@ -1032,14 +963,14 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         actualProtein: Math.round(actualProtein),
         actualCarbs: Math.round(actualCarbs),
         actualFat: Math.round(actualFat),
-        cutPhase: cutProtocol?.cutPhase || 'none',
-        waterTargetOz: cutProtocol?.waterTargetOz || 0,
-        sodiumTargetMg: cutProtocol?.sodiumTargetMg || null,
-        fiberState: cutProtocol?.fiberInstruction || 'Normal',
+        bodyMassSupportPhase: bodyMassSupportPhase === 'unknown' ? 'none' : bodyMassSupportPhase,
+        waterTargetOz: mission.hydrationDirective.waterTargetOz ?? 0,
+        sodiumTargetMg: mission.hydrationDirective.sodiumTargetMg ?? null,
+        fiberState: 'Normal',
         interventionState: mission.trainingDirective.interventionState,
         isMandatoryRecovery: mission.trainingDirective.isMandatoryRecovery,
-        weightDriftLbs: cutProtocol?.weightDriftLbs ?? null,
-        cutInterventionReason: cutProtocol?.interventionReason ?? null,
+        weightDriftLbs: null,
+        bodyMassInterventionReason: null,
         workoutBlueprint,
         coachingInsight,
         athleteMonologue,

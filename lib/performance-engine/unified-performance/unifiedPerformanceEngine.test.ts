@@ -408,7 +408,7 @@ console.log('\n-- unified performance engine --');
 
   assert('final output includes explanations', result.explanations.length > 0);
   assert('persistence plan is canonical only', result.persistencePlan.canonicalOnly);
-  assert('no duplicate systems generate conflicting plans', result.persistencePlan.supersedes.some((item) => item.includes('legacy scheduler')));
+  assert('no duplicate systems generate conflicting plans', result.persistencePlan.supersedes.some((item) => item.includes('retired standalone scheduler')));
 })();
 
 (() => {

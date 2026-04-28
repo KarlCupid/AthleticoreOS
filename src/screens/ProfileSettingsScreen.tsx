@@ -546,7 +546,7 @@ export function ProfileSettingsScreen() {
             variant="glass"
             title="Current program"
             subtitle="Active plan"
-            backgroundTone={snapshot.activeCutPlan ? 'cutProtocol' : 'camp'}
+            backgroundTone={snapshot.activeCutPlan ? 'bodyMassSupport' : 'camp'}
             backgroundScrimColor="rgba(10, 10, 10, 0.72)"
           >
             <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Mode" value={formatGoalMode(goalMode)} />

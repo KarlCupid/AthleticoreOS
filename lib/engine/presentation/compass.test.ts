@@ -174,12 +174,12 @@ const cutMission = makeMission({
   trainingDirective: {
     ...makeMission().trainingDirective,
     sessionRole: 'cut_protect',
-    source: 'weight_cut_protocol',
+    source: 'daily_engine',
   },
 });
 const cutResult = buildCompassViewModel(cutMission, false, true, false);
-assert('cut protection headline is plain', cutResult.headline === 'Keep it light');
-assert('cut protection reason is plain', cutResult.reasonSentence === 'The cut is setting today\'s limits.');
+assert('body-mass protection headline is plain', cutResult.headline === 'Keep it light');
+assert('body-mass protection reason is plain', cutResult.reasonSentence === 'Body-mass and recovery context are setting today\'s limits.');
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

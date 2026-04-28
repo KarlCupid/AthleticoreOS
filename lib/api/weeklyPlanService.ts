@@ -773,7 +773,7 @@ export async function regenerateDayWorkout(
         fitnessLevel: athleteCtx.fitnessLevel,
         weeklyPlanFocus: overrideFocus ?? entry.focus ?? undefined,
         availableMinutes: entry.estimated_duration_min,
-        trainingIntensityCap: engineState.cutProtocol?.training_intensity_cap ?? undefined,
+        trainingIntensityCap: undefined,
         gymEquipment: gymProfile?.equipment ?? undefined,
         exerciseHistory,
         isDeloadWeek: entry.is_deload,

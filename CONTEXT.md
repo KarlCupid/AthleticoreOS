@@ -117,7 +117,7 @@ Engine outputs are persisted in `daily_engine_snapshots` and mirrored into `week
 
 ### Intervention logic is engine-driven
 
-There is no separate `interventionService` at the moment. Safety and intervention behavior are embedded in the mission engine and related cut or risk calculations, especially in `lib/engine/calculateMission.ts`, `lib/engine/calculateWeightCut.ts`, and the orchestration in `lib/api/dailyMissionService.ts`.
+There is no separate `interventionService` at the moment. Safety and intervention behavior is coordinated through the Unified Performance Engine, Risk and Safety Engine, Body Mass and Weight-Class Management Engine, and the orchestration in `lib/api/dailyMissionService.ts`.
 
 ### Guided sessions have ownership rules
 

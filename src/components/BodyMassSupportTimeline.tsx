@@ -1,35 +1,36 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { COLORS, FONT_FAMILY, RADIUS } from '../theme/theme';
-import { CutPhase, WeightCutPlanRow } from '../../lib/engine/types';
+import { WeightCutPlanRow } from '../../lib/engine/types';
+import type { BodyMassSupportPhase } from '../../lib/performance-engine';
 
 interface Props {
   plan: WeightCutPlanRow;
-  currentPhase: CutPhase;
+  currentPhase: BodyMassSupportPhase;
 }
 
-const PHASES: { key: CutPhase; label: string; short: string; color: string }[] = [
-  { key: 'chronic',         label: 'Long-Term',    short: 'LT',  color: '#D4AF37' },
-  { key: 'intensified',     label: 'Class Prep',   short: 'CP',  color: '#15803D' },
-  { key: 'fight_week_load', label: 'Monitoring',   short: 'MON', color: '#B8C0C2' },
-  { key: 'fight_week_cut',  label: 'Blocked',      short: 'BLK', color: '#D4AF37' },
-  { key: 'weigh_in',        label: 'Weigh-in',     short: 'WI',  color: '#D9827E' },
-  { key: 'rehydration',     label: 'Recovery',     short: 'REC', color: '#10B981' },
+const PHASES: { key: BodyMassSupportPhase; label: string; short: string; color: string }[] = [
+  { key: 'long_term_body_composition', label: 'Long-Term', short: 'LT', color: '#D4AF37' },
+  { key: 'gradual_weight_class_preparation', label: 'Class Prep', short: 'CP', color: '#15803D' },
+  { key: 'competition_week_body_mass_monitoring', label: 'Monitoring', short: 'MON', color: '#B8C0C2' },
+  { key: 'high_risk_review', label: 'Review', short: 'REV', color: '#D4AF37' },
+  { key: 'weigh_in_logistics', label: 'Weigh-in', short: 'WI', color: '#D9827E' },
+  { key: 'post_weigh_in_recovery_tracking', label: 'Recovery', short: 'REC', color: '#10B981' },
 ];
 
 const PHASE_ORDER = PHASES.map(p => p.key);
 
-export function CutPhaseTimeline({ plan, currentPhase }: Props) {
+export function BodyMassSupportTimeline({ plan, currentPhase }: Props) {
   const currentIndex = PHASE_ORDER.indexOf(currentPhase);
 
   // Map phase keys to date labels from the plan
-  const phaseDates: Partial<Record<CutPhase, string>> = {
-    chronic: plan.chronic_phase_start ? fmtDate(plan.chronic_phase_start) : undefined,
-    intensified: plan.intensified_phase_start ? fmtDate(plan.intensified_phase_start) : undefined,
-    fight_week_load: plan.fight_week_start ? fmtDate(plan.fight_week_start) : undefined,
-    fight_week_cut: plan.fight_week_start ? fmtDateOffset(plan.fight_week_start, 3) : undefined,
-    weigh_in: plan.weigh_in_day ? fmtDate(plan.weigh_in_day) : undefined,
-    rehydration: plan.rehydration_start ? fmtDate(plan.rehydration_start) : undefined,
+  const phaseDates: Partial<Record<BodyMassSupportPhase, string>> = {
+    long_term_body_composition: plan.chronic_phase_start ? fmtDate(plan.chronic_phase_start) : undefined,
+    gradual_weight_class_preparation: plan.intensified_phase_start ? fmtDate(plan.intensified_phase_start) : undefined,
+    competition_week_body_mass_monitoring: plan.fight_week_start ? fmtDate(plan.fight_week_start) : undefined,
+    high_risk_review: plan.fight_week_start ? fmtDateOffset(plan.fight_week_start, 3) : undefined,
+    weigh_in_logistics: plan.weigh_in_day ? fmtDate(plan.weigh_in_day) : undefined,
+    post_weigh_in_recovery_tracking: plan.rehydration_start ? fmtDate(plan.rehydration_start) : undefined,
   };
 
   return (

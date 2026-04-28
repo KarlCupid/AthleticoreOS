@@ -355,25 +355,21 @@ export function NutritionScreen() {
         </AnimatedPressable>
       </Animated.View>
 
-      {viewModel.activeCutProtocol ? (
+      {viewModel.performanceContext.bodyMass ? (
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)} style={styles.cutBanner}>
           <View style={styles.cutBannerTop}>
             <Text style={styles.cutBannerPhase}>
-              {viewModel.activeCutProtocol.cut_phase.replace(/_/g, ' ').toUpperCase()} · {viewModel.activeCutProtocol.days_to_weigh_in}d to weigh-in
+              {viewModel.performanceContext.bodyMass.feasibilityLabel ?? 'Body-mass context'} - {viewModel.performanceContext.bodyMass.safetyLabel ?? 'monitored'}
             </Text>
-            {viewModel.activeCutProtocol.is_refeed_day ? (
+            {viewModel.performanceContext.bodyMass.riskLabel ? (
               <View style={styles.cutBadge}>
-                <Text style={styles.cutBadgeText}>REFEED</Text>
-              </View>
-            ) : null}
-            {viewModel.activeCutProtocol.is_carb_cycle_high ? (
-              <View style={styles.cutBadge}>
-                <Text style={styles.cutBadgeText}>HIGH CARB</Text>
+                <Text style={styles.cutBadgeText}>{viewModel.performanceContext.bodyMass.riskLabel}</Text>
               </View>
             ) : null}
           </View>
+          <Text style={styles.cutBannerInstruction}>{viewModel.performanceContext.bodyMass.explanation}</Text>
           <AnimatedPressable onPress={() => navigation.navigate('WeightCutHome')}>
-            <Text style={[inline.linkText, { color: COLORS.text.primary }]}>Weight cut</Text>
+            <Text style={[inline.linkText, { color: COLORS.text.primary }]}>Weight-class context</Text>
           </AnimatedPressable>
         </Animated.View>
       ) : null}

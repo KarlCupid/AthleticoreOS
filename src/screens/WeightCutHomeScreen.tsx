@@ -14,32 +14,37 @@ import {
   IconTarget, IconChevronRight, IconTrendDown, IconScale,
 } from '../components/icons';
 import { Card } from '../components/Card';
-import { CutPhaseTimeline } from '../components/CutPhaseTimeline';
+import { BodyMassSupportTimeline } from '../components/BodyMassSupportTimeline';
 import { WeightCutChart } from '../components/WeightCutChart';
-import { DailyProtocolCard } from '../components/DailyProtocolCard';
-import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
-import { CutPhase, CutSafetyFlag } from '../../lib/engine/types';
+import { getBodyMassSupportPhase, type BodyMassSupportPhase } from '../../lib/performance-engine';
+import { todayLocalDate } from '../../lib/utils/date';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightCutHome'>;
 
-const PHASE_LABELS: Record<CutPhase, string> = {
-  chronic: 'Long-Term Management',
-  intensified: 'Weight-Class Prep',
-  fight_week_load: 'Competition Week Monitoring',
-  fight_week_cut: 'Blocked Acute Protocol',
-  weigh_in: 'Weigh-in Day',
-  rehydration: 'Post Weigh-In Recovery',
+const PHASE_LABELS: Record<BodyMassSupportPhase, string> = {
+  unknown: 'Body-Mass Context',
+  long_term_body_composition: 'Long-Term Management',
+  gradual_weight_class_preparation: 'Weight-Class Prep',
+  competition_week_body_mass_monitoring: 'Competition Week Monitoring',
+  weigh_in_logistics: 'Weigh-in Day',
+  post_weigh_in_recovery_tracking: 'Post Weigh-In Recovery',
+  high_risk_review: 'Safety Review',
 };
 
-const PHASE_COLORS: Record<CutPhase, string[]> = {
-  chronic:         ['#D4AF37', '#8C6A1E'],
-  intensified:     ['#15803D', '#166534'],
-  fight_week_load: ['#B8C0C2', '#6F7778'],
-  fight_week_cut:  ['#D4AF37', '#B8892D'],
-  weigh_in:        ['#D9827E', '#D9827E'],
-  rehydration:     ['#10B981', '#059669'],
+const PHASE_COLORS: Record<BodyMassSupportPhase, [string, string]> = {
+  unknown: ['#B8C0C2', '#6F7778'],
+  long_term_body_composition: ['#D4AF37', '#8C6A1E'],
+  gradual_weight_class_preparation: ['#15803D', '#166534'],
+  competition_week_body_mass_monitoring: ['#B8C0C2', '#6F7778'],
+  weigh_in_logistics: ['#D9827E', '#D9827E'],
+  post_weigh_in_recovery_tracking: ['#10B981', '#059669'],
+  high_risk_review: ['#D4AF37', '#B8892D'],
 };
+
+function daysBetween(start: string, end: string): number {
+  return Math.round((new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / 86_400_000);
+}
 
 export function WeightCutHomeScreen() {
   const nav = useNavigation<NavProp>();
@@ -50,35 +55,35 @@ export function WeightCutHomeScreen() {
   }, []);
 
   const {
-    loading, error, activePlan, todayProtocol, weightHistory,
+    loading, error, activePlan, weightHistory,
     cutHistory, projectedWeightByWeighIn, adherenceLast7Days,
     refresh, abandon, performanceContext,
   } = useWeightCutData(userId);
 
   const handleEndCut = useCallback(() => {
     Alert.alert(
-      'End Cut',
-      'Why are you ending this cut?',
+      'End Class Plan',
+      'Why are you ending this weight-class plan?',
       [
         {
           text: 'Fight fell through',
           onPress: () => {
             Alert.alert(
-              'End Cut',
-              'Cut will be marked abandoned and your targets will return to normal. You can start a new cut whenever your next fight is booked.',
+              'End Class Plan',
+              'This plan will be marked abandoned and the journey will return to normal performance targets. You can evaluate a new class when another fight appears.',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'End Cut', style: 'destructive', onPress: () => abandon('fight_fell_through') },
+                { text: 'End Plan', style: 'destructive', onPress: () => abandon('fight_fell_through') },
               ]
             );
           },
         },
         {
-          text: 'Made weight ?',
+          text: 'Made weight',
           onPress: () => {
             Alert.alert(
               'Mark Complete',
-              'Great work! Mark this cut as complete?',
+              'Mark this weight-class plan as complete?',
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Mark Complete', onPress: () => abandon('made_weight') },
@@ -90,11 +95,11 @@ export function WeightCutHomeScreen() {
           text: 'Other reason',
           onPress: () => {
             Alert.alert(
-              'End Cut',
-              'End this cut and return to normal training targets?',
+              'End Class Plan',
+              'End this plan and return to normal performance targets?',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'End Cut', style: 'destructive', onPress: () => abandon('other') },
+                { text: 'End Plan', style: 'destructive', onPress: () => abandon('other') },
               ]
             );
           },
@@ -155,7 +160,7 @@ export function WeightCutHomeScreen() {
               style={styles.historyLink}
               onPress={() => nav.navigate('CutHistory')}
             >
-              <Text style={styles.historyLinkText}>View Past Cuts ({cutHistory.length})</Text>
+              <Text style={styles.historyLinkText}>View Past Class Plans ({cutHistory.length})</Text>
             </TouchableOpacity>
           )}
         </LinearGradient>
@@ -163,12 +168,11 @@ export function WeightCutHomeScreen() {
     );
   }
 
-  const phase = todayProtocol?.cut_phase ?? 'chronic';
-  const daysOut = todayProtocol?.days_to_weigh_in ?? 0;
-  const dangerFlags = todayProtocol?.safety_flags?.filter((flag: CutSafetyFlag) => flag.severity === 'danger') ?? [];
+  const phase = getBodyMassSupportPhase(activePlan, todayLocalDate());
+  const daysOut = Math.max(0, daysBetween(todayLocalDate(), activePlan.weigh_in_date));
   const currentWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : activePlan.start_weight;
   const remaining = Math.max(0, currentWeight - activePlan.target_weight).toFixed(1);
-  const phaseColors = PHASE_COLORS[phase] as [string, string];
+  const phaseColors = PHASE_COLORS[phase];
   const bodyMassPlanBlocked = performanceContext.riskFlags.some((flag) => (
     flag.blocksPlan
     && /weight|body|fuel|professional|unsafe|rapid/i.test(`${flag.label} ${flag.message}`)
@@ -177,6 +181,14 @@ export function WeightCutHomeScreen() {
   const bodyMassBlockReason = performanceContext.riskFlags.find((flag) => flag.blocksPlan)?.message
     ?? performanceContext.bodyMass?.explanation
     ?? 'The requested body-mass plan needs review before Athleticore can show daily weight-class guidance.';
+  const bodyMassGuidance = performanceContext.bodyMass?.explanation
+    ?? performanceContext.nutrition.explanation
+    ?? 'Body-mass support is resolved through the Unified Performance Engine using phase, training, fueling, readiness, and safety context.';
+  const confidenceNote = performanceContext.lowConfidence
+    ? performanceContext.confidenceSummary
+    : performanceContext.bodyMass?.riskLabel
+      ? `Current body-mass risk: ${performanceContext.bodyMass.riskLabel}.`
+      : 'Body-mass support is linked to performance state, not a standalone rapid-cut protocol.';
 
   return (
     <ScrollView
@@ -224,7 +236,7 @@ export function WeightCutHomeScreen() {
           <View style={styles.projectionBanner}>
             <Text style={styles.projectionText}>
               Projected weigh-in: {projectedWeightByWeighIn.toFixed(1)} lbs
-              {projectedWeightByWeighIn <= activePlan.target_weight ? '  ? ON TRACK' : '  ! BEHIND'}
+              {projectedWeightByWeighIn <= activePlan.target_weight ? '  ON TRACK' : '  BEHIND'}
             </Text>
           </View>
         )}
@@ -235,11 +247,7 @@ export function WeightCutHomeScreen() {
         showProtectedAnchors={false}
         showBodyMass={Boolean(performanceContext.bodyMass)}
       />
-      {/* Safety flags */}
-      {dangerFlags.length > 0 && (
-        <SafetyStatusIndicator flags={todayProtocol?.safety_flags ?? []} />
-      )}
-      {/* Today's protocol */}
+
       {bodyMassPlanBlocked ? (
         <Card
           style={styles.card}
@@ -249,24 +257,21 @@ export function WeightCutHomeScreen() {
           <Text style={styles.sectionTitle}>Plan blocked for safety</Text>
           <Text style={styles.guidanceBody}>{bodyMassBlockReason}</Text>
         </Card>
-      ) : todayProtocol ? (
-        <DailyProtocolCard protocol={todayProtocol} />
       ) : (
         <Card
           style={styles.card}
-          backgroundTone="cutProtocol"
+          backgroundTone="bodyMassSupport"
           backgroundScrimColor="rgba(10, 10, 10, 0.74)"
         >
           <Text style={styles.sectionTitle}>Today's body-mass support</Text>
-          <Text style={styles.guidanceBody}>
-            Today's body-mass guidance is not ready yet. Pull to refresh or open fight-week support to trigger a fresh engine pass.
-          </Text>
+          <Text style={styles.guidanceBody}>{bodyMassGuidance}</Text>
+          <Text style={styles.guidanceMeta}>{confidenceNote}</Text>
         </Card>
       )}
 
       <Card
         style={styles.card}
-        backgroundTone="cutProtocol"
+        backgroundTone="bodyMassSupport"
         backgroundScrimColor="rgba(10, 10, 10, 0.76)"
       >
         <Text style={styles.sectionTitle}>Health guidance note</Text>
@@ -292,15 +297,15 @@ export function WeightCutHomeScreen() {
       {/* Phase timeline */}
       <Card
         style={styles.card}
-        backgroundTone="cutProtocol"
+        backgroundTone="bodyMassSupport"
         backgroundScrimColor="rgba(10, 10, 10, 0.78)"
       >
-        <Text style={styles.sectionTitle}>Cut Timeline</Text>
-        <CutPhaseTimeline plan={activePlan} currentPhase={phase} />
+        <Text style={styles.sectionTitle}>Body-Mass Timeline</Text>
+        <BodyMassSupportTimeline plan={activePlan} currentPhase={phase} />
       </Card>
       {/* Quick actions */}
       <View style={styles.quickActions}>
-        {phase === 'fight_week_load' || phase === 'fight_week_cut' || phase === 'weigh_in' ? (
+        {phase === 'competition_week_body_mass_monitoring' || phase === 'weigh_in_logistics' ? (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: phaseColors[0] }]}
             onPress={() => nav.navigate('FightWeekProtocol')}
@@ -310,7 +315,7 @@ export function WeightCutHomeScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {phase === 'rehydration' ? (
+        {phase === 'post_weigh_in_recovery_tracking' ? (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: COLORS.readiness.prime }]}
             onPress={() => nav.navigate('RehydrationProtocol', {
@@ -327,7 +332,7 @@ export function WeightCutHomeScreen() {
           style={[styles.actionButton, { backgroundColor: COLORS.surfaceSecondary }]}
           onPress={() => nav.navigate('CutHistory')}
         >
-          <Text style={[styles.actionButtonText, { color: COLORS.text.primary }]}>Past Cuts</Text>
+          <Text style={[styles.actionButtonText, { color: COLORS.text.primary }]}>Past Class Plans</Text>
           <IconChevronRight size={18} color={COLORS.text.secondary} />
         </TouchableOpacity>
 
@@ -335,14 +340,14 @@ export function WeightCutHomeScreen() {
           style={styles.endCutButton}
           onPress={handleEndCut}
         >
-          <Text style={styles.endCutText}>End Cut</Text>
+          <Text style={styles.endCutText}>End Class Plan</Text>
         </TouchableOpacity>
       </View>
       {/* Weight class info */}
       {activePlan.weight_class_name && (
         <Card
           style={[styles.card, styles.weightClassCard]}
-          backgroundTone="cutProtocol"
+          backgroundTone="bodyMassSupport"
           backgroundScrimColor="rgba(10, 10, 10, 0.78)"
         >
           <IconTarget size={16} color={COLORS.text.secondary} />
@@ -411,6 +416,13 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
     lineHeight: 21,
+  },
+  guidanceMeta: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    lineHeight: 18,
+    marginTop: SPACING.sm,
   },
   quickActions: { marginHorizontal: SPACING.md, gap: SPACING.sm },
   actionButton: {

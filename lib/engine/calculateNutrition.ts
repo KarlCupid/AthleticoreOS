@@ -1,4 +1,3 @@
-import type { DailyCutProtocolRow } from './types/weight_cut.ts';
 import type {
   DailyHydrationPlan,
   DeficitClass,
@@ -18,8 +17,7 @@ import type { Phase } from './types/foundational.ts';
 import type { ActivityType } from './types/schedule.ts';
 import type { MacrocycleContext } from './types/mission.ts';
 import type { MEDStatus, ReadinessProfile, StimulusConstraintSet } from './types/readiness.ts';
-import { getSafeFightCampSodiumRestrictionDetail } from './safety/policy.ts';
-import { applyFuelingFloor, estimateLeanMassKg, estimateTrainingExpenditure } from './nutrition/energyAvailability.ts';
+import { applyFuelingFloor, estimateTrainingExpenditure } from './nutrition/energyAvailability.ts';
 import { calculateCaloriesFromMacros } from '../utils/nutrition.ts';
 import {
   confidenceFromLevel,
@@ -530,30 +528,22 @@ function recoveryFocus(target: NutritionTarget, priority: FuelPriority): Recover
 
 function hydrationPlan(input: {
   target: NutritionTarget;
-  cutProtocol: DailyCutProtocolRow | null;
   priority: FuelPriority;
   recoveryFocus: RecoveryNutritionFocus;
   hydrationBoostOz: number;
 }): DailyHydrationPlan {
-  const sodiumTargetValue = input.cutProtocol?.sodium_target_mg
-    ?? targetValue(input.target.sodiumElectrolyteGuidance?.sodiumTargetRange ?? { target: null, min: null, max: null }, 0);
+  const sodiumTargetValue = targetValue(input.target.sodiumElectrolyteGuidance?.sodiumTargetRange ?? { target: null, min: null, max: null }, 0);
   const sodiumTarget = sodiumTargetValue || null;
   const notes = [
     ...(input.target.sodiumElectrolyteGuidance?.electrolyteNotes ?? []),
-    input.cutProtocol?.sodium_instruction ? getSafeFightCampSodiumRestrictionDetail(input.cutProtocol.sodium_instruction) : null,
     input.priority === 'sparring' ? 'Start the first session hydrated so speed and decision-making stay protected.' : null,
     input.target.phase === 'competition_week' || input.target.phase === 'taper' ? 'Avoid new hydration products during competition week.' : null,
   ].filter((line): line is string => Boolean(line));
 
   return {
-    dailyTargetOz: Math.max(
-      input.cutProtocol?.water_target_oz ?? 0,
-      targetValue(input.target.hydrationTarget ?? { target: 96, min: null, max: null }, 96),
-    ),
+    dailyTargetOz: targetValue(input.target.hydrationTarget ?? { target: 96, min: null, max: null }, 96),
     sodiumTargetMg: sodiumTarget,
-    emphasis: input.cutProtocol
-      ? 'cut'
-      : input.recoveryFocus === 'hydration_restore'
+    emphasis: input.recoveryFocus === 'hydration_restore'
         ? 'recovery'
         : input.priority === 'sparring' || input.priority === 'double_session' || input.priority === 'boxing_practice'
           ? 'performance'
@@ -578,7 +568,6 @@ function legacyFuelingPlan(input: {
   sessionLabel: string;
   directive: SessionFuelingDirective | null;
   activeCount: number;
-  cutProtocol: DailyCutProtocolRow | null;
 }): SessionFuelingPlan {
   const directive = input.directive;
   const preWindow = directive?.windows?.find((window) => window.timing === 'pre');
@@ -592,7 +581,7 @@ function legacyFuelingPlan(input: {
         carbsG: targetValue(preWindow.carbGrams, 0),
         proteinG: targetValue(preWindow.proteinGrams, 0),
         notes: preWindow.notes,
-        lowResidue: Boolean(input.cutProtocol) || directive?.gutComfortConcern === 'moderate' || directive?.gutComfortConcern === 'high',
+        lowResidue: directive?.gutComfortConcern === 'moderate' || directive?.gutComfortConcern === 'high',
       }
     : defaultFuelingWindow('Before training', 'No timed pre-session fueling needed');
   const post = postWindow
@@ -623,7 +612,7 @@ function legacyFuelingPlan(input: {
           carbsG: Math.max(25, Math.round(carbDemand * 0.35)),
           proteinG: 20,
           notes: ['Keep this easy to digest so the second session stays sharp.'],
-          lowResidue: Boolean(input.cutProtocol),
+          lowResidue: false,
         }
       : null,
     postSession: post,
@@ -631,7 +620,6 @@ function legacyFuelingPlan(input: {
     coachingNotes: [
       'Nutrition and Fueling Engine generated session fueling guidance.',
       directive?.explanation?.summary ?? 'Session fueling came from the Nutrition and Fueling Engine.',
-      input.cutProtocol ? 'Cut protocol cannot bypass fueling safety floors.' : null,
     ].filter((line): line is string => Boolean(line)),
   };
 }
@@ -650,13 +638,12 @@ function safetyWarningFromRisks(target: NutritionTarget, fallback: NutritionSafe
 function resolveFromTarget(input: {
   baseTargets: NutritionTargets;
   target: NutritionTarget;
-  cutProtocol: DailyCutProtocolRow | null;
   activities: DayActivity[];
   adjustedMacros?: { calories: number; protein: number; carbs: number; fat: number };
   floorResult?: ReturnType<typeof applyFuelingFloor>;
   reasonLines?: string[];
 }): ResolvedNutritionTargets {
-  const priority = getPrioritySession(input.activities, input.cutProtocol?.training_intensity_cap ?? null);
+  const priority = getPrioritySession(input.activities, null);
   const activeCount = activeActivities(input.activities).length;
   const firstDirective = input.target.sessionFuelingDirectives[0] ?? null;
   const recovery = recoveryFocus(input.target, priority.priority);
@@ -689,14 +676,10 @@ function resolveFromTarget(input: {
     protein: macros.protein,
     carbs: macros.carbs,
     fat: macros.fat,
-    source: input.cutProtocol
-      ? floorResult?.fuelingFloorTriggered
-        ? 'weight_cut_protocol_safety_adjusted'
-        : 'weight_cut_protocol'
-      : input.activities.length > 0
+    source: input.activities.length > 0
         ? 'daily_activity_adjusted'
         : 'base',
-    fuelState: activeCount === 0 && !input.cutProtocol ? 'rest' : fuelState(priority.priority, input.target),
+    fuelState: activeCount === 0 ? 'rest' : fuelState(priority.priority, input.target),
     prioritySession: priority.priority,
     deficitClass: deficitClass(input.baseTargets),
     recoveryNutritionFocus: recovery,
@@ -704,7 +687,6 @@ function resolveFromTarget(input: {
     hydrationBoostOz,
     hydrationPlan: hydrationPlan({
       target: input.target,
-      cutProtocol: input.cutProtocol,
       priority: priority.priority,
       recoveryFocus: recovery,
       hydrationBoostOz,
@@ -715,7 +697,6 @@ function resolveFromTarget(input: {
       sessionLabel: priority.sessionLabel,
       directive: firstDirective,
       activeCount,
-      cutProtocol: input.cutProtocol,
     }),
     reasonLines,
     energyAvailability: floorResult?.energyAvailability ?? null,
@@ -765,7 +746,7 @@ export function computeMacroAdherence(
 
 export function resolveDailyNutritionTargets(
   baseTargets: NutritionTargets,
-  cutProtocol: DailyCutProtocolRow | null,
+  _legacyCutProtocol: null,
   dayActivities: DayActivity[],
   options?: NutritionResolutionOptions,
 ): ResolvedNutritionTargets {
@@ -792,67 +773,19 @@ export function resolveDailyNutritionTargets(
     options,
   });
 
-  if (!cutProtocol) {
-    return resolveFromTarget({
-      baseTargets,
-      target,
-      cutProtocol: null,
-      activities: dayActivities,
-    });
-  }
-
-  const cutCalories = calculateCaloriesFromMacros(
-    cutProtocol.prescribed_protein,
-    cutProtocol.prescribed_carbs,
-    cutProtocol.prescribed_fat,
-  );
-  const activeCount = activeActivities(dayActivities).length;
-  const bodyweightLbs = options?.bodyweightLbs ?? options?.macrocycleContext?.currentWeightLbs ?? profile.weightLbs;
-  const leanMassKg = options?.leanMassKg ?? estimateLeanMassKg(bodyweightLbs);
-  const metabolicReadiness = options?.readinessProfile?.metabolicReadiness ?? 100;
-  const floorResult = applyFuelingFloor({
-    targetCalories: cutCalories,
-    estimatedExpenditure: estimateTrainingExpenditure(dayActivities),
-    leanMassKg,
-    isTrainingDay: activeCount > 0,
-    daysToWeighIn: options?.daysToWeighIn ?? cutProtocol.days_to_weigh_in,
-    minimumEnergyAvailability: activeCount > 0 && metabolicReadiness < 60 ? 23 : null,
-    floorSource: activeCount > 0 && metabolicReadiness < 60 ? 'cut_readiness_floor' : 'fueling_floor',
-  });
-  const proteinTarget = Math.max(
-    cutProtocol.prescribed_protein,
-    targetValue(target.proteinTarget, baseTargets.protein),
-  );
-  const macros = distributeAroundProtein({
-    calories: floorResult.adjustedCalories,
-    protein: proteinTarget,
-    carbBias: Math.max(cutProtocol.prescribed_carbs, targetValue(target.carbohydrateTarget.min != null ? target.carbohydrateTarget : target.carbohydrateTargetRange, cutProtocol.prescribed_carbs)),
-    fatBias: cutProtocol.prescribed_fat,
-    lockFat: floorResult.adjustedCalories === cutCalories,
-  });
-  const reasonLines = [
-    'Active weight-cut protocol was checked by the Nutrition and Fueling Engine safety floor.',
-    floorResult.fuelingFloorTriggered ? 'Cut target was raised because energy availability was too low for the available context.' : 'Cut target stayed inside the current fueling floor.',
-    target.explanation?.summary ?? null,
-  ].filter((line): line is string => Boolean(line));
-
   return resolveFromTarget({
     baseTargets,
     target,
-    cutProtocol,
     activities: dayActivities,
-    adjustedMacros: macros,
-    floorResult,
-    reasonLines,
   });
 }
 
 export function resolveDailyMacros(
   baseTargets: NutritionTargets,
-  cutProtocol: DailyCutProtocolRow | null,
+  legacyCutProtocol: null,
   dayActivities: DayActivity[],
 ) {
-  const resolved = resolveDailyNutritionTargets(baseTargets, cutProtocol, dayActivities);
+  const resolved = resolveDailyNutritionTargets(baseTargets, legacyCutProtocol, dayActivities);
 
   return {
     calories: resolved.adjustedCalories,

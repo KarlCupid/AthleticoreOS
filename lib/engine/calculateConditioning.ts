@@ -19,7 +19,7 @@ import type {
   CircuitRoundPrescription,
 } from './types.ts';
 import type { ReadinessProfile, StimulusConstraintSet } from './types/readiness.ts';
-import { getDailyCutIntensityCap } from './calculateWeightCut.ts';
+import { getBodyMassTrainingIntensityCap } from '../performance-engine/body-mass-weight-class/index.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
 const BASE_BAG_ROUNDS: Record<FitnessLevel, number> = {
@@ -859,7 +859,7 @@ export function prescribeConditioning(input: {
   const effectiveDate = todayLocalDate();
   const effectiveIntensityCap = resolvedIntensityCap !== undefined
     ? resolvedIntensityCap
-    : getDailyCutIntensityCap(activeCutPlan, effectiveDate);
+    : getBodyMassTrainingIntensityCap(activeCutPlan, effectiveDate);
 
   if (effectiveIntensityCap !== null && effectiveIntensityCap !== undefined) {
     if (CONDITIONING_CNS[type] > effectiveIntensityCap) {
@@ -1001,7 +1001,7 @@ export function getWeeklyConditioningPlan(
     const day = candidateDays[index];
     if (usedDates.has(day.date)) continue;
 
-    const cappedIntensity = getDailyCutIntensityCap(activeCutPlan, day.date);
+    const cappedIntensity = getBodyMassTrainingIntensityCap(activeCutPlan, day.date);
     const prescription = prescribeConditioning({
       phase,
       fitnessLevel,

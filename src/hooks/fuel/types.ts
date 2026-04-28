@@ -1,6 +1,5 @@
 import type {
   DailyMission,
-  DailyCutProtocolRow,
   FoodSearchResult,
   MealType,
   ResolvedNutritionTargets,
@@ -47,7 +46,6 @@ export interface FuelHomeViewModel {
   hydrationEntries: HydrationEntryViewModel[];
   favorites: FoodSearchResult[];
   recent: FoodSearchResult[];
-  activeCutProtocol: DailyCutProtocolRow | null;
   historySummary: FuelHistoryDay;
   missionReasonLines: string[];
   missionTraceLines: string[];

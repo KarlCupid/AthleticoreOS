@@ -84,7 +84,7 @@ console.log('\n── assessPerformanceRisk: risk triggers ──');
     // trainingIntensityCap <= 4 -> severity 3 (red)
     const result = assessPerformanceRisk({ readinessState: 'Prime', acwr: 1.0, trainingIntensityCap: 4 });
     assert('Intensity cap 4 -> red', result.level === 'red');
-    assert('Intensity cap 4 -> reason mentions weight-cut', result.reasons.some(r => r.includes('weight-cut')));
+    assert('Intensity cap 4 -> reason mentions body-mass safety', result.reasons.some(r => r.includes('body-mass safety')));
 })();
 
 (() => {

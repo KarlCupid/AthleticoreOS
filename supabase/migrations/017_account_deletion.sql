@@ -20,7 +20,6 @@ BEGIN
   DELETE FROM public.daily_engine_snapshots WHERE user_id = target_user_id;
 
   DELETE FROM public.cut_safety_checks WHERE user_id = target_user_id;
-  DELETE FROM public.daily_cut_protocols WHERE user_id = target_user_id;
   DELETE FROM public.weight_cut_history WHERE user_id = target_user_id;
 
   DELETE FROM public.exercise_pr_log WHERE user_id = target_user_id;

@@ -44,7 +44,7 @@ export function DayInspector({
               <Text style={styles.heroDate}>{formatLongDate(day.date)}</Text>
               <Text style={styles.heroTitle}>{day.workoutTitle}</Text>
               <Text style={styles.heroSubtitle}>
-                {formatPhase(day.cutPhase)} | {formatPhase(day.sessionRole)} | {formatPhase(day.workoutType ?? 'untitled session')}
+                {formatPhase(day.bodyMassSupportPhase)} | {formatPhase(day.sessionRole)} | {formatPhase(day.workoutType ?? 'untitled session')}
               </Text>
             </View>
 

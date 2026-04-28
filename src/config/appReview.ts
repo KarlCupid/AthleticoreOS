@@ -21,7 +21,7 @@ export const PRIVACY_POLICY_SECTIONS = [
   {
     title: 'How the data is used',
     body:
-      'Your data is used to power planning, workout, nutrition, hydration, and weight-cut features inside the app. It is not presented as a medical diagnosis or emergency service.',
+      'Your data is used to power planning, workout, nutrition, hydration, and weight-class support features inside the app. It is not presented as a medical diagnosis or emergency service.',
   },
   {
     title: 'Your controls',

@@ -200,15 +200,13 @@ export interface SessionFuelingPlan {
 export interface DailyHydrationPlan {
   dailyTargetOz: number;
   sodiumTargetMg: number | null;
-  emphasis: 'baseline' | 'performance' | 'recovery' | 'cut';
+  emphasis: 'baseline' | 'performance' | 'recovery';
   notes: string[];
 }
 
 export type DailyNutritionTargetSource =
   | 'base'
-  | 'daily_activity_adjusted'
-  | 'weight_cut_protocol'
-  | 'weight_cut_protocol_safety_adjusted';
+  | 'daily_activity_adjusted';
 
 export type NutritionSafetyWarning =
   | 'none'

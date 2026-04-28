@@ -43,7 +43,6 @@ const EMPTY_MODEL: FuelHomeViewModel = {
   hydrationEntries: [],
   favorites: [],
   recent: [],
-  activeCutProtocol: null,
   historySummary: { mealCount: 0, waterOz: 0 },
   missionReasonLines: [],
   missionTraceLines: [],
@@ -149,7 +148,6 @@ export function useFuelData() {
         hydrationEntries,
         favorites: favoriteRows.map(buildFoodSearchResultFromFoodItemRow),
         recent: recentRows.map(buildFoodSearchResultFromFoodItemRow),
-        activeCutProtocol: engineState.cutProtocol,
         historySummary: summarizeFuelHistory({
           totalWaterOz: nutritionData.summary?.total_water_oz,
           mealGroups: meals,

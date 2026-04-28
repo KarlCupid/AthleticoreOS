@@ -82,7 +82,7 @@ export function CognitiveTestCard({ baselineMs: baselineMsProp, baseline, onResu
   return (
     <Card
       style={styles.card}
-      backgroundTone="cutProtocol"
+      backgroundTone="bodyMassSupport"
       backgroundScrimColor="rgba(10, 10, 10, 0.76)"
     >
       <Text style={styles.title}>Cognitive Reaction Test</Text>

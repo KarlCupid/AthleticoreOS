@@ -135,13 +135,13 @@ export function assessPerformanceRisk(input: PerformanceRiskInput): PerformanceR
   if (trainingIntensityCap != null) {
     if (trainingIntensityCap <= 4) {
       severity = 3;
-      reasons.push(`weight-cut cap is restrictive (${trainingIntensityCap}/10)`);
+      reasons.push(`body-mass safety cap is restrictive (${trainingIntensityCap}/10)`);
     } else if (trainingIntensityCap <= 6) {
       severity = Math.max(severity, 2);
-      reasons.push(`weight-cut cap is active (${trainingIntensityCap}/10)`);
+      reasons.push(`body-mass safety cap is active (${trainingIntensityCap}/10)`);
     } else if (trainingIntensityCap <= 8) {
       severity = Math.max(severity, 1);
-      reasons.push(`weight-cut cap is shaping the day (${trainingIntensityCap}/10)`);
+      reasons.push(`body-mass safety cap is shaping the day (${trainingIntensityCap}/10)`);
     }
   }
 

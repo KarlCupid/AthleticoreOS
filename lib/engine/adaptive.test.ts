@@ -221,7 +221,7 @@ console.log('\n── Body-Mass-Aware handleTimelineShift ──');
     const result = handleTimelineShift({
         skippedBlock: makeBlock({ status: 'Skipped', planned_intensity: 10 }),
         currentLedger: makeLedger({ prescribed_carbs: 300 }),
-        cutPhase: 'intensified',
+        bodyMassSupportPhase: 'gradual_weight_class_preparation',
     });
     assert('Intensified context uses normal demand adjustment', result.carbReduction === 80);
     assert('Updated carbs = 220', result.updatedCarbs === 220);
@@ -232,13 +232,13 @@ console.log('\n── Body-Mass-Aware handleTimelineShift ──');
     const result = handleTimelineShift({
         skippedBlock: makeBlock({ status: 'Skipped', planned_intensity: 5 }),
         currentLedger: makeLedger({ prescribed_carbs: 300 }),
-        cutPhase: 'fight_week_cut',
+        bodyMassSupportPhase: 'competition_week_body_mass_monitoring',
     });
     assert('Fight week context does not amplify restriction', result.carbReduction === 40);
     assert('Updated carbs = 260', result.updatedCarbs === 260);
 })();
 
-// No cut phase: normal coefficient
+// No body-mass support phase: normal coefficient
 (() => {
     const result = handleTimelineShift({
         skippedBlock: makeBlock({ status: 'Skipped', planned_intensity: 10 }),
@@ -252,7 +252,7 @@ console.log('\n── Body-Mass-Aware handleTimelineShift ──');
     const result = handleTimelineShift({
         skippedBlock: makeBlock({ status: 'Skipped', planned_intensity: 10 }),
         currentLedger: makeLedger({ prescribed_carbs: 300 }),
-        cutPhase: 'chronic',
+        bodyMassSupportPhase: 'long_term_body_composition',
     });
     assert('Chronic → 80g (not amplified)', result.carbReduction === 80);
 })();
