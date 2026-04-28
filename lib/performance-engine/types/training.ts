@@ -24,7 +24,15 @@ export type SessionFamily =
   | 'assessment'
   | 'other';
 
-export type SessionSource = 'protected_anchor' | 'engine_generated' | 'manual' | 'coach' | 'imported';
+export type SessionSource =
+  | 'protected_anchor'
+  | 'engine_generated'
+  | 'manual'
+  | 'coach'
+  | 'imported'
+  | 'user_locked'
+  | 'external_calendar'
+  | 'competition';
 
 export interface ProtectedWorkoutAnchor {
   id: string;
@@ -35,6 +43,10 @@ export interface ProtectedWorkoutAnchor {
   expectedDurationMinutes: MeasurementRange<'minute'>;
   nonNegotiable: true;
   reason: string;
+  date?: ISODateString | null;
+  source?: SessionSource;
+  expectedIntensityRpe?: MeasurementRange<'rpe'> | null;
+  canMerge?: boolean;
 }
 
 export interface TrainingAvailabilityWindow {
@@ -62,6 +74,9 @@ export interface ComposedSession {
   durationMinutes: MeasurementRange<'minute'>;
   intensityRpe: MeasurementRange<'rpe'>;
   startsAt: ISODateTimeString | null;
+  mergeDecisionId?: string | null;
+  stressScore?: number | null;
+  tissueLoads?: string[];
   explanation: Explanation | null;
   confidence: ConfidenceValue;
 }
@@ -90,6 +105,9 @@ export function createComposedSession(input: {
   durationMinutes: MeasurementRange<'minute'>;
   intensityRpe: MeasurementRange<'rpe'>;
   startsAt?: ISODateTimeString | null;
+  mergeDecisionId?: string | null;
+  stressScore?: number | null;
+  tissueLoads?: string[];
   explanation?: Explanation | null;
   confidence?: ConfidenceValue;
 }): ComposedSession {
@@ -99,13 +117,16 @@ export function createComposedSession(input: {
     id: input.id,
     date: input.date ?? null,
     family: input.family,
-    source: protectedAnchor ? 'protected_anchor' : input.source ?? 'engine_generated',
+    source: input.source ?? (protectedAnchor ? 'protected_anchor' : 'engine_generated'),
     protectedAnchor,
     anchorId: input.anchorId ?? null,
     title: input.title,
     durationMinutes: input.durationMinutes,
     intensityRpe: input.intensityRpe,
     startsAt: input.startsAt ?? null,
+    mergeDecisionId: input.mergeDecisionId ?? null,
+    stressScore: input.stressScore ?? null,
+    tissueLoads: input.tissueLoads ?? [],
     explanation: input.explanation ?? null,
     confidence: input.confidence ?? UNKNOWN_CONFIDENCE,
   };

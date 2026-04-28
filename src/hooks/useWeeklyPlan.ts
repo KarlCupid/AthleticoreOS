@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { InteractionManager } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { generateSmartWeekPlan, handleMissedDay } from '../../lib/engine/calculateSchedule';
+import { handleMissedDay } from '../../lib/engine/calculateSchedule';
+import { generateAdaptiveSmartWeekPlan } from '../../lib/engine/adaptiveTrainingAdapter';
 import {
   getWeeklyPlanConfig,
   getActiveWeekPlan,
@@ -316,7 +317,7 @@ export async function generateAndSaveWeeklyPlan(
     throw new Error('Exercise library is empty. Apply the S&C resource migration before generating a weekly plan.');
   }
 
-  const result = generateSmartWeekPlan({
+  const result = generateAdaptiveSmartWeekPlan({
     config: planConfig,
     readinessState: readinessContext.readinessState,
     phase: athleteContext.phase,

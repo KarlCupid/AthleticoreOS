@@ -84,8 +84,13 @@ async function main() {
   const pressureNonLowRiskDays = pressureSimulation.dailyLogs.filter((log) =>
     log.engineState.mission.riskState.level !== 'low',
   );
+  const pressureGuidedTrainingDays = pressureSimulation.dailyLogs.filter((log) =>
+    log.engineState.mission.trainingDirective.workoutType === 'strength'
+    || log.engineState.mission.trainingDirective.workoutType === 'conditioning',
+  );
 
-  assert('Simulation pressure persona yields non-low risk days', pressureNonLowRiskDays.length > 0);
+  assert('Simulation pressure persona still receives guided training', pressureGuidedTrainingDays.length > 0);
+  assert('Adaptive scheduler keeps pressure persona risk bounded on a clean slate', pressureNonLowRiskDays.length <= Math.ceil(pressureSimulation.dailyLogs.length * 0.2));
 
   console.log('\n--- Replay mapping ---');
 

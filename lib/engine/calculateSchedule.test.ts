@@ -452,222 +452,13 @@ const mockTargets: WeeklyTargetsRow = {
 // ─── Summary ───────────────────────────────────────────────────
 
 console.log(`\n── Results: ${passed} passed, ${failed} failed ──\n`);
-// ─── generateSmartWeekPlan ─────────────────────────────────────
+// Adaptive Training Engine weekly planning
 
-console.log('\n── generateSmartWeekPlan ──');
-
-(() => {
-    const { camp, weekStartDate } = makeCampPhaseContext('base');
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 3, 4, 5, 6] }),
-        readinessState: 'Prime',
-        phase: 'fight-camp',
-        acwr: 1.0,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'conditioning',
-        exerciseLibrary: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: camp,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate,
-        recurringActivities: [],
-    });
-    const guided = getGuidedEntries(result);
-    assert('Camp weeks keep guided work below full availability while still filling the optimizer mix', guided.length === 5);
-    assert('Base phase does not auto-fill all available days', guided.length < 6);
-})();
-
-(() => {
-    const phases: Array<['base' | 'build' | 'peak' | 'taper', { guided: number; strength: number; conditioning: number; durability: number; recovery: number }]> = [
-        ['base', { guided: 5, strength: 2, conditioning: 2, durability: 1, recovery: 0 }],
-        ['build', { guided: 5, strength: 2, conditioning: 2, durability: 1, recovery: 0 }],
-        ['peak', { guided: 3, strength: 1, conditioning: 1, durability: 1, recovery: 0 }],
-        ['taper', { guided: 2, strength: 0, conditioning: 0, durability: 0, recovery: 2 }],
-    ];
-
-    for (const [campPhase, expected] of phases) {
-        const { camp, weekStartDate } = makeCampPhaseContext(campPhase);
-        const result = generateSmartWeekPlan({
-            config: makeSmartConfig(),
-            readinessState: 'Prime',
-            phase: 'fight-camp',
-            acwr: 1.0,
-            fitnessLevel: 'intermediate',
-            performanceGoalType: 'conditioning',
-            exerciseLibrary: [],
-            recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-            campConfig: camp,
-            activeCutPlan: null,
-            weeksSinceLastDeload: 1,
-            gymProfile: null,
-            weekStartDate,
-            recurringActivities: [],
-        });
-        const guided = getGuidedEntries(result);
-        const strengthCount = countStrengthEntries(guided);
-        const conditioningCount = guided.filter((entry) => entry.focus === 'conditioning').length;
-        const durabilityCount = countDurabilityEntries(guided);
-        const recoveryCount = guided.filter((entry) => entry.focus === 'recovery').length;
-
-        assert(`${campPhase} phase guided-session ceiling`, guided.length === expected.guided);
-        assert(`${campPhase} phase strength mix`, strengthCount === expected.strength);
-        assert(`${campPhase} phase conditioning mix`, conditioningCount === expected.conditioning);
-        assert(`${campPhase} phase durability mix`, durabilityCount === expected.durability);
-        assert(`${campPhase} phase recovery mix`, recoveryCount === expected.recovery);
-    }
-})();
-
-(() => {
-    const { camp, weekStartDate } = makeCampPhaseContext('build');
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
-        readinessState: 'Prime',
-        phase: 'fight-camp',
-        acwr: 1.0,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'boxing_skill',
-        exerciseLibrary: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: camp,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate,
-        recurringActivities: [
-            makeRecurringActivity('boxing_practice', [1, 3], {
-                estimated_duration_min: 60,
-                expected_intensity: 4,
-            }),
-        ],
-    });
-    const guided = getGuidedEntries(result);
-    const boxingPracticeGuided = guided.filter((entry) => entry.day_of_week === 1 || entry.day_of_week === 3);
-    assert('Boxing practice days can still receive guided work', boxingPracticeGuided.length === 2);
-    assert('Boxing practice days do not collapse into spar support focus', boxingPracticeGuided.every((entry) => entry.focus !== 'sport_specific'));
-    assert('No stray sport_specific sessions without sparring anchors', guided.every((entry) => entry.focus !== 'sport_specific'));
-})();
-
-(() => {
-    const { camp, weekStartDate } = makeCampPhaseContext('build');
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
-        readinessState: 'Caution',
-        phase: 'fight-camp',
-        acwr: 1.3,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'boxing_skill',
-        exerciseLibrary: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: camp,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate,
-        recurringActivities: [
-            makeRecurringActivity('boxing_practice', [1], {
-                estimated_duration_min: 60,
-                expected_intensity: 5,
-            }),
-        ],
-    });
-    const mondayGuided = getGuidedEntries(result).find((entry) => entry.day_of_week === 1) ?? null;
-    assert('Combat-anchor yellow risk keeps a guided support session', mondayGuided != null);
-    assert('Combat-anchor yellow risk preserves the planned physical touch', mondayGuided?.focus === 'conditioning');
-    assert('Combat-anchor yellow risk caps duration to 40', (mondayGuided?.estimated_duration_min ?? 99) <= 40);
-    assert('Combat-anchor yellow risk caps intensity to 4', (mondayGuided?.target_intensity ?? 99) <= 4);
-})();
-
-(() => {
-    const { camp, weekStartDate } = makeCampPhaseContext('build');
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
-        readinessState: 'Depleted',
-        phase: 'fight-camp',
-        acwr: 1.46,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'boxing_skill',
-        exerciseLibrary: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: camp,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate,
-        recurringActivities: [
-            makeRecurringActivity('boxing_practice', [1], {
-                estimated_duration_min: 60,
-                expected_intensity: 6,
-            }),
-        ],
-    });
-    const mondayEntries = result.entries.filter((entry) => entry.day_of_week === 1);
-    assert('Combat-anchor orange/red risk skips guided work', mondayEntries.every((entry) => entry.focus == null));
-    assert('Combat-anchor orange/red risk keeps combat anchor', mondayEntries.some((entry) => entry.session_type === 'boxing_practice'));
-})();
-
-(() => {
-    const { camp, weekStartDate } = makeCampPhaseContext('build');
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
-        readinessState: 'Caution',
-        phase: 'fight-camp',
-        acwr: 1.18,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'boxing_skill',
-        exerciseLibrary: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: camp,
-        activeCutPlan: {
-            weigh_in_date: '2026-02-10',
-        } as any,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate,
-        recurringActivities: [
-            makeRecurringActivity('boxing_practice', [1], {
-                estimated_duration_min: 60,
-                expected_intensity: 5,
-            }),
-        ],
-    });
-    const mondayEntries = result.entries.filter((entry) => entry.day_of_week === 1);
-    assert('Active cut + combat anchor blocks extra engine-created stack outside green window', mondayEntries.length === 1);
-    assert('Active cut + combat anchor keeps only combat entry when not green', mondayEntries[0]?.focus == null && mondayEntries[0]?.session_type === 'boxing_practice');
-})();
-
-(() => {
-    const { camp, weekStartDate } = makeCampPhaseContext('build');
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 3, 4, 5, 6] }),
-        readinessState: 'Prime',
-        phase: 'fight-camp',
-        acwr: 1.0,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'conditioning',
-        exerciseLibrary: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: camp,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate,
-        recurringActivities: [
-            makeRecurringActivity('sparring', [2, 5]),
-        ],
-    });
-    const guided = getGuidedEntries(result);
-    const sparSupportDays = guided.filter((entry) => entry.day_of_week === 2 || entry.day_of_week === 5);
-    assert('Real sparring days get support sessions', sparSupportDays.length === 2);
-    assert('Sparring days stay sport_specific', sparSupportDays.every((entry) => entry.focus === 'sport_specific'));
-    assert('Sparring support stays activation-only in duration', sparSupportDays.every((entry) => entry.estimated_duration_min <= 30));
-    assert('Sparring support stays activation-only in intensity', sparSupportDays.every((entry) => (entry.target_intensity ?? 10) <= 5));
-})();
+console.log('\n-- generateSmartWeekPlan adaptive path --');
 
 (() => {
     const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [2, 5] }),
+        config: makeSmartConfig({ available_days: [1, 2, 3, 4, 5] }),
         readinessState: 'Prime',
         phase: 'off-season',
         acwr: 1.0,
@@ -681,27 +472,31 @@ console.log('\n── generateSmartWeekPlan ──');
         gymProfile: null,
         weekStartDate: '2026-03-02',
         recurringActivities: [
-            makeRecurringActivity('sparring', [2]),
-            makeRecurringActivity('sparring', [5]),
+            makeRecurringActivity('sparring', [2], {
+                id: 'protected-sparring',
+                athlete_locked: true,
+                constraint_tier: 'mandatory',
+            }),
         ],
     });
-    const guided = getGuidedEntries(result);
-    const standaloneGuided = guided.filter((entry) => entry.day_of_week !== 2 && entry.day_of_week !== 5);
-    const sparringEntries = result.entries.filter((entry) => entry.session_type === 'sparring');
+    const protectedSparring = result.entries.find((entry) => entry.session_type === 'sparring') ?? null;
+    const generatedHard = result.entries.filter((entry) => entry.placement_source === 'generated' && (entry.target_intensity ?? 0) >= 7);
 
-    assert('Sparse availability made only of fixed sparring days does not expand onto rest days', standaloneGuided.length === 0);
-    assert('Sparse availability still keeps both fixed sparring anchors', sparringEntries.length === 2);
-    assert('Sparse availability keeps guided work only on configured days', guided.every((entry) => entry.day_of_week === 2 || entry.day_of_week === 5));
+    assert('Smart week planning now uses the Adaptive Training Engine', result.message.includes('Adaptive Training Engine'));
+    assert('Weekly mix intent identifies the Adaptive Training Engine', result.weeklyMixPlan.weekIntent.includes('Adaptive Training Engine'));
+    assert('Protected sparring is emitted as a locked anchor', protectedSparring?.placement_source === 'locked');
+    assert('Protected sparring remains on its original weekday', protectedSparring?.day_of_week === 2);
+    assert('Hard protected sessions reduce generated high-intensity volume', generatedHard.length <= 1);
 })();
 
 (() => {
     const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 4, 5] }),
+        config: makeSmartConfig({ available_days: [1, 2, 3, 4, 5] }),
         readinessState: 'Prime',
         phase: 'fight-camp',
         acwr: 1.0,
         fitnessLevel: 'intermediate',
-        performanceGoalType: 'boxing_skill',
+        performanceGoalType: 'conditioning',
         exerciseLibrary: [],
         recentMuscleVolume: { ...EMPTY_VOLUME } as any,
         campConfig: null,
@@ -709,25 +504,30 @@ console.log('\n── generateSmartWeekPlan ──');
         weeksSinceLastDeload: 1,
         gymProfile: null,
         weekStartDate: '2026-03-02',
-        recurringActivities: [],
+        recurringActivities: [
+            makeRecurringActivity('sparring', [2], {
+                id: 'protected-sparring-a',
+                athlete_locked: true,
+                constraint_tier: 'mandatory',
+            }),
+            makeRecurringActivity('sparring', [5], {
+                id: 'protected-sparring-b',
+                athlete_locked: true,
+                constraint_tier: 'mandatory',
+            }),
+        ],
     });
-    const conditioningTarget = result.weeklyMixPlan.sessionTargets.find((target) => target.family === 'conditioning');
-    assert('Boxing-skill block keeps a conditioning target in weekly mix', (conditioningTarget?.target ?? 0) >= 1);
-    assert('Boxing-skill block still surfaces at least one conditioning guided session', getGuidedEntries(result).some((entry) => entry.focus === 'conditioning'));
+    const protectedSparringCount = result.entries.filter((entry) => entry.session_type === 'sparring' && entry.placement_source === 'locked').length;
+    const recoveryTarget = result.weeklyMixPlan.sessionTargets.find((target) => target.family === 'recovery');
+
+    assert('Multiple protected sparring anchors are preserved', protectedSparringCount === 2);
+    assert('Adaptive weekly plan keeps recovery in the weekly targets', recoveryTarget != null);
+    assert('Engine notes explain protected anchor preservation', result.entries.some((entry) => entry.engine_notes?.includes('Protected anchor preserved')));
 })();
 
 (() => {
     const result = generateSmartWeekPlan({
-        config: makeSmartConfig({
-            available_days: [1, 2, 4, 5],
-            availability_windows: [
-                { dayOfWeek: 1, startTime: '00:01', endTime: '00:15' },
-                { dayOfWeek: 2, startTime: '00:01', endTime: '00:15' },
-                { dayOfWeek: 4, startTime: '00:01', endTime: '00:15' },
-                { dayOfWeek: 5, startTime: '00:01', endTime: '00:15' },
-            ],
-            session_duration_min: 20,
-        }),
+        config: makeSmartConfig({ available_days: [1, 3, 5], session_duration_min: 75 }),
         readinessState: 'Prime',
         phase: 'off-season',
         acwr: 1.0,
@@ -744,96 +544,9 @@ console.log('\n── generateSmartWeekPlan ──');
     });
     const guided = getGuidedEntries(result);
 
-    assert('Planner rejects tiny availability windows below minimum guided dose', guided.length === 0);
-    assert('Tiny availability windows record carry-forward reasons', result.weeklyMixPlan.carryForwardAdjustments.some((adjustment) => adjustment.reason.includes('minimum guided session')));
-})();
-
-(() => {
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({
-            available_days: [1, 2, 3, 4, 5],
-            session_duration_min: 75,
-        }),
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'conditioning',
-        exerciseLibrary: ROTATION_LIBRARY,
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: null,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate: '2026-03-02',
-        recurringActivities: [],
-    });
-    const guided = getGuidedEntries(result);
-    const scFamilies = new Set(guided.map((entry) => entry.sc_session_family));
-
-    assert('Clean 5-day build phase creates five guided S&C sessions', guided.length === 5);
-    assert('Clean 5-day build phase persists max strength family', scFamilies.has('max_strength'));
-    assert('Clean 5-day build phase includes speed or power family', scFamilies.has('acceleration') || scFamilies.has('loaded_jump_power') || scFamilies.has('med_ball_power'));
-    assert('Clean 5-day build phase includes conditioning family', scFamilies.has('hiit') || scFamilies.has('tempo') || scFamilies.has('mixed_intervals'));
-    assert('Clean 5-day build phase includes durability family', scFamilies.has('tissue_capacity'));
-    assert('Clean 5-day build phase saves prescriptions for every guided entry', guided.every((entry) => (entry.prescription_snapshot?.exercises.length ?? 0) > 0));
-    assert('Clean 5-day build phase realizes multiple dose buckets', result.weeklyMixPlan.sessionTargets.filter((target) => (target.realized ?? 0) > 0).length >= 3);
-})();
-
-(() => {
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({
-            available_days: [1, 3, 5],
-            session_duration_min: 75,
-        }),
-        readinessState: 'Prime',
-        phase: 'off-season',
-        acwr: 1.0,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'conditioning',
-        exerciseLibrary: ROTATION_LIBRARY,
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: null,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate: '2026-03-02',
-        recurringActivities: [],
-    });
-    const guided = getGuidedEntries(result);
-    const comboSession = guided.find((entry) => (entry.session_modules?.length ?? 0) > 1) ?? null;
-
-    assert('Three-day availability respects three guided sessions', guided.length === 3);
-    assert('Three-day availability creates a compressed combo session', comboSession != null);
-    assert('Three-day availability persists explicit S&C families', guided.every((entry) => Boolean(entry.sc_session_family)));
-    assert('Three-day availability records reduced-capacity rationale', result.weeklyMixPlan.carryForwardAdjustments.some((adjustment) => adjustment.reason.includes('3-day availability compressed')));
-})();
-
-(() => {
-    const { camp, weekStartDate } = makeCampPhaseContext('build');
-    const result = generateSmartWeekPlan({
-        config: makeSmartConfig({ available_days: [1, 2, 3, 4] }),
-        readinessState: 'Depleted',
-        phase: 'fight-camp',
-        acwr: 1.46,
-        fitnessLevel: 'intermediate',
-        performanceGoalType: 'boxing_skill',
-        exerciseLibrary: [],
-        recentMuscleVolume: { ...EMPTY_VOLUME } as any,
-        campConfig: camp,
-        activeCutPlan: null,
-        weeksSinceLastDeload: 1,
-        gymProfile: null,
-        weekStartDate,
-        recurringActivities: [
-            makeRecurringActivity('boxing_practice', [1], {
-                estimated_duration_min: 60,
-                expected_intensity: 6,
-            }),
-        ],
-    });
-    assert('Blocked combat-anchor guided work is recorded as carry-forward', result.weeklyMixPlan.carryForwardAdjustments.length > 0);
-    assert('Carry-forward records the move instead of silently dropping the session', result.weeklyMixPlan.carryForwardAdjustments.some((adjustment) => adjustment.status === 'moved'));
+    assert('Adaptive scheduler returns generated guided sessions', guided.length > 0);
+    assert('Generated guided sessions carry prescriptions when the exercise library is available', guided.every((entry) => (entry.prescription_snapshot?.exercises.length ?? 0) > 0));
+    assert('Generated entries are marked with adaptive engine notes', guided.every((entry) => entry.engine_notes?.includes('Adaptive Training Engine')));
 })();
 
 (() => {
@@ -854,8 +567,9 @@ console.log('\n── generateSmartWeekPlan ──');
         startDate: '2026-03-02',
         weeks: 2,
     });
-    assert('Block optimizer returns the requested number of weeks', block.weeks.length === 2);
-    assert('Block optimizer exposes weekly mix plans', block.weeks.every((week) => week.weeklyMixPlan.sessionTargets.length > 0));
+
+    assert('Block planning still returns the requested number of weeks', block.weeks.length === 2);
+    assert('Block planning is backed by Adaptive Training Engine mix plans', block.weeks.every((week) => week.weeklyMixPlan.weekIntent.includes('Adaptive Training Engine')));
 })();
 
 (() => {

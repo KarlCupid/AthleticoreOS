@@ -30,12 +30,15 @@ export {
   adjustNutritionForDay,
   detectOvertrainingRisk,
   generateWeekPlan,
-  generateSmartWeekPlan,
   generateBlockPlan,
   getBoxingIntensityScalar,
   calculateWeeklyCompliance,
   getTrainingStreak,
 } from './calculateSchedule.ts';
+export {
+  generateAdaptiveSmartWeekPlan,
+  generateAdaptiveSmartWeekPlan as generateSmartWeekPlan,
+} from './adaptiveTrainingAdapter.ts';
 export * from './performancePlanner.ts';
 export * from './resources/scProgrammingResources.ts';
 export * from './readiness/profile.ts';

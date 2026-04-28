@@ -1,3 +1,4 @@
+export * from './adaptive-training/index.ts';
 export * from './explanation-engine/index.ts';
 export * from './fight-opportunity/index.ts';
 export * from './journey/index.ts';
