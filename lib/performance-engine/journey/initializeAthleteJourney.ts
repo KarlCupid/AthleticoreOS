@@ -33,6 +33,8 @@ import {
   type UnknownField,
   type WeightClassPlan,
 } from '../types/index.ts';
+import { createFightOpportunity, snapshotFightOpportunity } from '../fight-opportunity/fightOpportunityEngine.ts';
+import { resolveBuildPhaseForGoal } from '../phase-controller/phaseController.ts';
 import { confidenceFromLevel } from '../utils/confidence.ts';
 import { normalizeBodyMass, type BodyMassUnit } from '../utils/bodyMassUnits.ts';
 import { createMeasurementRange } from '../utils/units.ts';
@@ -163,8 +165,14 @@ function mapPhase(input: {
   goalMode: JourneyGoalMode | 'unknown';
   legacyPhase?: string | null;
 }): AthleticorePhase {
+  if (input.legacyPhase === 'camp-taper') {
+    return 'taper';
+  }
   if (input.legacyPhase?.startsWith('camp') || input.legacyPhase === 'fight-camp') {
     return 'camp';
+  }
+  if (input.legacyPhase === 'pre-camp') {
+    return 'weight_class_management';
   }
 
   if (input.goalMode === 'fight_camp') {
@@ -398,7 +406,9 @@ function buildTrainingBlock(input: {
   return {
     id: 'initial-training-block',
     phase: input.phase,
-    goal: input.phase === 'camp' ? 'fight_camp' : input.goalType,
+    goal: ['camp', 'short_notice_camp', 'competition_week', 'taper'].includes(input.phase)
+      ? 'fight_camp'
+      : input.goalType,
     status: 'active',
     startDate: input.asOfDate,
     endDate: null,
@@ -414,6 +424,10 @@ function buildTrainingBlock(input: {
 }
 
 function buildFightOpportunity(input: {
+  userId: string;
+  asOfDate: ISODateString;
+  capturedAt: ISODateTimeString;
+  currentPhase: AthleticorePhase;
   goalMode: JourneyGoalMode;
   fightDate: ISODateString | null;
   targetWeightLbs: number | null;
@@ -423,18 +437,16 @@ function buildFightOpportunity(input: {
     return null;
   }
 
-  return {
+  return snapshotFightOpportunity(createFightOpportunity({
     id: 'initial-fight-opportunity',
+    athleteId: input.userId,
     status: 'confirmed',
+    asOfDate: input.asOfDate,
+    createdAt: input.capturedAt,
+    currentPhase: input.currentPhase,
     competitionDate: input.fightDate,
-    targetWeightClassName: null,
-    targetBodyMassRange: targetBodyMassRange(input.targetWeightLbs, 'lb', input.confidence),
-    explanation: createExplanation({
-      summary: 'Known fight captured as the first fight opportunity.',
-      reasons: ['The opportunity belongs to the athlete journey and can be changed later without resetting the baseline.'],
-      confidence: input.confidence,
-    }),
-  };
+    targetWeightLbs: input.targetWeightLbs,
+  }));
 }
 
 function buildRiskFlags(input: {
@@ -535,7 +547,20 @@ function buildInitialization(input: {
     missingFields,
     confidence: input.confidence,
   });
-  const phase = mapPhase({ goalMode: input.goalMode });
+  const basePhase = input.goalMode === 'fight_camp'
+    ? 'build'
+    : resolveBuildPhaseForGoal(input.buildGoalType);
+  const activeFightOpportunity = buildFightOpportunity({
+    userId: input.userId,
+    asOfDate: input.asOfDate,
+    capturedAt: input.capturedAt,
+    currentPhase: basePhase,
+    goalMode: input.goalMode,
+    fightDate: input.fightDate,
+    targetWeightLbs: input.targetWeightLbs,
+    confidence: input.confidence,
+  });
+  const phase = activeFightOpportunity?.phaseRecommendation.recommendedPhase ?? basePhase;
   const phaseState = buildPhaseState({ phase, asOfDate: input.asOfDate, confidence: input.confidence });
   const protectedWorkoutAnchors = buildProtectedAnchors(input.fixedSessions, input.confidence);
   const trainingAvailability = buildAvailability({
@@ -568,12 +593,6 @@ function buildInitialization(input: {
     goalType: input.buildGoalType,
     asOfDate: input.asOfDate,
     anchors: protectedWorkoutAnchors,
-    confidence: input.confidence,
-  });
-  const activeFightOpportunity = buildFightOpportunity({
-    goalMode: input.goalMode,
-    fightDate: input.fightDate,
-    targetWeightLbs: input.targetWeightLbs,
     confidence: input.confidence,
   });
   const goals = [buildGoal({

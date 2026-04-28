@@ -3,6 +3,7 @@ import { generateCampPlan, determineCampPhase, toCampEnginePhase } from '../engi
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getAthleteContext } from './athleteContextService';
 import { getEffectiveWeight } from './weightService';
+import { createFightOpportunity, mapPerformancePhaseToLegacyPhase } from '../performance-engine';
 import { PLANNING_SETUP_VERSION } from './planningConstants';
 import type {
   CampConfig,
@@ -172,7 +173,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
         athlete_goal_mode: 'build_phase',
         performance_goal_type: input.performanceGoalType ?? 'conditioning',
         planning_setup_version: PLANNING_SETUP_VERSION,
-        phase: 'off-season',
+        phase: mapPerformancePhaseToLegacyPhase('build'),
       })
       .eq('user_id', userId);
 
@@ -260,7 +261,23 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
   if (error) throw error;
 
   const camp = normalizeCampConfig(data as CampPlanRow);
+  const targetWeight = input.targetWeight ?? athleteContext.profile?.target_weight ?? null;
+  const opportunity = createFightOpportunity({
+    id: activeCamp?.id ?? `${userId}:fight-opportunity:${input.fightDate}`,
+    athleteId: userId,
+    status: 'confirmed',
+    asOfDate: today,
+    createdAt: new Date().toISOString(),
+    currentPhase: athleteContext.goalMode === 'fight_camp' ? 'camp' : 'build',
+    competitionDate: input.fightDate,
+    targetWeightLbs: targetWeight,
+  });
   const phaseForToday = camp ? determineCampPhase(camp, today) : null;
+  const generatedCampLegacyPhase = phaseForToday ? toCampEnginePhase(phaseForToday) : null;
+  const recommendedLegacyPhase = mapPerformancePhaseToLegacyPhase(opportunity.phaseRecommendation.recommendedPhase);
+  const nextProfilePhase = opportunity.phaseRecommendation.recommendedPhase === 'camp'
+    ? generatedCampLegacyPhase ?? recommendedLegacyPhase
+    : recommendedLegacyPhase;
 
   await supabase
     .from('athlete_profiles')
@@ -268,9 +285,9 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
       athlete_goal_mode: 'fight_camp',
       performance_goal_type: input.performanceGoalType ?? athleteContext.profile?.performance_goal_type ?? 'conditioning',
       fight_date: input.fightDate,
-      target_weight: input.targetWeight ?? athleteContext.profile?.target_weight ?? null,
+      target_weight: targetWeight,
       planning_setup_version: PLANNING_SETUP_VERSION,
-      phase: phaseForToday ? toCampEnginePhase(phaseForToday) : 'fight-camp',
+      phase: nextProfilePhase,
     })
     .eq('user_id', userId);
 

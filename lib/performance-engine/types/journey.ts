@@ -1,6 +1,7 @@
 import type { AthleteProfile } from './athlete.ts';
 import type { BodyMassState, WeightClassPlan } from './bodyMass.ts';
 import type { Explanation } from './explanation.ts';
+import type { FightOpportunitySnapshot } from './fightOpportunity.ts';
 import type { PhaseState } from './phase.ts';
 import { createPhaseState } from './phase.ts';
 import type { RiskFlag } from './risk.ts';
@@ -13,6 +14,7 @@ function dateFromDateTime(value: ISODateTimeString | null): ISODateString | null
 }
 
 export type JourneyEventType =
+  | 'phase_transitioned'
   | 'onboarding_completed'
   | 'build_phase_started'
   | 'fight_opportunity_created'
@@ -36,15 +38,6 @@ export interface JourneyEvent {
   occurredAt: ISODateTimeString;
   effectiveDate: ISODateString | null;
   payload: Record<string, unknown>;
-  explanation: Explanation | null;
-}
-
-export interface FightOpportunitySnapshot {
-  id: string;
-  status: 'tentative' | 'confirmed' | 'short_notice' | 'canceled' | 'rescheduled' | 'completed';
-  competitionDate: ISODateString | null;
-  targetWeightClassName: string | null;
-  targetBodyMassRange: WeightClassPlan['targetBodyMassRange'] | null;
   explanation: Explanation | null;
 }
 

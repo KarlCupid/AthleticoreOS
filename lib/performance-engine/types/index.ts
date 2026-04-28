@@ -1,6 +1,7 @@
 export * from './athlete.ts';
 export * from './bodyMass.ts';
 export * from './explanation.ts';
+export * from './fightOpportunity.ts';
 export * from './journey.ts';
 export * from './nutrition.ts';
 export * from './performanceState.ts';
