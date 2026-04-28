@@ -77,7 +77,7 @@ export const BUILD_GOAL_OBJECTIVE_PLACEHOLDERS: Record<BuildPhaseGoalType, strin
   strength: 'Increase lower-body strength without giving up speed or freshness.',
   conditioning: 'Build the pace to hold strong output from the first round through the last.',
   boxing_skill: 'Sharpen technical execution so exchanges stay cleaner under pressure.',
-  weight_class_prep: 'Move toward the target class steadily before the cut becomes urgent.',
+  weight_class_prep: 'Move toward the target class steadily before the timeline becomes urgent.',
 };
 
 export const DEFAULT_WINDOW = { startTime: '18:00', endTime: '20:00' };

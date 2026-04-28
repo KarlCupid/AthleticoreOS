@@ -516,7 +516,7 @@ console.log('\n── Decision trace ──');
     }));
     const sodiumTrace = mission.decisionTrace.find(t => t.title === 'Sodium restriction');
     assert('Sodium restriction trace present', sodiumTrace != null);
-    assert('Sodium interpretation present', sodiumTrace?.humanInterpretation?.includes('do not escalate restriction') ?? false);
+    assert('Sodium interpretation present', sodiumTrace?.humanInterpretation?.includes('qualified support') ?? false);
     assert('Sodium trace detail sanitizes unsafe copy', !(sodiumTrace?.detail.toLowerCase().includes('water dump') ?? true));
     assert('Hydration directive sanitizes unsafe copy', !mission.hydrationDirective.message.toLowerCase().includes('water dump'));
 })();

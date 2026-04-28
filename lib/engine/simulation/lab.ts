@@ -444,8 +444,8 @@ function classifyDriverGroup(driver: string): number {
     return 0;
   }
   if (
-    normalized.includes('weight cut')
-    || normalized.includes('fight-week cut')
+    normalized.includes('weight-class')
+    || normalized.includes('body-mass')
     || normalized.includes('glycogen')
     || normalized.includes('dehydr')
     || normalized.includes('sodium')

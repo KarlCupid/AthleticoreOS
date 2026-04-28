@@ -6,7 +6,7 @@ export const APP_IMPACTS = [
     color: '#B7D9A8',
     bg: 'rgba(183, 217, 168, 0.12)',
     detail:
-      'Macro targets recalculate daily based on your current cut phase. Calories, protein, carbs, and fat all adjust automatically, and refeed days are scheduled when needed.',
+      'Nutrition targets stay tied to training demand, recovery, and weight-class feasibility. Unsafe under-fueling pressure is blocked.',
   },
   {
     icon: 'H2O',
@@ -15,7 +15,7 @@ export const APP_IMPACTS = [
     color: '#B8C0C2',
     bg: 'rgba(184, 192, 194, 0.12)',
     detail:
-      'Daily water targets update based on your cut phase. Fight week adds conservative hydration and sodium guardrails with visible safety warnings.',
+      'Fluid and electrolyte guidance stays steady and familiar. The app does not create acute scale-based fluid tactics.',
   },
   {
     icon: 'S&C',
@@ -24,7 +24,7 @@ export const APP_IMPACTS = [
     color: '#D4AF37',
     bg: 'rgba(212, 175, 55, 0.12)',
     detail:
-      'Prescribed workouts and training intensity are capped based on your current cut phase. Harder cuts reduce intensity to protect recovery.',
+      'Training works around the body-mass context, readiness, protected workouts, and fight proximity without chasing the scale.',
   },
   {
     icon: 'Data',
@@ -33,26 +33,26 @@ export const APP_IMPACTS = [
     color: '#D4AF37',
     bg: 'rgba(245, 245, 240, 0.08)',
     detail:
-      'Your phase switches into fight camp automatically when the fight is 12 weeks away or closer. Readiness reflects cut progress and recovery pressure.',
+      'Fight timing and weight-class feasibility update the continuous athlete journey without restarting the plan.',
   },
 ] as const;
 
 export const CUT_PHASES = [
   {
-    label: 'Chronic Phase',
+    label: 'Long-Term Management',
     when: '8+ weeks out',
     color: '#D4AF37',
     bg: 'rgba(212, 175, 55, 0.12)',
     description:
-      'Moderate caloric deficit with normal training loads. The goal is steady fat loss without compromising recovery.',
+      'Gradual body-composition work with normal fueling, trend monitoring, and no acute fight-week shortcuts.',
   },
   {
-    label: 'Intensified Phase',
+    label: 'Weight-Class Prep',
     when: '2-8 weeks out',
     color: '#B7D9A8',
     bg: 'rgba(183, 217, 168, 0.12)',
     description:
-      'A larger deficit with macro cycling. Training intensity caps begin and refeed days help preserve performance.',
+      'Feasibility is checked against the timeline, readiness, nutrition confidence, and body-mass trend.',
   },
   {
     label: 'Fight Week',
@@ -60,13 +60,13 @@ export const CUT_PHASES = [
     color: '#D4AF37',
     bg: 'rgba(245, 245, 240, 0.08)',
     description:
-      'Conservative hydration, sodium, and low-residue guidance. Training volume drops sharply, and warnings stay visible when risk is elevated.',
+      'Competition-week body-mass monitoring preserves familiar foods, steady fluids, and visible safety warnings.',
   },
   {
-    label: 'Rehydration',
+    label: 'Post Weigh-In Recovery',
     when: 'After weigh-in',
     color: '#B7D9A8',
     bg: 'rgba(183, 217, 168, 0.12)',
-    description: 'Rapid rehydration and carb restoration to rebuild performance before fight time.',
+    description: 'Recovery tracking uses familiar foods, steady fluids, gut comfort, and symptom monitoring.',
   },
 ] as const;

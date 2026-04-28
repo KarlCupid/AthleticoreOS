@@ -10,16 +10,12 @@ import type {
 
 /**
  * Carb-expenditure coefficient.
- * Every point of planned_intensity on a skipped block ≈ 8 g of carbs
- * that the athlete will NOT burn. We subtract this from the day's
- * prescribed carbs to keep the weight cut on schedule.
- *
- * During intensified/fight-week cut phases, the coefficient is
- * amplified to 12 g because the athlete has lower overall glycogen
- * stores and the missed burn has a larger proportional impact.
+ * Every point of planned_intensity on a skipped block is treated as
+ * roughly 8 g of carbohydrate demand that no longer happened. This is
+ * a demand adjustment only; body-mass pressure is owned by the
+ * Nutrition/Fueling and Body Mass engines.
  */
 const CARB_GRAMS_PER_INTENSITY_POINT = 8;
-const CARB_GRAMS_PER_INTENSITY_POINT_CUT = 12;
 
 // ─── handleTimelineShift ───────────────────────────────────────
 
@@ -52,15 +48,8 @@ export function handleTimelineShift({
         );
     }
 
-    // Use amplified coefficient during intensified/fight-week cut phases
-    const isAmplifiedCut = cutPhase != null && (
-        cutPhase === 'intensified' ||
-        cutPhase === 'fight_week_load' ||
-        cutPhase === 'fight_week_cut'
-    );
-    const coefficient = isAmplifiedCut
-        ? CARB_GRAMS_PER_INTENSITY_POINT_CUT
-        : CARB_GRAMS_PER_INTENSITY_POINT;
+    const hasBodyMassContext = cutPhase != null;
+    const coefficient = CARB_GRAMS_PER_INTENSITY_POINT;
 
     const carbReduction =
         skippedBlock.planned_intensity * coefficient;
@@ -75,11 +64,11 @@ export function handleTimelineShift({
     const appliedReduction =
         currentLedger.prescribed_carbs - updatedCarbs;
 
-    const cutContext = isAmplifiedCut
-        ? ' (amplified for active weight cut)'
+    const context = hasBodyMassContext
+        ? ' Body-mass context remains safety-gated by the Nutrition/Fueling Engine.'
         : '';
     const message =
-        `Workout skipped. Your daily carb target has been lowered by ${appliedReduction}g${cutContext} to keep your weight cut on schedule.`;
+        `Workout skipped. Daily carbohydrate demand changed by ${appliedReduction}g.${context}`;
 
     return { updatedCarbs, carbReduction: appliedReduction, message };
 }

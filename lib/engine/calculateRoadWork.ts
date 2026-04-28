@@ -300,7 +300,7 @@ export function prescribeRoadWork(input: {
         ? resolvedIntensityCap
         : getDailyCutIntensityCap(activeCutPlan, effectiveDate);
 
-    // Apply intensity cap from weight cut protocol
+    // Apply intensity cap from weight-class safety context.
     // Walk down the intensity ladder until the type fits within the cap
     if (effectiveIntensityCap !== null && effectiveIntensityCap !== undefined) {
         const intensityLadder: RoadWorkType[] = [

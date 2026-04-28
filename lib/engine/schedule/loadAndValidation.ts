@@ -364,7 +364,7 @@ export function suggestAlternative(
             alternative: altType,
             message: `Weight cut protocol caps training at RPE ${trainingIntensityCap}. "${label}" at intensity ${intensity}/10 exceeds this limit. ` +
                 (trainingIntensityCap <= 2
-                    ? 'Rest only — no physical activity during this cut phase.'
+                    ? 'Rest only - no physical activity during this weight-class safety phase.'
                     : trainingIntensityCap <= 4
                         ? 'Light shadow boxing or stretching only during fight week.'
                         : 'Reduce intensity to stay within your cut protocol.'),

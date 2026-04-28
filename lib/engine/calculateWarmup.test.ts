@@ -87,7 +87,7 @@ console.log('\n── Dehydrated body weight state ──');
 
 const dehydrated = generateWarmupSets(makeInput({ body_weight_state: 'dehydrated', expected_intensity: 8 }));
 assert('dehydrated: safety_warning present', dehydrated.safety_warning != null);
-assert('dehydrated: safety_warning mentions weight cut', (dehydrated.safety_warning as string).toLowerCase().includes('weight cut') || (dehydrated.safety_warning as string).toLowerCase().includes('cut'));
+assert('dehydrated: safety_warning mentions body-mass safety', (dehydrated.safety_warning as string).toLowerCase().includes('body-mass safety'));
 assert('dehydrated: GPP phase modified to slow movements', dehydrated.phases[0].movements.length <= 2);
 
 const normal = generateWarmupSets(makeInput({ body_weight_state: 'normal' }));

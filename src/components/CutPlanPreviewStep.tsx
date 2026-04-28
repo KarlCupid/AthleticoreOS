@@ -48,10 +48,10 @@ export function CutPlanPreviewStep({
       ) : (
         <>
           <View style={styles.planSummaryGrid}>
-            <PlanStat label="Total Cut" value={`${planResult.totalCutLbs.toFixed(1)} lbs`} />
-            <PlanStat label="Cut %" value={`${planResult.totalCutPct.toFixed(1)}%`} />
-            <PlanStat label="Diet Loss" value={`${planResult.dietPhaseTargetLbs.toFixed(1)} lbs`} />
-            <PlanStat label="Water Cut" value={`${planResult.waterCutAllocationLbs.toFixed(1)} lbs`} />
+            <PlanStat label="Required Change" value={`${planResult.totalCutLbs.toFixed(1)} lbs`} />
+            <PlanStat label="Change %" value={`${planResult.totalCutPct.toFixed(1)}%`} />
+            <PlanStat label="Gradual Target" value={`${planResult.dietPhaseTargetLbs.toFixed(1)} lbs`} />
+            <PlanStat label="Acute Loss" value={`${planResult.waterCutAllocationLbs.toFixed(1)} lbs`} />
             <PlanStat label="Weekly Rate" value={`${planResult.safeWeeklyLossRateLbs.toFixed(1)} lbs/wk`} />
             <PlanStat label="Daily Deficit" value={`~${planResult.estimatedDailyDeficitIntensified} cal`} />
           </View>
@@ -59,7 +59,7 @@ export function CutPlanPreviewStep({
           <View style={styles.phaseBreakdown}>
             {planResult.chronicPhaseDates ? (
               <PhaseRow
-                name="Chronic Cut"
+                name="Long-Term Management"
                 start={planResult.chronicPhaseDates.start}
                 end={planResult.chronicPhaseDates.end}
                 color="#D4AF37"
@@ -67,7 +67,7 @@ export function CutPlanPreviewStep({
               />
             ) : null}
             <PhaseRow
-              name="Intensified Cut"
+              name="Weight-Class Prep"
               start={planResult.intensifiedPhaseDates.start}
               end={planResult.intensifiedPhaseDates.end}
               color={COLORS.success}

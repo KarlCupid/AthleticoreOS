@@ -211,9 +211,9 @@ export function CutPlanSetupScreen() {
     <View style={styles.stepContainer}>
       <View style={styles.introHero}>
         <Text style={styles.introHeroEmoji}>CUT</Text>
-        <Text style={styles.introHeroTitle}>Set up your cut</Text>
+        <Text style={styles.introHeroTitle}>Set up weight class</Text>
         <Text style={styles.introHeroSub}>
-          Targets update by cut phase.
+          Safety gates evaluate the class, timeline, and trend.
         </Text>
       </View>
 
@@ -357,7 +357,7 @@ export function CutPlanSetupScreen() {
 
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
-          Most promotions weigh in the day before competition. Same-day weigh-ins leave less time to recover, so rehydration pacing matters more.
+          Most promotions weigh in the day before competition. Same-day weigh-ins leave less time to recover, so post weigh-in pacing matters more.
         </Text>
       </View>
 
@@ -454,7 +454,7 @@ export function CutPlanSetupScreen() {
           >
             <Text style={styles.nextButtonText}>
               {step === 1
-                ? 'Build my cut plan'
+                ? 'Evaluate weight class'
                 : step === 4 && requiresRiskAcknowledgement && !extremeAcknowledged
                   ? 'Confirm risks above to continue'
                   : step === 4
@@ -464,7 +464,7 @@ export function CutPlanSetupScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.activateButton} onPress={handleActivate} disabled={loading}>
-            {loading ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.nextButtonText}>Activate cut plan</Text>}
+            {loading ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.nextButtonText}>Activate weight-class plan</Text>}
           </TouchableOpacity>
         )}
       </View>

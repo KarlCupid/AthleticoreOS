@@ -28,7 +28,7 @@ type AthleteProfile = {
 };
 
 const HEALTH_GUIDANCE_NOTE =
-  'Rehydration guidance is coaching-oriented and educational. It does not replace licensed medical advice, diagnosis, or emergency support.';
+  'Post weigh-in recovery guidance is coaching-oriented and educational. It does not replace licensed medical advice, diagnosis, or emergency support.';
 
 export function RehydrationProtocolScreen() {
   const nav = useNavigation<NavProp>();
@@ -83,7 +83,7 @@ export function RehydrationProtocolScreen() {
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rehydration Protocol</Text>
+        <Text style={styles.headerTitle}>Post Weigh-In Recovery</Text>
         <Text style={styles.headerSub}>
           Weigh-in: {weighInWeightLbs.toFixed(1)} lbs to Target regain: +
           {protocol.weightToRegainLbs.toFixed(1)} lbs

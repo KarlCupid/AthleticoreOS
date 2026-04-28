@@ -9,12 +9,12 @@ interface Props {
 }
 
 const PHASES: { key: CutPhase; label: string; short: string; color: string }[] = [
-  { key: 'chronic',         label: 'Chronic',      short: 'CHR', color: '#D4AF37' },
-  { key: 'intensified',     label: 'Intensified',  short: 'INT', color: '#15803D' },
-  { key: 'fight_week_load', label: 'Water Load',   short: 'WL',  color: '#B8C0C2' },
-  { key: 'fight_week_cut',  label: 'Water Cut',    short: 'WC',  color: '#D4AF37' },
+  { key: 'chronic',         label: 'Long-Term',    short: 'LT',  color: '#D4AF37' },
+  { key: 'intensified',     label: 'Class Prep',   short: 'CP',  color: '#15803D' },
+  { key: 'fight_week_load', label: 'Monitoring',   short: 'MON', color: '#B8C0C2' },
+  { key: 'fight_week_cut',  label: 'Blocked',      short: 'BLK', color: '#D4AF37' },
   { key: 'weigh_in',        label: 'Weigh-in',     short: 'WI',  color: '#D9827E' },
-  { key: 'rehydration',     label: 'Rehydrate',    short: 'RH',  color: '#10B981' },
+  { key: 'rehydration',     label: 'Recovery',     short: 'REC', color: '#10B981' },
 ];
 
 const PHASE_ORDER = PHASES.map(p => p.key);

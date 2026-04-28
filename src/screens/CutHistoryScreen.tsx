@@ -30,7 +30,7 @@ export function CutHistoryScreen() {
         <Text style={styles.emptyIcon}>🏆</Text>
         <Text style={styles.emptyTitle}>No Completed Cuts</Text>
         <Text style={styles.emptySubtitle}>
-          Your weight cut records will appear here once you complete a cut.
+          Your weight-class records will appear here once a plan is completed.
         </Text>
       </View>
     );
@@ -94,7 +94,7 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
       {/* Stats row */}
       <View style={styles.statsRow}>
         <StatPill
-          label="Total Cut"
+          label="Total Change"
           value={`${totalLbs.toFixed(1)} lbs`}
           color={COLORS.chart.fitness}
         />
@@ -115,9 +115,9 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
         <View style={styles.expanded}>
           <View style={styles.divider} />
           <View style={styles.detailGrid}>
-            <DetailRow label="Diet phase loss" value={`${(cut.total_diet_loss_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Water cut" value={`${(cut.total_water_cut_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Rehydration regained" value={cut.rehydration_weight_regained ? `${cut.rehydration_weight_regained.toFixed(1)} lbs` : '—'} />
+            <DetailRow label="Gradual loss" value={`${(cut.total_diet_loss_lbs ?? 0).toFixed(1)} lbs`} />
+            <DetailRow label="Acute loss" value={`${(cut.total_water_cut_lbs ?? 0).toFixed(1)} lbs`} />
+            <DetailRow label="Post weigh-in regain" value={cut.rehydration_weight_regained ? `${cut.rehydration_weight_regained.toFixed(1)} lbs` : '—'} />
             <DetailRow label="Avg weekly loss" value={cut.avg_weekly_loss_rate ? `${cut.avg_weekly_loss_rate.toFixed(2)} lbs/wk` : '—'} />
             <DetailRow label="Fight day weight" value={cut.fight_day_weight ? `${cut.fight_day_weight} lbs` : '—'} />
             {(cut.safety_flags_triggered?.length ?? 0) > 0 && (

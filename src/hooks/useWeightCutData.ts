@@ -46,7 +46,7 @@ export function useWeightCutData(userId: string | null) {
 
       setState({ loading: false, error: null, data: dashboardData });
     } catch (err: any) {
-      setState({ loading: false, error: err.message ?? 'Failed to load weight cut data', data: null });
+      setState({ loading: false, error: err.message ?? 'Failed to load weight-class data', data: null });
     }
   }, [userId]);
 

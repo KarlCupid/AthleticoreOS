@@ -852,7 +852,7 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
     const targetExerciseCount = EXERCISE_COUNT[readinessState];
     const prescription = SET_PRESCRIPTIONS[readinessState];
 
-    // RPE cap from weight cut protocol
+    // RPE cap from weight-class safety context.
     const rpeCap = trainingIntensityCap ?? 10;
 
     // Determine workout type from focus

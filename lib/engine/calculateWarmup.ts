@@ -148,7 +148,7 @@ function generateDynamicWarmup(input: DynamicWarmupInput): DynamicWarmupResult {
     focus,
     phases,
     safety_warning: body_weight_state === 'dehydrated'
-      ? 'Weight cut alert: low intensity only. Focus on breathing and mobility.'
+      ? 'Body-mass safety alert: low intensity only. Focus on breathing and mobility.'
       : undefined,
   };
 }

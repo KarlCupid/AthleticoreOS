@@ -213,31 +213,29 @@ console.log('\n── autoRegulateSC ──');
     assert('Only first S&C block swapped', result.originalBlockId === 'sc-first');
 })();
 
-// ─── Cut-Aware handleTimelineShift Tests ──────────────────────
+// ─── Body-Mass-Aware handleTimelineShift Tests ────────────────
 
-console.log('\n── Cut-Aware handleTimelineShift ──');
+console.log('\n── Body-Mass-Aware handleTimelineShift ──');
 
-// Intensified phase: amplified coefficient (12g per point)
 (() => {
     const result = handleTimelineShift({
         skippedBlock: makeBlock({ status: 'Skipped', planned_intensity: 10 }),
         currentLedger: makeLedger({ prescribed_carbs: 300 }),
         cutPhase: 'intensified',
     });
-    assert('Intensified → 120g reduction (12 * 10)', result.carbReduction === 120);
-    assert('Updated carbs = 180', result.updatedCarbs === 180);
-    assert('Message mentions amplified', result.message.includes('amplified'));
+    assert('Intensified context uses normal demand adjustment', result.carbReduction === 80);
+    assert('Updated carbs = 220', result.updatedCarbs === 220);
+    assert('Message points to safety-gated engine', result.message.includes('safety-gated'));
 })();
 
-// Fight week cut: amplified coefficient
 (() => {
     const result = handleTimelineShift({
         skippedBlock: makeBlock({ status: 'Skipped', planned_intensity: 5 }),
         currentLedger: makeLedger({ prescribed_carbs: 300 }),
         cutPhase: 'fight_week_cut',
     });
-    assert('Fight week cut → 60g reduction (12 * 5)', result.carbReduction === 60);
-    assert('Updated carbs = 240', result.updatedCarbs === 240);
+    assert('Fight week context does not amplify restriction', result.carbReduction === 40);
+    assert('Updated carbs = 260', result.updatedCarbs === 260);
 })();
 
 // No cut phase: normal coefficient
@@ -250,7 +248,6 @@ console.log('\n── Cut-Aware handleTimelineShift ──');
     assert('No amplified mention', !result.message.includes('amplified'));
 })();
 
-// Chronic phase: NOT amplified (only intensified/fight-week)
 (() => {
     const result = handleTimelineShift({
         skippedBlock: makeBlock({ status: 'Skipped', planned_intensity: 10 }),

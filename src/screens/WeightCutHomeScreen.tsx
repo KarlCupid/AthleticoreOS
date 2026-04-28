@@ -23,12 +23,12 @@ import { CutPhase, CutSafetyFlag } from '../../lib/engine/types';
 type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightCutHome'>;
 
 const PHASE_LABELS: Record<CutPhase, string> = {
-  chronic: 'Chronic Cut',
-  intensified: 'Intensified Cut',
-  fight_week_load: 'Water Loading',
-  fight_week_cut: 'Water Cut',
+  chronic: 'Long-Term Management',
+  intensified: 'Weight-Class Prep',
+  fight_week_load: 'Competition Week Monitoring',
+  fight_week_cut: 'Blocked Acute Protocol',
   weigh_in: 'Weigh-in Day',
-  rehydration: 'Rehydration',
+  rehydration: 'Post Weigh-In Recovery',
 };
 
 const PHASE_COLORS: Record<CutPhase, string[]> = {
@@ -134,7 +134,7 @@ export function WeightCutHomeScreen() {
           <IconScale size={64} color={COLORS.accent} />
           <Text style={styles.noCutTitle}>No Active Weight Cut</Text>
           <Text style={styles.noCutSubtitle}>
-            Build a cut plan for fight date and class.
+            Evaluate fight date, class, body-mass trend, and safety.
           </Text>
           <TouchableOpacity
             style={styles.startButton}
@@ -287,7 +287,7 @@ export function WeightCutHomeScreen() {
               hoursToFight: 24,
             })}
           >
-            <Text style={styles.actionButtonText}>Rehydration Protocol</Text>
+            <Text style={styles.actionButtonText}>Post Weigh-In Recovery</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />
           </TouchableOpacity>
         ) : null}

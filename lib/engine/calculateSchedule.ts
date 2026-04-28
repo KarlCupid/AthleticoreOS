@@ -400,7 +400,7 @@ export function generateWeekPlan(
 
                 if (cutCap != null && finalIntensity > cutCap) {
                     finalIntensity = cutCap;
-                    engRec = `⚠️ Intensity capped at ${cutCap} due to strict weight cut protocol limits.`;
+                    engRec = `⚠️ Intensity capped at ${cutCap} due to weight-class safety limits.`;
                 }
 
                 result.push({
@@ -484,7 +484,7 @@ export function generateWeekPlan(
             const date = scCandidates[i];
             const prevDate = addDays(date, -1);
 
-            // Apply weight cut intensity cap derived from date
+            // Apply weight-class safety cap derived from date.
             const cutCap = getDailyCutIntensityCap(input.activeCutPlan, date);
             const scIntensity = cutCap != null ? Math.min(baseScIntensity, cutCap) : baseScIntensity;
 
@@ -497,7 +497,7 @@ export function generateWeekPlan(
             if (readinessState !== 'Prime') reasons.push(`readiness is ${readinessState}`);
             if (acwr > acwrThresholds.caution) reasons.push(`ACWR at ${acwr.toFixed(2)}`);
             if (sleepTrendAvg > 0 && sleepTrendAvg < 3.0) reasons.push(`sleep low`);
-            if (cutCap != null && cutCap < baseScIntensity) reasons.push(`weight cut phase limits intensity`);
+            if (cutCap != null && cutCap < baseScIntensity) reasons.push(`weight-class safety limits intensity`);
 
             const recommendation = reasons.length > 0
                 ? `S&C at RPE ${scIntensity} (reduced — ${reasons.join(', ')}). Adaptation improves when load matches recovery.`
@@ -696,7 +696,7 @@ export function generateWeekPlan(
         finalWeek,
         acwr,
         sleepTrendAvg,
-        input.activeCutPlan != null, // Has an active weight cut
+        input.activeCutPlan != null, // Has active weight-class constraints
         { fitnessLevel, phase: effectivePhase },
     );
 
@@ -717,7 +717,7 @@ export function generateWeekPlan(
         }
     }
 
-    // ── Step 8: Final strict weight cut cap enforcement ──
+    // ── Step 8: Final weight-class safety cap enforcement ──
     const finalCleaned: WeekPlanEntry[] = [];
     for (const act of result) {
         const cutCap = getDailyCutIntensityCap(input.activeCutPlan, act.date);
@@ -726,10 +726,10 @@ export function generateWeekPlan(
                 if (cutCap <= 2 && act.activity_type !== 'active_recovery') {
                     act.activity_type = 'active_recovery';
                     act.expected_intensity = 2;
-                    act.engine_recommendation = `⚠️ Swapped to active recovery to comply with strict weight cut limits. ` + (act.engine_recommendation || '');
+                    act.engine_recommendation = `⚠️ Swapped to active recovery to comply with weight-class safety limits. ` + (act.engine_recommendation || '');
                 } else {
                     act.expected_intensity = cutCap;
-                    act.engine_recommendation = `⚠️ Intensity reduced to ${cutCap} due to active weight cut protocols. ` + (act.engine_recommendation || '');
+                    act.engine_recommendation = `⚠️ Intensity reduced to ${cutCap} due to weight-class safety limits. ` + (act.engine_recommendation || '');
                 }
             }
         }
@@ -1120,7 +1120,7 @@ export function resolveGuidedAvailability(input: {
  *   - exerciseLibrary: ExerciseLibraryRow[] (full library)
  *   - recentMuscleVolume: Record<MuscleGroup, number> (recent volume data)
  *   - campConfig: CampConfig | null (active camp)
- *   - activeCutPlan: WeightCutPlanRow | null (active weight cut)
+ *   - activeCutPlan: WeightCutPlanRow | null (active weight-class context)
  *   - weeksSinceLastDeload: number
  *   - gymProfile: GymProfileRow | null
  *   - weekStartDate: string (Monday ISO date)

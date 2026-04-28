@@ -9,7 +9,7 @@
  * This script:
  * 1. Creates a fighter profile
  * 2. Generates a camp plan (periodization)  
- * 3. Generates a weight cut plan
+ * 3. Generates a weight-class plan
  * 4. Day-by-day for 56 days:
  *    a. Morning checkin (weight, sleep, readiness)
  *    b. Compute readiness state (getGlobalReadinessState)
@@ -472,7 +472,7 @@ function main() {
                 });
 
                 // BUG CHECK: Does schedule know about the cut's training intensity cap?
-                // The weight cut protocol produces a trainingIntensityCap, but it's computed DAILY,
+                // The weight-class context produces a trainingIntensityCap, but it's computed DAILY,
                 // not weekly. The schedule is generated WEEKLY. Which cap does it use?
                 // FIXED: We now pass activeCutPlan directly into generateWeekPlan, which calculates the dynamic target per day.
 

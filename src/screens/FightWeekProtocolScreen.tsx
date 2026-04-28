@@ -24,15 +24,15 @@ import { UrineColorPicker } from '../components/UrineColorPicker';
 import { CognitiveTestCard } from '../components/CognitiveTestCard';
 
 const HEALTH_GUIDANCE_NOTE =
-  'Fight-week protocols are coaching-oriented guidance for educational use. Escalate to qualified medical support if symptoms worsen or the cut becomes unsafe.';
+  'Fight-week body-mass guidance is coaching-oriented education. Escalate to qualified medical support if symptoms worsen or the target becomes unsafe.';
 
 const PHASE_LABELS: Record<CutPhase, string> = {
-  chronic: 'Chronic Cut',
-  intensified: 'Intensified Cut',
-  fight_week_load: 'Water Loading',
-  fight_week_cut: 'Water Cut',
+  chronic: 'Long-Term Management',
+  intensified: 'Weight-Class Prep',
+  fight_week_load: 'Competition Week Monitoring',
+  fight_week_cut: 'Blocked Acute Protocol',
   weigh_in: 'Weigh-In Day',
-  rehydration: 'Rehydration',
+  rehydration: 'Post Weigh-In Recovery',
 };
 
 const PHASE_COLORS: Record<CutPhase, [string, string]> = {
@@ -188,7 +188,7 @@ export function FightWeekProtocolScreen() {
   if (loading || !activePlan) {
     return (
       <View style={styles.center}>
-        {loading ? <ActivityIndicator color={COLORS.accent} size="large" /> : <Text style={styles.emptyText}>No active cut plan.</Text>}
+        {loading ? <ActivityIndicator color={COLORS.accent} size="large" /> : <Text style={styles.emptyText}>No active weight-class plan.</Text>}
       </View>
     );
   }

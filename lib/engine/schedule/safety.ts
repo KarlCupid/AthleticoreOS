@@ -77,9 +77,9 @@ export function detectOvertrainingRisk(
     if (totalWeeklyLoad > loadCap) {
         warnings.push({
             severity: 'caution',
-            title: isOnActiveCut ? 'Weekly Load Too High for Cut' : 'Weekly Load Cap Exceeded',
+            title: isOnActiveCut ? 'Weekly Load Too High for Weight-Class Context' : 'Weekly Load Cap Exceeded',
             message: isOnActiveCut
-                ? `Total planned load for the week is ${totalWeeklyLoad}. During a weight cut, the recommended cap is ${loadCap}.`
+                ? `Total planned load for the week is ${totalWeeklyLoad}. During active weight-class management, the recommended cap is ${loadCap}.`
                 : `Total planned load for the week is ${totalWeeklyLoad}. This exceeds the recommended ${loadCap} cap for most athletes.`,
             recommendation: 'Trim shorter conditioning sessions or reduce intensities on existing sessions.',
         });

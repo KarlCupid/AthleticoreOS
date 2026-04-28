@@ -318,24 +318,81 @@ function buildBodyMassState(input: {
 }
 
 function buildWeightClassPlan(input: {
+  athleteId: string;
   goalMode: JourneyGoalMode;
+  currentWeightLbs: number | null;
   targetWeightLbs: number | null;
   fightDate: ISODateString | null;
+  asOfDate: ISODateString;
   confidence: ConfidenceValue;
 }): WeightClassPlan | null {
   if (input.targetWeightLbs == null && input.fightDate == null) {
     return null;
   }
 
+  const currentBodyMass = normalizeBodyMass({
+    value: input.currentWeightLbs,
+    fromUnit: 'lb',
+    toUnit: 'lb',
+    measuredOn: input.asOfDate,
+    confidence: input.confidence,
+  });
+  const targetClassMass = normalizeBodyMass({
+    value: input.targetWeightLbs,
+    fromUnit: 'lb',
+    toUnit: 'lb',
+    measuredOn: input.fightDate,
+    confidence: input.confidence,
+  });
+  const targetRange = targetBodyMassRange(input.targetWeightLbs, 'lb', input.confidence);
+
   return {
     id: 'initial-weight-class-plan',
+    athleteId: input.athleteId,
     sport: 'boxing',
+    competitionId: null,
+    competitionDate: input.fightDate,
+    weighInDateTime: null,
+    competitionDateTime: input.fightDate ? `${input.fightDate}T00:00:00.000Z` : null,
+    currentBodyMass,
+    targetClassMass,
+    desiredScaleWeight: targetClassMass,
+    recentBodyMassTrend: {
+      direction: 'unknown',
+      weeklyChange: createMeasurementRange({ unit: 'lb' }),
+      confidence: input.confidence,
+    },
+    phase: input.goalMode === 'fight_camp' ? 'weight_class_management' : 'gradual_weight_class_preparation',
+    timeframeDays: null,
+    requiredChange: {
+      value: currentBodyMass && targetClassMass ? Math.round((currentBodyMass.value - targetClassMass.value) * 10) / 10 : null,
+      unit: 'lb',
+      direction: currentBodyMass && targetClassMass && currentBodyMass.value > targetClassMass.value ? 'loss_required' : 'unknown',
+    },
+    requiredRateOfChange: {
+      value: null,
+      unit: 'lb_per_week',
+      percentOfBodyMassPerWeek: null,
+    },
+    feasibilityStatus: 'insufficient_data',
+    riskLevel: 'moderate',
+    safetyFlags: currentBodyMass && targetClassMass ? [] : [{
+      code: currentBodyMass ? 'missing_target_class' : 'missing_body_mass_data',
+      severity: 'moderate',
+      message: 'Initial onboarding context is incomplete, so body-mass feasibility is unknown.',
+      blocksPlan: false,
+      riskFlagCode: 'missing_data',
+    }],
+    professionalReviewRequired: false,
+    nutritionImplications: ['Initial context is stored only; nutrition decisions are resolved by the Nutrition and Fueling Engine.'],
+    trainingImplications: ['Initial context is stored only; training decisions are resolved by the Adaptive Training Engine.'],
+    hydrationConcerns: ['Fluid and electrolyte habits should remain steady until a qualified plan is evaluated.'],
+    alternatives: [],
     status: input.targetWeightLbs == null ? 'exploratory' : 'planned',
     mode: input.goalMode === 'fight_camp' ? 'fight_week_support' : 'gradual_change',
     targetClassName: null,
-    targetBodyMassRange: targetBodyMassRange(input.targetWeightLbs, 'lb', input.confidence),
+    targetBodyMassRange: targetRange,
     weighInDate: null,
-    competitionDate: input.fightDate,
     safetyStatus: 'unknown',
     riskFlags: [],
     explanation: createExplanation({
@@ -579,9 +636,12 @@ function buildInitialization(input: {
     confidence: input.confidence,
   });
   const weightClassPlan = buildWeightClassPlan({
+    athleteId: athlete.athleteId,
     goalMode: input.goalMode,
+    currentWeightLbs: input.currentWeightLbs,
     targetWeightLbs: input.targetWeightLbs,
     fightDate: input.fightDate,
+    asOfDate: input.asOfDate,
     confidence: input.confidence,
   });
   const riskFlags = buildRiskFlags({

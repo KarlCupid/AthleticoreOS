@@ -121,7 +121,7 @@ function makeInput() {
         hydrationNotes: [],
         coachingNotes: [],
       },
-      reasonLines: ['Active weight cut protocol overrides the normal day engine.'],
+      reasonLines: ['Active weight-class context is safety-adjusted by the normal day engine.'],
       energyAvailability: 25,
       fuelingFloorTriggered: true,
       deficitBankDelta: 450,

@@ -1,6 +1,7 @@
 import {
   FIGHT_CAMP_SAFETY_POLICY,
   computeRehydrationFluidTargetLiters,
+  evaluateCutPlanSafety,
   getFightCampSodiumRestrictionInterpretation,
   getFightWeekCutHydrationInstruction,
   getFightWeekCutSodiumInstruction,
@@ -8,6 +9,7 @@ import {
   getFightWeekLoadHydrationMultiplier,
   getSafeFightCampSodiumRestrictionDetail,
   hasUnsafeFightCampSodiumLanguage,
+  getPolicyWaterCutPct,
 } from './policy.ts';
 
 let passed = 0;
@@ -26,16 +28,35 @@ function assert(label: string, condition: boolean): void {
 console.log('\n-- safety/policy --');
 
 assert('shared guided minimum is 20 minutes', FIGHT_CAMP_SAFETY_POLICY.scheduling.minimumGuidedSessionMin === 20);
-assert('unsafe sodium language detects water dump', hasUnsafeFightCampSodiumLanguage('Minimal sodium. Water dump starts now.'));
-assert('safe sodium detail sanitizes unsafe language', !getSafeFightCampSodiumRestrictionDetail('Zero sodium until weigh-in.').toLowerCase().includes('zero sodium'));
-assert('safe sodium detail preserves non-aggressive instruction', getSafeFightCampSodiumRestrictionDetail('Reduced sodium only if prescribed.') === 'Reduced sodium only if prescribed.');
-assert('sodium target at restriction threshold produces interpretation', getFightCampSodiumRestrictionInterpretation({ sodiumTargetMg: 500 }) != null);
-assert('fight-week load multiplier uses high-load phase at 6 days out', getFightWeekLoadHydrationMultiplier(6) === 2);
-assert('fight-week cut target maps 2 days out to 32 oz', getFightWeekCutWaterTargetOz(2) === 32);
-assert('fight-week cut instruction avoids water restriction language', !getFightWeekCutHydrationInstruction(32).toLowerCase().includes('water restriction'));
-assert('fight-week cut sodium avoids zero-sodium language', !getFightWeekCutSodiumInstruction(2).toLowerCase().includes('zero sodium'));
-assert('rehydration helper clamps over-target weight to zero liters', computeRehydrationFluidTargetLiters({ currentWeight: 172, targetWeight: 170 }) === 0);
-assert('rehydration helper preserves under-target fluid math', computeRehydrationFluidTargetLiters({ currentWeight: 165, targetWeight: 170 }) === 3.5);
+assert('unsafe sodium language is still detected', hasUnsafeFightCampSodiumLanguage('Minimal sodium. Water dump starts now.'));
+assert('unsafe sodium detail is sanitized', !getSafeFightCampSodiumRestrictionDetail('Zero sodium until weigh-in.').toLowerCase().includes('zero sodium'));
+assert('safe sodium detail preserves normal instruction', getSafeFightCampSodiumRestrictionDetail('Normal and predictable.') === 'Normal and predictable.');
+assert('low sodium target produces support interpretation', getFightCampSodiumRestrictionInterpretation({ sodiumTargetMg: 500 }) != null);
+assert('fight-week support multiplier no longer loads fluids', getFightWeekLoadHydrationMultiplier(6) === 1);
+assert('fight-week support target is baseline support', getFightWeekCutWaterTargetOz(2) === 96);
+assert('fight-week support instruction avoids restriction language', !getFightWeekCutHydrationInstruction(96).toLowerCase().includes('restriction'));
+assert('fight-week sodium stays normal', getFightWeekCutSodiumInstruction(2).includes('Normal'));
+assert('post weigh-in fluid helper no longer forces catch-up math', computeRehydrationFluidTargetLiters({ currentWeight: 165, targetWeight: 170 }) === 0);
+assert('policy water-cut allocation is zero', getPolicyWaterCutPct({ fightStatus: 'pro', athleteAge: 25, weighInTiming: 'next_day' }) === 0);
+
+(() => {
+  const warnings = evaluateCutPlanSafety({
+    startWeight: 180,
+    targetWeight: 160,
+    totalCutLbs: 20,
+    totalCutPct: 11.1,
+    daysToWeighIn: 5,
+    fightStatus: 'amateur',
+    athleteAge: 25,
+    weighInTiming: 'next_day',
+    waterCutAllocationLbs: 0,
+    dietPhaseTargetLbs: 20,
+    dietPhaseDays: 5,
+  });
+
+  assert('unsafe target creates medical warning', warnings[0]?.tier === 'medical');
+  assert('warning blocks rapid scale protocol language', warnings[0]?.message.includes('blocked') === true);
+})();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
 process.exit(failed > 0 ? 1 : 0);
