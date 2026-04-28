@@ -30,6 +30,7 @@ import type {
 import type { WorkoutPrescriptionV2 } from './training.ts';
 import type { DailyCutProtocolRow, WeightTrendResult } from './weight_cut.ts';
 import type { CampRiskAssessment } from '../calculateCampRisk.ts';
+import type { UnifiedPerformanceEngineResult } from '../../performance-engine/index.ts';
 
 export type TrainingSessionRole =
   | 'rest'
@@ -276,4 +277,5 @@ export interface DailyEngineState {
   mission: DailyMission;
   campRisk: CampRiskAssessment | null;
   medStatus: MEDStatus | null;
+  unifiedPerformance: UnifiedPerformanceEngineResult | null;
 }

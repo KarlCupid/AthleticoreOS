@@ -45,6 +45,21 @@ import { isActiveGuidedEnginePlanEntry } from '../engine/sessionOwnership';
 import { adaptPrescriptionToDailyReadiness } from '../engine/readiness/dailyCheck.ts';
 import { resolveWeeklyMissionWithDependencies } from './weeklyMissionResolver';
 import type { WorkoutPrescriptionV2 } from '../engine/types';
+import {
+  confidenceFromLevel,
+  createAthleteJourneyState,
+  createAthleteProfile,
+  createPhaseState,
+  createTrackingEntry,
+  createUnknownBodyMassState,
+  normalizeBodyMass,
+  runUnifiedPerformanceEngine,
+  type AdaptiveSessionKind,
+  type AthleticorePhase,
+  type BodyMassState,
+  type ProtectedAnchorInput,
+  type UnifiedPerformanceEngineResult,
+} from '../performance-engine/index.ts';
 
 interface DailyMissionOptions {
   forceRefresh?: boolean;
@@ -139,6 +154,263 @@ function getWeekWindow(date: string): { weekStart: string; weekEnd: string } {
     weekStart,
     weekEnd: addDays(weekStart, 6),
   };
+}
+
+function mapLegacyPhaseToUnifiedPhase(phase: Phase): AthleticorePhase {
+  switch (phase) {
+    case 'fight-camp':
+    case 'camp-base':
+    case 'camp-build':
+    case 'camp-peak':
+      return 'camp';
+    case 'camp-taper':
+      return 'competition_week';
+    case 'pre-camp':
+      return 'weight_class_management';
+    case 'off-season':
+    default:
+      return 'build';
+  }
+}
+
+function trainingBackgroundFromFitnessLevel(value: string) {
+  if (value === 'beginner') return 'recreational' as const;
+  if (value === 'advanced') return 'competitive' as const;
+  if (value === 'elite') return 'professional' as const;
+  return 'competitive' as const;
+}
+
+function kindForScheduledActivity(activity: ScheduledActivityRow): AdaptiveSessionKind {
+  const sessionKind = (activity.session_kind ?? '').toLowerCase();
+  if (sessionKind.includes('competition') || sessionKind.includes('tournament') || sessionKind.includes('fight')) return 'competition';
+  if (sessionKind.includes('spar')) return 'sparring';
+  if (sessionKind.includes('mobility')) return 'mobility';
+  if (sessionKind.includes('prehab')) return 'prehab';
+  if (sessionKind.includes('breath')) return 'breathwork';
+  if (sessionKind.includes('core')) return 'core';
+  if (sessionKind.includes('speed')) return 'speed';
+  if (sessionKind.includes('power')) return 'power';
+  if (sessionKind.includes('threshold')) return 'threshold';
+  if (sessionKind.includes('interval')) return 'hard_intervals';
+  if (sessionKind.includes('zone2') || sessionKind.includes('zone_2')) return 'zone2';
+
+  switch (activity.activity_type) {
+    case 'sparring':
+      return 'sparring';
+    case 'boxing_practice':
+      return 'boxing_skill';
+    case 'sc':
+      return activity.expected_intensity >= 7 ? 'heavy_lower_strength' : 'strength';
+    case 'conditioning':
+      return activity.expected_intensity >= 7 ? 'hard_intervals' : 'conditioning';
+    case 'running':
+    case 'road_work':
+      return activity.expected_intensity >= 7 ? 'threshold' : 'zone2';
+    case 'active_recovery':
+      return 'recovery';
+    case 'rest':
+      return 'rest';
+    default:
+      return activity.expected_intensity >= 7 ? 'conditioning' : 'recovery';
+  }
+}
+
+function protectedAnchorsFromScheduledActivities(activities: ScheduledActivityRow[]): ProtectedAnchorInput[] {
+  return activities
+    .filter((activity) => activity.status !== 'skipped')
+    .filter((activity) => (
+      activity.athlete_locked === true
+      || activity.constraint_tier === 'mandatory'
+      || activity.activity_type === 'sparring'
+      || activity.activity_type === 'boxing_practice'
+    ))
+    .map((activity) => ({
+      id: activity.id,
+      label: activity.custom_label ?? String(activity.activity_type).replace(/_/g, ' '),
+      kind: kindForScheduledActivity(activity),
+      dayOfWeek: new Date(`${activity.date}T00:00:00Z`).getUTCDay(),
+      date: activity.date,
+      startTime: activity.start_time ?? null,
+      durationMinutes: activity.estimated_duration_min,
+      intensityRpe: activity.intended_intensity ?? activity.expected_intensity,
+      source: activity.athlete_locked ? 'user_locked' : activity.activity_type === 'sparring' || activity.activity_type === 'boxing_practice' ? 'protected_anchor' : 'manual',
+      canMerge: false,
+      reason: 'Scheduled athlete commitment loaded as a protected anchor for unified performance planning.',
+    }));
+}
+
+function buildDailyBodyMassState(input: {
+  currentWeightLbs: number | null;
+  date: string;
+}): BodyMassState {
+  const confidence = confidenceFromLevel(input.currentWeightLbs != null ? 'medium' : 'unknown', [
+    input.currentWeightLbs != null ? 'Current body mass came from athlete context.' : 'Current body mass is missing.',
+  ]);
+  const current = input.currentWeightLbs != null
+    ? normalizeBodyMass({
+      value: input.currentWeightLbs,
+      fromUnit: 'lb',
+      toUnit: 'lb',
+      measuredOn: input.date,
+      confidence,
+    })
+    : null;
+
+  return {
+    ...createUnknownBodyMassState('lb'),
+    current,
+    missingFields: current ? [] : [{ field: 'current_body_mass', reason: 'not_collected' }],
+    confidence,
+  };
+}
+
+function buildUnifiedTrackingEntries(input: {
+  userId: string;
+  date: string;
+  readinessProfile: ReadinessProfile;
+  currentWeightLbs: number | null;
+}) {
+  const entries = [
+    createTrackingEntry({
+      id: `${input.userId}:${input.date}:legacy-readiness-profile`,
+      athleteId: input.userId,
+      timestamp: `${input.date}T08:00:00.000Z`,
+      timezone: 'UTC',
+      type: 'readiness',
+      source: 'system_inferred',
+      value: input.readinessProfile.overallReadiness,
+      unit: 'percent',
+      confidence: confidenceFromLevel(input.readinessProfile.dataConfidence, [
+        'Daily mission readiness profile was projected into canonical tracking state during Phase 9 integration.',
+      ]),
+      context: {
+        legacyReadinessState: input.readinessProfile.readinessState,
+        flags: input.readinessProfile.flags,
+      },
+    }),
+  ];
+
+  if (input.currentWeightLbs != null) {
+    entries.push(createTrackingEntry({
+      id: `${input.userId}:${input.date}:body-mass`,
+      athleteId: input.userId,
+      timestamp: `${input.date}T07:00:00.000Z`,
+      timezone: 'UTC',
+      type: 'body_mass',
+      source: 'system_inferred',
+      value: input.currentWeightLbs,
+      unit: 'lb',
+      confidence: confidenceFromLevel('medium', [
+        'Body mass came from current athlete context and remains source-qualified.',
+      ]),
+    }));
+  }
+
+  return entries;
+}
+
+function resolveUnifiedDailyPerformance(input: {
+  userId: string;
+  date: string;
+  athleteContext: Awaited<ReturnType<typeof getAthleteContext>>;
+  objectiveContext: MacrocycleContext;
+  readinessProfile: ReadinessProfile;
+  scheduledActivities: ScheduledActivityRow[];
+  currentWeight: number;
+  targetWeight: number;
+  cutProtocol: Awaited<ReturnType<typeof getCutProtocolForDate>>;
+  weekStart: string;
+}): UnifiedPerformanceEngineResult | null {
+  const profile = input.athleteContext.profile;
+  if (!profile) return null;
+
+  const phase = createPhaseState({
+    current: mapLegacyPhaseToUnifiedPhase(input.objectiveContext.phase),
+    activeSince: input.date,
+    plannedUntil: input.objectiveContext.camp?.fightDate ?? profile.fight_date ?? null,
+    transitionReason: input.objectiveContext.goalMode === 'fight_camp' ? 'fight_confirmed' : 'build_phase_started',
+  });
+  const athlete = createAthleteProfile({
+    athleteId: input.userId,
+    userId: input.userId,
+    sport: 'boxing',
+    competitionLevel: profile.fight_status === 'pro' ? 'professional' : 'amateur',
+    biologicalSex: profile.biological_sex ?? undefined,
+    ageYears: profile.age ?? null,
+    preferredBodyMassUnit: 'lb',
+    trainingBackground: trainingBackgroundFromFitnessLevel(input.athleteContext.fitnessLevel),
+  });
+  const bodyMass = buildDailyBodyMassState({
+    currentWeightLbs: input.objectiveContext.currentWeightLbs ?? input.currentWeight,
+    date: input.date,
+  });
+  const journey = createAthleteJourneyState({
+    journeyId: `${input.userId}:journey`,
+    athlete,
+    timelineStartDate: input.date,
+    phase,
+    bodyMassState: bodyMass,
+    nutritionPreferences: {
+      goal: normalizeNutritionGoal(profile.nutrition_goal),
+      dietaryNotes: [],
+      supplementNotes: [],
+    },
+    trackingPreferences: {
+      bodyMass: true,
+      readiness: true,
+      nutrition: true,
+      cycle: Boolean(profile.cycle_tracking),
+    },
+    confidence: confidenceFromLevel('low', [
+      'Daily app flow was projected into AthleteJourneyState during Phase 9 integration.',
+    ]),
+  });
+  const targetClassMass = input.objectiveContext.targetWeightLbs != null
+    ? normalizeBodyMass({
+      value: input.targetWeight,
+      fromUnit: 'lb',
+      toUnit: 'lb',
+      measuredOn: input.objectiveContext.camp?.fightDate ?? profile.fight_date ?? null,
+      confidence: confidenceFromLevel('medium'),
+    })
+    : null;
+  const hasWeightClassContext = input.objectiveContext.goalMode === 'fight_camp'
+    || input.objectiveContext.weightCutState !== 'none'
+    || profile.active_cut_plan_id != null;
+
+  return runUnifiedPerformanceEngine({
+    athlete,
+    journey,
+    asOfDate: input.date,
+    weekStartDate: input.weekStart,
+    generatedAt: new Date().toISOString(),
+    phase,
+    bodyMassState: bodyMass,
+    trackingEntries: buildUnifiedTrackingEntries({
+      userId: input.userId,
+      date: input.date,
+      readinessProfile: input.readinessProfile,
+      currentWeightLbs: input.objectiveContext.currentWeightLbs ?? input.currentWeight,
+    }),
+    protectedAnchors: protectedAnchorsFromScheduledActivities(input.scheduledActivities),
+    acuteChronicWorkloadRatio: null,
+    weightClass: hasWeightClassContext
+      ? {
+        competitionId: input.objectiveContext.camp?.id ?? profile.active_cut_plan_id ?? null,
+        competitionDate: input.objectiveContext.camp?.fightDate ?? profile.fight_date ?? null,
+        weighInDateTime: input.cutProtocol
+          ? `${addDays(input.date, input.cutProtocol.days_to_weigh_in)}T18:00:00.000Z`
+          : null,
+        competitionDateTime: input.objectiveContext.camp?.fightDate
+          ? `${input.objectiveContext.camp.fightDate}T00:00:00.000Z`
+          : profile.fight_date
+            ? `${profile.fight_date}T00:00:00.000Z`
+            : null,
+        targetClassMass,
+        desiredScaleWeight: targetClassMass,
+      }
+      : null,
+  });
 }
 
 function buildPerformanceObjective(input: {
@@ -1272,6 +1544,18 @@ async function computeDailyEngineState(
     riskLevel: riskAssessment?.level ?? null,
     protectWindow,
   });
+  const unifiedPerformance = resolveUnifiedDailyPerformance({
+    userId,
+    date,
+    athleteContext,
+    objectiveContext,
+    readinessProfile,
+    scheduledActivities,
+    currentWeight,
+    targetWeight,
+    cutProtocol,
+    weekStart: weekWindow.weekStart,
+  });
 
   const persistedObjectiveContext = snapshot ? snapshot.objective_context_snapshot : objectiveContext;
   const persistedNutritionTargets = snapshot ? snapshot.nutrition_targets_snapshot : nutritionTargets;
@@ -1313,6 +1597,7 @@ async function computeDailyEngineState(
     mission: persistedMission,
     campRisk: riskAssessment ?? null,
     medStatus,
+    unifiedPerformance,
   };
 }
 

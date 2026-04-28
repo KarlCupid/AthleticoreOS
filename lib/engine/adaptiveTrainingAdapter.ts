@@ -41,7 +41,7 @@ import {
   createPerformanceState,
   createPhaseState,
   resolveReadinessState,
-  generateAdaptiveTrainingWeek,
+  runUnifiedPerformanceEngine,
 } from '../performance-engine/index.ts';
 
 const ENGINE_NOTE_PREFIX = 'Adaptive Training Engine';
@@ -686,11 +686,13 @@ function buildWeeklyMixPlan(input: {
 export function generateAdaptiveSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanResult {
   const protectedAnchors = loadProtectedAnchorInputs(input);
   const performanceState = buildPerformanceState(input, protectedAnchors);
-  const adaptive = generateAdaptiveTrainingWeek({
+  const unified = runUnifiedPerformanceEngine({
     performanceState,
+    asOfDate: input.weekStartDate,
     weekStartDate: input.weekStartDate,
     protectedAnchors,
   });
+  const adaptive = unified.training;
   const deload = isDeloadWeek(input, performanceState);
   const converted = convertSessionsToRows({
     plannerInput: input,
@@ -708,6 +710,6 @@ export function generateAdaptiveSmartWeekPlan(input: SmartWeekPlanInput): SmartW
       adaptive,
       placements: converted.placements,
     }),
-    message: `${ENGINE_NOTE_PREFIX}: ${converted.entries.length} session(s), ${protectedAnchors.length} protected anchor(s), ${adaptive.topology.recoveryDayCount} recovery-preserved day(s).`,
+    message: `Unified Performance Engine -> ${ENGINE_NOTE_PREFIX}: ${converted.entries.length} session(s), ${protectedAnchors.length} protected anchor(s), ${adaptive.topology.recoveryDayCount} recovery-preserved day(s).`,
   };
 }
