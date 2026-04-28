@@ -65,8 +65,8 @@ console.log('\n-- performance-engine foundation --');
   assert('performance state uses schema v1', state.schemaVersion === 'performance-state-v1');
   assert('journey is continuous and shared by performance state', state.journey.journeyId === 'journey-1');
   assert('journey timeline starts from onboarding context', state.journey.timelineStartDate === '2026-04-27');
-  assert('default readiness is unknown, not zero', state.readiness.band === 'unknown');
-  assert('default readiness score is null', state.readiness.overall.target === null);
+  assert('default readiness is unknown, not zero', state.readiness.readinessBand === 'unknown');
+  assert('default readiness score is null', state.readiness.overallReadiness === null);
 })();
 
 (() => {
@@ -168,7 +168,7 @@ console.log('\n-- performance-engine foundation --');
 
   assert('critical risk defaults to hard stop', risk.hardStop);
   assert('critical risk blocks plan', risk.blocksPlan);
-  assert('unknown readiness has missing field', readiness.missingFields[0]?.field === 'readiness_check_in');
+  assert('unknown readiness has missing field', readiness.missingData[0]?.field === 'readiness_check_in');
   assert('unknown body mass does not synthesize zero', bodyMass.current === null);
   assert('partial nutrition data quality records missing field', dataQuality.availability === 'partial');
 })();

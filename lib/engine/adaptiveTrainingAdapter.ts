@@ -40,7 +40,7 @@ import {
   createMeasurementRange,
   createPerformanceState,
   createPhaseState,
-  createUnknownReadinessState,
+  resolveReadinessState,
   generateAdaptiveTrainingWeek,
 } from '../performance-engine/index.ts';
 
@@ -81,12 +81,6 @@ function mapLegacyPhase(phase: Phase, campConfigPresent: boolean): AthleticorePh
   return 'build';
 }
 
-function mapReadinessBand(readinessState: LegacyReadinessState): ReadinessState['band'] {
-  if (readinessState === 'Prime') return 'prime';
-  if (readinessState === 'Caution') return 'caution';
-  return 'protect';
-}
-
 function readinessPercent(readinessState: LegacyReadinessState): number {
   if (readinessState === 'Prime') return 82;
   if (readinessState === 'Caution') return 62;
@@ -94,28 +88,27 @@ function readinessPercent(readinessState: LegacyReadinessState): number {
 }
 
 function buildReadinessState(readinessState: LegacyReadinessState, date: string): ReadinessState {
-  const unknown = createUnknownReadinessState(date);
-  const target = readinessPercent(readinessState);
-  const confidence = confidenceFromLevel('low', [
-    'Legacy weekly planning only provides a coarse readiness state.',
-  ]);
-  const score = createMeasurementRange({
-    min: Math.max(0, target - 8),
-    target,
-    max: Math.min(100, target + 8),
-    unit: 'percent',
-    confidence,
-  });
-
-  return {
-    ...unknown,
-    band: mapReadinessBand(readinessState),
-    overall: score,
-    neural: { ...unknown.neural, score },
-    structural: { ...unknown.structural, score },
-    metabolic: { ...unknown.metabolic, score },
-    confidence,
-  };
+  return resolveReadinessState({
+    athleteId: 'legacy-weekly-athlete',
+    date,
+    entries: [
+      {
+        id: `legacy-readiness:${date}`,
+        athleteId: 'legacy-weekly-athlete',
+        timestamp: `${date}T08:00:00.000Z`,
+        timezone: 'UTC',
+        type: 'readiness',
+        source: 'system_inferred',
+        value: readinessPercent(readinessState),
+        unit: 'percent',
+        confidence: confidenceFromLevel('low', [
+          'Legacy weekly planning only provides a coarse readiness state.',
+        ]),
+        context: { legacyReadinessState: readinessState },
+        notes: null,
+      },
+    ],
+  }).readiness;
 }
 
 function buildTrainingAvailability(input: SmartWeekPlanInput): TrainingAvailability {

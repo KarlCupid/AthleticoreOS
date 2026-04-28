@@ -33,6 +33,7 @@ import {
   createUnknownReadinessState,
   generateNutritionTarget,
   normalizeBodyMass,
+  resolveReadinessState,
   type AthleticorePhase,
   type ComposedSession,
   type NutritionTarget,
@@ -254,45 +255,44 @@ function createReadinessState(profile: ReadinessProfile | null | undefined, date
   const structural = clamp(profile.structuralReadiness, 0, 100);
   const metabolic = clamp(profile.metabolicReadiness, 0, 100);
   const overall = clamp(profile.overallReadiness ?? Math.round((neural + structural + metabolic) / 3), 0, 100);
-  const band: EngineReadinessState['band'] = overall < 50
-    ? 'protect'
-    : overall < 65
-      ? 'caution'
-      : overall >= 85
-        ? 'prime'
-        : 'build';
-  const score = (target: number) => createMeasurementRange({
-    min: Math.max(0, target - 8),
-    target,
-    max: Math.min(100, target + 8),
-    unit: 'percent' as const,
-    confidence,
-  });
 
-  return {
+  return resolveReadinessState({
+    athleteId: 'legacy-nutrition-athlete',
     date,
-    band,
-    overall: score(overall),
-    neural: {
-      score: score(neural),
-      availability: 'known',
-      drivers: ['legacy_neural_readiness'],
-    },
-    structural: {
-      score: score(structural),
-      availability: 'known',
-      drivers: ['legacy_structural_readiness'],
-    },
-    metabolic: {
-      score: score(metabolic),
-      availability: 'known',
-      drivers: ['legacy_metabolic_readiness'],
-    },
-    missingFields: [],
-    riskFlags: [],
-    confidence,
-    explanation: null,
-  };
+    entries: [
+      {
+        id: `legacy-nutrition-readiness:${date}`,
+        athleteId: 'legacy-nutrition-athlete',
+        timestamp: `${date}T08:00:00.000Z`,
+        timezone: 'UTC',
+        type: 'readiness',
+        source: 'system_inferred',
+        value: overall,
+        unit: 'percent',
+        confidence,
+        context: {
+          neuralReadiness: neural,
+          structuralReadiness: structural,
+          metabolicReadiness: metabolic,
+          legacyReadinessState: profile.readinessState,
+        },
+        notes: null,
+      },
+      {
+        id: `legacy-nutrition-support:${date}`,
+        athleteId: 'legacy-nutrition-athlete',
+        timestamp: `${date}T08:05:00.000Z`,
+        timezone: 'UTC',
+        type: 'nutrition_adherence',
+        source: 'system_inferred',
+        value: metabolic,
+        unit: 'percent',
+        confidence,
+        context: { source: 'legacy_metabolic_readiness' },
+        notes: null,
+      },
+    ],
+  }).readiness;
 }
 
 function buildPerformanceState(input: {

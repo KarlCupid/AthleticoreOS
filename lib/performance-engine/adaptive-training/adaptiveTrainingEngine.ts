@@ -559,8 +559,10 @@ export function scoreTrainingMerge(input: {
     breakdown.loadSpikePenalty += 10;
     negative.push('Combined session stress is high.');
   }
-  if (input.readinessBand === 'protect' || input.readinessBand === 'Depleted') {
-    breakdown.athleteReadinessPenalty += 18;
+  const readinessPenaltyApplies = ['red', 'orange', 'protect', 'Depleted'].includes(input.readinessBand ?? '')
+    || (input.readinessBand === 'unknown' && intenseInvolved);
+  if (readinessPenaltyApplies) {
+    breakdown.athleteReadinessPenalty += input.readinessBand === 'red' || input.readinessBand === 'Depleted' ? 24 : 18;
     negative.push('Readiness state discourages stacking stress.');
   }
   if (input.underFueled) {
@@ -723,7 +725,14 @@ function defaultCandidates(input: {
 }): AdaptiveSessionCandidate[] {
   const phase = input.performanceState.phase.current;
   const goal = phaseGoal(input.performanceState);
-  const highBudget = Math.max(0, (phase === 'camp' || phase === 'short_notice_camp' ? 2 : 3) - input.hardProtectedCount);
+  const readiness = input.performanceState.readiness;
+  const readinessBand = readiness.readinessBand;
+  const readinessAdjustment = readiness.recommendedTrainingAdjustment;
+  const readinessRestrictsHardWork = ['red', 'orange'].includes(readinessBand)
+    || readinessAdjustment.replaceWithMobility
+    || readinessAdjustment.moveHeavySession;
+  const readinessHighBudgetPenalty = readinessBand === 'unknown' ? 1 : readinessRestrictsHardWork ? 3 : 0;
+  const highBudget = Math.max(0, (phase === 'camp' || phase === 'short_notice_camp' ? 2 : 3) - input.hardProtectedCount - readinessHighBudgetPenalty);
   const candidates: AdaptiveSessionCandidate[] = [];
   let highUsed = 0;
   const add = (candidate: AdaptiveSessionCandidate) => {
@@ -765,6 +774,28 @@ function defaultCandidates(input: {
       priority: 'aerobic_base',
       durationMinutes: 35,
       intensityRpe: 3,
+    });
+    return candidates;
+  }
+
+  if (readinessAdjustment.replaceWithMobility || readinessBand === 'red') {
+    add({
+      id: 'generated-readiness-mobility',
+      title: 'Readiness mobility reset',
+      kind: 'mobility',
+      family: 'recovery',
+      priority: 'recovery',
+      durationMinutes: 25,
+      intensityRpe: 2,
+      explanation: createExplanation({
+        kind: 'plan_adjustment',
+        summary: 'Poor readiness replaced generated hard training with mobility support.',
+        reasons: readinessAdjustment.reasons.length
+          ? readinessAdjustment.reasons
+          : ['The Tracking and Readiness Engine recommended replacing hard work today.'],
+        impact: 'restricted',
+        confidence: readiness.confidence,
+      }),
     });
     return candidates;
   }
@@ -1046,7 +1077,7 @@ export function generateAdaptiveTrainingWeek(input: AdaptiveTrainingWeekInput): 
       weekStartDate: input.weekStartDate,
       allowedDays: allowed,
       phase: performanceState.phase.current,
-      readinessBand: performanceState.readiness.band,
+      readinessBand: performanceState.readiness.readinessBand,
       underFueled,
       nearCompetition,
     });

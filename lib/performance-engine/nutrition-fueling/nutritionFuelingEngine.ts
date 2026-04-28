@@ -519,7 +519,13 @@ export function generateNutritionTarget(input: NutritionFuelingInput): Nutrition
   const assumedWeight = weight ?? 170;
   const baseEnergy = assumedWeight * 14.2;
   const loadEnergy = load.totalLoad * 4.5 + load.hardLoad * 1.5 + load.sparringLoad * 2;
-  const readinessProtect = performanceState.readiness.band === 'protect' ? 120 : 0;
+  const readinessNutritionBump = performanceState.readiness.recommendedNutritionAdjustment.type === 'increase_fueling'
+    || performanceState.readiness.recommendedNutritionAdjustment.type === 'increase_recovery_nutrition'
+    ? 120
+    : 0;
+  const readinessProtect = ['red', 'orange'].includes(performanceState.readiness.readinessBand)
+    ? 120
+    : readinessNutritionBump;
   const nutritionGoal = performanceState.journey.nutritionPreferences.goal;
   const nutritionGoalAdjustment = nutritionGoal === 'cut'
     ? -150

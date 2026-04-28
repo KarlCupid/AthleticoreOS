@@ -6,6 +6,11 @@ import type {
   WorkoutPrescriptionV2,
   WorkoutSectionTemplate,
 } from '../types.ts';
+import {
+  confidenceFromLevel,
+  createTrackingEntry,
+  resolveReadinessState,
+} from '../../performance-engine/index.ts';
 
 export type DailyPerformanceBand = 'Push' | 'Build' | 'Protect';
 
@@ -23,21 +28,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function clampScale(value: number | null | undefined, fallback = 3): number {
-  const safe = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-  return clamp(Math.round(safe), 1, 5);
-}
-
-function normalize1to5(value: number | null | undefined, fallback = 3): number {
-  const safe = clampScale(value, fallback);
-  return clamp(Math.round(((safe - 1) / 4) * 100), 0, 100);
-}
-
-function average(values: number[]): number {
-  if (values.length === 0) return 0;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
 function scaleToLegacyReadiness(score: number): number {
   if (score >= 82) return 5;
   if (score >= 68) return 4;
@@ -47,37 +37,24 @@ function scaleToLegacyReadiness(score: number): number {
 }
 
 export function estimateDailyPerformanceReadinessScore(input: DailyPerformanceCheckInput): number {
-  const sleep = normalize1to5(input.sleepQuality);
-  const energy = normalize1to5(input.energyLevel);
-  const confidence = normalize1to5(input.confidenceLevel);
-  const stressReserve = 100 - normalize1to5(input.stressLevel);
-  const sorenessReserve = 100 - normalize1to5(input.sorenessLevel);
-  const fuel = input.fuelHydrationStatus == null ? null : normalize1to5(input.fuelHydrationStatus);
-  const painReserve = input.painLevel == null ? 100 : 100 - normalize1to5(input.painLevel, 1);
+  const date = '2026-01-01';
+  const confidence = confidenceFromLevel('medium', ['Daily check was entered by the athlete.']);
+  const entries = [
+    createTrackingEntry({ id: 'daily-readiness', athleteId: 'daily-check-athlete', timestamp: `${date}T08:00:00.000Z`, type: 'readiness', value: input.energyLevel, unit: 'score_1_5', confidence }),
+    createTrackingEntry({ id: 'daily-sleep', athleteId: 'daily-check-athlete', timestamp: `${date}T08:00:00.000Z`, type: 'sleep_quality', value: input.sleepQuality, unit: 'score_1_5', confidence }),
+    createTrackingEntry({ id: 'daily-stress', athleteId: 'daily-check-athlete', timestamp: `${date}T08:00:00.000Z`, type: 'stress', value: input.stressLevel, unit: 'score_1_5', confidence }),
+    createTrackingEntry({ id: 'daily-soreness', athleteId: 'daily-check-athlete', timestamp: `${date}T08:00:00.000Z`, type: 'soreness', value: input.sorenessLevel, unit: 'score_1_5', confidence }),
+    createTrackingEntry({ id: 'daily-confidence', athleteId: 'daily-check-athlete', timestamp: `${date}T08:00:00.000Z`, type: 'mood', value: input.confidenceLevel, unit: 'score_1_5', confidence }),
+    input.fuelHydrationStatus == null ? null : createTrackingEntry({ id: 'daily-nutrition', athleteId: 'daily-check-athlete', timestamp: `${date}T08:00:00.000Z`, type: 'nutrition_adherence', value: input.fuelHydrationStatus, unit: 'score_1_5', confidence }),
+    input.painLevel == null ? null : createTrackingEntry({ id: 'daily-pain', athleteId: 'daily-check-athlete', timestamp: `${date}T08:00:00.000Z`, type: 'pain', value: input.painLevel, unit: 'score_1_5', confidence }),
+  ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  const readiness = resolveReadinessState({
+    athleteId: 'daily-check-athlete',
+    date,
+    entries,
+  }).readiness;
 
-  const neural = average([sleep, energy, confidence, stressReserve]);
-  const structural = average([sorenessReserve, painReserve]);
-  const metabolic = average(fuel == null ? [energy, sleep] : [energy, fuel, sleep]);
-  let score = Math.round((neural * 0.4) + (structural * 0.3) + (metabolic * 0.3));
-
-  if (input.sleepQuality <= 2) score = Math.min(score, 62);
-  if (input.energyLevel <= 2) score = Math.min(score, 60);
-  if (input.stressLevel >= 5) score = Math.min(score, 62);
-  if (input.sorenessLevel >= 4) score = Math.min(score, 65);
-  if (input.fuelHydrationStatus != null && input.fuelHydrationStatus <= 2) score = Math.min(score, 66);
-  if ((input.painLevel ?? 1) >= 4) score = Math.min(score, 54);
-
-  const hardLimiters = [
-    input.sleepQuality <= 2,
-    input.energyLevel <= 2,
-    input.sorenessLevel >= 4,
-    input.stressLevel >= 4,
-    input.fuelHydrationStatus != null && input.fuelHydrationStatus <= 2,
-    (input.painLevel ?? 1) >= 4,
-  ].filter(Boolean).length;
-  if (hardLimiters >= 3) score = Math.min(score, 44);
-
-  return clamp(score, 8, 100);
+  return clamp(readiness.overallReadiness ?? 8, 8, 100);
 }
 
 export function deriveLegacyReadinessFromDailyCheck(input: DailyPerformanceCheckInput): number {
