@@ -20,6 +20,7 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
+import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import {
@@ -112,9 +113,9 @@ function StateCard({
 function EmptyPlanCard({ onPress }: { onPress: () => void }) {
   return (
     <StateCard
-      title="Set up your training week"
-      body="Add days and session length."
-      actionLabel="Set Up Weekly Plan"
+      title="Update your journey plan"
+      body="Training will adapt from your current phase, anchors, readiness, and goals."
+      actionLabel="Update Journey Plan"
       onPress={onPress}
     />
   );
@@ -131,6 +132,7 @@ export function WorkoutScreen() {
     checkins, sessions, userId, cutProtocol, dailyMission, todayPlanEntry, weeklyEntries,
     historyLoaded, analyticsLoaded, historyLoading, analyticsLoading, initialLoadError,
     historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
+    performanceContext,
   } = useWorkoutData();
 
   useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
@@ -269,6 +271,13 @@ export function WorkoutScreen() {
       >
         {activeTab === 'today' && (
           <View style={styles.tabStack}>
+            <Animated.View entering={FadeInDown.delay(20).duration(300).springify()}>
+              <UnifiedJourneySummaryCard
+                summary={performanceContext}
+                compact
+                showBodyMass={Boolean(performanceContext.bodyMass)}
+              />
+            </Animated.View>
             {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}
             {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
             {!initialLoadError && hasStructuredToday ? (

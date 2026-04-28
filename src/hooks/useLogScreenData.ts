@@ -3,6 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
+import {
+  buildUnifiedPerformanceViewModel,
+  type UnifiedPerformanceViewModel,
+} from '../../lib/performance-engine';
 import type {
   CoachingFocus,
   DailyCoachDebrief,
@@ -115,6 +119,7 @@ interface LogScreenDataState {
   nutritionActualDraft: NutritionActualDraft;
   nutritionWaterDraft: string;
   acwrContext: AcwrContextState;
+  performanceContext: UnifiedPerformanceViewModel;
 }
 
 const DEFAULT_INITIAL_VALUES: LogScreenInitialValues = {
@@ -228,6 +233,7 @@ function buildDefaultState(): LogScreenDataState {
     nutritionActualDraft: DEFAULT_NUTRITION_DRAFT,
     nutritionWaterDraft: '0',
     acwrContext: DEFAULT_ACWR_CONTEXT,
+    performanceContext: buildUnifiedPerformanceViewModel(null),
   };
 }
 
@@ -398,6 +404,7 @@ export function useLogScreenData() {
           phase: engineState.objectiveContext.phase,
           isOnActiveCut: engineState.objectiveContext.isOnActiveCut,
         },
+        performanceContext: buildUnifiedPerformanceViewModel(engineState.unifiedPerformance),
       };
 
       setState((prev) => ({

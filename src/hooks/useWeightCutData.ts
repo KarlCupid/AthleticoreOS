@@ -9,12 +9,17 @@ import {
   setBaselineCognitiveScore,
 } from '../../lib/api/weightCutService';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import {
+  buildUnifiedPerformanceViewModel,
+  type UnifiedPerformanceViewModel,
+} from '../../lib/performance-engine';
 import { todayLocalDate } from '../../lib/utils/date';
 
 interface WeightCutState {
   loading: boolean;
   error: string | null;
   data: WeightCutDashboardData | null;
+  performanceContext: UnifiedPerformanceViewModel;
 }
 
 export function useWeightCutData(userId: string | null) {
@@ -22,6 +27,7 @@ export function useWeightCutData(userId: string | null) {
     loading: false,
     error: null,
     data: null,
+    performanceContext: buildUnifiedPerformanceViewModel(null),
   });
 
   const refresh = useCallback(async () => {
@@ -31,22 +37,28 @@ export function useWeightCutData(userId: string | null) {
     try {
       const dashboardData = await getWeightCutDashboardData(userId);
       const todayStr = todayLocalDate();
+      const forceRefresh = Boolean(dashboardData.activePlan && !dashboardData.todayProtocol);
+      let performanceContext = buildUnifiedPerformanceViewModel(null);
 
-      if (dashboardData.activePlan && !dashboardData.todayProtocol) {
-        try {
-          await getDailyEngineState(userId, todayStr, { forceRefresh: true });
-          const refreshed = await getWeightCutDashboardData(userId);
-          setState({ loading: false, error: null, data: refreshed });
-          return;
-        } catch {
-          setState({ loading: false, error: null, data: dashboardData });
-          return;
-        }
+      try {
+        const engineState = await getDailyEngineState(userId, todayStr, { forceRefresh });
+        performanceContext = buildUnifiedPerformanceViewModel(engineState.unifiedPerformance);
+      } catch {
+        performanceContext = buildUnifiedPerformanceViewModel(null);
       }
 
-      setState({ loading: false, error: null, data: dashboardData });
+      const refreshedDashboardData = forceRefresh
+        ? await getWeightCutDashboardData(userId)
+        : dashboardData;
+
+      setState({ loading: false, error: null, data: refreshedDashboardData, performanceContext });
     } catch (err: any) {
-      setState({ loading: false, error: err.message ?? 'Failed to load weight-class data', data: null });
+      setState({
+        loading: false,
+        error: err.message ?? 'Failed to load weight-class data',
+        data: null,
+        performanceContext: buildUnifiedPerformanceViewModel(null),
+      });
     }
   }, [userId]);
 
@@ -126,6 +138,7 @@ export function useWeightCutData(userId: string | null) {
     cutHistory: state.data?.cutHistory ?? [],
     projectedWeightByWeighIn: state.data?.projectedWeightByWeighIn ?? null,
     adherenceLast7Days: state.data?.adherenceLast7Days ?? 0,
+    performanceContext: state.performanceContext,
     refresh,
     abandon,
     complete,

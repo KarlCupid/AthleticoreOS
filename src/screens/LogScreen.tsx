@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { IconInfo } from '../components/icons';
+import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { useLogScreenData } from '../hooks/useLogScreenData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
@@ -280,10 +281,12 @@ export function LogScreen() {
       const engineState = await getDailyEngineState(userId, logScreenData.logDate, { forceRefresh: true });
 
       if (savedWithPerformanceColumns) {
+        const canonicalReadinessScore = engineState.unifiedPerformance?.canonicalOutputs.readiness.overallReadiness
+          ?? engineState.readinessProfile.overallReadiness;
         const readinessUpdate = await supabase
           .from('daily_checkins')
           .update({
-            readiness_score: engineState.readinessProfile.overallReadiness,
+            readiness_score: canonicalReadinessScore,
           })
           .eq('user_id', userId)
           .eq('date', logScreenData.logDate);
@@ -316,6 +319,15 @@ export function LogScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()}>
+          <UnifiedJourneySummaryCard
+            summary={logScreenData.performanceContext}
+            compact
+            showProtectedAnchors={false}
+            showBodyMass={Boolean(logScreenData.performanceContext.bodyMass)}
+          />
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()} style={[styles.resultPanel, { borderColor: bandColor }]}>
           <View style={styles.resultHeaderRow}>
             <View>

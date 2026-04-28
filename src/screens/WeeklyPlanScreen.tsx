@@ -28,6 +28,7 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { StatCard } from '../components/StatCard';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
+import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { formatLongWeekday, formatShortMonthDay } from '../../lib/utils/date';
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 import {
@@ -91,6 +92,7 @@ export function WeeklyPlanScreen() {
         loadPlan,
         rescheduleDay,
         cancelPlan,
+        performanceContext,
     } = useWeeklyPlan();
     const {
         handleDayPress,
@@ -202,6 +204,11 @@ export function WeeklyPlanScreen() {
                 </View>
                 <View style={styles.scrollContent}>
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
+                        <UnifiedJourneySummaryCard
+                            summary={performanceContext}
+                            compact
+                            showBodyMass={Boolean(performanceContext.bodyMass)}
+                        />
                         <Card
                             variant="glass"
                             style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}
@@ -226,21 +233,26 @@ export function WeeklyPlanScreen() {
         return (
             <ScreenWrapper useSafeArea={true}>
                 <View style={styles.header}>
-                    <ScreenHeader kicker="Plan" title="No plan yet" subtitle="Set up your week." />
+                    <ScreenHeader kicker="Plan" title="Journey plan pending" subtitle="Update your current block." />
                 </View>
                 <View style={styles.scrollContent}>
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>
+                        <UnifiedJourneySummaryCard
+                            summary={performanceContext}
+                            compact
+                            showBodyMass={Boolean(performanceContext.bodyMass)}
+                        />
                         <Card
                             variant="glass"
                             style={{ paddingVertical: SPACING.xxl, alignItems: 'center' }}
                             backgroundTone="planning"
                             backgroundScrimColor="rgba(10, 10, 10, 0.72)"
                         >
-                            <Text style={styles.emptyTitle}>No Plan Found</Text>
+                            <Text style={styles.emptyTitle}>Journey Plan Pending</Text>
                             <Text style={styles.emptySubtitle}>
                                 {activeWeekStart && !isCurrentWeek 
                                     ? `Generate your training plan for the week of ${formatShortMonthDay(activeWeekStart)}.` 
-                                    : 'Set up your week to see daily training.'}
+                                    : 'Update your journey context to see daily training.'}
                             </Text>
                             {activeWeekStart && !isCurrentWeek ? (
                                 <AnimatedPressable style={styles.setupButton} onPress={generateActiveWeek}>
@@ -248,7 +260,7 @@ export function WeeklyPlanScreen() {
                                 </AnimatedPressable>
                             ) : (
                                 <AnimatedPressable style={styles.setupButton} onPress={handleSetupPress}>
-                                    <Text style={styles.setupButtonText}>Set Up Weekly Plan</Text>
+                                    <Text style={styles.setupButtonText}>Update Journey Plan</Text>
                                 </AnimatedPressable>
                             )}
                             
@@ -323,6 +335,13 @@ export function WeeklyPlanScreen() {
                     />
                 }
             >
+                <Animated.View entering={FadeInDown.delay(20).duration(ANIMATION.slow).springify()}>
+                    <UnifiedJourneySummaryCard
+                        summary={performanceContext}
+                        compact
+                        showBodyMass={Boolean(performanceContext.bodyMass)}
+                    />
+                </Animated.View>
                 {/* ─── Feature: Up Next Hero Card ─── */}
                 {nextSession && (
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>

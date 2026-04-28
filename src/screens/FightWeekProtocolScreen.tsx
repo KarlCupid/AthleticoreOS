@@ -30,7 +30,7 @@ const PHASE_LABELS: Record<CutPhase, string> = {
   chronic: 'Long-Term Management',
   intensified: 'Weight-Class Prep',
   fight_week_load: 'Competition Week Monitoring',
-  fight_week_cut: 'Blocked Acute Protocol',
+  fight_week_cut: 'Safety Review',
   weigh_in: 'Weigh-In Day',
   rehydration: 'Post Weigh-In Recovery',
 };
@@ -164,7 +164,7 @@ export function FightWeekProtocolScreen() {
 
         setSelectedProtocol((engineState.cutProtocol as DailyCutProtocolRow | null) ?? null);
         if (!engineState.cutProtocol) {
-          setProtocolError('No generated protocol is available for this day yet.');
+          setProtocolError('No generated guidance is available for this day yet.');
         }
       } catch {
         if (isActive) {
@@ -202,8 +202,8 @@ export function FightWeekProtocolScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Fight Week Protocol</Text>
-        <Text style={styles.headerSub}>{activePlan.weight_class_name ?? 'Weight Cut'}</Text>
+        <Text style={styles.headerTitle}>Fight Week Support</Text>
+        <Text style={styles.headerSub}>{activePlan.weight_class_name ?? 'Weight Class'}</Text>
         {selectedDayView ? (
           <Text style={styles.headerSub}>
             {selectedDayView.label} · {selectedDayView.phaseLabel} · {selectedDayView.date}
@@ -245,7 +245,7 @@ export function FightWeekProtocolScreen() {
         >
           <View>
             <Text style={styles.dayCardTitle}>
-              {selectedDayView?.label ?? 'Fight week'} · {selectedDayView?.phaseLabel ?? 'Protocol'}
+              {selectedDayView?.label ?? 'Fight week'} · {selectedDayView?.phaseLabel ?? 'Support'}
             </Text>
             {selectedDayView ? (
               <Text style={styles.dayCardMeta}>
@@ -270,7 +270,7 @@ export function FightWeekProtocolScreen() {
         {loadingProtocol ? (
           <View style={styles.centerBlock}>
             <ActivityIndicator color={COLORS.accent} />
-            <Text style={styles.emptyText}>Loading protocol...</Text>
+            <Text style={styles.emptyText}>Loading guidance...</Text>
           </View>
         ) : protocol ? (
           <>
@@ -317,7 +317,7 @@ export function FightWeekProtocolScreen() {
                 backgroundScrimColor="rgba(10, 10, 10, 0.76)"
               >
                 <Text style={styles.sectionTitle}>Compliance</Text>
-                <Text style={styles.sectionItem}>Log how closely you followed today's protocol.</Text>
+                <Text style={styles.sectionItem}>Log how closely you followed today's support guidance.</Text>
                 <View style={styles.complianceRow}>
                   {(['followed', 'partial', 'missed'] as const).map((status) => (
                     <TouchableOpacity
@@ -384,7 +384,7 @@ export function FightWeekProtocolScreen() {
           </>
         ) : (
           <View style={styles.centerBlock}>
-            <Text style={styles.emptyText}>{protocolError ?? 'No protocol is available for this day.'}</Text>
+            <Text style={styles.emptyText}>{protocolError ?? 'No guidance is available for this day.'}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={() => setProtocolReloadKey((current) => current + 1)}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>

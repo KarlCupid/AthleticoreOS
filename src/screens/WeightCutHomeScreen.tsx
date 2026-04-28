@@ -18,6 +18,7 @@ import { CutPhaseTimeline } from '../components/CutPhaseTimeline';
 import { WeightCutChart } from '../components/WeightCutChart';
 import { DailyProtocolCard } from '../components/DailyProtocolCard';
 import { SafetyStatusIndicator } from '../components/SafetyStatusIndicator';
+import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { CutPhase, CutSafetyFlag } from '../../lib/engine/types';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightCutHome'>;
@@ -51,7 +52,7 @@ export function WeightCutHomeScreen() {
   const {
     loading, error, activePlan, todayProtocol, weightHistory,
     cutHistory, projectedWeightByWeighIn, adherenceLast7Days,
-    refresh, abandon,
+    refresh, abandon, performanceContext,
   } = useWeightCutData(userId);
 
   const handleEndCut = useCallback(() => {
@@ -132,15 +133,22 @@ export function WeightCutHomeScreen() {
       <View style={styles.noCutContainer}>
         <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(212, 175, 55, 0.20)']} style={styles.noCutGradient}>
           <IconScale size={64} color={COLORS.accent} />
-          <Text style={styles.noCutTitle}>No Active Weight Cut</Text>
+          <Text style={styles.noCutTitle}>Weight-Class Context</Text>
           <Text style={styles.noCutSubtitle}>
-            Evaluate fight date, class, body-mass trend, and safety.
+            Evaluate fight date, class, body-mass trend, fueling, readiness, and safety.
           </Text>
+          <UnifiedJourneySummaryCard
+            summary={performanceContext}
+            compact
+            showProtectedAnchors={false}
+            showBodyMass={Boolean(performanceContext.bodyMass)}
+            style={styles.noCutJourneyCard}
+          />
           <TouchableOpacity
             style={styles.startButton}
             onPress={() => nav.navigate('CutPlanSetup')}
           >
-            <Text style={styles.startButtonText}>Start a Cut</Text>
+            <Text style={styles.startButtonText}>Evaluate Class</Text>
           </TouchableOpacity>
           {cutHistory.length > 0 && (
             <TouchableOpacity
@@ -161,6 +169,14 @@ export function WeightCutHomeScreen() {
   const currentWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : activePlan.start_weight;
   const remaining = Math.max(0, currentWeight - activePlan.target_weight).toFixed(1);
   const phaseColors = PHASE_COLORS[phase] as [string, string];
+  const bodyMassPlanBlocked = performanceContext.riskFlags.some((flag) => (
+    flag.blocksPlan
+    && /weight|body|fuel|professional|unsafe|rapid/i.test(`${flag.label} ${flag.message}`)
+  )) || performanceContext.bodyMass?.safetyLabel === 'Blocked for safety'
+    || performanceContext.bodyMass?.safetyLabel === 'Professional review required';
+  const bodyMassBlockReason = performanceContext.riskFlags.find((flag) => flag.blocksPlan)?.message
+    ?? performanceContext.bodyMass?.explanation
+    ?? 'The requested body-mass plan needs review before Athleticore can show daily weight-class guidance.';
 
   return (
     <ScrollView
@@ -213,12 +229,27 @@ export function WeightCutHomeScreen() {
           </View>
         )}
       </LinearGradient>
+      <UnifiedJourneySummaryCard
+        summary={performanceContext}
+        compact
+        showProtectedAnchors={false}
+        showBodyMass={Boolean(performanceContext.bodyMass)}
+      />
       {/* Safety flags */}
       {dangerFlags.length > 0 && (
         <SafetyStatusIndicator flags={todayProtocol?.safety_flags ?? []} />
       )}
       {/* Today's protocol */}
-      {todayProtocol ? (
+      {bodyMassPlanBlocked ? (
+        <Card
+          style={styles.card}
+          backgroundTone="risk"
+          backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+        >
+          <Text style={styles.sectionTitle}>Plan blocked for safety</Text>
+          <Text style={styles.guidanceBody}>{bodyMassBlockReason}</Text>
+        </Card>
+      ) : todayProtocol ? (
         <DailyProtocolCard protocol={todayProtocol} />
       ) : (
         <Card
@@ -226,9 +257,9 @@ export function WeightCutHomeScreen() {
           backgroundTone="cutProtocol"
           backgroundScrimColor="rgba(10, 10, 10, 0.74)"
         >
-          <Text style={styles.sectionTitle}>Today's protocol</Text>
+          <Text style={styles.sectionTitle}>Today's body-mass support</Text>
           <Text style={styles.guidanceBody}>
-            Today's cut protocol is not ready yet. Pull to refresh or open fight-week protocol to trigger a fresh engine pass.
+            Today's body-mass guidance is not ready yet. Pull to refresh or open fight-week support to trigger a fresh engine pass.
           </Text>
         </Card>
       )}
@@ -274,7 +305,7 @@ export function WeightCutHomeScreen() {
             style={[styles.actionButton, { backgroundColor: phaseColors[0] }]}
             onPress={() => nav.navigate('FightWeekProtocol')}
           >
-            <Text style={styles.actionButtonText}>Fight Week Protocol</Text>
+            <Text style={styles.actionButtonText}>Fight Week Support</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />
           </TouchableOpacity>
         ) : null}
@@ -332,6 +363,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   noCutContainer: { flex: 1 },
   noCutGradient: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, gap: SPACING.md },
+  noCutJourneyCard: { alignSelf: 'stretch', marginBottom: 0 },
   noCutTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, textAlign: 'center', letterSpacing: 0 },
   noCutSubtitle: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, textAlign: 'center', lineHeight: 24 },
   startButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.md, ...SHADOWS.colored.accent },
@@ -345,11 +377,11 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  phaseLabel: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent, letterSpacing: 1, textTransform: 'uppercase' },
+  phaseLabel: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent, letterSpacing: 0, textTransform: 'uppercase' },
   countdownText: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, marginTop: 2, letterSpacing: 0 },
   adherenceBadge: { alignItems: 'center', backgroundColor: 'rgba(10, 10, 10, 0.48)', borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: COLORS.borderLight },
   adherenceValue: { fontSize: 20, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
-  adherenceLabel: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, letterSpacing: 0.5 },
+  adherenceLabel: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, letterSpacing: 0 },
   heroNumbers: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroStat: { flex: 1, alignItems: 'center' },
   heroStatValue: { fontSize: 26, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },

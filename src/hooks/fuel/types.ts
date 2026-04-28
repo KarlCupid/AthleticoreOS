@@ -6,6 +6,7 @@ import type {
   ResolvedNutritionTargets,
 } from '../../../lib/engine/types';
 import type { DashboardNutritionTotals } from '../dashboard/utils';
+import type { UnifiedPerformanceViewModel } from '../../../lib/performance-engine';
 
 export interface MealLogEntryViewModel {
   id: string;
@@ -50,6 +51,7 @@ export interface FuelHomeViewModel {
   historySummary: FuelHistoryDay;
   missionReasonLines: string[];
   missionTraceLines: string[];
+  performanceContext: UnifiedPerformanceViewModel;
 }
 
 export interface FightWeekDayViewModel {

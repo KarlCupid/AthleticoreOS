@@ -23,6 +23,7 @@ import { Card } from '../components/Card';
 import { HydrationTracker } from '../components/HydrationTracker';
 import { MacroProgressBar } from '../components/MacroProgressBar';
 import { MealSection } from '../components/MealSection';
+import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { SkeletonLoader } from '../components/SkeletonLoader';
@@ -502,6 +503,12 @@ export function NutritionScreen() {
         {loading ? renderLoading() : (
           <>
             {renderErrorCard()}
+            <UnifiedJourneySummaryCard
+              summary={viewModel.performanceContext}
+              compact
+              showProtectedAnchors={false}
+              showBodyMass={Boolean(viewModel.performanceContext.bodyMass)}
+            />
             {nutritionMode === 'quick' ? renderQuickMode() : renderDetailedMode()}
             <View style={{ height: SPACING.xxl + 40 }} />
           </>

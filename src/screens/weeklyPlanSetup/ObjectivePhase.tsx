@@ -123,7 +123,7 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
 
   return (
     <>
-      <Section label="Start Date" description="When should this plan begin?">
+      <Section label="Start Date" description="When should this journey segment begin?">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
           {Array.from({ length: 14 }).map((_, idx) => {
             const date = new Date();
@@ -148,7 +148,7 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
         </ScrollView>
       </Section>
 
-      <Section label="Training Goal" description="Choose the setup that matches your next block.">
+      <Section label="Training Goal" description="Choose the adjustment that matches your next block.">
         <View style={styles.optionList}>
           <OptionPill selected={goalMode === 'fight_camp'} label="Fight Camp" onPress={() => setGoalMode('fight_camp')} />
           <OptionPill selected={goalMode === 'build_phase'} label="Build Phase" onPress={() => setGoalMode('build_phase')} />
@@ -157,7 +157,7 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
         {goalMode === 'build_phase' ? (
           <>
             <Text style={styles.subLabel}>Main Focus</Text>
-            <FieldNote>Pick the quality you want to build first.</FieldNote>
+            <FieldNote>Pick the quality your ongoing journey should build first.</FieldNote>
             <View style={styles.optionList}>
               {BUILD_GOAL_OPTIONS.map((option) => (
                 <OptionPill key={option.value} selected={buildGoalType === option.value} label={option.label} onPress={() => setBuildGoalType(option.value)} />
@@ -232,7 +232,7 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
         ) : (
           <>
             <Text style={styles.subLabel}>Fight Date</Text>
-            <FieldNote>Your camp timeline is built from this date.</FieldNote>
+            <FieldNote>Your current journey adapts around this date.</FieldNote>
             <DatePickerField label="Fight Date" value={fightDate} onChange={setFightDate} />
 
             <Text style={styles.subLabel}>Target Weight (lbs)</Text>

@@ -28,7 +28,7 @@ export function CutHistoryScreen() {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyIcon}>🏆</Text>
-        <Text style={styles.emptyTitle}>No Completed Cuts</Text>
+        <Text style={styles.emptyTitle}>No Completed Class Plans</Text>
         <Text style={styles.emptySubtitle}>
           Your weight-class records will appear here once a plan is completed.
         </Text>
@@ -42,8 +42,8 @@ export function CutHistoryScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Cut History</Text>
-      <Text style={styles.sectionSubtitle}>{cutHistory.length} completed cut{cutHistory.length !== 1 ? 's' : ''}</Text>
+      <Text style={styles.sectionTitle}>Body-Mass History</Text>
+      <Text style={styles.sectionSubtitle}>{cutHistory.length} completed class plan{cutHistory.length !== 1 ? 's' : ''}</Text>
       {cutHistory.map((cut) => (
         <CutHistoryCard key={cut.id} cut={cut} />
       ))}
@@ -116,7 +116,7 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
           <View style={styles.divider} />
           <View style={styles.detailGrid}>
             <DetailRow label="Gradual loss" value={`${(cut.total_diet_loss_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Acute loss" value={`${(cut.total_water_cut_lbs ?? 0).toFixed(1)} lbs`} />
+            <DetailRow label="Fight-week change" value={`${(cut.total_water_cut_lbs ?? 0).toFixed(1)} lbs`} />
             <DetailRow label="Post weigh-in regain" value={cut.rehydration_weight_regained ? `${cut.rehydration_weight_regained.toFixed(1)} lbs` : '—'} />
             <DetailRow label="Avg weekly loss" value={cut.avg_weekly_loss_rate ? `${cut.avg_weekly_loss_rate.toFixed(2)} lbs/wk` : '—'} />
             <DetailRow label="Fight day weight" value={cut.fight_day_weight ? `${cut.fight_day_weight} lbs` : '—'} />

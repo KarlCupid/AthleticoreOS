@@ -195,7 +195,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           <TouchableOpacity onPress={handleBackPhase} style={styles.backButton} activeOpacity={0.75}>
             <Text style={styles.backButtonText}>{phaseIndex > 0 || navigation.canGoBack() ? 'Back' : ''}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Planning Setup</Text>
+          <Text style={styles.headerTitle}>Journey Planning</Text>
           {navigation.canGoBack() ? (
             <View style={styles.headerRight} />
           ) : (
@@ -240,7 +240,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                 end={{ x: 1, y: 0 }}
                 style={styles.saveButtonBg}
               >
-                 {saving ? <ActivityIndicator color="#000000" /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Build My Plan' : 'Continue'}</Text>}
+                 {saving ? <ActivityIndicator color="#000000" /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Update Journey' : 'Continue'}</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </View>

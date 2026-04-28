@@ -37,7 +37,7 @@ export function DailyProtocolCard({ protocol }: Props) {
       backgroundScrimColor="rgba(10, 10, 10, 0.72)"
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Today's Protocol</Text>
+        <Text style={styles.title}>Today's Body-Mass Support</Text>
         {protocol.is_refeed_day && (
           <View style={styles.refeedBadge}>
             <Text style={styles.refeedText}>REFEED DAY</Text>

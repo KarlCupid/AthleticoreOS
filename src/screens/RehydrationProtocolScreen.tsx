@@ -118,7 +118,7 @@ export function RehydrationProtocolScreen() {
           ))}
         </Card>
 
-        <Text style={styles.sectionHeader}>Phased Protocol</Text>
+        <Text style={styles.sectionHeader}>Recovery Phases</Text>
         {protocol.phases.map((phase, idx) => (
           <TouchableOpacity
             key={idx}
@@ -140,7 +140,7 @@ export function RehydrationProtocolScreen() {
             <View style={styles.phaseDetails}>
               <PhaseDetail
                 icon="H2O"
-                text={phase.fluidInstruction ?? phase.protocol ?? 'Follow the fluid plan for this phase.'}
+                text={phase.fluidInstruction ?? phase.protocol ?? 'Follow the recovery fluid plan for this phase.'}
               />
               {phase.foodInstruction && <PhaseDetail icon="Meal" text={phase.foodInstruction} />}
               {phase.sodiumInstruction && <PhaseDetail icon="Na" text={phase.sodiumInstruction} />}
@@ -222,7 +222,7 @@ export function RehydrationProtocolScreen() {
               nav.goBack();
             }}
           >
-            <Text style={styles.completeButtonText}>Complete Cut and Archive</Text>
+            <Text style={styles.completeButtonText}>Complete and Archive</Text>
           </TouchableOpacity>
         )}
 

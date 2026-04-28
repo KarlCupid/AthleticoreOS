@@ -492,7 +492,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             </View>
                             <Text style={styles.welcomeTitle}>Set Your Training Foundation</Text>
                             <Text style={styles.welcomeSubtitle}>
-                                AthletiCore starts with the minimum profile needed to generate week one. Recommendations sharpen as training data comes in.
+                                AthletiCore starts your athlete journey here. Week one is generated from this baseline and keeps adapting as training data comes in.
                             </Text>
                         </ImageBackground>
                         <View style={styles.coachPointList}>

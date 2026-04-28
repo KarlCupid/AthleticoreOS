@@ -21,6 +21,11 @@ import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate, addDays } from '../../lib/utils/date';
 import { getDailyEngineState, getWeeklyMission, invalidateEngineDataCache } from '../../lib/api/dailyMissionService';
 import { resolveWeeklyPlanWeekStart } from '../../lib/engine/weeklyPlanWeekStart';
+import {
+  buildUnifiedPerformanceViewModel,
+  type UnifiedPerformanceViewModel,
+  type ReadinessBand,
+} from '../../lib/performance-engine';
 import type {
   WeeklyPlanConfigRow,
   WeeklyPlanEntryRow,
@@ -223,6 +228,12 @@ function shouldRepairUnderfilledWeek(
   return !hasStandaloneGuidedSession;
 }
 
+function mapUnifiedReadinessToLegacy(band: ReadinessBand): ReadinessState {
+  if (band === 'green') return 'Prime';
+  if (band === 'yellow' || band === 'orange') return 'Caution';
+  return 'Depleted';
+}
+
 function normalizeCampConfig(raw: CampPlanRow | CampConfig): CampConfig {
   if ('fightDate' in raw && 'campStartDate' in raw) {
     return raw;
@@ -262,7 +273,13 @@ async function getCurrentReadinessContext(
 ): Promise<{ readinessState: ReadinessState; acwr: number }> {
   try {
     const engineState = await getDailyEngineState(userId, date);
-    return { readinessState: engineState.readinessState, acwr: engineState.acwr.ratio };
+    const canonicalReadiness = engineState.unifiedPerformance?.canonicalOutputs.readiness;
+    return {
+      readinessState: canonicalReadiness
+        ? mapUnifiedReadinessToLegacy(canonicalReadiness.readinessBand)
+        : engineState.readinessState,
+      acwr: engineState.acwr.ratio,
+    };
   } catch (error) {
     logError('useWeeklyPlan.getCurrentReadinessContext', error, { userId, date });
     return { readinessState: 'Prime', acwr: 1.0 };
@@ -364,6 +381,7 @@ export function useWeeklyPlan() {
   const [isDeloadWeek, setIsDeloadWeek] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeWeekStart, setActiveWeekStart] = useState<string | null>(null);
+  const [performanceContext, setPerformanceContext] = useState<UnifiedPerformanceViewModel>(() => buildUnifiedPerformanceViewModel(null));
 
   // Derive if the current active week is the "current" chronological week
   const isCurrentWeek = activeWeekStart != null && todayStr() >= activeWeekStart && todayStr() < addDays(activeWeekStart, 7);
@@ -411,6 +429,7 @@ export function useWeeklyPlan() {
         setMissedEntries([]);
         setIsDeloadWeek(false);
         setActiveWeekStart(null);
+        setPerformanceContext(buildUnifiedPerformanceViewModel(null));
         setLoading(false);
         return;
       }
@@ -421,6 +440,7 @@ export function useWeeklyPlan() {
         getActiveWeekPlan(userId),
       ]);
       setGymProfile(gym);
+      setPerformanceContext(buildUnifiedPerformanceViewModel(engineState.unifiedPerformance));
 
       const todayEngineWeekStart = engineState.primaryPlanEntry?.week_start_date
         ?? engineState.weeklyPlanEntries[0]?.week_start_date
@@ -524,6 +544,7 @@ export function useWeeklyPlan() {
       setMissedEntries([]);
       setIsDeloadWeek(false);
       setActiveWeekStart(null);
+      setPerformanceContext(buildUnifiedPerformanceViewModel(null));
     } catch (err: unknown) {
       logError('useWeeklyPlan.cancelPlan', err);
       setError(getErrorMessage(err));
@@ -591,6 +612,7 @@ export function useWeeklyPlan() {
     isDeloadWeek,
     isCurrentWeek,
     activeWeekStart,
+    performanceContext,
     loadPlan,
     completeDay,
     skipDay,

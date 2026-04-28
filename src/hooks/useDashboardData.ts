@@ -31,6 +31,12 @@ import type { RecentTrainingSessionSummary } from '../../lib/engine/presentation
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
+import {
+  buildUnifiedPerformanceViewModel,
+  nutritionNumbersFromUnifiedTarget,
+  type ReadinessBand,
+  type UnifiedPerformanceViewModel,
+} from '../../lib/performance-engine';
 import type { CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
 import {
   computeActualNutrition,
@@ -87,6 +93,7 @@ interface DashboardDataState {
   goalMode: 'fight_camp' | 'build_phase';
   hasActiveFightCamp: boolean;
   hasActiveCutPlan: boolean;
+  performanceContext: UnifiedPerformanceViewModel;
 }
 
 const INITIAL_STATE: DashboardDataState = {
@@ -118,6 +125,7 @@ const INITIAL_STATE: DashboardDataState = {
   goalMode: 'build_phase',
   hasActiveFightCamp: false,
   hasActiveCutPlan: false,
+  performanceContext: buildUnifiedPerformanceViewModel(null),
 };
 
 function getWeekStart(dateStr: string): string {
@@ -125,6 +133,12 @@ function getWeekStart(dateStr: string): string {
   const day = target.getDay();
   const mondayOffset = day === 0 ? -6 : 1 - day;
   return addDays(dateStr, mondayOffset);
+}
+
+function mapUnifiedReadinessToLegacy(band: ReadinessBand) {
+  if (band === 'green') return 'Prime' as const;
+  if (band === 'yellow' || band === 'orange') return 'Caution' as const;
+  return 'Depleted' as const;
 }
 
 export function useDashboardData() {
@@ -240,7 +254,21 @@ export function useDashboardData() {
         }
       }
 
-      setReadiness(engineState.readinessState);
+      setReadiness(
+        engineState.unifiedPerformance?.canonicalOutputs.readiness.readinessBand
+          ? mapUnifiedReadinessToLegacy(engineState.unifiedPerformance.canonicalOutputs.readiness.readinessBand)
+          : engineState.readinessState,
+      );
+      const performanceContext = buildUnifiedPerformanceViewModel(engineState.unifiedPerformance);
+      const canonicalNutritionNumbers = nutritionNumbersFromUnifiedTarget(
+        engineState.unifiedPerformance?.canonicalOutputs.nutritionTarget,
+      );
+      const resolvedFuel = {
+        calories: Math.round(canonicalNutritionNumbers.calories ?? engineState.mission.fuelDirective.calories),
+        protein: Math.round(canonicalNutritionNumbers.proteinG ?? engineState.mission.fuelDirective.protein),
+        carbs: Math.round(canonicalNutritionNumbers.carbsG ?? engineState.mission.fuelDirective.carbs),
+        fat: Math.round(canonicalNutritionNumbers.fatG ?? engineState.mission.fuelDirective.fat),
+      };
       setState({
         acwr: engineState.acwr,
         biology,
@@ -250,7 +278,8 @@ export function useDashboardData() {
         sleepQuality: checkin?.sleep_quality ?? null,
         morningWeight: checkin?.morning_weight != null ? String(checkin.morning_weight) : null,
         readinessSubjective: checkin?.readiness ?? null,
-        readinessScore: engineState.readinessProfile.overallReadiness,
+        readinessScore: engineState.unifiedPerformance?.canonicalOutputs.readiness.overallReadiness
+          ?? engineState.readinessProfile.overallReadiness,
         todayActivities: engineState.scheduledActivities ?? [],
         primaryActivity: engineState.primaryScheduledActivity,
         currentLedger: (ledger as MacroLedgerRow | null) ?? null,
@@ -260,7 +289,14 @@ export function useDashboardData() {
         weightHistory,
         dailyMission: engineState.mission,
         todayPlanEntry: (engineState.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
-        nutritionTargets: engineState.nutritionTargets,
+        nutritionTargets: {
+          ...engineState.nutritionTargets,
+          adjustedCalories: resolvedFuel.calories,
+          protein: resolvedFuel.protein,
+          carbs: resolvedFuel.carbs,
+          fat: resolvedFuel.fat,
+          message: performanceContext.nutrition.explanation,
+        },
         actualNutrition: EMPTY_NUTRITION,
         activeCutProtocol: (engineState.cutProtocol as DailyCutProtocolRow | null) ?? null,
         weeklyReview,
@@ -270,6 +306,7 @@ export function useDashboardData() {
         goalMode: athleteContext.goalMode,
         hasActiveFightCamp,
         hasActiveCutPlan: Boolean(profile?.active_cut_plan_id),
+        performanceContext,
       });
       setLoading(false);
       setRefreshing(false);
@@ -278,10 +315,10 @@ export function useDashboardData() {
         try {
           await ensureDailyLedger(userId, todayStr, {
             tdee: engineState.nutritionTargets.tdee,
-            calories: engineState.mission.fuelDirective.calories,
-            protein: engineState.mission.fuelDirective.protein,
-            carbs: engineState.mission.fuelDirective.carbs,
-            fat: engineState.mission.fuelDirective.fat,
+            calories: resolvedFuel.calories,
+            protein: resolvedFuel.protein,
+            carbs: resolvedFuel.carbs,
+            fat: resolvedFuel.fat,
             weightCorrectionDeficit: engineState.nutritionTargets.weightCorrectionDeficit,
             targetSource: engineState.nutritionTargets.source,
           });

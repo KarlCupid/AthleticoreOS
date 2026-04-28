@@ -25,16 +25,23 @@ import { getPlanningSetupStatus, resetTrainingProgrammingForTester } from '../..
 import { getLatestWeight } from '../../lib/api/weightService';
 import { getWeeklyPlanConfig } from '../../lib/api/weeklyPlanService';
 import { getActiveWeightCutPlan } from '../../lib/api/weightCutService';
+import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import { getAthleteProfile, type AthleteProfileRow } from '../../lib/api/athleteContextService';
+import {
+  buildUnifiedPerformanceViewModel,
+  type UnifiedPerformanceViewModel,
+} from '../../lib/performance-engine';
 import type { BuildPhaseGoalRow, FightCampStatus, WeeklyPlanConfigRow } from '../../lib/engine/types';
 import type { GymProfileRow } from '../../lib/engine/types/training';
 import type { WeightCutPlanRow } from '../../lib/engine/types/weight_cut';
 import type { FirstRunGuidanceState } from '../../lib/api/firstRunGuidanceService';
 import type { PlanningSetupStatus } from '../../lib/api/planningSetupService';
 import { logError } from '../../lib/utils/logger';
+import { todayLocalDate } from '../../lib/utils/date';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { EngineReplayLab } from '../components/EngineReplayLab';
+import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import {
   IconActivity,
   IconBarChart,
@@ -68,6 +75,7 @@ interface MeSnapshot {
   defaultGymProfile: GymProfileRow | null;
   weeklyPlanConfig: WeeklyPlanConfigRow | null;
   guidanceState: FirstRunGuidanceState;
+  performanceContext: UnifiedPerformanceViewModel;
 }
 
 function formatTitleCase(value: string | null | undefined, fallback = '--') {
@@ -169,6 +177,7 @@ export function ProfileSettingsScreen() {
         defaultGymProfile,
         weeklyPlanConfig,
         guidanceState,
+        engineState,
       ] = await Promise.all([
         getAthleteProfile(userId),
         supabase.from('training_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
@@ -180,6 +189,10 @@ export function ProfileSettingsScreen() {
         getDefaultGymProfile(userId),
         getWeeklyPlanConfig(userId),
         getAndSyncFirstRunGuidanceState(userId),
+        getDailyEngineState(userId, todayLocalDate()).catch((engineError) => {
+          logError('ProfileSettingsScreen.loadSnapshot.dailyEngine', engineError);
+          return null;
+        }),
       ]);
 
       setSnapshot({
@@ -194,6 +207,7 @@ export function ProfileSettingsScreen() {
         defaultGymProfile,
         weeklyPlanConfig,
         guidanceState,
+        performanceContext: buildUnifiedPerformanceViewModel(engineState?.unifiedPerformance),
       });
     } catch (loadError) {
       logError('ProfileSettingsScreen.loadSnapshot', loadError);
@@ -494,6 +508,14 @@ export function ProfileSettingsScreen() {
           </Card>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(70).duration(ANIMATION.normal).springify()}>
+          <UnifiedJourneySummaryCard
+            summary={snapshot.performanceContext}
+            compact
+            showBodyMass={Boolean(snapshot.performanceContext.bodyMass)}
+          />
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()} style={styles.sectionSpacing}>
           <Card
             variant="glass"
@@ -550,8 +572,8 @@ export function ProfileSettingsScreen() {
             />
 
             <View style={styles.actionRow}>
-              <ActionButton label={snapshot.activeCutPlan ? 'Open Cut' : 'Start Cut'} onPress={openWeightCut} />
-              <ActionButton label="Adjust Plan" onPress={openWeeklySetup} variant="secondary" />
+              <ActionButton label={snapshot.activeCutPlan ? 'Open Class Plan' : 'Evaluate Class'} onPress={openWeightCut} />
+              <ActionButton label="Adjust Journey" onPress={openWeeklySetup} variant="secondary" />
               <ActionButton label="Log Check-in" onPress={openCheckIn} variant="secondary" />
             </View>
           </Card>
@@ -577,7 +599,7 @@ export function ProfileSettingsScreen() {
 
             <View style={styles.actionRow}>
               <ActionButton label="Gym Profiles" onPress={openGymProfiles} />
-              <ActionButton label="Adjust Plan" onPress={openWeeklySetup} variant="secondary" />
+              <ActionButton label="Adjust Journey" onPress={openWeeklySetup} variant="secondary" />
             </View>
             {__DEV__ ? (
               <AnimatedPressable

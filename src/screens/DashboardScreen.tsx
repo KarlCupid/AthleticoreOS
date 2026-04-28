@@ -27,6 +27,7 @@ import {
   IconCalendar,
 } from "../components/icons";
 import { MissionDashboardPanel } from "../components/dashboard/MissionDashboardPanel";
+import { UnifiedJourneySummaryCard } from "../components/performance/UnifiedJourneySummaryCard";
 import { buildCompassViewModel } from "../../lib/engine/presentation";
 import { buildMissionDashboardViewModel } from "../../lib/engine/presentation/missionDashboard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
@@ -111,6 +112,7 @@ export function DashboardScreen() {
     hasActiveCutPlan,
     weeklyReview,
     recentTrainingSessions,
+    performanceContext,
   } = useDashboardData();
 
   const compassVM = React.useMemo(
@@ -593,6 +595,14 @@ export function DashboardScreen() {
                 onPrimaryAction={handleCompassCTA}
                 secondaryActionLabel={compassVM.secondaryCTALabel}
                 onSecondaryAction={handleCompassSecondaryCTA}
+              />
+            </View>
+
+            <View style={styles.content}>
+              <UnifiedJourneySummaryCard
+                summary={performanceContext}
+                compact
+                showBodyMass={Boolean(performanceContext.bodyMass)}
               />
             </View>
         </Animated.View>

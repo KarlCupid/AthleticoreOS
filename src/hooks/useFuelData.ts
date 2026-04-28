@@ -4,6 +4,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { getDailyEngineState } from '../../lib/api/dailyMissionService';
 import {
+  buildUnifiedPerformanceViewModel,
+  nutritionNumbersFromUnifiedTarget,
+} from '../../lib/performance-engine';
+import {
   ensureDailyLedger,
   getDailyNutrition,
   getFavoriteFoods,
@@ -43,6 +47,7 @@ const EMPTY_MODEL: FuelHomeViewModel = {
   historySummary: { mealCount: 0, waterOz: 0 },
   missionReasonLines: [],
   missionTraceLines: [],
+  performanceContext: buildUnifiedPerformanceViewModel(null),
 };
 
 export function useFuelData() {
@@ -80,13 +85,20 @@ export function useFuelData() {
 
       const userId = session.user.id;
       const engineState = await getDailyEngineState(userId, date, { forceRefresh });
+      const performanceContext = buildUnifiedPerformanceViewModel(engineState.unifiedPerformance);
+      const canonicalNutritionTarget = engineState.unifiedPerformance?.canonicalOutputs.nutritionTarget ?? null;
+      const canonicalNutritionNumbers = nutritionNumbersFromUnifiedTarget(canonicalNutritionTarget);
+      const resolvedCalories = Math.round(canonicalNutritionNumbers.calories ?? engineState.mission.fuelDirective.calories);
+      const resolvedProtein = Math.round(canonicalNutritionNumbers.proteinG ?? engineState.mission.fuelDirective.protein);
+      const resolvedCarbs = Math.round(canonicalNutritionNumbers.carbsG ?? engineState.mission.fuelDirective.carbs);
+      const resolvedFat = Math.round(canonicalNutritionNumbers.fatG ?? engineState.mission.fuelDirective.fat);
 
       await ensureDailyLedger(userId, date, {
         tdee: engineState.nutritionTargets.tdee,
-        calories: engineState.mission.fuelDirective.calories,
-        protein: engineState.mission.fuelDirective.protein,
-        carbs: engineState.mission.fuelDirective.carbs,
-        fat: engineState.mission.fuelDirective.fat,
+        calories: resolvedCalories,
+        protein: resolvedProtein,
+        carbs: resolvedCarbs,
+        fat: resolvedFat,
         weightCorrectionDeficit: engineState.nutritionTargets.weightCorrectionDeficit,
         targetSource: engineState.nutritionTargets.source,
       });
@@ -126,11 +138,11 @@ export function useFuelData() {
         dailyMission: engineState.mission,
         targets: {
           ...engineState.nutritionTargets,
-          adjustedCalories: engineState.mission.fuelDirective.calories,
-          protein: engineState.mission.fuelDirective.protein,
-          carbs: engineState.mission.fuelDirective.carbs,
-          fat: engineState.mission.fuelDirective.fat,
-          message: engineState.mission.fuelDirective.message,
+          adjustedCalories: resolvedCalories,
+          protein: resolvedProtein,
+          carbs: resolvedCarbs,
+          fat: resolvedFat,
+          message: canonicalNutritionTarget?.explanation?.summary ?? engineState.mission.fuelDirective.message,
         },
         totals,
         meals,
@@ -142,8 +154,9 @@ export function useFuelData() {
           totalWaterOz: nutritionData.summary?.total_water_oz,
           mealGroups: meals,
         }),
-        missionReasonLines: engineState.nutritionTargets.reasonLines,
-        missionTraceLines: engineState.nutritionTargets.traceLines,
+        missionReasonLines: canonicalNutritionTarget?.explanation?.reasons ?? engineState.nutritionTargets.reasonLines,
+        missionTraceLines: performanceContext.explanations.map((explanation) => explanation.summary),
+        performanceContext,
       });
     } catch (loadError) {
       if (!isCurrentRequest()) {

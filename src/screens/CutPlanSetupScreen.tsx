@@ -18,11 +18,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../../lib/supabase';
 import { createWeightCutPlan } from '../../lib/api/weightCutService';
-import { getEffectiveWeight } from '../../lib/api/weightService';
+import { getLatestWeight } from '../../lib/api/weightService';
 import { generateCutPlan } from '../../lib/engine/calculateWeightCut';
+import {
+  evaluateWeightClassPlan,
+  normalizeBodyMassOrNull,
+  type WeightClassManagementResult,
+} from '../../lib/performance-engine';
 import type { CutPlanResult, CutSport, FightStatus } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
-import { CutPlanPreviewStep } from '../components/CutPlanPreviewStep';
+import { WeightClassEvaluationPreviewStep } from '../components/WeightClassEvaluationPreviewStep';
 import { Card } from '../components/Card';
 import { DatePickerField } from '../components/DatePickerField';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';
@@ -49,6 +54,7 @@ interface AthleteProfileSnapshot {
   fight_status?: FightStatus | null;
   biological_sex?: 'male' | 'female' | null;
   age?: number | null;
+  base_weight?: number | null;
 }
 
 const HEALTH_GUIDANCE_NOTE =
@@ -60,9 +66,7 @@ export function CutPlanSetupScreen() {
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<AthleteProfileSnapshot | null>(null);
-  const [startWeight, setStartWeight] = useState(0);
-  const [planResult, setPlanResult] = useState<CutPlanResult | null>(null);
-  const [extremeAcknowledged, setExtremeAcknowledged] = useState(false);
+  const [weightClassEvaluation, setWeightClassEvaluation] = useState<WeightClassManagementResult | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [form, setForm] = useState<FormState>({
     targetWeight: '',
@@ -84,18 +88,18 @@ export function CutPlanSetupScreen() {
 
       setUserId(user.id);
 
-      const [profileRes, effectiveWeight] = await Promise.all([
-        supabase.from('athlete_profiles').select('sport, fight_status, biological_sex, age').eq('user_id', user.id).single(),
-        getEffectiveWeight(user.id, 160),
+      const [profileRes, latestWeight] = await Promise.all([
+        supabase.from('athlete_profiles').select('sport, fight_status, biological_sex, age, base_weight').eq('user_id', user.id).single(),
+        getLatestWeight(user.id),
       ]);
 
       const nextProfile = (profileRes.data ?? null) as AthleteProfileSnapshot | null;
+      const effectiveWeight = latestWeight?.weight ?? nextProfile?.base_weight ?? null;
       setProfile(nextProfile);
-      setStartWeight(effectiveWeight);
       setForm((current) => ({
         ...current,
         sport: nextProfile?.sport ?? current.sport,
-        startWeightStr: String(effectiveWeight),
+        startWeightStr: effectiveWeight != null ? String(effectiveWeight) : '',
       }));
     };
 
@@ -138,36 +142,56 @@ export function CutPlanSetupScreen() {
         return;
       }
 
-      const actualStartWeight = Number(form.startWeightStr) || startWeight;
-      const result = generateCutPlan({
-        asOfDate: todayLocalDate(),
-        startWeight: actualStartWeight,
-        targetWeight: Number(form.targetWeight),
-        fightDate: form.fightDate,
-        weighInDate: form.weighInDate,
-        fightStatus: profile?.fight_status ?? 'amateur',
-        biologicalSex: profile?.biological_sex ?? 'male',
+      const actualStartWeight = Number(form.startWeightStr);
+      const targetWeight = Number(form.targetWeight);
+
+      if (!Number.isFinite(actualStartWeight) || actualStartWeight <= 0) {
+        Alert.alert('Missing current weight', 'Add a current body-mass value so Athleticore can evaluate the class safely.');
+        return;
+      }
+
+      const currentBodyMass = normalizeBodyMassOrNull({
+        value: actualStartWeight,
+        unit: 'lb',
+        measuredOn: todayLocalDate(),
+      });
+      const targetBodyMass = normalizeBodyMassOrNull({
+        value: targetWeight,
+        unit: 'lb',
+        measuredOn: form.weighInDate,
+      });
+      const evaluation = evaluateWeightClassPlan({
+        athleteId: userId ?? 'pending-athlete',
         sport: form.sport,
-        athleteAge: profile?.age ?? null,
-        weighInTiming: form.fightDate === form.weighInDate ? 'same_day' : 'next_day',
+        asOfDate: todayLocalDate(),
+        phase: 'weight_class_management',
+        currentBodyMass,
+        targetClassMass: targetBodyMass,
+        desiredScaleWeight: targetBodyMass,
+        targetClassName: form.weightClassName || null,
+        competitionDate: form.fightDate,
+        competitionDateTime: `${form.fightDate}T00:00:00.000Z`,
+        weighInDateTime: `${form.weighInDate}T00:00:00.000Z`,
+        athleteAgeYears: profile?.age ?? null,
+        fightOpportunityStatus: 'confirmed',
       });
 
-      setPlanResult(result);
-      setExtremeAcknowledged(false);
+      setWeightClassEvaluation(evaluation);
       setStep(4);
       return;
     }
 
     if (step === 4) {
-      if (!planResult?.valid) {
-        Alert.alert('Cannot proceed', planResult?.validationErrors.join('\n') ?? 'Invalid plan.');
+      if (!weightClassEvaluation) {
+        Alert.alert('Evaluation needed', 'Evaluate the weight-class target before continuing.');
         return;
       }
 
-      if (planResult.cutWarning?.requiresAcknowledgement && !extremeAcknowledged) {
+      if (!weightClassEvaluation.shouldGenerateProtocol || weightClassEvaluation.plan.professionalReviewRequired) {
         Alert.alert(
-          'Acknowledgment required',
-          'You must confirm that you understand the elevated health risks before proceeding.',
+          'Plan blocked',
+          weightClassEvaluation.plan.explanation?.summary
+            ?? 'This weight-class target needs a safer class, longer timeline, or qualified review before automatic planning.',
         );
         return;
       }
@@ -176,16 +200,45 @@ export function CutPlanSetupScreen() {
     }
   };
 
+  function buildPersistencePlanResult(actualStartWeight: number, targetWeight: number): CutPlanResult {
+    return generateCutPlan({
+      asOfDate: todayLocalDate(),
+      startWeight: actualStartWeight,
+      targetWeight,
+      fightDate: form.fightDate,
+      weighInDate: form.weighInDate,
+      fightStatus: profile?.fight_status ?? 'amateur',
+      biologicalSex: profile?.biological_sex ?? 'male',
+      sport: form.sport,
+      athleteAge: profile?.age ?? null,
+      weighInTiming: form.fightDate === form.weighInDate ? 'same_day' : 'next_day',
+    });
+  }
+
   const handleActivate = async () => {
-    if (!userId || !planResult || !planResult.valid) return;
+    if (!userId || !weightClassEvaluation) return;
 
     setLoading(true);
-    const actualStartWeight = Number(form.startWeightStr) || startWeight;
+    const actualStartWeight = Number(form.startWeightStr);
+    const targetWeight = Number(form.targetWeight);
 
     try {
+      if (!weightClassEvaluation.shouldGenerateProtocol || weightClassEvaluation.plan.professionalReviewRequired) {
+        throw new Error('This weight-class target needs a safer class, longer timeline, or qualified review before activation.');
+      }
+
+      const planResult = buildPersistencePlanResult(actualStartWeight, targetWeight);
+      if (!planResult.valid) {
+        throw new Error(planResult.validationErrors.join('\n') || 'The persistence plan could not be created safely.');
+      }
+
+      if (planResult.cutWarning?.requiresAcknowledgement) {
+        throw new Error('This target requires qualified review before Athleticore can activate automatic body-mass guidance.');
+      }
+
       await createWeightCutPlan(userId, {
         startWeight: actualStartWeight,
-        targetWeight: Number(form.targetWeight),
+        targetWeight,
         weightClassName: form.weightClassName || null,
         sport: form.sport,
         fightDate: form.fightDate,
@@ -194,9 +247,7 @@ export function CutPlanSetupScreen() {
         biologicalSex: profile?.biological_sex ?? 'male',
         planResult,
         coachNotes: form.coachNotes || undefined,
-        riskAcknowledgedAt: planResult.cutWarning?.requiresAcknowledgement && extremeAcknowledged
-          ? new Date().toISOString()
-          : null,
+        riskAcknowledgedAt: null,
       });
 
       nav.navigate('WeightCutHome');
@@ -210,7 +261,7 @@ export function CutPlanSetupScreen() {
   const renderStep1 = () => (
     <View style={styles.stepContainer}>
       <View style={styles.introHero}>
-        <Text style={styles.introHeroEmoji}>CUT</Text>
+        <Text style={styles.introHeroEmoji}>CLASS</Text>
         <Text style={styles.introHeroTitle}>Set up weight class</Text>
         <Text style={styles.introHeroSub}>
           Safety gates evaluate the class, timeline, and trend.
@@ -240,7 +291,7 @@ export function CutPlanSetupScreen() {
         </Card>
       ))}
 
-      <Text style={[styles.introSectionLabel, { marginTop: SPACING.md }]}>Cut Phases</Text>
+      <Text style={[styles.introSectionLabel, { marginTop: SPACING.md }]}>Body-Mass Phases</Text>
       {CUT_PHASES.map(({ label, when, color, bg, description }) => (
         <Card
           key={label}
@@ -316,7 +367,7 @@ export function CutPlanSetupScreen() {
 
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
-          Enter the actual number you need to hit at weigh-in. This screen builds a coaching plan around that target; it does not certify medical safety for any specific cut.
+          Enter the actual number you need to hit at weigh-in. This screen builds coaching support around that target; it does not certify medical safety for any specific target.
         </Text>
       </View>
     </View>
@@ -373,10 +424,10 @@ export function CutPlanSetupScreen() {
       <Text style={styles.stepTitle}>Step 5 of 5</Text>
       <Text style={styles.heading}>Final notes</Text>
 
-      {planResult?.cutWarning ? (
+      {weightClassEvaluation ? (
         <View style={styles.extremeReminderBanner}>
           <Text style={styles.extremeReminderText}>
-            Safety warning active ({planResult.totalCutPct.toFixed(1)}% body weight). Qualified supervision is strongly recommended before proceeding.
+            Feasibility is {weightClassEvaluation.plan.feasibilityStatus.replace(/_/g, ' ')} with {weightClassEvaluation.plan.riskLevel} risk. Automatic support remains safety-gated after activation.
           </Text>
         </View>
       ) : null}
@@ -394,16 +445,17 @@ export function CutPlanSetupScreen() {
       <View style={styles.confirmBox}>
         <IconCheckCircle size={20} color={COLORS.readiness.prime} />
         <Text style={styles.confirmText}>
-          Your plan is ready to activate. The app will update day-by-day guidance, but your team should still monitor symptoms, recovery, and the practicality of the cut.
+          Your plan is ready to activate. The app will update day-by-day guidance, but your team should still monitor symptoms, recovery, and the practicality of the target.
         </Text>
       </View>
     </View>
   );
 
-  const requiresRiskAcknowledgement = Boolean(planResult?.cutWarning?.requiresAcknowledgement);
   const isNextDisabled =
-    (step === 4 && !planResult?.valid) ||
-    (step === 4 && requiresRiskAcknowledgement && !extremeAcknowledged);
+    step === 4
+    && (!weightClassEvaluation
+      || !weightClassEvaluation.shouldGenerateProtocol
+      || weightClassEvaluation.plan.professionalReviewRequired);
 
   return (
     <KeyboardAvoidingView
@@ -417,7 +469,7 @@ export function CutPlanSetupScreen() {
         >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{step === 1 ? 'How It Works' : 'Weight Cut Setup'}</Text>
+        <Text style={styles.headerTitle}>{step === 1 ? 'How It Works' : 'Weight-Class Setup'}</Text>
         <View style={styles.stepDots}>
           {[1, 2, 3, 4, 5].map((dotStep) => (
             <View key={dotStep} style={[styles.dot, step >= dotStep && styles.dotActive]} />
@@ -435,11 +487,7 @@ export function CutPlanSetupScreen() {
           {step === 2 ? renderStep2() : null}
           {step === 3 ? renderStep3() : null}
           {step === 4 ? (
-            <CutPlanPreviewStep
-              planResult={planResult}
-              extremeAcknowledged={extremeAcknowledged}
-              setExtremeAcknowledged={setExtremeAcknowledged}
-            />
+            <WeightClassEvaluationPreviewStep evaluation={weightClassEvaluation} />
           ) : null}
           {step === 5 ? renderStep5() : null}
         </ScrollView>
@@ -455,8 +503,8 @@ export function CutPlanSetupScreen() {
             <Text style={styles.nextButtonText}>
               {step === 1
                 ? 'Evaluate weight class'
-                : step === 4 && requiresRiskAcknowledgement && !extremeAcknowledged
-                  ? 'Confirm risks above to continue'
+                : step === 4 && isNextDisabled
+                  ? 'Automatic plan blocked'
                   : step === 4
                     ? 'Looks good'
                     : 'Next'}
@@ -464,7 +512,7 @@ export function CutPlanSetupScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.activateButton} onPress={handleActivate} disabled={loading}>
-            {loading ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.nextButtonText}>Activate weight-class plan</Text>}
+            {loading ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.nextButtonText}>Activate body-mass support</Text>}
           </TouchableOpacity>
         )}
       </View>

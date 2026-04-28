@@ -7,6 +7,10 @@ import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
 import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
+import {
+  buildUnifiedPerformanceViewModel,
+  type UnifiedPerformanceViewModel,
+} from '../../lib/performance-engine';
 import type {
   WorkoutPrescriptionV2,
   WorkoutLogRow,
@@ -56,6 +60,7 @@ export function useWorkoutData() {
   const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [performanceContext, setPerformanceContext] = useState<UnifiedPerformanceViewModel>(() => buildUnifiedPerformanceViewModel(null));
 
   const loadHistoryData = useCallback(async (resolvedUserId?: string) => {
     const currentUserId = resolvedUserId ?? userId ?? await getActiveUserId();
@@ -120,6 +125,7 @@ export function useWorkoutData() {
   const loadData = useCallback(async (forceRefresh: boolean = false) => {
     const currentUserId = await getActiveUserId();
     if (!currentUserId) {
+      setPerformanceContext(buildUnifiedPerformanceViewModel(null));
       setLoading(false);
       setRefreshing(false);
       return;
@@ -136,6 +142,7 @@ export function useWorkoutData() {
       const weeklyMission = await getWeeklyMission(currentUserId, weekStart, { forceRefresh });
 
       setEngineState(engineState);
+      setPerformanceContext(buildUnifiedPerformanceViewModel(engineState.unifiedPerformance));
       setDailyMission(engineState.mission);
       setTodayActivities(engineState.scheduledActivities ?? []);
       setWeeklyEntries(weeklyMission.entries ?? []);
@@ -187,6 +194,7 @@ export function useWorkoutData() {
     userId,
     cutProtocol,
     engineState,
+    performanceContext,
     dailyMission,
     todayPlanEntry: (engineState?.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
     weeklyEntries,
