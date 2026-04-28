@@ -2,11 +2,9 @@ import {
   createAthleteJourneyState,
   createAthleteProfile,
   createComposedSession,
-  createExplanation,
   createPerformanceState,
   createPhaseState,
   createPhaseTransition,
-  createRiskFlag,
   createUnknownBodyMassState,
   type AthleteGoalSnapshot,
   type AthleteJourneyState,
@@ -33,8 +31,10 @@ import {
   type UnknownField,
   type WeightClassPlan,
 } from '../types/index.ts';
+import { createExplanation } from '../explanation-engine/explanationEngine.ts';
 import { createFightOpportunity, snapshotFightOpportunity } from '../fight-opportunity/fightOpportunityEngine.ts';
 import { resolveBuildPhaseForGoal } from '../phase-controller/phaseController.ts';
+import { createMissingDataRisk, createRiskFlag } from '../risk-safety/riskSafetyEngine.ts';
 import { confidenceFromLevel } from '../utils/confidence.ts';
 import { normalizeBodyMass, type BodyMassUnit } from '../utils/bodyMassUnits.ts';
 import { createMeasurementRange } from '../utils/units.ts';
@@ -458,22 +458,20 @@ function buildRiskFlags(input: {
   const flags: RiskFlag[] = [];
 
   if (input.currentWeightLbs == null) {
-    flags.push(createRiskFlag({
+    flags.push(createMissingDataRisk({
       id: 'missing-body-mass-baseline',
-      domain: 'data_quality',
-      code: 'missing_body_mass_baseline',
-      severity: 'caution',
-      message: 'Current body mass is unknown, so body-mass and fueling decisions need more data.',
+      context: 'Body-mass baseline',
+      missingFields: ['current_body_mass'],
+      severity: 'low',
     }));
   }
 
   if (input.goalMode === 'fight_camp' && !input.fightDate) {
-    flags.push(createRiskFlag({
+    flags.push(createMissingDataRisk({
       id: 'missing-fight-date',
-      domain: 'fight_opportunity',
-      code: 'missing_fight_date',
-      severity: 'watch',
-      message: 'Fight camp context is incomplete without a fight date.',
+      context: 'Fight opportunity',
+      missingFields: ['fight_date'],
+      severity: 'moderate',
     }));
   }
 
@@ -485,9 +483,13 @@ function buildRiskFlags(input: {
     flags.push(createRiskFlag({
       id: 'large-body-mass-change',
       domain: 'body_mass',
-      code: 'large_body_mass_change',
-      severity: 'watch',
+      code: 'rapid_body_mass_change',
+      severity: 'moderate',
       message: 'The target body mass is far from the starting body mass and needs safety review before recommendations.',
+      evidence: [
+        { metric: 'current_body_mass_lb', value: input.currentWeightLbs },
+        { metric: 'target_body_mass_lb', value: input.targetWeightLbs },
+      ],
     }));
   }
 

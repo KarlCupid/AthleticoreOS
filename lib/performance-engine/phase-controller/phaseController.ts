@@ -1,5 +1,4 @@
 import {
-  createExplanation,
   createPerformanceState,
   createPhaseState,
   createPhaseTransition,
@@ -15,6 +14,7 @@ import {
   type PhaseTransitionReason,
   type RiskFlag,
 } from '../types/index.ts';
+import { createExplanation, explainPhaseTransition } from '../explanation-engine/explanationEngine.ts';
 import { confidenceFromLevel } from '../utils/confidence.ts';
 import { daysBetween } from '../utils/dates.ts';
 
@@ -83,19 +83,20 @@ function reasonToJourneyEventType(reason: PhaseTransitionReason): JourneyEvent['
   }
 }
 
-function transitionSummary(to: AthleticorePhase): string {
-  return to.replace(/_/g, ' ');
-}
-
 export function transitionPerformancePhase(input: PhaseTransitionInput): PhaseTransitionResult {
   const from = input.performanceState.phase.current;
-  const explanation = createExplanation({
-    summary: `Phase transitioned from ${transitionSummary(from)} to ${transitionSummary(input.to)}.`,
-    reasons: [
-      'The athlete journey is continuous; phase changes update state without replacing baseline context.',
-      'Protected workouts, preferences, history, body-mass context, readiness context, and risk flags are carried forward.',
+  const explanation = explainPhaseTransition({
+    from,
+    to: input.to,
+    reason: input.reason,
+    preserved: [
+      'protected workouts',
+      'preferences',
+      'training history',
+      'body-mass context',
+      'readiness context',
+      'risk flags',
     ],
-    impact: 'adjusted',
     confidence: confidenceFromLevel('medium', ['Phase transition was resolved by the Phase Controller.']),
     generatedAt: input.transitionedAt,
   });

@@ -1,5 +1,4 @@
 import type { ConfidenceValue, ISODateString, ISODateTimeString } from './shared.ts';
-import { UNKNOWN_CONFIDENCE } from './shared.ts';
 import type { Explanation } from './explanation.ts';
 
 export type RiskDomain =
@@ -13,9 +12,28 @@ export type RiskDomain =
   | 'illness'
   | 'data_quality'
   | 'phase_transition'
-  | 'fight_opportunity';
+  | 'fight_opportunity'
+  | 'competition'
+  | 'plan_integrity'
+  | 'professional_review'
+  | 'safety';
 
-export type RiskSeverity = 'info' | 'watch' | 'caution' | 'high' | 'critical';
+export type RiskFlagCode =
+  | 'under_fueling_risk'
+  | 'unsafe_weight_class_target'
+  | 'excessive_training_load'
+  | 'protected_workout_conflict'
+  | 'poor_readiness'
+  | 'injury_conflict'
+  | 'illness_conflict'
+  | 'missing_data'
+  | 'low_nutrition_confidence'
+  | 'rapid_body_mass_change'
+  | 'competition_proximity_conflict'
+  | 'duplicate_or_conflicting_plan'
+  | 'professional_review_required';
+
+export type RiskSeverity = 'info' | 'low' | 'moderate' | 'high' | 'critical';
 export type RiskFlagStatus = 'active' | 'monitoring' | 'resolved';
 
 export interface RiskEvidence {
@@ -28,42 +46,16 @@ export interface RiskEvidence {
 export interface RiskFlag {
   id: string;
   domain: RiskDomain;
-  code: string;
+  code: RiskFlagCode;
   severity: RiskSeverity;
   status: RiskFlagStatus;
   message: string;
   evidence: RiskEvidence[];
+  blocksPlan: boolean;
   hardStop: boolean;
+  requiresProfessionalReview: boolean;
   appliesOn: ISODateString | null;
   resolvedAt: ISODateTimeString | null;
   confidence: ConfidenceValue;
   explanation: Explanation | null;
-}
-
-export function createRiskFlag(input: {
-  id: string;
-  domain: RiskDomain;
-  code: string;
-  severity: RiskSeverity;
-  message: string;
-  evidence?: RiskEvidence[];
-  hardStop?: boolean;
-  appliesOn?: ISODateString | null;
-  confidence?: ConfidenceValue;
-  explanation?: Explanation | null;
-}): RiskFlag {
-  return {
-    id: input.id,
-    domain: input.domain,
-    code: input.code,
-    severity: input.severity,
-    status: 'active',
-    message: input.message,
-    evidence: input.evidence ?? [],
-    hardStop: input.hardStop ?? input.severity === 'critical',
-    appliesOn: input.appliesOn ?? null,
-    resolvedAt: null,
-    confidence: input.confidence ?? UNKNOWN_CONFIDENCE,
-    explanation: input.explanation ?? null,
-  };
 }

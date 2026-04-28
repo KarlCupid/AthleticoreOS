@@ -158,7 +158,7 @@ console.log('\n-- performance-engine foundation --');
   const risk = createRiskFlag({
     id: 'risk-1',
     domain: 'weight_cut',
-    code: 'missing_weight_data',
+    code: 'unsafe_weight_class_target',
     severity: 'critical',
     message: 'Current body mass is unknown.',
   });
@@ -167,6 +167,7 @@ console.log('\n-- performance-engine foundation --');
   const dataQuality = createUnknownNutritionDataQuality([{ field: 'food_amount', reason: 'not_collected' }]);
 
   assert('critical risk defaults to hard stop', risk.hardStop);
+  assert('critical risk blocks plan', risk.blocksPlan);
   assert('unknown readiness has missing field', readiness.missingFields[0]?.field === 'readiness_check_in');
   assert('unknown body mass does not synthesize zero', bodyMass.current === null);
   assert('partial nutrition data quality records missing field', dataQuality.availability === 'partial');

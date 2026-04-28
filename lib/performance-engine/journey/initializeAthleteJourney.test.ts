@@ -69,7 +69,10 @@ console.log('\n-- initializeAthleteJourney --');
   assert('missing age is unknown, not zero', initialized.athlete.ageYears === null);
   assert('missing body mass stays null', initialized.journey.bodyMassState?.current === null);
   assert('missing fields are recorded', initialized.journey.missingFields.some((field) => field.field === 'current_body_mass'));
-  assert('initial data-quality risk is raised for missing body mass', initialized.journey.riskFlags.some((flag) => flag.code === 'missing_body_mass_baseline'));
+  assert('initial data-quality risk is raised for missing body mass', initialized.journey.riskFlags.some((flag) => (
+    flag.code === 'missing_data' &&
+    flag.evidence.some((item) => item.metric === 'current_body_mass')
+  )));
 })();
 
 (() => {

@@ -1,5 +1,4 @@
 import {
-  createExplanation,
   type AthleticorePhase,
   type FightEventMetadata,
   type FightOpponentMetadata,
@@ -12,6 +11,7 @@ import {
   type ISODateString,
   type ISODateTimeString,
 } from '../types/index.ts';
+import { createExplanation } from '../explanation-engine/explanationEngine.ts';
 import { confidenceFromLevel } from '../utils/confidence.ts';
 import { createMeasurementRange } from '../utils/units.ts';
 import { recommendPhaseForFightOpportunity } from '../phase-controller/phaseController.ts';
