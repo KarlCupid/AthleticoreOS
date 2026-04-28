@@ -313,12 +313,13 @@ function resolveUnifiedDailyPerformance(input: {
   objectiveContext: MacrocycleContext;
   readinessProfile: ReadinessProfile;
   scheduledActivities: ScheduledActivityRow[];
-  currentWeight: number;
-  targetWeight: number;
+  currentWeight: number | null;
+  targetWeight: number | null;
   weekStart: string;
 }): UnifiedPerformanceEngineResult | null {
   const profile = input.athleteContext.profile;
   if (!profile) return null;
+  const canonicalCurrentWeight = input.objectiveContext.currentWeightLbs ?? input.currentWeight ?? null;
 
   const phase = createPhaseState({
     current: mapLegacyPhaseToUnifiedPhase(input.objectiveContext.phase),
@@ -337,7 +338,7 @@ function resolveUnifiedDailyPerformance(input: {
     trainingBackground: trainingBackgroundFromFitnessLevel(input.athleteContext.fitnessLevel),
   });
   const bodyMass = buildDailyBodyMassState({
-    currentWeightLbs: input.objectiveContext.currentWeightLbs ?? input.currentWeight,
+    currentWeightLbs: canonicalCurrentWeight,
     date: input.date,
   });
   const journey = createAthleteJourneyState({
@@ -363,7 +364,7 @@ function resolveUnifiedDailyPerformance(input: {
   });
   const targetClassMass = input.objectiveContext.targetWeightLbs != null
     ? normalizeBodyMass({
-      value: input.targetWeight,
+      value: input.objectiveContext.targetWeightLbs ?? input.targetWeight,
       fromUnit: 'lb',
       toUnit: 'lb',
       measuredOn: input.objectiveContext.camp?.fightDate ?? profile.fight_date ?? null,
@@ -386,7 +387,7 @@ function resolveUnifiedDailyPerformance(input: {
       userId: input.userId,
       date: input.date,
       readinessProfile: input.readinessProfile,
-      currentWeightLbs: input.objectiveContext.currentWeightLbs ?? input.currentWeight,
+      currentWeightLbs: canonicalCurrentWeight,
     }),
     protectedAnchors: protectedAnchorsFromScheduledActivities(input.scheduledActivities),
     acuteChronicWorkloadRatio: null,
@@ -1113,8 +1114,10 @@ async function computeDailyEngineState(
   const profileCycleDay = typeof (profile as { cycle_day?: number | null } | null)?.cycle_day === 'number'
     ? (profile as { cycle_day?: number | null }).cycle_day ?? null
     : null;
-  const currentWeight = objectiveContext.currentWeightLbs ?? profile?.base_weight ?? 150;
-  const targetWeight = objectiveContext.targetWeightLbs ?? currentWeight;
+  const canonicalCurrentWeight = objectiveContext.currentWeightLbs ?? profile?.base_weight ?? null;
+  const canonicalTargetWeight = objectiveContext.targetWeightLbs ?? null;
+  const currentWeight = canonicalCurrentWeight ?? 150;
+  const targetWeight = canonicalTargetWeight ?? currentWeight;
   const acwr = await resolveACWR(
     userId,
     date,
@@ -1312,8 +1315,8 @@ async function computeDailyEngineState(
     objectiveContext,
     readinessProfile,
     scheduledActivities,
-    currentWeight,
-    targetWeight,
+    currentWeight: canonicalCurrentWeight,
+    targetWeight: canonicalTargetWeight,
     weekStart: weekWindow.weekStart,
   });
 

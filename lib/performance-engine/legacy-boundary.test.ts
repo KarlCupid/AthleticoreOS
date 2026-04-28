@@ -76,6 +76,7 @@ assert('active source does not recommend dangerous dehydration methods', dangero
 const dailyMission = read('lib/api/dailyMissionService.ts');
 assert('daily mission no longer imports legacy protocol row type', !dailyMission.includes('DailyCutProtocolRow'));
 assert('daily mission no longer threads legacy cut protocol output', !dailyMission.includes('LegacyCutProtocol') && !dailyMission.includes('cutProtocol'));
+assert('unified daily performance preserves unknown body mass instead of legacy fallback', /currentWeight:\s*number \| null/.test(dailyMission) && /const canonicalCurrentWeight = objectiveContext\.currentWeightLbs \?\? profile\?\.base_weight \?\? null/.test(dailyMission));
 
 const weightCutMigration = read('supabase/migrations/002_weight_cut.sql');
 assert('fresh schema does not create retired daily cut protocol table', !weightCutMigration.includes('daily_cut_protocols'));
