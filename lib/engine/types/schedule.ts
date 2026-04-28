@@ -7,7 +7,7 @@ import type {
   TimelineStatus,
   WorkoutFocus,
 } from './foundational.ts';
-import type { FuelState, MacroLedgerRow } from './nutrition.ts';
+import type { MacroLedgerRow } from './nutrition.ts';
 import type {
   AvailabilityWindow,
   ConstraintTier,
@@ -209,17 +209,6 @@ export interface ScheduleGenerationInput {
   fitnessLevel?: FitnessLevel;
   campConfig?: CampConfig | null;
   age?: number | null;
-}
-
-export interface NutritionDayAdjustment {
-  carbModifierPct: number;
-  calorieModifier: number;
-  proteinModifier: number;
-  hydrationBoostOz: number;
-  fuelState: FuelState;
-  sessionDemandScore: number;
-  reasons: string[];
-  message: string;
 }
 
 export type PlanSlot = 'am' | 'pm' | 'single';

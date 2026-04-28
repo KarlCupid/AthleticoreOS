@@ -50,7 +50,7 @@ import {
 import { detectOvertrainingRisk } from './schedule/safety.ts';
 
 export { getRecoveryWindow, suggestAlternative, validateDayLoad } from './schedule/loadAndValidation.ts';
-export { adjustNutritionForDay, detectOvertrainingRisk } from './schedule/safety.ts';
+export { detectOvertrainingRisk } from './schedule/safety.ts';
 // generateWeekPlan ----------------------------------------------------------
 
 function isBoxingActivityType(activityType: string): boolean {

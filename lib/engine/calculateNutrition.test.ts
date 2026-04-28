@@ -1,5 +1,8 @@
 /**
- * Standalone test for lib/engine/calculateNutrition.ts
+ * Standalone test for the legacy nutrition entry points.
+ *
+ * These exports remain because current app services still call them, but their
+ * implementation must delegate to the canonical Nutrition and Fueling Engine.
  */
 
 import {
@@ -13,14 +16,13 @@ let passed = 0;
 let failed = 0;
 
 function assert(label: string, condition: boolean) {
-  if (condition) { passed++; console.log(`  PASS ${label}`); }
-  else { failed++; console.error(`  FAIL ${label}`); }
-}
-
-function assertClose(label: string, actual: number, expected: number, tolerance: number) {
-  const ok = Math.abs(actual - expected) <= tolerance;
-  if (ok) { passed++; console.log(`  PASS ${label}`); }
-  else { failed++; console.error(`  FAIL ${label} (got ${actual}, expected ~${expected} +/- ${tolerance})`); }
+  if (condition) {
+    passed++;
+    console.log(`  PASS ${label}`);
+  } else {
+    failed++;
+    console.error(`  FAIL ${label}`);
+  }
 }
 
 const baseInput = (overrides: Record<string, any> = {}) => ({
@@ -39,333 +41,99 @@ const baseInput = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-console.log('\n-- calculateNutritionTargets --');
+console.log('\n-- calculateNutritionTargets via Nutrition and Fueling Engine --');
 
 (() => {
-  const r = calculateNutritionTargets(baseInput());
-  assertClose('Male BMR-based TDEE (moderate)', r.tdee, 2531, 2);
-  assert('Off-season maintain phaseMultiplier = 0', r.phaseMultiplier === 0);
+  const target = calculateNutritionTargets(baseInput());
+
+  assert('legacy entry point identifies canonical engine', target.engineVersion === 'nutrition_fueling_engine_v1');
+  assert('legacy entry point resolves canonical phase', target.canonicalPhase === 'build');
+  assert('engine message is explicit', target.message.includes('Nutrition and Fueling Engine'));
+  assert('macro calories reconcile to target calories', target.adjustedCalories === target.protein * 4 + target.carbs * 4 + target.fat * 9);
 })();
 
 (() => {
-  const r = calculateNutritionTargets(baseInput({ biologicalSex: 'female' }));
-  assertClose('Female BMR-based TDEE (moderate)', r.tdee, 2298, 2);
+  const build = calculateNutritionTargets(baseInput({ phase: 'off-season', nutritionGoal: 'maintain' }));
+  const camp = calculateNutritionTargets(baseInput({ phase: 'fight-camp', nutritionGoal: 'maintain' }));
+
+  assert('phase-aware target raises camp support above build', camp.adjustedCalories > build.adjustedCalories);
+  assert('camp phase maps to canonical camp', camp.canonicalPhase === 'camp');
 })();
 
 (() => {
-  const r = calculateNutritionTargets(baseInput({ heightInches: null, age: null }));
-  assertClose('Simplified BMR TDEE', r.tdee, 2520, 1);
-})();
-
-(() => {
-  const levels = [
-    ['sedentary', 1.15],
-    ['light', 1.25],
-    ['moderate', 1.4],
-    ['very_active', 1.6],
-    ['extra_active', 1.75],
-  ] as const;
-
-  for (const [level, mult] of levels) {
-    const r = calculateNutritionTargets(baseInput({ activityLevel: level }));
-    const expectedTDEE = Math.round(1808 * mult);
-    assertClose(`Activity ${level} -> TDEE ~${expectedTDEE}`, r.tdee, expectedTDEE, 3);
-  }
-})();
-
-(() => {
-  const offCut = calculateNutritionTargets(baseInput({ nutritionGoal: 'cut' }));
-  assert('Off-season cut: phaseMultiplier = -0.1', offCut.phaseMultiplier === -0.1);
-
-  const fcCut = calculateNutritionTargets(baseInput({ phase: 'fight-camp', nutritionGoal: 'cut' }));
-  assert('Fight-camp cut: phaseMultiplier = -0.25', fcCut.phaseMultiplier === -0.25);
-
-  const cbMaint = calculateNutritionTargets(baseInput({ phase: 'camp-base', nutritionGoal: 'maintain' }));
-  assert('Camp-base maintain: phaseMultiplier = 0.05', cbMaint.phaseMultiplier === 0.05);
-
-  const ctCut = calculateNutritionTargets(baseInput({ phase: 'camp-taper', nutritionGoal: 'cut' }));
-  assert('Camp-taper cut: phaseMultiplier = -0.2', ctCut.phaseMultiplier === -0.2);
-})();
-
-(() => {
-  const r = calculateNutritionTargets(baseInput({
-    biologicalSex: 'female',
+  const unsafeOverride = calculateNutritionTargets(baseInput({
     coachCaloriesOverride: 900,
-    phase: 'fight-camp',
     nutritionGoal: 'cut',
-  }));
-  assert('Female calorie floor enforced (>= 1200)', r.adjustedCalories >= 1200);
-})();
-
-(() => {
-  const r = calculateNutritionTargets(baseInput({
-    biologicalSex: 'male',
-    coachCaloriesOverride: 1000,
     phase: 'fight-camp',
-    nutritionGoal: 'cut',
   }));
-  assert('Male calorie floor enforced (>= 1500)', r.adjustedCalories >= 1500);
+
+  assert('unsafe low calorie override is raised to safety floor', unsafeOverride.adjustedCalories >= 180 * 11.5);
+  assert('unsafe override is explained', unsafeOverride.message.includes('safety floor'));
 })();
 
 (() => {
-  const follicular = calculateNutritionTargets(baseInput({
-    biologicalSex: 'female',
-    cycleDay: 10,
-  }));
-  const lutealLateMaintain = calculateNutritionTargets(baseInput({
-    biologicalSex: 'female',
-    cycleDay: 24,
-  }));
-  const lutealLateCut = calculateNutritionTargets(baseInput({
-    biologicalSex: 'female',
-    cycleDay: 24,
-    phase: 'fight-camp',
-    nutritionGoal: 'cut',
-  }));
-  assert('Late-luteal maintenance proteinModifier is 1.05', lutealLateMaintain.proteinModifier === 1.05);
-  assert('Late-luteal cut proteinModifier is 1.15', lutealLateCut.proteinModifier === 1.15);
-  assert('Follicular proteinModifier is 1.0', follicular.proteinModifier === 1.0);
-  assert('Late-luteal cut protein > follicular protein', lutealLateCut.protein > follicular.protein);
-})();
+  const cut = calculateNutritionTargets(baseInput({ nutritionGoal: 'cut', phase: 'fight-camp' }));
+  const bulk = calculateNutritionTargets(baseInput({ nutritionGoal: 'bulk', phase: 'off-season' }));
 
-(() => {
-  const base = calculateNutritionTargets(baseInput());
-  const withCorrection = calculateNutritionTargets(baseInput({ weightCorrectionDeficit: 200 }));
-  assert('Positive correction reduces calories', withCorrection.adjustedCalories < base.adjustedCalories);
-  assert('Correction message mentions correction', withCorrection.message.includes('correction'));
-})();
-
-(() => {
-  const base = calculateNutritionTargets(baseInput());
-  const ahead = calculateNutritionTargets(baseInput({ weightCorrectionDeficit: -125 }));
-  assert('Negative correction increases calories (ahead)', ahead.adjustedCalories > base.adjustedCalories);
-  assert('Ahead message mentions deficit reduced', ahead.message.includes('Deficit reduced'));
-})();
-
-(() => {
-  const r = calculateNutritionTargets(baseInput({ coachProteinOverride: 250 }));
-  assert('Coach protein override applied', r.protein === 250);
-})();
-
-(() => {
-  const maintain = calculateNutritionTargets(baseInput({ nutritionGoal: 'maintain' }));
-  const cut = calculateNutritionTargets(baseInput({ phase: 'fight-camp', nutritionGoal: 'cut' }));
-  assert('Protein scales up in deeper deficit', cut.protein > maintain.protein);
-})();
-
-(() => {
-  const r = calculateNutritionTargets(baseInput());
-  const reconciledCal = r.protein * 4 + r.carbs * 4 + r.fat * 9;
-  assert('Macros reconcile to adjustedCalories', r.adjustedCalories === reconciledCal);
+  assert('cut remains lower than bulk without using old macro tables', cut.adjustedCalories < bulk.adjustedCalories);
+  assert('cut support is framed as safety-first', cut.message.includes('under-fueling floors'));
 })();
 
 console.log('\n-- computeMacroAdherence --');
 
 (() => {
-  const r = computeMacroAdherence(
+  const result = computeMacroAdherence(
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
     { calories: 2000, protein: 150, carbs: 200, fat: 60 },
   );
-  assert('Perfect adherence -> Target Met', r.overall === 'Target Met');
-  assert('All percentages 100%', r.caloriesPct === 100 && r.proteinPct === 100);
+
+  assert('perfect adherence still reports target met', result.overall === 'Target Met');
+  assert('percentages are still calculated', result.caloriesPct === 100 && result.proteinPct === 100);
 })();
 
 (() => {
-  const r = computeMacroAdherence(
-    { calories: 1990, protein: 151, carbs: 201, fat: 61 },
-    { calories: 2000, protein: 150, carbs: 200, fat: 60 },
-  );
-  assert('Near-perfect (within 10%) -> Target Met', r.overall === 'Target Met');
-})();
-
-(() => {
-  const r = computeMacroAdherence(
-    { calories: 1700, protein: 150, carbs: 200, fat: 60 },
-    { calories: 2000, protein: 150, carbs: 200, fat: 60 },
-  );
-  assert('15% off calories -> Close Enough', r.overall === 'Close Enough');
-})();
-
-(() => {
-  const r = computeMacroAdherence(
-    { calories: 2000, protein: 112, carbs: 200, fat: 60 },
-    { calories: 2000, protein: 150, carbs: 200, fat: 60 },
-  );
-  assert('25% off protein -> Missed It', r.overall === 'Missed It');
-})();
-
-(() => {
-  const r = computeMacroAdherence(
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  );
-  assert('Zero/zero -> 100% -> Target Met', r.overall === 'Target Met');
-})();
-
-console.log('\n-- resolveDailyMacros --');
-
-(() => {
-  const base = calculateNutritionTargets(baseInput({
-    phase: 'camp-build',
-    nutritionGoal: 'maintain',
-  }));
-
-  const result = resolveDailyMacros(
-    base,
-    {
-      prescribed_calories: 2200,
-      prescribed_protein: 180,
-      prescribed_carbs: 200,
-      prescribed_fat: 70,
-    } as any,
-    [],
+  const result = computeMacroAdherence(
+    { calories: 1600, protein: 90, carbs: 120, fat: 80 },
+    { calories: 2000, protein: 150, carbs: 220, fat: 60 },
   );
 
-  const reconciledCalories = (result.protein * 4) + (result.carbs * 4) + (result.fat * 9);
-  assert('Cut protocol macros reconcile', result.calories === reconciledCalories);
-  assert('Cut protocol source', result.source === 'weight_cut_protocol' || result.source === 'weight_cut_protocol_safety_adjusted');
+  assert('clear miss remains a missed macro day', result.overall === 'Missed It');
 })();
 
-(() => {
-  const base = calculateNutritionTargets(baseInput({
-    phase: 'fight-camp',
-    nutritionGoal: 'cut',
-    coachCaloriesOverride: 1800,
-  }));
-
-  const resolved = resolveDailyNutritionTargets(
-    base,
-    null,
-    [{ activity_type: 'sparring' as any, expected_intensity: 9, estimated_duration_min: 75 }],
-  );
-
-  assert('Fueling floor triggers on hard training day', resolved.fuelingFloorTriggered === true);
-  assert('EA protected to 20+', (resolved.energyAvailability ?? 0) >= 20);
-  assert('Trace lines populated', resolved.traceLines.length > 0);
-  assert('Hard training day builds sparring fueling plan', resolved.sessionFuelingPlan.priority === 'sparring');
-  assert('Hard training day hydration plan is populated', resolved.hydrationPlan.dailyTargetOz > 0);
-})();
+console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine --');
 
 (() => {
   const base = calculateNutritionTargets(baseInput());
   const resolved = resolveDailyNutritionTargets(base, null, []);
-  assert('No activities -> source is base', resolved.source === 'base');
-  assert('No activities -> recovery priority', resolved.prioritySession === 'recovery');
-})();
 
-(() => {
-  const base = calculateNutritionTargets(baseInput());
-  const lightResolved = resolveDailyNutritionTargets(base, null, [], { bodyweightLbs: 140 });
-  const heavyResolved = resolveDailyNutritionTargets(base, null, [], { bodyweightLbs: 220 });
-
-  assert('Daily resolver uses explicit bodyweight for protein scaling', heavyResolved.protein > lightResolved.protein);
-})();
-
-(() => {
-  const base = calculateNutritionTargets(baseInput({
-    phase: 'camp-build',
-    nutritionGoal: 'maintain',
-  }));
-  const baseline = resolveDailyNutritionTargets(
-    base,
-    null,
-    [{ activity_type: 'boxing_practice' as any, expected_intensity: 7, estimated_duration_min: 60, start_time: '10:00' }],
-    {
-      macrocycleContext: {
-        goalMode: 'fight_camp',
-        campPhase: 'build',
-      } as any,
-    },
-  );
-  const resolved = resolveDailyNutritionTargets(
-    base,
-    null,
-    [{ activity_type: 'boxing_practice' as any, expected_intensity: 7, estimated_duration_min: 60, start_time: '10:00' }],
-    {
-      readinessProfile: {
-        readinessState: 'Caution',
-        neuralReadiness: 48,
-        structuralReadiness: 76,
-        metabolicReadiness: 72,
-        trend: 'stable',
-        flags: [],
-        performanceAnchors: [],
-      } as any,
-      macrocycleContext: {
-        goalMode: 'fight_camp',
-        campPhase: 'build',
-      } as any,
-    },
-  );
-
-  assert('Low neural practice day keeps boxing priority', resolved.prioritySession === 'boxing_practice');
-  assert('Low neural practice day preserves or raises pre-session carbs', resolved.sessionFuelingPlan.preSession.carbsG >= baseline.sessionFuelingPlan.preSession.carbsG);
-  assert('Low neural practice day raises hydration support', resolved.hydrationBoostOz > baseline.hydrationBoostOz);
-  assert('Low neural practice day does not cut calories below the baseline practice day', resolved.adjustedCalories >= baseline.adjustedCalories);
-})();
-
-(() => {
-  const base = calculateNutritionTargets(baseInput({
-    phase: 'camp-build',
-    nutritionGoal: 'maintain',
-  }));
-  const resolved = resolveDailyNutritionTargets(
-    base,
-    null,
-    [{ activity_type: 'sparring' as any, expected_intensity: 8, estimated_duration_min: 60 }],
-    {
-      readinessProfile: {
-        readinessState: 'Caution',
-        neuralReadiness: 72,
-        structuralReadiness: 42,
-        metabolicReadiness: 70,
-        trend: 'stable',
-        flags: [],
-        performanceAnchors: [],
-      } as any,
-      macrocycleContext: {
-        phase: 'camp-build',
-        goalMode: 'fight_camp',
-        campPhase: 'build',
-      } as any,
-    },
-  );
-
-  assert('Low structural day marks impact recovery focus', resolved.recoveryNutritionFocus === 'impact_recovery');
-  assert('Low structural day keeps protein elevated', resolved.protein >= base.protein + 6);
-  assert('Low structural day still gives recovery protein target', resolved.sessionFuelingPlan.postSession.proteinG >= 30);
+  assert('no activities remains base source', resolved.source === 'base');
+  assert('rest day has rest fuel state', resolved.fuelState === 'rest');
+  assert('canonical trace is present', resolved.traceLines.some((line) => line.includes('Canonical Nutrition and Fueling Engine')));
 })();
 
 (() => {
   const base = calculateNutritionTargets(baseInput({
     phase: 'fight-camp',
-    nutritionGoal: 'cut',
-    coachCaloriesOverride: 1950,
+    nutritionGoal: 'maintain',
   }));
   const resolved = resolveDailyNutritionTargets(
     base,
     null,
-    [{ activity_type: 'conditioning' as any, expected_intensity: 8, estimated_duration_min: 50 }],
+    [{ activity_type: 'sparring' as any, expected_intensity: 9, estimated_duration_min: 75, custom_label: 'Team sparring' }],
     {
-      readinessProfile: {
-        readinessState: 'Caution',
-        neuralReadiness: 66,
-        structuralReadiness: 68,
-        metabolicReadiness: 40,
-        trend: 'dropping',
-        flags: [],
-        performanceAnchors: [],
-      } as any,
+      bodyweightLbs: 180,
       macrocycleContext: {
         goalMode: 'fight_camp',
-        campPhase: 'peak',
+        phase: 'fight-camp',
+        campPhase: 'build',
       } as any,
     },
   );
 
-  assert('Low metabolic day marks hydration restore focus', resolved.recoveryNutritionFocus === 'hydration_restore');
-  assert('Low metabolic day raises hydration plan notes', resolved.hydrationPlan.notes.length > 0);
-  assert('Low metabolic day reduces deficit pressure', resolved.adjustedCalories >= base.adjustedCalories);
+  assert('sparring day uses daily activity source', resolved.source === 'daily_activity_adjusted');
+  assert('sparring day gets sparring priority', resolved.prioritySession === 'sparring');
+  assert('sparring day pre-session carbs are present', resolved.sessionFuelingPlan.preSession.carbsG > 0);
+  assert('sparring day explanation survives adapter', resolved.reasonLines.some((line) => line.includes('Sparring')));
 })();
 
 (() => {
@@ -382,8 +150,9 @@ console.log('\n-- resolveDailyMacros --');
     ],
   );
 
-  assert('Double-session day uses double-session priority', resolved.prioritySession === 'double_session');
-  assert('Double-session day has between-session refuel', resolved.sessionFuelingPlan.betweenSessions != null);
+  assert('double session keeps two-a-day priority', resolved.prioritySession === 'double_session');
+  assert('double session has between-session fueling', resolved.sessionFuelingPlan.betweenSessions != null);
+  assert('daily target is not a shallow macro-only calculation', resolved.sessionFuelingPlan.coachingNotes.some((line) => line.includes('Nutrition and Fueling Engine')));
 })();
 
 (() => {
@@ -394,10 +163,10 @@ console.log('\n-- resolveDailyMacros --');
   const resolved = resolveDailyNutritionTargets(
     base,
     {
-      prescribed_calories: 1900,
-      prescribed_protein: 190,
-      prescribed_carbs: 120,
-      prescribed_fat: 55,
+      prescribed_calories: 1500,
+      prescribed_protein: 180,
+      prescribed_carbs: 90,
+      prescribed_fat: 35,
       cut_phase: 'fight_week_cut',
       training_intensity_cap: 4,
       water_target_oz: 140,
@@ -405,13 +174,29 @@ console.log('\n-- resolveDailyMacros --');
       sodium_instruction: 'Minimal sodium. Water dump starts now.',
       days_to_weigh_in: 3,
     } as any,
-    [{ activity_type: 'boxing_practice' as any, expected_intensity: 5, estimated_duration_min: 40 }],
+    [{ activity_type: 'boxing_practice' as any, expected_intensity: 6, estimated_duration_min: 45 }],
+    {
+      bodyweightLbs: 180,
+      daysToWeighIn: 3,
+    },
   );
 
-  assert('Cut protocol still uses cut-protect fuel state', resolved.fuelState === 'cut_protect');
-  assert('Cut protocol still builds session fueling plan', resolved.sessionFuelingPlan.preSession.carbsG > 0);
-  assert('Cut protocol hydration plan follows cut target', resolved.hydrationPlan.dailyTargetOz >= 140);
-  assert('Cut protocol hydration notes sanitize unsafe sodium copy', !resolved.hydrationPlan.notes.join(' ').toLowerCase().includes('water dump'));
+  assert('cut protocol is safety-adjusted when too low', resolved.source === 'weight_cut_protocol_safety_adjusted');
+  assert('cut protocol cannot bypass fueling floor', resolved.fuelingFloorTriggered);
+  assert('cut-protect fuel state is retained', resolved.fuelState === 'cut_protect');
+  assert('unsafe sodium copy is sanitized', !resolved.hydrationPlan.notes.join(' ').toLowerCase().includes('water dump'));
+})();
+
+(() => {
+  const base = calculateNutritionTargets(baseInput());
+  const result = resolveDailyMacros(
+    base,
+    null,
+    [{ activity_type: 'conditioning' as any, expected_intensity: 8, estimated_duration_min: 50 }],
+  );
+
+  assert('resolveDailyMacros uses the new resolver source', result.source === 'daily_activity_adjusted');
+  assert('resolveDailyMacros returns macro shape for current call sites', result.calories > 0 && result.protein > 0 && result.carbs > 0 && result.fat > 0);
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);

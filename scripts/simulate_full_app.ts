@@ -23,10 +23,9 @@
  *    j. Compute daily cut protocol (computeDailyCutProtocol)
  *    k. Validate day load (validateDayLoad)
  *    l. Check suggestAlternative for today's activities
- *    m. Compute nutrition adjustments for day (adjustNutritionForDay)
- *    n. Detect overtraining risk (detectOvertrainingRisk)
- *    o. Biology adjustments (adjustForBiology) for female
- *    p. Simulate actual training, food intake, weight change
+ *    m. Detect overtraining risk (detectOvertrainingRisk)
+ *    n. Biology adjustments (adjustForBiology) for female
+ *    o. Simulate actual training, food intake, weight change
  * 5. Reports all bugs, crashes, and logical holes found
  */
 
@@ -36,7 +35,7 @@ import { calculateWeightTrend, calculateWeightCorrection, calculateWeightReadine
 import { getHydrationProtocol, getCutHydrationProtocol } from '../lib/engine/getHydrationProtocol';
 import { adjustForBiology } from '../lib/engine/adjustForBiology';
 import { generateCutPlan, computeDailyCutProtocol, computeCarbCycle, detectStall, validateCutSafety, computeRehydrationProtocol } from '../lib/engine/calculateWeightCut';
-import { generateWeekPlan, validateDayLoad, suggestAlternative, adjustNutritionForDay, detectOvertrainingRisk, calculateWeeklyCompliance, getTrainingStreak } from '../lib/engine/calculateSchedule';
+import { generateWeekPlan, validateDayLoad, suggestAlternative, detectOvertrainingRisk, calculateWeeklyCompliance, getTrainingStreak } from '../lib/engine/calculateSchedule';
 import { determineFocus, generateWorkout } from '../lib/engine/calculateSC';
 import { generateCampPlan, determineCampPhase, getCampTrainingModifiers, getCampWeekProfile, toCampEnginePhase } from '../lib/engine/calculateCamp';
 import { prescribeConditioning } from '../lib/engine/calculateConditioning';
@@ -603,26 +602,6 @@ function main() {
             }
         } catch (e: any) {
             reportBug(d, currentDate, 'CRASH', 'computeDailyCutProtocol', e.message, { stack: e.stack?.split('\n').slice(0, 3) });
-        }
-
-        // ── 3l. Nutrition Day Adjustment ──────────────────────────
-        try {
-            if (todayActivities.length > 0) {
-                const nutritionAdj = adjustNutritionForDay(
-                    nutritionTargets,
-                    todayActivities.map(a => ({
-                        activity_type: a.activity_type,
-                        expected_intensity: a.expected_intensity,
-                        estimated_duration_min: a.estimated_duration_min,
-                    })),
-                    cutProtocol?.trainingIntensityCap ?? null,
-                );
-
-                // VERIFY: The three-way calorie conflict is resolved. 
-                // resolveDailyMacros is now the single source of truth.
-            }
-        } catch (e: any) {
-            reportBug(d, currentDate, 'CRASH', 'adjustNutritionForDay', e.message);
         }
 
         // ── 3m. Cut Hydration Protocol ────────────────────────────

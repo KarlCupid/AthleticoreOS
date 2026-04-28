@@ -27,7 +27,6 @@ export {
   getRecoveryWindow,
   validateDayLoad,
   suggestAlternative,
-  adjustNutritionForDay,
   detectOvertrainingRisk,
   generateWeekPlan,
   generateBlockPlan,

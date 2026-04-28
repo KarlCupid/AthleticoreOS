@@ -65,6 +65,7 @@ export interface FoodNutritionSnapshot {
   source: FoodDataSource;
   sourceType: FoodSourceType;
   external_id: string | null;
+  source_id?: string | null;
   verified: boolean;
   name: string;
   brand: string | null;
@@ -80,6 +81,9 @@ export interface FoodNutritionSnapshot {
   carbs_per_serving: number;
   fat_per_serving: number;
   is_supplement: boolean;
+  data_quality?: import('../../performance-engine/types/nutrition.ts').NutritionDataQuality | null;
+  missing_nutrients?: string[];
+  confidence?: import('../../performance-engine/types/shared.ts').ConfidenceValue | null;
 }
 
 export interface MacroLedgerRow {
@@ -122,6 +126,8 @@ export interface ProteinTargetPolicy {
 }
 
 export interface NutritionTargets {
+  engineVersion?: 'nutrition_fueling_engine_v1';
+  canonicalPhase?: string;
   tdee: number;
   adjustedCalories: number;
   protein: number;

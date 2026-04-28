@@ -8,7 +8,6 @@ import {
     getRecoveryWindow,
     validateDayLoad,
     suggestAlternative,
-    adjustNutritionForDay,
     detectOvertrainingRisk,
     generateSmartWeekPlan,
     generateBlockPlan,
@@ -23,7 +22,6 @@ import type {
     ExerciseHistoryEntry,
     ExerciseLibraryRow,
     MuscleGroup,
-    NutritionTargets,
     RecurringActivityRow,
     WeeklyTargetsRow,
 } from './types.ts';
@@ -314,30 +312,6 @@ console.log('\n── suggestAlternative ──');
     );
     assert('Depleted + SC -> swap to active_recovery', result.shouldSwap === true);
     assert('Depleted SC alternative = active_recovery', result.alternative === 'active_recovery');
-})();
-
-// ─── adjustNutritionForDay ────────────────────────────────────
-
-console.log('\n── adjustNutritionForDay ──');
-
-const baseTargets: NutritionTargets = {
-    tdee: 2500, adjustedCalories: 2500, protein: 180, carbs: 280,
-    fat: 70, proteinModifier: 1, phaseMultiplier: 0, weightCorrectionDeficit: 0,
-    message: '',
-};
-
-(() => {
-    const result = adjustNutritionForDay(baseTargets, [
-        { activity_type: 'rest', expected_intensity: 1, estimated_duration_min: 0 },
-    ]);
-    assert('Rest day -> -15% carbs', result.carbModifierPct === -15);
-})();
-
-(() => {
-    const result = adjustNutritionForDay(baseTargets, [
-        { activity_type: 'sparring', expected_intensity: 8, estimated_duration_min: 90 },
-    ]);
-    assert('Sparring day -> +15% carbs or more', result.carbModifierPct >= 15);
 })();
 
 // ─── detectOvertrainingRisk ───────────────────────────────────

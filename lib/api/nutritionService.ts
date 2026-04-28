@@ -24,6 +24,11 @@ import {
 } from './foodSearchSupport';
 import { searchPackagedFoods } from './openFoodFacts';
 import { logWarn } from '../utils/logger';
+import {
+  createNutritionDataQuality,
+  type NutritionDataSourceType,
+  type UnknownField,
+} from '../performance-engine';
 
 const today = todayLocalDate;
 const LOCAL_RESULT_LIMIT = 16;
@@ -99,6 +104,29 @@ function normalizeSourceType(row: Partial<FoodItemRow>): FoodSourceType {
   }
 
   return row.off_barcode ? 'packaged' : 'ingredient';
+}
+
+function nutritionDataSourceType(source: FoodDataSource): NutritionDataSourceType {
+  if (source === 'usda') return 'fdc';
+  if (source === 'open_food_facts') return 'open_food_facts';
+  return 'custom';
+}
+
+function getFoodSourceId(item: Partial<FoodItemRow>): string | null {
+  return item.external_id ?? item.off_barcode ?? null;
+}
+
+function getMissingSnapshotNutrients(item: Partial<FoodItemRow>): UnknownField[] {
+  const nutrientFields = [
+    ['calories_per_serving', item.calories_per_serving],
+    ['protein_per_serving', item.protein_per_serving],
+    ['carbs_per_serving', item.carbs_per_serving],
+    ['fat_per_serving', item.fat_per_serving],
+  ] as const;
+
+  return nutrientFields
+    .filter(([, value]) => value == null || !Number.isFinite(Number(value)))
+    .map(([field]) => ({ field, reason: 'not_collected' as const }));
 }
 
 function buildFallbackPortionOptions(input: {
@@ -192,11 +220,26 @@ function toFoodSearchResult(
 }
 
 function buildNutritionSnapshot(item: FoodItemRow): FoodNutritionSnapshot {
+  const source = normalizeSource(item);
+  const sourceType = normalizeSourceType(item);
+  const sourceId = getFoodSourceId(item);
+  const verified = item.verified ?? source !== 'custom';
+  const missingFields = getMissingSnapshotNutrients(item);
+  const dataQuality = createNutritionDataQuality({
+    sourceType: nutritionDataSourceType(source),
+    verified,
+    userEstimate: source === 'custom' || sourceType === 'custom',
+    missingFields,
+    source: sourceId ? { source, sourceId, capturedAt: null } : null,
+    warnings: missingFields.length > 0 ? ['Missing nutrients are unknown, not zero.'] : [],
+  });
+
   return {
-    source: normalizeSource(item),
-    sourceType: normalizeSourceType(item),
+    source,
+    sourceType,
     external_id: item.external_id ?? null,
-    verified: item.verified ?? normalizeSource(item) !== 'custom',
+    source_id: sourceId,
+    verified,
     name: item.name,
     brand: item.brand,
     image_url: item.image_url,
@@ -211,6 +254,9 @@ function buildNutritionSnapshot(item: FoodItemRow): FoodNutritionSnapshot {
     carbs_per_serving: item.carbs_per_serving,
     fat_per_serving: item.fat_per_serving,
     is_supplement: item.is_supplement,
+    data_quality: dataQuality,
+    missing_nutrients: missingFields.map((field) => field.field),
+    confidence: dataQuality.confidence,
   };
 }
 

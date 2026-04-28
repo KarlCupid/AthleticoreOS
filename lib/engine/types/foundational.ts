@@ -123,7 +123,6 @@ export type {
 export type {
   ActivityType,
   DayLoadValidation,
-  NutritionDayAdjustment,
   ScheduledActivityRow,
   WeekPlanEntry,
 } from './schedule.ts';
