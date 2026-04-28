@@ -16,7 +16,7 @@ Fill the `TBD` values below before submission. This file is the working source f
 3. Open `Today` to review the mission, readiness state, training load, and nutrition summary.
 4. Open `Train` and launch the guided workout flow to review a prescribed session and workout history.
 5. Open `Plan` to review weekly planning, calendar, and generated training structure.
-6. Open `Fuel` to review nutrition search, barcode scan, weight-class setup, fight-week protocol, and rehydration guidance.
+6. Open `Fuel` to review nutrition search, barcode scan, weight-class setup, competition body-mass monitoring, and post-weigh-in recovery guidance.
 7. Open `Me` to review profile settings, setup guide controls, privacy/support, and in-app account deletion.
 8. Open `Me` > `Delete account` to confirm the app includes a complete in-app deletion flow.
 

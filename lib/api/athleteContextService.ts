@@ -139,11 +139,7 @@ export async function getAthleteProfile(userId: string): Promise<AthleteProfileR
   }
 
   if (!data) return null;
-  const row = data as AthleteProfileRow & { active_cut_plan_id?: string | null };
-  return {
-    ...row,
-    active_weight_class_plan_id: row.active_weight_class_plan_id ?? row.active_cut_plan_id ?? null,
-  };
+  return data as AthleteProfileRow;
 }
 
 export async function getAthleteContext(userId: string): Promise<{

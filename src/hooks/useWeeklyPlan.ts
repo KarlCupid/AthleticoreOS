@@ -246,7 +246,7 @@ function normalizeCampConfig(raw: CampPlanRow | CampConfig): CampConfig {
     fightDate: row.fight_date,
     campStartDate: row.camp_start_date,
     totalWeeks: row.total_weeks,
-    hasConcurrentWeightClassPlan: row.has_concurrent_cut,
+    hasConcurrentWeightClassPlan: row.has_concurrent_weight_class_plan,
     basePhaseDates: {
       start: row.base_phase_start,
       end: row.base_phase_end,

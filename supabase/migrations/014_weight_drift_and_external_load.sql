@@ -1,5 +1,5 @@
 -- Weight drift is now derived through canonical body-mass state instead of
--- persisted daily cut protocols. This migration only retains external load
+-- persisted daily guidance mirrors. This migration only retains external load
 -- intake scaffolding.
 
 ALTER TABLE public.daily_checkins

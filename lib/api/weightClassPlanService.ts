@@ -36,45 +36,12 @@ function bodyMassPlanDates(evaluation: WeightClassManagementResult, asOfDate: st
   };
 }
 
-type WeightClassPlanDbRow = Omit<
-  WeightClassPlanRow,
-  | 'max_fight_week_body_mass_change_pct'
-  | 'required_body_mass_change_lbs'
-  | 'gradual_body_mass_target_lbs'
-  | 'competition_week_body_mass_change_lbs'
-> & {
-  max_water_cut_pct?: number | null;
-  total_cut_lbs?: number | null;
-  diet_phase_target_lbs?: number | null;
-  water_cut_allocation_lbs?: number | null;
-};
-
-type WeightClassHistoryDbRow = Omit<
-  WeightClassHistoryRow,
-  'gradual_body_mass_change_lbs' | 'competition_week_body_mass_change_lbs' | 'adherence_pct'
-> & {
-  total_diet_loss_lbs?: number | null;
-  total_water_cut_lbs?: number | null;
-  protocol_adherence_pct?: number | null;
-};
-
-function toWeightClassPlan(row: WeightClassPlanDbRow): WeightClassPlanRow {
-  return {
-    ...row,
-    max_fight_week_body_mass_change_pct: row.max_water_cut_pct ?? 0,
-    required_body_mass_change_lbs: row.total_cut_lbs ?? 0,
-    gradual_body_mass_target_lbs: row.diet_phase_target_lbs ?? 0,
-    competition_week_body_mass_change_lbs: row.water_cut_allocation_lbs ?? 0,
-  };
+function toWeightClassPlan(row: WeightClassPlanRow): WeightClassPlanRow {
+  return row;
 }
 
-function toWeightClassHistory(row: WeightClassHistoryDbRow): WeightClassHistoryRow {
-  return {
-    ...row,
-    gradual_body_mass_change_lbs: row.total_diet_loss_lbs ?? null,
-    competition_week_body_mass_change_lbs: row.total_water_cut_lbs ?? null,
-    adherence_pct: row.protocol_adherence_pct ?? null,
-  };
+function toWeightClassHistory(row: WeightClassHistoryRow): WeightClassHistoryRow {
+  return row;
 }
 
 // ─── Plan CRUD ─────────────────────────────────────────────────
@@ -115,10 +82,10 @@ export async function createWeightClassPlan(
     weigh_in_date: input.weighInDate,
     plan_created_date: asOfDate,
     fight_status: input.fightStatus,
-    max_water_cut_pct: 0,
-    total_cut_lbs: requiredChange,
-    diet_phase_target_lbs: requiredChange,
-    water_cut_allocation_lbs: 0,
+    max_fight_week_body_mass_change_pct: 0,
+    required_body_mass_change_lbs: requiredChange,
+    gradual_body_mass_target_lbs: requiredChange,
+    competition_week_body_mass_change_lbs: 0,
     chronic_phase_start: dates.chronicPhaseStart,
     chronic_phase_end: dates.chronicPhaseEnd,
     intensified_phase_start: dates.intensifiedPhaseStart,
@@ -147,13 +114,13 @@ export async function createWeightClassPlan(
   await supabase
     .from('athlete_profiles')
     .update({
-      active_cut_plan_id: data.id,
+      active_weight_class_plan_id: data.id,
       fight_date: input.fightDate,
       sport: input.sport,
     })
     .eq('user_id', userId);
 
-  return toWeightClassPlan(data as WeightClassPlanDbRow);
+  return toWeightClassPlan(data as WeightClassPlanRow);
 }
 
 export async function getActiveWeightClassPlan(userId: string): Promise<WeightClassPlanRow | null> {
@@ -167,7 +134,7 @@ export async function getActiveWeightClassPlan(userId: string): Promise<WeightCl
     .single();
 
   if (error && error.code !== 'PGRST116') throw error;  // PGRST116 = no rows
-  return data ? toWeightClassPlan(data as WeightClassPlanDbRow) : null;
+  return data ? toWeightClassPlan(data as WeightClassPlanRow) : null;
 }
 
 export async function updateWeightClassPlanStatus(
@@ -197,7 +164,7 @@ export async function abandonWeightClassPlan(
   await updateWeightClassPlanStatus(planId, reason === 'made_weight' ? 'completed' : 'abandoned');
   await supabase
     .from('athlete_profiles')
-    .update({ active_cut_plan_id: null })
+    .update({ active_weight_class_plan_id: null })
     .eq('user_id', userId);
 }
 
@@ -212,7 +179,7 @@ export async function upsertBodyMassSafetyCheck(
   fields: Partial<Omit<BodyMassSafetyCheckRow, 'id' | 'user_id' | 'plan_id' | 'date' | 'created_at'>>
 ): Promise<void> {
   const { error } = await supabase
-    .from('cut_safety_checks')
+    .from('body_mass_safety_checks')
     .upsert({ user_id: userId, plan_id: planId, date, ...fields }, { onConflict: 'user_id,date' });
   if (error) throw error;
 }
@@ -225,7 +192,7 @@ export async function getRecentSafetyChecks(
   const since = new Date();
   since.setDate(since.getDate() - days);
   const { data, error } = await supabase
-    .from('cut_safety_checks')
+    .from('body_mass_safety_checks')
     .select('*')
     .eq('user_id', userId)
     .eq('plan_id', planId)
@@ -252,7 +219,7 @@ export async function completeWeightClassPlan(
   await updateWeightClassPlanStatus(planId, 'completed');
   await supabase
     .from('athlete_profiles')
-    .update({ active_cut_plan_id: null })
+    .update({ active_weight_class_plan_id: null })
     .eq('user_id', userId);
 
   // Gather plan summary
@@ -268,7 +235,9 @@ export async function completeWeightClassPlan(
     (new Date().getTime() - new Date(planData.plan_created_date).getTime()) / 86400000
   );
 
-  const dietLoss = planData.start_weight - (outcome.finalWeighInWeight ?? planData.target_weight) - (planData.water_cut_allocation_lbs ?? 0);
+  const gradualBodyMassChange = planData.start_weight
+    - (outcome.finalWeighInWeight ?? planData.target_weight)
+    - (planData.competition_week_body_mass_change_lbs ?? 0);
 
   await supabase.from('weight_class_history').insert({
     user_id: userId,
@@ -278,12 +247,12 @@ export async function completeWeightClassPlan(
     target_weight: planData.target_weight,
     made_weight: outcome.madeWeight ?? null,
     total_duration_days: durationDays,
-    total_diet_loss_lbs: Math.max(0, dietLoss),
-    total_water_cut_lbs: planData.water_cut_allocation_lbs,
+    gradual_body_mass_change_lbs: Math.max(0, gradualBodyMassChange),
+    competition_week_body_mass_change_lbs: planData.competition_week_body_mass_change_lbs,
     avg_weekly_loss_rate: durationDays > 7 ? Math.round(((planData.start_weight - (outcome.finalWeighInWeight ?? planData.target_weight)) / (durationDays / 7)) * 10) / 10 : null,
     rehydration_weight_regained: outcome.rehydrationWeightRegained ?? null,
     fight_day_weight: outcome.fightDayWeight ?? null,
-    protocol_adherence_pct: null,
+    adherence_pct: null,
     refeed_days_used: 0,
     fight_date: planData.fight_date,
   });
@@ -297,7 +266,7 @@ export async function getWeightClassHistory(userId: string): Promise<WeightClass
     .order('completed_at', { ascending: false });
 
   if (error) throw error;
-  return ((data ?? []) as WeightClassHistoryDbRow[]).map(toWeightClassHistory);
+  return ((data ?? []) as WeightClassHistoryRow[]).map(toWeightClassHistory);
 }
 
 // ─── Dashboard Aggregate ───────────────────────────────────────

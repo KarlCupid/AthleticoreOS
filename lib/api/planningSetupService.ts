@@ -76,7 +76,6 @@ export async function resetTrainingProgrammingForTester(userId: string): Promise
     weeklyPlanEntriesDelete,
     scheduledActivitiesDelete,
     recurringActivitiesDelete,
-    dailySnapshotsDelete,
     buildGoalsUpdate,
     fightCampsUpdate,
     profileUpdate,
@@ -100,10 +99,6 @@ export async function resetTrainingProgrammingForTester(userId: string): Promise
       .delete()
       .eq('user_id', userId),
     supabase
-      .from('daily_engine_snapshots')
-      .delete()
-      .eq('user_id', userId),
-    supabase
       .from('build_phase_goals')
       .update({ status: 'abandoned', updated_at: now })
       .eq('user_id', userId)
@@ -120,7 +115,7 @@ export async function resetTrainingProgrammingForTester(userId: string): Promise
         performance_goal_type: 'conditioning',
         planning_setup_version: 0,
         phase: 'off-season',
-        active_cut_plan_id: null,
+        active_weight_class_plan_id: null,
         fight_date: null,
       })
       .eq('user_id', userId),
@@ -131,7 +126,6 @@ export async function resetTrainingProgrammingForTester(userId: string): Promise
     weeklyPlanEntriesDelete.error,
     scheduledActivitiesDelete.error,
     recurringActivitiesDelete.error,
-    dailySnapshotsDelete.error,
     buildGoalsUpdate.error,
     fightCampsUpdate.error,
     profileUpdate.error,

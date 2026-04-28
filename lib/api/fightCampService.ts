@@ -56,7 +56,7 @@ export function normalizeCampConfig(raw: CampPlanRow | CampConfig | null): CampC
     fightDate: row.fight_date,
     campStartDate: row.camp_start_date,
     totalWeeks: row.total_weeks,
-    hasConcurrentWeightClassPlan: row.has_concurrent_cut,
+    hasConcurrentWeightClassPlan: row.has_concurrent_weight_class_plan,
     basePhaseDates: {
       start: row.base_phase_start,
       end: row.base_phase_end,
@@ -229,7 +229,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
     fight_date: generated.fightDate,
     camp_start_date: generated.campStartDate,
     total_weeks: generated.totalWeeks,
-    has_concurrent_cut: generated.hasConcurrentWeightClassPlan,
+    has_concurrent_weight_class_plan: generated.hasConcurrentWeightClassPlan,
     base_phase_start: generated.basePhaseDates.start,
     base_phase_end: generated.basePhaseDates.end,
     build_phase_start: generated.buildPhaseDates.start,

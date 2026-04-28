@@ -66,7 +66,7 @@ export interface CampPlanRow {
   fight_date: string;
   camp_start_date: string;
   total_weeks: number;
-  has_concurrent_cut: boolean;
+  has_concurrent_weight_class_plan: boolean;
   base_phase_start: string;
   base_phase_end: string;
   build_phase_start: string;

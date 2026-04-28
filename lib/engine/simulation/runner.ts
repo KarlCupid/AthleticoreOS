@@ -51,7 +51,7 @@ function addIsoDays(dateStr: string, days: number): string {
   return date.toISOString().split('T')[0];
 }
 
-function buildSimulationCutPlan(input: {
+function buildSimulationWeightClassPlan(input: {
   startDate: string;
   fightDate: string;
   startWeight: number;
@@ -99,10 +99,10 @@ function buildSimulationCutPlan(input: {
     weigh_in_date: fightDate,
     plan_created_date: startDate,
     fight_status: 'pro',
-    max_water_cut_pct: 0,
-    total_cut_lbs: Math.max(0, plan.requiredChange.value ?? startWeight - targetWeight),
-    diet_phase_target_lbs: Math.max(0, plan.requiredChange.value ?? startWeight - targetWeight),
-    water_cut_allocation_lbs: 0,
+    max_fight_week_body_mass_change_pct: 0,
+    required_body_mass_change_lbs: Math.max(0, plan.requiredChange.value ?? startWeight - targetWeight),
+    gradual_body_mass_target_lbs: Math.max(0, plan.requiredChange.value ?? startWeight - targetWeight),
+    competition_week_body_mass_change_lbs: 0,
     chronic_phase_start: timeframeDays > 56 ? startDate : null,
     chronic_phase_end: timeframeDays > 56 ? addIsoDays(fightDate, -57) : null,
     intensified_phase_start: timeframeDays > 7 ? startDate : competitionWeekStart,
@@ -407,7 +407,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
   let recentExerciseIds: string[] = [];
   let recentMuscleVolume: Record<string, number> = {};
   const simulationCutPlan = initialState.goalMode === 'fight_camp' && initialState.targetWeight && initialState.fightDate
-    ? buildSimulationCutPlan({
+    ? buildSimulationWeightClassPlan({
         startDate,
         fightDate: initialState.fightDate,
         startWeight: initialState.weightLbs,

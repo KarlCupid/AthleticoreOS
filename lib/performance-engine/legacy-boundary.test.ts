@@ -70,6 +70,8 @@ assert('active app source does not reference removed daily protocol UI', !/Daily
 assert('active app source does not carry a cutProtocol compatibility field', !/\bcutProtocol\b/.test(combined));
 assert('active app source does not use daily performance snapshot services', !/dailyPerformanceSnapshotService|DailyPerformanceSnapshot|daily_performance_summary_snapshot/.test(combined));
 assert('active app source does not use ResolvedNutritionTargets wrappers', !/ResolvedNutritionTargets|ResolvedNutritionTarget/.test(combined));
+assert('active app source does not point at retired DB tables or columns', !/daily_engine_snapshots|daily_mission_snapshot|weight_cut_plans|cut_safety_checks|weight_cut_history|active_cut_plan_id|has_concurrent_cut|weight_cut_state|max_water_cut_pct|water_cut_allocation_lbs|protocol_adherence_pct/.test(combined));
+assert('active app source uses canonical body-mass and weight-class schema names', /weight_class_plans/.test(combined) && /body_mass_safety_checks/.test(combined) && /active_weight_class_plan_id/.test(combined));
 
 const dangerousMethodPattern = /\b(sauna|sweat suit|diuretic|laxative|vomiting|severe fasting|extreme fluid restriction)\b/i;
 const dangerousHits = sources.filter((source) => dangerousMethodPattern.test(source.text));
@@ -82,6 +84,15 @@ assert('unified daily performance preserves unknown body mass instead of legacy 
 
 const weightClassMigration = read('supabase/migrations/002_weight_cut.sql');
 assert('fresh schema does not create retired daily body-mass guidance table', !weightClassMigration.includes('daily_cut_protocols'));
+
+const schemaCleanupMigration = read('supabase/migrations/030_performance_engine_schema_cleanup.sql');
+assert('cleanup migration creates canonical weight-class plan table', /CREATE TABLE IF NOT EXISTS public\.weight_class_plans/.test(schemaCleanupMigration));
+assert('cleanup migration creates canonical body-mass safety table', /CREATE TABLE IF NOT EXISTS public\.body_mass_safety_checks/.test(schemaCleanupMigration));
+assert('cleanup migration backfills active weight-class plan ids', /active_weight_class_plan_id/.test(schemaCleanupMigration) && /active_cut_plan_id/.test(schemaCleanupMigration));
+assert('cleanup migration archives retired daily snapshots before dropping them', /performance_engine_migration_archive/.test(schemaCleanupMigration) && /retired_daily_snapshot_persistence/.test(schemaCleanupMigration) && /DROP TABLE IF EXISTS public\.daily_engine_snapshots/.test(schemaCleanupMigration));
+assert('cleanup migration archives retired daily body-mass protocol table before dropping it', /retired_daily_body_mass_protocol/.test(schemaCleanupMigration) && /DROP TABLE IF EXISTS public\.daily_cut_protocols/.test(schemaCleanupMigration));
+assert('cleanup migration retires old weight-class schema names', /DROP TABLE IF EXISTS public\.weight_cut_plans/.test(schemaCleanupMigration) && /DROP COLUMN IF EXISTS has_concurrent_cut/.test(schemaCleanupMigration));
+assert('cleanup migration refreshes account deletion for canonical tables', /DELETE FROM public\.body_mass_safety_checks/.test(schemaCleanupMigration) && /DELETE FROM public\.weight_class_plans/.test(schemaCleanupMigration));
 
 const adaptiveTraining = read('lib/performance-engine/adaptive-training/adaptiveTrainingEngine.ts');
 assert('protected workouts remain canonical anchors', /protected/i.test(adaptiveTraining) && /anchor/i.test(adaptiveTraining));
