@@ -13,7 +13,7 @@ export function detectOvertrainingRisk(
     weekActivities: Pick<ScheduledActivityRow, 'activity_type' | 'expected_intensity' | 'estimated_duration_min' | 'date'>[],
     acwr: number,
     sleepTrendAvg: number,
-    isOnActiveCut: boolean = false,
+    hasActiveWeightClassPlan: boolean = false,
     context?: { fitnessLevel?: FitnessLevel; phase?: Phase },
 ): OvertrainingWarning[] {
     const warnings: OvertrainingWarning[] = [];
@@ -22,7 +22,7 @@ export function detectOvertrainingRisk(
 
     const weeklyMetrics = computeWeekLoadMetrics(weekActivities);
     const totalWeeklyLoad = weeklyMetrics.totalWeeklyLoad;
-    const thresholds = getAcwrPlanningThresholds(fitnessLevel, phase, isOnActiveCut, weeklyMetrics);
+    const thresholds = getAcwrPlanningThresholds(fitnessLevel, phase, hasActiveWeightClassPlan, weeklyMetrics);
 
     const highIntensitySessions = weekActivities.filter((a) => isHighIntensity(a.expected_intensity));
 
@@ -32,29 +32,29 @@ export function detectOvertrainingRisk(
     if (acwr > dangerThreshold) {
         warnings.push({
             severity: 'danger',
-            title: isOnActiveCut ? 'Overtraining Risk During Weight Cut' : 'ACWR Spike Detected',
-            message: isOnActiveCut
-                ? `Your ACWR is ${acwr.toFixed(2)} while on an active cut, above your personalized redline of ${dangerThreshold.toFixed(2)}.`
+            title: hasActiveWeightClassPlan ? 'Overtraining Risk During Weight-Class Management' : 'ACWR Spike Detected',
+            message: hasActiveWeightClassPlan
+                ? `Your ACWR is ${acwr.toFixed(2)} while on an active weight-class plan, above your personalized redline of ${dangerThreshold.toFixed(2)}.`
                 : `Your ACWR is ${acwr.toFixed(2)}, above your personalized redline of ${dangerThreshold.toFixed(2)}.`,
-            recommendation: isOnActiveCut
+            recommendation: hasActiveWeightClassPlan
                 ? 'Drop at least 2 high-intensity sessions this week and replace with active recovery.'
                 : 'Drop at least 1 high-intensity session this week and reduce intensity across remaining sessions.',
         });
     } else if (acwr > cautionThreshold) {
         warnings.push({
             severity: 'caution',
-            title: isOnActiveCut ? 'Elevated Load During Weight Cut' : 'Training Load Trending High',
-            message: isOnActiveCut
+            title: hasActiveWeightClassPlan ? 'Elevated Load During Weight-Class Management' : 'Training Load Trending High',
+            message: hasActiveWeightClassPlan
                 ? `Your ACWR is ${acwr.toFixed(2)} and exceeds your personalized caution threshold (${cautionThreshold.toFixed(2)}).`
                 : `Your ACWR is ${acwr.toFixed(2)}, above your personalized caution threshold (${cautionThreshold.toFixed(2)}).`,
-            recommendation: isOnActiveCut
+            recommendation: hasActiveWeightClassPlan
                 ? 'Keep at least 2 sessions lighter this week and prioritize recovery nutrition.'
                 : 'Keep one session lighter this week to avoid crossing into the redline zone.',
         });
     }
 
     const phaseCap = PHASE_HIGH_INTENSITY_CAPS[phase] ?? 4;
-    const highCap = isOnActiveCut ? Math.max(2, phaseCap - 1) : phaseCap;
+    const highCap = hasActiveWeightClassPlan ? Math.max(2, phaseCap - 1) : phaseCap;
     if (highIntensitySessions.length > highCap) {
         warnings.push({
             severity: 'caution',
@@ -73,20 +73,20 @@ export function detectOvertrainingRisk(
         });
     }
 
-    const loadCap = isOnActiveCut ? 4000 : 5000;
+    const loadCap = hasActiveWeightClassPlan ? 4000 : 5000;
     if (totalWeeklyLoad > loadCap) {
         warnings.push({
             severity: 'caution',
-            title: isOnActiveCut ? 'Weekly Load Too High for Weight-Class Context' : 'Weekly Load Cap Exceeded',
-            message: isOnActiveCut
+            title: hasActiveWeightClassPlan ? 'Weekly Load Too High for Weight-Class Context' : 'Weekly Load Cap Exceeded',
+            message: hasActiveWeightClassPlan
                 ? `Total planned load for the week is ${totalWeeklyLoad}. During active weight-class management, the recommended cap is ${loadCap}.`
                 : `Total planned load for the week is ${totalWeeklyLoad}. This exceeds the recommended ${loadCap} cap for most athletes.`,
             recommendation: 'Trim shorter conditioning sessions or reduce intensities on existing sessions.',
         });
     }
 
-    const monotonyCaution = isOnActiveCut ? 1.7 : 1.9;
-    const monotonyDanger = isOnActiveCut ? 2.1 : 2.3;
+    const monotonyCaution = hasActiveWeightClassPlan ? 1.7 : 1.9;
+    const monotonyDanger = hasActiveWeightClassPlan ? 2.1 : 2.3;
     if (weeklyMetrics.monotony >= monotonyDanger) {
         warnings.push({
             severity: 'danger',
@@ -103,8 +103,8 @@ export function detectOvertrainingRisk(
         });
     }
 
-    const strainCaution = isOnActiveCut ? 5000 : 6500;
-    const strainDanger = isOnActiveCut ? 6500 : 8000;
+    const strainCaution = hasActiveWeightClassPlan ? 5000 : 6500;
+    const strainDanger = hasActiveWeightClassPlan ? 6500 : 8000;
     if (weeklyMetrics.strain >= strainDanger) {
         warnings.push({
             severity: 'danger',

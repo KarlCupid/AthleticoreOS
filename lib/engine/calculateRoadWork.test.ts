@@ -226,7 +226,7 @@ const WEEK_START = '2026-01-12';
         acwr: 1.0,
         age: 25,
         campConfig: null,
-        activeCutPlan: null,
+        activeWeightClassPlan: null,
     });
     assert('2 prescriptions generated', result.length === 2);
     assert('Monday sparring day excluded', !result.some(r => r.date === '2026-01-12'));
@@ -244,7 +244,7 @@ const WEEK_START = '2026-01-12';
         acwr: 1.0,
         age: null,
         campConfig: null,
-        activeCutPlan: null,
+        activeWeightClassPlan: null,
     });
     assert('0 needed -> empty array', result.length === 0);
 })();
@@ -261,7 +261,7 @@ const WEEK_START = '2026-01-12';
         acwr: 1.0,
         age: 30,
         campConfig: null,
-        activeCutPlan: null,
+        activeWeightClassPlan: null,
     });
     assert('All sparring days -> 0 prescriptions', result.length === 0);
 })();

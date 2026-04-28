@@ -7,7 +7,7 @@ export type RiskDomain =
   | 'nutrition'
   | 'hydration'
   | 'body_mass'
-  | 'weight_cut'
+  | 'weight_class'
   | 'injury'
   | 'illness'
   | 'data_quality'

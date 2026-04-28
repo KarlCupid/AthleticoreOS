@@ -157,7 +157,7 @@ export function WeeklyReviewScreen() {
 
       const campRisk = calculateCampRisk({
         goalMode: campStatus.camp ? 'fight_camp' : 'build_phase',
-        weightCutState: campStatus.weightCutState,
+        weightClassState: campStatus.weightClassState,
         daysOut: campStatus.daysOut,
         remainingWeightLbs,
         weighInTiming: campStatus.camp?.weighInTiming ?? null,

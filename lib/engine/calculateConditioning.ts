@@ -14,7 +14,7 @@ import type {
   ReadinessState,
   WeeklyConditioningInput,
   CampConfig,
-  WeightCutPlanRow,
+  WeightClassPlanRow,
   TimedWorkPrescription,
   CircuitRoundPrescription,
 } from './types.ts';
@@ -836,7 +836,7 @@ export function prescribeConditioning(input: {
   constraintSet?: StimulusConstraintSet | null;
   acwr: number;
   sessionIndex?: number;
-  activeCutPlan?: WeightCutPlanRow | null;
+  activeWeightClassPlan?: WeightClassPlanRow | null;
   campConfig?: CampConfig | null;
   trainingIntensityCap?: number | null;
   trainingIntensityCapOverride?: number | null;
@@ -848,7 +848,7 @@ export function prescribeConditioning(input: {
     constraintSet = null,
     acwr,
     sessionIndex = 0,
-    activeCutPlan,
+    activeWeightClassPlan,
     trainingIntensityCap,
     trainingIntensityCapOverride,
   } = input;
@@ -859,7 +859,7 @@ export function prescribeConditioning(input: {
   const effectiveDate = todayLocalDate();
   const effectiveIntensityCap = resolvedIntensityCap !== undefined
     ? resolvedIntensityCap
-    : getBodyMassTrainingIntensityCap(activeCutPlan, effectiveDate);
+    : getBodyMassTrainingIntensityCap(activeWeightClassPlan, effectiveDate);
 
   if (effectiveIntensityCap !== null && effectiveIntensityCap !== undefined) {
     if (CONDITIONING_CNS[type] > effectiveIntensityCap) {
@@ -960,7 +960,7 @@ export function getWeeklyConditioningPlan(
     readinessState,
     acwr,
     campConfig,
-    activeCutPlan,
+    activeWeightClassPlan,
   } = input;
 
   const allTemplateActivities = recurringActivities.filter(
@@ -1001,7 +1001,7 @@ export function getWeeklyConditioningPlan(
     const day = candidateDays[index];
     if (usedDates.has(day.date)) continue;
 
-    const cappedIntensity = getBodyMassTrainingIntensityCap(activeCutPlan, day.date);
+    const cappedIntensity = getBodyMassTrainingIntensityCap(activeWeightClassPlan, day.date);
     const prescription = prescribeConditioning({
       phase,
       fitnessLevel,

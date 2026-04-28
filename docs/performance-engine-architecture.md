@@ -78,7 +78,7 @@ It should include:
 - Readiness profile and data confidence
 - Nutrition and fueling state
 - Body-mass and weight-class state
-- Cut or rehydration state when applicable
+- Weigh-in logistics and post-weigh-in recovery state when applicable
 - Risk and safety constraints
 - Explanation trace
 
@@ -127,7 +127,7 @@ Responsibilities:
 - Resolve daily targets from `PerformanceState`.
 - Integrate training demand, phase, readiness, body-mass goals, camp context, and safety floors.
 - Avoid unsafe under-fueling.
-- Coordinate with cut protocols without letting cut logic blindly override safety.
+- Coordinate with body-mass guidance without letting scale-pressure logic override safety.
 - Produce explanations for target changes.
 
 ### Food Logging Reliability Layer
@@ -155,11 +155,11 @@ Responsibilities:
 
 ### Body Mass and Weight-Class Management Engine
 
-Owns body-mass trends, weight-class strategy, cut planning, fight-week protocols, and rehydration.
+Owns body-mass trends, weight-class strategy, competition body-mass planning, fight-week monitoring, and post-weigh-in recovery.
 
 Responsibilities:
 
-- Separate chronic body-composition goals from acute fight-week manipulation.
+- Separate chronic body-composition goals from competition-week body-mass monitoring and weigh-in logistics.
 - Track effective weight, trend, target, rate of change, and uncertainty.
 - Coordinate with fight opportunities and weigh-in timing.
 - Enforce safety limits and escalation rules.
@@ -197,7 +197,7 @@ The long-term persistence model should separate:
 - User logs and outcomes
 - Explanations and decision traces
 
-Snapshots are useful for performance, but they must be invalidated when athlete baseline, fight opportunity, phase, cut plan, protected workouts, readiness, or plan context changes.
+Snapshots are useful for performance, but they must be invalidated when athlete baseline, fight opportunity, phase, weight-class plan, protected workouts, readiness, or plan context changes.
 
 ## Legacy Boundary
 

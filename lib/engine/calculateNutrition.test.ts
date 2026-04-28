@@ -6,10 +6,10 @@
  */
 
 import {
-  calculateNutritionTargets,
+  calculateNutritionTargetEstimate,
   computeMacroAdherence,
-  resolveDailyNutritionTargets,
-  resolveDailyMacros,
+  resolveDailyNutritionTargetEstimate,
+  resolveNutritionMacros,
 } from './calculateNutrition.ts';
 
 let passed = 0;
@@ -41,10 +41,10 @@ const baseInput = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-console.log('\n-- calculateNutritionTargets via Nutrition and Fueling Engine --');
+console.log('\n-- calculateNutritionTargetEstimate via Nutrition and Fueling Engine --');
 
 (() => {
-  const target = calculateNutritionTargets(baseInput());
+  const target = calculateNutritionTargetEstimate(baseInput());
 
   assert('legacy entry point identifies canonical engine', target.engineVersion === 'nutrition_fueling_engine_v1');
   assert('legacy entry point resolves canonical phase', target.canonicalPhase === 'build');
@@ -53,15 +53,15 @@ console.log('\n-- calculateNutritionTargets via Nutrition and Fueling Engine --'
 })();
 
 (() => {
-  const build = calculateNutritionTargets(baseInput({ phase: 'off-season', nutritionGoal: 'maintain' }));
-  const camp = calculateNutritionTargets(baseInput({ phase: 'fight-camp', nutritionGoal: 'maintain' }));
+  const build = calculateNutritionTargetEstimate(baseInput({ phase: 'off-season', nutritionGoal: 'maintain' }));
+  const camp = calculateNutritionTargetEstimate(baseInput({ phase: 'fight-camp', nutritionGoal: 'maintain' }));
 
   assert('phase-aware target raises camp support above build', camp.adjustedCalories > build.adjustedCalories);
   assert('camp phase maps to canonical camp', camp.canonicalPhase === 'camp');
 })();
 
 (() => {
-  const unsafeOverride = calculateNutritionTargets(baseInput({
+  const unsafeOverride = calculateNutritionTargetEstimate(baseInput({
     coachCaloriesOverride: 900,
     nutritionGoal: 'cut',
     phase: 'fight-camp',
@@ -72,8 +72,8 @@ console.log('\n-- calculateNutritionTargets via Nutrition and Fueling Engine --'
 })();
 
 (() => {
-  const cut = calculateNutritionTargets(baseInput({ nutritionGoal: 'cut', phase: 'fight-camp' }));
-  const bulk = calculateNutritionTargets(baseInput({ nutritionGoal: 'bulk', phase: 'off-season' }));
+  const cut = calculateNutritionTargetEstimate(baseInput({ nutritionGoal: 'cut', phase: 'fight-camp' }));
+  const bulk = calculateNutritionTargetEstimate(baseInput({ nutritionGoal: 'bulk', phase: 'off-season' }));
 
   assert('cut remains lower than bulk without using old macro tables', cut.adjustedCalories < bulk.adjustedCalories);
   assert('cut support is framed as safety-first', cut.message.includes('under-fueling floors'));
@@ -100,11 +100,11 @@ console.log('\n-- computeMacroAdherence --');
   assert('clear miss remains a missed macro day', result.overall === 'Missed It');
 })();
 
-console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine --');
+console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling Engine --');
 
 (() => {
-  const base = calculateNutritionTargets(baseInput());
-  const resolved = resolveDailyNutritionTargets(base, null, []);
+  const base = calculateNutritionTargetEstimate(baseInput());
+  const resolved = resolveDailyNutritionTargetEstimate(base, null, []);
 
   assert('no activities remains base source', resolved.source === 'base');
   assert('rest day has rest fuel state', resolved.fuelState === 'rest');
@@ -112,11 +112,11 @@ console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine 
 })();
 
 (() => {
-  const base = calculateNutritionTargets(baseInput({
+  const base = calculateNutritionTargetEstimate(baseInput({
     phase: 'fight-camp',
     nutritionGoal: 'maintain',
   }));
-  const resolved = resolveDailyNutritionTargets(
+  const resolved = resolveDailyNutritionTargetEstimate(
     base,
     null,
     [{ activity_type: 'sparring' as any, expected_intensity: 9, estimated_duration_min: 75, custom_label: 'Team sparring' }],
@@ -137,11 +137,11 @@ console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine 
 })();
 
 (() => {
-  const base = calculateNutritionTargets(baseInput({
+  const base = calculateNutritionTargetEstimate(baseInput({
     phase: 'camp-build',
     nutritionGoal: 'maintain',
   }));
-  const resolved = resolveDailyNutritionTargets(
+  const resolved = resolveDailyNutritionTargetEstimate(
     base,
     null,
     [
@@ -156,11 +156,11 @@ console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine 
 })();
 
 (() => {
-  const base = calculateNutritionTargets(baseInput({
+  const base = calculateNutritionTargetEstimate(baseInput({
     phase: 'camp-build',
     nutritionGoal: 'cut',
   }));
-  const resolved = resolveDailyNutritionTargets(
+  const resolved = resolveDailyNutritionTargetEstimate(
     base,
     null,
     [{ activity_type: 'boxing_practice' as any, expected_intensity: 6, estimated_duration_min: 45 }],
@@ -170,21 +170,21 @@ console.log('\n-- resolveDailyNutritionTargets via Nutrition and Fueling Engine 
     },
   );
 
-  assert('body-mass context no longer uses old weight-cut protocol source', !String(resolved.source).includes('weight_cut_protocol'));
+  assert('body-mass context no longer uses old weight-class protocol source', !String(resolved.source).includes('weight_class_protocol'));
   assert('body-mass context still applies safety floor when needed', resolved.adjustedCalories >= 180 * 11.5);
   assert('hydration guidance avoids unsafe dehydration copy', !resolved.hydrationPlan.notes.join(' ').toLowerCase().includes('water dump'));
 })();
 
 (() => {
-  const base = calculateNutritionTargets(baseInput());
-  const result = resolveDailyMacros(
+  const base = calculateNutritionTargetEstimate(baseInput());
+  const result = resolveNutritionMacros(
     base,
     null,
     [{ activity_type: 'conditioning' as any, expected_intensity: 8, estimated_duration_min: 50 }],
   );
 
-  assert('resolveDailyMacros uses the new resolver source', result.source === 'daily_activity_adjusted');
-  assert('resolveDailyMacros returns macro shape for current call sites', result.calories > 0 && result.protein > 0 && result.carbs > 0 && result.fat > 0);
+  assert('resolveNutritionMacros uses the new resolver source', result.source === 'daily_activity_adjusted');
+  assert('resolveNutritionMacros returns macro shape for current call sites', result.calories > 0 && result.protein > 0 && result.carbs > 0 && result.fat > 0);
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);

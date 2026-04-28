@@ -1,8 +1,8 @@
 import type {
-  DailyMission,
+  DailyAthleteSummary,
   FoodSearchResult,
   MealType,
-  ResolvedNutritionTargets,
+  NutritionFuelingTarget,
 } from '../../../lib/engine/types';
 import type { DashboardNutritionTotals } from '../dashboard/utils';
 import type { UnifiedPerformanceViewModel } from '../../../lib/performance-engine';
@@ -39,8 +39,8 @@ export interface FuelHomeViewModel {
   userId: string | null;
   date: string;
   formattedDate: string;
-  dailyMission: DailyMission | null;
-  targets: ResolvedNutritionTargets | null;
+  dailyAthleteSummary: DailyAthleteSummary | null;
+  targets: NutritionFuelingTarget | null;
   totals: DashboardNutritionTotals;
   meals: Record<MealType, MealLogEntryViewModel[]>;
   hydrationEntries: HydrationEntryViewModel[];

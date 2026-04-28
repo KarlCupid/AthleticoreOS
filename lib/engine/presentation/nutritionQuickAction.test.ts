@@ -4,7 +4,7 @@
  */
 
 import { buildNutritionQuickActionViewModel } from './nutritionQuickAction.ts';
-import type { DailyMission } from '../types/mission.ts';
+import type { DailyAthleteSummary } from '../types/mission.ts';
 
 let passed = 0;
 let failed = 0;
@@ -17,7 +17,7 @@ function assert(label: string, condition: boolean) {
 const ZERO_TOTALS = { calories: 0, protein: 0, carbs: 0, fat: 0 };
 const HALF_TOTALS = { calories: 1000, protein: 100, carbs: 150, fat: 40 };
 
-function makeMission(overrides: Partial<DailyMission> = {}): DailyMission {
+function makeMission(overrides: Partial<DailyAthleteSummary> = {}): DailyAthleteSummary {
   return {
     date: '2026-03-18',
     engineVersion: 'v3',

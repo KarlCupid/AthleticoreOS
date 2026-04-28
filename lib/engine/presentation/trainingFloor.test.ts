@@ -4,7 +4,7 @@
  */
 
 import { buildTrainingFloorViewModel } from './trainingFloor.ts';
-import type { DailyMission } from '../types/mission.ts';
+import type { DailyAthleteSummary } from '../types/mission.ts';
 import type { WorkoutPrescriptionV2 } from '../types/training.ts';
 
 let passed = 0;
@@ -15,7 +15,7 @@ function assert(label: string, condition: boolean) {
   else { failed++; console.error(`  FAIL ${label}`); }
 }
 
-function makeMission(intentOverride = 'Push hard today', reasonOverride = 'High readiness.'): DailyMission {
+function makeMission(intentOverride = 'Push hard today', reasonOverride = 'High readiness.'): DailyAthleteSummary {
   return {
     date: '2026-03-18',
     engineVersion: 'v3',

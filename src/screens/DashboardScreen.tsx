@@ -105,9 +105,9 @@ export function DashboardScreen() {
     readinessScore,
     weightTrend,
     weightHistory,
-    dailyMission,
+    dailyAthleteSummary,
     hasActiveFightCamp,
-    hasActiveCutPlan,
+    hasActiveWeightClassPlan,
     weeklyReview,
     recentTrainingSessions,
     performanceContext,
@@ -116,38 +116,38 @@ export function DashboardScreen() {
   const compassVM = React.useMemo(
     () =>
       buildCompassViewModel(
-        dailyMission,
+        dailyAthleteSummary,
         Boolean(workoutPrescription || todayPlanEntry),
         checkinDone,
         sessionDone,
       ),
-    [dailyMission, workoutPrescription, todayPlanEntry, checkinDone, sessionDone],
+    [dailyAthleteSummary, workoutPrescription, todayPlanEntry, checkinDone, sessionDone],
   );
 
   const missionDashboard = React.useMemo(
     () =>
       buildMissionDashboardViewModel({
-        mission: dailyMission,
+        mission: dailyAthleteSummary,
         acwr,
         readinessState: currentLevel,
         checkinDone,
         sessionDone,
         hasActiveFightCamp,
-        hasActiveCutPlan,
+        hasActiveWeightClassPlan,
         todayPlanEntryIsDeload: Boolean(todayPlanEntry?.is_deload),
         weightTrend,
         weeklyReview,
         recentTrainingSessions,
-        cutSafetyFlags: [],
+        bodyMassSafetyFlags: [],
       }),
     [
-      dailyMission,
+      dailyAthleteSummary,
       acwr,
       currentLevel,
       checkinDone,
       sessionDone,
       hasActiveFightCamp,
-      hasActiveCutPlan,
+      hasActiveWeightClassPlan,
       todayPlanEntry?.is_deload,
       weightTrend,
       weeklyReview,

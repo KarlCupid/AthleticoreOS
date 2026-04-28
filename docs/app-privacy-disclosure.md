@@ -14,7 +14,7 @@ This draft maps the current product behavior to the App Privacy questionnaire in
 - Contact info
   - Email address used for account sign-in and support follow-up.
 - Health and fitness
-  - User-entered training logs, readiness check-ins, workout history, nutrition logs, hydration logs, body weight, fight-camp inputs, and weight-cut planning data.
+  - User-entered training logs, readiness check-ins, workout history, nutrition logs, hydration logs, body weight, fight-camp inputs, and weight-class planning data.
 - User content
   - Custom exercise entries, custom food entries, notes entered during planning or logging flows.
 - Identifiers

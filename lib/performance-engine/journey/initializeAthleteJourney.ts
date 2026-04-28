@@ -396,7 +396,7 @@ function buildWeightClassPlan(input: {
     safetyStatus: 'unknown',
     riskFlags: [],
     explanation: createExplanation({
-      summary: 'Initial weight-class context captured without creating a cut protocol.',
+      summary: 'Initial weight-class context captured without creating a body-mass guidance.',
       reasons: ['Phase 2 stores baseline context only; safety decisions come from later engines.'],
       confidence: input.confidence,
     }),

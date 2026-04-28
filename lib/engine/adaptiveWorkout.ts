@@ -1,4 +1,4 @@
-﻿import type {
+import type {
     ExerciseType,
 } from './types/foundational.ts';
 import type {
@@ -15,7 +15,7 @@ import type {
     SetCompletionInput,
 } from './types/training.ts';
 
-// â”€â”€â”€ Equipment Mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Equipment Mapping ──────────────────────────────────────────
 
 /**
  * Maps exercise-level equipment strings to the gym profile EquipmentItem
@@ -28,7 +28,7 @@ const EQUIPMENT_TO_GYM_MAP: Record<string, EquipmentItem | null> = {
     cable: 'cables',
     bodyweight: null,       // always available
     band: 'resistance_bands',
-    machine: null,          // handled separately â€” any machine item qualifies
+    machine: null,          // handled separately — any machine item qualifies
     medicine_ball: 'medicine_balls',
     sled: 'sled',
     heavy_bag: 'heavy_bag',
@@ -44,7 +44,7 @@ const MACHINE_EQUIPMENT_ITEMS: EquipmentItem[] = [
     'rowing_machine',
 ];
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ────────────────────────────────────────────────────
 
 /** Clamp a number between min and max (inclusive). */
 function clamp(value: number, min: number, max: number): number {
@@ -73,11 +73,11 @@ function isEquipmentAvailable(
     }
 
     const requiredItem = EQUIPMENT_TO_GYM_MAP[exerciseEquipment];
-    if (requiredItem == null) return true; // unknown equipment â€” assume available
+    if (requiredItem == null) return true; // unknown equipment — assume available
     return availableEquipment.includes(requiredItem);
 }
 
-// â”€â”€â”€ initFatigueState â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── initFatigueState ───────────────────────────────────────────
 
 /**
  * @ANTI-WIRING:
@@ -97,7 +97,7 @@ export function initFatigueState(): SessionFatigueState {
     };
 }
 
-// â”€â”€â”€ processSetCompletion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── processSetCompletion ───────────────────────────────────────
 
 /**
  * @ANTI-WIRING:
@@ -144,10 +144,10 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         availableEquipment,
     } = input;
 
-    // â”€â”€ 1. Compute RPE delta â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 1. Compute RPE delta ────────────────────────────────────
     const rpeDelta = actualRPE - targetRPE;
 
-    // â”€â”€ 2. Update fatigue state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 2. Update fatigue state ─────────────────────────────────
     const setsCompleted = currentFatigueState.setsCompleted + 1;
     const cumulativeRPEDelta = currentFatigueState.cumulativeRPEDelta + rpeDelta;
     const avgRPEDelta = cumulativeRPEDelta / setsCompleted;
@@ -182,7 +182,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         fatigueLevel,
     };
 
-    // â”€â”€ 3. Generate adjustments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 3. Generate adjustments ─────────────────────────────────
     const adjustments: ExerciseAdjustment[] = [];
     let shouldEndWorkoutEarly = false;
     let endEarlyReason: string | null = null;
@@ -224,7 +224,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         feedbackMessage = `Fatigue is climbing. Reduce to ${reducedWeight} lbs and keep the reps as written.`;
         feedbackSeverity = 'warning';
     }
-    // Feeling strong â€” suggest weight increase
+    // Feeling strong — suggest weight increase
     else if (rpeDelta <= -0.5) {
         const increasedWeight = Math.max(
             Math.round(targetWeight * 1.025),
@@ -280,7 +280,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
         feedbackMessage = `Consider finishing your workout here. You've had a productive session \u2014 ${setsCompleted} sets completed.`;
         feedbackSeverity = 'warning';
     }
-    // Fatigue score >= 70: cut remaining sets by 1
+    // Fatigue score >= 70: reduce remaining sets by 1
     else if (fatigueScore >= 70) {
         for (const prescribed of remainingExercises) {
             if (prescribed.targetSets > 1) {
@@ -305,7 +305,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
     };
 }
 
-// â”€â”€â”€ findSubstituteExercise â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── findSubstituteExercise ─────────────────────────────────────
 
 /**
  * @ANTI-WIRING:
@@ -323,7 +323,7 @@ export function processSetCompletion(input: SetCompletionInput): SetAdaptationRe
  *   2. Lower cns_load than the original.
  *   3. Not the same exercise.
  *   4. Equipment is available (if gym profile provided).
- *   5. Sorted by cns_load ascending â€” returns the lowest-CNS option.
+ *   5. Sorted by cns_load ascending — returns the lowest-CNS option.
  *
  * Pure synchronous function. No database queries. No LLM generation.
  */
@@ -344,7 +344,7 @@ export function findSubstituteExercise(
     return candidates.length > 0 ? candidates[0] : null;
 }
 
-// â”€â”€â”€ getRestTimerDefaults â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getRestTimerDefaults ───────────────────────────────────────
 
 /**
  * @ANTI-WIRING:
@@ -364,7 +364,7 @@ export function getRestTimerDefaults(): Record<ExerciseType, RestTimerConfig> {
     };
 }
 
-// â”€â”€â”€ getRestDuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getRestDuration ────────────────────────────────────────────
 
 /**
  * @ANTI-WIRING:

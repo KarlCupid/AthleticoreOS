@@ -14,7 +14,7 @@ export interface CampConfig {
   fightDate: string;
   campStartDate: string;
   totalWeeks: number;
-  hasConcurrentCut: boolean;
+  hasConcurrentWeightClassPlan: boolean;
   basePhaseDates: CampPhaseDates;
   buildPhaseDates: CampPhaseDates;
   peakPhaseDates: CampPhaseDates;
@@ -27,7 +27,7 @@ export interface CampConfig {
   restDurationSec?: number | null;
   travelStartDate?: string | null;
   travelEndDate?: string | null;
-  weightCutState?: 'none' | 'monitoring' | 'driving' | null;
+  weightClassState?: 'none' | 'monitoring' | 'driving' | null;
 }
 
 export interface CampWeekProfile {
@@ -46,7 +46,7 @@ export interface CampPlanInput {
   fightDate: string;
   campStartDate: string;
   fitnessLevel?: FitnessLevel;
-  hasConcurrentCut: boolean;
+  hasConcurrentWeightClassPlan: boolean;
   userId: string;
 }
 
@@ -83,7 +83,7 @@ export interface CampPlanRow {
   rest_duration_sec?: number | null;
   travel_start_date?: string | null;
   travel_end_date?: string | null;
-  weight_cut_state?: 'none' | 'monitoring' | 'driving' | null;
+  weight_class_state?: 'none' | 'monitoring' | 'driving' | null;
   created_at: string;
   updated_at: string;
 }

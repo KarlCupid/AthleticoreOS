@@ -1,46 +1,41 @@
 import { supabase } from '../supabase';
 import {
   DAILY_ENGINE_VERSION,
-  buildDailyMission,
   calculateCampRisk,
-  calculateNutritionTargets,
-  calculateWeightCorrection,
   calculateWeightTrend,
-  deriveProtectWindowFromRecentMissions,
   deriveReadinessProfile,
   deriveStimulusConstraintSet,
   generateWorkoutV2,
   getHydrationProtocol,
-  resolveDailyNutritionTargets,
   type ACWRResult,
-  type DailyMission,
+  type DailyAthleteSummary,
+  type DecisionTraceItem,
   type MacrocycleContext,
+  type MissionRiskLevel,
   type MEDStatus,
   type PerformanceObjective,
   type Phase,
   type ReadinessProfile,
   type ReadinessState,
-  type ResolvedNutritionTargets,
+  type NutritionFuelingTarget,
   type ScheduledActivityRow,
   type StimulusConstraintSet,
   type DailyEngineState,
-  type WeeklyMissionPlan,
+  type WeeklyAthleteSummaryPlan,
   type WeeklyPlanEntryRow,
 } from '../engine/index.ts';
 import { calculateACWR } from '../engine/calculateACWR';
 import { determineCampPhase, toCampEnginePhase } from '../engine/calculateCamp';
-import { getAthleteContext, normalizeActivityLevel, normalizeNutritionGoal } from './athleteContextService';
-import { getDailyEngineSnapshot, getDailyEngineSnapshotsForDates, upsertDailyEngineSnapshot } from './dailyEngineSnapshotService';
+import { getAthleteContext, normalizeNutritionGoal } from './athleteContextService';
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
 import { getActiveFightCamp } from './fightCampService';
 import { getDefaultGymProfile } from './gymProfileService';
 import { getExerciseHistoryBatch, getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume } from './scService';
 import { getScheduledActivities } from './scheduleService';
 import { getEffectiveWeight, getWeightHistory } from './weightService';
-import { updateDailyMissionSnapshotsByDate } from './weeklyPlanService';
 import { isActiveGuidedEnginePlanEntry } from '../engine/sessionOwnership';
 import { adaptPrescriptionToDailyReadiness } from '../engine/readiness/dailyCheck.ts';
-import { resolveWeeklyMissionWithDependencies } from './weeklyMissionResolver';
+import { resolveWeeklyAthleteSummaryWithDependencies } from './weeklyAthleteSummaryResolver';
 import type { WorkoutPrescriptionV2 } from '../engine/types';
 import {
   confidenceFromLevel,
@@ -54,18 +49,23 @@ import {
   type AdaptiveSessionKind,
   type AthleticorePhase,
   type BodyMassState,
+  type ComposedSession,
+  type Explanation,
+  type NutritionTarget,
   type ProtectedAnchorInput,
+  type RiskFlag,
+  type SessionFuelingDirective,
   type UnifiedPerformanceEngineResult,
 } from '../performance-engine/index.ts';
 
-interface DailyMissionOptions {
+interface DailyPerformanceOptions {
   forceRefresh?: boolean;
 }
 
 const dailyEngineStateCache = new Map<string, DailyEngineState>();
 const dailyEngineStateInFlight = new Map<string, Promise<DailyEngineState>>();
-const weeklyMissionCache = new Map<string, WeeklyMissionPlan>();
-const weeklyMissionInFlight = new Map<string, Promise<WeeklyMissionPlan>>();
+const weeklyAthleteSummaryCache = new Map<string, WeeklyAthleteSummaryPlan>();
+const weeklyAthleteSummaryInFlight = new Map<string, Promise<WeeklyAthleteSummaryPlan>>();
 let hasDailyPerformanceCheckColumns: boolean | null = null;
 
 const DAILY_CHECKIN_LEGACY_SELECT = 'date, sleep_quality, readiness, stress_level, soreness_level, confidence_level';
@@ -89,7 +89,7 @@ function getDailyEngineStateCacheKey(userId: string, date: string): string {
   return `${userId}::${date}`;
 }
 
-function getWeeklyMissionCacheKey(userId: string, weekStart: string): string {
+function getWeeklyAthleteSummaryCacheKey(userId: string, weekStart: string): string {
   return `${userId}::${weekStart}`;
 }
 
@@ -119,14 +119,14 @@ export function invalidateEngineDataCache(input: {
   }
 
   if (weekStart) {
-    const weeklyKey = getWeeklyMissionCacheKey(userId, weekStart);
-    weeklyMissionCache.delete(weeklyKey);
-    weeklyMissionInFlight.delete(weeklyKey);
+    const weeklyKey = getWeeklyAthleteSummaryCacheKey(userId, weekStart);
+    weeklyAthleteSummaryCache.delete(weeklyKey);
+    weeklyAthleteSummaryInFlight.delete(weeklyKey);
     return;
   }
 
-  clearUserScopedKeys(weeklyMissionCache, userId);
-  clearUserScopedKeys(weeklyMissionInFlight, userId);
+  clearUserScopedKeys(weeklyAthleteSummaryCache, userId);
+  clearUserScopedKeys(weeklyAthleteSummaryInFlight, userId);
 }
 
 function daysBetween(start: string, end: string): number {
@@ -278,10 +278,10 @@ function buildUnifiedTrackingEntries(input: {
       value: input.readinessProfile.overallReadiness,
       unit: 'percent',
       confidence: confidenceFromLevel(input.readinessProfile.dataConfidence, [
-        'Daily mission readiness profile was projected into canonical tracking state during Phase 9 integration.',
+        'Daily readiness profile was projected into canonical tracking state during performance engine integration.',
       ]),
       context: {
-        legacyReadinessState: input.readinessProfile.readinessState,
+        sourceReadinessState: input.readinessProfile.readinessState,
         flags: input.readinessProfile.flags,
       },
     }),
@@ -372,8 +372,8 @@ function resolveUnifiedDailyPerformance(input: {
     })
     : null;
   const hasWeightClassContext = input.objectiveContext.goalMode === 'fight_camp'
-    || input.objectiveContext.weightCutState !== 'none'
-    || profile.active_cut_plan_id != null;
+    || input.objectiveContext.weightClassState !== 'none'
+    || profile.active_weight_class_plan_id != null;
 
   return runUnifiedPerformanceEngine({
     athlete,
@@ -393,7 +393,7 @@ function resolveUnifiedDailyPerformance(input: {
     acuteChronicWorkloadRatio: null,
     weightClass: hasWeightClassContext
       ? {
-        competitionId: input.objectiveContext.camp?.id ?? profile.active_cut_plan_id ?? null,
+        competitionId: input.objectiveContext.camp?.id ?? profile.active_weight_class_plan_id ?? null,
         competitionDate: input.objectiveContext.camp?.fightDate ?? profile.fight_date ?? null,
         weighInDateTime: null,
         competitionDateTime: input.objectiveContext.camp?.fightDate
@@ -408,19 +408,368 @@ function resolveUnifiedDailyPerformance(input: {
   });
 }
 
+function rangeTarget(range: { target?: number | null; min?: number | null; max?: number | null } | null | undefined): number | null {
+  const value = range?.target ?? range?.min ?? range?.max ?? null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function roundedTarget(range: { target?: number | null; min?: number | null; max?: number | null } | null | undefined, fallback = 0): number {
+  return Math.round(rangeTarget(range) ?? fallback);
+}
+
+function primaryUnifiedSession(result: UnifiedPerformanceEngineResult | null): ComposedSession | null {
+  if (!result) return null;
+  return result.canonicalOutputs.composedSessions.find((session) => session.date === result.performanceState.asOfDate)
+    ?? result.canonicalOutputs.composedSessions[0]
+    ?? null;
+}
+
+function workoutTypeFromSession(session: ComposedSession | null): DailyAthleteSummary['trainingDirective']['workoutType'] {
+  switch (session?.family) {
+    case 'sparring':
+      return 'sparring';
+    case 'boxing_skill':
+      return 'practice';
+    case 'strength':
+      return 'strength';
+    case 'conditioning':
+    case 'roadwork':
+      return 'conditioning';
+    case 'recovery':
+    case 'rest':
+      return 'recovery';
+    default:
+      return null;
+  }
+}
+
+function workoutFocusFromSession(session: ComposedSession | null): DailyAthleteSummary['trainingDirective']['focus'] {
+  switch (session?.family) {
+    case 'sparring':
+    case 'boxing_skill':
+      return 'sport_specific';
+    case 'strength':
+      return 'strength';
+    case 'conditioning':
+    case 'roadwork':
+      return 'conditioning';
+    case 'recovery':
+    case 'rest':
+      return 'recovery';
+    default:
+      return null;
+  }
+}
+
+function sessionRoleFromUnified(result: UnifiedPerformanceEngineResult | null, session: ComposedSession | null): DailyAthleteSummary['trainingDirective']['sessionRole'] {
+  if (!result) return 'recover';
+  if (result.finalPlanStatus === 'blocked') return 'recover';
+  if (result.canonicalOutputs.readiness.recommendedTrainingAdjustment.replaceWithMobility) return 'recover';
+  if (session?.family === 'rest') return 'rest';
+  if (session?.family === 'recovery') return 'recover';
+  if (session?.family === 'sparring' || session?.family === 'boxing_skill') return 'spar_support';
+  if (result.performanceState.phase.current === 'competition_week' || result.performanceState.phase.current === 'taper') return 'taper_sharpen';
+  return result.finalPlanStatus === 'ready' ? 'develop' : 'express';
+}
+
+function riskLevelFromUnified(result: UnifiedPerformanceEngineResult | null): MissionRiskLevel {
+  if (!result) return 'moderate';
+  if (result.blockingRiskFlags.some((flag) => flag.severity === 'critical')) return 'critical';
+  if (result.riskFlags.some((flag) => flag.severity === 'critical')) return 'critical';
+  if (result.riskFlags.some((flag) => flag.severity === 'high')) return 'high';
+  if (result.riskFlags.some((flag) => flag.severity === 'moderate')) return 'moderate';
+  return 'low';
+}
+
+function nutritionSafetyWarningFromRisks(flags: RiskFlag[]): NutritionFuelingTarget['safetyWarning'] {
+  if (flags.some((flag) => flag.code === 'under_fueling_risk' && flag.severity === 'critical')) return 'critical_energy_availability';
+  if (flags.some((flag) => flag.code === 'under_fueling_risk')) return 'low_energy_availability';
+  return 'none';
+}
+
+function priorityFromSession(session: ComposedSession | null): NutritionFuelingTarget['prioritySession'] {
+  switch (session?.family) {
+    case 'sparring':
+      return 'sparring';
+    case 'boxing_skill':
+      return 'boxing_practice';
+    case 'strength':
+      return 'heavy_sc';
+    case 'conditioning':
+    case 'roadwork':
+      return 'conditioning';
+    default:
+      return 'recovery';
+  }
+}
+
+function fuelStateFromUnified(target: NutritionTarget, session: ComposedSession | null): NutritionFuelingTarget['fuelState'] {
+  if (target.phase === 'competition_week' || target.phase === 'taper') return 'taper';
+  if (session?.family === 'sparring' || session?.family === 'boxing_skill') return 'spar_support';
+  if (session?.family === 'strength') return 'strength_power';
+  if (session?.family === 'recovery' || session?.family === 'rest') return 'active_recovery';
+  if (!session) return 'rest';
+  return 'aerobic';
+}
+
+function fuelingWindowFromDirective(
+  directive: SessionFuelingDirective | null,
+  timing: 'pre' | 'intra' | 'post',
+) {
+  return directive?.windows?.find((window) => window.timing === timing) ?? null;
+}
+
+function sessionFuelingPlanFromUnified(input: {
+  directive: SessionFuelingDirective | null;
+  session: ComposedSession | null;
+  priority: NutritionFuelingTarget['prioritySession'];
+}): NutritionFuelingTarget['sessionFuelingPlan'] {
+  const pre = fuelingWindowFromDirective(input.directive, 'pre');
+  const intra = fuelingWindowFromDirective(input.directive, 'intra');
+  const post = fuelingWindowFromDirective(input.directive, 'post');
+  const sessionLabel = input.session?.title ?? input.directive?.sessionType ?? 'Training support';
+
+  return {
+    priority: input.priority,
+    priorityLabel: input.priority.replace(/_/g, ' '),
+    sessionLabel,
+    preSession: {
+      label: 'Before training',
+      timing: pre ? 'Before session' : 'Use normal meal timing',
+      carbsG: roundedTarget(pre?.carbGrams),
+      proteinG: roundedTarget(pre?.proteinGrams),
+      notes: pre?.notes ?? input.directive?.preSessionGuidance ?? [],
+      lowResidue: input.directive?.gutComfortConcern === 'moderate' || input.directive?.gutComfortConcern === 'high',
+    },
+    intraSession: {
+      fluidsOz: roundedTarget(intra?.fluidOunces ?? input.directive?.hydrationDemand, 0),
+      electrolytesMg: roundedTarget(intra?.sodiumMg, 0) || null,
+      carbsG: roundedTarget(intra?.carbGrams),
+      notes: intra?.notes ?? input.directive?.duringSessionGuidance ?? [],
+    },
+    betweenSessions: null,
+    postSession: {
+      label: 'After training',
+      timing: post ? 'After session' : 'Use normal meals',
+      carbsG: roundedTarget(post?.carbGrams),
+      proteinG: roundedTarget(post?.proteinGrams ?? input.directive?.proteinRecoveryDemand, 25),
+      notes: post?.notes ?? input.directive?.postSessionGuidance ?? [],
+    },
+    hydrationNotes: input.directive?.duringSessionGuidance ?? [],
+    coachingNotes: [
+      input.directive?.explanation?.summary ?? 'Session fueling came from the Nutrition and Fueling Engine.',
+    ],
+  };
+}
+
+function nutritionFuelingTargetFromUnified(input: {
+  result: UnifiedPerformanceEngineResult | null;
+  hydration: ReturnType<typeof getHydrationProtocol>;
+  date: string;
+}): NutritionFuelingTarget {
+  const target = input.result?.canonicalOutputs.nutritionTarget ?? null;
+  const session = primaryUnifiedSession(input.result);
+  const directive = target?.sessionFuelingDirectives[0] ?? input.result?.canonicalOutputs.sessionFuelingDirectives[0] ?? null;
+  const priority = priorityFromSession(session);
+  const calories = roundedTarget(target?.energyTargetRange ?? target?.energyTarget);
+  const protein = roundedTarget(target?.proteinTargetRange ?? target?.proteinTarget);
+  const carbs = roundedTarget(target?.carbohydrateTargetRange ?? target?.carbohydrateTarget);
+  const fat = roundedTarget(target?.fatTargetRange ?? target?.fatTarget);
+  const hydrationOz = roundedTarget(target?.hydrationTarget, input.hydration.dailyWaterOz ?? 96);
+  const sodiumTarget = roundedTarget(target?.sodiumElectrolyteGuidance?.sodiumTargetRange, 0) || null;
+  const reasons = [
+    target?.explanation?.summary ?? 'Nutrition target resolved from the Unified Performance Engine.',
+    ...(target?.explanation?.reasons ?? []),
+  ].filter(Boolean);
+
+  return {
+    engineVersion: 'nutrition_fueling_engine_v1',
+    canonicalPhase: target?.phase ?? input.result?.performanceState.phase.current,
+    tdee: calories,
+    adjustedCalories: calories,
+    protein,
+    carbs,
+    fat,
+    proteinModifier: 1,
+    phaseMultiplier: 0,
+    weightCorrectionDeficit: 0,
+    message: reasons.join(' '),
+    source: input.result ? 'daily_activity_adjusted' : 'base',
+    fuelState: target ? fuelStateFromUnified(target, session) : 'rest',
+    prioritySession: priority,
+    deficitClass: target?.purpose === 'body_composition_support' || target?.purpose === 'weight_class_management_support' ? 'steady_deficit' : 'steady_maintain',
+    recoveryNutritionFocus: target?.recoveryDirectives[0]?.focus === 'tissue_repair'
+      ? 'impact_recovery'
+      : target?.recoveryDirectives[0]?.focus ?? 'none',
+    sessionDemandScore: Math.max(0, Math.min(95, Math.round(((session?.durationMinutes.target ?? 0) * (session?.intensityRpe.target ?? 0)) / 6))),
+    hydrationBoostOz: Math.max(0, hydrationOz - 80),
+    hydrationPlan: {
+      dailyTargetOz: hydrationOz,
+      sodiumTargetMg: sodiumTarget,
+      emphasis: priority === 'recovery' ? 'baseline' : 'performance',
+      notes: [
+        ...(target?.sodiumElectrolyteGuidance?.electrolyteNotes ?? []),
+        input.hydration.message,
+      ],
+    },
+    sessionFuelingPlan: sessionFuelingPlanFromUnified({ directive, session, priority }),
+    reasonLines: reasons,
+    energyAvailability: null,
+    fuelingFloorTriggered: Boolean(target?.riskFlags.some((flag) => flag.code === 'under_fueling_risk')),
+    deficitBankDelta: 0,
+    safetyWarning: nutritionSafetyWarningFromRisks(target?.riskFlags ?? []),
+    safetyEvents: [],
+    traceLines: input.result?.explanations.map((explanation) => explanation.summary) ?? reasons,
+  };
+}
+
+function decisionTraceFromExplanations(explanations: Explanation[]): DecisionTraceItem[] {
+  return explanations.slice(0, 8).map((explanation) => ({
+    subsystem: explanation.kind === 'risk'
+      ? 'risk'
+      : explanation.summary.toLowerCase().includes('nutrition') || explanation.summary.toLowerCase().includes('fuel')
+        ? 'fuel'
+        : explanation.summary.toLowerCase().includes('readiness') || explanation.summary.toLowerCase().includes('recovery')
+          ? 'recovery'
+          : 'training',
+    title: explanation.summary,
+    detail: explanation.reasons.join(' '),
+    humanInterpretation: explanation.reasons[0] ?? null,
+    impact: explanation.impact === 'unknown' ? 'adjusted' : explanation.impact,
+  }));
+}
+
+function buildDailyAthleteSummaryFromUnified(input: {
+  date: string;
+  objectiveContext: MacrocycleContext;
+  readinessProfile: ReadinessProfile;
+  constraintSet: StimulusConstraintSet;
+  medStatus: MEDStatus | null;
+  hydration: ReturnType<typeof getHydrationProtocol>;
+  workoutPrescription: WorkoutPrescriptionV2 | null;
+  unifiedPerformance: UnifiedPerformanceEngineResult | null;
+}): { summary: DailyAthleteSummary; nutritionTarget: NutritionFuelingTarget } {
+  const session = primaryUnifiedSession(input.unifiedPerformance);
+  const nutritionTarget = nutritionFuelingTargetFromUnified({
+    result: input.unifiedPerformance,
+    hydration: input.hydration,
+    date: input.date,
+  });
+  const riskLevel = riskLevelFromUnified(input.unifiedPerformance);
+  const explanations = input.unifiedPerformance?.explanations ?? [];
+  const trainingReason = session?.explanation?.summary
+    ?? input.unifiedPerformance?.canonicalOutputs.trainingBlock.explanation?.summary
+    ?? 'Training was resolved from the Unified Performance Engine.';
+  const readinessAdjustment = input.unifiedPerformance?.canonicalOutputs.readiness.recommendedTrainingAdjustment;
+  const sessionRole = sessionRoleFromUnified(input.unifiedPerformance, session);
+
+  return {
+    nutritionTarget,
+    summary: {
+      date: input.date,
+      engineVersion: input.unifiedPerformance?.engineVersion ?? DAILY_ENGINE_VERSION,
+      generatedAt: input.unifiedPerformance?.performanceState.generatedAt ?? new Date().toISOString(),
+      headline: input.unifiedPerformance?.finalPlanStatus === 'blocked'
+        ? 'Plan blocked for safety'
+        : input.unifiedPerformance?.canonicalOutputs.trainingBlock.goal
+          ? `${input.unifiedPerformance.canonicalOutputs.trainingBlock.goal.replace(/_/g, ' ')} focus`
+          : 'Daily athlete summary',
+      summary: input.unifiedPerformance?.explanations[0]?.summary
+        ?? 'Daily athlete summary was projected from unified performance state.',
+      objective: input.objectiveContext.performanceObjective,
+      macrocycleContext: input.objectiveContext,
+      readinessProfile: input.readinessProfile,
+      trainingDirective: {
+        sessionRole,
+        interventionState: input.unifiedPerformance?.finalPlanStatus === 'blocked' ? 'hard' : input.unifiedPerformance?.finalPlanStatus === 'caution' ? 'soft' : 'none',
+        isMandatoryRecovery: sessionRole === 'recover' || Boolean(readinessAdjustment?.replaceWithMobility),
+        focus: workoutFocusFromSession(session),
+        workoutType: workoutTypeFromSession(session),
+        intent: session?.title ?? input.unifiedPerformance?.canonicalOutputs.trainingBlock.explanation?.summary ?? 'Follow the unified performance plan.',
+        reason: trainingReason,
+        intensityCap: input.unifiedPerformance?.finalPlanStatus === 'blocked' ? 2 : null,
+        durationMin: rangeTarget(session?.durationMinutes),
+        volumeTarget: input.unifiedPerformance
+          ? `${input.unifiedPerformance.canonicalOutputs.composedSessions.length} composed session${input.unifiedPerformance.canonicalOutputs.composedSessions.length === 1 ? '' : 's'}`
+          : 'Unified performance state pending',
+        keyQualities: session?.tissueLoads?.length ? session.tissueLoads : [session?.family ?? 'recovery'],
+        constraintSet: input.constraintSet,
+        medStatus: input.medStatus,
+        source: 'daily_engine',
+        prescription: input.workoutPrescription,
+      },
+      fuelDirective: {
+        state: nutritionTarget.fuelState,
+        prioritySession: nutritionTarget.prioritySession,
+        deficitClass: nutritionTarget.deficitClass,
+        recoveryNutritionFocus: nutritionTarget.recoveryNutritionFocus,
+        sessionDemandScore: nutritionTarget.sessionDemandScore,
+        calories: nutritionTarget.adjustedCalories,
+        protein: nutritionTarget.protein,
+        carbs: nutritionTarget.carbs,
+        fat: nutritionTarget.fat,
+        preSessionCarbsG: nutritionTarget.sessionFuelingPlan.preSession.carbsG,
+        intraSessionCarbsG: nutritionTarget.sessionFuelingPlan.intraSession.carbsG,
+        postSessionProteinG: nutritionTarget.sessionFuelingPlan.postSession.proteinG,
+        intraSessionHydrationOz: nutritionTarget.sessionFuelingPlan.intraSession.fluidsOz,
+        hydrationBoostOz: nutritionTarget.hydrationBoostOz,
+        sodiumTargetMg: nutritionTarget.hydrationPlan.sodiumTargetMg,
+        compliancePriority: nutritionTarget.prioritySession === 'recovery' ? 'recovery' : input.objectiveContext.weightClassState === 'driving' ? 'weight' : 'performance',
+        adjustmentFlag: null,
+        source: 'daily_engine',
+        message: nutritionTarget.message,
+        reasons: nutritionTarget.reasonLines,
+        sessionFuelingPlan: nutritionTarget.sessionFuelingPlan,
+        energyAvailability: nutritionTarget.energyAvailability,
+        fuelingFloorTriggered: nutritionTarget.fuelingFloorTriggered,
+        safetyWarning: nutritionTarget.safetyWarning,
+      },
+      hydrationDirective: {
+        waterTargetOz: nutritionTarget.hydrationPlan.dailyTargetOz,
+        sodiumTargetMg: nutritionTarget.hydrationPlan.sodiumTargetMg,
+        protocol: 'Steady hydration support from the Nutrition and Fueling Engine.',
+        message: nutritionTarget.hydrationPlan.notes[0] ?? input.hydration.message,
+      },
+      recoveryDirective: {
+        emphasis: input.unifiedPerformance?.canonicalOutputs.readiness.recommendedTrainingAdjustment.type.replace(/_/g, ' ') ?? 'normal recovery',
+        sleepTargetHours: 8,
+        modalities: readinessAdjustment?.replaceWithMobility ? ['mobility', 'easy breathing'] : ['normal cooldown'],
+        restrictions: input.unifiedPerformance?.blockingRiskFlags.map((flag) => flag.message) ?? [],
+      },
+      riskState: {
+        level: riskLevel,
+        score: input.unifiedPerformance ? Math.min(100, input.unifiedPerformance.riskFlags.length * 20 + input.unifiedPerformance.blockingRiskFlags.length * 30) : 35,
+        label: riskLevel,
+        drivers: input.unifiedPerformance?.riskFlags.map((flag) => flag.message) ?? ['Unified performance state is unavailable.'],
+        flags: input.readinessProfile.flags,
+        anchorSummary: input.unifiedPerformance?.canonicalOutputs.composedSessions.some((item) => item.protectedAnchor)
+          ? 'Protected workouts remain fixed anchors.'
+          : null,
+      },
+      decisionTrace: decisionTraceFromExplanations(explanations),
+      overrideState: {
+        status: input.unifiedPerformance?.finalPlanStatus === 'blocked' ? 'override_available' : 'following_plan',
+        note: input.unifiedPerformance?.finalPlanStatus === 'blocked'
+          ? 'A blocking risk requires review before progressing.'
+          : 'Daily summary follows the Unified Performance Engine output.',
+      },
+    },
+  };
+}
+
 function buildPerformanceObjective(input: {
   goalMode: MacrocycleContext['goalMode'];
   performanceGoalType: MacrocycleContext['performanceGoalType'];
   buildGoal: MacrocycleContext['buildGoal'];
   phase: Phase;
   camp: MacrocycleContext['camp'];
-  weightCutState: MacrocycleContext['weightCutState'];
+  weightClassState: MacrocycleContext['weightClassState'];
   targetWeightLbs: number | null;
 }): PerformanceObjective {
-  const { goalMode, performanceGoalType, buildGoal, phase, camp, weightCutState, targetWeightLbs } = input;
+  const { goalMode, performanceGoalType, buildGoal, phase, camp, weightClassState, targetWeightLbs } = input;
 
   if (goalMode === 'fight_camp') {
-    const primaryOutcome = weightCutState === 'driving'
+    const primaryOutcome = weightClassState === 'driving'
       ? 'Arrive sharp and on weight for the fight'
       : 'Peak performance for the target fight';
 
@@ -428,7 +777,7 @@ function buildPerformanceObjective(input: {
       mode: 'fight_camp',
       goalType: performanceGoalType,
       primaryOutcome,
-      secondaryConstraint: weightCutState === 'driving' ? 'weight_trajectory' : 'protect_recovery',
+      secondaryConstraint: weightClassState === 'driving' ? 'weight_trajectory' : 'protect_recovery',
       goalLabel: camp ? `Fight camp ending ${camp.fightDate}` : 'Fight camp',
       targetMetric: targetWeightLbs != null ? 'body_weight_lbs' : 'fight_readiness',
       targetValue: targetWeightLbs,
@@ -481,8 +830,8 @@ export async function resolveObjectiveContext(userId: string, date: string): Pro
     })
     : null;
 
-  const weightCutState = camp?.weightCutState
-    ?? (athleteContext.isOnActiveCut ? 'driving' : 'none');
+  const weightClassState = camp?.weightClassState
+    ?? (athleteContext.hasActiveWeightClassPlan ? 'driving' : 'none');
   const daysOut = camp?.fightDate ? Math.max(0, daysBetween(date, camp.fightDate)) : null;
   const isTravelWindow = Boolean(
     camp?.travelStartDate
@@ -496,7 +845,7 @@ export async function resolveObjectiveContext(userId: string, date: string): Pro
     buildGoal,
     phase,
     camp,
-    weightCutState,
+    weightClassState,
     targetWeightLbs,
   });
 
@@ -509,8 +858,8 @@ export async function resolveObjectiveContext(userId: string, date: string): Pro
     buildGoal,
     camp,
     campPhase,
-    weightCutState,
-    isOnActiveCut: athleteContext.isOnActiveCut,
+    weightClassState,
+    hasActiveWeightClassPlan: athleteContext.hasActiveWeightClassPlan,
     weighInTiming: camp?.weighInTiming ?? null,
     daysOut,
     isTravelWindow,
@@ -604,26 +953,12 @@ function pickPrimaryScheduledActivity(activities: ScheduledActivityRow[]): Sched
   })[0] ?? null;
 }
 
-function toMissionActivityStatus(status: WeeklyPlanEntryRow['status']): 'scheduled' | 'modified' | 'completed' | 'skipped' {
-  switch (status) {
-    case 'rescheduled':
-      return 'modified';
-    case 'completed':
-      return 'completed';
-    case 'skipped':
-      return 'skipped';
-    case 'planned':
-    default:
-      return 'scheduled';
-  }
-}
-
 async function resolveACWR(
   userId: string,
   date: string,
   phase: Phase,
   fitnessLevel: string,
-  isOnActiveCut: boolean,
+  hasActiveWeightClassPlan: boolean,
   cycleDay: number | null,
 ): Promise<ACWRResult> {
   return calculateACWR({
@@ -632,7 +967,7 @@ async function resolveACWR(
     asOfDate: date,
     fitnessLevel: fitnessLevel as any,
     phase,
-    isOnActiveCut,
+    hasActiveWeightClassPlan,
     cycleDay,
   });
 }
@@ -758,7 +1093,7 @@ async function resolveReadinessProfile(input: {
     latestCognitiveScore: null,
     urineColor: null,
     bodyTempF: null,
-    weightCutIntensityCap: trainingIntensityCap,
+    bodyMassIntensityCap: trainingIntensityCap,
     recentSparringCount48h,
     recentSparringDecayLoad5d,
     recentHighImpactCount48h,
@@ -766,7 +1101,7 @@ async function resolveReadinessProfile(input: {
     goalMode: objectiveContext.goalMode,
     phase: objectiveContext.phase,
     daysOut: objectiveContext.daysOut,
-    isOnActiveCut: objectiveContext.isOnActiveCut,
+    hasActiveWeightClassPlan: objectiveContext.hasActiveWeightClassPlan,
     hasHardSparringScheduled: recentActivities.some((activity) => activity.activity_type === 'sparring' && activity.status !== 'skipped'),
     hasTechnicalSessionScheduled: recentActivities.some((activity) => activity.activity_type === 'boxing_practice' && activity.status !== 'skipped'),
     readinessHistory,
@@ -855,161 +1190,6 @@ function deriveMEDStatus(entries: WeeklyPlanEntryRow[], date: string): MEDStatus
   };
 }
 
-async function resolveNutritionTargets(input: {
-  userId: string;
-  date: string;
-  phase: Phase;
-  currentWeight: number;
-  profile: NonNullable<Awaited<ReturnType<typeof getAthleteContext>>['profile']>;
-  weightTrend: MacrocycleContext['weightTrend'];
-  macrocycleContext: MacrocycleContext;
-  readinessProfile: ReadinessProfile;
-  constraintSet: StimulusConstraintSet;
-  medStatus?: MEDStatus | null;
-  weeklyPlanEntries?: WeeklyPlanEntryRow[];
-  effectiveWorkoutPrescription?: WorkoutPrescriptionV2 | null;
-}): Promise<ResolvedNutritionTargets> {
-  const {
-    userId,
-    date,
-    phase,
-    currentWeight,
-    profile,
-    weightTrend,
-    macrocycleContext,
-    readinessProfile,
-    constraintSet,
-    medStatus = null,
-    weeklyPlanEntries = [],
-    effectiveWorkoutPrescription = null,
-  } = input;
-  const scheduledActivities = await getScheduledActivities(userId, date, date);
-  const mappedActivities = scheduledActivities.length > 0
-    ? scheduledActivities
-        .filter((activity) => activity.status !== 'skipped')
-        .map((activity) => ({
-          activity_type: activity.activity_type,
-          expected_intensity: activity.expected_intensity,
-          estimated_duration_min: activity.estimated_duration_min,
-          start_time: activity.start_time,
-          custom_label: activity.custom_label,
-        }))
-    : weeklyPlanEntries
-        .filter((entry) => entry.status !== 'skipped')
-        .map((entry) => ({
-          activity_type: entry.session_type as any,
-          expected_intensity: entry.target_intensity ?? 5,
-          estimated_duration_min: entry.estimated_duration_min,
-          start_time: null,
-          custom_label: null,
-        }));
-  const effectiveActivities = applyEffectivePrescriptionToNutritionActivities(
-    mappedActivities,
-    effectiveWorkoutPrescription,
-  );
-
-  const baseTDEE = calculateNutritionTargets({
-    weightLbs: currentWeight,
-    heightInches: profile.height_inches ?? null,
-    age: profile.age ?? null,
-    biologicalSex: profile.biological_sex ?? 'male',
-    activityLevel: normalizeActivityLevel(profile.activity_level),
-    phase,
-    nutritionGoal: normalizeNutritionGoal(profile.nutrition_goal),
-    cycleDay: null,
-    coachProteinOverride: null,
-    coachCarbsOverride: null,
-    coachFatOverride: null,
-    coachCaloriesOverride: null,
-  }).tdee;
-
-  const correctionDeficit = weightTrend
-    ? calculateWeightCorrection({
-      weightTrend,
-      phase,
-      currentTDEE: baseTDEE,
-      deadlineDate: profile.fight_date ?? null,
-    }).correctionDeficitCal
-    : 0;
-
-  const tempTargets = calculateNutritionTargets({
-    weightLbs: currentWeight,
-    heightInches: profile.height_inches ?? null,
-    age: profile.age ?? null,
-    biologicalSex: profile.biological_sex ?? 'male',
-    activityLevel: normalizeActivityLevel(profile.activity_level),
-    phase,
-    nutritionGoal: normalizeNutritionGoal(profile.nutrition_goal),
-    cycleDay: null,
-    coachProteinOverride: profile.coach_protein_override ?? null,
-    coachCarbsOverride: profile.coach_carbs_override ?? null,
-    coachFatOverride: profile.coach_fat_override ?? null,
-    coachCaloriesOverride: profile.coach_calories_override ?? null,
-    weightCorrectionDeficit: correctionDeficit,
-  });
-
-  return resolveDailyNutritionTargets(
-    tempTargets,
-    null,
-    effectiveActivities,
-    {
-      daysToWeighIn: null,
-      bodyweightLbs: currentWeight,
-      athleteAge: profile.age ?? null,
-      readinessProfile,
-      constraintSet,
-      macrocycleContext,
-      medStatus,
-    },
-  );
-}
-
-function getPrescriptionNutritionIntensity(prescription: WorkoutPrescriptionV2): number {
-  const maxExerciseRPE = prescription.exercises.reduce((max, exercise) => Math.max(max, exercise.targetRPE ?? 0), 0);
-  if (maxExerciseRPE > 0) return Math.round(maxExerciseRPE);
-  if (prescription.primaryAdaptation === 'recovery') return 3;
-  return 6;
-}
-
-function applyEffectivePrescriptionToNutritionActivities<T extends {
-  activity_type: ScheduledActivityRow['activity_type'] | any;
-  expected_intensity: number;
-  estimated_duration_min: number;
-  start_time: string | null;
-  custom_label: string | null;
-}>(
-  activities: T[],
-  prescription: WorkoutPrescriptionV2 | null,
-): T[] {
-  if (!prescription) return activities;
-
-  const effectiveActivity = {
-    activity_type: prescription.primaryAdaptation === 'conditioning' ? 'conditioning' : prescription.primaryAdaptation === 'recovery' ? 'active_recovery' : 'sc',
-    expected_intensity: getPrescriptionNutritionIntensity(prescription),
-    estimated_duration_min: prescription.estimatedDurationMin,
-    start_time: null,
-    custom_label: prescription.sessionGoal ?? prescription.focus ?? 'Daily training',
-  } as T;
-
-  if (activities.length === 0) return [effectiveActivity];
-
-  const replaceIndex = activities.findIndex((activity) => ['sc', 'conditioning', 'active_recovery'].includes(String(activity.activity_type)));
-  if (replaceIndex < 0) {
-    return [...activities, effectiveActivity];
-  }
-
-  const index = replaceIndex;
-  return activities.map((activity, activityIndex) => activityIndex === index
-    ? {
-        ...activity,
-        activity_type: effectiveActivity.activity_type,
-        expected_intensity: effectiveActivity.expected_intensity,
-        estimated_duration_min: effectiveActivity.estimated_duration_min,
-        custom_label: effectiveActivity.custom_label,
-      }
-    : activity);
-}
-
 async function resolveWorkoutPrescription(input: {
   userId: string;
   date: string;
@@ -1029,9 +1209,7 @@ async function resolveWorkoutPrescription(input: {
     return null;
   }
 
-  const storedPrescription = input.weeklyPlanEntry.prescription_snapshot
-    ?? input.weeklyPlanEntry.daily_mission_snapshot?.trainingDirective?.prescription
-    ?? null;
+  const storedPrescription = input.weeklyPlanEntry.prescription_snapshot ?? null;
 
   if (storedPrescription) {
     return adaptPrescriptionToDailyReadiness({
@@ -1083,11 +1261,11 @@ async function resolveWorkoutPrescription(input: {
   });
 }
 
-export async function getDailyMission(
+export async function getDailyAthleteSummary(
   userId: string,
   date: string,
-  options: DailyMissionOptions = {},
-): Promise<DailyMission> {
+  options: DailyPerformanceOptions = {},
+): Promise<DailyAthleteSummary> {
   const state = await getDailyEngineState(userId, date, options);
   return state.mission;
 }
@@ -1095,16 +1273,16 @@ export async function getDailyMission(
 async function computeDailyEngineState(
   userId: string,
   date: string,
-  options: DailyMissionOptions = {},
+  _options: DailyPerformanceOptions = {},
 ): Promise<DailyEngineState> {
-  const snapshot = options.forceRefresh ? null : await getDailyEngineSnapshot(userId, date);
   const weekWindow = getWeekWindow(date);
 
-  const [objectiveContext, athleteContext, weeklyPlanEntries, weeklyEntries] = await Promise.all([
+  const [objectiveContext, athleteContext, weeklyPlanEntries, weeklyEntries, scheduledActivities] = await Promise.all([
     resolveObjectiveContext(userId, date),
     getAthleteContext(userId),
     getPlanEntriesForDate(userId, date),
     getPlanEntriesForRange(userId, weekWindow.weekStart, weekWindow.weekEnd),
+    getScheduledActivities(userId, date, date),
   ]);
 
   const primaryPlanEntry = pickPrimaryPlanEntry(weeklyPlanEntries);
@@ -1123,7 +1301,7 @@ async function computeDailyEngineState(
     date,
     objectiveContext.phase,
     athleteContext.fitnessLevel,
-    athleteContext.isOnActiveCut,
+    athleteContext.hasActiveWeightClassPlan,
     profileCycleDay,
   );
   const { readinessProfile, readinessState, constraintSet } = await resolveReadinessProfile({
@@ -1151,92 +1329,6 @@ async function computeDailyEngineState(
     medStatus,
   });
 
-  let nutritionTargets = profile
-    ? await resolveNutritionTargets({
-      userId,
-      date,
-      phase: objectiveContext.phase,
-      currentWeight,
-      profile,
-      weightTrend: objectiveContext.weightTrend,
-      macrocycleContext: objectiveContext,
-      readinessProfile,
-      constraintSet,
-      medStatus,
-      weeklyPlanEntries,
-      effectiveWorkoutPrescription: workoutPrescription,
-    })
-    : ({
-      tdee: 0,
-      adjustedCalories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      proteinModifier: 1,
-      phaseMultiplier: 0,
-      weightCorrectionDeficit: 0,
-      message: '',
-      source: 'base',
-      fuelState: 'rest',
-      prioritySession: 'recovery',
-      deficitClass: 'steady_maintain',
-      recoveryNutritionFocus: 'none',
-      sessionDemandScore: 0,
-      hydrationBoostOz: 0,
-      hydrationPlan: {
-        dailyTargetOz: 96,
-        sodiumTargetMg: null,
-        emphasis: 'baseline',
-        notes: [],
-      },
-      sessionFuelingPlan: {
-        priority: 'recovery',
-        priorityLabel: 'Recovery day',
-        sessionLabel: 'Recovery day',
-        preSession: { label: 'Before training', timing: 'No timed pre-session fueling needed', carbsG: 0, proteinG: 0, notes: [] },
-        intraSession: { fluidsOz: 0, electrolytesMg: null, carbsG: 0, notes: [] },
-        betweenSessions: null,
-        postSession: { label: 'After training', timing: 'Use normal meals', carbsG: 0, proteinG: 25, notes: [] },
-        hydrationNotes: [],
-        coachingNotes: [],
-      },
-      reasonLines: [],
-      energyAvailability: null,
-      fuelingFloorTriggered: false,
-      deficitBankDelta: 0,
-      safetyWarning: 'none',
-      safetyEvents: [],
-      traceLines: [],
-    } as ResolvedNutritionTargets);
-
-  const eaLookbackDates = Array.from({ length: 6 }, (_, index) => addDays(date, -(index + 1)));
-  const eaLookbackSnapshots = await getDailyEngineSnapshotsForDates(userId, eaLookbackDates);
-  const rollingSevenDayDeficit = eaLookbackDates.reduce((sum, previousDate) => {
-    const previousSnapshot = eaLookbackSnapshots.get(previousDate)?.nutrition_targets_snapshot as ResolvedNutritionTargets | undefined;
-    if (!previousSnapshot) return sum;
-    return sum + Math.max(0, previousSnapshot.tdee - previousSnapshot.adjustedCalories);
-  }, Math.max(0, nutritionTargets.tdee - nutritionTargets.adjustedCalories));
-  if (rollingSevenDayDeficit > 15000) {
-    nutritionTargets = {
-      ...nutritionTargets,
-      safetyWarning: 'cumulative_ea_deficit_red_flag',
-      safetyEvents: [
-        ...(nutritionTargets.safetyEvents ?? []),
-        {
-          code: 'cumulative_ea_deficit_red_flag',
-          source: 'cumulative_ea_deficit',
-          priorValue: rollingSevenDayDeficit,
-          adjustedValue: rollingSevenDayDeficit,
-          reason: `Rolling 7-day deficit reached ${rollingSevenDayDeficit} kcal.`,
-        },
-      ],
-      traceLines: [
-        ...nutritionTargets.traceLines,
-        `Cumulative energy-availability surveillance flagged a 7-day deficit of ${rollingSevenDayDeficit} kcal.`,
-      ],
-    };
-  }
-
   const hydration = getHydrationProtocol({
     phase: objectiveContext.phase,
     fightStatus: profile?.fight_status ?? 'amateur',
@@ -1245,68 +1337,14 @@ async function computeDailyEngineState(
     weeklyVelocityLbs: objectiveContext.weightTrend?.weeklyVelocityLbs,
   });
 
-  const scheduledActivities = await getScheduledActivities(userId, date, date);
   const riskAssessment = calculateCampRisk({
     goalMode: objectiveContext.goalMode,
-    weightCutState: objectiveContext.weightCutState,
+    weightClassState: objectiveContext.weightClassState,
     daysOut: objectiveContext.daysOut,
     remainingWeightLbs: objectiveContext.remainingWeightLbs,
     weighInTiming: objectiveContext.weighInTiming,
     acwrRatio: acwr.ratio,
     isTravelWindow: objectiveContext.isTravelWindow,
-  });
-  for (const event of nutritionTargets.safetyEvents ?? []) {
-    console.info('[dailyMissionService] nutrition-safety-event', {
-      userId,
-      date,
-      code: event.code,
-      source: event.source,
-      priorValue: event.priorValue,
-      adjustedValue: event.adjustedValue,
-      reason: event.reason,
-    });
-  }
-  const previousDates = [3, 2, 1].map((delta) => addDays(date, -delta));
-  const previousSnapshots = options.forceRefresh
-    ? new Map()
-    : await getDailyEngineSnapshotsForDates(userId, previousDates);
-  const protectWindow = deriveProtectWindowFromRecentMissions(
-    previousDates
-      .map((previousDate) => previousSnapshots.get(previousDate)?.mission_snapshot)
-      .filter((mission): mission is DailyMission => mission != null),
-  );
-
-  const mission = buildDailyMission({
-    date,
-    macrocycleContext: objectiveContext,
-    readinessState,
-    readinessProfile,
-    constraintSet,
-    acwr,
-    nutritionTargets,
-    hydration,
-    scheduledActivities: (scheduledActivities.length > 0
-      ? scheduledActivities.map((activity) => ({
-          date: activity.date,
-          activity_type: activity.activity_type,
-          estimated_duration_min: activity.estimated_duration_min,
-          expected_intensity: activity.expected_intensity,
-          status: activity.status,
-        }))
-      : weeklyPlanEntries.map((entry: WeeklyPlanEntryRow) => ({
-          date: entry.date,
-          activity_type: entry.session_type as any,
-          estimated_duration_min: entry.estimated_duration_min,
-          expected_intensity: entry.target_intensity ?? 5,
-          status: toMissionActivityStatus(entry.status),
-        }))),
-    workoutPrescription: workoutPrescription ?? null,
-    weeklyPlanEntry: primaryPlanEntry,
-    medStatus,
-    riskScore: riskAssessment?.score ?? null,
-    riskDrivers: riskAssessment?.drivers ?? [],
-    riskLevel: riskAssessment?.level ?? null,
-    protectWindow,
   });
   const unifiedPerformance = resolveUnifiedDailyPerformance({
     userId,
@@ -1319,44 +1357,46 @@ async function computeDailyEngineState(
     targetWeight: canonicalTargetWeight,
     weekStart: weekWindow.weekStart,
   });
+  const { summary: mission, nutritionTarget: nutritionTargets } = buildDailyAthleteSummaryFromUnified({
+    date,
+    objectiveContext,
+    readinessProfile,
+    constraintSet,
+    medStatus,
+    hydration,
+    workoutPrescription,
+    unifiedPerformance,
+  });
 
-  const persistedObjectiveContext = snapshot ? snapshot.objective_context_snapshot : objectiveContext;
-  const persistedNutritionTargets = snapshot ? snapshot.nutrition_targets_snapshot : nutritionTargets;
-  const persistedWorkoutPrescription = snapshot ? snapshot.workout_prescription_snapshot : workoutPrescription ?? null;
-  const persistedMission = snapshot ? snapshot.mission_snapshot : mission;
-
-  if (!snapshot) {
-    await upsertDailyEngineSnapshot({
+  for (const event of nutritionTargets.safetyEvents ?? []) {
+    console.info('[dailyPerformanceService] nutrition-safety-event', {
       userId,
       date,
-      engineVersion: mission.engineVersion ?? DAILY_ENGINE_VERSION,
-      objectiveContext,
-      nutritionTargets,
-      workoutPrescription: workoutPrescription ?? null,
-      mission,
+      code: event.code,
+      source: event.source,
+      priorValue: event.priorValue,
+      adjustedValue: event.adjustedValue,
+      reason: event.reason,
     });
-    await updateDailyMissionSnapshotsByDate(userId, [{ date, mission }]);
-  } else {
-    await updateDailyMissionSnapshotsByDate(userId, [{ date, mission: persistedMission }]);
   }
 
   return {
     date,
-    engineVersion: persistedMission.engineVersion ?? DAILY_ENGINE_VERSION,
-    objectiveContext: persistedObjectiveContext,
+    engineVersion: mission.engineVersion ?? DAILY_ENGINE_VERSION,
+    objectiveContext,
     acwr,
     readinessState,
     readinessProfile,
     constraintSet,
-    nutritionTargets: persistedNutritionTargets,
+    nutritionTargets,
     hydration,
     scheduledActivities,
     weeklyPlanEntries,
     primaryScheduledActivity: pickPrimaryScheduledActivity(scheduledActivities),
     primaryPlanEntry,
     primaryEnginePlanEntry,
-    workoutPrescription: persistedWorkoutPrescription,
-    mission: persistedMission,
+    workoutPrescription: workoutPrescription ?? null,
+    mission,
     campRisk: riskAssessment ?? null,
     medStatus,
     unifiedPerformance,
@@ -1366,7 +1406,7 @@ async function computeDailyEngineState(
 export async function getDailyEngineState(
   userId: string,
   date: string,
-  options: DailyMissionOptions = {},
+  options: DailyPerformanceOptions = {},
 ): Promise<DailyEngineState> {
   const cacheKey = getDailyEngineStateCacheKey(userId, date);
 
@@ -1398,13 +1438,12 @@ export async function getDailyEngineState(
   return request;
 }
 
-async function computeWeeklyMission(
+async function computeWeeklyAthleteSummary(
   userId: string,
   weekStart: string,
-  options: DailyMissionOptions = {},
-): Promise<WeeklyMissionPlan> {
-  return resolveWeeklyMissionWithDependencies(userId, weekStart, options, {
-    engineVersion: DAILY_ENGINE_VERSION,
+  options: DailyPerformanceOptions = {},
+): Promise<WeeklyAthleteSummaryPlan> {
+  return resolveWeeklyAthleteSummaryWithDependencies(userId, weekStart, options, {
     loadWeeklyPlanEntries: async (targetUserId, targetWeekStart) => {
       const { data, error } = await supabase
         .from('weekly_plan_entries')
@@ -1417,43 +1456,41 @@ async function computeWeeklyMission(
       if (error) throw error;
       return (data ?? []) as WeeklyPlanEntryRow[];
     },
-    getDailyEngineSnapshotsForDates,
-    updateDailyMissionSnapshotsByDate,
-    getDailyMission,
+    getDailyAthleteSummary,
   });
 }
 
-export async function getWeeklyMission(
+export async function getWeeklyAthleteSummary(
   userId: string,
   weekStart: string,
-  options: DailyMissionOptions = {},
-): Promise<WeeklyMissionPlan> {
-  const cacheKey = getWeeklyMissionCacheKey(userId, weekStart);
+  options: DailyPerformanceOptions = {},
+): Promise<WeeklyAthleteSummaryPlan> {
+  const cacheKey = getWeeklyAthleteSummaryCacheKey(userId, weekStart);
 
   if (!options.forceRefresh) {
-    const cached = weeklyMissionCache.get(cacheKey);
+    const cached = weeklyAthleteSummaryCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const inFlight = weeklyMissionInFlight.get(cacheKey);
+    const inFlight = weeklyAthleteSummaryInFlight.get(cacheKey);
     if (inFlight) {
       return inFlight;
     }
   } else {
-    weeklyMissionCache.delete(cacheKey);
-    weeklyMissionInFlight.delete(cacheKey);
+    weeklyAthleteSummaryCache.delete(cacheKey);
+    weeklyAthleteSummaryInFlight.delete(cacheKey);
   }
 
-  const request = computeWeeklyMission(userId, weekStart, options)
+  const request = computeWeeklyAthleteSummary(userId, weekStart, options)
     .then((result) => {
-      weeklyMissionCache.set(cacheKey, result);
+      weeklyAthleteSummaryCache.set(cacheKey, result);
       return result;
     })
     .finally(() => {
-      weeklyMissionInFlight.delete(cacheKey);
+      weeklyAthleteSummaryInFlight.delete(cacheKey);
     });
 
-  weeklyMissionInFlight.set(cacheKey, request);
+  weeklyAthleteSummaryInFlight.set(cacheKey, request);
   return request;
 }

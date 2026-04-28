@@ -20,8 +20,8 @@ export const FIGHT_CAMP_SAFETY_POLICY = {
     constrainedMinDurationMin: 20,
     mandatoryRecoveryMaxDurationMin: 20,
     softMaxDurationMin: 30,
-    cutProtectDefaultDurationMin: 25,
-    cutProtectMaxDurationMin: 30,
+    bodyMassProtectDefaultDurationMin: 25,
+    bodyMassProtectMaxDurationMin: 30,
   },
   scheduling: {
     minimumGuidedSessionMin: 20,
@@ -132,7 +132,7 @@ function makeWarning(input: {
       input.persistent ?? (input.tier === 'severe' || input.tier === 'medical'),
     allowProceed: true,
     policyVersion: ENGINE_SAFETY_POLICY_VERSION,
-    source: input.source ?? 'weight_cut',
+    source: input.source ?? 'weight_class',
   };
 }
 
@@ -154,7 +154,7 @@ export function isAgeUnknown(age: number | null | undefined): boolean {
   return typeof age !== 'number' || age <= 0;
 }
 
-export function getPolicyWaterCutPct(_input: {
+export function getPolicyFightWeekBodyMassChangePct(_input: {
   fightStatus: FightStatus;
   athleteAge?: number | null;
   weighInTiming?: WeighInTiming | null;
@@ -162,7 +162,7 @@ export function getPolicyWaterCutPct(_input: {
   return 0;
 }
 
-export function evaluateCutPlanSafety(input: {
+export function evaluateWeightClassPlanSafety(input: {
   startWeight: number;
   targetWeight: number;
   totalCutLbs: number;
@@ -171,7 +171,7 @@ export function evaluateCutPlanSafety(input: {
   fightStatus: FightStatus;
   athleteAge?: number | null;
   weighInTiming?: WeighInTiming | null;
-  waterCutAllocationLbs: number;
+  fightWeekBodyMassChangeLbs: number;
   dietPhaseTargetLbs: number;
   dietPhaseDays: number;
 }): EngineSafetyWarning[] {
@@ -188,7 +188,7 @@ export function evaluateCutPlanSafety(input: {
       code: 'missing_body_mass_context',
       tier: 'caution',
       message: 'Body-mass target feasibility is incomplete; missing data must be treated as unknown.',
-      source: 'weight_cut',
+      source: 'weight_class',
       requiresAcknowledgement: false,
     }));
   }
@@ -200,7 +200,7 @@ export function evaluateCutPlanSafety(input: {
       message:
         `This target requires ${totalCutPct.toFixed(1)}% body-mass change` +
         `${daysToWeighIn == null ? '' : ` in ${daysToWeighIn} day(s)`}. Automatic rapid scale protocols are blocked.`,
-      source: 'weight_cut',
+      source: 'weight_class',
       persistent: true,
     }));
   }
@@ -212,7 +212,7 @@ export function evaluateCutPlanSafety(input: {
       message: teen
         ? 'Minor athletes require qualified review before body-mass reduction planning.'
         : 'Age is unknown, so the engine keeps body-mass planning conservative.',
-      source: 'weight_cut',
+      source: 'weight_class',
       persistent: true,
       requiresAcknowledgement: teen,
     }));

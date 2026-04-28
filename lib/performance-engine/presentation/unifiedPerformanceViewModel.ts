@@ -355,7 +355,7 @@ function buildBodyMassViewModel(
       trajectoryLabel: trendLabel,
       feasibilityLabel: null,
       riskLabel: null,
-      explanation: bodyMass?.explanation?.summary ?? 'Body-mass trend is tracked as context, not as a standalone cut protocol.',
+      explanation: bodyMass?.explanation?.summary ?? 'Body-mass trend is tracked as context, not as a standalone body-mass guidance.',
       safetyLabel: null,
     };
   }

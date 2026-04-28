@@ -1,13 +1,13 @@
-﻿/**
+/**
  * calculateRoadWork.ts
  *
  * Full cardio / road work programming engine.
  *
  * Functions:
- *   1. prescribeRoadWork         â€” generates a single road work session
- *   2. getWeeklyRoadWorkPlan     â€” distributes road work across the week avoiding conflicts
- *   3. calculateRunningLoad      â€” converts a prescription to sRPE load for ACWR
- *   4. getRoadWorkType           â€” determines optimal run type for phase/readiness
+ *   1. prescribeRoadWork         — generates a single road work session
+ *   2. getWeeklyRoadWorkPlan     — distributes road work across the week avoiding conflicts
+ *   3. calculateRunningLoad      — converts a prescription to sRPE load for ACWR
+ *   4. getRoadWorkType           — determines optimal run type for phase/readiness
  *
  * @ANTI-WIRING:
  * All functions are pure and synchronous. No database queries. No LLM generation.
@@ -22,13 +22,13 @@ import type {
     RoadWorkPrescription,
     RoadWorkType,
     WeeklyRoadWorkInput,
-    WeightCutPlanRow,
+    WeightClassPlanRow,
     HRZone,
 } from './types.ts';
 import { getBodyMassTrainingIntensityCap } from '../performance-engine/body-mass-weight-class/index.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
-// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Constants ─────────────────────────────────────────────────
 
 /**
  * Base run distances (miles) per fitness level for a standard easy run.
@@ -91,7 +91,7 @@ const ZONE_RANGE: Record<RoadWorkType, [HRZone, HRZone]> = {
 };
 
 /**
- * Weekly road work focus by phase â€” defines what type of running to emphasize.
+ * Weekly road work focus by phase — defines what type of running to emphasize.
  */
 const PHASE_RUN_FOCUS: Record<Phase, RoadWorkType[]> = {
     'off-season': ['easy_run', 'long_slow_distance'],
@@ -103,7 +103,7 @@ const PHASE_RUN_FOCUS: Record<Phase, RoadWorkType[]> = {
     'camp-taper': ['recovery_jog', 'easy_run'],
 };
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ───────────────────────────────────────────────────
 
 function addDays(dateStr: string, days: number): string {
     const d = new Date(dateStr);
@@ -142,12 +142,12 @@ function buildPaceGuidance(type: RoadWorkType, maxHR: number | null): string {
 
     // RPE-based guidance when age is unknown
     const rpeGuide: Record<RoadWorkType, string> = {
-        recovery_jog: 'Very easy â€” RPE 1-2, fully conversational',
-        easy_run: 'Easy â€” RPE 3-4, can hold a full conversation',
-        long_slow_distance: 'Comfortable â€” RPE 3-4, aerobic base pace',
-        tempo: 'Comfortably hard â€” RPE 6-7, can speak in short sentences',
-        intervals: 'Hard effort â€” RPE 8-9 during intervals, full rest between',
-        hill_sprints: 'Maximal effort â€” RPE 9-10 uphill, walk down to recover',
+        recovery_jog: 'Very easy — RPE 1-2, fully conversational',
+        easy_run: 'Easy — RPE 3-4, can hold a full conversation',
+        long_slow_distance: 'Comfortable — RPE 3-4, aerobic base pace',
+        tempo: 'Comfortably hard — RPE 6-7, can speak in short sentences',
+        intervals: 'Hard effort — RPE 8-9 during intervals, full rest between',
+        hill_sprints: 'Maximal effort — RPE 9-10 uphill, walk down to recover',
     };
     return rpeGuide[type];
 }
@@ -158,7 +158,7 @@ function buildProgressionNote(type: RoadWorkType, weekNum?: number): string {
         case 'easy_run':
             return `${weekStr} Add 5-10% distance per week during base building. Never increase more than one variable at a time.`;
         case 'long_slow_distance':
-            return `${weekStr} Increase long run by 1 mile per 2 weeks max. Cut back 1 mile every 4th week for recovery.`;
+            return `${weekStr} Increase long run by 1 mile per 2 weeks max. Step back 1 mile every 4th week for recovery.`;
         case 'tempo':
             return `${weekStr} Progress tempo from 20 min to 40 min over 6 weeks before adding a second tempo day.`;
         case 'intervals':
@@ -166,7 +166,7 @@ function buildProgressionNote(type: RoadWorkType, weekNum?: number): string {
         case 'hill_sprints':
             return `${weekStr} Start with 4-6 sprints. Add 1 rep every 2 weeks. Keep efforts maximal and rest complete.`;
         case 'recovery_jog':
-            return `Taper week â€” keep this easy. No fitness is gained here; it's all about recovery.`;
+            return `Taper week — keep this easy. No fitness is gained here; it's all about recovery.`;
         default:
             return '';
     }
@@ -177,14 +177,14 @@ function buildMessage(type: RoadWorkType, fitnessLevel: FitnessLevel, phase: Pha
         recovery_jog: 'Recovery jog to flush legs and maintain aerobic engine',
         easy_run: 'Easy aerobic run building your cardiovascular base',
         long_slow_distance: 'Long slow distance run for aerobic development and mental toughness',
-        tempo: 'Tempo run improving your lactate threshold â€” the pace you can sustain for an hour',
+        tempo: 'Tempo run improving your lactate threshold — the pace you can sustain for an hour',
         intervals: 'High-intensity intervals targeting your VO2max and anaerobic capacity',
         hill_sprints: 'Hill sprints building explosive power, leg drive, and ground-contact strength',
     };
 
     const phaseContext: Partial<Record<Phase, string>> = {
         'off-season': 'Off-season focus: build aerobic base at low-moderate intensity.',
-        'camp-base': 'Camp base phase: high volume, low intensity â€” building your engine.',
+        'camp-base': 'Camp base phase: high volume, low intensity — building your engine.',
         'camp-build': 'Camp build phase: introducing higher intensities to simulate fight demand.',
         'camp-peak': 'Camp peak: minimal volume, maximal quality. Every session counts.',
         'camp-taper': 'Taper week: sharpen without accumulating fatigue.',
@@ -219,7 +219,7 @@ function buildIntervals(type: RoadWorkType, fitnessLevel: FitnessLevel): RoadWor
     return [];
 }
 
-// â”€â”€â”€ getRoadWorkType â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getRoadWorkType ───────────────────────────────────────────
 
 /**
  * Determines the ideal road work type given the current context.
@@ -233,7 +233,7 @@ export function getRoadWorkType(
     acwr: number,
     sessionIndex: number = 0,  // 0 = first session this week, 1 = second, etc.
 ): RoadWorkType {
-    // Override state: Depleted or ACWR danger â†’ always recovery jog
+    // Override state: Depleted or ACWR danger → always recovery jog
     if (readinessState === 'Depleted' || acwr >= 1.5) {
         return 'recovery_jog';
     }
@@ -247,7 +247,7 @@ export function getRoadWorkType(
     return priorityList[sessionIndex % priorityList.length];
 }
 
-// â”€â”€â”€ prescribeRoadWork â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── prescribeRoadWork ─────────────────────────────────────────
 
 /**
  * Generates a single road work session prescription.
@@ -260,7 +260,7 @@ export function getRoadWorkType(
  *   - acwr: number (from calculateACWR)
  *   - age: number | null (from athlete_profiles for HR zone calculation)
  *   - sessionIndex: number (0 = first run this week, increments for variety)
- *   - trainingIntensityCap: number | null (from active cut protocol)
+ *   - trainingIntensityCap: number | null (from active body-mass guidance)
  *   - campConfig: CampConfig | null (from camp plan)
  *
  * Returns: RoadWorkPrescription
@@ -273,7 +273,7 @@ export function prescribeRoadWork(input: {
     acwr: number;
     age: number | null;
     sessionIndex?: number;
-    activeCutPlan?: WeightCutPlanRow | null;
+    activeWeightClassPlan?: WeightClassPlanRow | null;
     campConfig?: CampConfig | null;
     trainingIntensityCap?: number | null;
     trainingIntensityCapOverride?: number | null; // Backward-compatible alias used by weekly planner
@@ -285,7 +285,7 @@ export function prescribeRoadWork(input: {
         acwr,
         age,
         sessionIndex = 0,
-        activeCutPlan,
+        activeWeightClassPlan,
         trainingIntensityCap,
         trainingIntensityCapOverride,
         campConfig,
@@ -298,7 +298,7 @@ export function prescribeRoadWork(input: {
     const effectiveDate = todayLocalDate();
     const effectiveIntensityCap = resolvedIntensityCap !== undefined
         ? resolvedIntensityCap
-        : getBodyMassTrainingIntensityCap(activeCutPlan, effectiveDate);
+        : getBodyMassTrainingIntensityCap(activeWeightClassPlan, effectiveDate);
 
     // Apply intensity cap from weight-class safety context.
     // Walk down the intensity ladder until the type fits within the cap
@@ -375,10 +375,10 @@ export function prescribeRoadWork(input: {
     };
 }
 
-// â”€â”€â”€ calculateRunningLoad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── calculateRunningLoad ──────────────────────────────────────
 
 /**
- * Converts a road work prescription into a session load (duration Ã— intensity)
+ * Converts a road work prescription into a session load (duration × intensity)
  * compatible with the ACWR calculation system.
  *
  * @ANTI-WIRING: Pure synchronous function.
@@ -387,7 +387,7 @@ export function calculateRunningLoad(prescription: RoadWorkPrescription): number
     return prescription.estimatedLoad;
 }
 
-// â”€â”€â”€ getWeeklyRoadWorkPlan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getWeeklyRoadWorkPlan ─────────────────────────────────────
 
 /**
  * Distributes road work sessions across the week, avoiding:
@@ -408,7 +408,7 @@ export function calculateRunningLoad(prescription: RoadWorkPrescription): number
  *     - acwr: number
  *     - age: number | null
  *     - campConfig: CampConfig | null
- *     - activeCutPlan: WeightCutPlanRow | null
+ *     - activeWeightClassPlan: WeightClassPlanRow | null
  *
  * Returns: Array of RoadWorkPrescription (each with its assigned date attached via the .message field)
  * The caller assigns these to specific days when building the week plan.
@@ -431,7 +431,7 @@ export function getWeeklyRoadWorkPlan(
         acwr,
         age,
         campConfig,
-        activeCutPlan,
+        activeWeightClassPlan,
     } = input;
 
     // Build a map of existing day loads this week
@@ -461,7 +461,7 @@ export function getWeeklyRoadWorkPlan(
         dayData.push({ date, hasHighCNS, totalLoad });
     }
 
-    // Score candidate days â€” lower totalLoad and no high-CNS = better
+    // Score candidate days — lower totalLoad and no high-CNS = better
     const candidateDays = dayData
         .filter(d => !d.hasHighCNS && d.totalLoad < 800)
         .sort((a, b) => a.totalLoad - b.totalLoad);
@@ -486,7 +486,7 @@ export function getWeeklyRoadWorkPlan(
         // If surrounded by high intensity, downgrade this session to easy
         const forceEasy = prevIsIntense && nextIsIntense;
 
-        const trainingIntensityCap = getBodyMassTrainingIntensityCap(activeCutPlan, day.date);
+        const trainingIntensityCap = getBodyMassTrainingIntensityCap(activeWeightClassPlan, day.date);
 
         const prescription = forceEasy
             ? prescribeRoadWork({

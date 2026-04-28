@@ -6,7 +6,7 @@ import {
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
-import { getDailyEngineState, getWeeklyMission } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState, getWeeklyAthleteSummary } from '../../lib/api/dailyPerformanceService';
 import {
   buildUnifiedPerformanceViewModel,
   type UnifiedPerformanceViewModel,
@@ -16,7 +16,7 @@ import type {
   WorkoutLogRow,
   ScheduledActivityRow,
   DailyEngineState,
-  DailyMission,
+  DailyAthleteSummary,
   WeeklyPlanEntryRow,
 } from '../../lib/engine/types';
 import type { ACWRTrainingSession } from './workout/computeACWRTimeSeries';
@@ -48,7 +48,7 @@ export function useWorkoutData() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [userId, setUserId] = useState<string>('');
   const [engineState, setEngineState] = useState<DailyEngineState | null>(null);
-  const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
+  const [dailyAthleteSummary, setDailyAthleteSummary] = useState<DailyAthleteSummary | null>(null);
   const [weeklyEntries, setWeeklyEntries] = useState<WeeklyPlanEntryRow[]>([]);
   const [isDeloadWeek, setIsDeloadWeek] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -137,14 +137,14 @@ export function useWorkoutData() {
       const weekStart = engineState.primaryPlanEntry?.week_start_date
         ?? engineState.weeklyPlanEntries[0]?.week_start_date
         ?? todayStr;
-      const weeklyMission = await getWeeklyMission(currentUserId, weekStart, { forceRefresh });
+      const weeklyAthleteSummary = await getWeeklyAthleteSummary(currentUserId, weekStart, { forceRefresh });
 
       setEngineState(engineState);
       setPerformanceContext(buildUnifiedPerformanceViewModel(engineState.unifiedPerformance));
-      setDailyMission(engineState.mission);
+      setDailyAthleteSummary(engineState.mission);
       setTodayActivities(engineState.scheduledActivities ?? []);
-      setWeeklyEntries(weeklyMission.entries ?? []);
-      setIsDeloadWeek((weeklyMission.entries ?? []).some((entry) => entry.is_deload));
+      setWeeklyEntries(weeklyAthleteSummary.entries ?? []);
+      setIsDeloadWeek((weeklyAthleteSummary.entries ?? []).some((entry) => entry.is_deload));
       setPrescription((engineState.workoutPrescription as WorkoutPrescriptionV2 | null) ?? null);
 
       const backgroundLoads: Array<Promise<void>> = [];
@@ -191,7 +191,7 @@ export function useWorkoutData() {
     userId,
     engineState,
     performanceContext,
-    dailyMission,
+    dailyAthleteSummary,
     todayPlanEntry: (engineState?.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
     weeklyEntries,
     isDeloadWeek,

@@ -14,7 +14,7 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { styles } from './DayDetailScreen.styles';
 import { addManualActivity, applySameDayOverride, skipActivity, updateScheduledActivity } from '../../lib/api/scheduleService';
 import { validateDayLoad } from '../../lib/engine/calculateSchedule';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
 import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';

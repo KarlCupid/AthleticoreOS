@@ -47,7 +47,7 @@ function createFallbackReadinessProfile(input: {
     acwr: number;
     phase: Phase;
     daysOut: number | null;
-    isOnActiveCut: boolean;
+    hasActiveWeightClassPlan: boolean;
     trainingIntensityCap?: number | null;
     hasHardSparringScheduled?: boolean;
     hasTechnicalSessionScheduled?: boolean;
@@ -57,7 +57,7 @@ function createFallbackReadinessProfile(input: {
         acwr,
         phase,
         daysOut,
-        isOnActiveCut,
+        hasActiveWeightClassPlan,
         trainingIntensityCap = null,
         hasHardSparringScheduled = false,
         hasTechnicalSessionScheduled = false,
@@ -74,11 +74,11 @@ function createFallbackReadinessProfile(input: {
         stressLevel: stressSeed,
         sorenessLevel: sorenessSeed,
         acwrRatio: acwr,
-        weightCutIntensityCap: trainingIntensityCap,
+        bodyMassIntensityCap: trainingIntensityCap,
         goalMode: phase.startsWith('camp-') || phase === 'fight-camp' ? 'fight_camp' : 'build_phase',
         phase,
         daysOut,
-        isOnActiveCut,
+        hasActiveWeightClassPlan,
         hasHardSparringScheduled,
         hasTechnicalSessionScheduled,
         readinessHistory: [readinessSeed, readinessSeed, readinessSeed],
@@ -338,7 +338,7 @@ export function adaptDailySchedule(
         acwr,
         phase,
         daysOut,
-        isOnActiveCut: trainingIntensityCap != null,
+        hasActiveWeightClassPlan: trainingIntensityCap != null,
         trainingIntensityCap,
         hasHardSparringScheduled: todayActivities.some((activity) => activity.activity_type === 'sparring'),
         hasTechnicalSessionScheduled: todayActivities.some((activity) => activity.activity_type === 'boxing_practice'),
@@ -686,7 +686,7 @@ export function resolveGuidedAvailability(input: {
  *   - exerciseLibrary: ExerciseLibraryRow[] (full library)
  *   - recentMuscleVolume: Record<MuscleGroup, number> (recent volume data)
  *   - campConfig: CampConfig | null (active camp)
- *   - activeCutPlan: WeightCutPlanRow | null (active weight-class context)
+ *   - activeWeightClassPlan: WeightClassPlanRow | null (active weight-class context)
  *   - weeksSinceLastDeload: number
  *   - gymProfile: GymProfileRow | null
  *   - weekStartDate: string (Monday ISO date)

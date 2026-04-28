@@ -57,11 +57,11 @@ export function computeActualNutrition(
 
 export function composePrescriptionMessage(
   adaptationMessage: string | null | undefined,
-  cutRecommendation: string | null | undefined,
+  bodyMassRecommendation: string | null | undefined,
 ): string | null {
-  if (adaptationMessage && cutRecommendation) {
-    return `${cutRecommendation}\n\n${adaptationMessage}`;
+  if (adaptationMessage && bodyMassRecommendation) {
+    return `${bodyMassRecommendation}\n\n${adaptationMessage}`;
   }
 
-  return adaptationMessage ?? cutRecommendation ?? null;
+  return adaptationMessage ?? bodyMassRecommendation ?? null;
 }

@@ -15,7 +15,7 @@ export interface ACWRInput {
   asOfDate?: string;
   fitnessLevel?: FitnessLevel | null;
   phase?: Phase | null;
-  isOnActiveCut?: boolean;
+  hasActiveWeightClassPlan?: boolean;
   cycleDay?: number | null;
 }
 
@@ -147,7 +147,7 @@ export interface ReadinessProfileInput {
   latestCognitiveScore?: number | null;
   urineColor?: number | null;
   bodyTempF?: number | null;
-  weightCutIntensityCap?: number | null;
+  bodyMassIntensityCap?: number | null;
   recentSparringCount48h?: number;
   recentSparringDecayLoad5d?: number;
   recentHighImpactCount48h?: number;
@@ -155,7 +155,7 @@ export interface ReadinessProfileInput {
   goalMode?: 'build_phase' | 'fight_camp';
   phase?: Phase | null;
   daysOut?: number | null;
-  isOnActiveCut?: boolean;
+  hasActiveWeightClassPlan?: boolean;
   hasHardSparringScheduled?: boolean;
   hasTechnicalSessionScheduled?: boolean;
   readinessHistory?: number[];

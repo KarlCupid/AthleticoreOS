@@ -14,19 +14,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../../lib/supabase';
 import { buildPostWeighInRecoverySupport } from '../../lib/performance-engine';
-import { useWeightCutData } from '../hooks/useWeightCutData';
+import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList>;
-type RouteProps = RouteProp<FuelStackParamList, 'RehydrationProtocol'>;
+type RouteProps = RouteProp<FuelStackParamList, 'PostWeighInRecovery'>;
 
 const HEALTH_GUIDANCE_NOTE =
   'Post weigh-in recovery guidance is coaching-oriented and educational. It does not replace licensed medical advice, diagnosis, or emergency support.';
 
-export function RehydrationProtocolScreen() {
+export function PostWeighInRecoveryScreen() {
   const nav = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
   const { weighInWeightLbs, hoursToFight } = route.params;
@@ -39,7 +39,7 @@ export function RehydrationProtocolScreen() {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
 
-  const { complete, logSafetyCheck } = useWeightCutData(userId);
+  const { complete, logSafetyCheck } = useBodyMassPlanData(userId);
 
   const protocol = buildPostWeighInRecoverySupport({
     weighInWeightLbs,

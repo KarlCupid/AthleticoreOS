@@ -2,7 +2,7 @@ import type {
   ACWRResult,
   HydrationResult,
   MacroLedgerRow,
-  ResolvedNutritionTargets,
+  NutritionFuelingTarget,
   ScheduledActivityRow,
   WeeklyPlanEntryRow,
   WorkoutPrescription,
@@ -23,7 +23,7 @@ interface BuildTodayHomeStateInput {
   todayPlanEntry: WeeklyPlanEntryRow | null;
   todayActivities: ScheduledActivityRow[];
   primaryActivity: ScheduledActivityRow | null;
-  nutritionTargets: ResolvedNutritionTargets | null;
+  nutritionTargets: NutritionFuelingTarget | null;
   actualNutrition: DashboardNutritionTotals;
   currentLedger: MacroLedgerRow | null;
 }

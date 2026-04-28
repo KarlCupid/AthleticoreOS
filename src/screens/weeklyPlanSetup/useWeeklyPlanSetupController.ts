@@ -5,7 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { getDefaultGymProfile } from '../../../lib/api/gymProfileService';
 import { getWeeklyPlanConfig, saveWeeklyPlanConfig } from '../../../lib/api/weeklyPlanService';
 import { generateAndSaveWeeklyPlan } from '../../hooks/useWeeklyPlan';
-import { invalidateEngineDataCache } from '../../../lib/api/dailyMissionService';
+import { invalidateEngineDataCache } from '../../../lib/api/dailyPerformanceService';
 import { getActiveFightCamp, setupFightCamp } from '../../../lib/api/fightCampService';
 import { getActiveBuildPhaseGoal, setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { getRecurringActivities, replaceRecurringActivities } from '../../../lib/api/scheduleService';
@@ -331,7 +331,7 @@ export function useWeeklyPlanSetupController({
 
     if (!primaryOutcome.trim()) {
       if (showAlerts) {
-        Alert.alert('Build Phase incomplete', 'Add a clear primary objective so the daily mission knows what this block is trying to achieve.');
+        Alert.alert('Build Phase incomplete', 'Add a clear primary objective so the daily athlete summary knows what this block is trying to achieve.');
       }
       return false;
     }

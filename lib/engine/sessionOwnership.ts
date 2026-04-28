@@ -27,15 +27,13 @@ export function classifyGuidedSessionType(input: {
 }
 
 export function hasGuidedEnginePrescription(
-  entry: Pick<WeeklyPlanEntryRow, 'prescription_snapshot' | 'daily_mission_snapshot'> | null | undefined,
+  entry: Pick<WeeklyPlanEntryRow, 'prescription_snapshot'> | null | undefined,
 ): boolean {
   if (!entry) return false;
 
-  const missionPrescription = entry.daily_mission_snapshot?.trainingDirective?.prescription ?? null;
   const planPrescription = entry.prescription_snapshot ?? null;
-  const prescription = missionPrescription ?? planPrescription;
 
-  return Boolean(prescription?.exercises?.length);
+  return Boolean(planPrescription?.exercises?.length);
 }
 
 export function isActiveGuidedEnginePlanEntry(entry: WeeklyPlanEntryRow): boolean {

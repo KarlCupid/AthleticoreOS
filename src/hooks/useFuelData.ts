@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import {
   buildUnifiedPerformanceViewModel,
   nutritionNumbersFromUnifiedTarget,
@@ -36,7 +36,7 @@ const EMPTY_MODEL: FuelHomeViewModel = {
   userId: null,
   date: todayLocalDate(),
   formattedDate: '',
-  dailyMission: null,
+  dailyAthleteSummary: null,
   targets: null,
   totals: { calories: 0, protein: 0, carbs: 0, fat: 0, water: 0 },
   meals: EMPTY_MEALS,
@@ -134,7 +134,7 @@ export function useFuelData() {
           month: 'short',
           day: 'numeric',
         }),
-        dailyMission: engineState.mission,
+        dailyAthleteSummary: engineState.mission,
         targets: {
           ...engineState.nutritionTargets,
           adjustedCalories: resolvedCalories,

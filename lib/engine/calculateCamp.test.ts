@@ -34,7 +34,7 @@ function makePlanInput(overrides: Partial<CampPlanInput> = {}): CampPlanInput {
         fightDate: '2026-06-13',
         campStartDate: '2026-03-21',
         fitnessLevel: 'intermediate',
-        hasConcurrentCut: false,
+        hasConcurrentWeightClassPlan: false,
         userId: 'u1',
         ...overrides,
     };
@@ -58,7 +58,7 @@ console.log('\n-- generateCampPlan --');
     assert('campStartDate preserved', camp.campStartDate === '2026-03-21');
     assert('totalWeeks >= 4', camp.totalWeeks >= 4);
     assert('Status is active', camp.status === 'active');
-    assert('hasConcurrentCut preserved as false', camp.hasConcurrentCut === false);
+    assert('hasConcurrentWeightClassPlan preserved as false', camp.hasConcurrentWeightClassPlan === false);
 })();
 
 (() => {
@@ -80,8 +80,8 @@ console.log('\n-- generateCampPlan --');
 })();
 
 (() => {
-    const camp = generateCampPlan(makePlanInput({ hasConcurrentCut: true }));
-    assert('hasConcurrentCut=true preserved', camp.hasConcurrentCut === true);
+    const camp = generateCampPlan(makePlanInput({ hasConcurrentWeightClassPlan: true }));
+    assert('hasConcurrentWeightClassPlan=true preserved', camp.hasConcurrentWeightClassPlan === true);
 })();
 
 console.log('\n-- determineCampPhase --');
@@ -116,8 +116,8 @@ console.log('\n-- getCampTrainingModifiers --');
     assert('Peak intensityCap = 9', peak.intensityCap === 9);
     assert('Taper intensityCap = 6', taper.intensityCap === 6);
 
-    const peakCut = getCampTrainingModifiers('peak', 'intermediate', true);
-    assert('Peak + concurrent cut caps intensity at 7', peakCut.intensityCap === 7);
+    const peakWeightClassPlan = getCampTrainingModifiers('peak', 'intermediate', true);
+    assert('Peak + concurrent weight-class plan caps intensity at 7', peakWeightClassPlan.intensityCap === 7);
 
     assert('Base sparring = 1', base.sparringDaysPerWeek === 1);
     assert('Build sparring = 2', build.sparringDaysPerWeek === 2);
@@ -127,10 +127,10 @@ console.log('\n-- getCampTrainingModifiers --');
     assert('Base rest = 1', base.mandatoryRestDaysPerWeek === 1);
     assert('Taper rest = 2', taper.mandatoryRestDaysPerWeek === 2);
 
-    const noCut = getCampTrainingModifiers('build', 'advanced', false);
-    const withCut = getCampTrainingModifiers('build', 'advanced', true);
-    assert('Cut reduces SC sessions', withCut.scSessionsPerWeek <= noCut.scSessionsPerWeek);
-    assert('Cut reduces conditioning sessions', withCut.conditioningSessionsPerWeek <= noCut.conditioningSessionsPerWeek);
+    const withoutWeightClassPlan = getCampTrainingModifiers('build', 'advanced', false);
+    const withWeightClassPlan = getCampTrainingModifiers('build', 'advanced', true);
+    assert('Weight-class management reduces SC sessions', withWeightClassPlan.scSessionsPerWeek <= withoutWeightClassPlan.scSessionsPerWeek);
+    assert('Weight-class management reduces conditioning sessions', withWeightClassPlan.conditioningSessionsPerWeek <= withoutWeightClassPlan.conditioningSessionsPerWeek);
 
     const beginner = getCampTrainingModifiers('build', 'beginner', false);
     const elite = getCampTrainingModifiers('build', 'elite', false);

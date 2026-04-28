@@ -23,7 +23,7 @@ Training, nutrition, tracking, readiness, phase logic, body mass, and risk shoul
 - Protected workouts are non-negotiable anchors.
 - Phase changes are transitions, not restarts.
 - The athlete journey is continuous from sign-up onward.
-- Do not create unsafe weight-cutting recommendations.
+- Do not create unsafe body-mass or weight-class recommendations.
 - Done means relevant tests pass and legacy code directly superseded by the change is removed.
 
 ## Target Engine Direction
@@ -54,7 +54,7 @@ Existing pure calculation modules may be reused when they are strong, tested, an
 
 ## Safety Rules
 
-Weight-class and weight-cutting features must be safety first. Never infer that missing weight, intake, hydration, menstrual-cycle, sleep, symptom, or readiness data means the athlete is safe. Missing data is unknown and should reduce confidence, increase caution, or trigger a prompt for more information.
+Body-mass and weight-class features must be safety first. Never infer that missing weight, intake, hydration, menstrual-cycle, sleep, symptom, or readiness data means the athlete is safe. Missing data is unknown and should reduce confidence, increase caution, or trigger a prompt for more information.
 
 Do not recommend aggressive dehydration, extreme calorie restriction, or any protocol that ignores under-fueling, REDs-style risk, illness, injury, dizziness, fainting, acute pain, or other safety flags.
 

@@ -28,7 +28,6 @@ export function buildWeeklyPlanEntryInsertPayload(
         rescheduled_to: e.rescheduled_to,
         workout_log_id: e.workout_log_id,
         prescription_snapshot: e.prescription_snapshot,
-        daily_mission_snapshot: e.daily_mission_snapshot ?? null,
         engine_notes: e.engine_notes,
         is_deload: e.is_deload,
     };

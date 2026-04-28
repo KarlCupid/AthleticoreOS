@@ -1,4 +1,4 @@
-import type { DailyMission } from '../types/mission.ts';
+import type { DailyAthleteSummary } from '../types/mission.ts';
 import type { NutritionSafetyWarning } from '../types/nutrition.ts';
 import type { NutritionQuickActionViewModel, QuickFuelIntent } from './types.ts';
 import { humanizeCoachCopy } from './coachCopy.ts';
@@ -7,8 +7,8 @@ const SAFETY_WARNING_MESSAGES: Record<NutritionSafetyWarning, string | null> = {
   none: null,
   fueling_floor_applied:
     "We bumped calories up so you have enough for today's workload.",
-  cut_readiness_floor_applied:
-    'We raised calories to protect recovery while your cut and readiness are under strain.',
+  body_mass_readiness_floor_applied:
+    'We raised calories to protect recovery while body-mass context and readiness are under strain.',
   low_energy_availability:
     'Your calories are too low for the work you are doing right now.',
   critical_energy_availability:
@@ -33,7 +33,7 @@ function buildPostSessionCue(proteinG: number): string | null {
 }
 
 function buildQuickIntents(
-  mission: DailyMission,
+  mission: DailyAthleteSummary,
   totals: { calories: number; protein: number; carbs: number; fat: number },
   isTrainingDay: boolean,
 ): QuickFuelIntent[] {
@@ -81,7 +81,7 @@ function buildQuickIntents(
 }
 
 export function buildNutritionQuickActionViewModel(
-  mission: DailyMission | null,
+  mission: DailyAthleteSummary | null,
   totals: { calories: number; protein: number; carbs: number; fat: number },
 ): NutritionQuickActionViewModel {
   if (!mission) {

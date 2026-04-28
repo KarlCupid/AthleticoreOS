@@ -104,7 +104,7 @@ function buildReadinessState(readinessState: LegacyReadinessState, date: string)
         confidence: confidenceFromLevel('low', [
           'Legacy weekly planning only provides a coarse readiness state.',
         ]),
-        context: { legacyReadinessState: readinessState },
+        context: { sourceReadinessState: readinessState },
         notes: null,
       },
     ],
@@ -310,7 +310,7 @@ function buildPerformanceState(input: SmartWeekPlanInput, protectedAnchors: Prot
         targetMetric: null,
         targetValue: null,
         targetUnit: null,
-        deadline: input.campConfig?.fightDate ?? input.activeCutPlan?.weigh_in_date ?? null,
+        deadline: input.campConfig?.fightDate ?? input.activeWeightClassPlan?.weigh_in_date ?? null,
         explanation: null,
       },
     ],

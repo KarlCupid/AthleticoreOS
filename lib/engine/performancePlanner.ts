@@ -248,7 +248,7 @@ export function resolveTrainingBlockContext(input: TrainingBlockInput): Training
       intensityOffset: -1,
       focusBias: performanceGoalType === 'weight_class_prep' ? 'recovery' : 'sport_specific',
       note: campPhase === 'taper'
-        ? 'Taper week: keep output sharp, cut fatigue hard.'
+        ? 'Taper week: keep output sharp, trim fatigue hard.'
         : 'Pivot week: consolidate progress and retest cleanly.',
     };
   }

@@ -47,7 +47,7 @@ export const RISK_FLAG_DEFINITIONS: Record<RiskFlagCode, RiskFlagDefinition> = {
   },
   unsafe_weight_class_target: {
     code: 'unsafe_weight_class_target',
-    domain: 'weight_cut',
+    domain: 'weight_class',
     defaultSeverity: 'critical',
     defaultMessage: 'The requested body-mass or weight-class target appears unsafe for the available timeframe.',
     defaultReasons: ['Weight-class decisions must remain safety first.'],

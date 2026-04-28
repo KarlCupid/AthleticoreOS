@@ -37,7 +37,7 @@ export const APP_IMPACTS = [
   },
 ] as const;
 
-export const CUT_PHASES = [
+export const BODY_MASS_PHASES = [
   {
     label: 'Long-Term Management',
     when: '8+ weeks out',

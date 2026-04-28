@@ -14,7 +14,7 @@ Goals:
 Exit criteria:
 
 - New types exist without changing app behavior.
-- Existing daily mission context can be represented as `PerformanceState`.
+- Existing daily athlete context can be represented as `PerformanceState`.
 - Missing data is represented as unknown, not zero.
 
 ## Phase 2: Onboarding as Journey Initialization
@@ -43,7 +43,7 @@ Goals:
 Exit criteria:
 
 - Fight changes transition the journey instead of resetting it.
-- Fight camps, cut plans, weekly plans, and dashboard summaries reference the active fight opportunity when applicable.
+- Fight camps, weight-class plans, weekly plans, and dashboard summaries reference the active fight opportunity when applicable.
 - Old direct profile-phase mutation is no longer the source of truth.
 
 ## Phase 4: Risk and Explanation Foundations
@@ -58,7 +58,7 @@ Goals:
 Exit criteria:
 
 - Major recommendations carry an explanation trace.
-- Unsafe weight-cutting recommendations are blocked or capped.
+- Unsafe weight-class recommendations are blocked or capped.
 - Missing safety data lowers confidence instead of being treated as safe.
 
 ## Phase 5: Adaptive Training Engine
@@ -82,7 +82,7 @@ Goals:
 
 - Move calorie, macro, hydration, and session-fueling targets behind the Nutrition and Fueling Engine.
 - Integrate phase, fight opportunity, readiness, training demand, body mass, and risk.
-- Ensure cut protocols cannot bypass safety floors.
+- Ensure body-mass guidances cannot bypass safety floors.
 
 Exit criteria:
 
@@ -94,13 +94,13 @@ Exit criteria:
 
 Goals:
 
-- Move body-mass trends, weight-class strategy, cut planning, fight-week protocols, and rehydration behind the Body Mass and Weight-Class Management Engine.
+- Move body-mass trends, weight-class strategy, competition body-mass planning, fight-week monitoring, and post-weigh-in recovery behind the Body Mass and Weight-Class Management Engine.
 - Coordinate weight-class decisions with fight opportunities and weigh-in timing.
 
 Exit criteria:
 
-- Chronic weight goals and acute fight-week protocols are clearly separated.
-- Changed fight date or weight class invalidates stale cut protocols, nutrition targets, and training assumptions.
+- Chronic weight goals and competition-week body-mass logistics are clearly separated.
+- Changed fight date or weight class invalidates stale body-mass guidances, nutrition targets, and training assumptions.
 - Safety gates prevent unsafe recommendations.
 
 ## Phase 8: Tracking and Readiness Engine
@@ -120,14 +120,14 @@ Exit criteria:
 
 Goals:
 
-- Replace the current mixed daily mission orchestration with the Unified Performance Engine.
+- Replace the current mixed daily athlete-summary orchestration with the Unified Performance Engine.
 - Resolve `PerformanceState` once and pass it to specialist engines.
 - Centralize snapshot generation and invalidation.
 
 Exit criteria:
 
 - Today, Plan, Train, Fuel, and Me are all driven by unified performance state.
-- Snapshot invalidation covers onboarding, phase changes, fight changes, protected workout changes, readiness logs, body-mass logs, cut-plan changes, food logs, and training outcomes.
+- Snapshot invalidation covers onboarding, phase changes, fight changes, protected workout changes, readiness logs, body-mass logs, weight-class plan changes, food logs, and training outcomes.
 - Old orchestration branches are removed.
 
 ## Phase 10: Dashboard and App-Flow Integration
@@ -155,7 +155,7 @@ Exit criteria:
 
 - `npm run quality` passes, or documented blockers are resolved before handoff.
 - No directly superseded legacy system remains active beside the new system.
-- Critical flows have coverage: onboarding, fight changes, protected workouts, weekly plan generation, food logging, nutrition targets, body-mass changes, cut safety, readiness, dashboard summaries, and guided workouts.
+- Critical flows have coverage: onboarding, fight changes, protected workouts, weekly plan generation, food logging, nutrition targets, body-mass changes, weight-class safety, readiness, dashboard summaries, and guided workouts.
 
 ## Migration Rules
 

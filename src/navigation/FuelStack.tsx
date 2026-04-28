@@ -5,11 +5,11 @@ import { FoodSearchScreen } from '../screens/FoodSearchScreen';
 import { FoodDetailScreen } from '../screens/FoodDetailScreen';
 import { CustomFoodScreen } from '../screens/CustomFoodScreen';
 import { BarcodeScanScreen } from '../screens/BarcodeScanScreen';
-import { WeightCutHomeScreen } from '../screens/WeightCutHomeScreen';
-import { CutPlanSetupScreen } from '../screens/CutPlanSetupScreen';
-import { FightWeekProtocolScreen } from '../screens/FightWeekProtocolScreen';
-import { RehydrationProtocolScreen } from '../screens/RehydrationProtocolScreen';
-import { CutHistoryScreen } from '../screens/CutHistoryScreen';
+import { WeightClassHomeScreen } from '../screens/WeightClassHomeScreen';
+import { WeightClassPlanSetupScreen } from '../screens/WeightClassPlanSetupScreen';
+import { CompetitionBodyMassScreen } from '../screens/CompetitionBodyMassScreen';
+import { PostWeighInRecoveryScreen } from '../screens/PostWeighInRecoveryScreen';
+import { WeightClassHistoryScreen } from '../screens/WeightClassHistoryScreen';
 import type { FuelStackParamList } from './types';
 import { APP_STACK_SCREEN_OPTIONS } from './stackOptions';
 
@@ -23,11 +23,11 @@ export function FuelStackNavigator() {
       <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
       <Stack.Screen name="CustomFood" component={CustomFoodScreen} />
       <Stack.Screen name="BarcodeScan" component={BarcodeScanScreen} />
-      <Stack.Screen name="WeightCutHome" component={WeightCutHomeScreen} />
-      <Stack.Screen name="CutPlanSetup" component={CutPlanSetupScreen} />
-      <Stack.Screen name="FightWeekProtocol" component={FightWeekProtocolScreen} />
-      <Stack.Screen name="RehydrationProtocol" component={RehydrationProtocolScreen} />
-      <Stack.Screen name="CutHistory" component={CutHistoryScreen} />
+      <Stack.Screen name="WeightClassHome" component={WeightClassHomeScreen} />
+      <Stack.Screen name="WeightClassPlanSetup" component={WeightClassPlanSetupScreen} />
+      <Stack.Screen name="CompetitionBodyMass" component={CompetitionBodyMassScreen} />
+      <Stack.Screen name="PostWeighInRecovery" component={PostWeighInRecoveryScreen} />
+      <Stack.Screen name="WeightClassHistory" component={WeightClassHistoryScreen} />
     </Stack.Navigator>
   );
 }

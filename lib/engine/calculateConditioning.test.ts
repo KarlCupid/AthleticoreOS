@@ -222,8 +222,8 @@ console.log('\n── prescribeConditioning: readiness/ACWR overrides ──');
         subjectiveReadiness: 3,
         acwrRatio: 1.0,
         externalHeartRateLoad: 70,
-        weightCutIntensityCap: 4,
-        isOnActiveCut: true,
+        bodyMassIntensityCap: 4,
+        hasActiveWeightClassPlan: true,
         urineColor: 6,
         readinessHistory: [3, 3, 3],
     });
@@ -295,7 +295,7 @@ const baseWeeklyInput: WeeklyConditioningInput = {
     readinessState: 'Prime',
     acwr: 1.0,
     campConfig: null,
-    activeCutPlan: null,
+    activeWeightClassPlan: null,
 };
 
 (() => {

@@ -114,8 +114,8 @@ export function NutritionScreen() {
   const { loading, refreshing, error, viewModel, reload, onRefresh } = useFuelData();
   const [nutritionMode, setNutritionMode] = useState<'quick' | 'detailed'>('quick');
   const quickVM = useMemo(
-    () => buildNutritionQuickActionViewModel(viewModel.dailyMission, viewModel.totals),
-    [viewModel.dailyMission, viewModel.totals],
+    () => buildNutritionQuickActionViewModel(viewModel.dailyAthleteSummary, viewModel.totals),
+    [viewModel.dailyAthleteSummary, viewModel.totals],
   );
 
   const flatMealEntries = useMemo(
@@ -214,7 +214,7 @@ export function NutritionScreen() {
       return null;
     }
 
-    const waterTarget = Math.round(viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0);
+    const waterTarget = Math.round(viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0);
 
     return (
       <>
@@ -226,7 +226,7 @@ export function NutritionScreen() {
           <Text style={inline.sectionEyebrow}>Fuel mission</Text>
           <Text style={inline.cardHeadline}>
             {humanizeCoachSentence(
-              viewModel.dailyMission?.fuelDirective.message,
+              viewModel.dailyAthleteSummary?.fuelDirective.message,
               'Stay on top of your food today.',
             )}
           </Text>
@@ -330,7 +330,7 @@ export function NutritionScreen() {
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.normal)}>
           <HydrationTracker
             currentOz={viewModel.totals.water}
-            targetOz={viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0}
+            targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0}
             onQuickAdd={handleQuickAddWater}
           />
         </Animated.View>
@@ -356,19 +356,19 @@ export function NutritionScreen() {
       </Animated.View>
 
       {viewModel.performanceContext.bodyMass ? (
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)} style={styles.cutBanner}>
-          <View style={styles.cutBannerTop}>
-            <Text style={styles.cutBannerPhase}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)} style={styles.bodyMassBanner}>
+          <View style={styles.bodyMassBannerTop}>
+            <Text style={styles.bodyMassBannerPhase}>
               {viewModel.performanceContext.bodyMass.feasibilityLabel ?? 'Body-mass context'} - {viewModel.performanceContext.bodyMass.safetyLabel ?? 'monitored'}
             </Text>
             {viewModel.performanceContext.bodyMass.riskLabel ? (
-              <View style={styles.cutBadge}>
-                <Text style={styles.cutBadgeText}>{viewModel.performanceContext.bodyMass.riskLabel}</Text>
+              <View style={styles.bodyMassBadge}>
+                <Text style={styles.bodyMassBadgeText}>{viewModel.performanceContext.bodyMass.riskLabel}</Text>
               </View>
             ) : null}
           </View>
-          <Text style={styles.cutBannerInstruction}>{viewModel.performanceContext.bodyMass.explanation}</Text>
-          <AnimatedPressable onPress={() => navigation.navigate('WeightCutHome')}>
+          <Text style={styles.bodyMassBannerInstruction}>{viewModel.performanceContext.bodyMass.explanation}</Text>
+          <AnimatedPressable onPress={() => navigation.navigate('WeightClassHome')}>
             <Text style={[inline.linkText, { color: COLORS.text.primary }]}>Weight-class context</Text>
           </AnimatedPressable>
         </Animated.View>
@@ -418,7 +418,7 @@ export function NutritionScreen() {
       <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.normal)}>
         <HydrationTracker
           currentOz={viewModel.totals.water}
-          targetOz={viewModel.dailyMission?.hydrationDirective.waterTargetOz ?? 0}
+          targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0}
           onQuickAdd={handleQuickAddWater}
         />
       </Animated.View>

@@ -71,7 +71,7 @@ export interface WorkoutSessionVM {
   decisionTrace: string[];
   /** Whether a session blueprint with sections exists */
   hasSections: boolean;
-  /** Session role (e.g. 'train', 'rest', 'recover', 'cut_protect') */
+  /** Session role (e.g. 'train', 'rest', 'recover', 'body_mass_protect') */
   sessionRole: string;
   /** Flat exercise list (fallback when no sections exist) */
   flatExercises: ExerciseVM[];

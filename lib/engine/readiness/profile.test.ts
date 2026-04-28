@@ -68,8 +68,8 @@ console.log('\n── readiness profile ──');
     energyLevel: 2,
     fuelHydrationStatus: 2,
     externalHeartRateLoad: 70,
-    weightCutIntensityCap: 4,
-    isOnActiveCut: true,
+    bodyMassIntensityCap: 4,
+    hasActiveWeightClassPlan: true,
     urineColor: 6,
   }));
   const constraints = deriveStimulusConstraintSet(profile, {

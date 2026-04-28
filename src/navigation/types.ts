@@ -99,15 +99,15 @@ export type FuelStackParamList = {
   };
   CustomFood: { mealType?: MealType; date?: string } | undefined;
   BarcodeScan: { mealType: MealType; date?: string };
-  WeightCutHome: undefined;
-  CutPlanSetup: undefined;
-  FightWeekProtocol: undefined;
-  RehydrationProtocol: {
+  WeightClassHome: undefined;
+  WeightClassPlanSetup: undefined;
+  CompetitionBodyMass: undefined;
+  PostWeighInRecovery: {
     weighInWeightLbs: number;
     hoursToFight: number;
     targetWeightLbs?: number;
   };
-  CutHistory: undefined;
+  WeightClassHistory: undefined;
 };
 
 export type MeStackParamList = {

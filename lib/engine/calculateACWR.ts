@@ -139,7 +139,7 @@ function inferFitnessLevel(chronicLoad: number): FitnessLevel {
 export function getPersonalizedACWRThresholds(input: {
   fitnessLevel?: FitnessLevel | null;
   phase?: Phase | null;
-  isOnActiveCut?: boolean;
+  hasActiveWeightClassPlan?: boolean;
   cycleDay?: number | null;
   daysOfData: number;
   chronicLoad: number;
@@ -148,7 +148,7 @@ export function getPersonalizedACWRThresholds(input: {
   const {
     fitnessLevel,
     phase,
-    isOnActiveCut = false,
+    hasActiveWeightClassPlan = false,
     cycleDay = null,
     daysOfData,
     chronicLoad,
@@ -182,9 +182,9 @@ export function getPersonalizedACWRThresholds(input: {
     factors.push(`phase:${effectivePhase}`);
   }
 
-  if (isOnActiveCut) {
+  if (hasActiveWeightClassPlan) {
     adjustment -= 0.1;
-    factors.push('active_cut');
+    factors.push('active_weight_class_plan');
   }
 
   if (cycleDay != null && cycleDay >= 20 && cycleDay <= 28) {
@@ -269,7 +269,7 @@ export async function calculateACWR({
   asOfDate,
   fitnessLevel,
   phase,
-  isOnActiveCut,
+  hasActiveWeightClassPlan,
   cycleDay,
 }: ACWRInput): Promise<ACWRResult> {
   const asOf = asOfDate
@@ -313,7 +313,7 @@ export async function calculateACWR({
     const thresholds = getPersonalizedACWRThresholds({
       fitnessLevel,
       phase,
-      isOnActiveCut,
+      hasActiveWeightClassPlan,
       cycleDay,
       daysOfData: 0,
       chronicLoad: 0,
@@ -363,7 +363,7 @@ export async function calculateACWR({
   const thresholds = getPersonalizedACWRThresholds({
     fitnessLevel,
     phase,
-    isOnActiveCut,
+    hasActiveWeightClassPlan,
     cycleDay,
     daysOfData,
     chronicLoad: chronic,

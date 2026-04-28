@@ -6,7 +6,7 @@ import type {
   InterventionState,
   ObjectiveSecondaryConstraint,
   PerformanceGoalType,
-  WeightCutInfluenceState,
+  WeightClassInfluenceState,
   WeighInTiming,
 } from './foundational.ts';
 import type { Phase, ReadinessState, WorkoutFocus, WorkoutType } from './foundational.ts';
@@ -24,11 +24,11 @@ import type {
   FuelPriority,
   FuelState,
   RecoveryNutritionFocus,
-  ResolvedNutritionTargets,
+  NutritionFuelingTarget,
   SessionFuelingPlan,
 } from './nutrition.ts';
 import type { WorkoutPrescriptionV2 } from './training.ts';
-import type { WeightTrendResult } from './weight_cut.ts';
+import type { WeightTrendResult } from './weightClassPlan.ts';
 import type { CampRiskAssessment } from '../calculateCampRisk.ts';
 import type { UnifiedPerformanceEngineResult } from '../../performance-engine/index.ts';
 
@@ -38,7 +38,7 @@ export type TrainingSessionRole =
   | 'express'
   | 'recover'
   | 'spar_support'
-  | 'cut_protect'
+  | 'body_mass_protect'
   | 'taper_sharpen';
 
 export type MissionRiskLevel = 'low' | 'moderate' | 'high' | 'critical';
@@ -75,8 +75,8 @@ export interface MacrocycleContext {
   buildGoal: BuildPhaseGoalRow | null;
   camp: CampConfig | null;
   campPhase: CampPhase | null;
-  weightCutState: WeightCutInfluenceState;
-  isOnActiveCut: boolean;
+  weightClassState: WeightClassInfluenceState;
+  hasActiveWeightClassPlan: boolean;
   weighInTiming: WeighInTiming | null;
   daysOut: number | null;
   isTravelWindow: boolean;
@@ -179,7 +179,7 @@ export interface MissionOverride {
   note: string;
 }
 
-export interface DailyMission {
+export interface DailyAthleteSummary {
   date: string;
   engineVersion: string;
   generatedAt: string;
@@ -197,19 +197,6 @@ export interface DailyMission {
   overrideState: MissionOverride;
 }
 
-export interface DailyEngineSnapshotRow {
-  id: string;
-  user_id: string;
-  date: string;
-  engine_version: string;
-  objective_context_snapshot: MacrocycleContext;
-  nutrition_targets_snapshot: ResolvedNutritionTargets;
-  workout_prescription_snapshot: WorkoutPrescriptionV2 | null;
-  mission_snapshot: DailyMission;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface MissionScheduledActivity {
   date: string;
   activity_type: ScheduledActivityRow['activity_type'];
@@ -218,14 +205,14 @@ export interface MissionScheduledActivity {
   status?: ScheduledActivityRow['status'];
 }
 
-export interface BuildDailyMissionInput {
+export interface BuildDailyAthleteSummaryInput {
   date: string;
   macrocycleContext: MacrocycleContext;
   readinessState: ReadinessState;
   readinessProfile: ReadinessProfile;
   constraintSet: StimulusConstraintSet;
   acwr: ACWRResult;
-  nutritionTargets: ResolvedNutritionTargets;
+  nutritionTargets: NutritionFuelingTarget;
   hydration: HydrationResult;
   scheduledActivities: MissionScheduledActivity[];
   workoutPrescription: WorkoutPrescriptionV2 | null;
@@ -244,13 +231,13 @@ export interface BuildMicrocyclePlanInput {
   readinessProfile: ReadinessProfile;
   constraintSet: StimulusConstraintSet;
   acwr: ACWRResult;
-  baseNutritionTargets: ResolvedNutritionTargets;
+  baseNutritionTargetEstimate: NutritionFuelingTarget;
   hydration: HydrationResult;
   medStatus?: MEDStatus | null;
 }
 
-export interface WeeklyMissionPlan {
-  entries: Array<WeeklyPlanEntryRow & { daily_mission_snapshot: DailyMission | null }>;
+export interface WeeklyAthleteSummaryPlan {
+  entries: Array<WeeklyPlanEntryRow & { dailyAthleteSummary: DailyAthleteSummary | null }>;
   headline: string;
   summary: string;
 }
@@ -263,7 +250,7 @@ export interface DailyEngineState {
   readinessState: ReadinessState;
   readinessProfile: ReadinessProfile;
   constraintSet: StimulusConstraintSet;
-  nutritionTargets: ResolvedNutritionTargets;
+  nutritionTargets: NutritionFuelingTarget;
   hydration: HydrationResult;
   scheduledActivities: ScheduledActivityRow[];
   weeklyPlanEntries: WeeklyPlanEntryRow[];
@@ -271,7 +258,7 @@ export interface DailyEngineState {
   primaryPlanEntry: WeeklyPlanEntryRow | null;
   primaryEnginePlanEntry: WeeklyPlanEntryRow | null;
   workoutPrescription: WorkoutPrescriptionV2 | null;
-  mission: DailyMission;
+  mission: DailyAthleteSummary;
   campRisk: CampRiskAssessment | null;
   medStatus: MEDStatus | null;
   unifiedPerformance: UnifiedPerformanceEngineResult | null;

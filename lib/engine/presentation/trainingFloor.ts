@@ -1,11 +1,11 @@
-import type { DailyMission } from '../types/mission.ts';
+import type { DailyAthleteSummary } from '../types/mission.ts';
 import type { WorkoutPrescriptionV2 } from '../types/training.ts';
 import type { TrainingFloorViewModel } from './types.ts';
 import { humanizeCoachCopy, humanizeCoachSentence } from './coachCopy.ts';
 
 export function buildTrainingFloorViewModel(
   prescription: WorkoutPrescriptionV2 | null,
-  mission: DailyMission | null,
+  mission: DailyAthleteSummary | null,
 ): TrainingFloorViewModel {
   return {
     sessionGoal:

@@ -5,7 +5,7 @@ import type {
   SimulationState
 } from './types.ts';
 import { 
-  buildDailyMission, 
+  buildDailyAthleteSummary, 
   determineCampPhase,
   deriveProtectWindowFromRecentMissions,
   deriveReadinessProfile,
@@ -89,7 +89,7 @@ function buildSimulationCutPlan(input: {
   const competitionWeekStart = addIsoDays(fightDate, -Math.min(7, timeframeDays));
 
   return {
-    id: 'sim-cut-plan',
+    id: 'sim-weight-class-plan',
     user_id: 'sim-user',
     start_weight: startWeight,
     target_weight: targetWeight,
@@ -420,7 +420,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         campStartDate: startDate,
         fightDate: initialState.fightDate,
         fitnessLevel: initialState.fitnessLevel,
-        hasConcurrentCut: simulationCutPlan != null,
+        hasConcurrentWeightClassPlan: simulationCutPlan != null,
       })
     : null;
   const simulationPlanConfig = buildSimulationPlanConfig();
@@ -488,7 +488,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
     const resolvedCampPhase = simulationCampConfig
       ? determineCampPhase(simulationCampConfig as any, dateStr)
       : null;
-    const isOnActiveCut = initialState.goalMode === 'fight_camp' && simulationCutPlan != null && daysOut <= 14;
+    const hasActiveWeightClassPlan = initialState.goalMode === 'fight_camp' && simulationCutPlan != null && daysOut <= 14;
     const simulatedCampPhase = resolvedCampPhase ?? (daysOut <= 7 ? 'taper' : daysOut <= 14 ? 'peak' : 'build');
     const simulatedPerformanceGoalType = initialState.goalMode === 'fight_camp' ? 'boxing_skill' : 'strength';
     const weekStartDate = getWeekStartDate(dateStr);
@@ -514,7 +514,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       recentExerciseIds,
       recentMuscleVolume: recentMuscleVolume as any,
       campConfig: simulationCampConfig as any,
-      activeCutPlan: isOnActiveCut ? simulationCutPlan as any : null,
+      activeWeightClassPlan: hasActiveWeightClassPlan ? simulationCutPlan as any : null,
       weeksSinceLastDeload: Math.max(0, Math.floor(i / 7) % 4),
       gymProfile: null,
       weekStartDate,
@@ -582,13 +582,13 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       camp: simulationCampConfig ? {
         ...simulationCampConfig,
         targetWeight: initialState.targetWeight || 170,
-        weightCutState: isOnActiveCut ? 'driving' : 'none',
+        weightClassState: hasActiveWeightClassPlan ? 'driving' : 'none',
         createdAt: '',
         updatedAt: ''
       } as any : null,
       campPhase: simulatedCampPhase as any,
-      weightCutState: isOnActiveCut ? 'driving' : 'none',
-      isOnActiveCut,
+      weightClassState: hasActiveWeightClassPlan ? 'driving' : 'none',
+      hasActiveWeightClassPlan,
       weighInTiming: null,
       daysOut,
       isTravelWindow: false,
@@ -598,7 +598,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       weightTrend: null
     };
 
-    const bodyMassSupportPhase = simulationCutPlan && isOnActiveCut
+    const bodyMassSupportPhase = simulationCutPlan && hasActiveWeightClassPlan
       ? getBodyMassSupportPhase(simulationCutPlan as any, dateStr)
       : 'unknown';
 
@@ -639,7 +639,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
       daysOut,
     });
 
-    const mission = buildDailyMission({
+    const mission = buildDailyAthleteSummary({
       date: dateStr,
       macrocycleContext,
       readinessState,
@@ -737,7 +737,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
           constraintSet,
           acwr: mockACWR.ratio,
           sessionIndex: Math.floor(i / 7),
-          activeCutPlan: simulationCutPlan as any,
+          activeWeightClassPlan: simulationCutPlan as any,
           trainingIntensityCap: mission.trainingDirective.intensityCap,
         })
       : null;

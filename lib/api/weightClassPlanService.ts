@@ -1,10 +1,10 @@
 import { supabase } from '../supabase';
 import {
-  WeightCutPlanRow,
-  CutSafetyCheckRow,
-  WeightCutHistoryRow,
-  WeightCutDashboardData,
-  CutPlanStatus,
+  WeightClassPlanRow,
+  BodyMassSafetyCheckRow,
+  WeightClassHistoryRow,
+  BodyMassDashboardData,
+  WeightClassPlanStatus,
   WeightDataPoint,
 } from '../engine/types';
 import type { WeightClassManagementResult } from '../performance-engine';
@@ -36,9 +36,50 @@ function bodyMassPlanDates(evaluation: WeightClassManagementResult, asOfDate: st
   };
 }
 
+type WeightClassPlanDbRow = Omit<
+  WeightClassPlanRow,
+  | 'max_fight_week_body_mass_change_pct'
+  | 'required_body_mass_change_lbs'
+  | 'gradual_body_mass_target_lbs'
+  | 'competition_week_body_mass_change_lbs'
+> & {
+  max_water_cut_pct?: number | null;
+  total_cut_lbs?: number | null;
+  diet_phase_target_lbs?: number | null;
+  water_cut_allocation_lbs?: number | null;
+};
+
+type WeightClassHistoryDbRow = Omit<
+  WeightClassHistoryRow,
+  'gradual_body_mass_change_lbs' | 'competition_week_body_mass_change_lbs' | 'adherence_pct'
+> & {
+  total_diet_loss_lbs?: number | null;
+  total_water_cut_lbs?: number | null;
+  protocol_adherence_pct?: number | null;
+};
+
+function toWeightClassPlan(row: WeightClassPlanDbRow): WeightClassPlanRow {
+  return {
+    ...row,
+    max_fight_week_body_mass_change_pct: row.max_water_cut_pct ?? 0,
+    required_body_mass_change_lbs: row.total_cut_lbs ?? 0,
+    gradual_body_mass_target_lbs: row.diet_phase_target_lbs ?? 0,
+    competition_week_body_mass_change_lbs: row.water_cut_allocation_lbs ?? 0,
+  };
+}
+
+function toWeightClassHistory(row: WeightClassHistoryDbRow): WeightClassHistoryRow {
+  return {
+    ...row,
+    gradual_body_mass_change_lbs: row.total_diet_loss_lbs ?? null,
+    competition_week_body_mass_change_lbs: row.total_water_cut_lbs ?? null,
+    adherence_pct: row.protocol_adherence_pct ?? null,
+  };
+}
+
 // ─── Plan CRUD ─────────────────────────────────────────────────
 
-export async function createWeightCutPlan(
+export async function createWeightClassPlan(
   userId: string,
   input: {
     startWeight: number;
@@ -52,7 +93,7 @@ export async function createWeightCutPlan(
     weightClassEvaluation: WeightClassManagementResult;
     coachNotes?: string;
   }
-): Promise<WeightCutPlanRow> {
+): Promise<WeightClassPlanRow> {
   const { weightClassEvaluation } = input;
   const { plan } = weightClassEvaluation;
 
@@ -85,7 +126,7 @@ export async function createWeightCutPlan(
     fight_week_start: dates.competitionWeekStart,
     weigh_in_day: dates.weighInDate,
     rehydration_start: dates.weighInDate,
-    status: 'active' as CutPlanStatus,
+    status: 'active' as WeightClassPlanStatus,
     safe_weekly_loss_rate: Math.max(0, plan.requiredRateOfChange.value ?? 0),
     calorie_floor: 1800,
     coach_notes: input.coachNotes ?? null,
@@ -96,7 +137,7 @@ export async function createWeightCutPlan(
   };
 
   const { data, error } = await supabase
-    .from('weight_cut_plans')
+    .from('weight_class_plans')
     .insert(row)
     .select()
     .single();
@@ -112,12 +153,12 @@ export async function createWeightCutPlan(
     })
     .eq('user_id', userId);
 
-  return data as WeightCutPlanRow;
+  return toWeightClassPlan(data as WeightClassPlanDbRow);
 }
 
-export async function getActiveWeightCutPlan(userId: string): Promise<WeightCutPlanRow | null> {
+export async function getActiveWeightClassPlan(userId: string): Promise<WeightClassPlanRow | null> {
   const { data, error } = await supabase
-    .from('weight_cut_plans')
+    .from('weight_class_plans')
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'active')
@@ -126,15 +167,15 @@ export async function getActiveWeightCutPlan(userId: string): Promise<WeightCutP
     .single();
 
   if (error && error.code !== 'PGRST116') throw error;  // PGRST116 = no rows
-  return (data as WeightCutPlanRow) ?? null;
+  return data ? toWeightClassPlan(data as WeightClassPlanDbRow) : null;
 }
 
-export async function updateWeightCutPlanStatus(
+export async function updateWeightClassPlanStatus(
   planId: string,
-  status: CutPlanStatus
+  status: WeightClassPlanStatus
 ): Promise<void> {
   const { error } = await supabase
-    .from('weight_cut_plans')
+    .from('weight_class_plans')
     .update({ status, updated_at: new Date().toISOString(), completed_at: status === 'completed' || status === 'abandoned' ? new Date().toISOString() : null })
     .eq('id', planId);
   if (error) throw error;
@@ -142,33 +183,33 @@ export async function updateWeightCutPlanStatus(
 
 export async function setBaselineCognitiveScore(planId: string, score: number): Promise<void> {
   const { error } = await supabase
-    .from('weight_cut_plans')
+    .from('weight_class_plans')
     .update({ baseline_cognitive_score: score })
     .eq('id', planId);
   if (error) throw error;
 }
 
-export async function abandonWeightCutPlan(
+export async function abandonWeightClassPlan(
   userId: string,
   planId: string,
   reason: 'fight_fell_through' | 'made_weight' | 'other' = 'other'
 ): Promise<void> {
-  await updateWeightCutPlanStatus(planId, reason === 'made_weight' ? 'completed' : 'abandoned');
+  await updateWeightClassPlanStatus(planId, reason === 'made_weight' ? 'completed' : 'abandoned');
   await supabase
     .from('athlete_profiles')
     .update({ active_cut_plan_id: null })
     .eq('user_id', userId);
 }
 
-// ─── Daily Protocol ────────────────────────────────────────────
+// ─── Body-Mass Guidance ────────────────────────────────────────────
 
 // ─── Safety Checks ─────────────────────────────────────────────
 
-export async function upsertCutSafetyCheck(
+export async function upsertBodyMassSafetyCheck(
   userId: string,
   planId: string,
   date: string,
-  fields: Partial<Omit<CutSafetyCheckRow, 'id' | 'user_id' | 'plan_id' | 'date' | 'created_at'>>
+  fields: Partial<Omit<BodyMassSafetyCheckRow, 'id' | 'user_id' | 'plan_id' | 'date' | 'created_at'>>
 ): Promise<void> {
   const { error } = await supabase
     .from('cut_safety_checks')
@@ -180,7 +221,7 @@ export async function getRecentSafetyChecks(
   userId: string,
   planId: string,
   days = 7
-): Promise<CutSafetyCheckRow[]> {
+): Promise<BodyMassSafetyCheckRow[]> {
   const since = new Date();
   since.setDate(since.getDate() - days);
   const { data, error } = await supabase
@@ -192,12 +233,12 @@ export async function getRecentSafetyChecks(
     .order('date', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as CutSafetyCheckRow[];
+  return (data ?? []) as BodyMassSafetyCheckRow[];
 }
 
 // ─── History ───────────────────────────────────────────────────
 
-export async function completeCutPlan(
+export async function completeWeightClassPlan(
   userId: string,
   planId: string,
   outcome: {
@@ -208,7 +249,7 @@ export async function completeCutPlan(
   }
 ): Promise<void> {
   // Mark plan complete
-  await updateWeightCutPlanStatus(planId, 'completed');
+  await updateWeightClassPlanStatus(planId, 'completed');
   await supabase
     .from('athlete_profiles')
     .update({ active_cut_plan_id: null })
@@ -216,7 +257,7 @@ export async function completeCutPlan(
 
   // Gather plan summary
   const { data: planData } = await supabase
-    .from('weight_cut_plans')
+    .from('weight_class_plans')
     .select('*')
     .eq('id', planId)
     .single();
@@ -229,7 +270,7 @@ export async function completeCutPlan(
 
   const dietLoss = planData.start_weight - (outcome.finalWeighInWeight ?? planData.target_weight) - (planData.water_cut_allocation_lbs ?? 0);
 
-  await supabase.from('weight_cut_history').insert({
+  await supabase.from('weight_class_history').insert({
     user_id: userId,
     plan_id: planId,
     start_weight: planData.start_weight,
@@ -248,31 +289,31 @@ export async function completeCutPlan(
   });
 }
 
-export async function getCutHistory(userId: string): Promise<WeightCutHistoryRow[]> {
+export async function getWeightClassHistory(userId: string): Promise<WeightClassHistoryRow[]> {
   const { data, error } = await supabase
-    .from('weight_cut_history')
+    .from('weight_class_history')
     .select('*')
     .eq('user_id', userId)
     .order('completed_at', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as WeightCutHistoryRow[];
+  return ((data ?? []) as WeightClassHistoryDbRow[]).map(toWeightClassHistory);
 }
 
 // ─── Dashboard Aggregate ───────────────────────────────────────
 
-export async function getWeightCutDashboardData(
+export async function getBodyMassDashboardData(
   userId: string
-): Promise<WeightCutDashboardData> {
+): Promise<BodyMassDashboardData> {
   const todayStr = todayLocalDate();
 
   const [planRes, historyRes] = await Promise.all([
-    getActiveWeightCutPlan(userId),
-    getCutHistory(userId),
+    getActiveWeightClassPlan(userId),
+    getWeightClassHistory(userId),
   ]);
 
   let weightHistory: WeightDataPoint[] = [];
-  let safetyChecks: CutSafetyCheckRow[] = [];
+  let safetyChecks: BodyMassSafetyCheckRow[] = [];
   let adherenceLast7Days = 0;
   let projectedWeightByWeighIn: number | null = null;
 
@@ -312,7 +353,7 @@ export async function getWeightCutDashboardData(
     activePlan: planRes,
     weightHistory,
     safetyChecks,
-    cutHistory: historyRes,
+    weightClassHistory: historyRes,
     projectedWeightByWeighIn,
     adherenceLast7Days,
   };

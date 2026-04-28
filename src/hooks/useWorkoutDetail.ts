@@ -30,9 +30,8 @@ export function useWorkoutDetail() {
     const loadRequestIdRef = useRef(0);
     const mountedRef = useRef(true);
     const swappedBadgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isMandatoryRecovery = entry?.daily_mission_snapshot?.trainingDirective?.isMandatoryRecovery ?? false;
-    const mandatoryRecoveryReason = entry?.daily_mission_snapshot?.trainingDirective?.reason
-        ?? 'Mandatory recovery is active for this session.';
+    const isMandatoryRecovery = prescription?.primaryAdaptation === 'recovery' && entry?.focus === 'recovery';
+    const mandatoryRecoveryReason = 'Recovery is active for this session.';
 
     useEffect(() => {
         return () => {
@@ -54,9 +53,7 @@ export function useWorkoutDetail() {
             if (!mountedRef.current || requestId !== loadRequestIdRef.current) return;
             setEntry(loadedEntry);
             setExerciseLibrary(library);
-            const snap = loadedEntry?.daily_mission_snapshot?.trainingDirective?.prescription
-                ?? loadedEntry?.prescription_snapshot
-                ?? null;
+            const snap = loadedEntry?.prescription_snapshot ?? null;
             setPrescription(snap);
         } catch (_err) {
             if (!mountedRef.current || requestId !== loadRequestIdRef.current) return;

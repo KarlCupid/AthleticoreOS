@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { supabase } from '../../lib/supabase';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import {
   buildUnifiedPerformanceViewModel,
@@ -58,7 +58,7 @@ export interface AcwrContextState {
   acute: number;
   chronic: number;
   phase: Phase;
-  isOnActiveCut: boolean;
+  hasActiveWeightClassPlan: boolean;
 }
 
 export interface PreviousDebriefState {
@@ -166,7 +166,7 @@ const DEFAULT_ACWR_CONTEXT: AcwrContextState = {
   acute: 0,
   chronic: 0,
   phase: 'off-season',
-  isOnActiveCut: false,
+  hasActiveWeightClassPlan: false,
 };
 
 function pctDelta(actual: number, target: number): number {
@@ -402,7 +402,7 @@ export function useLogScreenData() {
           acute: engineState.acwr.acute,
           chronic: engineState.acwr.chronic,
           phase: engineState.objectiveContext.phase,
-          isOnActiveCut: engineState.objectiveContext.isOnActiveCut,
+          hasActiveWeightClassPlan: engineState.objectiveContext.hasActiveWeightClassPlan,
         },
         performanceContext: buildUnifiedPerformanceViewModel(engineState.unifiedPerformance),
       };

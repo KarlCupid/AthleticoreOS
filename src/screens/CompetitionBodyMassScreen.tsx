@@ -12,8 +12,8 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
-import { useWeightCutData } from '../hooks/useWeightCutData';
-import type { WeightCutPlanRow } from '../../lib/engine/types';
+import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
+import type { WeightClassPlanRow } from '../../lib/engine/types';
 import { getBodyMassSupportPhase, type BodyMassSupportPhase } from '../../lib/performance-engine';
 import type { FightWeekDayViewModel } from '../hooks/fuel/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
@@ -53,7 +53,7 @@ const FLAG_COLORS: Record<string, string> = {
   info: COLORS.accent,
 };
 
-function buildFightWeekDays(weighInDate: string, plan: WeightCutPlanRow): FightWeekDayViewModel[] {
+function buildFightWeekDays(weighInDate: string, plan: WeightClassPlanRow): FightWeekDayViewModel[] {
   return Array.from({ length: 8 }, (_, index) => {
     const daysToWeighIn = 7 - index;
     const date = addDays(weighInDate, -daysToWeighIn);
@@ -103,7 +103,7 @@ function ProtocolSection({
   );
 }
 
-export function FightWeekProtocolScreen() {
+export function CompetitionBodyMassScreen() {
   const navigation = useNavigation<any>();
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(7);
@@ -119,7 +119,7 @@ export function FightWeekProtocolScreen() {
     loading,
     logSafetyCheck,
     performanceContext,
-  } = useWeightCutData(userId);
+  } = useBodyMassPlanData(userId);
 
   const fightWeekDays = useMemo(
     () => (activePlan ? buildFightWeekDays(activePlan.weigh_in_date, activePlan) : []),

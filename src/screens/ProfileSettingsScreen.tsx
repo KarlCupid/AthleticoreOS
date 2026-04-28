@@ -24,8 +24,8 @@ import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getPlanningSetupStatus, resetTrainingProgrammingForTester } from '../../lib/api/planningSetupService';
 import { getLatestWeight } from '../../lib/api/weightService';
 import { getWeeklyPlanConfig } from '../../lib/api/weeklyPlanService';
-import { getActiveWeightCutPlan } from '../../lib/api/weightCutService';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { getActiveWeightClassPlan } from '../../lib/api/weightClassPlanService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getAthleteProfile, type AthleteProfileRow } from '../../lib/api/athleteContextService';
 import {
   buildUnifiedPerformanceViewModel,
@@ -33,7 +33,7 @@ import {
 } from '../../lib/performance-engine';
 import type { BuildPhaseGoalRow, FightCampStatus, WeeklyPlanConfigRow } from '../../lib/engine/types';
 import type { GymProfileRow } from '../../lib/engine/types/training';
-import type { WeightCutPlanRow } from '../../lib/engine/types/weight_cut';
+import type { WeightClassPlanRow } from '../../lib/engine/types/weightClassPlan';
 import type { FirstRunGuidanceState } from '../../lib/api/firstRunGuidanceService';
 import type { PlanningSetupStatus } from '../../lib/api/planningSetupService';
 import { logError } from '../../lib/utils/logger';
@@ -69,7 +69,7 @@ interface MeSnapshot {
   totalSessions: number;
   latestWeight: { weight: number; date: string } | null;
   planningStatus: PlanningSetupStatus;
-  activeCutPlan: WeightCutPlanRow | null;
+  activeWeightClassPlan: WeightClassPlanRow | null;
   fightCampStatus: FightCampStatus;
   buildGoal: BuildPhaseGoalRow | null;
   defaultGymProfile: GymProfileRow | null;
@@ -128,8 +128,8 @@ function formatGuidanceStatus(guidanceState: FirstRunGuidanceState) {
   return guidanceState.status === 'completed' ? 'Completed' : 'Pending';
 }
 
-function getManagedSourceLabel(activeCutPlan: WeightCutPlanRow | null, fightCampStatus: FightCampStatus) {
-  if (activeCutPlan) return 'Managed by active cut';
+function getManagedSourceLabel(activeWeightClassPlan: WeightClassPlanRow | null, fightCampStatus: FightCampStatus) {
+  if (activeWeightClassPlan) return 'Managed by active weight-class plan';
   if (fightCampStatus.camp) return 'Managed by fight camp';
   return 'Stored on profile';
 }
@@ -171,7 +171,7 @@ export function ProfileSettingsScreen() {
         sessionsRes,
         latestWeight,
         planningStatus,
-        activeCutPlan,
+        activeWeightClassPlan,
         fightCampStatus,
         buildGoal,
         defaultGymProfile,
@@ -183,7 +183,7 @@ export function ProfileSettingsScreen() {
         supabase.from('training_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
         getLatestWeight(userId),
         getPlanningSetupStatus(userId),
-        getActiveWeightCutPlan(userId),
+        getActiveWeightClassPlan(userId),
         getFightCampStatus(userId),
         getActiveBuildPhaseGoal(userId),
         getDefaultGymProfile(userId),
@@ -201,7 +201,7 @@ export function ProfileSettingsScreen() {
         totalSessions: sessionsRes.count ?? 0,
         latestWeight,
         planningStatus,
-        activeCutPlan,
+        activeWeightClassPlan,
         fightCampStatus,
         buildGoal,
         defaultGymProfile,
@@ -236,16 +236,16 @@ export function ProfileSettingsScreen() {
   const profile = snapshot?.profile ?? null;
   const latestWeight = snapshot?.latestWeight ?? null;
   const goalMode = snapshot?.planningStatus.goalMode ?? 'build_phase';
-  const resolvedFightDate = snapshot?.activeCutPlan?.fight_date
+  const resolvedFightDate = snapshot?.activeWeightClassPlan?.fight_date
     ?? snapshot?.fightCampStatus.camp?.fightDate
     ?? profile?.fight_date
     ?? null;
-  const resolvedTargetWeight = snapshot?.activeCutPlan?.target_weight
+  const resolvedTargetWeight = snapshot?.activeWeightClassPlan?.target_weight
     ?? snapshot?.fightCampStatus.camp?.targetWeight
     ?? profile?.target_weight
     ?? null;
-  const isFightDateManaged = Boolean(snapshot?.activeCutPlan || snapshot?.fightCampStatus.camp);
-  const isTargetWeightManaged = Boolean(snapshot?.activeCutPlan || snapshot?.fightCampStatus.camp);
+  const isFightDateManaged = Boolean(snapshot?.activeWeightClassPlan || snapshot?.fightCampStatus.camp);
+  const isTargetWeightManaged = Boolean(snapshot?.activeWeightClassPlan || snapshot?.fightCampStatus.camp);
   const phaseLabel = snapshot?.fightCampStatus.camp
     ? formatCampPhase(snapshot.fightCampStatus.campPhase)
     : formatTitleCase(profile?.phase);
@@ -257,8 +257,8 @@ export function ProfileSettingsScreen() {
       ? 'No recent weigh-in, using profile baseline'
       : 'Add a weigh-in from Log to personalize training';
   const profileTargetsNote = getManagedSourceLabel(
-    snapshot?.activeCutPlan ?? null,
-    snapshot?.fightCampStatus ?? { camp: null, campPhase: null, daysOut: null, label: 'Build Phase', weightCutState: 'none' },
+    snapshot?.activeWeightClassPlan ?? null,
+    snapshot?.fightCampStatus ?? { camp: null, campPhase: null, daysOut: null, label: 'Build Phase', weightClassState: 'none' },
   );
   const setupSummary = formatAvailabilitySummary(snapshot?.weeklyPlanConfig ?? null);
   const guideProgress = snapshot?.guidanceState.progress.completedCount ?? 0;
@@ -398,9 +398,9 @@ export function ProfileSettingsScreen() {
     navigation.getParent()?.navigate('Train', { screen: 'GymProfiles' });
   }
 
-  function openWeightCut() {
+  function openWeightClassPlan() {
     navigation.getParent()?.navigate('Fuel', {
-      screen: snapshot?.activeCutPlan ? 'WeightCutHome' : 'CutPlanSetup',
+      screen: snapshot?.activeWeightClassPlan ? 'WeightClassHome' : 'WeightClassPlanSetup',
     });
   }
 
@@ -421,7 +421,7 @@ export function ProfileSettingsScreen() {
       <ScreenWrapper>
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={themeColor} />
-          <Text style={styles.loadingText}>Connecting your profile, planner, and weight-cut data...</Text>
+          <Text style={styles.loadingText}>Connecting your profile, planner, and weight-class data...</Text>
         </View>
       </ScreenWrapper>
     );
@@ -490,15 +490,15 @@ export function ProfileSettingsScreen() {
                   <View style={[styles.badge, { backgroundColor: themeColor + '20' }]}>
                     <Text style={[styles.badgeText, { color: themeColor }]}>{formatGoalMode(goalMode)}</Text>
                   </View>
-                  {snapshot.activeCutPlan ? (
+                  {snapshot.activeWeightClassPlan ? (
                     <View style={[styles.badge, styles.badgeMuted]}>
-                      <Text style={styles.badgeMutedText}>Active Cut</Text>
+                      <Text style={styles.badgeMutedText}>Active Class Plan</Text>
                     </View>
                   ) : null}
                 </View>
                 <Text style={styles.heroSummary}>
-                  {snapshot.activeCutPlan
-                    ? `Cut target ${formatWeightLabel(snapshot.activeCutPlan.target_weight)} by ${formatDateLabel(snapshot.activeCutPlan.weigh_in_date)}.`
+                  {snapshot.activeWeightClassPlan
+                    ? `Weight-class target ${formatWeightLabel(snapshot.activeWeightClassPlan.target_weight)} by ${formatDateLabel(snapshot.activeWeightClassPlan.weigh_in_date)}.`
                     : snapshot.fightCampStatus.camp
                       ? snapshot.fightCampStatus.label
                       : snapshot.buildGoal?.goal_statement ?? 'Build phase profile is active.'}
@@ -546,7 +546,7 @@ export function ProfileSettingsScreen() {
             variant="glass"
             title="Current program"
             subtitle="Active plan"
-            backgroundTone={snapshot.activeCutPlan ? 'bodyMassSupport' : 'camp'}
+            backgroundTone={snapshot.activeWeightClassPlan ? 'bodyMassSupport' : 'camp'}
             backgroundScrimColor="rgba(10, 10, 10, 0.72)"
           >
             <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Mode" value={formatGoalMode(goalMode)} />
@@ -572,7 +572,7 @@ export function ProfileSettingsScreen() {
             />
 
             <View style={styles.actionRow}>
-              <ActionButton label={snapshot.activeCutPlan ? 'Open Class Plan' : 'Evaluate Class'} onPress={openWeightCut} />
+              <ActionButton label={snapshot.activeWeightClassPlan ? 'Open Class Plan' : 'Evaluate Class'} onPress={openWeightClassPlan} />
               <ActionButton label="Adjust Journey" onPress={openWeeklySetup} variant="secondary" />
               <ActionButton label="Log Check-in" onPress={openCheckIn} variant="secondary" />
             </View>

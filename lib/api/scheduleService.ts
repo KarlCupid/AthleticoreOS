@@ -12,7 +12,6 @@ import {
     WeeklyComplianceReport,
     DailyAdaptationResult,
     MuscleGroup,
-    WeightCutPlanRow,
 } from '../engine/types';
 import { calculateWeeklyCompliance, getTrainingStreak, adaptDailySchedule } from '../engine/calculateSchedule';
 import { generateAdaptiveSmartWeekPlan } from '../engine/adaptiveTrainingAdapter';
@@ -23,6 +22,7 @@ import { getAthleteContext } from './athleteContextService';
 import { getDefaultGymProfile } from './gymProfileService';
 import { getWeeksSinceLastDeload } from './overloadService';
 import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
+import { getActiveWeightClassPlan } from './weightClassPlanService';
 import { logWarn } from '../utils/logger';
 import { isGuidedEngineActivityType } from '../engine/sessionOwnership';
 
@@ -37,7 +37,7 @@ function addDays(dateStr: string, days: number): string {
 }
 
 async function loadDailyEngineState(userId: string, date: string) {
-    const { getDailyEngineState } = await import('./dailyMissionService');
+    const { getDailyEngineState } = await import('./dailyPerformanceService');
     return getDailyEngineState(userId, date);
 }
 
@@ -860,17 +860,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         throw new Error('Create a default gym profile before generating a workout plan.');
     }
 
-    let activeCutPlan: WeightCutPlanRow | null = null;
-    if (athleteContext.profile?.active_cut_plan_id) {
-        const { data: cutPlan, error: cutPlanError } = await supabase
-            .from('weight_cut_plans')
-            .select('*')
-            .eq('id', athleteContext.profile.active_cut_plan_id)
-            .maybeSingle();
-
-        if (cutPlanError) throw cutPlanError;
-        activeCutPlan = (cutPlan as WeightCutPlanRow | null) ?? null;
-    }
+    const activeWeightClassPlan = await getActiveWeightClassPlan(userId);
 
     const engineState = await loadDailyEngineState(userId, today());
     const exerciseHistory = await getExerciseHistoryBatch(
@@ -890,7 +880,7 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         recentExerciseIds,
         recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
         campConfig,
-        activeCutPlan,
+        activeWeightClassPlan,
         weeksSinceLastDeload,
         gymProfile,
         weekStartDate,

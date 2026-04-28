@@ -1,4 +1,4 @@
-import type { DailyMission } from '../types/mission.ts';
+import type { DailyAthleteSummary } from '../types/mission.ts';
 import type { MissionRiskLevel } from '../types/mission.ts';
 import type { CompassViewModel } from './types.ts';
 import { getPrimaryDecisionReason } from './decisionReason.ts';
@@ -18,7 +18,7 @@ const NULL_DEFAULT: CompassViewModel = {
   hasPrescription: false,
 };
 
-function buildMissionHeadline(mission: DailyMission, sessionLabel: string): string {
+function buildMissionHeadline(mission: DailyAthleteSummary, sessionLabel: string): string {
   const directive = mission.trainingDirective;
 
   if (directive.isMandatoryRecovery || directive.interventionState === 'hard') {
@@ -34,7 +34,7 @@ function buildMissionHeadline(mission: DailyMission, sessionLabel: string): stri
       return 'Rest today';
     case 'recover':
       return 'Recovery first';
-    case 'cut_protect':
+    case 'body_mass_protect':
       return 'Keep it light';
     case 'spar_support':
       return 'Support the main work';
@@ -48,7 +48,7 @@ function buildMissionHeadline(mission: DailyMission, sessionLabel: string): stri
   }
 }
 
-function buildMissionSummary(mission: DailyMission): string {
+function buildMissionSummary(mission: DailyAthleteSummary): string {
   const directive = mission.trainingDirective;
 
   if (directive.isMandatoryRecovery || directive.interventionState === 'hard') {
@@ -64,7 +64,7 @@ function buildMissionSummary(mission: DailyMission): string {
       return 'No training today. Let the work settle.';
     case 'recover':
       return 'Move easy and leave the tank fuller than you found it.';
-    case 'cut_protect':
+    case 'body_mass_protect':
       return 'Stay controlled. Protect energy and make weight.';
     case 'spar_support':
       return 'Help the main session. Do not chase extra fatigue.';
@@ -78,7 +78,7 @@ function buildMissionSummary(mission: DailyMission): string {
   }
 }
 
-function buildMissionReason(mission: DailyMission, fallbackReason: string): string {
+function buildMissionReason(mission: DailyAthleteSummary, fallbackReason: string): string {
   const directive = mission.trainingDirective;
   const riskLevel = mission.riskState?.level ?? 'low';
 
@@ -94,7 +94,7 @@ function buildMissionReason(mission: DailyMission, fallbackReason: string): stri
     return 'No training is scheduled, so recovery is the job.';
   }
 
-  if (directive.sessionRole === 'cut_protect') {
+  if (directive.sessionRole === 'body_mass_protect') {
     return 'Body-mass and recovery context are setting today\'s limits.';
   }
 
@@ -114,7 +114,7 @@ function buildMissionReason(mission: DailyMission, fallbackReason: string): stri
 }
 
 export function buildCompassViewModel(
-  mission: DailyMission | null,
+  mission: DailyAthleteSummary | null,
   hasPrescription: boolean,
   checkinDone: boolean,
   sessionDone: boolean,

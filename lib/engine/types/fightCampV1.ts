@@ -5,7 +5,7 @@ export type BuildPhaseGoalType = 'strength' | 'conditioning' | 'boxing_skill' | 
 export type PerformanceGoalType = BuildPhaseGoalType;
 export type ConstraintTier = 'mandatory' | 'preferred';
 export type WeighInTiming = 'same_day' | 'next_day';
-export type WeightCutInfluenceState = 'none' | 'monitoring' | 'driving';
+export type WeightClassInfluenceState = 'none' | 'monitoring' | 'driving';
 export type CampRecommendationSeverity = 'info' | 'recommended' | 'strongly_recommended';
 export type RecommendationLifecycleStatus = 'pending' | 'accepted' | 'declined' | 'completed';
 export type ObjectiveSecondaryConstraint =
@@ -81,6 +81,6 @@ export interface FightCampStatus {
   camp: CampConfig | null;
   campPhase: 'base' | 'build' | 'peak' | 'taper' | null;
   daysOut: number | null;
-  weightCutState: WeightCutInfluenceState;
+  weightClassState: WeightClassInfluenceState;
   label: string;
 }

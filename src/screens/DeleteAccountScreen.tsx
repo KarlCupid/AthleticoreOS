@@ -51,7 +51,7 @@ export function DeleteAccountScreen() {
           <View style={styles.list}>
             <Text style={styles.listItem}>Your sign-in account</Text>
             <Text style={styles.listItem}>Profile, planning, and gym setup data</Text>
-            <Text style={styles.listItem}>Workout, nutrition, hydration, and weight-cut history</Text>
+            <Text style={styles.listItem}>Workout, nutrition, hydration, and weight-class history</Text>
             <Text style={styles.listItem}>Saved schedules, goals, and engine snapshots</Text>
           </View>
         </Card>

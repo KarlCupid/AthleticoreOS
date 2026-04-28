@@ -125,7 +125,7 @@ export interface ProteinTargetPolicy {
   deficitScalerCapPerKg: number;
 }
 
-export interface NutritionTargets {
+export interface NutritionTargetEstimate {
   engineVersion?: 'nutrition_fueling_engine_v1';
   canonicalPhase?: string;
   tdee: number;
@@ -147,7 +147,7 @@ export type FuelState =
   | 'spar_support'
   | 'double_day'
   | 'taper'
-  | 'cut_protect';
+  | 'body_mass_protect';
 
 export type FuelPriority =
   | 'sparring'
@@ -156,10 +156,10 @@ export type FuelPriority =
   | 'conditioning'
   | 'double_session'
   | 'recovery'
-  | 'cut_protect';
+  | 'body_mass_protect';
 
 export type DeficitClass =
-  | 'steady_cut'
+  | 'steady_deficit'
   | 'steady_maintain'
   | 'steady_bulk';
 
@@ -211,20 +211,20 @@ export type DailyNutritionTargetSource =
 export type NutritionSafetyWarning =
   | 'none'
   | 'fueling_floor_applied'
-  | 'cut_readiness_floor_applied'
+  | 'body_mass_readiness_floor_applied'
   | 'low_energy_availability'
   | 'critical_energy_availability'
   | 'cumulative_ea_deficit_red_flag';
 
 export interface NutritionSafetyEvent {
   code: NutritionSafetyWarning;
-  source: 'fueling_floor' | 'cut_readiness_floor' | 'cumulative_ea_deficit';
+  source: 'fueling_floor' | 'body_mass_readiness_floor' | 'cumulative_ea_deficit';
   priorValue: number | null;
   adjustedValue: number | null;
   reason: string;
 }
 
-export interface ResolvedNutritionTargets extends NutritionTargets {
+export interface NutritionFuelingTarget extends NutritionTargetEstimate {
   source: DailyNutritionTargetSource;
   fuelState: FuelState;
   prioritySession: FuelPriority;

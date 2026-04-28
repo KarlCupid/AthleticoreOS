@@ -5,7 +5,7 @@ export const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    cutBanner: {
+    bodyMassBanner: {
         backgroundColor: 'rgba(245, 245, 240, 0.08)',
         borderRadius: RADIUS.xl,
         padding: SPACING.md,
@@ -14,20 +14,20 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(212, 175, 55, 0.22)',
     },
-    cutBannerTop: {
+    bodyMassBannerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: SPACING.sm,
         flexWrap: 'wrap',
     },
-    cutBannerPhase: {
+    bodyMassBannerPhase: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 12,
         color: COLORS.accent,
         flex: 1,
         letterSpacing: 0.4,
     },
-    cutBadge: {
+    bodyMassBadge: {
         backgroundColor: COLORS.accentLight,
         borderWidth: 1,
         borderColor: 'rgba(212, 175, 55, 0.28)',
@@ -35,13 +35,13 @@ export const styles = StyleSheet.create({
         paddingVertical: 2,
         borderRadius: RADIUS.sm,
     },
-    cutBadgeText: {
+    bodyMassBadgeText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 10,
         color: COLORS.accent,
         letterSpacing: 0.5,
     },
-    cutBannerInstruction: {
+    bodyMassBannerInstruction: {
         fontFamily: FONT_FAMILY.regular,
         fontSize: 12,
         color: COLORS.text.secondary,

@@ -54,7 +54,7 @@ The system must support:
 - Same-day and next-day weigh-ins
 - Travel windows
 
-These events should transition the athlete journey. They should not reset the athlete, orphan old plans, or leave stale nutrition, training, or weight-cut logic active.
+These events should transition the athlete journey. They should not reset the athlete, orphan old plans, or leave stale nutrition, training, or weight-class logic active.
 
 ## Protected Workouts as Anchors
 
@@ -75,13 +75,13 @@ Training, nutrition, tracking, readiness, body mass, and risk are one system. A 
 
 ## Safety-First Weight-Class Management
 
-Weight-class features must protect the athlete. The product should distinguish chronic body-composition work from acute fight-week cutting and rehydration. It should screen for unsafe patterns, under-fueling, dehydration risk, rapid weight loss, poor readiness, and REDs-style risk signals.
+Weight-class features must protect the athlete. The product should distinguish chronic body-composition work from competition-week body-mass monitoring, weigh-in logistics, and post-weigh-in recovery. It should screen for unsafe patterns, under-fueling, dehydration risk, rapid weight loss, poor readiness, and REDs-style risk signals.
 
 Missing data is unknown, not zero. If the app lacks enough information to make a safe recommendation, it should lower confidence, ask for more data, or choose the safer option.
 
 ## Explainable Recommendations
 
-Every major recommendation should be explainable in plain language. The athlete should understand why a workout changed, why calories moved, why a recovery day was suggested, why a cut protocol was capped, or why a fight opportunity changed the plan.
+Every major recommendation should be explainable in plain language. The athlete should understand why a workout changed, why calories moved, why a recovery day was suggested, why a body-mass guidance was capped, or why a fight opportunity changed the plan.
 
 Explanations should connect decisions to the athlete's current state:
 

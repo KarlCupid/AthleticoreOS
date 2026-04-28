@@ -5,7 +5,7 @@ export interface AthleteProfileRow {
   user_id: string;
   phase: string | null;
   fitness_level: string | null;
-  active_cut_plan_id: string | null;
+  active_weight_class_plan_id: string | null;
   base_weight: number | null;
   target_weight: number | null;
   fight_date: string | null;
@@ -138,7 +138,12 @@ export async function getAthleteProfile(userId: string): Promise<AthleteProfileR
     throw error;
   }
 
-  return (data as AthleteProfileRow | null) ?? null;
+  if (!data) return null;
+  const row = data as AthleteProfileRow & { active_cut_plan_id?: string | null };
+  return {
+    ...row,
+    active_weight_class_plan_id: row.active_weight_class_plan_id ?? row.active_cut_plan_id ?? null,
+  };
 }
 
 export async function getAthleteContext(userId: string): Promise<{
@@ -146,7 +151,7 @@ export async function getAthleteContext(userId: string): Promise<{
   phase: Phase;
   fitnessLevel: FitnessLevel;
   trainingAge: TrainingAge;
-  isOnActiveCut: boolean;
+  hasActiveWeightClassPlan: boolean;
   goalMode: AthleteGoalMode;
   performanceGoalType: PerformanceGoalType;
   planningSetupVersion: number;
@@ -159,7 +164,7 @@ export async function getAthleteContext(userId: string): Promise<{
     phase: normalizePhase(profile?.phase),
     fitnessLevel,
     trainingAge: normalizeTrainingAge(profile?.training_age, fitnessLevel),
-    isOnActiveCut: Boolean(profile?.active_cut_plan_id),
+    hasActiveWeightClassPlan: Boolean(profile?.active_weight_class_plan_id),
     goalMode: normalizeGoalMode(profile?.athlete_goal_mode),
     performanceGoalType: (profile?.performance_goal_type ?? 'conditioning') as PerformanceGoalType,
     planningSetupVersion: profile?.planning_setup_version ?? 0,

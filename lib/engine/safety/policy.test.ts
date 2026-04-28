@@ -1,7 +1,7 @@
 import {
   FIGHT_CAMP_SAFETY_POLICY,
   computeRehydrationFluidTargetLiters,
-  evaluateCutPlanSafety,
+  evaluateWeightClassPlanSafety,
   getFightCampSodiumRestrictionInterpretation,
   getFightWeekCutHydrationInstruction,
   getFightWeekCutSodiumInstruction,
@@ -9,7 +9,7 @@ import {
   getFightWeekLoadHydrationMultiplier,
   getSafeFightCampSodiumRestrictionDetail,
   hasUnsafeFightCampSodiumLanguage,
-  getPolicyWaterCutPct,
+  getPolicyFightWeekBodyMassChangePct,
 } from './policy.ts';
 
 let passed = 0;
@@ -37,10 +37,10 @@ assert('fight-week support target is baseline support', getFightWeekCutWaterTarg
 assert('fight-week support instruction avoids restriction language', !getFightWeekCutHydrationInstruction(96).toLowerCase().includes('restriction'));
 assert('fight-week sodium stays normal', getFightWeekCutSodiumInstruction(2).includes('Normal'));
 assert('post weigh-in fluid helper no longer forces catch-up math', computeRehydrationFluidTargetLiters({ currentWeight: 165, targetWeight: 170 }) === 0);
-assert('policy water-cut allocation is zero', getPolicyWaterCutPct({ fightStatus: 'pro', athleteAge: 25, weighInTiming: 'next_day' }) === 0);
+assert('policy fight-week body-mass change allocation is zero', getPolicyFightWeekBodyMassChangePct({ fightStatus: 'pro', athleteAge: 25, weighInTiming: 'next_day' }) === 0);
 
 (() => {
-  const warnings = evaluateCutPlanSafety({
+  const warnings = evaluateWeightClassPlanSafety({
     startWeight: 180,
     targetWeight: 160,
     totalCutLbs: 20,
@@ -49,7 +49,7 @@ assert('policy water-cut allocation is zero', getPolicyWaterCutPct({ fightStatus
     fightStatus: 'amateur',
     athleteAge: 25,
     weighInTiming: 'next_day',
-    waterCutAllocationLbs: 0,
+    fightWeekBodyMassChangeLbs: 0,
     dietPhaseTargetLbs: 20,
     dietPhaseDays: 5,
   });

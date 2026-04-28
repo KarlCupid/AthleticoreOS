@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { COLORS, FONT_FAMILY, RADIUS } from '../theme/theme';
-import { WeightCutPlanRow } from '../../lib/engine/types';
+import { WeightClassPlanRow } from '../../lib/engine/types';
 import type { BodyMassSupportPhase } from '../../lib/performance-engine';
 
 interface Props {
-  plan: WeightCutPlanRow;
+  plan: WeightClassPlanRow;
   currentPhase: BodyMassSupportPhase;
 }
 

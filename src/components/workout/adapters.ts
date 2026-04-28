@@ -14,7 +14,7 @@ import type {
   SectionExercisePrescription,
   ExerciseSetPrescription,
 } from '../../../lib/engine/types/training';
-import type { DailyMission } from '../../../lib/engine/types';
+import type { DailyAthleteSummary } from '../../../lib/engine/types';
 import type {
   EngineReplayDay,
   EngineReplayPrescribedExercise,
@@ -49,7 +49,7 @@ import type {
 
 export function fromPrescriptionV2(
   rx: WorkoutPrescriptionV2,
-  _mission: DailyMission | null,
+  _mission: DailyAthleteSummary | null,
 ): WorkoutSessionVM {
   const sections: WorkoutSectionVM[] = (rx.sections ?? []).map(mapLiveSection);
   const flatExercises: ExerciseVM[] = rx.exercises.map(mapLiveExercise);

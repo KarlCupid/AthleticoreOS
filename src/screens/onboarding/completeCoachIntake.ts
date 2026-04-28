@@ -3,7 +3,7 @@ import { getDefaultGymProfile } from '../../../lib/api/gymProfileService';
 import { getActiveUserId } from '../../../lib/api/athleteContextService';
 import { setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { setupFightCamp } from '../../../lib/api/fightCampService';
-import { invalidateEngineDataCache } from '../../../lib/api/dailyMissionService';
+import { invalidateEngineDataCache } from '../../../lib/api/dailyPerformanceService';
 import { replaceRecurringActivities } from '../../../lib/api/scheduleService';
 import { saveWeeklyPlanConfig } from '../../../lib/api/weeklyPlanService';
 import {

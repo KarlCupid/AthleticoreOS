@@ -25,8 +25,7 @@ import type {
   WorkoutDoseCredit,
   WorkoutPrescriptionV2,
 } from './training.ts';
-import type { WeightCutPlanRow } from './weight_cut.ts';
-import type { DailyMission } from './mission.ts';
+import type { WeightClassPlanRow } from './weightClassPlan.ts';
 
 export interface DailyTimelineRow {
   id: string;
@@ -247,7 +246,6 @@ export interface WeeklyPlanEntryRow {
   workout_log_id: string | null;
   scheduled_activity_id?: string | null;
   prescription_snapshot: WorkoutPrescriptionV2 | null;
-  daily_mission_snapshot?: DailyMission | null;
   engine_notes: string | null;
   is_deload: boolean;
   created_at: string;
@@ -318,7 +316,7 @@ export interface SmartWeekPlanInput {
   recentExerciseIds?: string[];
   recentMuscleVolume: Record<MuscleGroup, number>;
   campConfig: CampConfig | null;
-  activeCutPlan: WeightCutPlanRow | null;
+  activeWeightClassPlan: WeightClassPlanRow | null;
   weeksSinceLastDeload: number;
   gymProfile: import('./training.ts').GymProfileRow | null;
   weekStartDate: string;

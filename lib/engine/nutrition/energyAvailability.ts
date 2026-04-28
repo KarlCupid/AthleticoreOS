@@ -76,7 +76,7 @@ export function applyFuelingFloor(input: {
   isTrainingDay: boolean;
   daysToWeighIn?: number | null;
   minimumEnergyAvailability?: number | null;
-  floorSource?: 'fueling_floor' | 'cut_readiness_floor';
+  floorSource?: 'fueling_floor' | 'body_mass_readiness_floor';
 }): {
   adjustedCalories: number;
   energyAvailability: number;
@@ -112,7 +112,7 @@ export function applyFuelingFloor(input: {
   if (triggered) {
     traceLines.push(`Fueling floor activated: EA protected from ${energyAvailability.toFixed(1)} to ${adjustedEA.toFixed(1)} kcal/kg FFM.`);
     safetyEvents.push({
-      code: floorSource === 'cut_readiness_floor' ? 'cut_readiness_floor_applied' : 'fueling_floor_applied',
+      code: floorSource === 'body_mass_readiness_floor' ? 'body_mass_readiness_floor_applied' : 'fueling_floor_applied',
       source: floorSource,
       priorValue: targetCalories,
       adjustedValue: safeCalories,
@@ -126,8 +126,8 @@ export function applyFuelingFloor(input: {
     fuelingFloorTriggered: triggered,
     deficitBankDelta: triggered ? Math.round(safeCalories - targetCalories) : 0,
     safetyWarning: triggered
-      ? floorSource === 'cut_readiness_floor'
-        ? 'cut_readiness_floor_applied'
+      ? floorSource === 'body_mass_readiness_floor'
+        ? 'body_mass_readiness_floor_applied'
         : 'fueling_floor_applied'
       : getNutritionSafetyWarning(adjustedEA, isTrainingDay, daysToWeighIn),
     safetyEvents,

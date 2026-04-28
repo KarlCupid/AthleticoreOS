@@ -49,7 +49,7 @@ const EDUCATION_LIBRARY: Record<PrimaryLimiter, EducationEntry[]> = {
       id: 'stress_load_split',
       title: 'Stress Load Split',
       teaching: 'Life stress and training stress add up.',
-      application: 'Do your main work, then cut optional volume by 15-20%.',
+      application: 'Do your main work, then trim optional volume by 15-20%.',
     },
     {
       id: 'stress_breathing_bracket',
@@ -111,7 +111,7 @@ const EDUCATION_LIBRARY: Record<PrimaryLimiter, EducationEntry[]> = {
       id: 'time_density_upgrade',
       title: 'Density Upgrade',
       teaching: 'Shorter rest on easier sets can save time and keep quality.',
-      application: 'Use a timer and cut easy-set rest by 15-20 seconds today.',
+      application: 'Use a timer and trim easy-set rest by 15-20 seconds today.',
     },
   ],
   none: [
@@ -214,7 +214,7 @@ function buildRiskFlags(input: DailyCoachDebriefInput, limiter: PrimaryLimiter):
   if ((input.sorenessLevel ?? 3) >= 4) flags.push('high_soreness');
   if ((input.painLevel ?? 1) >= 4) flags.push('pain_restriction');
   if (input.nutritionAdherence === 'Missed It') flags.push('fuel_miss');
-  if (input.context.isOnActiveCut) flags.push('active_cut');
+  if (input.context.hasActiveWeightClassPlan) flags.push('active_weight_class_plan');
   if (limiter === 'time') flags.push('time_constrained');
 
   return flags;
@@ -329,7 +329,7 @@ function buildRecoveryAction(limiter: PrimaryLimiter, band: DailyReadinessBand):
     soreness: 'Warm up stiff areas before your first work set.',
     nutrition: 'Have protein and carbs within 60 minutes after training.',
     hydration: 'Drink fluids early and add sodium before your hardest work.',
-    time: 'Set a start time and cut low-value extras.',
+    time: 'Set a start time and trim low-value extras.',
     none: 'Keep your basics: sleep window, hydration, and cooldown.',
   };
 

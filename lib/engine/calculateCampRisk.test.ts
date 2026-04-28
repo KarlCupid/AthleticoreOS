@@ -18,7 +18,7 @@ console.log('\n-- calculateCampRisk --');
 (() => {
   const result = calculateCampRisk({
     goalMode: 'build_phase',
-    weightCutState: 'none',
+    weightClassState: 'none',
     daysOut: null,
   });
   assert('performance block returns null', result === null);
@@ -27,7 +27,7 @@ console.log('\n-- calculateCampRisk --');
 (() => {
   const result = calculateCampRisk({
     goalMode: 'fight_camp',
-    weightCutState: 'driving',
+    weightClassState: 'driving',
     daysOut: 6,
     remainingWeightLbs: 6.2,
     weighInTiming: 'same_day',
@@ -47,7 +47,7 @@ console.log('\n-- calculateCampRisk --');
 (() => {
   const result = calculateCampRisk({
     goalMode: 'fight_camp',
-    weightCutState: 'monitoring',
+    weightClassState: 'monitoring',
     daysOut: 40,
     remainingWeightLbs: 1.6,
     weighInTiming: 'next_day',
@@ -65,7 +65,7 @@ console.log('\n-- calculateCampRisk --');
 (() => {
   const input = {
     goalMode: 'fight_camp' as const,
-    weightCutState: 'none' as const,
+    weightClassState: 'none' as const,
     daysOut: 60,
     remainingWeightLbs: 0,
     weighInTiming: 'next_day' as const,

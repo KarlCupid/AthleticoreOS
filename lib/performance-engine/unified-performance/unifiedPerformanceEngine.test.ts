@@ -288,7 +288,7 @@ function weeklyInput(): SmartWeekPlanInput {
     recentExerciseIds: [],
     recentMuscleVolume: { ...EMPTY_VOLUME },
     campConfig: null,
-    activeCutPlan: null,
+    activeWeightClassPlan: null,
     weeksSinceLastDeload: 1,
     gymProfile: null,
     weekStartDate: WEEK_START,

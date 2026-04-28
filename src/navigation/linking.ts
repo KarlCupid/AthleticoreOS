@@ -6,7 +6,7 @@ export type AppDeepLinkTarget =
   | { route: 'today' }
   | { route: 'guided-workout'; weeklyPlanEntryId?: string; scheduledActivityId?: string; trainingDate?: string }
   | { route: 'nutrition-quick-log'; mealType?: string; date?: string }
-  | { route: 'cut-protocol'; date?: string };
+  | { route: 'competition-body-mass'; date?: string };
 
 function buildQuery(params: Record<string, string | undefined>): string {
   const entries = Object.entries(params).filter(([, value]) => value);
@@ -33,8 +33,8 @@ export function buildAppDeepLink(target: AppDeepLinkTarget): string {
         mealType: target.mealType,
         date: target.date,
       })}`;
-    case 'cut-protocol':
-      return `athleticore://fuel/cut/fight-week${buildQuery({
+    case 'competition-body-mass':
+      return `athleticore://fuel/body-mass/competition${buildQuery({
         date: target.date,
       })}`;
   }
@@ -76,11 +76,11 @@ export const appLinking: LinkingOptions<any> = {
           FoodSearch: 'fuel/search',
           FoodDetail: 'fuel/food',
           BarcodeScan: 'fuel/barcode',
-          WeightCutHome: 'fuel/cut',
-          CutPlanSetup: 'fuel/cut/setup',
-          FightWeekProtocol: 'fuel/cut/fight-week',
-          RehydrationProtocol: 'fuel/cut/rehydration',
-          CutHistory: 'fuel/cut/history',
+          WeightClassHome: 'fuel/body-mass',
+          WeightClassPlanSetup: 'fuel/body-mass/weight-class/setup',
+          CompetitionBodyMass: 'fuel/body-mass/competition',
+          PostWeighInRecovery: 'fuel/body-mass/post-weigh-in',
+          WeightClassHistory: 'fuel/body-mass/history',
         },
       },
       Me: {

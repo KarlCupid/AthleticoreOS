@@ -122,7 +122,7 @@ function entriesFromInput(input: ReadinessProfileInput, date: string): TrackingE
     makeEntry({ id: 'legacy-stress', type: 'stress', value: input.stressLevel, date }),
     makeEntry({ id: 'legacy-fatigue', type: 'fatigue', value: input.energyLevel == null ? null : 6 - input.energyLevel, date }),
     makeEntry({ id: 'legacy-pain', type: 'pain', value: input.painLevel, date }),
-    makeEntry({ id: 'legacy-nutrition', type: 'nutrition_adherence', value: input.fuelHydrationStatus, date }),
+    makeEntry({ id: 'nutrition-fueling', type: 'nutrition_adherence', value: input.fuelHydrationStatus, date }),
     makeEntry({ id: 'legacy-hydration', type: 'hydration', value: input.urineColor != null ? Math.max(1, 8 - input.urineColor) : null, date }),
     makeEntry({ id: 'legacy-illness', type: 'illness', value: input.bodyTempF != null ? input.bodyTempF >= 100.4 : null, unit: null, date }),
   ].filter((entry): entry is TrackingEntry => entry !== null);
@@ -229,7 +229,7 @@ export function deriveReadinessProfile(input: ReadinessProfileInput): ReadinessP
   if ((input.urineColor ?? 0) >= 7) addFlag(flags, { code: 'severe_dehydration', level: 'red', dimension: 'metabolic', reason: 'Hydration symptoms indicate severe risk.' });
   else if ((input.urineColor ?? 0) >= 5) addFlag(flags, { code: 'dehydration_risk', level: 'yellow', dimension: 'metabolic', reason: 'Hydration markers are trending in the wrong direction.' });
   if ((input.bodyTempF ?? 98.6) >= 100.4) addFlag(flags, { code: 'illness_signal', level: 'red', dimension: 'global', reason: 'Body temperature is high enough to treat as an illness red flag.' });
-  if (input.isOnActiveCut && (input.weightCutIntensityCap ?? 10) <= 4) addFlag(flags, { code: 'body_mass_pressure', level: (input.weightCutIntensityCap ?? 10) <= 2 ? 'red' : 'yellow', dimension: 'metabolic', reason: 'Body-mass context is materially constraining training output.' });
+  if (input.hasActiveWeightClassPlan && (input.bodyMassIntensityCap ?? 10) <= 4) addFlag(flags, { code: 'body_mass_pressure', level: (input.bodyMassIntensityCap ?? 10) <= 2 ? 'red' : 'yellow', dimension: 'metabolic', reason: 'Body-mass context is materially constraining training output.' });
   if (canonical.missingData.length > 0 || daysOfData < 7) addFlag(flags, { code: 'insufficient_data', level: 'yellow', dimension: 'global', reason: 'Readiness data is sparse, so today should be treated with lower confidence.' });
   if (canonical.trendFlags.includes('wearable_conflict_subjective_concern')) addFlag(flags, { code: 'subjective_concern', level: 'yellow', dimension: 'global', reason: 'Subjective concern is respected even when wearable markers look normal.' });
 

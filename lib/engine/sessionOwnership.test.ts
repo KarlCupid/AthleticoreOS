@@ -45,7 +45,6 @@ console.log('\n-- sessionOwnership --');
       workoutType: 'conditioning' as const,
       exercises: [{ exercise: { id: 'ex-1' } }],
     },
-    daily_mission_snapshot: null,
   };
 
   assert('entry with conditioning prescription is recognized as guided', hasGuidedEnginePrescription(entry as any));

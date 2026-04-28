@@ -141,8 +141,8 @@ export function getSessionRoleLabel(role: TrainingSessionRole | null | undefined
       return 'Recovery Day';
     case 'spar_support':
       return 'Sparring Support';
-    case 'cut_protect':
-      return 'Cut Protection';
+    case 'body_mass_protect':
+      return 'Body-Mass Protection';
     case 'taper_sharpen':
       return 'Taper & Sharpen';
     default:

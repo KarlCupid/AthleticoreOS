@@ -1,7 +1,7 @@
 import type {
-  BuildDailyMissionInput,
+  BuildDailyAthleteSummaryInput,
   BuildMicrocyclePlanInput,
-  DailyMission,
+  DailyAthleteSummary,
   DecisionTraceItem,
   DirectiveSource,
   FuelDirective,
@@ -15,7 +15,7 @@ import type {
   RecoveryDirective,
   TrainingDirective,
   TrainingSessionRole,
-  WeeklyMissionPlan,
+  WeeklyAthleteSummaryPlan,
   WorkoutFocus,
   WorkoutType,
 } from './types.ts';
@@ -76,7 +76,7 @@ function normalizeWorkoutFocus(focus: TrainingDirective['focus']): WorkoutFocus 
   return focus ?? null;
 }
 
-function getPrimaryScheduledActivity(input: BuildDailyMissionInput): MissionScheduledActivity | null {
+function getPrimaryScheduledActivity(input: BuildDailyAthleteSummaryInput): MissionScheduledActivity | null {
   const activeActivities = input.scheduledActivities.filter((activity) => activity.status !== 'skipped');
   if (activeActivities.length === 0) return null;
   return [...activeActivities].sort((a, b) => {
@@ -114,22 +114,22 @@ function mapActivityToSessionType(activityType: MissionScheduledActivity['activi
 }
 
 function inferSessionRole(input: {
-  campPhase: BuildDailyMissionInput['macrocycleContext']['campPhase'];
+  campPhase: BuildDailyAthleteSummaryInput['macrocycleContext']['campPhase'];
   focus: WorkoutFocus | null;
   intensityCap: number | null;
-  isOnActiveCut: boolean;
+  hasActiveWeightClassPlan: boolean;
   hasSparring: boolean;
 }): TrainingSessionRole {
-  const { campPhase, focus, intensityCap, isOnActiveCut, hasSparring } = input;
+  const { campPhase, focus, intensityCap, hasActiveWeightClassPlan, hasSparring } = input;
 
   if ((intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap) {
-    return isOnActiveCut ? 'cut_protect' : 'recover';
+    return hasActiveWeightClassPlan ? 'body_mass_protect' : 'recover';
   }
   if (campPhase === 'taper') return 'taper_sharpen';
   if (hasSparring) return 'spar_support';
   if (campPhase === 'peak') return 'express';
   if (campPhase === 'build' || campPhase === 'base') return 'develop';
-  if ((intensityCap ?? 0) >= FIGHT_CAMP_SAFETY_POLICY.intervention.expressIntensityFloor && !isOnActiveCut) return 'express';
+  if ((intensityCap ?? 0) >= FIGHT_CAMP_SAFETY_POLICY.intervention.expressIntensityFloor && !hasActiveWeightClassPlan) return 'express';
   if (focus === 'recovery') return 'recover';
   return 'develop';
 }
@@ -185,14 +185,14 @@ export function deriveProtectWindowFromRecentMissions(
 function resolveProtectWindowRole(input: {
   protectWindow: MissionProtectWindow | null | undefined;
   intensityCap: number | null;
-  isOnActiveCut: boolean;
+  hasActiveWeightClassPlan: boolean;
   hasCombatAnchor: boolean;
 }): TrainingSessionRole | null {
-  const { protectWindow, intensityCap, isOnActiveCut, hasCombatAnchor } = input;
+  const { protectWindow, intensityCap, hasActiveWeightClassPlan, hasCombatAnchor } = input;
   if (!protectWindow?.active) return null;
-  if (isOnActiveCut && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap) return 'cut_protect';
+  if (hasActiveWeightClassPlan && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap) return 'body_mass_protect';
   if (hasCombatAnchor && (intensityCap ?? 10) > FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap) return 'spar_support';
-  return isOnActiveCut ? 'cut_protect' : 'recover';
+  return hasActiveWeightClassPlan ? 'body_mass_protect' : 'recover';
 }
 
 function getRoleIntent(role: TrainingSessionRole, objective: string, focus: WorkoutFocus | null): string {
@@ -200,8 +200,8 @@ function getRoleIntent(role: TrainingSessionRole, objective: string, focus: Work
   switch (role) {
     case 'rest':
       return 'No training is scheduled today. Let the block absorb and protect tomorrow\'s quality.';
-    case 'cut_protect':
-      return `Protect output while keeping the cut on schedule. ${focusLabel} stays controlled today.`;
+    case 'body_mass_protect':
+      return `Protect output while keeping the body-mass plan on schedule. ${focusLabel} stays controlled today.`;
     case 'recover':
       return `Recover, restore movement quality, and keep ${objective.toLowerCase()} progressing without extra fatigue.`;
     case 'spar_support':
@@ -221,7 +221,7 @@ function getKeyQualities(role: TrainingSessionRole, focus: WorkoutFocus | null):
   switch (role) {
     case 'rest':
       return ['Recovery', 'Baseline habits', 'Readiness'];
-    case 'cut_protect':
+    case 'body_mass_protect':
       return [...base, 'Energy conservation', 'Quality reps'];
     case 'recover':
       return [...base, 'Tissue quality', 'Range of motion'];
@@ -274,21 +274,21 @@ function checkInterventionStatus(
   };
 }
 
-function getAcwrInterpretation(status: BuildDailyMissionInput['acwr']['status']): string | null {
+function getAcwrInterpretation(status: BuildDailyAthleteSummaryInput['acwr']['status']): string | null {
   if (status === 'redline') return 'ACWR is above redline. Protect the next session before loading again.';
   if (status === 'caution') return 'Load is elevated. Keep the next hard effort controlled and watch recovery.';
   return null;
 }
 
-function getCutDepletionInterpretation(fuelDirective: FuelDirective): string | null {
-  if (fuelDirective.state === 'cut_protect') {
+function getBodyMassDepletionInterpretation(fuelDirective: FuelDirective): string | null {
+  if (fuelDirective.state === 'body_mass_protect') {
     return 'Energy availability is constrained today, so output and decision speed may be lower than normal.';
   }
 
   return null;
 }
 
-function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
+function buildRiskState(input: BuildDailyAthleteSummaryInput): MissionRiskState {
   const drivers = [...(input.riskDrivers ?? [])];
   let score = input.riskScore ?? 8;
   const anchorSummary = input.readinessProfile.performanceAnchors
@@ -327,7 +327,7 @@ function buildRiskState(input: BuildDailyMissionInput): MissionRiskState {
     drivers.push('Travel window is active.');
   }
 
-  if (input.macrocycleContext.weightCutState === 'driving') {
+  if (input.macrocycleContext.weightClassState === 'driving') {
     score += 12;
     drivers.push('Weight-class context is driving planning decisions.');
   }
@@ -383,7 +383,7 @@ function summarizeVolume(durationMin: number | null, exerciseCount: number): str
   return `${durationMin} min target with ${exerciseCount} main exercise${exerciseCount === 1 ? '' : 's'}.`;
 }
 
-function buildTrainingDirective(input: BuildDailyMissionInput, riskState: MissionRiskState): TrainingDirective {
+function buildTrainingDirective(input: BuildDailyAthleteSummaryInput, riskState: MissionRiskState): TrainingDirective {
   const primaryScheduledActivity = getPrimaryScheduledActivity(input);
   const activeScheduledActivities = input.scheduledActivities.filter((activity) => activity.status !== 'skipped');
   const hasCombatAnchor = activeScheduledActivities.some((activity) => isCombatActivity(activity.activity_type));
@@ -442,7 +442,7 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     campPhase: input.macrocycleContext.campPhase,
     focus: plannedFocus,
     intensityCap: plannedIntensityCap,
-    isOnActiveCut: input.macrocycleContext.isOnActiveCut,
+    hasActiveWeightClassPlan: input.macrocycleContext.hasActiveWeightClassPlan,
     hasSparring,
   });
   const protectWindowRole = intervention.interventionState === 'hard'
@@ -450,20 +450,20 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
     : resolveProtectWindowRole({
         protectWindow: input.protectWindow,
         intensityCap,
-        isOnActiveCut: input.macrocycleContext.isOnActiveCut,
+        hasActiveWeightClassPlan: input.macrocycleContext.hasActiveWeightClassPlan,
         hasCombatAnchor,
       });
   const softCombatRole = intervention.interventionState === 'soft' && hasCombatAnchor
-    ? (input.macrocycleContext.isOnActiveCut && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
-      ? 'cut_protect'
+    ? (input.macrocycleContext.hasActiveWeightClassPlan && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
+      ? 'body_mass_protect'
       : 'spar_support')
     : null;
   const sessionRole = intervention.forcedSessionRole ?? protectWindowRole ?? softCombatRole ?? inferredRole;
-  const isProtectCutWindow = sessionRole === 'cut_protect'
-    && input.macrocycleContext.isOnActiveCut
+  const isBodyMassProtectWindow = sessionRole === 'body_mass_protect'
+    && input.macrocycleContext.hasActiveWeightClassPlan
     && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap;
-  const focus = sessionRole === 'recover' || isProtectCutWindow ? 'recovery' : plannedFocus;
-  const workoutType = sessionRole === 'recover' || isProtectCutWindow ? 'recovery' : plannedWorkoutType;
+  const focus = sessionRole === 'recover' || isBodyMassProtectWindow ? 'recovery' : plannedFocus;
+  const workoutType = sessionRole === 'recover' || isBodyMassProtectWindow ? 'recovery' : plannedWorkoutType;
   const durationMin = sessionRole === 'recover'
     ? Math.min(
         plannedDurationMin ?? (
@@ -475,14 +475,14 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
           ? FIGHT_CAMP_SAFETY_POLICY.intervention.mandatoryRecoveryMaxDurationMin
           : FIGHT_CAMP_SAFETY_POLICY.intervention.softMaxDurationMin,
       )
-    : sessionRole === 'cut_protect'
-      && input.macrocycleContext.isOnActiveCut
+    : sessionRole === 'body_mass_protect'
+      && input.macrocycleContext.hasActiveWeightClassPlan
       && (intensityCap ?? 10) <= FIGHT_CAMP_SAFETY_POLICY.intervention.protectIntensityCap
       ? Math.max(
           FIGHT_CAMP_SAFETY_POLICY.intervention.constrainedMinDurationMin,
           Math.min(
-            plannedDurationMin ?? FIGHT_CAMP_SAFETY_POLICY.intervention.cutProtectDefaultDurationMin,
-            FIGHT_CAMP_SAFETY_POLICY.intervention.cutProtectMaxDurationMin,
+            plannedDurationMin ?? FIGHT_CAMP_SAFETY_POLICY.intervention.bodyMassProtectDefaultDurationMin,
+            FIGHT_CAMP_SAFETY_POLICY.intervention.bodyMassProtectMaxDurationMin,
           ),
         )
       : sessionRole === 'spar_support' && (protectWindowRole === 'spar_support' || softCombatRole === 'spar_support')
@@ -494,7 +494,7 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
             ),
           )
     : plannedDurationMin;
-  const prescription = sessionRole === 'recover' || isProtectCutWindow ? null : input.workoutPrescription;
+  const prescription = sessionRole === 'recover' || isBodyMassProtectWindow ? null : input.workoutPrescription;
   const protectWindowReason = input.protectWindow?.active
     ? `${input.protectWindow.reason} Today is being routed through ${sessionRole.replace(/_/g, ' ')} work to keep the block from escalating.`
     : null;
@@ -530,7 +530,7 @@ function buildTrainingDirective(input: BuildDailyMissionInput, riskState: Missio
 }
 
 function buildDisplayedRiskState(
-  input: BuildDailyMissionInput,
+  input: BuildDailyAthleteSummaryInput,
   trainingDirective: TrainingDirective,
   stateRisk: MissionRiskState,
 ): MissionRiskState {
@@ -552,7 +552,7 @@ function buildDisplayedRiskState(
 }
 
 function buildFuelDirective(
-  input: BuildDailyMissionInput,
+  input: BuildDailyAthleteSummaryInput,
   trainingDirective: TrainingDirective,
   riskState: MissionRiskState,
 ): FuelDirective {
@@ -580,7 +580,7 @@ function buildFuelDirective(
   const intraSessionHydrationOz = sessionFuelingPlan.intraSession.fluidsOz;
 
   let compliancePriority: FuelDirective['compliancePriority'] = 'consistency';
-  if (input.macrocycleContext.weightCutState === 'driving') compliancePriority = 'weight';
+  if (input.macrocycleContext.weightClassState === 'driving') compliancePriority = 'weight';
   else if (!isRestDay && (riskState.level === 'high' || riskState.level === 'critical')) compliancePriority = 'recovery';
   else if (highDemand || hasMultipleSessions) compliancePriority = 'performance';
 
@@ -621,7 +621,7 @@ function buildFuelDirective(
     adjustmentFlag: hasDriftCorrection ? 'drift_correction' : null,
     source,
     message: hasDriftCorrection
-      ? `${message} Weight drift is above curve, so calories were tightened to pull the cut back on line.`
+      ? `${message} Weight drift is above curve, so calories were tightened to support the body-mass plan.`
       : message,
     reasons: input.nutritionTargets.reasonLines,
     sessionFuelingPlan,
@@ -631,7 +631,7 @@ function buildFuelDirective(
   };
 }
 
-function buildHydrationDirective(input: BuildDailyMissionInput): HydrationDirective {
+function buildHydrationDirective(input: BuildDailyAthleteSummaryInput): HydrationDirective {
   const waterTargetOz = input.hydration.dailyWaterOz + input.nutritionTargets.hydrationBoostOz;
   const sodiumTargetMg = input.nutritionTargets.hydrationPlan.sodiumTargetMg;
   const protocol = input.hydration.message;
@@ -646,7 +646,7 @@ function buildHydrationDirective(input: BuildDailyMissionInput): HydrationDirect
 }
 
 function buildRecoveryDirective(
-  input: BuildDailyMissionInput,
+  input: BuildDailyAthleteSummaryInput,
   riskState: MissionRiskState,
   trainingDirective: TrainingDirective,
 ): RecoveryDirective {
@@ -655,12 +655,12 @@ function buildRecoveryDirective(
   const modalities: string[] = ['10-minute cooldown walk', '5 minutes nasal breathing'];
 
   if (!isRestDay && (riskState.level === 'high' || riskState.level === 'critical')) {
-    restrictions.push('Cut optional volume.', 'Keep non-essential conditioning light.');
+    restrictions.push('Trim optional volume.', 'Keep non-essential conditioning light.');
   }
   if (input.macrocycleContext.isTravelWindow) {
     modalities.push('Pack hydration early', 'Use mobility breaks during travel');
   }
-  if (trainingDirective.sessionRole === 'recover' || trainingDirective.sessionRole === 'cut_protect') {
+  if (trainingDirective.sessionRole === 'recover' || trainingDirective.sessionRole === 'body_mass_protect') {
     modalities.push('Mobility reset', 'Early bedtime');
   }
   if (trainingDirective.isMandatoryRecovery) {
@@ -687,7 +687,7 @@ function buildRecoveryDirective(
   };
 }
 
-function buildOverrideState(input: BuildDailyMissionInput): MissionOverride {
+function buildOverrideState(input: BuildDailyAthleteSummaryInput): MissionOverride {
   const hasModifiedActivity = input.scheduledActivities.some((activity) =>
     activity.status === 'skipped' || activity.status === 'modified',
   );
@@ -708,12 +708,12 @@ function buildOverrideState(input: BuildDailyMissionInput): MissionOverride {
 }
 
 function buildDecisionTrace(
-  input: BuildDailyMissionInput,
+  input: BuildDailyAthleteSummaryInput,
   riskState: MissionRiskState,
   trainingDirective: TrainingDirective,
   fuelDirective: FuelDirective,
 ): DecisionTraceItem[] {
-  const depletionInterpretation = getCutDepletionInterpretation(fuelDirective);
+  const depletionInterpretation = getBodyMassDepletionInterpretation(fuelDirective);
   const trace: DecisionTraceItem[] = [
     {
       subsystem: 'objective',
@@ -834,7 +834,7 @@ function buildHeadline(trainingDirective: TrainingDirective, riskState: MissionR
   return `${roleLabel}: push the block forward`;
 }
 
-export function buildDailyMission(input: BuildDailyMissionInput): DailyMission {
+export function buildDailyAthleteSummary(input: BuildDailyAthleteSummaryInput): DailyAthleteSummary {
   const stateRisk = buildRiskState(input);
   const trainingDirective = buildTrainingDirective(input, stateRisk);
   const riskState = buildDisplayedRiskState(input, trainingDirective, stateRisk);
@@ -863,10 +863,10 @@ export function buildDailyMission(input: BuildDailyMissionInput): DailyMission {
   };
 }
 
-export function buildMicrocyclePlan(input: BuildMicrocyclePlanInput): WeeklyMissionPlan {
+export function buildMicrocyclePlan(input: BuildMicrocyclePlanInput): WeeklyAthleteSummaryPlan {
   const entries = input.entries.map((entry) => {
     const sameDayEntries = input.entries.filter((candidate) => candidate.date === entry.date);
-    const mission = buildDailyMission({
+    const mission = buildDailyAthleteSummary({
       date: entry.date,
       macrocycleContext: {
         ...input.macrocycleContext,
@@ -876,7 +876,7 @@ export function buildMicrocyclePlan(input: BuildMicrocyclePlanInput): WeeklyMiss
       readinessProfile: input.readinessProfile,
       constraintSet: input.constraintSet,
       acwr: input.acwr,
-      nutritionTargets: input.baseNutritionTargets,
+      nutritionTargets: input.baseNutritionTargetEstimate,
       hydration: input.hydration,
       scheduledActivities: sameDayEntries.map((candidate) => ({
         date: candidate.date,
@@ -892,7 +892,7 @@ export function buildMicrocyclePlan(input: BuildMicrocyclePlanInput): WeeklyMiss
 
     return {
       ...entry,
-      daily_mission_snapshot: mission,
+      dailyAthleteSummary: mission,
     };
   });
 

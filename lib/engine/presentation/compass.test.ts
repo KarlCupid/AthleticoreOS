@@ -4,7 +4,7 @@
  */
 
 import { buildCompassViewModel } from './compass.ts';
-import type { DailyMission } from '../types/mission.ts';
+import type { DailyAthleteSummary } from '../types/mission.ts';
 
 let passed = 0;
 let failed = 0;
@@ -14,7 +14,7 @@ function assert(label: string, condition: boolean) {
   else { failed++; console.error(`  FAIL ${label}`); }
 }
 
-function makeMission(overrides: Partial<DailyMission> = {}): DailyMission {
+function makeMission(overrides: Partial<DailyAthleteSummary> = {}): DailyAthleteSummary {
   return {
     date: '2026-03-18',
     engineVersion: 'v3',
@@ -173,7 +173,7 @@ assert('rest copy summary is plain', restCopyResult.summaryLine === 'No training
 const cutMission = makeMission({
   trainingDirective: {
     ...makeMission().trainingDirective,
-    sessionRole: 'cut_protect',
+    sessionRole: 'body_mass_protect',
     source: 'daily_engine',
   },
 });

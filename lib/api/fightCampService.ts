@@ -13,7 +13,7 @@ import type {
   FitnessLevel,
   FightCampSetupInput,
   FightCampStatus,
-  WeightCutInfluenceState,
+  WeightClassInfluenceState,
   WeighInTiming,
 } from '../engine/types';
 
@@ -56,7 +56,7 @@ export function normalizeCampConfig(raw: CampPlanRow | CampConfig | null): CampC
     fightDate: row.fight_date,
     campStartDate: row.camp_start_date,
     totalWeeks: row.total_weeks,
-    hasConcurrentCut: row.has_concurrent_cut,
+    hasConcurrentWeightClassPlan: row.has_concurrent_cut,
     basePhaseDates: {
       start: row.base_phase_start,
       end: row.base_phase_end,
@@ -81,19 +81,19 @@ export function normalizeCampConfig(raw: CampPlanRow | CampConfig | null): CampC
     restDurationSec: row.rest_duration_sec ?? null,
     travelStartDate: row.travel_start_date ?? null,
     travelEndDate: row.travel_end_date ?? null,
-    weightCutState: row.weight_cut_state ?? null,
+    weightClassState: row.weight_class_state ?? null,
   };
 }
 
-export function computeWeightCutInfluenceState(input: {
-  hasActiveCutPlan: boolean;
+export function computeWeightClassInfluenceState(input: {
+  hasActiveWeightClassPlan: boolean;
   currentWeight: number | null;
   targetWeight: number | null;
   fightDate: string | null;
   weighInTiming?: WeighInTiming | null;
   asOfDate?: string;
-}): WeightCutInfluenceState {
-  if (input.hasActiveCutPlan) return 'driving';
+}): WeightClassInfluenceState {
+  if (input.hasActiveWeightClassPlan) return 'driving';
   if (input.currentWeight == null || input.targetWeight == null || !input.fightDate) return 'none';
 
   const asOf = input.asOfDate ?? todayLocalDate();
@@ -195,13 +195,13 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
   if (input.travelStartDate && input.travelEndDate && input.travelEndDate < input.travelStartDate) {
     throw new Error('Travel end date must be on or after travel start date.');
   }
-  const hasConcurrentCut = Boolean(athleteContext.profile?.active_cut_plan_id);
+  const hasConcurrentWeightClassPlan = Boolean(athleteContext.profile?.active_weight_class_plan_id);
   const currentWeight = athleteContext.profile?.base_weight
     ? await getEffectiveWeight(userId, athleteContext.profile.base_weight)
     : null;
 
-  const weightCutState = computeWeightCutInfluenceState({
-    hasActiveCutPlan: hasConcurrentCut,
+  const weightClassState = computeWeightClassInfluenceState({
+    hasActiveWeightClassPlan: hasConcurrentWeightClassPlan,
     currentWeight,
     targetWeight: input.targetWeight ?? athleteContext.profile?.target_weight ?? null,
     fightDate: input.fightDate,
@@ -213,7 +213,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
     fightDate: input.fightDate,
     campStartDate,
     fitnessLevel: athleteContext.fitnessLevel,
-    hasConcurrentCut,
+    hasConcurrentWeightClassPlan,
     userId,
   } as CampPlanInput);
 
@@ -229,7 +229,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
     fight_date: generated.fightDate,
     camp_start_date: generated.campStartDate,
     total_weeks: generated.totalWeeks,
-    has_concurrent_cut: generated.hasConcurrentCut,
+    has_concurrent_cut: generated.hasConcurrentWeightClassPlan,
     base_phase_start: generated.basePhaseDates.start,
     base_phase_end: generated.basePhaseDates.end,
     build_phase_start: generated.buildPhaseDates.start,
@@ -245,7 +245,7 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
     rest_duration_sec: input.restDurationSec ?? 60,
     travel_start_date: input.travelStartDate ?? null,
     travel_end_date: input.travelEndDate ?? null,
-    weight_cut_state: weightCutState,
+    weight_class_state: weightClassState,
     status: 'active',
     updated_at: new Date().toISOString(),
   };
@@ -303,15 +303,15 @@ export async function getFightCampStatus(userId: string, date: string = todayLoc
     const daysOut = Math.max(0, daysBetween(date, camp.fightDate));
     const campRowResponse = await supabase
       .from('fight_camps')
-      .select('weight_cut_state')
+      .select('weight_class_state')
       .eq('id', camp.id)
       .maybeSingle();
 
     if (campRowResponse.error) throw campRowResponse.error;
 
-    const campRow = campRowResponse.data as { weight_cut_state?: WeightCutInfluenceState } | null;
+    const campRow = campRowResponse.data as { weight_class_state?: WeightClassInfluenceState } | null;
 
-    const weightCutState = campRow?.weight_cut_state ?? camp.weightCutState ?? 'none';
+    const weightClassState = campRow?.weight_class_state ?? camp.weightClassState ?? 'none';
     const labelPhase = campPhase ? campPhase.charAt(0).toUpperCase() + campPhase.slice(1) : 'Camp';
     const weighInLabel = camp.weighInTiming === 'same_day' ? 'Same-day weigh-in' : 'Next-day weigh-in';
     const isTravelMode = Boolean(
@@ -325,8 +325,8 @@ export async function getFightCampStatus(userId: string, date: string = todayLoc
       camp,
       campPhase,
       daysOut,
-      weightCutState,
-      label: `${labelPhase} Phase - ${daysOut} days out - ${weighInLabel} - Cut ${weightCutState}${travelTag}`,
+      weightClassState,
+      label: `${labelPhase} Phase - ${daysOut} days out - ${weighInLabel} - Weight-class ${weightClassState}${travelTag}`,
     };
   }
 
@@ -337,7 +337,7 @@ export async function getFightCampStatus(userId: string, date: string = todayLoc
     camp: null,
     campPhase: null,
     daysOut: null,
-    weightCutState: 'none',
+    weightClassState: 'none',
     label: `Build Phase - ${prettyGoal}`,
   };
 }

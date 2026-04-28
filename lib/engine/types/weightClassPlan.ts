@@ -1,7 +1,7 @@
 import type { FightStatus, Phase } from './foundational.ts';
 import type { EngineSafetyWarning } from './safety.ts';
 
-export type WeightCutStatus =
+export type BodyMassTrendStatus =
   | 'on_track'
   | 'ahead'
   | 'behind'
@@ -38,7 +38,7 @@ export interface WeightTrendResult {
     expected: number;
     conservative: number;
   } | null;
-  status: WeightCutStatus;
+  status: BodyMassTrendStatus;
   isRapidLoss: boolean;
   percentComplete: number;
   message: string;
@@ -63,10 +63,10 @@ export interface WeightReadinessPenalty {
   message: string;
 }
 
-export type CutPlanStatus = 'active' | 'completed' | 'abandoned' | 'paused';
-export type CutSport = 'boxing' | 'mma';
+export type WeightClassPlanStatus = 'active' | 'completed' | 'abandoned' | 'paused';
+export type WeightClassSport = 'boxing' | 'mma';
 
-export interface CutSafetyFlag {
+export interface BodyMassSafetyFlag {
   severity: 'info' | 'warning' | 'danger';
   code: string;
   title: string;
@@ -74,21 +74,21 @@ export interface CutSafetyFlag {
   recommendation: string;
 }
 
-export interface WeightCutPlanRow {
+export interface WeightClassPlanRow {
   id: string;
   user_id: string;
   start_weight: number;
   target_weight: number;
   weight_class_name: string | null;
-  sport: CutSport;
+  sport: WeightClassSport;
   fight_date: string;
   weigh_in_date: string;
   plan_created_date: string;
   fight_status: FightStatus;
-  max_water_cut_pct: number;
-  total_cut_lbs: number;
-  diet_phase_target_lbs: number;
-  water_cut_allocation_lbs: number;
+  max_fight_week_body_mass_change_pct: number;
+  required_body_mass_change_lbs: number;
+  gradual_body_mass_target_lbs: number;
+  competition_week_body_mass_change_lbs: number;
   chronic_phase_start: string | null;
   chronic_phase_end: string | null;
   intensified_phase_start: string | null;
@@ -96,7 +96,7 @@ export interface WeightCutPlanRow {
   fight_week_start: string | null;
   weigh_in_day: string;
   rehydration_start: string | null;
-  status: CutPlanStatus;
+  status: WeightClassPlanStatus;
   completed_at: string | null;
   safe_weekly_loss_rate: number;
   calorie_floor: number;
@@ -110,7 +110,7 @@ export interface WeightCutPlanRow {
   updated_at: string;
 }
 
-export interface CutSafetyCheckRow {
+export interface BodyMassSafetyCheckRow {
   id: string;
   user_id: string;
   plan_id: string;
@@ -128,7 +128,7 @@ export interface CutSafetyCheckRow {
   created_at: string;
 }
 
-export interface WeightCutHistoryRow {
+export interface WeightClassHistoryRow {
   id: string;
   user_id: string;
   plan_id: string;
@@ -137,24 +137,24 @@ export interface WeightCutHistoryRow {
   target_weight: number;
   made_weight: boolean | null;
   total_duration_days: number | null;
-  total_diet_loss_lbs: number | null;
-  total_water_cut_lbs: number | null;
+  gradual_body_mass_change_lbs: number | null;
+  competition_week_body_mass_change_lbs: number | null;
   avg_weekly_loss_rate: number | null;
   rehydration_weight_regained: number | null;
   fight_day_weight: number | null;
-  protocol_adherence_pct: number | null;
+  adherence_pct: number | null;
   refeed_days_used: number | null;
   diet_breaks_used: number | null;
-  safety_flags_triggered: CutSafetyFlag[];
+  safety_flags_triggered: BodyMassSafetyFlag[];
   fight_date: string | null;
   completed_at: string;
 }
 
-export interface WeightCutDashboardData {
-  activePlan: WeightCutPlanRow | null;
+export interface BodyMassDashboardData {
+  activePlan: WeightClassPlanRow | null;
   weightHistory: WeightDataPoint[];
-  safetyChecks: CutSafetyCheckRow[];
-  cutHistory: WeightCutHistoryRow[];
+  safetyChecks: BodyMassSafetyCheckRow[];
+  weightClassHistory: WeightClassHistoryRow[];
   projectedWeightByWeighIn: number | null;
   adherenceLast7Days: number;
 }

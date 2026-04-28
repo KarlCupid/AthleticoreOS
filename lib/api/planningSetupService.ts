@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import { getAthleteContext } from './athleteContextService';
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
-import { invalidateEngineDataCache } from './dailyMissionService';
+import { invalidateEngineDataCache } from './dailyPerformanceService';
 import { getActiveFightCamp } from './fightCampService';
 import { isPlanningSetupComplete } from './planningSetupLogic';
 import { getWeeklyPlanConfig } from './weeklyPlanService';

@@ -3,7 +3,7 @@ import { InteractionManager } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { generateRollingSchedule, getWeeklyReview } from '../../lib/api/scheduleService';
 import {
   getAthleteContext,
@@ -15,9 +15,9 @@ import { logError } from '../../lib/utils/logger';
 import type {
   ACWRResult,
   BiologyResult,
-  DailyMission,
+  DailyAthleteSummary,
   HydrationResult,
-  ResolvedNutritionTargets,
+  NutritionFuelingTarget,
   WeightTrendResult,
   ScheduledActivityRow,
   MacroLedgerRow,
@@ -80,9 +80,9 @@ interface DashboardDataState {
   workoutPrescription: WorkoutPrescription | null;
   weightTrend: WeightTrendResult | null;
   weightHistory: WeightDataPoint[];
-  dailyMission: DailyMission | null;
+  dailyAthleteSummary: DailyAthleteSummary | null;
   todayPlanEntry: WeeklyPlanEntryRow | null;
-  nutritionTargets: ResolvedNutritionTargets | null;
+  nutritionTargets: NutritionFuelingTarget | null;
   actualNutrition: DashboardNutritionTotals;
   weeklyReview: WeeklyComplianceReport | null;
   recentTrainingSessions: RecentTrainingSessionSummary[];
@@ -90,7 +90,7 @@ interface DashboardDataState {
   campRisk: CampRiskAssessment | null;
   goalMode: 'fight_camp' | 'build_phase';
   hasActiveFightCamp: boolean;
-  hasActiveCutPlan: boolean;
+  hasActiveWeightClassPlan: boolean;
   performanceContext: UnifiedPerformanceViewModel;
 }
 
@@ -111,7 +111,7 @@ const INITIAL_STATE: DashboardDataState = {
   workoutPrescription: null,
   weightTrend: null,
   weightHistory: [],
-  dailyMission: null,
+  dailyAthleteSummary: null,
   todayPlanEntry: null,
   nutritionTargets: null,
   actualNutrition: EMPTY_NUTRITION,
@@ -121,7 +121,7 @@ const INITIAL_STATE: DashboardDataState = {
   campRisk: null,
   goalMode: 'build_phase',
   hasActiveFightCamp: false,
-  hasActiveCutPlan: false,
+  hasActiveWeightClassPlan: false,
   performanceContext: buildUnifiedPerformanceViewModel(null),
 };
 
@@ -284,7 +284,7 @@ export function useDashboardData() {
         workoutPrescription: (engineState.workoutPrescription as WorkoutPrescription | null) ?? null,
         weightTrend: engineState.objectiveContext.weightTrend ?? null,
         weightHistory,
-        dailyMission: engineState.mission,
+        dailyAthleteSummary: engineState.mission,
         todayPlanEntry: (engineState.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
         nutritionTargets: {
           ...engineState.nutritionTargets,
@@ -301,7 +301,7 @@ export function useDashboardData() {
         campRisk: engineState.campRisk,
         goalMode: athleteContext.goalMode,
         hasActiveFightCamp,
-        hasActiveCutPlan: Boolean(profile?.active_cut_plan_id),
+        hasActiveWeightClassPlan: Boolean(profile?.active_weight_class_plan_id),
         performanceContext,
       });
       setLoading(false);

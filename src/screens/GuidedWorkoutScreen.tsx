@@ -63,7 +63,7 @@ export function GuidedWorkoutScreen() {
     // Hook
     const {
         loading,
-        dailyMission,
+        dailyAthleteSummary,
         prescription,
         emptyStateMessage,
         gymProfile,
@@ -99,7 +99,7 @@ export function GuidedWorkoutScreen() {
     const [activationCheckDone, setActivationCheckDone] = useState(false);
 
     // Training floor view model (pure, no side effects)
-    const floorVM = buildTrainingFloorViewModel(prescription ?? null, dailyMission ?? null);
+    const floorVM = buildTrainingFloorViewModel(prescription ?? null, dailyAthleteSummary ?? null);
 
     // Elapsed timer
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -282,7 +282,7 @@ export function GuidedWorkoutScreen() {
 
     // -- Strategy renderer resolution ------------------------------
 
-    const sessionVM = prescription ? fromPrescriptionV2(prescription, dailyMission ?? null) : null;
+    const sessionVM = prescription ? fromPrescriptionV2(prescription, dailyAthleteSummary ?? null) : null;
 
     // Find current exercise's VM and resolve the correct renderer
     const currentExerciseVM = sessionVM?.flatExercises[currentExerciseIndex] ?? null;

@@ -70,7 +70,7 @@ console.log('\n-- body-mass-weight-class engine --');
     desiredScaleWeight: mass(160, '2026-06-14'),
   }));
 
-  assert('unsafe cut is blocked', result.plan.feasibilityStatus === 'unsafe' && !result.shouldGenerateProtocol);
+  assert('unsafe body-mass target is blocked', result.plan.feasibilityStatus === 'unsafe' && !result.shouldGenerateProtocol);
   assert('unsafe target creates blocking risk', result.riskFlags.some((risk) => risk.code === 'unsafe_weight_class_target' && risk.blocksPlan));
 })();
 

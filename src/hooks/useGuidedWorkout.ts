@@ -21,12 +21,12 @@ import { todayLocalDate } from '../../lib/utils/date';
 import { markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
 import {
     getDailyEngineState,
-    getWeeklyMission,
+    getWeeklyAthleteSummary,
     invalidateEngineDataCache,
-} from '../../lib/api/dailyMissionService';
+} from '../../lib/api/dailyPerformanceService';
 import { isGuidedEngineScheduledActivity } from '../../lib/engine/sessionOwnership';
 import type {
-    DailyMission,
+    DailyAthleteSummary,
     WorkoutPrescriptionV2,
     SessionFatigueState,
     SetAdaptationResult,
@@ -120,7 +120,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     // Workout state
     const [loading, setLoading] = useState(false);
     const [prescription, setPrescription] = useState<WorkoutPrescriptionV2 | null>(null);
-    const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
+    const [dailyAthleteSummary, setDailyAthleteSummary] = useState<DailyAthleteSummary | null>(null);
     const [workoutLog, setWorkoutLog] = useState<WorkoutLogRow | null>(null);
     const [gymProfile, setGymProfile] = useState<GymProfileRow | null>(null);
     const [isStarted, setIsStarted] = useState(false);
@@ -176,8 +176,8 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         prHistoryRef.current = new Map();
     }, []);
 
-    const resetPrescriptionState = useCallback((mission: DailyMission | null, message: string | null) => {
-        setDailyMission(mission);
+    const resetPrescriptionState = useCallback((mission: DailyAthleteSummary | null, message: string | null) => {
+        setDailyAthleteSummary(mission);
         setPrescription(null);
         setExerciseProgress({});
         setCurrentExerciseIndex(0);
@@ -349,24 +349,25 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                     ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)?.week_start_date
                     ?? engineState.weeklyPlanEntries[0]?.week_start_date
                     ?? null;
-                const weeklyMission = weekStart
-                    ? await getWeeklyMission(userId, weekStart)
+                const weeklyAthleteSummary = weekStart
+                    ? await getWeeklyAthleteSummary(userId, weekStart)
                     : null;
                 if (!isCurrentRequest()) {
                     return;
                 }
-                const matchingEntry = weeklyMission?.entries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
+                const matchingEntry = weeklyAthleteSummary?.entries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
                     ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
                     ?? null;
+                const entrySummary = (matchingEntry as { dailyAthleteSummary?: typeof engineState.mission | null } | null)?.dailyAthleteSummary ?? null;
 
-                mission = matchingEntry?.daily_mission_snapshot ?? engineState.mission;
+                mission = entrySummary ?? engineState.mission;
 
-                const entryPrescription = matchingEntry?.daily_mission_snapshot?.trainingDirective.prescription
+                const entryPrescription = entrySummary?.trainingDirective.prescription
                     ?? matchingEntry?.prescription_snapshot
                     ?? null;
 
                 if (entryPrescription?.exercises?.length) {
-                    setDailyMission(mission);
+                    setDailyAthleteSummary(mission);
                     setPrescription(entryPrescription);
                     initializeProgress(entryPrescription);
                     return;
@@ -384,13 +385,10 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 const matchingEntry = matchingActivity?.weekly_plan_entry_id
                     ? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === matchingActivity.weekly_plan_entry_id) ?? null
                     : null;
-                const entryMission = matchingEntry?.daily_mission_snapshot ?? mission;
-                const entryPrescription = matchingEntry?.daily_mission_snapshot?.trainingDirective.prescription
-                    ?? matchingEntry?.prescription_snapshot
-                    ?? null;
+                const entryPrescription = matchingEntry?.prescription_snapshot ?? null;
 
                 if (matchingActivity && isGuidedEngineScheduledActivity(matchingActivity) && entryPrescription?.exercises?.length) {
-                    setDailyMission(entryMission);
+                    setDailyAthleteSummary(mission);
                     setPrescription(entryPrescription);
                     initializeProgress(entryPrescription);
                     return;
@@ -411,7 +409,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             }
 
             if (engineState.workoutPrescription?.exercises?.length) {
-                setDailyMission(mission);
+                setDailyAthleteSummary(mission);
                 setPrescription(engineState.workoutPrescription);
                 initializeProgress(engineState.workoutPrescription);
                 return;
@@ -889,7 +887,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
     return {
         // State
         loading,
-        dailyMission,
+        dailyAthleteSummary,
         prescription,
         emptyStateMessage,
         workoutLog,

@@ -28,7 +28,7 @@ import { getActiveUserId } from '../../lib/api/athleteContextService';
 import {
   getDailyEngineState,
   invalidateEngineDataCache,
-} from '../../lib/api/dailyMissionService';
+} from '../../lib/api/dailyPerformanceService';
 import { supabase } from '../../lib/supabase';
 import {
   deriveLegacyReadinessFromDailyCheck,
@@ -231,7 +231,7 @@ export function LogScreen() {
         },
         context: {
           phase: logScreenData.acwrContext.phase,
-          isOnActiveCut: logScreenData.acwrContext.isOnActiveCut,
+          hasActiveWeightClassPlan: logScreenData.acwrContext.hasActiveWeightClassPlan,
         },
         previousDebrief: logScreenData.previousDebrief,
       });

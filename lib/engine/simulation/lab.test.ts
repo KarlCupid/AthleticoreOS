@@ -110,7 +110,7 @@ async function main() {
     && day.riskLevel !== 'low',
   );
   const replayConstrainedCombatLabels = replayRun.days.filter((day) =>
-    (day.sessionRole === 'recover' || day.sessionRole === 'cut_protect' || day.sessionRole === 'rest')
+    (day.sessionRole === 'recover' || day.sessionRole === 'body_mass_protect' || day.sessionRole === 'rest')
     && (day.workoutType === 'practice' || day.workoutType === 'sparring'
       || day.workoutTitle.toLowerCase().includes('sparring')
       || day.workoutTitle.toLowerCase().includes('bag work')
@@ -151,7 +151,7 @@ async function main() {
 
   console.log('\n--- Body-mass support replay semantics ---');
 
-  const activeCutRun = await buildEngineReplayRun('camp-active-cut');
+  const activeCutRun = await buildEngineReplayRun('camp-active-weight-class');
   const bodyMassSupportDays = activeCutRun.days.filter((day) => day.bodyMassSupportPhase !== 'none');
 
   assert('Body-mass support replay can remain intervention-free on a clean slate', activeCutRun.summary.interventionDays === 0);
@@ -166,13 +166,13 @@ async function main() {
 
   console.log('\n--- Safety scenario replays ---');
 
-  const taperProtectionRun = await buildEngineReplayRun('camp-taper-cut-protection');
-  const peakConcurrentCutRun = await buildEngineReplayRun('camp-peak-concurrent-cut');
+  const taperProtectionRun = await buildEngineReplayRun('camp-taper-body-mass-protection');
+  const peakConcurrentCutRun = await buildEngineReplayRun('camp-peak-concurrent-weight-class');
 
-  assert('Taper cut protection replay builds a full camp', taperProtectionRun.days.length > 0);
-  assert('Peak concurrent cut replay builds a full camp', peakConcurrentCutRun.days.length > 0);
-  assert('Taper cut protection replay keeps high-risk days to a minority', taperProtectionRun.summary.highRiskDays <= Math.ceil(taperProtectionRun.summary.totalDays * 0.25));
-  assert('Peak concurrent cut replay keeps high-risk days to a minority', peakConcurrentCutRun.summary.highRiskDays <= Math.ceil(peakConcurrentCutRun.summary.totalDays * 0.25));
+  assert('Taper body-mass protection replay builds a full camp', taperProtectionRun.days.length > 0);
+  assert('Peak concurrent weight-class replay builds a full camp', peakConcurrentCutRun.days.length > 0);
+  assert('Taper body-mass protection replay keeps high-risk days to a minority', taperProtectionRun.summary.highRiskDays <= Math.ceil(taperProtectionRun.summary.totalDays * 0.25));
+  assert('Peak concurrent weight-class replay keeps high-risk days to a minority', peakConcurrentCutRun.summary.highRiskDays <= Math.ceil(peakConcurrentCutRun.summary.totalDays * 0.25));
 
   console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
   process.exit(failed > 0 ? 1 : 0);

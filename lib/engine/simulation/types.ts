@@ -23,7 +23,7 @@ export interface ACWRResult {
   loadMetrics: any;
 }
 import type {
-  DailyMission,
+  DailyAthleteSummary,
   MacrocycleContext,
 } from '../types/mission.ts';
 
@@ -43,7 +43,7 @@ export interface DailyEngineState {
   primaryPlanEntry: any;
   primaryEnginePlanEntry: any;
   workoutPrescription: any;
-  mission: DailyMission;
+  mission: DailyAthleteSummary;
   campRisk: any;
   medStatus: any;
 }

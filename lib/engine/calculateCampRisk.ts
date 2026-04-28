@@ -1,11 +1,11 @@
-import type { AthleteGoalMode, WeightCutInfluenceState, WeighInTiming } from './types.ts';
+import type { AthleteGoalMode, WeightClassInfluenceState, WeighInTiming } from './types.ts';
 import { FIGHT_CAMP_SAFETY_POLICY } from './safety/policy.ts';
 
 export type CampRiskLevel = 'low' | 'moderate' | 'high' | 'critical';
 
 export interface CampRiskInput {
   goalMode: AthleteGoalMode;
-  weightCutState: WeightCutInfluenceState;
+  weightClassState: WeightClassInfluenceState;
   daysOut: number | null;
   remainingWeightLbs?: number | null;
   weighInTiming?: WeighInTiming | null;
@@ -36,14 +36,14 @@ function toRiskLevel(score: number): CampRiskLevel {
 
 function formatProjectedMakeWeightStatus(input: {
   remainingWeightLbs: number | null;
-  weightCutState: WeightCutInfluenceState;
+  weightClassState: WeightClassInfluenceState;
   weighInTiming?: WeighInTiming | null;
 }): string {
-  const { remainingWeightLbs, weightCutState, weighInTiming } = input;
+  const { remainingWeightLbs, weightClassState, weighInTiming } = input;
 
   if (remainingWeightLbs == null) {
-    if (weightCutState === 'driving') {
-      return 'High risk: driving cut state with missing current weight data';
+    if (weightClassState === 'driving') {
+      return 'High risk: driving weight-class state with missing current body-mass data';
     }
     return 'Insufficient weight data';
   }
@@ -55,10 +55,10 @@ function formatProjectedMakeWeightStatus(input: {
   const overLabel = `${remainingWeightLbs.toFixed(1)} lb over`;
   const sameDayTag = weighInTiming === 'same_day' ? ' · same-day weigh-in constraints' : '';
 
-  if (weightCutState === 'driving') {
+  if (weightClassState === 'driving') {
     return `High risk (${overLabel})${sameDayTag}`;
   }
-  if (weightCutState === 'monitoring') {
+  if (weightClassState === 'monitoring') {
     return `Monitor closely (${overLabel})${sameDayTag}`;
   }
   return `Track gap (${overLabel})${sameDayTag}`;
@@ -70,14 +70,14 @@ export function calculateCampRisk(input: CampRiskInput): CampRiskAssessment | nu
   let score = 12;
   const drivers: string[] = [];
 
-  switch (input.weightCutState) {
+  switch (input.weightClassState) {
     case 'driving':
       score += 24;
-      drivers.push('Weight cut state is driving planning decisions.');
+      drivers.push('Weight-class management state is driving planning decisions.');
       break;
     case 'monitoring':
       score += 12;
-      drivers.push('Weight cut is in monitoring mode.');
+      drivers.push('Weight-class management is in monitoring mode.');
       break;
     default:
       break;
@@ -100,7 +100,7 @@ export function calculateCampRisk(input: CampRiskInput): CampRiskAssessment | nu
     && (input.remainingWeightLbs ?? 0) > 1.5
   ) {
     score += 8;
-    drivers.push('Same-day weigh-in reduces safe cut aggressiveness.');
+    drivers.push('Same-day weigh-in reduces safe body-mass change tolerance.');
   }
 
   if (input.daysOut != null) {
@@ -169,7 +169,7 @@ export function calculateCampRisk(input: CampRiskInput): CampRiskAssessment | nu
     level: toRiskLevel(finalScore),
     projectedMakeWeightStatus: formatProjectedMakeWeightStatus({
       remainingWeightLbs: input.remainingWeightLbs ?? null,
-      weightCutState: input.weightCutState,
+      weightClassState: input.weightClassState,
       weighInTiming: input.weighInTiming,
     }),
     drivers,

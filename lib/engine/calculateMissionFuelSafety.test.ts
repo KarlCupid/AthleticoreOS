@@ -1,4 +1,4 @@
-import { buildDailyMission } from './calculateMission.ts';
+import { buildDailyAthleteSummary } from './calculateMission.ts';
 import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 
 let passed = 0;
@@ -53,11 +53,11 @@ function makeInput() {
       buildGoal: null,
       camp: null,
       campPhase: 'peak',
-      weightCutState: 'driving',
+      weightClassState: 'driving',
       weighInTiming: 'next_day',
       daysOut: 7,
       isTravelWindow: false,
-      isOnActiveCut: true,
+      hasActiveWeightClassPlan: true,
       currentWeightLbs: 174,
       targetWeightLbs: 170,
       remainingWeightLbs: 4,
@@ -98,9 +98,9 @@ function makeInput() {
       weightCorrectionDeficit: 0,
       message: 'Canonical Nutrition and Fueling Engine, safety-adjusted.',
       source: 'daily_activity_adjusted',
-      fuelState: 'cut_protect',
-      prioritySession: 'cut_protect',
-      deficitClass: 'steady_cut',
+      fuelState: 'body_mass_protect',
+      prioritySession: 'body_mass_protect',
+      deficitClass: 'steady_deficit',
       recoveryNutritionFocus: 'hydration_restore',
       sessionDemandScore: 55,
       hydrationBoostOz: 20,
@@ -111,7 +111,7 @@ function makeInput() {
         notes: [],
       },
       sessionFuelingPlan: {
-        priority: 'cut_protect',
+        priority: 'body_mass_protect',
         priorityLabel: 'Cut-protect session',
         sessionLabel: 'Allowed training window',
         preSession: { label: 'Before training', timing: '60-90 min', carbsG: 35, proteinG: 20, notes: [] },
@@ -156,7 +156,7 @@ function makeInput() {
 console.log('\n-- calculateMission fuel safety --');
 
 (() => {
-  const mission = buildDailyMission(makeInput());
+  const mission = buildDailyAthleteSummary(makeInput());
 
   assert('Body-mass mission uses safety-adjusted calories from canonical nutrition', mission.fuelDirective.calories === 1900);
   assert('Body-mass mission uses safety-adjusted macros from canonical nutrition', mission.fuelDirective.carbs === 205);

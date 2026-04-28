@@ -4,7 +4,7 @@
  * Run with:  npx tsx lib/engine/calculateMission.test.ts
  */
 
-import { buildDailyMission } from './calculateMission.ts';
+import { buildDailyAthleteSummary } from './calculateMission.ts';
 import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 
 let passed = 0;
@@ -74,12 +74,12 @@ function makeInput(overrides: Record<string, any> = {}) {
             buildGoal: null,
             camp: null,
             campPhase: 'peak',
-            weightCutState: 'inactive',
+            weightClassState: 'inactive',
             weighInTiming: null,
             daysOut: 30,
             isDeloadWeek: false,
             isTravelWindow: false,
-            isOnActiveCut: false,
+            hasActiveWeightClassPlan: false,
             currentWeightLbs: 174,
             targetWeightLbs: 170,
             remainingWeightLbs: 4,
@@ -160,12 +160,12 @@ function makeInput(overrides: Record<string, any> = {}) {
 console.log('\n── Session role inference ──');
 
 (() => {
-    // intensityCap <= 4 + active body-mass context -> cut_protect
+    // intensityCap <= 4 + active body-mass context -> body_mass_protect
     const base = makeInput();
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...base.macrocycleContext,
-            isOnActiveCut: true,
+            hasActiveWeightClassPlan: true,
         },
         constraintSet: {
             ...base.constraintSet,
@@ -175,14 +175,14 @@ console.log('\n── Session role inference ──');
             },
         },
     }));
-    assert('intensityCap<=4 + body-mass context -> cut_protect', mission.trainingDirective.sessionRole === 'cut_protect');
+    assert('intensityCap<=4 + body-mass context -> body_mass_protect', mission.trainingDirective.sessionRole === 'body_mass_protect');
     assert('intensityCap<=4 + body-mass context clamps duration into protect range', (mission.trainingDirective.durationMin ?? 0) >= 20 && (mission.trainingDirective.durationMin ?? 0) <= 30);
 })();
 
 (() => {
     // intensityCap <= 4 + no active body-mass context -> recover
     const base = makeInput();
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         constraintSet: {
             ...base.constraintSet,
             hardCaps: {
@@ -196,7 +196,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // campPhase = taper -> taper_sharpen
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             campPhase: 'taper',
@@ -207,7 +207,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // hasSparring -> spar_support
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             campPhase: 'build',
@@ -221,7 +221,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // boxing practice alone should not force spar_support
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             campPhase: 'build',
@@ -239,7 +239,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // default with no special conditions -> develop
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             campPhase: 'build',
@@ -250,7 +250,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // no plan and no scheduled work -> rest day
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         scheduledActivities: [],
         weeklyPlanEntry: null,
         workoutPrescription: null,
@@ -263,7 +263,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // elevated strain on a true rest day should stay a low displayed session risk
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         scheduledActivities: [],
         weeklyPlanEntry: null,
         workoutPrescription: null,
@@ -280,7 +280,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // Soft intervention should cap output without auto-converting the day into recover
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             campPhase: 'build',
@@ -299,7 +299,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // Soft intervention on a combat day should downshift into support instead of preserving develop
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...makeInput().macrocycleContext,
             campPhase: 'build',
@@ -321,7 +321,7 @@ console.log('\n── Session role inference ──');
 
 (() => {
     // Fight-camp caution without red flags should cap output without forcing a recovery replacement.
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         readinessState: 'Caution',
         readinessProfile: {
             ...makeInput().readinessProfile,
@@ -356,7 +356,7 @@ console.log('\n── Session role inference ──');
         goalMode: 'fight_camp',
         daysOut: 24,
     });
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         readinessState: redFlagProfile.readinessState,
         readinessProfile: redFlagProfile,
         constraintSet,
@@ -385,14 +385,14 @@ console.log('\n── Risk state scoring ──');
 
 (() => {
     // Low risk: Prime, safe ACWR, no cut
-    const mission = buildDailyMission(makeInput());
+    const mission = buildDailyAthleteSummary(makeInput());
     assert('Low risk -> level=low', mission.riskState.level === 'low');
     assert('Low risk -> label includes good window', mission.riskState.label.toLowerCase().includes('good window'));
 })();
 
 (() => {
     // Moderate risk: Caution readiness adds +10
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         readinessState: 'Caution',
         riskScore: 25,
     }));
@@ -402,7 +402,7 @@ console.log('\n── Risk state scoring ──');
 
 (() => {
     // High risk: Depleted + caution ACWR (20 base + 10 caution + 20 Depleted = 50; use 26 to reach 56 → 'high')
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         readinessState: 'Depleted',
         acwr: makeAcwr({ status: 'caution', ratio: 1.35 }),
         riskScore: 26,
@@ -413,14 +413,14 @@ console.log('\n── Risk state scoring ──');
 
 (() => {
     // Critical risk: Depleted + redline ACWR + active body-mass pressure
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         readinessState: 'Depleted',
         acwr: makeAcwr({ status: 'redline', ratio: 1.7 }),
         riskScore: 30,
         macrocycleContext: {
             ...makeInput().macrocycleContext,
-            weightCutState: 'driving',
-            isOnActiveCut: true,
+            weightClassState: 'driving',
+            hasActiveWeightClassPlan: true,
         },
     }));
     assert('Critical risk -> score >= 75', mission.riskState.score >= 75);
@@ -433,14 +433,14 @@ console.log('\n── Intervention thresholds ──');
 
 (() => {
     // Score >= 75 -> hard intervention, mandatory recovery, cap 3
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         readinessState: 'Depleted',
         acwr: makeAcwr({ status: 'redline', ratio: 1.9 }),
         riskScore: 50,
         macrocycleContext: {
             ...makeInput().macrocycleContext,
-            weightCutState: 'driving',
-            isOnActiveCut: true,
+            weightClassState: 'driving',
+            hasActiveWeightClassPlan: true,
         },
         weeklyPlanEntry: {
             session_type: 'sc',
@@ -466,7 +466,7 @@ console.log('\n── Intervention thresholds ──');
 
 (() => {
     // Score >= 55 but < 75 -> soft intervention, cap 5
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         readinessState: 'Caution',
         acwr: makeAcwr({ status: 'caution', ratio: 1.4 }),
         riskScore: 35,
@@ -478,7 +478,7 @@ console.log('\n── Intervention thresholds ──');
 
 (() => {
     // Score < 55 -> no intervention
-    const mission = buildDailyMission(makeInput());
+    const mission = buildDailyAthleteSummary(makeInput());
     assert('No intervention for low risk', mission.trainingDirective.interventionState === 'none');
     assert('No mandatory recovery for low risk', mission.trainingDirective.isMandatoryRecovery === false);
 })();
@@ -488,7 +488,7 @@ console.log('\n── Intervention thresholds ──');
 console.log('\n── Decision trace ──');
 
 (() => {
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         acwr: makeAcwr({ status: 'redline', ratio: 1.7 }),
         riskScore: 30,
         readinessState: 'Depleted',
@@ -499,10 +499,10 @@ console.log('\n── Decision trace ──');
 })();
 
 (() => {
-    const mission = buildDailyMission(makeInput({
+    const mission = buildDailyAthleteSummary(makeInput({
         macrocycleContext: {
             ...makeInput().macrocycleContext,
-            isOnActiveCut: true,
+            hasActiveWeightClassPlan: true,
         },
     }));
     const sodiumTrace = mission.decisionTrace.find(t => t.title === 'Sodium restriction');
@@ -515,7 +515,7 @@ console.log('\n── Decision trace ──');
 console.log('\n── Output structure ──');
 
 (() => {
-    const mission = buildDailyMission(makeInput());
+    const mission = buildDailyAthleteSummary(makeInput());
     assert('Has headline', typeof mission.headline === 'string' && mission.headline.length > 0);
     assert('Has summary', typeof mission.summary === 'string' && mission.summary.length > 0);
     assert('Has engineVersion', mission.engineVersion === 'daily-engine-v3');

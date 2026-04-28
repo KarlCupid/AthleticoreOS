@@ -32,7 +32,7 @@ export function WorkoutTab({ day, workoutStats }: WorkoutTabProps) {
   const progressEntries = fromReplayExerciseLogs(day.exerciseLogs);
   const progressMap = Object.fromEntries(progressEntries.map((entry) => [entry.exerciseId, entry]));
   const comparisonExercises = session.flatExercises.filter((exercise) => progressMap[exercise.id]);
-  const isRecoveryLike = day.sessionRole === 'rest' || day.sessionRole === 'recover' || day.sessionRole === 'cut_protect';
+  const isRecoveryLike = day.sessionRole === 'rest' || day.sessionRole === 'recover' || day.sessionRole === 'body_mass_protect';
 
   return (
     <>

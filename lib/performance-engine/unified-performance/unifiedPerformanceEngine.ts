@@ -496,7 +496,7 @@ function finalDecisionExplanation(input: {
       input.blockedCount > 0
         ? `${input.blockedCount} blocking risk flag(s) prevent automatic plan approval.`
         : 'No blocking risk flags remain in the final unified state.',
-      'Canonical outputs supersede disconnected scheduler, nutrition, readiness, phase, and weight-cut paths.',
+      'Canonical outputs supersede disconnected scheduler, nutrition, readiness, phase, and weight-class paths.',
     ],
     confidence: ENGINE_CONFIDENCE,
     generatedAt: input.generatedAt,
@@ -522,7 +522,7 @@ function persistencePlan(weightClass: WeightClassManagementResult | null): Unifi
       'retired macro-only nutrition target integration',
       'retired readiness-only planning integration',
       'retired phase switch integration',
-      'retired daily weight-cut protocol integration',
+      'retired daily weight-class protocol integration',
     ],
   };
 }
@@ -607,7 +607,7 @@ export function runUnifiedPerformanceEngine(input: UnifiedPerformanceEngineInput
       desiredScaleWeight: weightClassInput.desiredScaleWeight,
       bodyMassHistory: input.bodyMassHistory ?? readiness.bodyMassHistory,
       underFuelingScreen: readiness.readiness.trendFlags.includes('low_nutrition_support')
-        ? { lowIntakeRelativeToLoad: true, repeatedMissedNutritionTargets: true }
+        ? { lowIntakeRelativeToLoad: true, repeatedMissedNutritionTargetEstimate: true }
         : undefined,
       generatedAt,
     })

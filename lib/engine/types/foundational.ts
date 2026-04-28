@@ -90,7 +90,7 @@ export type {
   PerformanceGoalType,
   RecommendationLifecycleStatus,
   WeighInTiming,
-  WeightCutInfluenceState,
+  WeightClassInfluenceState,
 } from './fightCampV1.ts';
 export type {
   CampConfig,
@@ -125,11 +125,11 @@ export type {
   DayLoadValidation,
   ScheduledActivityRow,
 } from './schedule.ts';
-export type { FuelState, NutritionTargets } from './nutrition.ts';
+export type { FuelState, NutritionTargetEstimate } from './nutrition.ts';
 export type {
   HRZone,
   OvertrainingWarning,
   PRDetectionResult,
   PRRecord,
 } from './misc.ts';
-export type { WeightCutPlanRow } from './weight_cut.ts';
+export type { WeightClassPlanRow } from './weightClassPlan.ts';

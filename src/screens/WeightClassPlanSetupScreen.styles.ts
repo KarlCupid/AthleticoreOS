@@ -224,7 +224,7 @@ export const styles = StyleSheet.create({
     activateButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center', ...SHADOWS.colored.accent },
     nextButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
 
-    // ── Extreme cut disclaimer ────────────────────────────────────
+    // ── Unsafe body-mass request disclaimer ───────────────────────
     extremeWarningBox: {
         backgroundColor: 'rgba(28, 10, 10, 0.82)', borderRadius: RADIUS.xl,
         borderWidth: 2, borderColor: COLORS.error,

@@ -43,7 +43,7 @@ export interface BodyMassLogEntry {
 
 export interface UnderFuelingScreenInput {
   lowIntakeRelativeToLoad?: boolean;
-  repeatedMissedNutritionTargets?: boolean;
+  repeatedMissedNutritionTargetEstimate?: boolean;
   rapidBodyMassDecline?: boolean;
   persistentFatigue?: boolean;
   poorRecovery?: boolean;
@@ -265,7 +265,7 @@ function activeUnderFuelingSignals(screen: UnderFuelingScreenInput | undefined):
 
   const labels: Array<[keyof UnderFuelingScreenInput, string]> = [
     ['lowIntakeRelativeToLoad', 'low intake relative to training load'],
-    ['repeatedMissedNutritionTargets', 'repeated missed nutrition targets'],
+    ['repeatedMissedNutritionTargetEstimate', 'repeated missed nutrition targets'],
     ['rapidBodyMassDecline', 'rapid body-mass decline'],
     ['persistentFatigue', 'persistent fatigue'],
     ['poorRecovery', 'poor recovery'],

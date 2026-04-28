@@ -1,28 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { WeightCutDashboardData } from '../../lib/engine/types';
+import { BodyMassDashboardData } from '../../lib/engine/types';
 import {
-  getWeightCutDashboardData,
-  abandonWeightCutPlan,
-  completeCutPlan,
-  upsertCutSafetyCheck,
+  getBodyMassDashboardData,
+  abandonWeightClassPlan,
+  completeWeightClassPlan,
+  upsertBodyMassSafetyCheck,
   setBaselineCognitiveScore,
-} from '../../lib/api/weightCutService';
-import { getDailyEngineState } from '../../lib/api/dailyMissionService';
+} from '../../lib/api/weightClassPlanService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import {
   buildUnifiedPerformanceViewModel,
   type UnifiedPerformanceViewModel,
 } from '../../lib/performance-engine';
 import { todayLocalDate } from '../../lib/utils/date';
 
-interface WeightCutState {
+interface BodyMassPlanState {
   loading: boolean;
   error: string | null;
-  data: WeightCutDashboardData | null;
+  data: BodyMassDashboardData | null;
   performanceContext: UnifiedPerformanceViewModel;
 }
 
-export function useWeightCutData(userId: string | null) {
-  const [state, setState] = useState<WeightCutState>({
+export function useBodyMassPlanData(userId: string | null) {
+  const [state, setState] = useState<BodyMassPlanState>({
     loading: false,
     error: null,
     data: null,
@@ -34,7 +34,7 @@ export function useWeightCutData(userId: string | null) {
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      const dashboardData = await getWeightCutDashboardData(userId);
+      const dashboardData = await getBodyMassDashboardData(userId);
       const todayStr = todayLocalDate();
       const forceRefresh = Boolean(dashboardData.activePlan);
       let performanceContext = buildUnifiedPerformanceViewModel(null);
@@ -47,7 +47,7 @@ export function useWeightCutData(userId: string | null) {
       }
 
       const refreshedDashboardData = forceRefresh
-        ? await getWeightCutDashboardData(userId)
+        ? await getBodyMassDashboardData(userId)
         : dashboardData;
 
       setState({ loading: false, error: null, data: refreshedDashboardData, performanceContext });
@@ -73,7 +73,7 @@ export function useWeightCutData(userId: string | null) {
       data: prev.data ? { ...prev.data, activePlan: null } : null,
     }));
     try {
-      await abandonWeightCutPlan(userId, planId, reason);
+      await abandonWeightClassPlan(userId, planId, reason);
     } finally {
       await refresh();
     }
@@ -86,7 +86,7 @@ export function useWeightCutData(userId: string | null) {
     rehydrationWeightRegained?: number;
   }) => {
     if (!userId || !state.data?.activePlan) return;
-    await completeCutPlan(userId, state.data.activePlan.id, outcome);
+    await completeWeightClassPlan(userId, state.data.activePlan.id, outcome);
     await refresh();
   }, [userId, state.data?.activePlan, refresh]);
 
@@ -104,7 +104,7 @@ export function useWeightCutData(userId: string | null) {
     if (!userId || !state.data?.activePlan) return;
     const planId = state.data.activePlan.id;
     const date = todayLocalDate();
-    await upsertCutSafetyCheck(userId, planId, date, {
+    await upsertBodyMassSafetyCheck(userId, planId, date, {
       urine_color: fields.urineColor,
       body_temp_f: fields.bodyTempF,
       cognitive_score: fields.cognitiveScore,
@@ -127,7 +127,7 @@ export function useWeightCutData(userId: string | null) {
     activePlan: state.data?.activePlan ?? null,
     weightHistory: state.data?.weightHistory ?? [],
     safetyChecks: state.data?.safetyChecks ?? [],
-    cutHistory: state.data?.cutHistory ?? [],
+    weightClassHistory: state.data?.weightClassHistory ?? [],
     projectedWeightByWeighIn: state.data?.projectedWeightByWeighIn ?? null,
     adherenceLast7Days: state.data?.adherenceLast7Days ?? 0,
     performanceContext: state.performanceContext,

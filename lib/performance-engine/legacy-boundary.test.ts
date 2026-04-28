@@ -47,7 +47,7 @@ console.log('\n-- performance-engine legacy boundary --');
 const deletedFiles = [
   'lib/engine/calculateWeightCut.ts',
   'lib/engine/calculateWeightCut.test.ts',
-  'scripts/simulate_weight_cut.ts',
+  'scripts/simulate_weightClassPlan.ts',
   'scripts/simulate_full_app.ts',
   'src/components/DailyProtocolCard.tsx',
   'src/components/SafetyStatusIndicator.tsx',
@@ -59,27 +59,29 @@ for (const file of deletedFiles) {
 }
 
 const engineIndex = read('lib/engine/index.ts');
-assert('legacy weight-cut generator is not exported', !/calculateWeightCut|generateCutPlan|computeDailyCutProtocol|determineCutPhase|getDailyCutIntensityCap/.test(engineIndex));
+assert('legacy weight-class generator is not exported', !/calculateWeightCut|generateCutPlan|computeDailyCutProtocol|determineCutPhase|getDailyCutIntensityCap/.test(engineIndex));
 
 const sources = activeSource();
 const combined = sources.map((source) => `\n${source.file}\n${source.text}`).join('\n');
 
-assert('active app source does not import old cut generator module', !combined.includes('calculateWeightCut'));
-assert('active app source does not reference daily cut protocol persistence helpers', !/upsertDailyCutProtocol|getDailyCutProtocol|updateProtocolCompliance|getLastRefeedDate|getConsecutiveDepletedDays/.test(combined));
+assert('active app source does not import old weight-class generator module', !combined.includes('calculateWeightCut'));
+assert('active app source does not reference daily body-mass guidance persistence helpers', !/upsertDailyCutProtocol|getDailyCutProtocol|updateProtocolCompliance|getLastRefeedDate|getConsecutiveDepletedDays/.test(combined));
 assert('active app source does not reference removed daily protocol UI', !/DailyProtocolCard|SafetyStatusIndicator|DashboardNutritionCard/.test(combined));
 assert('active app source does not carry a cutProtocol compatibility field', !/\bcutProtocol\b/.test(combined));
+assert('active app source does not use daily performance snapshot services', !/dailyPerformanceSnapshotService|DailyPerformanceSnapshot|daily_performance_summary_snapshot/.test(combined));
+assert('active app source does not use ResolvedNutritionTargets wrappers', !/ResolvedNutritionTargets|ResolvedNutritionTarget/.test(combined));
 
 const dangerousMethodPattern = /\b(sauna|sweat suit|diuretic|laxative|vomiting|severe fasting|extreme fluid restriction)\b/i;
 const dangerousHits = sources.filter((source) => dangerousMethodPattern.test(source.text));
 assert('active source does not recommend dangerous dehydration methods', dangerousHits.length === 0);
 
-const dailyMission = read('lib/api/dailyMissionService.ts');
-assert('daily mission no longer imports legacy protocol row type', !dailyMission.includes('DailyCutProtocolRow'));
-assert('daily mission no longer threads legacy cut protocol output', !dailyMission.includes('LegacyCutProtocol') && !dailyMission.includes('cutProtocol'));
-assert('unified daily performance preserves unknown body mass instead of legacy fallback', /currentWeight:\s*number \| null/.test(dailyMission) && /const canonicalCurrentWeight = objectiveContext\.currentWeightLbs \?\? profile\?\.base_weight \?\? null/.test(dailyMission));
+const dailyAthleteSummary = read('lib/api/dailyPerformanceService.ts');
+assert('daily athlete summary no longer imports legacy protocol row type', !dailyAthleteSummary.includes('DailyCutProtocolRow'));
+assert('daily athlete summary no longer threads legacy body-mass guidance output', !dailyAthleteSummary.includes('LegacyCutProtocol') && !dailyAthleteSummary.includes('cutProtocol'));
+assert('unified daily performance preserves unknown body mass instead of legacy fallback', /currentWeight:\s*number \| null/.test(dailyAthleteSummary) && /const canonicalCurrentWeight = objectiveContext\.currentWeightLbs \?\? profile\?\.base_weight \?\? null/.test(dailyAthleteSummary));
 
-const weightCutMigration = read('supabase/migrations/002_weight_cut.sql');
-assert('fresh schema does not create retired daily cut protocol table', !weightCutMigration.includes('daily_cut_protocols'));
+const weightClassMigration = read('supabase/migrations/002_weight_cut.sql');
+assert('fresh schema does not create retired daily body-mass guidance table', !weightClassMigration.includes('daily_cut_protocols'));
 
 const adaptiveTraining = read('lib/performance-engine/adaptive-training/adaptiveTrainingEngine.ts');
 assert('protected workouts remain canonical anchors', /protected/i.test(adaptiveTraining) && /anchor/i.test(adaptiveTraining));

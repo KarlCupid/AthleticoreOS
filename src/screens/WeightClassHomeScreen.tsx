@@ -7,7 +7,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
-import { useWeightCutData } from '../hooks/useWeightCutData';
+import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import {
@@ -15,12 +15,12 @@ import {
 } from '../components/icons';
 import { Card } from '../components/Card';
 import { BodyMassSupportTimeline } from '../components/BodyMassSupportTimeline';
-import { WeightCutChart } from '../components/WeightCutChart';
+import { BodyMassTrendChart } from '../components/BodyMassTrendChart';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { getBodyMassSupportPhase, type BodyMassSupportPhase } from '../../lib/performance-engine';
 import { todayLocalDate } from '../../lib/utils/date';
 
-type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightCutHome'>;
+type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightClassHome'>;
 
 const PHASE_LABELS: Record<BodyMassSupportPhase, string> = {
   unknown: 'Body-Mass Context',
@@ -46,7 +46,7 @@ function daysBetween(start: string, end: string): number {
   return Math.round((new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / 86_400_000);
 }
 
-export function WeightCutHomeScreen() {
+export function WeightClassHomeScreen() {
   const nav = useNavigation<NavProp>();
   const [userId, setUserId] = React.useState<string | null>(null);
 
@@ -56,11 +56,11 @@ export function WeightCutHomeScreen() {
 
   const {
     loading, error, activePlan, weightHistory,
-    cutHistory, projectedWeightByWeighIn, adherenceLast7Days,
+    weightClassHistory, projectedWeightByWeighIn, adherenceLast7Days,
     refresh, abandon, performanceContext,
-  } = useWeightCutData(userId);
+  } = useBodyMassPlanData(userId);
 
-  const handleEndCut = useCallback(() => {
+  const handleEndPlan = useCallback(() => {
     Alert.alert(
       'End Class Plan',
       'Why are you ending this weight-class plan?',
@@ -132,14 +132,14 @@ export function WeightCutHomeScreen() {
       </View>
     );
   }
-  // No active cut
+  // No active weight-class plan
   if (!activePlan) {
     return (
-      <View style={styles.noCutContainer}>
-        <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(212, 175, 55, 0.20)']} style={styles.noCutGradient}>
+      <View style={styles.noPlanContainer}>
+        <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(212, 175, 55, 0.20)']} style={styles.noPlanGradient}>
           <IconScale size={64} color={COLORS.accent} />
-          <Text style={styles.noCutTitle}>Weight-Class Context</Text>
-          <Text style={styles.noCutSubtitle}>
+          <Text style={styles.noPlanTitle}>Weight-Class Context</Text>
+          <Text style={styles.noPlanSubtitle}>
             Evaluate fight date, class, body-mass trend, fueling, readiness, and safety.
           </Text>
           <UnifiedJourneySummaryCard
@@ -147,20 +147,20 @@ export function WeightCutHomeScreen() {
             compact
             showProtectedAnchors={false}
             showBodyMass={Boolean(performanceContext.bodyMass)}
-            style={styles.noCutJourneyCard}
+            style={styles.noPlanJourneyCard}
           />
           <TouchableOpacity
             style={styles.startButton}
-            onPress={() => nav.navigate('CutPlanSetup')}
+            onPress={() => nav.navigate('WeightClassPlanSetup')}
           >
             <Text style={styles.startButtonText}>Evaluate Class</Text>
           </TouchableOpacity>
-          {cutHistory.length > 0 && (
+          {weightClassHistory.length > 0 && (
             <TouchableOpacity
               style={styles.historyLink}
-              onPress={() => nav.navigate('CutHistory')}
+              onPress={() => nav.navigate('WeightClassHistory')}
             >
-              <Text style={styles.historyLinkText}>View Past Class Plans ({cutHistory.length})</Text>
+              <Text style={styles.historyLinkText}>View Past Class Plans ({weightClassHistory.length})</Text>
             </TouchableOpacity>
           )}
         </LinearGradient>
@@ -188,7 +188,7 @@ export function WeightCutHomeScreen() {
     ? performanceContext.confidenceSummary
     : performanceContext.bodyMass?.riskLabel
       ? `Current body-mass risk: ${performanceContext.bodyMass.riskLabel}.`
-      : 'Body-mass support is linked to performance state, not a standalone rapid-cut protocol.';
+      : 'Body-mass support is linked to performance state, not a standalone rapid-body-mass guidance.';
 
   return (
     <ScrollView
@@ -287,7 +287,7 @@ export function WeightCutHomeScreen() {
         backgroundScrimColor="rgba(10, 10, 10, 0.80)"
       >
         <Text style={styles.sectionTitle}>Weight Trend</Text>
-        <WeightCutChart
+        <BodyMassTrendChart
           weightHistory={weightHistory}
           targetWeight={activePlan.target_weight}
           projectedWeight={projectedWeightByWeighIn}
@@ -308,7 +308,7 @@ export function WeightCutHomeScreen() {
         {phase === 'competition_week_body_mass_monitoring' || phase === 'weigh_in_logistics' ? (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: phaseColors[0] }]}
-            onPress={() => nav.navigate('FightWeekProtocol')}
+            onPress={() => nav.navigate('CompetitionBodyMass')}
           >
             <Text style={styles.actionButtonText}>Fight Week Support</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />
@@ -318,7 +318,7 @@ export function WeightCutHomeScreen() {
         {phase === 'post_weigh_in_recovery_tracking' ? (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: COLORS.readiness.prime }]}
-            onPress={() => nav.navigate('RehydrationProtocol', {
+            onPress={() => nav.navigate('PostWeighInRecovery', {
               weighInWeightLbs: currentWeight,
               hoursToFight: 24,
             })}
@@ -330,17 +330,17 @@ export function WeightCutHomeScreen() {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: COLORS.surfaceSecondary }]}
-          onPress={() => nav.navigate('CutHistory')}
+          onPress={() => nav.navigate('WeightClassHistory')}
         >
           <Text style={[styles.actionButtonText, { color: COLORS.text.primary }]}>Past Class Plans</Text>
           <IconChevronRight size={18} color={COLORS.text.secondary} />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.endCutButton}
-          onPress={handleEndCut}
+          style={styles.endPlanButton}
+          onPress={handleEndPlan}
         >
-          <Text style={styles.endCutText}>End Class Plan</Text>
+          <Text style={styles.endPlanText}>End Class Plan</Text>
         </TouchableOpacity>
       </View>
       {/* Weight class info */}
@@ -366,11 +366,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   content: { paddingBottom: SPACING.xxl },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
-  noCutContainer: { flex: 1 },
-  noCutGradient: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, gap: SPACING.md },
-  noCutJourneyCard: { alignSelf: 'stretch', marginBottom: 0 },
-  noCutTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, textAlign: 'center', letterSpacing: 0 },
-  noCutSubtitle: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, textAlign: 'center', lineHeight: 24 },
+  noPlanContainer: { flex: 1 },
+  noPlanGradient: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, gap: SPACING.md },
+  noPlanJourneyCard: { alignSelf: 'stretch', marginBottom: 0 },
+  noPlanTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, textAlign: 'center', letterSpacing: 0 },
+  noPlanSubtitle: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, textAlign: 'center', lineHeight: 24 },
   startButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.md, ...SHADOWS.colored.accent },
   startButtonText: { fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
   historyLink: { marginTop: SPACING.sm },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   actionButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
   weightClassCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, padding: SPACING.sm },
   weightClassText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  endCutButton: {
+  endPlanButton: {
     borderWidth: 1.5,
     borderColor: COLORS.error,
     borderRadius: RADIUS.lg,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.xs,
   },
-  endCutText: {
+  endPlanText: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 15,
     color: COLORS.error,

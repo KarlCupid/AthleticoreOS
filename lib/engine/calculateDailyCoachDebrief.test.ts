@@ -46,7 +46,7 @@ function makeInput(partial: Partial<DailyCoachDebriefInput> = {}): DailyCoachDeb
         context: {
             phase: 'camp-build',
             campLabel: 'Fight Camp',
-            isOnActiveCut: false,
+            hasActiveWeightClassPlan: false,
         },
         previousDebrief: null,
         ...partial,

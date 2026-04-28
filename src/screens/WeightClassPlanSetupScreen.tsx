@@ -17,31 +17,31 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../../lib/supabase';
-import { createWeightCutPlan } from '../../lib/api/weightCutService';
+import { createWeightClassPlan } from '../../lib/api/weightClassPlanService';
 import { getLatestWeight } from '../../lib/api/weightService';
 import {
   evaluateWeightClassPlan,
   normalizeBodyMassOrNull,
   type WeightClassManagementResult,
 } from '../../lib/performance-engine';
-import type { CutSport, FightStatus } from '../../lib/engine/types';
+import type { WeightClassSport, FightStatus } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { WeightClassEvaluationPreviewStep } from '../components/WeightClassEvaluationPreviewStep';
 import { Card } from '../components/Card';
 import { DatePickerField } from '../components/DatePickerField';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';
-import { APP_IMPACTS, CUT_PHASES } from '../constants/cutPlanSetup';
+import { APP_IMPACTS, BODY_MASS_PHASES } from '../constants/weightClassPlanSetup';
 import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
-import { styles } from './CutPlanSetupScreen.styles';
+import { styles } from './WeightClassPlanSetupScreen.styles';
 
-type NavProp = NativeStackNavigationProp<FuelStackParamList, 'CutPlanSetup'>;
+type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightClassPlanSetup'>;
 type Step = 1 | 2 | 3 | 4 | 5;
 
 interface FormState {
   targetWeight: string;
   weightClassName: string;
-  sport: CutSport;
+  sport: WeightClassSport;
   fightDate: string;
   weighInDate: string;
   coachNotes: string;
@@ -49,7 +49,7 @@ interface FormState {
 }
 
 interface AthleteProfileSnapshot {
-  sport?: CutSport | null;
+  sport?: WeightClassSport | null;
   fight_status?: FightStatus | null;
   biological_sex?: 'male' | 'female' | null;
   age?: number | null;
@@ -59,7 +59,7 @@ interface AthleteProfileSnapshot {
 const HEALTH_GUIDANCE_NOTE =
   'This plan is coaching-oriented guidance for educational use. It does not replace individualized medical advice, diagnosis, or emergency care.';
 
-export function CutPlanSetupScreen() {
+export function WeightClassPlanSetupScreen() {
   const nav = useNavigation<NavProp>();
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
@@ -211,7 +211,7 @@ export function CutPlanSetupScreen() {
         throw new Error('This weight-class target needs a safer class, longer timeline, or qualified review before activation.');
       }
 
-      await createWeightCutPlan(userId, {
+      await createWeightClassPlan(userId, {
         startWeight: actualStartWeight,
         targetWeight,
         weightClassName: form.weightClassName || null,
@@ -224,7 +224,7 @@ export function CutPlanSetupScreen() {
         coachNotes: form.coachNotes || undefined,
       });
 
-      nav.navigate('WeightCutHome');
+      nav.navigate('WeightClassHome');
     } catch (error: any) {
       Alert.alert('Error', error?.message ?? 'Failed to create plan.');
     } finally {
@@ -266,7 +266,7 @@ export function CutPlanSetupScreen() {
       ))}
 
       <Text style={[styles.introSectionLabel, { marginTop: SPACING.md }]}>Body-Mass Phases</Text>
-      {CUT_PHASES.map(({ label, when, color, bg, description }) => (
+      {BODY_MASS_PHASES.map(({ label, when, color, bg, description }) => (
         <Card
           key={label}
           style={[styles.phaseCard, { backgroundColor: bg }]}
@@ -317,7 +317,7 @@ export function CutPlanSetupScreen() {
 
       <Text style={[styles.label, { marginTop: SPACING.md }]}>Sport</Text>
       <View style={styles.toggleRow}>
-        {(['mma', 'boxing'] as CutSport[]).map((sport) => (
+        {(['mma', 'boxing'] as WeightClassSport[]).map((sport) => (
           <TouchableOpacity
             key={sport}
             style={[styles.toggleOption, form.sport === sport && styles.toggleOptionActive]}

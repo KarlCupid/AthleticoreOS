@@ -1,6 +1,6 @@
 import type {
   ACWRResult,
-  DailyMission,
+  DailyAthleteSummary,
   ReadinessFlag,
   ReadinessState,
   WeightTrendResult,
@@ -51,18 +51,18 @@ export interface MissionDashboardViewModel {
 }
 
 interface MissionDashboardInput {
-  mission: DailyMission | null;
+  mission: DailyAthleteSummary | null;
   acwr: ACWRResult | null;
   readinessState: ReadinessState | null;
   checkinDone: boolean;
   sessionDone: boolean;
   hasActiveFightCamp: boolean;
-  hasActiveCutPlan: boolean;
+  hasActiveWeightClassPlan: boolean;
   todayPlanEntryIsDeload: boolean;
   weightTrend: WeightTrendResult | null;
   weeklyReview: WeeklyComplianceReport | null;
   recentTrainingSessions: RecentTrainingSessionSummary[];
-  cutSafetyFlags: Array<{
+  bodyMassSafetyFlags: Array<{
     severity: 'info' | 'warning' | 'danger';
     title: string;
     message: string;
@@ -86,7 +86,7 @@ const STATUS_TONES: Record<MissionDashboardStatus, MissionDashboardTone> = {
   not_enough_data: 'neutral',
 };
 
-function isHighRisk(level: DailyMission['riskState']['level'] | undefined): boolean {
+function isHighRisk(level: DailyAthleteSummary['riskState']['level'] | undefined): boolean {
   return level === 'high' || level === 'critical';
 }
 
@@ -107,11 +107,11 @@ function isFightWeek(input: MissionDashboardInput): boolean {
 }
 
 function hasDangerFlag(input: MissionDashboardInput): boolean {
-  return input.cutSafetyFlags.some((flag) => flag.severity === 'danger');
+  return input.bodyMassSafetyFlags.some((flag) => flag.severity === 'danger');
 }
 
 function hasWarningFlag(input: MissionDashboardInput): boolean {
-  return input.cutSafetyFlags.some((flag) => flag.severity === 'warning');
+  return input.bodyMassSafetyFlags.some((flag) => flag.severity === 'warning');
 }
 
 function isDeload(input: MissionDashboardInput): boolean {
@@ -166,7 +166,7 @@ function getMissionText(input: MissionDashboardInput, status: MissionDashboardSt
   if (status === 'pull_back') return 'Focus on recovery';
   if (isFightWeek(input)) return 'Fight week: stay fresh';
   if (isDeload(input)) return 'Focus on recovery';
-  if (role === 'cut_protect' || role === 'taper_sharpen') return 'Stay sharp, reduce volume';
+  if (role === 'body_mass_protect' || role === 'taper_sharpen') return 'Stay sharp, reduce volume';
   if (status === 'train_smart') return 'Train, but keep it controlled';
   return 'Push hard today';
 }
@@ -197,7 +197,7 @@ function buildWhy(input: MissionDashboardInput, status: MissionDashboardStatus):
     return [NOT_ENOUGH_DATA];
   }
 
-  const danger = input.cutSafetyFlags.find((flag) => flag.severity === 'danger');
+  const danger = input.bodyMassSafetyFlags.find((flag) => flag.severity === 'danger');
   if (danger) {
     pushReason(reasons, danger.message || 'A safety flag is active today.');
     pushReason(reasons, danger.recommendation || 'Adjust today or prioritize recovery.');
@@ -210,7 +210,7 @@ function buildWhy(input: MissionDashboardInput, status: MissionDashboardStatus):
 
   if (isFightWeek(input)) {
     pushReason(reasons, 'The fight is close, so freshness matters more than extra work.');
-    if (input.hasActiveCutPlan) {
+    if (input.hasActiveWeightClassPlan) {
       pushReason(reasons, 'Weight-class context is active, so keep decisions simple today.');
     } else {
       pushReason(reasons, 'Fatigue is expected at this stage of camp.');
@@ -308,7 +308,7 @@ function buildTrainingTrendCard(acwr: ACWRResult | null): MissionSupportCardView
 }
 
 function buildRiskCard(input: MissionDashboardInput): MissionSupportCardViewModel | null {
-  const danger = input.cutSafetyFlags.find((flag) => flag.severity === 'danger');
+  const danger = input.bodyMassSafetyFlags.find((flag) => flag.severity === 'danger');
   if (danger) {
     return {
       kind: 'risk_alert',
@@ -320,7 +320,7 @@ function buildRiskCard(input: MissionDashboardInput): MissionSupportCardViewMode
     };
   }
 
-  const warning = input.cutSafetyFlags.find((flag) => flag.severity === 'warning');
+  const warning = input.bodyMassSafetyFlags.find((flag) => flag.severity === 'warning');
   if (warning) {
     return {
       kind: 'risk_alert',
@@ -417,14 +417,14 @@ function buildConsistencyCard(report: WeeklyComplianceReport | null): MissionSup
 
 function buildBodyweightCard(
   trend: WeightTrendResult | null,
-  hasActiveCutPlan: boolean,
+  hasActiveWeightClassPlan: boolean,
 ): MissionSupportCardViewModel {
   if (!trend) {
     return {
       kind: 'bodyweight',
       title: 'Bodyweight',
       status: 'Keep logging',
-      subtext: hasActiveCutPlan ? NOT_ENOUGH_DATA : 'Add weigh-ins when bodyweight matters.',
+      subtext: hasActiveWeightClassPlan ? NOT_ENOUGH_DATA : 'Add weigh-ins when bodyweight matters.',
       tone: 'neutral',
     };
   }
@@ -565,7 +565,7 @@ function buildFightCampCard(input: MissionDashboardInput): MissionSupportCardVie
   const status = typeof daysOut === 'number' ? `${daysOut} days to fight` : 'Fight camp active';
   const details = [
     phase ? `${phase} phase` : null,
-    input.hasActiveCutPlan ? 'Weight cut active' : null,
+    input.hasActiveWeightClassPlan ? 'Weight-class management active' : null,
   ].filter((item): item is string => Boolean(item));
 
   return {
@@ -595,7 +595,7 @@ export function buildMissionDashboardViewModel(
       riskCard,
       buildTrainingTrendCard(input.acwr),
       buildConsistencyCard(input.weeklyReview),
-      buildBodyweightCard(input.weightTrend, input.hasActiveCutPlan),
+      buildBodyweightCard(input.weightTrend, input.hasActiveWeightClassPlan),
       buildPerformanceCard(input.recentTrainingSessions),
     ].filter((card): card is MissionSupportCardViewModel => Boolean(card)),
   };

@@ -3,7 +3,7 @@ export * from './types/camp.ts';
 export * from './types/training.ts';
 export * from './types/nutrition.ts';
 export * from './types/schedule.ts';
-export * from './types/weight_cut.ts';
+export * from './types/weightClassPlan.ts';
 export * from './types/safety.ts';
 export * from './types/mission.ts';
 export * from './types/readiness.ts';

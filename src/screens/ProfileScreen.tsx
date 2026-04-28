@@ -19,7 +19,7 @@ interface AthleteProfile {
     fight_date: string | null;
 }
 
-interface ActiveCutInfo {
+interface ActiveWeightClassInfo {
     weigh_in_date: string;
     target_weight: number;
 }
@@ -29,7 +29,7 @@ export function ProfileScreen() {
     const { currentLevel } = useReadinessTheme();
     const [email, setEmail] = useState('');
     const [profile, setProfile] = useState<AthleteProfile | null>(null);
-    const [activeCut, setActiveCut] = useState<ActiveCutInfo | null>(null);
+    const [activeWeightClassPlan, setActiveWeightClassPlan] = useState<ActiveWeightClassInfo | null>(null);
     const [totalSessions, setTotalSessions] = useState(0);
 
     useEffect(() => {
@@ -42,14 +42,14 @@ export function ProfileScreen() {
 
         setEmail(session.user.email || '');
 
-        const [profileRes, sessionsRes, cutRes] = await Promise.all([
+        const [profileRes, sessionsRes, weightClassPlanRes] = await Promise.all([
             supabase.from('athlete_profiles').select('*').eq('user_id', session.user.id).single(),
             supabase.from('training_sessions').select('id', { count: 'exact' }).eq('user_id', session.user.id),
-            supabase.from('weight_cut_plans').select('weigh_in_date, target_weight').eq('user_id', session.user.id).eq('status', 'active').maybeSingle(),
+            supabase.from('weight_class_plans').select('weigh_in_date, target_weight').eq('user_id', session.user.id).eq('status', 'active').maybeSingle(),
         ]);
 
         if (profileRes.data) setProfile(profileRes.data);
-        if (cutRes.data) setActiveCut(cutRes.data);
+        if (weightClassPlanRes.data) setActiveWeightClassPlan(weightClassPlanRes.data);
         setTotalSessions(sessionsRes.count || 0);
     }
 
@@ -116,14 +116,14 @@ export function ProfileScreen() {
                         <DetailRow label="Fight Status" value={profile.fight_status.charAt(0).toUpperCase() + profile.fight_status.slice(1)} />
                         <DetailRow label="Biological Sex" value={profile.biological_sex.charAt(0).toUpperCase() + profile.biological_sex.slice(1)} />
 
-                        {activeCut ? (
-                            <DetailRow label="Target Weight" value={`${activeCut.target_weight} lbs (Active Cut)`} />
+                        {activeWeightClassPlan ? (
+                            <DetailRow label="Target Weight" value={`${activeWeightClassPlan.target_weight} lbs (Active Class Plan)`} />
                         ) : profile.target_weight ? (
                             <DetailRow label="Target Weight" value={`${profile.target_weight} lbs`} />
                         ) : null}
 
-                        {activeCut ? (
-                            <DetailRow label="Fight Date" value={`${new Date(activeCut.weigh_in_date).toLocaleDateString()} (Active Cut)`} />
+                        {activeWeightClassPlan ? (
+                            <DetailRow label="Fight Date" value={`${new Date(activeWeightClassPlan.weigh_in_date).toLocaleDateString()} (Active Class Plan)`} />
                         ) : profile.fight_date ? (
                             <DetailRow label="Fight Date" value={new Date(profile.fight_date).toLocaleDateString()} />
                         ) : null}

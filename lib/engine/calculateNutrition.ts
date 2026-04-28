@@ -7,9 +7,9 @@ import type {
   NutritionProfileInput,
   NutritionSafetyEvent,
   NutritionSafetyWarning,
-  NutritionTargets,
+  NutritionTargetEstimate,
   RecoveryNutritionFocus,
-  ResolvedNutritionTargets,
+  NutritionFuelingTarget,
   SessionFuelingPlan,
   SessionFuelingWindow,
 } from './types/nutrition.ts';
@@ -94,7 +94,7 @@ function mapPhase(phase: Phase | null | undefined, context?: MacrocycleContext |
   }
 }
 
-function legacyPhaseMultiplier(phase: Phase, goal: NutritionGoal): number {
+function estimatePhaseEnergyAdjustment(phase: Phase, goal: NutritionGoal): number {
   const canonical = mapPhase(phase);
   if (goal === 'bulk') return canonical === 'camp' || canonical === 'taper' ? 0 : 0.08;
   if (goal === 'cut') {
@@ -247,7 +247,7 @@ function createBodyMassState(weightLbs: number | null, date: string) {
 function createReadinessState(profile: ReadinessProfile | null | undefined, date: string): EngineReadinessState {
   if (!profile) return createUnknownReadinessState(date);
   const confidence = confidenceFromLevel(profile.dataConfidence ?? 'medium', [
-    'Legacy readiness profile was projected into PerformanceState.',
+    'Readiness profile was projected into PerformanceState.',
   ]);
   const neural = clamp(profile.neuralReadiness, 0, 100);
   const structural = clamp(profile.structuralReadiness, 0, 100);
@@ -255,12 +255,12 @@ function createReadinessState(profile: ReadinessProfile | null | undefined, date
   const overall = clamp(profile.overallReadiness ?? Math.round((neural + structural + metabolic) / 3), 0, 100);
 
   return resolveReadinessState({
-    athleteId: 'legacy-nutrition-athlete',
+    athleteId: 'nutrition-fueling-athlete',
     date,
     entries: [
       {
-        id: `legacy-nutrition-readiness:${date}`,
-        athleteId: 'legacy-nutrition-athlete',
+        id: `nutrition-fueling-readiness:${date}`,
+        athleteId: 'nutrition-fueling-athlete',
         timestamp: `${date}T08:00:00.000Z`,
         timezone: 'UTC',
         type: 'readiness',
@@ -272,13 +272,13 @@ function createReadinessState(profile: ReadinessProfile | null | undefined, date
           neuralReadiness: neural,
           structuralReadiness: structural,
           metabolicReadiness: metabolic,
-          legacyReadinessState: profile.readinessState,
+          sourceReadinessState: profile.readinessState,
         },
         notes: null,
       },
       {
-        id: `legacy-nutrition-support:${date}`,
-        athleteId: 'legacy-nutrition-athlete',
+        id: `nutrition-fueling-support:${date}`,
+        athleteId: 'nutrition-fueling-athlete',
         timestamp: `${date}T08:05:00.000Z`,
         timezone: 'UTC',
         type: 'nutrition_adherence',
@@ -286,7 +286,7 @@ function createReadinessState(profile: ReadinessProfile | null | undefined, date
         value: metabolic,
         unit: 'percent',
         confidence,
-        context: { source: 'legacy_metabolic_readiness' },
+        context: { source: 'projected_metabolic_readiness' },
         notes: null,
       },
     ],
@@ -301,8 +301,8 @@ function buildPerformanceState(input: {
 }): PerformanceState {
   const canonicalPhase = mapPhase(input.options?.macrocycleContext?.phase ?? input.profile.phase, input.options?.macrocycleContext);
   const athlete = createAthleteProfile({
-    athleteId: 'legacy-nutrition-athlete',
-    userId: 'legacy-nutrition-user',
+    athleteId: 'nutrition-fueling-athlete',
+    userId: 'nutrition-fueling-user',
     sport: 'boxing',
     biologicalSex: input.profile.biologicalSex,
     ageYears: input.options?.athleteAge ?? input.profile.age,
@@ -361,10 +361,10 @@ function getEngineTarget(input: {
   }).target;
 }
 
-function nutritionTargetToLegacy(input: NutritionProfileInput): NutritionTargets {
+function nutritionTargetToEstimate(input: NutritionProfileInput): NutritionTargetEstimate {
   const target = getEngineTarget({ profile: input, date: ADAPTER_DATE });
   const weightLbs = input.weightLbs;
-  const phaseMultiplier = legacyPhaseMultiplier(input.phase, input.nutritionGoal);
+  const phaseMultiplier = estimatePhaseEnergyAdjustment(input.phase, input.nutritionGoal);
   const engineCalories = targetValue(target.energyTarget, Math.round(weightLbs * 14.2));
   const floor = safeEnergyFloor(weightLbs, input.biologicalSex);
   const correction = input.weightCorrectionDeficit ?? 0;
@@ -398,7 +398,7 @@ function nutritionTargetToLegacy(input: NutritionProfileInput): NutritionTargets
   );
   const messageParts = [
     'Nutrition and Fueling Engine target resolved from athlete profile, phase, body mass, and safety floors.',
-    input.nutritionGoal === 'cut' ? 'Cut support is gradual and cannot cross under-fueling floors.' : null,
+    input.nutritionGoal === 'cut' ? 'Body-composition support is gradual and cannot cross under-fueling floors.' : null,
     input.nutritionGoal === 'bulk' ? 'Lean-gain support uses training-aware ranges instead of fixed macro tables.' : null,
     input.coachCaloriesOverride != null && input.coachCaloriesOverride < floor ? 'Unsafe low calorie override was raised to the safety floor.' : null,
     correction !== 0 ? `${Math.abs(correction)} cal body-mass correction applied with safety floor protection.` : null,
@@ -454,8 +454,8 @@ function getPrioritySession(activities: DayActivity[], trainingIntensityCap?: nu
   if ((trainingIntensityCap ?? 10) <= 4) {
     const activity = active[0] ?? null;
     return {
-      priority: 'cut_protect',
-      label: 'Cut-protect session',
+      priority: 'body_mass_protect',
+      label: 'Body-mass support session',
       sessionLabel: activity?.custom_label ?? 'Allowed training window',
       activity,
     };
@@ -502,14 +502,14 @@ function getPrioritySession(activities: DayActivity[], trainingIntensityCap?: nu
   }
 }
 
-function deficitClass(baseTargets: NutritionTargets): DeficitClass {
-  if (baseTargets.phaseMultiplier < -0.03 || baseTargets.weightCorrectionDeficit > 0) return 'steady_cut';
+function deficitClass(baseTargets: NutritionTargetEstimate): DeficitClass {
+  if (baseTargets.phaseMultiplier < -0.03 || baseTargets.weightCorrectionDeficit > 0) return 'steady_deficit';
   if (baseTargets.phaseMultiplier > 0.03) return 'steady_bulk';
   return 'steady_maintain';
 }
 
-function fuelState(priority: FuelPriority, target: NutritionTarget): ResolvedNutritionTargets['fuelState'] {
-  if (priority === 'cut_protect') return 'cut_protect';
+function fuelState(priority: FuelPriority, target: NutritionTarget): NutritionFuelingTarget['fuelState'] {
+  if (priority === 'body_mass_protect') return 'body_mass_protect';
   if (target.phase === 'taper' || target.phase === 'competition_week') return 'taper';
   if (priority === 'sparring' || priority === 'boxing_practice') return 'spar_support';
   if (priority === 'heavy_sc') return 'strength_power';
@@ -562,7 +562,7 @@ function defaultFuelingWindow(label: string, timing: string): SessionFuelingWind
   };
 }
 
-function legacyFuelingPlan(input: {
+function sessionFuelingPlanFromDirective(input: {
   priority: FuelPriority;
   priorityLabel: string;
   sessionLabel: string;
@@ -636,13 +636,13 @@ function safetyWarningFromRisks(target: NutritionTarget, fallback: NutritionSafe
 }
 
 function resolveFromTarget(input: {
-  baseTargets: NutritionTargets;
+  baseTargets: NutritionTargetEstimate;
   target: NutritionTarget;
   activities: DayActivity[];
   adjustedMacros?: { calories: number; protein: number; carbs: number; fat: number };
   floorResult?: ReturnType<typeof applyFuelingFloor>;
   reasonLines?: string[];
-}): ResolvedNutritionTargets {
+}): NutritionFuelingTarget {
   const priority = getPrioritySession(input.activities, null);
   const activeCount = activeActivities(input.activities).length;
   const firstDirective = input.target.sessionFuelingDirectives[0] ?? null;
@@ -691,7 +691,7 @@ function resolveFromTarget(input: {
       recoveryFocus: recovery,
       hydrationBoostOz,
     }),
-    sessionFuelingPlan: legacyFuelingPlan({
+    sessionFuelingPlan: sessionFuelingPlanFromDirective({
       priority: priority.priority,
       priorityLabel: priority.label,
       sessionLabel: priority.sessionLabel,
@@ -709,8 +709,8 @@ function resolveFromTarget(input: {
   };
 }
 
-export function calculateNutritionTargets(input: NutritionProfileInput): NutritionTargets {
-  return nutritionTargetToLegacy(input);
+export function calculateNutritionTargetEstimate(input: NutritionProfileInput): NutritionTargetEstimate {
+  return nutritionTargetToEstimate(input);
 }
 
 export function computeMacroAdherence(
@@ -744,12 +744,12 @@ export function computeMacroAdherence(
   return { caloriesPct, proteinPct, carbsPct, fatPct, overall };
 }
 
-export function resolveDailyNutritionTargets(
-  baseTargets: NutritionTargets,
+export function resolveDailyNutritionTargetEstimate(
+  baseTargets: NutritionTargetEstimate,
   _legacyCutProtocol: null,
   dayActivities: DayActivity[],
   options?: NutritionResolutionOptions,
-): ResolvedNutritionTargets {
+): NutritionFuelingTarget {
   const date = ADAPTER_DATE;
   const profile: NutritionProfileInput = {
     weightLbs: options?.bodyweightLbs ?? options?.macrocycleContext?.currentWeightLbs ?? Math.max(120, Math.round(baseTargets.protein / 0.85)),
@@ -780,12 +780,12 @@ export function resolveDailyNutritionTargets(
   });
 }
 
-export function resolveDailyMacros(
-  baseTargets: NutritionTargets,
+export function resolveNutritionMacros(
+  baseTargets: NutritionTargetEstimate,
   legacyCutProtocol: null,
   dayActivities: DayActivity[],
 ) {
-  const resolved = resolveDailyNutritionTargets(baseTargets, legacyCutProtocol, dayActivities);
+  const resolved = resolveDailyNutritionTargetEstimate(baseTargets, legacyCutProtocol, dayActivities);
 
   return {
     calories: resolved.adjustedCalories,

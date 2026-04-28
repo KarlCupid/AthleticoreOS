@@ -16,7 +16,7 @@ interface DataPoint {
   projected: number | null;
 }
 
-export function WeightCutChart({
+export function BodyMassTrendChart({
   weightHistory,
   targetWeight,
   projectedWeight,
@@ -33,7 +33,7 @@ export function WeightCutChart({
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>
-          Log daily weight to see your cut curve
+          Log daily body mass to see your trend
         </Text>
       </View>
     );
@@ -122,7 +122,7 @@ export function WeightCutChart({
         <Text style={[styles.projectionNote, { color: onTrack ? COLORS.readiness.prime : COLORS.readiness.caution }]}>
           {onTrack
             ? `On track — projected ${projectedWeight.toFixed(1)} lbs at weigh-in`
-            : `Projected ${projectedWeight.toFixed(1)} lbs — tighten the deficit`}
+            : `Projected ${projectedWeight.toFixed(1)} lbs — review body-mass support`}
         </Text>
       )}
     </View>

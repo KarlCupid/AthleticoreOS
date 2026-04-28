@@ -28,7 +28,7 @@ import type {
   ScheduledActivityRow,
 } from './schedule.ts';
 import type { PerformanceGoalType } from './foundational.ts';
-import type { WeightCutPlanRow } from './weight_cut.ts';
+import type { WeightClassPlanRow } from './weightClassPlan.ts';
 
 export interface ExerciseLibraryRow {
   id: string;
@@ -747,7 +747,7 @@ export interface WeeklyRoadWorkInput {
   acwr: number;
   age: number | null;
   campConfig: CampConfig | null;
-  activeCutPlan: WeightCutPlanRow | null;
+  activeWeightClassPlan: WeightClassPlanRow | null;
 }
 
 export type ConditioningType =
@@ -822,7 +822,7 @@ export interface WeeklyConditioningInput {
   readinessState: ReadinessState;
   acwr: number;
   campConfig: CampConfig | null;
-  activeCutPlan: WeightCutPlanRow | null;
+  activeWeightClassPlan: WeightClassPlanRow | null;
 }
 
 export type WorkoutDoseBucket =

@@ -16,7 +16,7 @@ Fill the `TBD` values below before submission. This file is the working source f
 3. Open `Today` to review the mission, readiness state, training load, and nutrition summary.
 4. Open `Train` and launch the guided workout flow to review a prescribed session and workout history.
 5. Open `Plan` to review weekly planning, calendar, and generated training structure.
-6. Open `Fuel` to review nutrition search, barcode scan, weight-cut setup, fight-week protocol, and rehydration guidance.
+6. Open `Fuel` to review nutrition search, barcode scan, weight-class setup, fight-week protocol, and rehydration guidance.
 7. Open `Me` to review profile settings, setup guide controls, privacy/support, and in-app account deletion.
 8. Open `Me` > `Delete account` to confirm the app includes a complete in-app deletion flow.
 
@@ -24,7 +24,7 @@ Fill the `TBD` values below before submission. This file is the working source f
 
 - This first release is free and does not include purchases, subscriptions, or paywalled features.
 - Camera permission is used only for food barcode scanning. Users can still search or log food manually without granting camera access.
-- Weight-cut, rehydration, and recovery content is coaching-oriented educational guidance. The app is not a medical diagnosis, treatment, or emergency service.
+- Weight-class, rehydration, and recovery content is coaching-oriented educational guidance. The app is not a medical diagnosis, treatment, or emergency service.
 - Internal replay-lab tooling is disabled in production builds.
 - Account deletion is available inside the app under `Me` > `Delete account`.
 - Privacy/support information is available inside the app under `Me` > `Privacy & support`.

@@ -7,7 +7,7 @@ import { Card } from './Card';
 
 interface Props {
   baselineMs?: number | null;
-  baseline?: number | null;  // alias used by FightWeekProtocolScreen
+  baseline?: number | null;  // alias used by CompetitionBodyMassScreen
   onResult: (reactionTimeMs: number) => void;
 }
 

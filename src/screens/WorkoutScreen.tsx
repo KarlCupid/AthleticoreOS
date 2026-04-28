@@ -129,7 +129,7 @@ export function WorkoutScreen() {
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
   const {
     loading, refreshing, loadData, onRefresh, prescription, todayActivities, workoutHistory,
-    checkins, sessions, userId, dailyMission, todayPlanEntry, weeklyEntries,
+    checkins, sessions, userId, dailyAthleteSummary, todayPlanEntry, weeklyEntries,
     historyLoaded, analyticsLoaded, historyLoading, analyticsLoading, initialLoadError,
     historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
     performanceContext,
@@ -181,7 +181,7 @@ export function WorkoutScreen() {
   const trainingLoadData = useMemo(() => buildTrainingLoadData(sessions), [sessions]);
   const acwrData = useMemo(() => computeACWRTimeSeries(sessions), [sessions]);
   const checkinDates = useMemo(() => new Set(checkins.map((checkin) => checkin.date)), [checkins]);
-  const floorVM = useMemo(() => buildTrainingFloorViewModel(prescription as any, dailyMission), [prescription, dailyMission]);
+  const floorVM = useMemo(() => buildTrainingFloorViewModel(prescription as any, dailyAthleteSummary), [prescription, dailyAthleteSummary]);
 
   const todaySessionLabel = useMemo(() => {
     if (todayPlanEntry) return getWorkoutFocusLabel(

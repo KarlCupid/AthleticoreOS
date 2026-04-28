@@ -834,7 +834,7 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
         ? deriveStimulusConstraintSet(readinessProfile, { phase, trainingIntensityCap })
         : null);
 
-    // Weight cut fight week (cap <= 4): force recovery focus
+    // Weight-class management fight week (cap <= 4): force recovery focus
     const effectiveFocus = (trainingIntensityCap != null && trainingIntensityCap <= 4 && (resolvedConstraintSet?.strengthBudget ?? 0) < 50)
         ? 'recovery' as WorkoutFocus
         : determineFocus(dayOfWeek, readinessState, phase, overrideFocus, resolvedConstraintSet);
@@ -954,9 +954,9 @@ export function generateWorkout(input: GenerateWorkoutInput): WorkoutPrescriptio
     const focusLabel = effectiveFocus.replace(/_/g, ' ');
     let message: string;
     if (trainingIntensityCap != null && trainingIntensityCap <= 4) {
-        message = `Weight cut fight week — recovery only. Light mobility and stretching. No heavy training.`;
+        message = `Weight-class management fight week — recovery only. Light mobility and stretching. No heavy training.`;
     } else if (trainingIntensityCap != null) {
-        message = `Weight cut active — intensity capped at ${trainingIntensityCap}/10. ${capitalize(focusLabel)} session adjusted for your cut protocol.`;
+        message = `Weight-class management active — intensity capped at ${trainingIntensityCap}/10. ${capitalize(focusLabel)} session adjusted for your body-mass guidance.`;
     } else if (readinessState === 'Depleted') {
         message = `Recovery day. Light mobility and active recovery to keep you moving without taxing your system.`;
     } else if (readinessState === 'Caution') {
@@ -1267,7 +1267,7 @@ function buildSecondaryConditioningSection(input: {
         constraintSet,
         acwr,
         sessionIndex: 0,
-        activeCutPlan: null,
+        activeWeightClassPlan: null,
         trainingIntensityCap,
     });
 
@@ -1666,7 +1666,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     const focusOverride = weeklyPlanFocus ?? overrideFocus;
     const exerciseUsageSummary = buildExerciseUsageSummary(exerciseHistory, exerciseLibrary, trainingDate);
 
-    // Weight cut fight week (cap <= 4): force recovery
+    // Weight-class management fight week (cap <= 4): force recovery
     const effectiveFocus = (trainingIntensityCap != null && trainingIntensityCap <= 4 && resolvedConstraintSet.strengthBudget < 50)
         ? 'recovery' as WorkoutFocus
         : determineFocus(
@@ -1757,7 +1757,7 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
             constraintSet: resolvedConstraintSet,
             acwr,
             sessionIndex: getConditioningSessionIndex(trainingDate),
-            activeCutPlan: null,
+            activeWeightClassPlan: null,
             trainingIntensityCap,
         });
 
@@ -1932,9 +1932,9 @@ export function generateWorkoutV2(input: GenerateWorkoutInputV2): WorkoutPrescri
     if (isDeloadWeek) {
         message = `Recovery week. Light ${focusLabel} session — reduced volume and intensity. Focus on movement quality.`;
     } else if (trainingIntensityCap != null && trainingIntensityCap <= 4) {
-        message = `Weight cut fight week — recovery only. Light mobility and stretching.`;
+        message = `Weight-class management fight week — recovery only. Light mobility and stretching.`;
     } else if (trainingIntensityCap != null) {
-        message = `Weight cut active — intensity capped at ${trainingIntensityCap}/10. ${capitalize(focusLabel)} session adjusted for your cut.`;
+        message = `Weight-class management active — intensity capped at ${trainingIntensityCap}/10. ${capitalize(focusLabel)} session adjusted for body-mass context.`;
     } else if (readinessState === 'Depleted') {
         message = `Low-readiness day. Training intent stays alive, but the stimulus has been substituted to fit today's constraints.`;
     } else if (readinessState === 'Caution') {

@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow, DailyMission } from '../engine/types';
+import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityWindow } from '../engine/types';
 import { toScheduledActivityPayload } from '../engine/sessionOwnership';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
@@ -9,7 +9,6 @@ export { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
 const today = todayLocalDate;
 let hasScheduledActivityIdColumn: boolean | null = null;
 let hasScheduledActivitiesWeeklyPlanEntryIdColumn: boolean | null = null;
-let hasDailyMissionSnapshotColumn: boolean | null = null;
 let hasWeeklyPlanMetadataColumns: boolean | null = null;
 
 function isMissingScheduledActivityIdColumnError(error: unknown): boolean {
@@ -28,15 +27,6 @@ function isMissingScheduledActivitiesWeeklyPlanEntryIdColumnError(error: unknown
         && typeof maybe.message === 'string'
         && maybe.message.includes('weekly_plan_entry_id')
         && maybe.message.includes('scheduled_activities');
-}
-
-function isMissingDailyMissionSnapshotColumnError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') return false;
-    const maybe = error as { code?: string; message?: string };
-    return maybe.code === 'PGRST204'
-        && typeof maybe.message === 'string'
-        && maybe.message.includes('daily_mission_snapshot')
-        && maybe.message.includes('weekly_plan_entries');
 }
 
 const WEEKLY_PLAN_METADATA_COLUMNS = [
@@ -94,11 +84,6 @@ function normalizeAvailabilityWindows(windows: AvailabilityWindow[] | null | und
         .sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
 }
 
-function stripMissionSnapshotPayload<T extends Record<string, unknown>>(payload: T) {
-    const { daily_mission_snapshot: _daily_mission_snapshot, ...rest } = payload;
-    return rest;
-}
-
 function stripWeeklyPlanMetadataPayload<T extends Record<string, unknown>>(payload: T) {
     const {
         day_order: _day_order,
@@ -117,12 +102,9 @@ function stripWeeklyPlanMetadataPayload<T extends Record<string, unknown>>(paylo
 }
 
 function applyWeeklyPlanColumnCompatibility<T extends Record<string, unknown>>(payload: T) {
-    const withoutMission = hasDailyMissionSnapshotColumn === false
-        ? stripMissionSnapshotPayload(payload)
-        : payload;
     return hasWeeklyPlanMetadataColumns === false
-        ? stripWeeklyPlanMetadataPayload(withoutMission)
-        : withoutMission;
+        ? stripWeeklyPlanMetadataPayload(payload)
+        : payload;
 }
 
 async function getScheduledActivityIdForEntry(entryId: string): Promise<string | null> {
@@ -365,15 +347,11 @@ export async function saveWeekPlan(
 
         if (error) {
             const missingScheduledActivityId = isMissingScheduledActivityIdColumnError(error);
-            const missingDailyMissionSnapshot = isMissingDailyMissionSnapshotColumnError(error);
             const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
 
-            if (missingScheduledActivityId || missingDailyMissionSnapshot || missingWeeklyPlanMetadata) {
+            if (missingScheduledActivityId || missingWeeklyPlanMetadata) {
                 if (missingScheduledActivityId) {
                     hasScheduledActivityIdColumn = false;
-                }
-                if (missingDailyMissionSnapshot) {
-                    hasDailyMissionSnapshotColumn = false;
                 }
                 if (missingWeeklyPlanMetadata) {
                     hasWeeklyPlanMetadataColumns = false;
@@ -384,7 +362,6 @@ export async function saveWeekPlan(
         } else {
             generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
             hasScheduledActivityIdColumn = true;
-            hasDailyMissionSnapshotColumn = true;
             hasWeeklyPlanMetadataColumns = true;
         }
     }
@@ -397,11 +374,9 @@ export async function saveWeekPlan(
             .select();
 
         if (error) {
-            const missingDailyMissionSnapshot = isMissingDailyMissionSnapshotColumnError(error);
             const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
 
-            if (missingDailyMissionSnapshot || missingWeeklyPlanMetadata) {
-                if (missingDailyMissionSnapshot) hasDailyMissionSnapshotColumn = false;
+            if (missingWeeklyPlanMetadata) {
                 if (missingWeeklyPlanMetadata) hasWeeklyPlanMetadataColumns = false;
                 const retry = await supabase
                     .from('weekly_plan_entries')
@@ -413,7 +388,6 @@ export async function saveWeekPlan(
                 throw error;
             }
         } else {
-            hasDailyMissionSnapshotColumn = true;
             hasWeeklyPlanMetadataColumns = true;
             generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
         }
@@ -664,34 +638,6 @@ export async function getWeeklyPlanEntryById(entryId: string): Promise<WeeklyPla
     return data as WeeklyPlanEntryRow | null;
 }
 
-export async function updateDailyMissionSnapshotsByDate(
-    userId: string,
-    snapshots: Array<{ date: string; mission: DailyMission }>,
-): Promise<void> {
-    if (hasDailyMissionSnapshotColumn === false || snapshots.length === 0) {
-        return;
-    }
-
-    try {
-        await Promise.all(
-            snapshots.map(({ date, mission }) =>
-                supabase
-                    .from('weekly_plan_entries')
-                    .update({ daily_mission_snapshot: mission })
-                    .eq('user_id', userId)
-                    .eq('date', date),
-            ),
-        );
-        hasDailyMissionSnapshotColumn = true;
-    } catch (error) {
-        if (isMissingDailyMissionSnapshotColumnError(error)) {
-            hasDailyMissionSnapshotColumn = false;
-            return;
-        }
-        throw error;
-    }
-}
-
 export async function updatePlanEntryPrescription(
     entryId: string,
     prescription: import('../engine/types').WorkoutPrescriptionV2,
@@ -746,7 +692,7 @@ export async function regenerateDayWorkout(
     if (!entry) throw new Error('Plan entry not found');
 
     const [engineState, gymProfile, exerciseLibrary, recentExerciseIds, recentMuscleVolume] = await Promise.all([
-        import('./dailyMissionService').then(m => m.getDailyEngineState(userId, entry.date)),
+        import('./dailyPerformanceService').then(m => m.getDailyEngineState(userId, entry.date)),
         import('./gymProfileService').then(m => m.getDefaultGymProfile(userId)),
         import('./scService').then(m => m.getExerciseLibrary()),
         import('./scService').then(m => m.getRecentExerciseIds(userId)),

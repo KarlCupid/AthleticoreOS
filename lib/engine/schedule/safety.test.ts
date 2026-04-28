@@ -42,7 +42,7 @@ console.log('\n-- schedule/safety --');
     true,
   );
 
-  assert('Active cut lowers load tolerance', cutWarnings.length > 0);
+  assert('Active weight-class plan lowers load tolerance', cutWarnings.length > 0);
 })();
 
 (() => {

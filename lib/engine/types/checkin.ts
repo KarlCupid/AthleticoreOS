@@ -83,7 +83,7 @@ export interface DailyCoachDebriefInput {
   context: {
     phase: Phase;
     campLabel?: string | null;
-    isOnActiveCut?: boolean;
+    hasActiveWeightClassPlan?: boolean;
   };
   previousDebrief?: DailyCoachDebriefHistory | null;
 }

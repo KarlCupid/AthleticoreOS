@@ -1,4 +1,4 @@
-﻿/**
+/**
  * calculateCamp.ts
  *
  * Fight camp periodization engine.
@@ -6,11 +6,11 @@
  * training modifiers that feed into the schedule engine.
  *
  * Functions:
- *   1. generateCampPlan        â€” create a full periodized camp from fight date and start date
- *   2. determineCampPhase      â€” resolve which CampPhase a given date falls in
- *   3. getCampTrainingModifiers â€” training modifiers for a given camp phase
- *   4. getCampWeekProfile      â€” full profile for a given week in camp (focus, volume, intensity)
- *   5. toCampEnginePhase       â€” maps CampPhase to engine Phase type for downstream use
+ *   1. generateCampPlan        — create a full periodized camp from fight date and start date
+ *   2. determineCampPhase      — resolve which CampPhase a given date falls in
+ *   3. getCampTrainingModifiers — training modifiers for a given camp phase
+ *   4. getCampWeekProfile      — full profile for a given week in camp (focus, volume, intensity)
+ *   5. toCampEnginePhase       — maps CampPhase to engine Phase type for downstream use
  *
  * @ANTI-WIRING:
  * All functions are pure and synchronous. No database queries. No LLM generation.
@@ -35,23 +35,23 @@ import type {
 import { formatLocalDate } from '../utils/date.ts';
 import { calculatePhaseAllocation } from './phases/calculatePhaseAllocation.ts';
 
-// â”€â”€â”€ Phase Split Ratios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Phase Split Ratios ────────────────────────────────────────
 
 /**
  * How camp weeks are distributed across phases.
  * Based on established periodization science for combat sports.
  * (Source: Tudor Bompa's "Periodization" adapted for MMA/boxing)
  *
- * base: GPP â€” general physical preparedness, high volume, moderate intensity
- * build: SPP â€” specific physical preparedness, volume peaks then drops, intensity rises
- * peak: Competition prep â€” low volume, high intensity, sport-specific
- * taper: Pre-fight â€” cut load significantly, maintain feel and speed
+ * base: GPP — general physical preparedness, high volume, moderate intensity
+ * build: SPP — specific physical preparedness, volume peaks then drops, intensity rises
+ * peak: Competition prep — low volume, high intensity, sport-specific
+ * taper: Pre-fight — reduce load significantly, maintain feel and speed
  */
 const PHASE_VOLUME_MULTIPLIERS: Record<CampPhase, number> = {
     base: 1.15,  // high volume base
     build: 1.10,  // slightly reduce volume as intensity rises
-    peak: 0.85,  // significant volume cut
-    taper: 0.55,  // drastic volume cut â€” sharpen, don't grind
+    peak: 0.85,  // significant volume reduction
+    taper: 0.55,  // drastic volume reduction — sharpen, don't grind
 };
 
 /**
@@ -84,7 +84,7 @@ const PHASE_REST_DAYS: Record<CampPhase, number> = {
     taper: 2,
 };
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ───────────────────────────────────────────────────
 
 function addDays(dateStr: string, days: number): string {
     const d = new Date(dateStr + 'T00:00:00');
@@ -102,7 +102,7 @@ function weeksBetween(startStr: string, endStr: string): number {
     return Math.round(daysBetween(startStr, endStr) / 7);
 }
 
-// â”€â”€â”€ generateCampPlan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── generateCampPlan ─────────────────────────────────────────
 
 /**
  * Generates a periodized fight camp config from start date and fight date.
@@ -113,14 +113,14 @@ function weeksBetween(startStr: string, endStr: string): number {
  *     - fightDate: string (from fight setup screen)
  *     - campStartDate: string (from fight setup screen)
  *     - fitnessLevel: FitnessLevel (from fitness_profiles)
- *     - hasConcurrentCut: boolean (from weight_cut_plans)
+ *     - hasConcurrentWeightClassPlan: boolean (from weight_class_plans)
  *     - userId: string
  *
  * Returns: CampConfig
  * Pure synchronous function. No database queries. No LLM generation.
  */
 export function generateCampPlan(input: CampPlanInput): CampConfig {
-    const { fightDate, campStartDate, hasConcurrentCut, userId } = input;
+    const { fightDate, campStartDate, hasConcurrentWeightClassPlan, userId } = input;
 
     const totalDays = daysBetween(campStartDate, fightDate);
     const totalWeeks = Math.max(4, Math.round(totalDays / 7)); // minimum 4-week camp
@@ -149,7 +149,7 @@ export function generateCampPlan(input: CampPlanInput): CampConfig {
         fightDate,
         campStartDate,
         totalWeeks,
-        hasConcurrentCut,
+        hasConcurrentWeightClassPlan,
         basePhaseDates: { start: baseStart, end: baseEnd },
         buildPhaseDates: { start: buildStart, end: buildEnd },
         peakPhaseDates: { start: peakStart, end: peakEnd },
@@ -158,7 +158,7 @@ export function generateCampPlan(input: CampPlanInput): CampConfig {
     };
 }
 
-// â”€â”€â”€ determineCampPhase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── determineCampPhase ───────────────────────────────────────
 
 /**
  * Returns the CampPhase for a given date within a camp.
@@ -179,7 +179,7 @@ export function determineCampPhase(
     return 'taper';
 }
 
-// â”€â”€â”€ getCampTrainingModifiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getCampTrainingModifiers ─────────────────────────────────
 
 /**
  * Returns training load modifiers for a given camp phase.
@@ -190,7 +190,7 @@ export function determineCampPhase(
 export function getCampTrainingModifiers(
     campPhase: CampPhase,
     fitnessLevel: FitnessLevel,
-    hasConcurrentCut: boolean,
+    hasConcurrentWeightClassPlan: boolean,
 ): CampTrainingModifiers {
     // Base sessions per week by fitness level
     const baseScByLevel: Record<FitnessLevel, number> = {
@@ -205,12 +205,12 @@ export function getCampTrainingModifiers(
 
     const volMult = PHASE_VOLUME_MULTIPLIERS[campPhase];
 
-    // Cut reduces S&C and conditioning sessions to protect recovery
-    const cutReduction = hasConcurrentCut ? 0.8 : 1.0;
+    // Weight-class context reduces S&C and conditioning sessions to protect recovery
+    const cutReduction = hasConcurrentWeightClassPlan ? 0.8 : 1.0;
 
     return {
         volumeMultiplier: volMult,
-        intensityCap: hasConcurrentCut
+        intensityCap: hasConcurrentWeightClassPlan
             ? PHASE_INTENSITY_CAPS[campPhase].concurrentCut
             : PHASE_INTENSITY_CAPS[campPhase].normal,
         mandatoryRestDaysPerWeek: PHASE_REST_DAYS[campPhase],
@@ -221,7 +221,7 @@ export function getCampTrainingModifiers(
     };
 }
 
-// â”€â”€â”€ getCampWeekProfile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getCampWeekProfile ───────────────────────────────────────
 
 /**
  * Returns a full week profile for a given week in camp.
@@ -260,7 +260,7 @@ export function getCampWeekProfile(
         taper: 'recovery',    // mobilize and recover
     };
 
-    const modifiers = getCampTrainingModifiers(campPhase, fitnessLevel, config.hasConcurrentCut);
+    const modifiers = getCampTrainingModifiers(campPhase, fitnessLevel, config.hasConcurrentWeightClassPlan);
 
     return {
         weekNumber,
@@ -275,7 +275,7 @@ export function getCampWeekProfile(
     };
 }
 
-// â”€â”€â”€ toCampEnginePhase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── toCampEnginePhase ────────────────────────────────────────
 
 /**
  * Maps a CampPhase to the corresponding engine Phase type.
@@ -293,7 +293,7 @@ export function toCampEnginePhase(campPhase: CampPhase): Phase {
     return map[campPhase];
 }
 
-// â”€â”€â”€ getAutoTaperMultiplier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getAutoTaperMultiplier ──────────────────────────────────
 
 /**
  * Returns a volume multiplier for S&C based on the number of sparring
@@ -324,7 +324,7 @@ export function getAutoTaperMultiplier(
     return Math.max(0.5, 1.0 - (sparringDaysPerWeek - 1) * 0.175);
 }
 
-// â”€â”€â”€ getCampSCModifier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getCampSCModifier ──────────────────────────────────────────
 
 /**
  * Returns S&C-specific modifiers for the current camp phase,
@@ -384,7 +384,7 @@ export function getCampSCModifier(
     };
 }
 
-// â”€â”€â”€ getSparringDayGuidance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── getSparringDayGuidance ──────────────────────────────────────
 
 /**
  * Returns pre-activation and post-recovery exercise guidance for
@@ -479,13 +479,13 @@ export function getSparringDayGuidance(
             preActivation: [],
             postRecovery: [],
             scRestriction: 'activation_only',
-            message: `Sparring day (${campPhase} phase). No heavy S&C â€” perform 10 min of light mobility and band activation before sparring. Post-sparring: 10 min foam rolling and static stretching.`,
+            message: `Sparring day (${campPhase} phase). No heavy S&C — perform 10 min of light mobility and band activation before sparring. Post-sparring: 10 min foam rolling and static stretching.`,
         };
     }
 
     const phaseMessages: Record<CampPhase, string> = {
         base: 'Base phase sparring day. Light activation to prime movement patterns. Save your energy for rounds.',
-        build: 'Build phase sparring day. Activation only â€” intensity comes from sparring, not S&C.',
+        build: 'Build phase sparring day. Activation only — intensity comes from sparring, not S&C.',
         peak: 'Peak phase sparring day. Minimal activation to stay sharp. Full recovery between sessions.',
         taper: 'Taper phase sparring day. Light mobility only. Keep the prep minimal and preserve every ounce of energy for fight week.',
     };

@@ -4,7 +4,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { AnimatedPressable } from './AnimatedPressable';
 import { Card } from './Card';
-import type { WeightTrendResult, WeightCutStatus, WeightDataPoint } from '../../lib/engine/types';
+import type { WeightTrendResult, BodyMassTrendStatus, WeightDataPoint } from '../../lib/engine/types';
 
 const BODY_TREND_BACKGROUND = require('../../assets/images/dashboard/body-trend-card-bg.png');
 const CHART_WIDTH = 320;
@@ -28,7 +28,7 @@ interface ChartPoint {
     isLatest: boolean;
 }
 
-const STATUS_CONFIG: Record<WeightCutStatus, { label: string; color: string; bg: string }> = {
+const STATUS_CONFIG: Record<BodyMassTrendStatus, { label: string; color: string; bg: string }> = {
     on_track: { label: 'On Track', color: COLORS.readiness.prime, bg: COLORS.readiness.primeLight },
     ahead: { label: 'Ahead', color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
     behind: { label: 'Behind', color: COLORS.readiness.caution, bg: COLORS.readiness.cautionLight },

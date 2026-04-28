@@ -5,7 +5,7 @@ export const ENGINE_SAFETY_POLICY_VERSION = '2026-04-launch-safety-v1';
 export type EngineSafetyWarningTier = 'info' | 'caution' | 'severe' | 'medical';
 
 export type EngineSafetyWarningSource =
-  | 'weight_cut'
+  | 'weight_class'
   | 'fight_week'
   | 'nutrition'
   | 'hydration'

@@ -152,13 +152,13 @@ console.log('\n-- calculateACWR --');
     }
 
     const supabase = createMockSupabase(rows);
-    const beginnerCut = await calculateACWR({
+    const beginnerWeightClassPlan = await calculateACWR({
       userId: 'u1',
       supabaseClient: supabase as any,
       asOfDate: asOf,
       fitnessLevel: 'beginner',
       phase: 'fight-camp',
-      isOnActiveCut: true,
+      hasActiveWeightClassPlan: true,
     });
     const eliteOff = await calculateACWR({
       userId: 'u1',
@@ -166,11 +166,11 @@ console.log('\n-- calculateACWR --');
       asOfDate: asOf,
       fitnessLevel: 'elite',
       phase: 'off-season',
-      isOnActiveCut: false,
+      hasActiveWeightClassPlan: false,
     });
 
-    assert('Personalized thresholds: beginner cut is stricter than elite off-season', beginnerCut.thresholds.redline < eliteOff.thresholds.redline);
-    assert('Thresholds report EWMA source', beginnerCut.thresholds.source === 'ewma_personalized');
+    assert('Personalized thresholds: beginner weight-class plan is stricter than elite off-season', beginnerWeightClassPlan.thresholds.redline < eliteOff.thresholds.redline);
+    assert('Thresholds report EWMA source', beginnerWeightClassPlan.thresholds.source === 'ewma_personalized');
   }
 
   // ── Confidence levels ──────────────────────────────────────
@@ -259,8 +259,8 @@ console.log('\n-- calculateACWR --');
     assert('All ratios are the same for same data', beginnerResult.ratio === eliteResult.ratio);
   }
 
-  // ── Cut penalty ────────────────────────────────────────────
-  console.log('\n  Section: Cut penalty');
+  // ── Weight-class load adjustment ────────────────────────────────────────────
+  console.log('\n  Section: Weight-class load adjustment');
   {
     const asOf = '2026-03-08';
     const rows: Pick<TrainingSessionRow, 'date' | 'total_load'>[] = [];
@@ -269,28 +269,28 @@ console.log('\n-- calculateACWR --');
     }
     const supabase = createMockSupabase(rows);
 
-    const noCut = await calculateACWR({
+    const withoutWeightClassPlan = await calculateACWR({
       userId: 'u1',
       supabaseClient: supabase as any,
       asOfDate: asOf,
       fitnessLevel: 'intermediate',
       phase: 'off-season',
-      isOnActiveCut: false,
+      hasActiveWeightClassPlan: false,
     });
 
-    const withCut = await calculateACWR({
+    const withWeightClassPlan = await calculateACWR({
       userId: 'u1',
       supabaseClient: supabase as any,
       asOfDate: asOf,
       fitnessLevel: 'intermediate',
       phase: 'off-season',
-      isOnActiveCut: true,
+      hasActiveWeightClassPlan: true,
     });
 
-    assert('Active cut lowers caution threshold', withCut.thresholds.caution < noCut.thresholds.caution);
-    assert('Active cut lowers redline threshold', withCut.thresholds.redline < noCut.thresholds.redline);
-    assert('Active cut includes active_cut factor', withCut.thresholds.personalizationFactors.includes('active_cut'));
-    assert('No-cut does not include active_cut factor', !noCut.thresholds.personalizationFactors.includes('active_cut'));
+    assert('Active weight-class plan lowers caution threshold', withWeightClassPlan.thresholds.caution < withoutWeightClassPlan.thresholds.caution);
+    assert('Active weight-class plan lowers redline threshold', withWeightClassPlan.thresholds.redline < withoutWeightClassPlan.thresholds.redline);
+    assert('Active weight-class plan includes active_weight_class_plan factor', withWeightClassPlan.thresholds.personalizationFactors.includes('active_weight_class_plan'));
+    assert('No weight-class plan does not include active_weight_class_plan factor', !withoutWeightClassPlan.thresholds.personalizationFactors.includes('active_weight_class_plan'));
   }
 
   // ── Phase adjustments ──────────────────────────────────────
@@ -395,7 +395,7 @@ console.log('\n-- calculateACWR --');
     const lowData = getPersonalizedACWRThresholds({
       fitnessLevel: 'intermediate',
       phase: 'off-season',
-      isOnActiveCut: false,
+      hasActiveWeightClassPlan: false,
       daysOfData: 3,
       chronicLoad: 500,
       loadMetrics: makeEmptyMetrics(),
@@ -407,7 +407,7 @@ console.log('\n-- calculateACWR --');
     const limitedData = getPersonalizedACWRThresholds({
       fitnessLevel: 'intermediate',
       phase: 'off-season',
-      isOnActiveCut: false,
+      hasActiveWeightClassPlan: false,
       daysOfData: 10,
       chronicLoad: 500,
       loadMetrics: makeEmptyMetrics(),
@@ -419,7 +419,7 @@ console.log('\n-- calculateACWR --');
     const stableData = getPersonalizedACWRThresholds({
       fitnessLevel: 'intermediate',
       phase: 'off-season',
-      isOnActiveCut: false,
+      hasActiveWeightClassPlan: false,
       daysOfData: 25,
       chronicLoad: 500,
       loadMetrics: makeEmptyMetrics(),
@@ -431,7 +431,7 @@ console.log('\n-- calculateACWR --');
     const lowChronic = getPersonalizedACWRThresholds({
       fitnessLevel: 'intermediate',
       phase: 'off-season',
-      isOnActiveCut: false,
+      hasActiveWeightClassPlan: false,
       daysOfData: 14,
       chronicLoad: 300,
       loadMetrics: makeEmptyMetrics(),
@@ -442,7 +442,7 @@ console.log('\n-- calculateACWR --');
     const highChronic = getPersonalizedACWRThresholds({
       fitnessLevel: 'intermediate',
       phase: 'off-season',
-      isOnActiveCut: false,
+      hasActiveWeightClassPlan: false,
       daysOfData: 14,
       chronicLoad: 1500,
       loadMetrics: makeEmptyMetrics(),

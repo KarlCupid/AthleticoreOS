@@ -1,7 +1,7 @@
 import { buildMissionDashboardViewModel } from './missionDashboard.ts';
 import type {
   ACWRResult,
-  DailyMission,
+  DailyAthleteSummary,
   MissionRiskLevel,
   ReadinessState,
   WeeklyComplianceReport,
@@ -75,12 +75,12 @@ function makeMission(overrides: {
   readinessState?: ReadinessState;
   riskLevel?: MissionRiskLevel;
   interventionState?: 'none' | 'soft' | 'hard';
-  sessionRole?: DailyMission['trainingDirective']['sessionRole'];
-  goalMode?: DailyMission['macrocycleContext']['goalMode'];
+  sessionRole?: DailyAthleteSummary['trainingDirective']['sessionRole'];
+  goalMode?: DailyAthleteSummary['macrocycleContext']['goalMode'];
   daysOut?: number | null;
-  campPhase?: DailyMission['macrocycleContext']['campPhase'];
+  campPhase?: DailyAthleteSummary['macrocycleContext']['campPhase'];
   isMandatoryRecovery?: boolean;
-} = {}): DailyMission {
+} = {}): DailyAthleteSummary {
   const readinessState = overrides.readinessState ?? 'Prime';
   return {
     date: '2026-04-20',
@@ -122,8 +122,8 @@ function makeMission(overrides: {
       buildGoal: null,
       camp: null,
       campPhase: overrides.campPhase ?? null,
-      weightCutState: 'none',
-      isOnActiveCut: false,
+      weightClassState: 'none',
+      hasActiveWeightClassPlan: false,
       weighInTiming: null,
       daysOut: overrides.daysOut ?? null,
       isTravelWindow: false,
@@ -207,7 +207,7 @@ function makeMission(overrides: {
       status: 'following_plan',
       note: 'No override',
     },
-  } as DailyMission;
+  } as DailyAthleteSummary;
 }
 
 const baseInput = {
@@ -216,7 +216,7 @@ const baseInput = {
   checkinDone: true,
   sessionDone: false,
   hasActiveFightCamp: false,
-  hasActiveCutPlan: false,
+  hasActiveWeightClassPlan: false,
   todayPlanEntryIsDeload: false,
   weightTrend: null,
   weeklyReview: makeWeeklyReport(),
@@ -226,7 +226,7 @@ const baseInput = {
     { date: '2026-04-17', total_volume: 150, session_rpe: 6, duration_minutes: 50 },
     { date: '2026-04-19', total_volume: 170, session_rpe: 6, duration_minutes: 50 },
   ],
-  cutSafetyFlags: [],
+  bodyMassSafetyFlags: [],
 };
 
 console.log('\n-- mission dashboard --');
@@ -278,7 +278,7 @@ console.log('\n-- mission dashboard --');
   const result = buildMissionDashboardViewModel({
     ...baseInput,
     mission: makeMission({ riskLevel: 'critical', interventionState: 'hard' }),
-    cutSafetyFlags: [{
+    bodyMassSafetyFlags: [{
       severity: 'danger',
       title: 'Recovery is falling behind',
       message: 'A safety flag is active today.',

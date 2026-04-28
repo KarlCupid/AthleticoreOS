@@ -1,18 +1,18 @@
 import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { DailyMission } from '../../lib/engine/types';
+import type { DailyAthleteSummary } from '../../lib/engine/types';
 import { getSessionFamilyLabel, getSessionRoleLabel } from '../../lib/engine/sessionLabels';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
-interface DailyMissionCardProps {
-  mission: DailyMission;
+interface DailyAthleteSummaryCardProps {
+  summary: DailyAthleteSummary;
   compact?: boolean;
 }
 
-function getRiskColor(level: DailyMission['riskState']['level']): string {
+function getRiskColor(level: DailyAthleteSummary['riskState']['level']): string {
   switch (level) {
     case 'critical':
       return COLORS.error;
@@ -25,19 +25,19 @@ function getRiskColor(level: DailyMission['riskState']['level']): string {
   }
 }
 
-export const DailyMissionCard = memo(function DailyMissionCard({ mission, compact = false }: DailyMissionCardProps) {
-  const riskColor = getRiskColor(mission.riskState.level);
-  const missionCalories = calculateCaloriesFromMacros(
-    mission.fuelDirective.protein,
-    mission.fuelDirective.carbs,
-    mission.fuelDirective.fat,
+export const DailyAthleteSummaryCard = memo(function DailyAthleteSummaryCard({ summary, compact = false }: DailyAthleteSummaryCardProps) {
+  const riskColor = getRiskColor(summary.riskState.level);
+  const summaryCalories = calculateCaloriesFromMacros(
+    summary.fuelDirective.protein,
+    summary.fuelDirective.carbs,
+    summary.fuelDirective.fat,
   );
   const sessionLabel = getSessionFamilyLabel({
-    workoutType: mission.trainingDirective.workoutType,
-    focus: mission.trainingDirective.focus,
-    prescription: mission.trainingDirective.prescription,
+    workoutType: summary.trainingDirective.workoutType,
+    focus: summary.trainingDirective.focus,
+    prescription: summary.trainingDirective.prescription,
   });
-  const roleLabel = getSessionRoleLabel(mission.trainingDirective.sessionRole);
+  const roleLabel = getSessionRoleLabel(summary.trainingDirective.sessionRole);
 
   return (
     <Card
@@ -48,12 +48,12 @@ export const DailyMissionCard = memo(function DailyMissionCard({ mission, compac
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={styles.kicker}>DAILY MISSION</Text>
-          <Text style={compact ? styles.headlineCompact : styles.headline}>{mission.headline}</Text>
-          <Text style={styles.summary} numberOfLines={compact ? 2 : undefined}>{mission.summary}</Text>
+          <Text style={compact ? styles.headlineCompact : styles.headline}>{summary.headline}</Text>
+          <Text style={styles.summary} numberOfLines={compact ? 2 : undefined}>{summary.summary}</Text>
         </View>
         <View style={[styles.riskChip, { backgroundColor: `${riskColor}1A` }]}>
           <Text style={[styles.riskChipText, { color: riskColor }]}>
-            {mission.riskState.level.toUpperCase()}
+            {summary.riskState.level.toUpperCase()}
           </Text>
         </View>
       </View>
@@ -62,25 +62,25 @@ export const DailyMissionCard = memo(function DailyMissionCard({ mission, compac
         <>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Training</Text>
-            <Text style={styles.sectionLine}>{mission.trainingDirective.intent}</Text>
+            <Text style={styles.sectionLine}>{summary.trainingDirective.intent}</Text>
             <Text style={styles.metaLine}>
-              {sessionLabel} Â· {roleLabel} Â· {mission.trainingDirective.volumeTarget}
+              {sessionLabel} Â· {roleLabel} Â· {summary.trainingDirective.volumeTarget}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Fuel</Text>
             <Text style={styles.sectionLine}>
-              {missionCalories} kcal Â· P {mission.fuelDirective.protein} Â· C {mission.fuelDirective.carbs} Â· F {mission.fuelDirective.fat}
+              {summaryCalories} kcal Â· P {summary.fuelDirective.protein} Â· C {summary.fuelDirective.carbs} Â· F {summary.fuelDirective.fat}
             </Text>
             <Text style={styles.metaLine}>
-              Pre {mission.fuelDirective.preSessionCarbsG}g carbs Â· Post {mission.fuelDirective.postSessionProteinG}g protein Â· Water {mission.hydrationDirective.waterTargetOz} oz
+              Pre {summary.fuelDirective.preSessionCarbsG}g carbs Â· Post {summary.fuelDirective.postSessionProteinG}g protein Â· Water {summary.hydrationDirective.waterTargetOz} oz
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Why it changed</Text>
-            {mission.decisionTrace.slice(0, 3).map((item) => (
+            {summary.decisionTrace.slice(0, 3).map((item) => (
               <Text key={`${item.subsystem}-${item.title}`} style={styles.traceLine}>
                 {item.title}: {item.detail}
               </Text>
@@ -89,7 +89,7 @@ export const DailyMissionCard = memo(function DailyMissionCard({ mission, compac
 
           <View style={styles.footer}>
             <Text style={styles.footerLabel}>Override</Text>
-            <Text style={styles.footerValue}>{mission.overrideState.note}</Text>
+            <Text style={styles.footerValue}>{summary.overrideState.note}</Text>
           </View>
         </>
       )}

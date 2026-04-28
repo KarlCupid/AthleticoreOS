@@ -322,7 +322,7 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
   {
     id: 'build-baseline',
     label: 'Build Phase Baseline',
-    description: 'Stable build block with a realistically compliant athlete. Good for checking training and nutrition progression without cut pressure.',
+    description: 'Stable build block with a realistically compliant athlete. Good for checking training and nutrition progression without weight-class pressure.',
     config: {
       startDate: '2026-01-05',
       weeks: 6,
@@ -348,9 +348,9 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
     }),
   },
   {
-    id: 'camp-active-cut',
-    label: 'Camp Under Active Cut',
-    description: 'Fight camp with a tighter cut and a realistically compliant athlete. Useful for checking intervention logic, fueling, and cut protection without confounding override behavior.',
+    id: 'camp-active-weight-class',
+    label: 'Camp Under Active Weight-Class Management',
+    description: 'Fight camp with a tighter weight-class target and a realistically compliant athlete. Useful for checking intervention logic, fueling, and body-mass protection without confounding override behavior.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
@@ -360,9 +360,9 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
     }),
   },
   {
-    id: 'camp-taper-cut-protection',
-    label: 'Taper Cut Protection',
-    description: 'Late-camp replay tuned for taper plus active cut pressure. Useful for checking that protective mission logic still preserves recovery-first outputs as weigh-in approaches.',
+    id: 'camp-taper-body-mass-protection',
+    label: 'Taper Body-Mass Protection',
+    description: 'Late-camp replay tuned for taper plus active weight-class plan pressure. Useful for checking that protective mission logic still preserves recovery-first outputs as weigh-in approaches.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
@@ -372,9 +372,9 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
     }),
   },
   {
-    id: 'camp-peak-concurrent-cut',
-    label: 'Peak With Concurrent Cut',
-    description: 'Peak-camp replay with a tighter cut. Useful for validating that intensity pressure stays bounded instead of stacking peak load and aggressive cut stress together.',
+    id: 'camp-peak-concurrent-weight-class',
+    label: 'Peak With Concurrent Weight-Class Management',
+    description: 'Peak-camp replay with a tighter weight-class target. Useful for validating that intensity pressure stays bounded instead of stacking peak load and aggressive body-mass stress together.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
@@ -398,7 +398,7 @@ export const ENGINE_REPLAY_SCENARIOS: EngineReplayScenario[] = [
   {
     id: 'nutrition-chaos',
     label: 'Camp Tight Fueling Margin',
-    description: 'A tighter cut with a realistically compliant athlete. Use this to inspect calorie correction and nutrition drift without intentional binge behavior.',
+    description: 'A tighter weight-class target with a realistically compliant athlete. Use this to inspect calorie correction and nutrition drift without intentional binge behavior.',
     config: buildFightCampConfig({
       startDate: '2026-02-02',
       weeks: 8,
@@ -451,7 +451,8 @@ function classifyDriverGroup(driver: string): number {
     || normalized.includes('sodium')
     || normalized.includes('make weight')
     || normalized.includes('drift')
-    || normalized.includes('cut ')
+    || normalized.includes('body mass')
+    || normalized.includes('weight class')
   ) {
     return 1;
   }
@@ -589,7 +590,7 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     || personaAction.conditioningPrescription != null;
   const preserveMissionLabel = mission.trainingDirective.sessionRole === 'rest'
     || mission.trainingDirective.sessionRole === 'recover'
-    || mission.trainingDirective.sessionRole === 'cut_protect'
+    || mission.trainingDirective.sessionRole === 'body_mass_protect'
     || mission.trainingDirective.workoutType === 'recovery'
     || mission.trainingDirective.workoutType == null;
   const derivedWorkoutType = preserveMissionLabel || hasGuidedPrescription

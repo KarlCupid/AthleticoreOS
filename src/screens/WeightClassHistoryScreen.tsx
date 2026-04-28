@@ -3,18 +3,18 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { useWeightCutData } from '../hooks/useWeightCutData';
+import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
-import { WeightCutHistoryRow } from '../../lib/engine/types';
+import { WeightClassHistoryRow } from '../../lib/engine/types';
 
-export function CutHistoryScreen() {
+export function WeightClassHistoryScreen() {
   const [userId, setUserId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
 
-  const { loading, cutHistory } = useWeightCutData(userId);
+  const { loading, weightClassHistory } = useBodyMassPlanData(userId);
 
   if (loading) {
     return (
@@ -24,7 +24,7 @@ export function CutHistoryScreen() {
     );
   }
 
-  if (cutHistory.length === 0) {
+  if (weightClassHistory.length === 0) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyIcon}>🏆</Text>
@@ -43,27 +43,27 @@ export function CutHistoryScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.sectionTitle}>Body-Mass History</Text>
-      <Text style={styles.sectionSubtitle}>{cutHistory.length} completed class plan{cutHistory.length !== 1 ? 's' : ''}</Text>
-      {cutHistory.map((cut) => (
-        <CutHistoryCard key={cut.id} cut={cut} />
+      <Text style={styles.sectionSubtitle}>{weightClassHistory.length} completed class plan{weightClassHistory.length !== 1 ? 's' : ''}</Text>
+      {weightClassHistory.map((record) => (
+        <WeightClassHistoryCard key={record.id} record={record} />
       ))}
     </ScrollView>
   );
 }
 
-function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
+function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
   const [expanded, setExpanded] = useState(false);
-  const madeWeight = cut.made_weight;
-  const totalLbs = (cut.total_diet_loss_lbs ?? 0) + (cut.total_water_cut_lbs ?? 0);
-  const adherence = cut.protocol_adherence_pct ?? 0;
+  const madeWeight = record.made_weight;
+  const totalLbs = (record.gradual_body_mass_change_lbs ?? 0) + (record.competition_week_body_mass_change_lbs ?? 0);
+  const adherence = record.adherence_pct ?? 0;
 
   const adherenceColor =
     adherence >= 80 ? COLORS.readiness.prime :
     adherence >= 60 ? COLORS.readiness.caution :
     COLORS.readiness.depleted;
 
-  const cutDate = cut.completed_at
-    ? new Date(cut.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const completedDate = record.completed_at
+    ? new Date(record.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '—';
 
   return (
@@ -75,8 +75,8 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
       {/* Header */}
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleBlock}>
-          <Text style={styles.cutTitle}>{cut.start_weight} → {cut.target_weight} lbs</Text>
-          <Text style={styles.cutDate}>{cutDate}</Text>
+          <Text style={styles.planTitle}>{record.start_weight} → {record.target_weight} lbs</Text>
+          <Text style={styles.planDate}>{completedDate}</Text>
         </View>
         <View style={[
           styles.madeWeightBadge,
@@ -105,7 +105,7 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
         />
         <StatPill
           label="Weigh-in"
-          value={cut.final_weigh_in_weight ? `${cut.final_weigh_in_weight} lbs` : '—'}
+          value={record.final_weigh_in_weight ? `${record.final_weigh_in_weight} lbs` : '—'}
           color={COLORS.text.secondary}
         />
       </View>
@@ -115,15 +115,15 @@ function CutHistoryCard({ cut }: { cut: WeightCutHistoryRow }) {
         <View style={styles.expanded}>
           <View style={styles.divider} />
           <View style={styles.detailGrid}>
-            <DetailRow label="Gradual loss" value={`${(cut.total_diet_loss_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Fight-week change" value={`${(cut.total_water_cut_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Post weigh-in regain" value={cut.rehydration_weight_regained ? `${cut.rehydration_weight_regained.toFixed(1)} lbs` : '—'} />
-            <DetailRow label="Avg weekly loss" value={cut.avg_weekly_loss_rate ? `${cut.avg_weekly_loss_rate.toFixed(2)} lbs/wk` : '—'} />
-            <DetailRow label="Fight day weight" value={cut.fight_day_weight ? `${cut.fight_day_weight} lbs` : '—'} />
-            {(cut.safety_flags_triggered?.length ?? 0) > 0 && (
+            <DetailRow label="Gradual loss" value={`${(record.gradual_body_mass_change_lbs ?? 0).toFixed(1)} lbs`} />
+            <DetailRow label="Fight-week change" value={`${(record.competition_week_body_mass_change_lbs ?? 0).toFixed(1)} lbs`} />
+            <DetailRow label="Post weigh-in regain" value={record.rehydration_weight_regained ? `${record.rehydration_weight_regained.toFixed(1)} lbs` : '—'} />
+            <DetailRow label="Avg weekly loss" value={record.avg_weekly_loss_rate ? `${record.avg_weekly_loss_rate.toFixed(2)} lbs/wk` : '—'} />
+            <DetailRow label="Fight day weight" value={record.fight_day_weight ? `${record.fight_day_weight} lbs` : '—'} />
+            {(record.safety_flags_triggered?.length ?? 0) > 0 && (
               <DetailRow
                 label="Safety flags triggered"
-                value={`${cut.safety_flags_triggered.length}`}
+                value={`${record.safety_flags_triggered.length}`}
                 valueColor={COLORS.readiness.caution}
               />
             )}
@@ -175,8 +175,8 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm },
   cardTitleBlock: { flex: 1, marginRight: SPACING.sm },
-  cutTitle: { fontFamily: FONT_FAMILY.semiBold, fontSize: 16, color: COLORS.text.primary },
-  cutDate: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, marginTop: 2 },
+  planTitle: { fontFamily: FONT_FAMILY.semiBold, fontSize: 16, color: COLORS.text.primary },
+  planDate: { fontFamily: FONT_FAMILY.regular, fontSize: 12, color: COLORS.text.secondary, marginTop: 2 },
   madeWeightBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm, borderWidth: 1 },
   madeWeightText: { fontFamily: FONT_FAMILY.semiBold, fontSize: 11, letterSpacing: 0.4 },
   statsRow: { flexDirection: 'row', gap: SPACING.xs },

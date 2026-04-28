@@ -7,8 +7,8 @@ import type {
     WeightCorrectionInput,
     WeightCorrectionResult,
     WeightReadinessPenalty,
-    WeightCutStatus,
-} from './types/weight_cut.ts';
+    BodyMassTrendStatus,
+} from './types/weightClassPlan.ts';
 import { formatLocalDate, todayLocalDate } from '../utils/date.ts';
 
 /**
@@ -202,7 +202,7 @@ export function calculateWeightTrend(input: WeightTrendInput): WeightTrendResult
     }
 
     // Status determination
-    let status: WeightCutStatus;
+    let status: BodyMassTrendStatus;
     const isCutting = phase === 'fight-camp' || phase === 'pre-camp';
 
     if (remainingLbs <= 0) {
@@ -226,7 +226,7 @@ export function calculateWeightTrend(input: WeightTrendInput): WeightTrendResult
         ? ` Projection window: ${projectedDateEarliest} to ${projectedDateLatest} (${projectionConfidence} confidence).`
         : '';
 
-    const messages: Record<WeightCutStatus, string> = {
+    const messages: Record<BodyMassTrendStatus, string> = {
         on_track: `On track. Losing ${Math.abs(weeklyVelocityLbs).toFixed(1)} lbs/wk with ${remainingLbs.toFixed(1)} lbs to go.${projectionDetail}`,
         ahead: `Ahead of schedule at ${Math.abs(weeklyVelocityLbs).toFixed(1)} lbs/wk. Consider easing the deficit to preserve performance.${projectionDetail}`,
         behind: `Behind target. Current rate ${Math.abs(weeklyVelocityLbs).toFixed(1)} lbs/wk may not reach ${targetWeightLbs} lbs in time.${projectionDetail}`,
@@ -261,7 +261,7 @@ export function calculateWeightTrend(input: WeightTrendInput): WeightTrendResult
  * UI Parameters Expected:
  *   - weightTrend: WeightTrendResult (from calculateWeightTrend)
  *   - phase: Phase
- *   - currentTDEE: number (from calculateNutritionTargets.tdee)
+ *   - currentTDEE: number (from calculateNutritionTargetEstimate.tdee)
  *   - deadlineDate: string | null (from athlete_profiles.fight_date)
  *
  * Returns: WeightCorrectionResult
@@ -296,7 +296,7 @@ export function calculateWeightCorrection(input: WeightCorrectionInput): WeightC
             correctionDeficitCal: 0,
             adjustedCalorieTarget: currentTDEE,
             message: weightTrend.status === 'on_track'
-                ? 'Weight cut on track. No calorie correction needed.'
+                ? 'Weight-class management on track. No calorie correction needed.'
                 : 'No target weight set.',
         };
     }
@@ -335,7 +335,7 @@ export function calculateWeightCorrection(input: WeightCorrectionInput): WeightC
     // Cap at 1000 cal/day
     correction = Math.min(correction, 1000);
 
-    // Ensure we don't go below safe floor (handled downstream by calculateNutritionTargets)
+    // Ensure we don't go below safe floor (handled downstream by calculateNutritionTargetEstimate)
     const adjustedTarget = currentTDEE - correction;
 
     const statusMessages: Record<string, string> = {

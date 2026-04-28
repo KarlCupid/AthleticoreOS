@@ -49,7 +49,6 @@ const entry = {
       dose: { sprintMeters: 160 },
     },
   },
-  daily_mission_snapshot: null,
   engine_notes: 'Speed emphasis.',
   is_deload: false,
 } as unknown as Omit<WeeklyPlanEntryRow, 'id' | 'created_at'>;
@@ -64,6 +63,7 @@ assert('persists session modules from prescription', Array.isArray(payload.sessi
 assert('persists dose credits from prescription', Array.isArray(payload.dose_credits));
 assert('persists dose summary from prescription', (payload.dose_summary as any)?.sprintMeters === 160);
 assert('normalizes missing realized buckets to empty array', Array.isArray(payload.realized_dose_buckets) && (payload.realized_dose_buckets as unknown[]).length === 0);
+assert('does not persist daily athlete summary mirrors', !('daily_performance_summary_snapshot' in payload));
 
 if (failed > 0) {
   throw new Error(`weeklyPlanPersistence tests failed: ${failed}`);

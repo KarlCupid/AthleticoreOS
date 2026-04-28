@@ -20,7 +20,7 @@ AthletiCore OS may store:
 
 We use stored information to:
 
-- personalize daily training, readiness, nutrition, hydration, and weight-cut guidance
+- personalize daily training, readiness, nutrition, hydration, and weight-class guidance
 - keep your history available across sessions and devices
 - support account access, troubleshooting, and user-requested support
 - maintain app functionality and user-requested account actions such as sign-out or deletion

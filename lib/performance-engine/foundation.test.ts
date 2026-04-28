@@ -157,7 +157,7 @@ console.log('\n-- performance-engine foundation --');
 (() => {
   const risk = createRiskFlag({
     id: 'risk-1',
-    domain: 'weight_cut',
+    domain: 'weight_class',
     code: 'unsafe_weight_class_target',
     severity: 'critical',
     message: 'Current body mass is unknown.',
