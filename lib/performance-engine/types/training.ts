@@ -37,6 +37,20 @@ export interface ProtectedWorkoutAnchor {
   reason: string;
 }
 
+export interface TrainingAvailabilityWindow {
+  dayOfWeek: number;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+export interface TrainingAvailability {
+  availableDays: number[];
+  windows: TrainingAvailabilityWindow[];
+  preferredSessionDurationMinutes: MeasurementRange<'minute'>;
+  allowTwoADays: boolean;
+  confidence: ConfidenceValue;
+}
+
 export interface ComposedSession {
   id: string;
   date: ISODateString | null;

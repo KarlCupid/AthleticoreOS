@@ -11,7 +11,7 @@ import type { ConfidenceValue, ISODateString, ISODateTimeString, UnknownField } 
 import { UNKNOWN_CONFIDENCE } from './shared.ts';
 import type { ReadinessState, TrackingEntry } from './tracking.ts';
 import { createUnknownReadinessState } from './tracking.ts';
-import type { ComposedSession, TrainingBlock } from './training.ts';
+import type { ComposedSession, TrainingAvailability, TrainingBlock } from './training.ts';
 
 export const PERFORMANCE_STATE_SCHEMA_VERSION = 'performance-state-v1';
 
@@ -23,6 +23,7 @@ export interface PerformanceState {
   generatedAt: ISODateTimeString | null;
   phase: PhaseState;
   activeTrainingBlock: TrainingBlock | null;
+  trainingAvailability: TrainingAvailability | null;
   composedSessions: ComposedSession[];
   nutritionTargets: NutritionTarget[];
   sessionFuelingDirectives: SessionFuelingDirective[];
@@ -43,6 +44,7 @@ export function createPerformanceState(input: {
   generatedAt?: ISODateTimeString | null;
   phase?: PhaseState;
   activeTrainingBlock?: TrainingBlock | null;
+  trainingAvailability?: TrainingAvailability | null;
   composedSessions?: ComposedSession[];
   nutritionTargets?: NutritionTarget[];
   sessionFuelingDirectives?: SessionFuelingDirective[];
@@ -72,6 +74,7 @@ export function createPerformanceState(input: {
     generatedAt: input.generatedAt ?? null,
     phase,
     activeTrainingBlock: input.activeTrainingBlock ?? journey.activeTrainingBlock,
+    trainingAvailability: input.trainingAvailability ?? journey.trainingAvailability,
     composedSessions: input.composedSessions ?? [],
     nutritionTargets: input.nutritionTargets ?? [],
     sessionFuelingDirectives: input.sessionFuelingDirectives ?? [],

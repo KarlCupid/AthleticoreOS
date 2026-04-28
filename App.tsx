@@ -1,6 +1,6 @@
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,7 +13,7 @@ import {
   Outfit_900Black,
 } from '@expo-google-fonts/outfit';
 import { supabase } from './lib/supabase';
-import { getPlanningSetupStatus } from './lib/api/planningSetupService';
+import { getAthleteJourneyAppEntryState, type AthleteJourneyAppEntryState } from './lib/api/athleteJourneyService';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { TabNavigator } from './src/navigation/TabNavigator';
@@ -36,9 +36,8 @@ const myTheme = {
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
-  const [hasPlanningSetup, setHasPlanningSetup] = useState<boolean | null>(null);
-  const [checkingProfile, setCheckingProfile] = useState(false);
+  const [journeyEntryState, setJourneyEntryState] = useState<AthleteJourneyAppEntryState | null>(null);
+  const [checkingJourney, setCheckingJourney] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -64,9 +63,8 @@ export default function App() {
       setSession(nextSession);
 
       if (!nextSession) {
-        setHasProfile(null);
-        setHasPlanningSetup(null);
-        setCheckingProfile(false);
+        setJourneyEntryState(null);
+        setCheckingJourney(false);
       }
     });
 
@@ -76,64 +74,34 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
+  const refreshJourneyEntryState = useCallback(async () => {
     if (!session?.user) {
-      setCheckingProfile(false);
+      setCheckingJourney(false);
+      setJourneyEntryState(null);
       return;
     }
 
-    let isActive = true;
+    setCheckingJourney(true);
+    try {
+      const entryState = await getAthleteJourneyAppEntryState(session.user.id);
+      setJourneyEntryState(entryState);
+    } catch (error) {
+      logError('App.journeyEntryLookup', error);
+      setJourneyEntryState({
+        status: 'needs_onboarding',
+        hasProfile: false,
+        needsTrainingSetup: false,
+        journey: null,
+        performanceState: null,
+      });
+    } finally {
+      setCheckingJourney(false);
+    }
+  }, [session?.user]);
 
-    const loadProfileState = async () => {
-      setCheckingProfile(true);
-
-      const { data, error } = await supabase
-        .from('athlete_profiles')
-        .select('user_id')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
-      if (!isActive) {
-        return;
-      }
-
-      if (error) {
-        logError('App.profileLookup', error);
-        setHasProfile(false);
-        setHasPlanningSetup(false);
-        setCheckingProfile(false);
-        return;
-      }
-
-      const profileExists = Boolean(data);
-      setHasProfile(profileExists);
-
-      if (!profileExists) {
-        setHasPlanningSetup(null);
-        setCheckingProfile(false);
-        return;
-      }
-
-      try {
-        const planningStatus = await getPlanningSetupStatus(session.user.id);
-        if (!isActive) {
-          return;
-        }
-        setHasPlanningSetup(planningStatus.isComplete);
-      } catch (planningError) {
-        logError('App.planningSetupLookup', planningError);
-        setHasPlanningSetup(false);
-      }
-
-      setCheckingProfile(false);
-    };
-
-    loadProfileState();
-
-    return () => {
-      isActive = false;
-    };
-  }, [session?.user?.id]);
+  useEffect(() => {
+    void refreshJourneyEntryState();
+  }, [refreshJourneyEntryState]);
 
   if (!fontsLoaded) {
     return (
@@ -143,20 +111,21 @@ export default function App() {
     );
   }
 
+  const entryStatus = journeyEntryState?.status ?? null;
   const content = !session ? (
     <AuthScreen />
-  ) : checkingProfile || hasProfile === null || (hasProfile && hasPlanningSetup === null) ? (
+  ) : checkingJourney || entryStatus === null ? (
     <View style={[styles.container, styles.centered]}>
       <OceanLoader color={COLORS.readiness.prime} />
     </View>
-  ) : !hasProfile ? (
-    <OnboardingScreen onComplete={() => { setHasProfile(true); setHasPlanningSetup(true); }} />
-  ) : !hasPlanningSetup ? (
-    <PlanningSetupStackNavigator onComplete={() => setHasPlanningSetup(true)} />
+  ) : entryStatus === 'needs_onboarding' ? (
+    <OnboardingScreen onComplete={() => { void refreshJourneyEntryState(); }} />
+  ) : entryStatus === 'needs_training_setup' ? (
+    <PlanningSetupStackNavigator onComplete={() => { void refreshJourneyEntryState(); }} />
   ) : (
     <TabNavigator />
   );
-  const backgroundMood: AuroraBackgroundMood = !session || !hasProfile ? 'hero' : 'calm';
+  const backgroundMood: AuroraBackgroundMood = !session || entryStatus === 'needs_onboarding' ? 'hero' : 'calm';
 
   return (
     <GestureHandlerRootView style={styles.container}>

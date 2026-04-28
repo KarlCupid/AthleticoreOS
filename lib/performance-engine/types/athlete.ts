@@ -16,6 +16,7 @@ export interface AthleteProfile {
   competitionLevel: CompetitionLevel;
   biologicalSex: BiologicalSex;
   birthDate: ISODateString | null;
+  ageYears: number | null;
   timeZone: TimeZoneId;
   preferredBodyMassUnit: BodyMassUnit;
   trainingBackground: TrainingBackground;
@@ -32,6 +33,7 @@ export function createAthleteProfile(input: {
   competitionLevel?: CompetitionLevel | null;
   biologicalSex?: BiologicalSex | null;
   birthDate?: ISODateString | null;
+  ageYears?: number | null;
   timeZone?: string | null;
   preferredBodyMassUnit?: BodyMassUnit | null;
   trainingBackground?: TrainingBackground | null;
@@ -47,6 +49,7 @@ export function createAthleteProfile(input: {
     competitionLevel: input.competitionLevel ?? 'unknown',
     biologicalSex: input.biologicalSex ?? 'unknown',
     birthDate: input.birthDate ?? null,
+    ageYears: input.ageYears ?? null,
     timeZone: normalizeTimeZone(input.timeZone),
     preferredBodyMassUnit: input.preferredBodyMassUnit ?? 'lb',
     trainingBackground: input.trainingBackground ?? 'unknown',

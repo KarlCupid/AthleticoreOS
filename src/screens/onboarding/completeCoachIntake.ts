@@ -6,6 +6,11 @@ import { setupFightCamp } from '../../../lib/api/fightCampService';
 import { invalidateEngineDataCache } from '../../../lib/api/dailyMissionService';
 import { replaceRecurringActivities } from '../../../lib/api/scheduleService';
 import { saveWeeklyPlanConfig } from '../../../lib/api/weeklyPlanService';
+import {
+  initializeJourneyFromOnboarding,
+  type AthleteJourneyState,
+  type PerformanceState,
+} from '../../../lib/performance-engine';
 import type {
   ActivityLevel,
   AthleteGoalMode,
@@ -45,6 +50,8 @@ export type CoachIntakeInput = {
 
 export type CoachIntakeResult = {
   generatedPlan: boolean;
+  journey: AthleteJourneyState;
+  performanceState: PerformanceState;
 };
 
 function resolveTrainingBackground(background: IntakeTrainingBackground): {
@@ -111,6 +118,32 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
   const { fitnessLevel, trainingAge } = resolveTrainingBackground(input.trainingBackground);
   const activityLevel = deriveActivityLevel(availableDays.length);
   const nutritionGoal = deriveNutritionGoal(input);
+  const capturedAt = new Date().toISOString();
+  const asOfDate = todayLocalDate();
+  const journeyInitialization = initializeJourneyFromOnboarding({
+    userId,
+    capturedAt,
+    asOfDate,
+    age: input.age,
+    currentWeightLbs: input.currentWeightLbs,
+    biologicalSex: input.biologicalSex,
+    trainingBackground: input.trainingBackground,
+    goalMode: input.goalMode,
+    buildGoalType: input.buildGoalType,
+    fightDate: input.fightDate,
+    targetWeightLbs: input.targetWeightLbs,
+    availableDays,
+    fixedSessions: input.fixedSessions,
+    nutritionPreferences: {
+      goal: nutritionGoal,
+    },
+    trackingPreferences: {
+      bodyMass: true,
+      readiness: true,
+      nutrition: true,
+      cycle: false,
+    },
+  });
 
   try {
     const { error: profileError } = await supabase
@@ -205,7 +238,11 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
     const gym = await getDefaultGymProfile(userId);
     if (!gym) {
       invalidateEngineDataCache({ userId });
-      return { generatedPlan: false };
+      return {
+        generatedPlan: false,
+        journey: journeyInitialization.journey,
+        performanceState: journeyInitialization.performanceState,
+      };
     }
 
     const generatedWeek = await generateAndSaveWeeklyPlan(userId, config as never, gym, todayLocalDate());
@@ -214,7 +251,11 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
     }
 
     invalidateEngineDataCache({ userId });
-    return { generatedPlan: true };
+    return {
+      generatedPlan: true,
+      journey: journeyInitialization.journey,
+      performanceState: journeyInitialization.performanceState,
+    };
   } catch (error) {
     await supabase
       .from('athlete_profiles')
