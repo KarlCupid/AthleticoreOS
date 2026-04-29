@@ -104,7 +104,7 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
 
 (() => {
   const base = calculateNutritionTargetEstimate(baseInput());
-  const resolved = resolveDailyNutritionTargetEstimate(base, null, []);
+  const resolved = resolveDailyNutritionTargetEstimate(base, []);
 
   assert('no activities remains base source', resolved.source === 'base');
   assert('rest day has rest fuel state', resolved.fuelState === 'rest');
@@ -118,7 +118,6 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
   }));
   const resolved = resolveDailyNutritionTargetEstimate(
     base,
-    null,
     [{ activity_type: 'sparring' as any, expected_intensity: 9, estimated_duration_min: 75, custom_label: 'Team sparring' }],
     {
       bodyweightLbs: 180,
@@ -143,7 +142,6 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
   }));
   const resolved = resolveDailyNutritionTargetEstimate(
     base,
-    null,
     [
       { activity_type: 'boxing_practice' as any, expected_intensity: 7, estimated_duration_min: 60, start_time: '09:00' },
       { activity_type: 'sc' as any, expected_intensity: 7, estimated_duration_min: 50, start_time: '17:00' },
@@ -162,7 +160,6 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
   }));
   const resolved = resolveDailyNutritionTargetEstimate(
     base,
-    null,
     [{ activity_type: 'boxing_practice' as any, expected_intensity: 6, estimated_duration_min: 45 }],
     {
       bodyweightLbs: 180,
@@ -179,7 +176,6 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
   const base = calculateNutritionTargetEstimate(baseInput());
   const result = resolveNutritionMacros(
     base,
-    null,
     [{ activity_type: 'conditioning' as any, expected_intensity: 8, estimated_duration_min: 50 }],
   );
 

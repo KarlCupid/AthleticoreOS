@@ -746,7 +746,6 @@ export function computeMacroAdherence(
 
 export function resolveDailyNutritionTargetEstimate(
   baseTargets: NutritionTargetEstimate,
-  _legacyCutProtocol: null,
   dayActivities: DayActivity[],
   options?: NutritionResolutionOptions,
 ): NutritionFuelingTarget {
@@ -782,10 +781,9 @@ export function resolveDailyNutritionTargetEstimate(
 
 export function resolveNutritionMacros(
   baseTargets: NutritionTargetEstimate,
-  legacyCutProtocol: null,
   dayActivities: DayActivity[],
 ) {
-  const resolved = resolveDailyNutritionTargetEstimate(baseTargets, legacyCutProtocol, dayActivities);
+  const resolved = resolveDailyNutritionTargetEstimate(baseTargets, dayActivities);
 
   return {
     calories: resolved.adjustedCalories,

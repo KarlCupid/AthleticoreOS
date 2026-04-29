@@ -4,10 +4,10 @@ Athleticore OS is an Expo + React Native athlete operating system for combat-spo
 
 ## Product overview
 
-- The app is centered on a shared daily mission, not a standalone workout planner.
+- The app is centered on a continuous athlete journey, not disconnected setup, planning, nutrition, and tracking flows.
 - Goal modes are `build_phase` and `fight_camp`.
-- The runtime combines readiness, workload, nutrition, hydration, risk, and prescription into one engine-backed operating state.
-- Engine snapshots are persisted and reused across dashboard and planning flows.
+- The runtime resolves readiness, workload, nutrition, hydration, body-mass, phase, fight, risk, and prescription context through one performance state.
+- Dashboard and planning flows consume canonical Unified Performance Engine outputs instead of legacy daily mission snapshots.
 
 ## App shell
 
@@ -59,7 +59,8 @@ See `DESIGN_SYSTEM.md` for contributor guidance on palette, surfaces, typography
 - `src/theme`: theme tokens, typography, spacing, interaction sizes, and readiness accent helpers.
 - `src/context`: shared runtime UI contexts such as interaction mode.
 - `lib/api`: Supabase-facing services and orchestration.
-- `lib/engine`: deterministic training, readiness, mission, nutrition, weight, and presentation logic.
+- `lib/engine`: deterministic training, readiness, daily athlete summary, nutrition, body-mass, and presentation logic.
+- `lib/performance-engine`: canonical athlete journey, phase, fight, adaptive training, nutrition, tracking, body-mass, risk, explanation, and unified performance modules.
 - `lib/engine/simulation`: persona-based simulation runner and reporting.
 - `supabase/migrations`: schema history.
 - `scripts`: project utilities, engine test runner, and simulation entry points.
@@ -111,7 +112,7 @@ Notes:
 
 - `npm run test:engine` runs the custom TypeScript test harness in `scripts/run-engine-tests.js`.
 - `npm run quality` is the main repo health check.
-- Full repo typecheck can still surface pre-existing noise, so engine and targeted checks are often the most trustworthy regression gate.
+- `typecheck`, `typecheck:clean`, and `test:engine` should pass before handoff.
 
 ## Simulation tooling
 
@@ -125,25 +126,27 @@ Outputs are written to `sim_results/`. `tsx` is not currently declared as a proj
 
 ## Runtime architecture
 
-### Daily engine flow
+### Unified performance flow
 
-`lib/api/dailyMissionService.ts` is the main orchestration entry point. It resolves:
+`lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts` is the canonical orchestration entry point. App-facing services such as `lib/api/dailyPerformanceService.ts` project daily athlete summaries from Unified Performance Engine output. The flow resolves:
 
 - objective context
 - ACWR
 - readiness profile and stimulus constraints
-- unified body-mass and weight-class context
-- nutrition targets
-- hydration
-- workout prescription
-- camp risk
-- final daily mission
+- phase and fight opportunity context
+- protected workouts
+- adaptive training plans
+- nutrition and session fueling targets
+- body-mass and weight-class feasibility
+- risk flags
+- explanations
 
-It then persists snapshots through `daily_engine_snapshots` and mirrors mission snapshots into weekly plan entries.
+Canonical outputs are persisted through current performance-engine tables and weekly plan entries. Retired daily mission snapshot persistence has been archived and dropped by the schema cleanup migration.
 
 ### Data ownership
 
 - `lib/engine/*`: deterministic calculations and domain rules.
+- `lib/performance-engine/*`: canonical journey, performance state, specialist engines, risk, explanation, and presentation view models.
 - `lib/api/*`: Supabase access plus orchestration around engine inputs and outputs.
 - `src/hooks/*`: screen-oriented assembly of service results and UI state.
 - `src/screens/*`: final product surfaces.
@@ -151,8 +154,9 @@ It then persists snapshots through `daily_engine_snapshots` and mirrors mission 
 ## Working rules
 
 - Keep business logic in `lib/engine` pure and synchronous.
+- Use `lib/performance-engine` as the source of truth for unified athlete journey, phase, nutrition, tracking, readiness, body-mass, risk, and explanation decisions.
 - Prefer service or engine fixes over UI-only patches when behavior spans multiple screens.
-- When changing mission shape or snapshot-backed fields, verify persistence contracts as well as UI consumption.
+- When changing canonical output shape or persistence-backed fields, verify persistence contracts as well as UI consumption.
 - If you touch deterministic behavior, add or update engine tests before changing screens.
 - When updating UI, follow `DESIGN_SYSTEM.md` and keep docs aligned with the visual system in the same pass.
 
@@ -161,7 +165,8 @@ It then persists snapshots through `daily_engine_snapshots` and mirrors mission 
 - `App.tsx`
 - `src/navigation/TabNavigator.tsx`
 - `src/theme/theme.ts`
-- `lib/api/dailyMissionService.ts`
+- `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`
+- `lib/api/dailyPerformanceService.ts`
 - `src/hooks/useDashboardData.ts`
 - `lib/api/weeklyPlanService.ts`
 - `lib/engine/index.ts`
