@@ -50,6 +50,8 @@ assert('guided readiness copy avoids black-box score framing', !viewModel.includ
 assert('daily service passes check-in fields into canonical UPE tracking', dailyService.includes('todayCheckin') && dailyService.includes("source: 'user_reported'"));
 assert('daily service maps sleep soreness stress pain and fatigue', ['sleep_quality', 'soreness', 'stress', 'pain', 'fatigue'].every((field) => dailyService.includes(field)));
 assert('daily service still preserves fallback legacy readiness projection', dailyService.includes('legacy-readiness-profile') && dailyService.includes("source: 'system_inferred'"));
+assert('daily service passes computed ACWR into UPE readiness', /acwr:\s*ACWRResult \| null/.test(dailyService) && dailyService.includes('acuteChronicWorkloadRatio: input.acwr?.ratio ?? null'));
+assert('daily service no longer nulls ACWR at the UPE handoff', !dailyService.includes('acuteChronicWorkloadRatio: null'));
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
 process.exit(failed > 0 ? 1 : 0);

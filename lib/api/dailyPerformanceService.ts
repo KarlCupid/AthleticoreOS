@@ -363,6 +363,7 @@ function resolveUnifiedDailyPerformance(input: {
   athleteContext: Awaited<ReturnType<typeof getAthleteContext>>;
   objectiveContext: MacrocycleContext;
   readinessProfile: ReadinessProfile;
+  acwr: ACWRResult | null;
   todayCheckin?: DailyReadinessCheckinRow | null;
   scheduledActivities: ScheduledActivityRow[];
   currentWeight: number | null;
@@ -443,7 +444,7 @@ function resolveUnifiedDailyPerformance(input: {
       todayCheckin: input.todayCheckin,
     }),
     protectedAnchors: protectedAnchorsFromScheduledActivities(input.scheduledActivities),
-    acuteChronicWorkloadRatio: null,
+    acuteChronicWorkloadRatio: input.acwr?.ratio ?? null,
     weightClass: hasWeightClassContext
       ? {
         competitionId: input.objectiveContext.camp?.id ?? profile.active_weight_class_plan_id ?? null,
@@ -1398,6 +1399,7 @@ async function computeDailyEngineState(
     athleteContext,
     objectiveContext,
     readinessProfile,
+    acwr,
     todayCheckin,
     scheduledActivities,
     currentWeight: canonicalCurrentWeight,

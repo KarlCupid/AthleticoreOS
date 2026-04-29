@@ -167,6 +167,7 @@ function run(input: {
   targetWeight?: number | null;
   currentWeight?: number;
   athleteProfile?: AthleteProfile;
+  acuteChronicWorkloadRatio?: number | null;
 } = {}) {
   const currentAthlete = input.athleteProfile ?? athlete();
   const currentBodyMass = bodyMass(input.currentWeight ?? 170);
@@ -194,6 +195,7 @@ function run(input: {
     trackingEntries: input.trackingEntries,
     fightOpportunity: input.fight ?? null,
     bodyMassState: currentBodyMass,
+    acuteChronicWorkloadRatio: input.acuteChronicWorkloadRatio,
     weightClass: targetClassMass
       ? {
         competitionId: 'fight-target',
@@ -382,6 +384,37 @@ console.log('\n-- unified performance engine --');
 
   assert('poor readiness affects training', generatedHard.length === 0);
   assert('poor readiness is explainable', Boolean(poor.readiness.readiness.explanation?.summary.includes('Readiness')));
+})();
+
+(() => {
+  const result = run({
+    phase: 'camp',
+    acuteChronicWorkloadRatio: 1.62,
+    anchors: [
+      anchor({
+        id: 'intense-camp-session',
+        kind: 'hard_intervals',
+        date: DATE,
+        label: 'Hard camp intervals',
+        intensity: 9,
+        duration: 70,
+      }),
+    ],
+    trackingEntries: [
+      entry({ id: 'readiness-moderate', type: 'readiness', value: 3 }),
+      entry({ id: 'sleep-moderate', type: 'sleep_quality', value: 3 }),
+      entry({ id: 'soreness-moderate', type: 'soreness', value: 3 }),
+      entry({ id: 'stress-moderate', type: 'stress', value: 3 }),
+      entry({ id: 'nutrition-ok', type: 'nutrition_adherence', value: 72, unit: 'percent' }),
+    ],
+  });
+  const generatedHard = result.training.composedSessions.filter((session) => !session.protectedAnchor && (session.intensityRpe.target ?? 0) >= 7);
+  const trainingAdjustment = result.canonicalOutputs.readiness.recommendedTrainingAdjustment;
+
+  assert('load spike prevents green readiness', result.canonicalOutputs.readiness.readinessBand !== 'green');
+  assert('load spike creates workload risk', result.riskFlags.some((flag) => flag.code === 'excessive_training_load' && flag.evidence.some((item) => item.metric === 'acwr' && item.value === 1.62)));
+  assert('load spike softens training adjustment', trainingAdjustment.replaceWithMobility || (trainingAdjustment.intensityCap ?? 10) <= 5 || (trainingAdjustment.volumeMultiplier ?? 1) < 1);
+  assert('load spike avoids adding extra hard generated training', generatedHard.length === 0);
 })();
 
 (() => {
