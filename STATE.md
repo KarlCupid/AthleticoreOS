@@ -9,17 +9,17 @@
 - The repo is optimized around a deterministic engine plus a Supabase service layer.
 - The app shell is now documented and built as a five-tab experience: `Today`, `Train`, `Plan`, `Fuel`, and `Me`.
 - The visual system is intentionally fixed-chrome and dark-surface based, with readiness color used as a scoped accent rather than a full-screen theme.
-- Validation is expected to start with engine tests and, for higher-risk changes, simulation.
+- Validation is expected to start with focused tests for the touched area, then `npm run quality` for broad handoff confidence.
 - New dashboard and UI work should consume Unified Performance Engine view models first, especially `performanceContext`, `todayMission`, and `phaseTransition`.
 
 ## What is in place
 
 - Auth -> onboarding -> planning setup -> tab app gating is implemented in `App.tsx`.
 - Dashboard loading is driven by `src/hooks/useDashboardData.ts`, which pulls `getDailyEngineState`, rolling schedule data, nutrition ledger data, and fight-camp status.
-- Canonical daily orchestration is implemented in `lib/api/dailyPerformanceService.ts`.
+- Canonical daily app orchestration is implemented in `lib/api/dailyPerformanceService.ts`, which calls the Unified Performance Engine in `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`.
 - Daily dashboard state is assembled from `DailyEngineState.unifiedPerformance` and the Unified Performance Engine presentation view models.
-- Legacy daily mission and daily snapshot structures are compatibility layers. They are not the future architecture and should not be expanded for new dashboard work.
-- Weekly plan entries can reuse engine-owned `prescription_snapshot` data for guided training execution, but daily mission snapshot mirrors are retired.
+- Legacy mission-shaped objects are compatibility and presentation projections where still used. They are not the canonical app-facing performance state and should not be expanded for new dashboard work.
+- Daily mission snapshot persistence is retired: `daily_engine_snapshots` and `weekly_plan_entries.daily_mission_snapshot` are archived and dropped by `supabase/migrations/030_performance_engine_schema_cleanup.sql`. Weekly plan entries can still reuse engine-owned `prescription_snapshot` data for guided training execution; that is a separate training-prescription contract.
 - Engine modules cover readiness, ACWR, mission construction, nutrition, hydration, body-mass and weight-class management, interference modeling, S and C autoregulation, presentation mapping, and simulation.
 - The internal `Engine Replay Lab` is available from Me/Profile via a hidden version-tap entry and is now the main in-app inspection surface for deterministic replay analysis.
 - Replay lab coverage now includes:
@@ -50,11 +50,11 @@
 ## Active risks and tech debt
 
 - `lib/api/dailyPerformanceService.ts` is the densest daily orchestration file and remains a likely source of coupling risk.
-- Legacy daily mission/snapshot compatibility paths can drift if new UPE view models are not treated as the source of truth.
+- Legacy mission-shaped compatibility outputs can drift if new UPE view models are not treated as the source of truth.
 - The app still has legacy fallback behavior in some flows, especially around planning completion and reused mission data.
 - Weekly plan entries and scheduled activities both influence the daily mission, so precedence bugs are easy to introduce.
 - Simulation tooling exists, but its usage is still discipline-dependent rather than enforced by the toolchain.
-- `npm run test:engine`, `npm run typecheck`, and `npm run typecheck:clean` are expected to pass before handoff for relevant engine and app changes.
+- `npm run quality` is expected to pass before broad handoff. Use `npm run test:engine` as the reliable fast gate for engine and replay changes while developing.
 - Replay data for conditioning and exercise logs is UI-facing now, so replay model changes need coordination between `lib/engine/simulation/*` and `src/components/replay-lab/`.
 - Legacy theme usage still exists in parts of the app, including compatibility tokens and older surface primitives, so contributors need to actively follow `DESIGN_SYSTEM.md` during UI changes.
 
@@ -62,7 +62,7 @@
 
 - Read this file first, then `CONTEXT.md`.
 - Treat Unified Performance Engine outputs and their presentation view models as the operational source of truth for new dashboard/UI work.
-- Treat legacy daily mission/snapshot structures as compatibility only. Do not reintroduce `daily_engine_snapshots`, daily mission mirrors, or snapshot-backed dashboard contracts unless a migration plan explicitly makes them canonical again.
+- Treat legacy mission-shaped objects as compatibility or presentation projections only. Do not reintroduce `daily_engine_snapshots`, daily mission mirrors, or snapshot-backed dashboard contracts unless a migration plan explicitly makes them canonical again.
 - Before changing UI summaries, verify whether the real fix belongs in engine logic or service orchestration.
 - When documentation drifts from the code, update the docs in the same pass as the code change.
 - For engine or replay debugging work, check `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/replay-lab/` together.

@@ -61,7 +61,8 @@ Responsibilities:
 - Resolve phase and fight context.
 - Resolve readiness, load, nutrition, body-mass, and risk context.
 - Provide one source of truth for Today, Plan, Train, Fuel, and Me surfaces.
-- Own snapshot invalidation rules when major context changes.
+- Own recomputation and cache-invalidation rules when major context changes.
+- Avoid treating retired daily mission snapshots as a public contract.
 
 ### PerformanceState
 
@@ -197,7 +198,7 @@ The long-term persistence model should separate:
 - User logs and outcomes
 - Explanations and decision traces
 
-Snapshots are useful for performance, but they must be invalidated when athlete baseline, fight opportunity, phase, weight-class plan, protected workouts, readiness, or plan context changes.
+Persisted projections should exist only when they have a clear owner and invalidation rule. Weekly plan prescription snapshots may remain a training-execution contract. Retired daily mission snapshot persistence, including `daily_engine_snapshots` and `weekly_plan_entries.daily_mission_snapshot`, is not part of the target architecture; app-facing performance state should be resolved from canonical records through the Unified Performance Engine and its presentation view models.
 
 ## Legacy Boundary
 

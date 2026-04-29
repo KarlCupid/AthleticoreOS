@@ -122,12 +122,14 @@ Goals:
 
 - Replace the current mixed daily athlete-summary orchestration with the Unified Performance Engine.
 - Resolve `PerformanceState` once and pass it to specialist engines.
-- Centralize snapshot generation and invalidation.
+- Centralize performance-state recomputation and cache invalidation.
+- Retire daily mission snapshot persistence instead of expanding it into a new public contract.
 
 Exit criteria:
 
 - Today, Plan, Train, Fuel, and Me are all driven by unified performance state.
-- Snapshot invalidation covers onboarding, phase changes, fight changes, protected workout changes, readiness logs, body-mass logs, weight-class plan changes, food logs, and training outcomes.
+- Invalidation covers onboarding, phase changes, fight changes, protected workout changes, readiness logs, body-mass logs, weight-class plan changes, food logs, and training outcomes.
+- Legacy daily mission snapshots are archived or dropped; weekly plan `prescription_snapshot` remains only as a guided training-prescription contract.
 - Old orchestration branches are removed.
 
 ## Phase 10: Dashboard and App-Flow Integration

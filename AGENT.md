@@ -4,7 +4,7 @@ Athleticore OS is an Expo + React Native athlete operating system with a determi
 
 ## Executive summary
 
-The app is organized around a daily engine state. That state combines objective context, readiness, workload, nutrition, hydration, risk, and training prescription into a single mission that powers the dashboard, planning, fueling, and training flows.
+The app is organized around Unified Performance Engine output and a daily engine state. That state combines objective context, readiness, workload, nutrition, hydration, risk, and training prescription into a single performance context that powers the dashboard, planning, fueling, and training flows.
 
 The current gate is:
 
@@ -25,7 +25,7 @@ The main tab shell is:
 
 1. Trust the engine. If behavior is cross-surface, start in `lib/engine` or `lib/api`, not the UI.
 2. Keep engine code pure. `lib/engine/*` should stay synchronous and side-effect-free.
-3. Respect snapshot contracts. Mission and engine shape changes can require updates to persisted snapshots and weekly plan mirrors.
+3. Respect canonical engine contracts. Unified Performance Engine outputs are the source of truth; legacy mission-shaped objects are compatibility or presentation projections where still used.
 4. Follow the gate. `App.tsx` and `lib/api/planningSetupService.ts` define who can enter the app.
 5. Validate deterministic changes with engine tests before relying on UI smoke checks.
 6. For UI changes, preserve the fixed chrome plus scoped readiness accent model documented in `DESIGN_SYSTEM.md`.
@@ -41,13 +41,14 @@ The main tab shell is:
 - `lib/api/*`: Supabase reads/writes and orchestration.
 - `lib/engine/*`: deterministic business logic.
 - `lib/engine/presentation/*`: trace-to-copy mapping for user-facing summaries.
+- `lib/performance-engine/*`: canonical athlete journey, Unified Performance Engine, specialist engines, risk, explanation, and presentation view models.
 - `lib/engine/simulation/*`: persona-based validation.
 
 ## Start here by problem type
 
-- Mission, risk, readiness, prescription, nutrition, hydration: `lib/api/dailyMissionService.ts`
+- Performance state, mission, risk, readiness, prescription, nutrition, hydration: `lib/api/dailyPerformanceService.ts` and `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`
 - Dashboard behavior: `src/hooks/useDashboardData.ts`
-- Weekly planning and snapshot reuse: `lib/api/weeklyPlanService.ts` and `src/screens/WeeklyPlanScreen.tsx`
+- Weekly planning and guided prescription reuse: `lib/api/weeklyPlanService.ts` and `src/screens/WeeklyPlanScreen.tsx`
 - Planning gate logic: `lib/api/planningSetupService.ts`
 - Fight camp or build phase context: `lib/api/fightCampService.ts`, `lib/api/buildPhaseService.ts`
 - Navigation shell: `src/navigation/TabNavigator.tsx`
@@ -78,4 +79,4 @@ The main tab shell is:
 - `npm run typecheck:clean`
 - `npm run quality`
 
-Use simulation tooling when changing core load, mission, cut, or readiness behavior and you need multi-week confidence.
+`npm run quality` is expected to pass before broad handoff. Use `npm run test:engine` as the fast focused gate for engine and replay work while developing, then add simulation tooling when changing core load, mission, body-mass, or readiness behavior and you need multi-week confidence.

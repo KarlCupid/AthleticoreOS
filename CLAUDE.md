@@ -17,6 +17,7 @@ If any of these disagree with the code, update the docs in the same pass as the 
 Athleticore OS is an Expo + React Native athlete operating system with:
 
 - a deterministic engine in `lib/engine/*`
+- a canonical Unified Performance Engine in `lib/performance-engine/*`
 - a Supabase-backed orchestration layer in `lib/api/*`
 - UI state assembly in `src/hooks/*`
 - product surfaces in `src/screens/*`
@@ -27,12 +28,13 @@ The app is centered on a shared daily engine state, not a standalone workout pla
 ## Core product truth
 
 - Goal modes are `build_phase` and `fight_camp`.
-- The daily mission is the main runtime object.
-- Dashboard, planning, nutrition, hydration, and training all converge on engine outputs.
-- Snapshots are part of the contract, not just a cache.
+- Unified Performance Engine output is the canonical app-facing performance state.
+- Dashboard, planning, nutrition, hydration, and training all converge on engine outputs and presentation view models.
+- Legacy mission-shaped objects are compatibility or presentation projections where still used.
+- Daily mission snapshot persistence is retired; `daily_engine_snapshots` and `weekly_plan_entries.daily_mission_snapshot` are archived and dropped by `supabase/migrations/030_performance_engine_schema_cleanup.sql`.
 - The main app shell is `Today`, `Train`, `Plan`, `Fuel`, and `Me`.
 
-The main orchestration path is `lib/api/dailyMissionService.ts`.
+The main daily app orchestration path is `lib/api/dailyPerformanceService.ts`, which calls `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`.
 
 ## App gate
 
@@ -58,7 +60,8 @@ Use `DESIGN_SYSTEM.md` when making UI decisions or updating product docs.
 ## Where to start by problem
 
 - Mission behavior, risk, readiness, prescription, nutrition, hydration:
-  `lib/api/dailyMissionService.ts`
+  `lib/api/dailyPerformanceService.ts`
+  `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`
 - Engine logic:
   `lib/engine/*`
 - Weekly plan reuse and snapshot behavior:
@@ -131,14 +134,14 @@ Use this order of trust:
 
 1. `npm run test:engine`
 2. targeted replay smoke check
-3. targeted transpile check for replay UI
-4. broader repo checks only if necessary
+3. targeted transpile or screen smoke checks when touching UI adapters
+4. `npm run quality` before broad handoff
 
 Important:
 
-- `npm run test:engine` is currently the reliable regression gate for engine and replay work.
-- Full repo `typecheck` is known to have pre-existing failures.
-- Do not assume a clean or noisy `npm run typecheck` is attributable to your change without checking whether failures are pre-existing.
+- `npm run test:engine` is the fast reliable regression gate for engine and replay work.
+- `npm run quality` is expected to pass for broad handoff. It runs lint, `typecheck`, `typecheck:clean`, and engine tests.
+- Full repo `typecheck` and `typecheck:clean` are expected to pass. If that changes, document the specific failing files and error shape before calling typecheck noisy.
 
 ## Validation commands
 
@@ -158,7 +161,7 @@ For replay work, a practical validation pass is:
 
 - Prefer fixing cross-surface issues in `lib/engine` or `lib/api`, not in one screen.
 - Keep deterministic engine code pure and side-effect-free.
-- Respect snapshot persistence when mission or engine shapes change.
+- Respect canonical Unified Performance Engine contracts when mission or engine shapes change.
 - Reuse shared engine types instead of inventing parallel UI contracts.
 - If the code path is mode-sensitive, check both `build_phase` and `fight_camp`.
 - When replay output shape changes, update both the simulation model and replay UI.
@@ -166,8 +169,8 @@ For replay work, a practical validation pass is:
 
 ## Known risks and sharp edges
 
-- `lib/api/dailyMissionService.ts` is dense and easy to couple further.
-- Snapshot and weekly-plan mirror drift is a real risk.
+- `lib/api/dailyPerformanceService.ts` is dense and easy to couple further.
+- Legacy mission-shaped compatibility outputs and weekly-plan prescription reuse can drift from Unified Performance Engine view models if ownership is unclear.
 - Weekly plan entries and scheduled activities can create precedence bugs.
 - Replay data now includes exercise logs and conditioning logs, so model or UI drift is easy to introduce.
 - Some conditioning days may require dedicated presentation even when they are not exercise-based S and C sessions.
@@ -179,12 +182,14 @@ For replay work, a practical validation pass is:
 1. `App.tsx`
 2. `src/navigation/TabNavigator.tsx`
 3. `src/theme/theme.ts`
-4. `lib/api/dailyMissionService.ts`
+4. `lib/api/dailyPerformanceService.ts`
 5. `src/hooks/useDashboardData.ts`
 6. `lib/api/weeklyPlanService.ts`
-7. `lib/engine/simulation/runner.ts`
-8. `lib/engine/simulation/lab.ts`
-9. `src/components/replay-lab/`
+7. `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`
+8. `lib/performance-engine/presentation/`
+9. `lib/engine/simulation/runner.ts`
+10. `lib/engine/simulation/lab.ts`
+11. `src/components/replay-lab/`
 
 ## Practical workflow for replay or engine bugs
 
@@ -207,7 +212,7 @@ For replay work, a practical validation pass is:
 If you change:
 
 - mission shape
-- snapshot shape
+- canonical performance-state or legacy mission projection shape
 - replay model shape
 - replay-lab capabilities
 - navigation shell expectations

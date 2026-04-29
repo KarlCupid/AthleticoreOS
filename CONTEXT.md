@@ -97,7 +97,7 @@ Legacy usage can satisfy the gate for older accounts.
 
 ### Unified daily performance is the center of the app
 
-`lib/api/dailyPerformanceService.ts` is the canonical daily orchestration path. It resolves and composes:
+`lib/api/dailyPerformanceService.ts` is the canonical daily app orchestration path. It gathers app data, calls `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`, and projects the result for existing app consumers. It resolves and composes:
 
 - objective context
 - ACWR
@@ -110,11 +110,11 @@ Legacy usage can satisfy the gate for older accounts.
 - camp risk
 - daily athlete summary compatibility output
 
-This state powers the dashboard and much of the planning, fueling, and training UI. New UI should consume Unified Performance Engine outputs first through the presentation view models exposed as `performanceContext`, `todayMission`, and `phaseTransition`.
+This state powers the dashboard and much of the planning, fueling, and training UI. Unified Performance Engine output is canonical for app-facing performance state. New UI should consume it first through the presentation view models exposed as `performanceContext`, `todayMission`, and `phaseTransition`.
 
-### Legacy daily mission snapshots are compatibility only
+### Legacy mission projections are compatibility only
 
-Daily mission snapshot persistence is not the future architecture. Retired structures such as `daily_engine_snapshots`, `daily_mission_snapshot`, and daily performance summary mirrors should be treated as legacy compatibility concerns, not public contracts for new work. Weekly plan `prescription_snapshot` data is still used for guided workout execution and is a separate training-prescription compatibility contract.
+Legacy mission-shaped objects are compatibility and presentation projections where they still appear. They are not canonical state. Daily mission snapshot persistence is retired: `daily_engine_snapshots` and `weekly_plan_entries.daily_mission_snapshot` are archived and dropped by `supabase/migrations/030_performance_engine_schema_cleanup.sql`. Older migrations may still show how those structures were introduced, but the cleanup migration supersedes them. Weekly plan `prescription_snapshot` data is still used for guided workout execution and is a separate training-prescription contract.
 
 ### Intervention logic is engine-driven
 
@@ -166,14 +166,18 @@ If you change simulation output shape, you usually need to update both the repla
 3. `src/theme/theme.ts`
    Color, spacing, typography, semantic, and interaction tokens.
 4. `lib/api/dailyPerformanceService.ts`
-   Canonical daily engine orchestration path and Unified Performance Engine handoff.
+   Canonical daily app orchestration path and Unified Performance Engine handoff.
 5. `src/hooks/useDashboardData.ts`
    Dashboard state assembly, including `performanceContext`, `todayMission`, and `phaseTransition` view models.
 6. `lib/api/weeklyPlanService.ts` and `src/screens/WeeklyPlanScreen.tsx`
    Weekly planning, guided prescription reuse, and plan execution entry points.
-7. `lib/engine/index.ts` and `lib/engine/types.ts`
-   Export surface and shared engine contracts.
-8. `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/replay-lab/`
+7. `lib/performance-engine/unified-performance/unifiedPerformanceEngine.ts`
+   Canonical Unified Performance Engine entry point for app-facing performance state.
+8. `lib/performance-engine/presentation/`
+   Presentation view models for mission, readiness, phase transition, fueling, and body-mass UI.
+9. `lib/engine/index.ts` and `lib/engine/types.ts`
+   Legacy deterministic engine export surface and shared contracts still used by services and simulation.
+10. `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/replay-lab/`
    Deterministic replay generation, replay view-model mapping, and internal engine inspection UI.
 
 ## Editing guidance
@@ -181,7 +185,7 @@ If you change simulation output shape, you usually need to update both the repla
 - Prefer fixing behavior in the engine or service layer when multiple screens depend on it.
 - Reuse shared engine types instead of redefining API or UI-only variants.
 - Treat Unified Performance Engine output and presentation view models as the first-class UI contract.
-- Treat legacy daily mission/snapshot structures as compatibility only; do not add new dashboard behavior that depends on daily mission mirrors or daily snapshot persistence.
+- Treat legacy mission-shaped objects as compatibility or presentation projections only; do not add new dashboard behavior that depends on daily mission mirrors or daily snapshot persistence.
 - Preserve the auth, profile, and planning gate unless the task explicitly targets it.
 - If the code path is mode-sensitive, check both `build_phase` and `fight_camp`.
 - For replay-lab work, do not fork engine logic for visualization. Reuse engine outputs and add adapter or view-model fields instead.
@@ -193,4 +197,5 @@ If you change simulation output shape, you usually need to update both the repla
 - Deterministic changes: run `npm run test:engine`
 - Structural changes: also run `npm run lint`, `npm run typecheck`, and `npm run typecheck:clean`
 - Higher-risk engine changes: use the simulation tooling in `scripts/run-simulation.ts` and `lib/engine/simulation/*`
-- In practice, `npm run test:engine` is the dependable gate today for replay and engine work. Full typecheck is known to have pre-existing failures, so use targeted transpile or replay smoke checks when touching replay UI.
+- Broad handoff: `npm run quality` is expected to pass. It runs lint, both typechecks, and engine tests.
+- Current TypeScript status: `npm run typecheck` and `npm run typecheck:clean` are expected to pass; do not preserve guidance that treats full typecheck as known-noisy unless a new blocker is documented with the failing files and error shape.
