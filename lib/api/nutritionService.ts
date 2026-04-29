@@ -29,6 +29,7 @@ import {
   type NutritionDataSourceType,
   type UnknownField,
 } from '../performance-engine';
+import { withEngineInvalidation } from './engineInvalidation';
 
 const today = todayLocalDate;
 const LOCAL_RESULT_LIMIT = 16;
@@ -646,61 +647,21 @@ export async function logFoodEntry(
   mealType: MealType,
   date: string = today()
 ) {
-  const { foodItem, amountValue, amountUnit } = selection;
-  const {
-    resolvedGrams,
-    multiplier,
-    loggedCalories,
-    loggedProtein,
-    loggedCarbs,
-    loggedFat,
-  } = buildLoggedNutritionValues(foodItem, selection);
+  return withEngineInvalidation({ userId, date, reason: 'nutrition_log_save' }, async () => {
+    const { foodItem, amountValue, amountUnit } = selection;
+    const {
+      resolvedGrams,
+      multiplier,
+      loggedCalories,
+      loggedProtein,
+      loggedCarbs,
+      loggedFat,
+    } = buildLoggedNutritionValues(foodItem, selection);
 
-  const { error: logError } = await supabase.from('food_log').insert({
-    user_id: userId,
-    food_item_id: foodItem.id,
-    date,
-    meal_type: mealType,
-    servings: Math.round(multiplier * 1000) / 1000,
-    amount_value: amountValue,
-    amount_unit: amountUnit,
-    grams: resolvedGrams,
-    source: normalizeSource(foodItem),
-    nutrition_snapshot: selection.snapshot ?? buildNutritionSnapshot(foodItem),
-    logged_calories: loggedCalories,
-    logged_protein: loggedProtein,
-    logged_carbs: loggedCarbs,
-    logged_fat: loggedFat,
-  });
-
-  if (logError) {
-    throw logError;
-  }
-
-  await recalculateDailySummary(userId, date);
-}
-
-export async function updateFoodEntry(
-  userId: string,
-  foodLogId: string,
-  selection: FoodLogSelection,
-  mealType: MealType,
-  date: string = today()
-) {
-  const { foodItem, amountValue, amountUnit } = selection;
-  const {
-    resolvedGrams,
-    multiplier,
-    loggedCalories,
-    loggedProtein,
-    loggedCarbs,
-    loggedFat,
-  } = buildLoggedNutritionValues(foodItem, selection);
-
-  const { error } = await supabase
-    .from('food_log')
-    .update({
+    const { error: logError } = await supabase.from('food_log').insert({
+      user_id: userId,
       food_item_id: foodItem.id,
+      date,
       meal_type: mealType,
       servings: Math.round(multiplier * 1000) / 1000,
       amount_value: amountValue,
@@ -712,15 +673,59 @@ export async function updateFoodEntry(
       logged_protein: loggedProtein,
       logged_carbs: loggedCarbs,
       logged_fat: loggedFat,
-    })
-    .eq('id', foodLogId)
-    .eq('user_id', userId);
+    });
 
-  if (error) {
-    throw error;
-  }
+    if (logError) {
+      throw logError;
+    }
 
-  await recalculateDailySummary(userId, date);
+    await recalculateDailySummary(userId, date);
+  });
+}
+
+export async function updateFoodEntry(
+  userId: string,
+  foodLogId: string,
+  selection: FoodLogSelection,
+  mealType: MealType,
+  date: string = today()
+) {
+  return withEngineInvalidation({ userId, date, reason: 'nutrition_log_update' }, async () => {
+    const { foodItem, amountValue, amountUnit } = selection;
+    const {
+      resolvedGrams,
+      multiplier,
+      loggedCalories,
+      loggedProtein,
+      loggedCarbs,
+      loggedFat,
+    } = buildLoggedNutritionValues(foodItem, selection);
+
+    const { error } = await supabase
+      .from('food_log')
+      .update({
+        food_item_id: foodItem.id,
+        meal_type: mealType,
+        servings: Math.round(multiplier * 1000) / 1000,
+        amount_value: amountValue,
+        amount_unit: amountUnit,
+        grams: resolvedGrams,
+        source: normalizeSource(foodItem),
+        nutrition_snapshot: selection.snapshot ?? buildNutritionSnapshot(foodItem),
+        logged_calories: loggedCalories,
+        logged_protein: loggedProtein,
+        logged_carbs: loggedCarbs,
+        logged_fat: loggedFat,
+      })
+      .eq('id', foodLogId)
+      .eq('user_id', userId);
+
+    if (error) {
+      throw error;
+    }
+
+    await recalculateDailySummary(userId, date);
+  });
 }
 
 export async function removeFoodEntry(
@@ -728,12 +733,14 @@ export async function removeFoodEntry(
   foodLogId: string,
   date: string
 ) {
-  const { error } = await supabase.from('food_log').delete().eq('id', foodLogId);
-  if (error) {
-    throw error;
-  }
+  return withEngineInvalidation({ userId, date, reason: 'nutrition_log_remove' }, async () => {
+    const { error } = await supabase.from('food_log').delete().eq('id', foodLogId);
+    if (error) {
+      throw error;
+    }
 
-  await recalculateDailySummary(userId, date);
+    await recalculateDailySummary(userId, date);
+  });
 }
 
 async function recalculateDailySummary(userId: string, date: string) {
@@ -904,16 +911,18 @@ export async function logWater(
   amountOz: number,
   date: string = today()
 ) {
-  const { error } = await supabase.from('hydration_log').insert({
-    user_id: userId,
-    date,
-    amount_oz: amountOz,
-  });
-  if (error) {
-    throw error;
-  }
+  return withEngineInvalidation({ userId, date, reason: 'hydration_log_save' }, async () => {
+    const { error } = await supabase.from('hydration_log').insert({
+      user_id: userId,
+      date,
+      amount_oz: amountOz,
+    });
+    if (error) {
+      throw error;
+    }
 
-  await recalculateDailySummary(userId, date);
+    await recalculateDailySummary(userId, date);
+  });
 }
 
 export async function updateWaterEntry(
@@ -922,17 +931,19 @@ export async function updateWaterEntry(
   amountOz: number,
   date: string = today()
 ) {
-  const { error } = await supabase
-    .from('hydration_log')
-    .update({ amount_oz: amountOz })
-    .eq('id', hydrationLogId)
-    .eq('user_id', userId);
+  return withEngineInvalidation({ userId, date, reason: 'hydration_log_update' }, async () => {
+    const { error } = await supabase
+      .from('hydration_log')
+      .update({ amount_oz: amountOz })
+      .eq('id', hydrationLogId)
+      .eq('user_id', userId);
 
-  if (error) {
-    throw error;
-  }
+    if (error) {
+      throw error;
+    }
 
-  await recalculateDailySummary(userId, date);
+    await recalculateDailySummary(userId, date);
+  });
 }
 
 export async function removeWaterEntry(
@@ -940,17 +951,19 @@ export async function removeWaterEntry(
   hydrationLogId: string,
   date: string = today()
 ) {
-  const { error } = await supabase
-    .from('hydration_log')
-    .delete()
-    .eq('id', hydrationLogId)
-    .eq('user_id', userId);
+  return withEngineInvalidation({ userId, date, reason: 'hydration_log_remove' }, async () => {
+    const { error } = await supabase
+      .from('hydration_log')
+      .delete()
+      .eq('id', hydrationLogId)
+      .eq('user_id', userId);
 
-  if (error) {
-    throw error;
-  }
+    if (error) {
+      throw error;
+    }
 
-  await recalculateDailySummary(userId, date);
+    await recalculateDailySummary(userId, date);
+  });
 }
 
 export async function upsertFoodItem(

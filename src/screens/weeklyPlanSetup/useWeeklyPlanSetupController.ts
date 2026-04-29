@@ -5,7 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { getDefaultGymProfile } from '../../../lib/api/gymProfileService';
 import { getWeeklyPlanConfig, saveWeeklyPlanConfig } from '../../../lib/api/weeklyPlanService';
 import { generateAndSaveWeeklyPlan } from '../../hooks/useWeeklyPlan';
-import { invalidateEngineDataCache } from '../../../lib/api/dailyPerformanceService';
+import { withEngineInvalidation } from '../../../lib/api/engineInvalidation';
 import { getActiveFightCamp, setupFightCamp } from '../../../lib/api/fightCampService';
 import { getActiveBuildPhaseGoal, setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { getRecurringActivities, replaceRecurringActivities } from '../../../lib/api/scheduleService';
@@ -612,7 +612,14 @@ export function useWeeklyPlanSetupController({
         entryCount: generatedWeek.entries.length,
       });
 
-      invalidateEngineDataCache({ userId });
+      await withEngineInvalidation(
+        {
+          userId,
+          weekStart: generatedWeek.entries[0]?.week_start_date ?? startDate,
+          reason: 'planning_setup_save',
+        },
+        async () => undefined,
+      );
 
       onComplete?.();
       if (navigation.canGoBack()) {

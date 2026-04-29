@@ -22,7 +22,6 @@ import { markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
 import {
     getDailyEngineState,
     getWeeklyAthleteSummary,
-    invalidateEngineDataCache,
 } from '../../lib/api/dailyPerformanceService';
 import { isGuidedEngineScheduledActivity } from '../../lib/engine/sessionOwnership';
 import type {
@@ -473,10 +472,6 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 hydrateWorkoutProgress(log, prescription),
                 preloadPRHistory(session.user.id, prescription),
             ]);
-            invalidateEngineDataCache({
-                userId: session.user.id,
-                date: sessionDateRef.current,
-            });
         } catch (error) {
             logError('useGuidedWorkout.startWorkout', error, { weeklyPlanEntryId, scheduledActivityId });
         }
@@ -861,10 +856,6 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                         activationRPE,
                     },
                 );
-                invalidateEngineDataCache({
-                    userId: session.user.id,
-                    date: sessionDateRef.current,
-                });
             }
 
             if (restTimerRef.current) {

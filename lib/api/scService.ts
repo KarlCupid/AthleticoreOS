@@ -16,6 +16,7 @@ import {
 } from '../engine/types';
 import { estimateE1RM } from '../engine/calculateOverload';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
+import { withEngineInvalidation } from './engineInvalidation';
 
 const today = todayLocalDate;
 
@@ -235,88 +236,90 @@ export async function completeWorkout(
         activationRPE?: number | null;
     },
 ): Promise<void> {
-    // 1. Fetch all sets for this workout
-    const { data: sets, error: setsErr } = await supabase
-        .from('workout_set_log')
-        .select('*')
-        .eq('workout_log_id', workoutLogId);
+    return withEngineInvalidation({ userId, reason: 'guided_workout_complete' }, async () => {
+        // 1. Fetch all sets for this workout
+        const { data: sets, error: setsErr } = await supabase
+            .from('workout_set_log')
+            .select('*')
+            .eq('workout_log_id', workoutLogId);
 
-    if (setsErr) throw setsErr;
-    const allSets = (sets ?? []) as WorkoutSetLogRow[];
+        if (setsErr) throw setsErr;
+        const allSets = (sets ?? []) as WorkoutSetLogRow[];
 
-    const { data: efforts, error: effortsErr } = await supabase
-        .from('workout_effort_log')
-        .select('*')
-        .eq('workout_log_id', workoutLogId);
+        const { data: efforts, error: effortsErr } = await supabase
+            .from('workout_effort_log')
+            .select('*')
+            .eq('workout_log_id', workoutLogId);
 
-    if (effortsErr) throw effortsErr;
-    const effortSummary = summarizeEffortLogs((efforts ?? []) as WorkoutEffortLogRow[]);
+        if (effortsErr) throw effortsErr;
+        const effortSummary = summarizeEffortLogs((efforts ?? []) as WorkoutEffortLogRow[]);
 
-    // 2. Calculate totals
-    const workingSets = allSets.filter(s => !s.is_warmup);
-    const totalVolume = workingSets.reduce((sum, s) => sum + s.reps * s.weight_lbs, 0);
-    const totalSets = workingSets.length;
+        // 2. Calculate totals
+        const workingSets = allSets.filter(s => !s.is_warmup);
+        const totalVolume = workingSets.reduce((sum, s) => sum + s.reps * s.weight_lbs, 0);
+        const totalSets = workingSets.length;
 
-    // 3. Update workout_log
-    const { data: workoutLog, error: updateErr } = await supabase
-        .from('workout_log')
-        .update({
-            total_volume: Math.round(totalVolume),
-            total_sets: totalSets,
-            session_rpe: sessionRPE,
-            duration_minutes: durationMinutes,
-            compliance_reason: options?.complianceReason ?? null,
-            activation_rpe: options?.activationRPE ?? null,
-            notes: notes ?? null,
-            sprint_meters: effortSummary.sprint_meters,
-            plyo_contacts: effortSummary.plyo_contacts,
-            hiit_minutes: effortSummary.hiit_minutes,
-            aerobic_minutes: effortSummary.aerobic_minutes,
-            circuit_rounds: effortSummary.circuit_rounds,
-            high_impact_count: effortSummary.high_impact_count,
-            tissue_stress_load: effortSummary.tissue_stress_load,
-        })
-        .eq('id', workoutLogId)
-        .select()
-        .single();
-
-    if (updateErr) throw updateErr;
-    const log = workoutLog as WorkoutLogRow;
-
-    if (log.weekly_plan_entry_id) {
-        const { error: weeklyPlanError } = await supabase
-            .from('weekly_plan_entries')
+        // 3. Update workout_log
+        const { data: workoutLog, error: updateErr } = await supabase
+            .from('workout_log')
             .update({
-                status: 'completed',
-                workout_log_id: workoutLogId,
-            })
-            .eq('id', log.weekly_plan_entry_id);
-        if (weeklyPlanError) throw weeklyPlanError;
-    }
-
-    if (log.scheduled_activity_id) {
-        const { error: scheduledError } = await supabase
-            .from('scheduled_activities')
-            .update({
-                status: 'completed',
-                actual_duration_min: durationMinutes,
-                actual_rpe: sessionRPE,
+                total_volume: Math.round(totalVolume),
+                total_sets: totalSets,
+                session_rpe: sessionRPE,
+                duration_minutes: durationMinutes,
+                compliance_reason: options?.complianceReason ?? null,
+                activation_rpe: options?.activationRPE ?? null,
                 notes: notes ?? null,
-                recommendation_status: 'completed',
+                sprint_meters: effortSummary.sprint_meters,
+                plyo_contacts: effortSummary.plyo_contacts,
+                hiit_minutes: effortSummary.hiit_minutes,
+                aerobic_minutes: effortSummary.aerobic_minutes,
+                circuit_rounds: effortSummary.circuit_rounds,
+                high_impact_count: effortSummary.high_impact_count,
+                tissue_stress_load: effortSummary.tissue_stress_load,
             })
-            .eq('id', log.scheduled_activity_id);
-        if (scheduledError) throw scheduledError;
-    }
+            .eq('id', workoutLogId)
+            .select()
+            .single();
 
-    // 4. Insert into training_sessions for ACWR calculation
-    await supabase
-        .from('training_sessions')
-        .upsert({
-            user_id: userId,
-            date: log.date,
-            duration_minutes: durationMinutes,
-            intensity_srpe: sessionRPE,
-        }, { onConflict: 'user_id,date' });
+        if (updateErr) throw updateErr;
+        const log = workoutLog as WorkoutLogRow;
+
+        if (log.weekly_plan_entry_id) {
+            const { error: weeklyPlanError } = await supabase
+                .from('weekly_plan_entries')
+                .update({
+                    status: 'completed',
+                    workout_log_id: workoutLogId,
+                })
+                .eq('id', log.weekly_plan_entry_id);
+            if (weeklyPlanError) throw weeklyPlanError;
+        }
+
+        if (log.scheduled_activity_id) {
+            const { error: scheduledError } = await supabase
+                .from('scheduled_activities')
+                .update({
+                    status: 'completed',
+                    actual_duration_min: durationMinutes,
+                    actual_rpe: sessionRPE,
+                    notes: notes ?? null,
+                    recommendation_status: 'completed',
+                })
+                .eq('id', log.scheduled_activity_id);
+            if (scheduledError) throw scheduledError;
+        }
+
+        // 4. Insert into training_sessions for ACWR calculation
+        await supabase
+            .from('training_sessions')
+            .upsert({
+                user_id: userId,
+                date: log.date,
+                duration_minutes: durationMinutes,
+                intensity_srpe: sessionRPE,
+            }, { onConflict: 'user_id,date' });
+    });
 }
 
 /**
@@ -778,43 +781,45 @@ export async function startWorkoutV2(
         safetyFlags?: WorkoutLogRow['safety_flags'];
     },
 ): Promise<WorkoutLogRow> {
-    const openWorkout = await findOpenWorkoutLog(userId, {
-        date: params.date,
-        weeklyPlanEntryId: params.weeklyPlanEntryId,
-        scheduledActivityId: params.scheduledActivityId,
+    return withEngineInvalidation({ userId, date: params.date ?? today(), reason: 'guided_workout_start' }, async () => {
+        const openWorkout = await findOpenWorkoutLog(userId, {
+            date: params.date,
+            weeklyPlanEntryId: params.weeklyPlanEntryId,
+            scheduledActivityId: params.scheduledActivityId,
+        });
+
+        if (openWorkout) {
+            return openWorkout;
+        }
+
+        const { data, error } = await supabase
+            .from('workout_log')
+            .insert({
+                user_id: userId,
+                date: params.date ?? today(),
+                workout_type: params.workoutType,
+                focus: params.focus,
+                weekly_plan_entry_id: params.weeklyPlanEntryId ?? null,
+                gym_profile_id: params.gymProfileId ?? null,
+                total_volume: 0,
+                total_sets: 0,
+                session_rpe: null,
+                duration_minutes: null,
+                notes: null,
+                session_family: params.sessionFamily ?? null,
+                primary_modality: params.primaryModality ?? null,
+                energy_system: params.energySystem ?? null,
+                dose_summary: params.doseSummary ?? {},
+                tracking_schema_id: params.trackingSchemaId ?? null,
+                safety_flags: params.safetyFlags ?? [],
+                scheduled_activity_id: params.scheduledActivityId ?? null,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as WorkoutLogRow;
     });
-
-    if (openWorkout) {
-        return openWorkout;
-    }
-
-    const { data, error } = await supabase
-        .from('workout_log')
-        .insert({
-            user_id: userId,
-            date: params.date ?? today(),
-            workout_type: params.workoutType,
-            focus: params.focus,
-            weekly_plan_entry_id: params.weeklyPlanEntryId ?? null,
-            gym_profile_id: params.gymProfileId ?? null,
-            total_volume: 0,
-            total_sets: 0,
-            session_rpe: null,
-            duration_minutes: null,
-            notes: null,
-            session_family: params.sessionFamily ?? null,
-            primary_modality: params.primaryModality ?? null,
-            energy_system: params.energySystem ?? null,
-            dose_summary: params.doseSummary ?? {},
-            tracking_schema_id: params.trackingSchemaId ?? null,
-            safety_flags: params.safetyFlags ?? [],
-            scheduled_activity_id: params.scheduledActivityId ?? null,
-        })
-        .select()
-        .single();
-
-    if (error) throw error;
-    return data as WorkoutLogRow;
 }
 
 /**

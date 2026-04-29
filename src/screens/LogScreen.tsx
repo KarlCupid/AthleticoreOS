@@ -28,8 +28,8 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import {
   getDailyEngineState,
-  invalidateEngineDataCache,
 } from '../../lib/api/dailyPerformanceService';
+import { withEngineInvalidation } from '../../lib/api/engineInvalidation';
 import { supabase } from '../../lib/supabase';
 import {
   deriveLegacyReadinessFromDailyCheck,
@@ -329,33 +329,40 @@ export function LogScreen() {
         coach_debrief: debrief,
       };
 
-      const { error } = await supabase.from('daily_checkins').upsert(performancePayload, { onConflict: 'user_id,date' });
-      const savedWithPerformanceColumns = !error;
-      if (error) {
-        if (!isMissingDailyPerformanceCheckColumnError(error)) throw error;
-        const fallback = await supabase.from('daily_checkins').upsert(legacyPayload, { onConflict: 'user_id,date' });
-        if (fallback.error) throw fallback.error;
-      }
+      const savedWithPerformanceColumns = await withEngineInvalidation(
+        { userId, date: logScreenData.logDate, reason: 'daily_checkin_save' },
+        async () => {
+          const { error } = await supabase.from('daily_checkins').upsert(performancePayload, { onConflict: 'user_id,date' });
+          if (!error) return true;
+          if (!isMissingDailyPerformanceCheckColumnError(error)) throw error;
+          const fallback = await supabase.from('daily_checkins').upsert(legacyPayload, { onConflict: 'user_id,date' });
+          if (fallback.error) throw fallback.error;
+          return false;
+        },
+      );
 
-      invalidateEngineDataCache({ userId, date: logScreenData.logDate });
       const engineState = await getDailyEngineState(userId, logScreenData.logDate, { forceRefresh: true });
 
       if (savedWithPerformanceColumns) {
         const canonicalReadinessScore = engineState.unifiedPerformance?.canonicalOutputs.readiness.overallReadiness
           ?? engineState.readinessProfile.overallReadiness;
-        const readinessUpdate = await supabase
-          .from('daily_checkins')
-          .update({
-            readiness_score: canonicalReadinessScore,
-          })
-          .eq('user_id', userId)
-          .eq('date', logScreenData.logDate);
-        if (readinessUpdate.error && !isMissingDailyPerformanceCheckColumnError(readinessUpdate.error)) {
-          throw readinessUpdate.error;
-        }
+        await withEngineInvalidation(
+          { userId, date: logScreenData.logDate, reason: 'daily_checkin_readiness_score_update' },
+          async () => {
+            const readinessUpdate = await supabase
+              .from('daily_checkins')
+              .update({
+                readiness_score: canonicalReadinessScore,
+              })
+              .eq('user_id', userId)
+              .eq('date', logScreenData.logDate);
+            if (readinessUpdate.error && !isMissingDailyPerformanceCheckColumnError(readinessUpdate.error)) {
+              throw readinessUpdate.error;
+            }
+          },
+        );
       }
 
-      invalidateEngineDataCache({ userId, date: logScreenData.logDate });
       navigation.navigate('TodayHome');
     } catch (error) {
       logError('LogScreen.savePerformanceCheck', error, { targetDate: logScreenData.logDate });

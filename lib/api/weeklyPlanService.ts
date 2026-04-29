@@ -3,6 +3,7 @@ import { WeeklyPlanConfigRow, WeeklyPlanEntryRow, PlanEntryStatus, AvailabilityW
 import { toScheduledActivityPayload } from '../engine/sessionOwnership';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
+import { withEngineInvalidation } from './engineInvalidation';
 
 export { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
 
@@ -107,27 +108,46 @@ function applyWeeklyPlanColumnCompatibility<T extends Record<string, unknown>>(p
         : payload;
 }
 
-async function getScheduledActivityIdForEntry(entryId: string): Promise<string | null> {
-    if (hasScheduledActivityIdColumn === false) {
-        return null;
-    }
-
+async function getPlanEntryMutationContext(entryId: string): Promise<{
+    userId: string;
+    date: string;
+    weekStart: string;
+    scheduledActivityId: string | null;
+}> {
+    const selectWithScheduled = hasScheduledActivityIdColumn === false
+        ? 'user_id,date,week_start_date'
+        : 'user_id,date,week_start_date,scheduled_activity_id';
     const { data, error } = await supabase
         .from('weekly_plan_entries')
-        .select('scheduled_activity_id')
+        .select(selectWithScheduled)
         .eq('id', entryId)
         .single();
 
     if (error) {
         if (isMissingScheduledActivityIdColumnError(error)) {
             hasScheduledActivityIdColumn = false;
-            return null;
+            return getPlanEntryMutationContext(entryId);
         }
         throw error;
     }
 
-    hasScheduledActivityIdColumn = true;
-    return (data as { scheduled_activity_id?: string | null } | null)?.scheduled_activity_id ?? null;
+    const row = data as unknown as {
+        user_id: string;
+        date: string;
+        week_start_date: string;
+        scheduled_activity_id?: string | null;
+    };
+
+    if (hasScheduledActivityIdColumn !== false) {
+        hasScheduledActivityIdColumn = true;
+    }
+
+    return {
+        userId: row.user_id,
+        date: row.date,
+        weekStart: row.week_start_date,
+        scheduledActivityId: row.scheduled_activity_id ?? null,
+    };
 }
 // --- Weekly Plan Config -------------------------------------
 
@@ -160,42 +180,44 @@ export async function saveWeeklyPlanConfig(
     userId: string,
     config: Omit<WeeklyPlanConfigRow, 'id' | 'user_id' | 'created_at' | 'updated_at'>,
 ): Promise<WeeklyPlanConfigRow> {
-    const normalizedAvailability = normalizeAvailabilityWindows(config.availability_windows);
-    const normalizedAvailable = normalizeDays(config.available_days, normalizedAvailability.map((window) => window.dayOfWeek));
-    const normalizedTwoADays = normalizeDays(config.two_a_day_days, []).filter((day) =>
-        normalizedAvailable.includes(day),
-    );
+    return withEngineInvalidation({ userId, reason: 'weekly_plan_config_save' }, async () => {
+        const normalizedAvailability = normalizeAvailabilityWindows(config.availability_windows);
+        const normalizedAvailable = normalizeDays(config.available_days, normalizedAvailability.map((window) => window.dayOfWeek));
+        const normalizedTwoADays = normalizeDays(config.two_a_day_days, []).filter((day) =>
+            normalizedAvailable.includes(day),
+        );
 
-    const { data, error } = await supabase
-        .from('weekly_plan_config')
-        .upsert(
-            {
-                user_id: userId,
-                available_days: normalizedAvailable,
-                availability_windows: normalizedAvailability,
-                session_duration_min: config.session_duration_min,
-                allow_two_a_days: config.allow_two_a_days,
-                two_a_day_days: normalizedTwoADays,
-                am_session_type: config.am_session_type,
-                pm_session_type: config.pm_session_type,
-                preferred_gym_profile_id: config.preferred_gym_profile_id,
-                auto_deload_interval_weeks: config.auto_deload_interval_weeks,
-                updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'user_id' },
-        )
-        .select()
-        .single();
+        const { data, error } = await supabase
+            .from('weekly_plan_config')
+            .upsert(
+                {
+                    user_id: userId,
+                    available_days: normalizedAvailable,
+                    availability_windows: normalizedAvailability,
+                    session_duration_min: config.session_duration_min,
+                    allow_two_a_days: config.allow_two_a_days,
+                    two_a_day_days: normalizedTwoADays,
+                    am_session_type: config.am_session_type,
+                    pm_session_type: config.pm_session_type,
+                    preferred_gym_profile_id: config.preferred_gym_profile_id,
+                    auto_deload_interval_weeks: config.auto_deload_interval_weeks,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'user_id' },
+            )
+            .select()
+            .single();
 
-    if (error) throw error;
+        if (error) throw error;
 
-    const saved = data as WeeklyPlanConfigRow;
-    return {
-        ...saved,
-        available_days: normalizeDays(saved.available_days, [1, 2, 3, 4, 5]),
-        availability_windows: normalizeAvailabilityWindows(saved.availability_windows),
-        two_a_day_days: normalizeDays(saved.two_a_day_days, []),
-    };
+        const saved = data as WeeklyPlanConfigRow;
+        return {
+            ...saved,
+            available_days: normalizeDays(saved.available_days, [1, 2, 3, 4, 5]),
+            availability_windows: normalizeAvailabilityWindows(saved.availability_windows),
+            two_a_day_days: normalizeDays(saved.two_a_day_days, []),
+        };
+    });
 }
 
 /**
@@ -215,20 +237,22 @@ export async function cancelActivePlan(userId: string): Promise<void> {
 
     const weekStart = latestEntry.week_start_date;
 
-    await supabase
-        .from('weekly_plan_entries')
-        .delete()
-        .eq('user_id', userId)
-        .eq('week_start_date', weekStart)
-        .neq('status', 'completed');
+    return withEngineInvalidation({ userId, weekStart, reason: 'weekly_plan_cancel' }, async () => {
+        await supabase
+            .from('weekly_plan_entries')
+            .delete()
+            .eq('user_id', userId)
+            .eq('week_start_date', weekStart)
+            .neq('status', 'completed');
 
-    await supabase
-        .from('scheduled_activities')
-        .delete()
-        .eq('user_id', userId)
-        .eq('source', 'engine')
-        .gte('date', today())
-        .eq('status', 'scheduled');
+        await supabase
+            .from('scheduled_activities')
+            .delete()
+            .eq('user_id', userId)
+            .eq('source', 'engine')
+            .gte('date', today())
+            .eq('status', 'scheduled');
+    });
 }
 
 // --- Weekly Plan Entries -----------------------------------
@@ -284,6 +308,7 @@ export async function saveWeekPlan(
     endDate.setDate(endDate.getDate() + 6);
     const weekEnd = formatLocalDate(endDate);
 
+    return withEngineInvalidation({ userId, weekStart, reason: 'weekly_plan_save' }, async () => {
     const { data: preservedCompletedEntries, error: preservedCompletedError } = await supabase
         .from('weekly_plan_entries')
         .select('*')
@@ -496,6 +521,7 @@ export async function saveWeekPlan(
 
     if (finalEntriesError) throw finalEntriesError;
     return (finalEntries ?? []) as WeeklyPlanEntryRow[];
+    });
 }
 
 /**
@@ -505,44 +531,48 @@ export async function markDayCompleted(
     entryId: string,
     workoutLogId: string,
 ): Promise<void> {
-    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
+    const context = await getPlanEntryMutationContext(entryId);
 
-    const { error } = await supabase
-        .from('weekly_plan_entries')
-        .update({ status: 'completed' as PlanEntryStatus, workout_log_id: workoutLogId })
-        .eq('id', entryId);
+    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_day_complete' }, async () => {
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .update({ status: 'completed' as PlanEntryStatus, workout_log_id: workoutLogId })
+            .eq('id', entryId);
 
-    if (error) throw error;
+        if (error) throw error;
 
-    if (scheduledActivityId) {
-        const { error: scheduledError } = await supabase
-            .from('scheduled_activities')
-            .update({ status: 'completed', recommendation_status: 'completed' })
-            .eq('id', scheduledActivityId);
-        if (scheduledError) throw scheduledError;
-    }
+        if (context.scheduledActivityId) {
+            const { error: scheduledError } = await supabase
+                .from('scheduled_activities')
+                .update({ status: 'completed', recommendation_status: 'completed' })
+                .eq('id', context.scheduledActivityId);
+            if (scheduledError) throw scheduledError;
+        }
+    });
 }
 
 /**
  * Mark a plan entry as skipped.
  */
 export async function markDaySkipped(entryId: string): Promise<void> {
-    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
+    const context = await getPlanEntryMutationContext(entryId);
 
-    const { error } = await supabase
-        .from('weekly_plan_entries')
-        .update({ status: 'skipped' as PlanEntryStatus })
-        .eq('id', entryId);
+    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_day_skip' }, async () => {
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .update({ status: 'skipped' as PlanEntryStatus })
+            .eq('id', entryId);
 
-    if (error) throw error;
+        if (error) throw error;
 
-    if (scheduledActivityId) {
-        const { error: scheduledError } = await supabase
-            .from('scheduled_activities')
-            .update({ status: 'skipped', recommendation_status: 'declined' })
-            .eq('id', scheduledActivityId);
-        if (scheduledError) throw scheduledError;
-    }
+        if (context.scheduledActivityId) {
+            const { error: scheduledError } = await supabase
+                .from('scheduled_activities')
+                .update({ status: 'skipped', recommendation_status: 'declined' })
+                .eq('id', context.scheduledActivityId);
+            if (scheduledError) throw scheduledError;
+        }
+    });
 }
 
 /**
@@ -552,25 +582,27 @@ export async function rescheduleMissedDay(
     entryId: string,
     newDate: string,
 ): Promise<void> {
-    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
+    const context = await getPlanEntryMutationContext(entryId);
 
-    const { error } = await supabase
-        .from('weekly_plan_entries')
-        .update({
-            status: 'rescheduled' as PlanEntryStatus,
-            rescheduled_to: newDate,
-        })
-        .eq('id', entryId);
+    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_day_reschedule' }, async () => {
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .update({
+                status: 'rescheduled' as PlanEntryStatus,
+                rescheduled_to: newDate,
+            })
+            .eq('id', entryId);
 
-    if (error) throw error;
+        if (error) throw error;
 
-    if (scheduledActivityId) {
-        const { error: scheduledError } = await supabase
-            .from('scheduled_activities')
-            .update({ date: newDate, status: 'scheduled', recommendation_status: 'declined' })
-            .eq('id', scheduledActivityId);
-        if (scheduledError) throw scheduledError;
-    }
+        if (context.scheduledActivityId) {
+            const { error: scheduledError } = await supabase
+                .from('scheduled_activities')
+                .update({ date: newDate, status: 'scheduled', recommendation_status: 'declined' })
+                .eq('id', context.scheduledActivityId);
+            if (scheduledError) throw scheduledError;
+        }
+    });
 }
 
 /**
@@ -642,6 +674,7 @@ export async function updatePlanEntryPrescription(
     entryId: string,
     prescription: import('../engine/types').WorkoutPrescriptionV2,
 ): Promise<void> {
+    const context = await getPlanEntryMutationContext(entryId);
     const metadataPayload = {
         prescription_snapshot: prescription,
         sc_session_family: prescription.scSessionFamily ?? prescription.sessionPrescription?.sessionFamily ?? null,
@@ -651,33 +684,39 @@ export async function updatePlanEntryPrescription(
         realized_dose_buckets: prescription.realizedBucket ? [prescription.realizedBucket] : [],
     };
 
-    const { error } = await supabase
-        .from('weekly_plan_entries')
-        .update(applyWeeklyPlanColumnCompatibility(metadataPayload))
-        .eq('id', entryId);
+    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_prescription_update' }, async () => {
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .update(applyWeeklyPlanColumnCompatibility(metadataPayload))
+            .eq('id', entryId);
 
-    if (error) {
-        if (isMissingWeeklyPlanMetadataColumnError(error)) {
-            hasWeeklyPlanMetadataColumns = false;
-            const retry = await supabase
-                .from('weekly_plan_entries')
-                .update({ prescription_snapshot: prescription })
-                .eq('id', entryId);
-            if (retry.error) throw retry.error;
-            return;
+        if (error) {
+            if (isMissingWeeklyPlanMetadataColumnError(error)) {
+                hasWeeklyPlanMetadataColumns = false;
+                const retry = await supabase
+                    .from('weekly_plan_entries')
+                    .update({ prescription_snapshot: prescription })
+                    .eq('id', entryId);
+                if (retry.error) throw retry.error;
+                return;
+            }
+            throw error;
         }
-        throw error;
-    }
 
-    hasWeeklyPlanMetadataColumns = true;
+        hasWeeklyPlanMetadataColumns = true;
+    });
 }
 
 export async function restorePlanEntry(entryId: string): Promise<void> {
-    const { error } = await supabase
-        .from('weekly_plan_entries')
-        .update({ status: 'planned' as PlanEntryStatus })
-        .eq('id', entryId);
-    if (error) throw error;
+    const context = await getPlanEntryMutationContext(entryId);
+
+    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_entry_restore' }, async () => {
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .update({ status: 'planned' as PlanEntryStatus })
+            .eq('id', entryId);
+        if (error) throw error;
+    });
 }
 
 export async function regenerateDayWorkout(
@@ -736,14 +775,16 @@ export async function regenerateDayWorkout(
 }
 
 export async function markRecommendationAccepted(entryId: string): Promise<void> {
-    const scheduledActivityId = await getScheduledActivityIdForEntry(entryId);
-    if (!scheduledActivityId) return;
+    const context = await getPlanEntryMutationContext(entryId);
+    if (!context.scheduledActivityId) return;
 
-    const { error } = await supabase
-        .from('scheduled_activities')
-        .update({ recommendation_status: 'accepted' })
-        .eq('id', scheduledActivityId)
-        .eq('recommendation_status', 'pending');
+    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_recommendation_accept' }, async () => {
+        const { error } = await supabase
+            .from('scheduled_activities')
+            .update({ recommendation_status: 'accepted' })
+            .eq('id', context.scheduledActivityId)
+            .eq('recommendation_status', 'pending');
 
-    if (error) throw error;
+        if (error) throw error;
+    });
 }

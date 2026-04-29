@@ -25,6 +25,7 @@ import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
 import { getActiveWeightClassPlan } from './weightClassPlanService';
 import { logWarn } from '../utils/logger';
 import { isGuidedEngineActivityType } from '../engine/sessionOwnership';
+import { withEngineInvalidation } from './engineInvalidation';
 
 function today(): string {
     return todayLocalDate();
@@ -221,41 +222,43 @@ export async function replaceRecurringActivities(
     userId: string,
     entries: RecurringActivityInput[],
 ): Promise<RecurringActivityRow[]> {
-    const { data: existingActiveTemplates, error: existingActiveTemplatesError } = await supabase
-        .from('recurring_activities')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('is_active', true);
-
-    if (existingActiveTemplatesError) throw existingActiveTemplatesError;
-
-    const existingTemplateIds = ((existingActiveTemplates ?? []) as Array<{ id: string }>).map((row) => row.id);
-    if (existingTemplateIds.length > 0) {
-        const { error: deleteScheduledError } = await supabase
-            .from('scheduled_activities')
-            .delete()
+    return withEngineInvalidation({ userId, reason: 'recurring_activities_replace' }, async () => {
+        const { data: existingActiveTemplates, error: existingActiveTemplatesError } = await supabase
+            .from('recurring_activities')
+            .select('id')
             .eq('user_id', userId)
-            .gte('date', today())
-            .eq('status', 'scheduled')
-            .in('recurring_activity_id', existingTemplateIds);
+            .eq('is_active', true);
 
-        if (deleteScheduledError) throw deleteScheduledError;
-    }
+        if (existingActiveTemplatesError) throw existingActiveTemplatesError;
 
-    const { error } = await supabase
-        .from('recurring_activities')
-        .update({ is_active: false })
-        .eq('user_id', userId)
-        .eq('is_active', true);
+        const existingTemplateIds = ((existingActiveTemplates ?? []) as Array<{ id: string }>).map((row) => row.id);
+        if (existingTemplateIds.length > 0) {
+            const { error: deleteScheduledError } = await supabase
+                .from('scheduled_activities')
+                .delete()
+                .eq('user_id', userId)
+                .gte('date', today())
+                .eq('status', 'scheduled')
+                .in('recurring_activity_id', existingTemplateIds);
 
-    if (error) throw error;
+            if (deleteScheduledError) throw deleteScheduledError;
+        }
 
-    const saved: RecurringActivityRow[] = [];
-    for (const entry of entries) {
-        saved.push(await upsertRecurringActivity(userId, entry));
-    }
+        const { error } = await supabase
+            .from('recurring_activities')
+            .update({ is_active: false })
+            .eq('user_id', userId)
+            .eq('is_active', true);
 
-    return saved;
+        if (error) throw error;
+
+        const saved: RecurringActivityRow[] = [];
+        for (const entry of entries) {
+            saved.push(await upsertRecurringActivity(userId, entry));
+        }
+
+        return saved;
+    });
 }
 export async function generateRollingSchedule(
     userId: string,
@@ -600,66 +603,68 @@ export async function completeActivity(
         }[];
     },
 ): Promise<void> {
-    // 1. Update the scheduled activity
-    await updateScheduledActivities(
-        {
-            status: 'completed',
-            actual_duration_min: log.actual_duration_min,
-            actual_rpe: log.actual_rpe,
-            notes: log.notes ?? null,
-            recommendation_status: 'completed',
-        },
-        (nextPayload) => supabase
+    return withEngineInvalidation({ userId, reason: 'activity_complete' }, async () => {
+        // 1. Update the scheduled activity
+        await updateScheduledActivities(
+            {
+                status: 'completed',
+                actual_duration_min: log.actual_duration_min,
+                actual_rpe: log.actual_rpe,
+                notes: log.notes ?? null,
+                recommendation_status: 'completed',
+            },
+            (nextPayload) => supabase
+                .from('scheduled_activities')
+                .update(nextPayload)
+                .eq('id', activityId)
+                .eq('user_id', userId),
+        );
+
+        // 2. Get the activity date
+        const { data: activity } = await supabase
             .from('scheduled_activities')
-            .update(nextPayload)
+            .select('date')
             .eq('id', activityId)
-            .eq('user_id', userId),
-    );
+            .single();
 
-    // 2. Get the activity date
-    const { data: activity } = await supabase
-        .from('scheduled_activities')
-        .select('date')
-        .eq('id', activityId)
-        .single();
+        const activityDate = activity?.date ?? today();
 
-    const activityDate = activity?.date ?? today();
+        // 3. Insert component logs
+        if (log.components.length > 0) {
+            const componentRows = log.components.map(c => ({
+                scheduled_activity_id: activityId,
+                user_id: userId,
+                date: activityDate,
+                component_type: c.component_type,
+                duration_min: c.duration_min,
+                distance_miles: c.distance_miles ?? null,
+                pace_per_mile: c.pace_per_mile ?? null,
+                rounds: c.rounds ?? null,
+                intensity: c.intensity,
+                heart_rate_avg: c.heart_rate_avg ?? null,
+                notes: c.notes ?? null,
+            }));
 
-    // 3. Insert component logs
-    if (log.components.length > 0) {
-        const componentRows = log.components.map(c => ({
-            scheduled_activity_id: activityId,
-            user_id: userId,
-            date: activityDate,
-            component_type: c.component_type,
-            duration_min: c.duration_min,
-            distance_miles: c.distance_miles ?? null,
-            pace_per_mile: c.pace_per_mile ?? null,
-            rounds: c.rounds ?? null,
-            intensity: c.intensity,
-            heart_rate_avg: c.heart_rate_avg ?? null,
-            notes: c.notes ?? null,
-        }));
+            const { error: activityLogError } = await supabase
+                .from('activity_log')
+                .insert(componentRows);
 
-        const { error: activityLogError } = await supabase
-            .from('activity_log')
-            .insert(componentRows);
+            if (activityLogError) throw activityLogError;
+        }
+        // 4. Also insert into training_sessions for ACWR calculation
+        const { error: sessionError } = await supabase
+            .from('training_sessions')
+            .insert({
+                user_id: userId,
+                date: activityDate,
+                duration_minutes: log.actual_duration_min,
+                intensity_srpe: log.actual_rpe,
+            });
 
-        if (activityLogError) throw activityLogError;
-    }
-    // 4. Also insert into training_sessions for ACWR calculation
-    const { error: sessionError } = await supabase
-        .from('training_sessions')
-        .insert({
-            user_id: userId,
-            date: activityDate,
-            duration_minutes: log.actual_duration_min,
-            intensity_srpe: log.actual_rpe,
-        });
-
-    if (sessionError) {
-        logWarn('scheduleService.insertTrainingSession', sessionError);
-    }
+        if (sessionError) {
+            logWarn('scheduleService.insertTrainingSession', sessionError);
+        }
+    });
 }
 
 /**
@@ -670,18 +675,20 @@ export async function skipActivity(
     activityId: string,
     reason?: string,
 ): Promise<void> {
-    await updateScheduledActivities(
-        {
-            status: 'skipped',
-            notes: reason ?? null,
-            recommendation_status: 'declined',
-        },
-        (nextPayload) => supabase
-            .from('scheduled_activities')
-            .update(nextPayload)
-            .eq('id', activityId)
-            .eq('user_id', userId),
-    );
+    return withEngineInvalidation({ userId, reason: 'activity_skip' }, async () => {
+        await updateScheduledActivities(
+            {
+                status: 'skipped',
+                notes: reason ?? null,
+                recommendation_status: 'declined',
+            },
+            (nextPayload) => supabase
+                .from('scheduled_activities')
+                .update(nextPayload)
+                .eq('id', activityId)
+                .eq('user_id', userId),
+        );
+    });
 }
 
 /**

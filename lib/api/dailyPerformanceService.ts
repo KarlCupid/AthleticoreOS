@@ -36,6 +36,12 @@ import { getEffectiveWeight, getWeightHistory } from './weightService';
 import { isActiveGuidedEnginePlanEntry } from '../engine/sessionOwnership';
 import { adaptPrescriptionToDailyReadiness } from '../engine/readiness/dailyCheck.ts';
 import { resolveWeeklyAthleteSummaryWithDependencies } from './weeklyAthleteSummaryResolver';
+import {
+  dailyEngineStateCache,
+  dailyEngineStateInFlight,
+  weeklyAthleteSummaryCache,
+  weeklyAthleteSummaryInFlight,
+} from './engineInvalidation';
 import type { WorkoutPrescriptionV2 } from '../engine/types';
 import {
   confidenceFromLevel,
@@ -62,10 +68,6 @@ interface DailyPerformanceOptions {
   forceRefresh?: boolean;
 }
 
-const dailyEngineStateCache = new Map<string, DailyEngineState>();
-const dailyEngineStateInFlight = new Map<string, Promise<DailyEngineState>>();
-const weeklyAthleteSummaryCache = new Map<string, WeeklyAthleteSummaryPlan>();
-const weeklyAthleteSummaryInFlight = new Map<string, Promise<WeeklyAthleteSummaryPlan>>();
 let hasDailyPerformanceCheckColumns: boolean | null = null;
 
 const DAILY_CHECKIN_LEGACY_SELECT = 'date, sleep_quality, readiness, stress_level, soreness_level, confidence_level';
@@ -85,48 +87,14 @@ function isMissingDailyPerformanceCheckColumnError(error: unknown): boolean {
     && DAILY_PERFORMANCE_CHECK_COLUMNS.some((column) => message.includes(column));
 }
 
+export { invalidateEngineDataCache, withEngineInvalidation } from './engineInvalidation';
+
 function getDailyEngineStateCacheKey(userId: string, date: string): string {
   return `${userId}::${date}`;
 }
 
 function getWeeklyAthleteSummaryCacheKey(userId: string, weekStart: string): string {
   return `${userId}::${weekStart}`;
-}
-
-function clearUserScopedKeys<T>(store: Map<string, T>, userId: string) {
-  const prefix = `${userId}::`;
-  for (const key of store.keys()) {
-    if (key.startsWith(prefix)) {
-      store.delete(key);
-    }
-  }
-}
-
-export function invalidateEngineDataCache(input: {
-  userId: string;
-  date?: string;
-  weekStart?: string;
-}) {
-  const { userId, date, weekStart } = input;
-
-  if (date) {
-    const dailyKey = getDailyEngineStateCacheKey(userId, date);
-    dailyEngineStateCache.delete(dailyKey);
-    dailyEngineStateInFlight.delete(dailyKey);
-  } else {
-    clearUserScopedKeys(dailyEngineStateCache, userId);
-    clearUserScopedKeys(dailyEngineStateInFlight, userId);
-  }
-
-  if (weekStart) {
-    const weeklyKey = getWeeklyAthleteSummaryCacheKey(userId, weekStart);
-    weeklyAthleteSummaryCache.delete(weeklyKey);
-    weeklyAthleteSummaryInFlight.delete(weeklyKey);
-    return;
-  }
-
-  clearUserScopedKeys(weeklyAthleteSummaryCache, userId);
-  clearUserScopedKeys(weeklyAthleteSummaryInFlight, userId);
 }
 
 function daysBetween(start: string, end: string): number {

@@ -19,7 +19,7 @@ import { getRecurringActivities } from '../../lib/api/scheduleService';
 import { getExerciseLibrary, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate, addDays } from '../../lib/utils/date';
-import { getDailyEngineState, getWeeklyAthleteSummary, invalidateEngineDataCache } from '../../lib/api/dailyPerformanceService';
+import { getDailyEngineState, getWeeklyAthleteSummary } from '../../lib/api/dailyPerformanceService';
 import { getActiveWeightClassPlan } from '../../lib/api/weightClassPlanService';
 import { resolveWeeklyPlanWeekStart } from '../../lib/engine/weeklyPlanWeekStart';
 import {
@@ -350,9 +350,7 @@ export async function generateAndSaveWeeklyPlan(
     throw new Error(`Weekly plan generated ${guidedWithoutPrescription.length} guided session(s) without S&C prescriptions.`);
   }
 
-  invalidateEngineDataCache({ userId, weekStart });
   await saveWeekPlan(userId, result.entries);
-  invalidateEngineDataCache({ userId, weekStart });
   const weeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: true });
 
   return {

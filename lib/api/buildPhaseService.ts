@@ -7,6 +7,7 @@ import type {
 } from '../engine/types';
 import { mapPerformancePhaseToLegacyPhase, resolveBuildPhaseForGoal } from '../performance-engine';
 import { PLANNING_SETUP_VERSION } from './planningConstants';
+import { withEngineInvalidation } from './engineInvalidation';
 
 function normalizeGoalType(value: unknown): BuildPhaseGoalType {
   switch (value) {
@@ -55,7 +56,7 @@ export async function getActiveBuildPhaseGoal(userId: string): Promise<BuildPhas
   return normalizeBuildPhaseGoal((data as BuildPhaseGoalRow | null) ?? null);
 }
 
-export async function setupBuildPhaseGoal(userId: string, input: BuildPhaseSetupInput): Promise<BuildPhaseGoalRow> {
+async function setupBuildPhaseGoalMutation(userId: string, input: BuildPhaseSetupInput): Promise<BuildPhaseGoalRow> {
   const { error: campError } = await supabase
     .from('fight_camps')
     .update({ status: 'completed', updated_at: new Date().toISOString() })
@@ -116,12 +117,20 @@ export async function setupBuildPhaseGoal(userId: string, input: BuildPhaseSetup
   return normalizeBuildPhaseGoal(data as BuildPhaseGoalRow)!;
 }
 
-export async function completeActiveBuildPhaseGoal(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('build_phase_goals')
-    .update({ status: 'completed', updated_at: new Date().toISOString() })
-    .eq('user_id', userId)
-    .eq('status', 'active');
+export async function setupBuildPhaseGoal(userId: string, input: BuildPhaseSetupInput): Promise<BuildPhaseGoalRow> {
+  return withEngineInvalidation({ userId, reason: 'build_phase_goal_update' }, () =>
+    setupBuildPhaseGoalMutation(userId, input),
+  );
+}
 
-  if (error) throw error;
+export async function completeActiveBuildPhaseGoal(userId: string): Promise<void> {
+  return withEngineInvalidation({ userId, reason: 'build_phase_goal_complete' }, async () => {
+    const { error } = await supabase
+      .from('build_phase_goals')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('status', 'active');
+
+    if (error) throw error;
+  });
 }

@@ -3,7 +3,7 @@ import { getDefaultGymProfile } from '../../../lib/api/gymProfileService';
 import { getActiveUserId } from '../../../lib/api/athleteContextService';
 import { setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { setupFightCamp } from '../../../lib/api/fightCampService';
-import { invalidateEngineDataCache } from '../../../lib/api/dailyPerformanceService';
+import { withEngineInvalidation } from '../../../lib/api/engineInvalidation';
 import {
   createFirstRunWalkthroughState,
   markFirstRunWalkthroughStepCompleted,
@@ -170,23 +170,25 @@ async function saveReadinessBaseline(userId: string, input: IntakeReadinessBasel
       : null;
   const energyLevel = input.fatigue == null ? null : Math.max(1, Math.min(5, 6 - input.fatigue));
 
-  const { error } = await supabase
-    .from('daily_checkins')
-    .upsert(
-      {
-        user_id: userId,
-        date,
-        sleep_quality: input.sleepQuality,
-        readiness: input.recovery,
-        soreness_level: input.soreness,
-        energy_level: energyLevel,
-        pain_level: painLevel,
-        checkin_version: 2,
-      },
-      { onConflict: 'user_id,date' },
-    );
+  await withEngineInvalidation({ userId, date, reason: 'onboarding_readiness_baseline_save' }, async () => {
+    const { error } = await supabase
+      .from('daily_checkins')
+      .upsert(
+        {
+          user_id: userId,
+          date,
+          sleep_quality: input.sleepQuality,
+          readiness: input.recovery,
+          soreness_level: input.soreness,
+          energy_level: energyLevel,
+          pain_level: painLevel,
+          checkin_version: 2,
+        },
+        { onConflict: 'user_id,date' },
+      );
 
-  if (error) throw error;
+    if (error) throw error;
+  });
 }
 
 function buildCompletedWalkthroughState(input: {
@@ -389,7 +391,7 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
 
     const gym = await getDefaultGymProfile(userId);
     if (!gym) {
-      invalidateEngineDataCache({ userId });
+      await withEngineInvalidation({ userId, reason: 'onboarding_complete' }, async () => undefined);
       return {
         generatedPlan: false,
         journey: journeyInitialization.journey,
@@ -402,7 +404,11 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
       throw new Error('Your first week could not be built. Try choosing more training days.');
     }
 
-    invalidateEngineDataCache({ userId });
+    await withEngineInvalidation({
+      userId,
+      weekStart: generatedWeek.entries[0]?.week_start_date,
+      reason: 'onboarding_complete',
+    }, async () => undefined);
     return {
       generatedPlan: true,
       journey: journeyInitialization.journey,

@@ -5,6 +5,7 @@ import { getAthleteContext } from './athleteContextService';
 import { getEffectiveWeight } from './weightService';
 import { createFightOpportunity, mapPerformancePhaseToLegacyPhase, type FightOpportunityStatus } from '../performance-engine';
 import { PLANNING_SETUP_VERSION } from './planningConstants';
+import { withEngineInvalidation } from './engineInvalidation';
 import type {
   CampConfig,
   CampPlanInput,
@@ -169,7 +170,7 @@ export async function getGuidedWorkoutContext(userId: string, date: string): Pro
   };
 }
 
-export async function setupFightCamp(userId: string, input: FightCampSetupInput): Promise<CampConfig | null> {
+async function setupFightCampMutation(userId: string, input: FightCampSetupInput): Promise<CampConfig | null> {
   const athleteContext = await getAthleteContext(userId);
 
   if (input.goalMode === 'build_phase') {
@@ -322,6 +323,12 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
     .eq('user_id', userId);
 
   return camp;
+}
+
+export async function setupFightCamp(userId: string, input: FightCampSetupInput): Promise<CampConfig | null> {
+  return withEngineInvalidation({ userId, reason: 'fight_camp_update' }, () =>
+    setupFightCampMutation(userId, input),
+  );
 }
 
 export async function getFightCampStatus(userId: string, date: string = todayLocalDate()): Promise<FightCampStatus> {

@@ -9,6 +9,7 @@ import {
 } from '../engine/types';
 import type { WeightClassManagementResult } from '../performance-engine';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
+import { withEngineInvalidation } from './engineInvalidation';
 
 function addDays(dateStr: string, days: number): string {
   const date = new Date(`${dateStr}T00:00:00`);
@@ -44,9 +45,20 @@ function toWeightClassHistory(row: WeightClassHistoryRow): WeightClassHistoryRow
   return row;
 }
 
+async function getWeightClassPlanUserId(planId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('weight_class_plans')
+    .select('user_id')
+    .eq('id', planId)
+    .single();
+
+  if (error) throw error;
+  return (data as { user_id: string }).user_id;
+}
+
 // ─── Plan CRUD ─────────────────────────────────────────────────
 
-export async function createWeightClassPlan(
+async function createWeightClassPlanMutation(
   userId: string,
   input: {
     startWeight: number;
@@ -123,6 +135,26 @@ export async function createWeightClassPlan(
   return toWeightClassPlan(data as WeightClassPlanRow);
 }
 
+export async function createWeightClassPlan(
+  userId: string,
+  input: {
+    startWeight: number;
+    targetWeight: number;
+    weightClassName: string | null;
+    sport: 'boxing' | 'mma';
+    fightDate: string;
+    weighInDate: string;
+    fightStatus: 'amateur' | 'pro';
+    biologicalSex: 'male' | 'female';
+    weightClassEvaluation: WeightClassManagementResult;
+    coachNotes?: string;
+  }
+): Promise<WeightClassPlanRow> {
+  return withEngineInvalidation({ userId, reason: 'weight_class_plan_create' }, () =>
+    createWeightClassPlanMutation(userId, input),
+  );
+}
+
 export async function getActiveWeightClassPlan(userId: string): Promise<WeightClassPlanRow | null> {
   const { data, error } = await supabase
     .from('weight_class_plans')
@@ -141,6 +173,16 @@ export async function updateWeightClassPlanStatus(
   planId: string,
   status: WeightClassPlanStatus
 ): Promise<void> {
+  const userId = await getWeightClassPlanUserId(planId);
+  return withEngineInvalidation({ userId, reason: 'weight_class_plan_status_update' }, async () => {
+    await updateWeightClassPlanStatusMutation(planId, status);
+  });
+}
+
+async function updateWeightClassPlanStatusMutation(
+  planId: string,
+  status: WeightClassPlanStatus
+): Promise<void> {
   const { error } = await supabase
     .from('weight_class_plans')
     .update({ status, updated_at: new Date().toISOString(), completed_at: status === 'completed' || status === 'abandoned' ? new Date().toISOString() : null })
@@ -149,11 +191,14 @@ export async function updateWeightClassPlanStatus(
 }
 
 export async function setBaselineCognitiveScore(planId: string, score: number): Promise<void> {
-  const { error } = await supabase
-    .from('weight_class_plans')
-    .update({ baseline_cognitive_score: score })
-    .eq('id', planId);
-  if (error) throw error;
+  const userId = await getWeightClassPlanUserId(planId);
+  return withEngineInvalidation({ userId, reason: 'weight_class_baseline_cognitive_score_update' }, async () => {
+    const { error } = await supabase
+      .from('weight_class_plans')
+      .update({ baseline_cognitive_score: score })
+      .eq('id', planId);
+    if (error) throw error;
+  });
 }
 
 export async function abandonWeightClassPlan(
@@ -161,11 +206,13 @@ export async function abandonWeightClassPlan(
   planId: string,
   reason: 'fight_fell_through' | 'made_weight' | 'other' = 'other'
 ): Promise<void> {
-  await updateWeightClassPlanStatus(planId, reason === 'made_weight' ? 'completed' : 'abandoned');
-  await supabase
-    .from('athlete_profiles')
-    .update({ active_weight_class_plan_id: null })
-    .eq('user_id', userId);
+  return withEngineInvalidation({ userId, reason: 'weight_class_plan_abandon' }, async () => {
+    await updateWeightClassPlanStatusMutation(planId, reason === 'made_weight' ? 'completed' : 'abandoned');
+    await supabase
+      .from('athlete_profiles')
+      .update({ active_weight_class_plan_id: null })
+      .eq('user_id', userId);
+  });
 }
 
 // ─── Body-Mass Guidance ────────────────────────────────────────────
@@ -178,10 +225,12 @@ export async function upsertBodyMassSafetyCheck(
   date: string,
   fields: Partial<Omit<BodyMassSafetyCheckRow, 'id' | 'user_id' | 'plan_id' | 'date' | 'created_at'>>
 ): Promise<void> {
-  const { error } = await supabase
-    .from('body_mass_safety_checks')
-    .upsert({ user_id: userId, plan_id: planId, date, ...fields }, { onConflict: 'user_id,date' });
-  if (error) throw error;
+  return withEngineInvalidation({ userId, date, reason: 'body_mass_safety_check_upsert' }, async () => {
+    const { error } = await supabase
+      .from('body_mass_safety_checks')
+      .upsert({ user_id: userId, plan_id: planId, date, ...fields }, { onConflict: 'user_id,date' });
+    if (error) throw error;
+  });
 }
 
 export async function getRecentSafetyChecks(
@@ -215,46 +264,48 @@ export async function completeWeightClassPlan(
     rehydrationWeightRegained?: number;
   }
 ): Promise<void> {
-  // Mark plan complete
-  await updateWeightClassPlanStatus(planId, 'completed');
-  await supabase
-    .from('athlete_profiles')
-    .update({ active_weight_class_plan_id: null })
-    .eq('user_id', userId);
+  return withEngineInvalidation({ userId, reason: 'weight_class_plan_complete' }, async () => {
+    // Mark plan complete
+    await updateWeightClassPlanStatusMutation(planId, 'completed');
+    await supabase
+      .from('athlete_profiles')
+      .update({ active_weight_class_plan_id: null })
+      .eq('user_id', userId);
 
-  // Gather plan summary
-  const { data: planData } = await supabase
-    .from('weight_class_plans')
-    .select('*')
-    .eq('id', planId)
-    .single();
+    // Gather plan summary
+    const { data: planData } = await supabase
+      .from('weight_class_plans')
+      .select('*')
+      .eq('id', planId)
+      .single();
 
-  if (!planData) return;
+    if (!planData) return;
 
-  const durationDays = Math.round(
-    (new Date().getTime() - new Date(planData.plan_created_date).getTime()) / 86400000
-  );
+    const durationDays = Math.round(
+      (new Date().getTime() - new Date(planData.plan_created_date).getTime()) / 86400000
+    );
 
-  const gradualBodyMassChange = planData.start_weight
-    - (outcome.finalWeighInWeight ?? planData.target_weight)
-    - (planData.competition_week_body_mass_change_lbs ?? 0);
+    const gradualBodyMassChange = planData.start_weight
+      - (outcome.finalWeighInWeight ?? planData.target_weight)
+      - (planData.competition_week_body_mass_change_lbs ?? 0);
 
-  await supabase.from('weight_class_history').insert({
-    user_id: userId,
-    plan_id: planId,
-    start_weight: planData.start_weight,
-    final_weigh_in_weight: outcome.finalWeighInWeight ?? null,
-    target_weight: planData.target_weight,
-    made_weight: outcome.madeWeight ?? null,
-    total_duration_days: durationDays,
-    gradual_body_mass_change_lbs: Math.max(0, gradualBodyMassChange),
-    competition_week_body_mass_change_lbs: planData.competition_week_body_mass_change_lbs,
-    avg_weekly_loss_rate: durationDays > 7 ? Math.round(((planData.start_weight - (outcome.finalWeighInWeight ?? planData.target_weight)) / (durationDays / 7)) * 10) / 10 : null,
-    rehydration_weight_regained: outcome.rehydrationWeightRegained ?? null,
-    fight_day_weight: outcome.fightDayWeight ?? null,
-    adherence_pct: null,
-    refeed_days_used: 0,
-    fight_date: planData.fight_date,
+    await supabase.from('weight_class_history').insert({
+      user_id: userId,
+      plan_id: planId,
+      start_weight: planData.start_weight,
+      final_weigh_in_weight: outcome.finalWeighInWeight ?? null,
+      target_weight: planData.target_weight,
+      made_weight: outcome.madeWeight ?? null,
+      total_duration_days: durationDays,
+      gradual_body_mass_change_lbs: Math.max(0, gradualBodyMassChange),
+      competition_week_body_mass_change_lbs: planData.competition_week_body_mass_change_lbs,
+      avg_weekly_loss_rate: durationDays > 7 ? Math.round(((planData.start_weight - (outcome.finalWeighInWeight ?? planData.target_weight)) / (durationDays / 7)) * 10) / 10 : null,
+      rehydration_weight_regained: outcome.rehydrationWeightRegained ?? null,
+      fight_day_weight: outcome.fightDayWeight ?? null,
+      adherence_pct: null,
+      refeed_days_used: 0,
+      fight_date: planData.fight_date,
+    });
   });
 }
 
