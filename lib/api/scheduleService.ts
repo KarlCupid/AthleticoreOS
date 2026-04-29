@@ -209,6 +209,11 @@ async function getScheduledActivityMutationContext(
     return { date: data?.date ?? null };
 }
 
+function shouldRecordTrainingSessionForActivity(activityType: ActivityType): boolean {
+    // Rest is an explicit non-training schedule marker, so it has no workload/ACWR dose to record.
+    return activityType !== 'rest';
+}
+
 /**
  * Fetch the user's recurring activities.
  */
@@ -731,6 +736,21 @@ export async function completeActivity(
     },
 ): Promise<void> {
     return withEngineInvalidation({ userId, reason: 'activity_complete' }, async () => {
+        const { data: activity, error: activityError } = await supabase
+            .from('scheduled_activities')
+            .select('date, activity_type')
+            .eq('id', activityId)
+            .eq('user_id', userId)
+            .single();
+
+        if (activityError) throw activityError;
+        if (!activity) {
+            throw new Error('Scheduled activity not found.');
+        }
+
+        const scheduledActivity = activity as Pick<ScheduledActivityRow, 'date' | 'activity_type'>;
+        const activityDate = scheduledActivity.date ?? today();
+
         // 1. Update the scheduled activity
         await updateScheduledActivities(
             {
@@ -747,16 +767,7 @@ export async function completeActivity(
                 .eq('user_id', userId),
         );
 
-        // 2. Get the activity date
-        const { data: activity } = await supabase
-            .from('scheduled_activities')
-            .select('date')
-            .eq('id', activityId)
-            .single();
-
-        const activityDate = activity?.date ?? today();
-
-        // 3. Insert component logs
+        // 2. Insert component logs
         if (log.components.length > 0) {
             const componentRows = log.components.map(c => ({
                 scheduled_activity_id: activityId,
@@ -778,7 +789,12 @@ export async function completeActivity(
 
             if (activityLogError) throw activityLogError;
         }
-        // 4. Also insert into training_sessions for ACWR calculation
+
+        if (!shouldRecordTrainingSessionForActivity(scheduledActivity.activity_type)) {
+            return;
+        }
+
+        // 3. Also insert into training_sessions for ACWR calculation
         const { error: sessionError } = await supabase
             .from('training_sessions')
             .insert({
@@ -790,6 +806,7 @@ export async function completeActivity(
 
         if (sessionError) {
             logWarn('scheduleService.insertTrainingSession', sessionError);
+            throw sessionError;
         }
     });
 }
