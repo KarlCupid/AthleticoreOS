@@ -1,7 +1,12 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { WeightClassManagementResult, WeightClassRiskLevel } from '../../lib/performance-engine';
+import {
+  buildGuidedBodyMassPlanCopy,
+  sanitizeBodyMassCopy,
+  type WeightClassManagementResult,
+  type WeightClassRiskLevel,
+} from '../../lib/performance-engine';
 import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../theme/theme';
 import { Card } from './Card';
 import { IconAlertTriangle, IconCheckCircle } from './icons';
@@ -11,7 +16,7 @@ interface WeightClassEvaluationPreviewStepProps {
 }
 
 const HEALTH_GUIDANCE_NOTE =
-  'Athleticore evaluates weight-class targets with safety gates. It does not create dehydration, severe restriction, or rapid scale-loss protocols.';
+  'Athleticore evaluates weight-class targets with safety gates. It will not build a risky body-mass plan around unsafe methods or an unrealistic timeline.';
 
 const RISK_COLORS: Record<WeightClassRiskLevel, string> = {
   low: COLORS.success,
@@ -43,7 +48,12 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
   const riskColor = RISK_COLORS[plan.riskLevel];
   const blockingSafetyFlags = plan.safetyFlags.filter((flag) => flag.blocksPlan);
   const blockingRiskFlags = evaluation.riskFlags.filter((flag) => flag.blocksPlan);
-  const canPrepareAutomaticSupport = evaluation.shouldGenerateProtocol && !plan.professionalReviewRequired;
+  const guidedCopy = buildGuidedBodyMassPlanCopy({
+    plan,
+    risks: evaluation.riskFlags,
+    shouldGenerateProtocol: evaluation.shouldGenerateProtocol,
+  });
+  const canPrepareAutomaticSupport = !guidedCopy.planBlocked;
 
   return (
     <View style={styles.stepContainer}>
@@ -63,11 +73,10 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
           )}
           <View style={{ flex: 1 }}>
             <Text style={styles.statusTitle}>
-              {canPrepareAutomaticSupport ? 'Automatic support can be prepared' : 'Automatic plan is blocked or needs review'}
+              {canPrepareAutomaticSupport ? 'Automatic support can be prepared' : 'Automatic support is blocked or needs review'}
             </Text>
-            <Text style={styles.statusBody}>
-              {plan.explanation?.summary ?? 'Weight-class target evaluated by the Body Mass and Weight-Class Management Engine.'}
-            </Text>
+            <Text style={styles.primaryQuestion}>Can this target be reached safely while maintaining performance?</Text>
+            <Text style={styles.statusBody}>{guidedCopy.primaryMessage}</Text>
           </View>
         </View>
       </Card>
@@ -77,7 +86,7 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
         <PlanStat label="Target" value={formatMass(plan.desiredScaleWeight?.value, plan.desiredScaleWeight?.unit)} />
         <PlanStat label="Required" value={formatMass(plan.requiredChange.value, plan.requiredChange.unit)} />
         <PlanStat label="Rate" value={formatRate(plan.requiredRateOfChange.value, plan.requiredRateOfChange.unit)} />
-        <PlanStat label="Feasibility" value={titleize(plan.feasibilityStatus)} />
+        <PlanStat label="Feasibility" value={guidedCopy.statusLabel} />
         <PlanStat label="Risk" value={titleize(plan.riskLevel)} />
       </View>
 
@@ -91,7 +100,7 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
       </Card>
 
       {plan.explanation?.reasons.length ? (
-        <SectionCard title="Why" items={plan.explanation.reasons} color={COLORS.accent} />
+        <SectionCard title="Why" items={[guidedCopy.clearExplanation, ...plan.explanation.reasons]} color={COLORS.accent} />
       ) : null}
 
       {blockingSafetyFlags.length > 0 || blockingRiskFlags.length > 0 ? (
@@ -108,23 +117,23 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
       {plan.professionalReviewRequired ? (
         <SectionCard
           title="Professional Review"
-          items={['Qualified review is required before automatic weight-class loss planning can proceed.']}
+          items={[guidedCopy.professionalReviewRecommendation ?? 'Qualified review is recommended before automatic body-mass support continues.']}
           color={COLORS.error}
         />
       ) : null}
 
       {plan.nutritionImplications.length > 0 ? (
-        <SectionCard title="Fueling Implications" items={plan.nutritionImplications} color={COLORS.chart.carbs} />
+        <SectionCard title="Fueling Implications" items={guidedCopy.nutritionImplications} color={COLORS.chart.carbs} />
       ) : null}
 
       {plan.trainingImplications.length > 0 ? (
-        <SectionCard title="Training Implications" items={plan.trainingImplications} color={COLORS.chart.fitness} />
+        <SectionCard title="Training Implications" items={guidedCopy.trainingImplications} color={COLORS.chart.fitness} />
       ) : null}
 
       {plan.alternatives.length > 0 ? (
         <SectionCard
           title="Safer Alternatives"
-          items={plan.alternatives.map((alternative) => `${alternative.label}: ${alternative.explanation}`)}
+          items={guidedCopy.saferAlternatives}
           color={COLORS.warning}
         />
       ) : null}
@@ -146,7 +155,7 @@ function PlanStat({ label, value }: { label: string; value: string }) {
 }
 
 function SectionCard({ title, items, color }: { title: string; items: string[]; color: string }) {
-  const filtered = items.filter(Boolean);
+  const filtered = items.map(sanitizeBodyMassCopy).filter(Boolean);
   if (filtered.length === 0) return null;
 
   return (
@@ -192,6 +201,13 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.primary,
     letterSpacing: 0,
+  },
+  primaryQuestion: {
+    marginTop: 4,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    lineHeight: 19,
   },
   statusBody: {
     marginTop: 4,

@@ -9,7 +9,9 @@ import {
 } from '../../lib/api/weightClassPlanService';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import {
+  buildGuidedBodyMassViewModel,
   buildUnifiedPerformanceViewModel,
+  type GuidedBodyMassViewModel,
   type UnifiedPerformanceViewModel,
 } from '../../lib/performance-engine';
 import { todayLocalDate } from '../../lib/utils/date';
@@ -19,6 +21,7 @@ interface BodyMassPlanState {
   error: string | null;
   data: BodyMassDashboardData | null;
   performanceContext: UnifiedPerformanceViewModel;
+  guidedBodyMass: GuidedBodyMassViewModel;
 }
 
 export function useBodyMassPlanData(userId: string | null) {
@@ -27,6 +30,7 @@ export function useBodyMassPlanData(userId: string | null) {
     error: null,
     data: null,
     performanceContext: buildUnifiedPerformanceViewModel(null),
+    guidedBodyMass: buildGuidedBodyMassViewModel(null),
   });
 
   const refresh = useCallback(async () => {
@@ -38,25 +42,29 @@ export function useBodyMassPlanData(userId: string | null) {
       const todayStr = todayLocalDate();
       const forceRefresh = Boolean(dashboardData.activePlan);
       let performanceContext = buildUnifiedPerformanceViewModel(null);
+      let guidedBodyMass = buildGuidedBodyMassViewModel(null);
 
       try {
         const engineState = await getDailyEngineState(userId, todayStr, { forceRefresh });
         performanceContext = buildUnifiedPerformanceViewModel(engineState.unifiedPerformance);
+        guidedBodyMass = buildGuidedBodyMassViewModel(engineState.unifiedPerformance);
       } catch {
         performanceContext = buildUnifiedPerformanceViewModel(null);
+        guidedBodyMass = buildGuidedBodyMassViewModel(null);
       }
 
       const refreshedDashboardData = forceRefresh
         ? await getBodyMassDashboardData(userId)
         : dashboardData;
 
-      setState({ loading: false, error: null, data: refreshedDashboardData, performanceContext });
+      setState({ loading: false, error: null, data: refreshedDashboardData, performanceContext, guidedBodyMass });
     } catch (err: any) {
       setState({
         loading: false,
         error: err.message ?? 'Failed to load weight-class data',
         data: null,
         performanceContext: buildUnifiedPerformanceViewModel(null),
+        guidedBodyMass: buildGuidedBodyMassViewModel(null),
       });
     }
   }, [userId]);
@@ -131,6 +139,7 @@ export function useBodyMassPlanData(userId: string | null) {
     projectedWeightByWeighIn: state.data?.projectedWeightByWeighIn ?? null,
     adherenceLast7Days: state.data?.adherenceLast7Days ?? 0,
     performanceContext: state.performanceContext,
+    guidedBodyMass: state.guidedBodyMass,
     refresh,
     abandon,
     complete,

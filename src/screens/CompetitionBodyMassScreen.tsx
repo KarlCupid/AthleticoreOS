@@ -36,13 +36,13 @@ const PHASE_LABELS: Record<BodyMassSupportPhase, string> = {
 };
 
 const PHASE_COLORS: Record<BodyMassSupportPhase, [string, string]> = {
-  unknown: ['#B8C0C2', '#6F7778'],
-  long_term_body_composition: ['#D4AF37', '#8C6A1E'],
-  gradual_weight_class_preparation: ['#15803D', '#166534'],
-  competition_week_body_mass_monitoring: ['#B8C0C2', '#6F7778'],
-  weigh_in_logistics: ['#D9827E', '#D9827E'],
-  post_weigh_in_recovery_tracking: ['#10B981', '#059669'],
-  high_risk_review: ['#D4AF37', '#B8892D'],
+  unknown: [COLORS.chart.water, COLORS.chart.water],
+  long_term_body_composition: [COLORS.accent, COLORS.chart.fatigue],
+  gradual_weight_class_preparation: [COLORS.success, COLORS.success],
+  competition_week_body_mass_monitoring: [COLORS.chart.water, COLORS.chart.water],
+  weigh_in_logistics: [COLORS.error, COLORS.error],
+  post_weigh_in_recovery_tracking: [COLORS.success, COLORS.success],
+  high_risk_review: [COLORS.warning, COLORS.readiness.caution],
 };
 
 const FLAG_COLORS: Record<string, string> = {
@@ -119,6 +119,7 @@ export function CompetitionBodyMassScreen() {
     loading,
     logSafetyCheck,
     performanceContext,
+    guidedBodyMass,
   } = useBodyMassPlanData(userId);
 
   const fightWeekDays = useMemo(
@@ -151,7 +152,7 @@ export function CompetitionBodyMassScreen() {
     selectedPhase === 'competition_week_body_mass_monitoring'
     || selectedPhase === 'weigh_in_logistics';
   const currentRiskFlags = performanceContext.riskFlags;
-  const blocked = currentRiskFlags.some((flag) => flag.blocksPlan);
+  const blocked = guidedBodyMass.planBlocked || currentRiskFlags.some((flag) => flag.blocksPlan);
 
   return (
     <View style={styles.container}>
@@ -210,7 +211,7 @@ export function CompetitionBodyMassScreen() {
               </Text>
             ) : null}
           </View>
-          {blocked ? <Text style={styles.statusBadge}>SAFETY BLOCK</Text> : null}
+          {blocked ? <Text style={styles.statusBadge}>SAFETY REVIEW</Text> : null}
         </Card>
 
         <Card
@@ -227,7 +228,7 @@ export function CompetitionBodyMassScreen() {
           color={COLORS.chart.water}
           icon={<IconDroplets size={18} color={COLORS.chart.water} />}
           items={[
-            'Use familiar fluids and normal electrolyte habits; do not use dehydration methods.',
+            'Use familiar fluids and normal electrolyte habits; avoid risky rapid body-mass methods.',
             'Escalate dizziness, faintness, severe headache, cramps, or illness symptoms.',
             performanceContext.lowConfidence ? performanceContext.confidenceSummary : '',
           ]}
@@ -259,9 +260,10 @@ export function CompetitionBodyMassScreen() {
           title="Body-Mass Safety"
           color={phaseColors[0]}
           items={[
-            performanceContext.bodyMass?.explanation ?? 'Body-mass support is monitored through the Unified Performance Engine.',
-            performanceContext.bodyMass?.feasibilityLabel ? `Feasibility: ${performanceContext.bodyMass.feasibilityLabel}` : '',
-            performanceContext.bodyMass?.safetyLabel ? `Safety: ${performanceContext.bodyMass.safetyLabel}` : '',
+            guidedBodyMass.primaryMessage,
+            guidedBodyMass.clearExplanation,
+            guidedBodyMass.statusLabel ? `Feasibility: ${guidedBodyMass.statusLabel}` : '',
+            guidedBodyMass.professionalReviewRecommendation ?? '',
           ]}
         />
 

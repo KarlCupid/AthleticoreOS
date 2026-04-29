@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { createWeightClassPlan } from '../../lib/api/weightClassPlanService';
 import { getLatestWeight } from '../../lib/api/weightService';
 import {
+  buildGuidedBodyMassPlanCopy,
   evaluateWeightClassPlan,
   normalizeBodyMassOrNull,
   type WeightClassManagementResult,
@@ -187,10 +188,14 @@ export function WeightClassPlanSetupScreen() {
       }
 
       if (!weightClassEvaluation.shouldGenerateProtocol || weightClassEvaluation.plan.professionalReviewRequired) {
+        const guidedCopy = buildGuidedBodyMassPlanCopy({
+          plan: weightClassEvaluation.plan,
+          risks: weightClassEvaluation.riskFlags,
+          shouldGenerateProtocol: weightClassEvaluation.shouldGenerateProtocol,
+        });
         Alert.alert(
-          'Plan blocked',
-          weightClassEvaluation.plan.explanation?.summary
-            ?? 'This weight-class target needs a safer class, longer timeline, or qualified review before automatic planning.',
+          'Automatic support blocked',
+          guidedCopy.primaryMessage,
         );
         return;
       }
@@ -208,7 +213,12 @@ export function WeightClassPlanSetupScreen() {
 
     try {
       if (!weightClassEvaluation.shouldGenerateProtocol || weightClassEvaluation.plan.professionalReviewRequired) {
-        throw new Error('This weight-class target needs a safer class, longer timeline, or qualified review before activation.');
+        const guidedCopy = buildGuidedBodyMassPlanCopy({
+          plan: weightClassEvaluation.plan,
+          risks: weightClassEvaluation.riskFlags,
+          shouldGenerateProtocol: weightClassEvaluation.shouldGenerateProtocol,
+        });
+        throw new Error(guidedCopy.primaryMessage);
       }
 
       await createWeightClassPlan(userId, {
@@ -478,9 +488,9 @@ export function WeightClassPlanSetupScreen() {
               {step === 1
                 ? 'Evaluate weight class'
                 : step === 4 && isNextDisabled
-                  ? 'Automatic plan blocked'
+                  ? 'Automatic support blocked'
                   : step === 4
-                    ? 'Looks good'
+                    ? 'Continue'
                     : 'Next'}
             </Text>
           </TouchableOpacity>

@@ -33,14 +33,21 @@ const PHASE_LABELS: Record<BodyMassSupportPhase, string> = {
 };
 
 const PHASE_COLORS: Record<BodyMassSupportPhase, [string, string]> = {
-  unknown: ['#B8C0C2', '#6F7778'],
-  long_term_body_composition: ['#D4AF37', '#8C6A1E'],
-  gradual_weight_class_preparation: ['#15803D', '#166534'],
-  competition_week_body_mass_monitoring: ['#B8C0C2', '#6F7778'],
-  weigh_in_logistics: ['#D9827E', '#D9827E'],
-  post_weigh_in_recovery_tracking: ['#10B981', '#059669'],
-  high_risk_review: ['#D4AF37', '#B8892D'],
+  unknown: [COLORS.chart.water, COLORS.chart.water],
+  long_term_body_composition: [COLORS.accent, COLORS.chart.fatigue],
+  gradual_weight_class_preparation: [COLORS.success, COLORS.success],
+  competition_week_body_mass_monitoring: [COLORS.chart.water, COLORS.chart.water],
+  weigh_in_logistics: [COLORS.error, COLORS.error],
+  post_weigh_in_recovery_tracking: [COLORS.success, COLORS.success],
+  high_risk_review: [COLORS.warning, COLORS.readiness.caution],
 };
+
+function statusColor(tone: 'ready' | 'caution' | 'blocked' | 'unknown'): string {
+  if (tone === 'ready') return COLORS.success;
+  if (tone === 'caution') return COLORS.warning;
+  if (tone === 'blocked') return COLORS.error;
+  return COLORS.chart.water;
+}
 
 function daysBetween(start: string, end: string): number {
   return Math.round((new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / 86_400_000);
@@ -57,19 +64,19 @@ export function WeightClassHomeScreen() {
   const {
     loading, error, activePlan, weightHistory,
     weightClassHistory, projectedWeightByWeighIn, adherenceLast7Days,
-    refresh, abandon, performanceContext,
+    refresh, abandon, performanceContext, guidedBodyMass,
   } = useBodyMassPlanData(userId);
 
   const handleEndPlan = useCallback(() => {
     Alert.alert(
-      'End Class Plan',
+      'End Weight-Class Plan',
       'Why are you ending this weight-class plan?',
       [
         {
           text: 'Fight fell through',
           onPress: () => {
             Alert.alert(
-              'End Class Plan',
+              'End Weight-Class Plan',
               'This plan will be marked abandoned and the journey will return to normal performance targets. You can evaluate a new class when another fight appears.',
               [
                 { text: 'Cancel', style: 'cancel' },
@@ -95,7 +102,7 @@ export function WeightClassHomeScreen() {
           text: 'Other reason',
           onPress: () => {
             Alert.alert(
-              'End Class Plan',
+              'End Weight-Class Plan',
               'End this plan and return to normal performance targets?',
               [
                 { text: 'Cancel', style: 'cancel' },
@@ -140,7 +147,7 @@ export function WeightClassHomeScreen() {
           <IconScale size={64} color={COLORS.accent} />
           <Text style={styles.noPlanTitle}>Weight-Class Context</Text>
           <Text style={styles.noPlanSubtitle}>
-            Evaluate fight date, class, body-mass trend, fueling, readiness, and safety.
+            Check whether a target can be reached safely while maintaining performance.
           </Text>
           <UnifiedJourneySummaryCard
             summary={performanceContext}
@@ -173,22 +180,24 @@ export function WeightClassHomeScreen() {
   const currentWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : activePlan.start_weight;
   const remaining = Math.max(0, currentWeight - activePlan.target_weight).toFixed(1);
   const phaseColors = PHASE_COLORS[phase];
-  const bodyMassPlanBlocked = performanceContext.riskFlags.some((flag) => (
+  const bodyMassPlanBlocked = guidedBodyMass.planBlocked || performanceContext.riskFlags.some((flag) => (
     flag.blocksPlan
     && /weight|body|fuel|professional|unsafe|rapid/i.test(`${flag.label} ${flag.message}`)
   )) || performanceContext.bodyMass?.safetyLabel === 'Blocked for safety'
     || performanceContext.bodyMass?.safetyLabel === 'Professional review required';
-  const bodyMassBlockReason = performanceContext.riskFlags.find((flag) => flag.blocksPlan)?.message
-    ?? performanceContext.bodyMass?.explanation
-    ?? 'The requested body-mass plan needs review before Athleticore can show daily weight-class guidance.';
-  const bodyMassGuidance = performanceContext.bodyMass?.explanation
+  const bodyMassBlockReason = guidedBodyMass.available ? guidedBodyMass.primaryMessage
+    : performanceContext.riskFlags.find((flag) => flag.blocksPlan)?.message
+      ?? performanceContext.bodyMass?.explanation
+      ?? 'The requested body-mass plan needs review before Athleticore can show daily weight-class guidance.';
+  const bodyMassGuidance = guidedBodyMass.available ? guidedBodyMass.primaryMessage
+    : performanceContext.bodyMass?.explanation
     ?? performanceContext.nutrition.explanation
     ?? 'Body-mass support is resolved through the Unified Performance Engine using phase, training, fueling, readiness, and safety context.';
   const confidenceNote = performanceContext.lowConfidence
-    ? performanceContext.confidenceSummary
+    ? guidedBodyMass.confidenceSummary || performanceContext.confidenceSummary
     : performanceContext.bodyMass?.riskLabel
       ? `Current body-mass risk: ${performanceContext.bodyMass.riskLabel}.`
-      : 'Body-mass support is linked to performance state, not a standalone rapid-body-mass guidance.';
+      : guidedBodyMass.confidenceSummary;
 
   return (
     <ScrollView
@@ -236,11 +245,63 @@ export function WeightClassHomeScreen() {
           <View style={styles.projectionBanner}>
             <Text style={styles.projectionText}>
               Projected weigh-in: {projectedWeightByWeighIn.toFixed(1)} lbs
-              {projectedWeightByWeighIn <= activePlan.target_weight ? '  ON TRACK' : '  BEHIND'}
+              {projectedWeightByWeighIn <= activePlan.target_weight ? ' - within target context' : ' - needs review'}
             </Text>
           </View>
         )}
       </LinearGradient>
+      <Card
+        style={[styles.guidedCard, { borderLeftColor: statusColor(guidedBodyMass.statusTone) }]}
+        backgroundTone={guidedBodyMass.planBlocked ? 'risk' : 'bodyMassSupport'}
+        backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+      >
+        <View style={styles.guidedHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.guidedEyebrow}>{guidedBodyMass.title}</Text>
+            <Text style={styles.guidedTitle}>{guidedBodyMass.primaryQuestion}</Text>
+          </View>
+          <View style={[styles.statusPill, { borderColor: statusColor(guidedBodyMass.statusTone) }]}>
+            <Text style={[styles.statusPillText, { color: statusColor(guidedBodyMass.statusTone) }]}>
+              {guidedBodyMass.statusLabel}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.guidanceBody}>{guidedBodyMass.primaryMessage}</Text>
+        <View style={styles.detailGrid}>
+          {guidedBodyMass.detailRows.slice(0, 6).map((row) => (
+            <View key={`${row.label}-${row.value}`} style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{row.label}</Text>
+              <Text style={styles.detailValue}>{row.value}</Text>
+            </View>
+          ))}
+        </View>
+        {guidedBodyMass.professionalReviewRecommendation ? (
+          <Text style={styles.reviewText}>{guidedBodyMass.professionalReviewRecommendation}</Text>
+        ) : null}
+        {guidedBodyMass.saferAlternatives.length > 0 ? (
+          <View style={styles.supportBlock}>
+            <Text style={styles.supportTitle}>Safer options</Text>
+            {guidedBodyMass.saferAlternatives.slice(0, 3).map((item) => (
+              <Text key={item} style={styles.supportText}>- {item}</Text>
+            ))}
+          </View>
+        ) : null}
+        {guidedBodyMass.riskHighlights.length > 0 ? (
+          <View style={styles.supportBlock}>
+            <Text style={styles.supportTitle}>Risk context</Text>
+            {guidedBodyMass.riskHighlights.slice(0, 2).map((item) => (
+              <Text key={item} style={styles.supportText}>- {item}</Text>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.nextActionRow}>
+          {guidedBodyMass.nextActions.slice(0, 3).map((action) => (
+            <View key={action} style={styles.nextActionPill}>
+              <Text style={styles.nextActionText}>{action}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
       <UnifiedJourneySummaryCard
         summary={performanceContext}
         compact
@@ -254,7 +315,7 @@ export function WeightClassHomeScreen() {
           backgroundTone="risk"
           backgroundScrimColor="rgba(10, 10, 10, 0.74)"
         >
-          <Text style={styles.sectionTitle}>Plan blocked for safety</Text>
+          <Text style={styles.sectionTitle}>Automatic support blocked for safety</Text>
           <Text style={styles.guidanceBody}>{bodyMassBlockReason}</Text>
         </Card>
       ) : (
@@ -340,7 +401,7 @@ export function WeightClassHomeScreen() {
           style={styles.endPlanButton}
           onPress={handleEndPlan}
         >
-          <Text style={styles.endPlanText}>End Class Plan</Text>
+          <Text style={styles.endPlanText}>End Weight-Class Plan</Text>
         </TouchableOpacity>
       </View>
       {/* Weight class info */}
@@ -409,6 +470,120 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     ...SHADOWS.card,
+  },
+  guidedCard: {
+    margin: SPACING.md,
+    marginBottom: 0,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.card,
+  },
+  guidedHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  guidedEyebrow: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  guidedTitle: {
+    marginTop: 2,
+    fontSize: 18,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    lineHeight: 24,
+  },
+  statusPill: {
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(10, 10, 10, 0.42)',
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    letterSpacing: 0,
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  detailRow: {
+    width: '48%',
+    minWidth: 138,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surfaceSecondary,
+    padding: SPACING.sm,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    letterSpacing: 0,
+  },
+  detailValue: {
+    marginTop: 2,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    lineHeight: 18,
+  },
+  reviewText: {
+    marginTop: SPACING.md,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.error,
+    lineHeight: 20,
+  },
+  supportBlock: {
+    marginTop: SPACING.md,
+    gap: 3,
+  },
+  supportTitle: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  supportText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 20,
+  },
+  nextActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  nextActionPill: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    backgroundColor: COLORS.surfaceSecondary,
+  },
+  nextActionText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
   },
   sectionTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, marginBottom: SPACING.sm },
   guidanceBody: {
