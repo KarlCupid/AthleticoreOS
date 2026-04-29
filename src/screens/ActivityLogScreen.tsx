@@ -261,6 +261,7 @@ export function ActivityLogScreen() {
 
                 {/* Complete Button */}
                 <TouchableOpacity
+                    testID="activity-log-submit"
                     style={[styles.completeButton, { backgroundColor: themeColor, opacity: saving ? 0.5 : 1 }]}
                     onPress={handleComplete}
                     disabled={saving}

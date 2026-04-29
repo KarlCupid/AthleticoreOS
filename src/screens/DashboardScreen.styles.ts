@@ -47,16 +47,9 @@ export const styles = StyleSheet.create({
     letterSpacing: 0,
     textAlign: 'center',
   },
-  notificationButton: {
+  headerSpacer: {
     width: 52,
     height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(10, 10, 10, 0.46)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.42)',
-    ...SHADOWS.colored.accent,
   },
   heroDate: {
     marginTop: 2,

@@ -46,7 +46,8 @@ export const ActivityCard = memo(function ActivityCard({ activity, onPress, onSk
       style={styles.cardShell}
       onPress={onPress}
       activeOpacity={0.8}
-      disabled={!onPress}
+      disabled={!onPress || showActions}
+      testID={`activity-card-${activity.id}`}
     >
       <ImageBackground
         source={SCHEDULE_BACKGROUND}
@@ -94,17 +95,17 @@ export const ActivityCard = memo(function ActivityCard({ activity, onPress, onSk
             <>
               <View style={styles.actionsRow}>
                 {logHandler && (
-                  <TouchableOpacity style={styles.primaryButton} onPress={logHandler}>
+                  <TouchableOpacity style={styles.primaryButton} onPress={logHandler} testID={`activity-card-log-${activity.id}`}>
                     <Text style={styles.primaryButtonText}>Log</Text>
                   </TouchableOpacity>
                 )}
                 {onEdit && (
-                  <TouchableOpacity style={styles.secondaryButton} onPress={onEdit}>
+                  <TouchableOpacity style={styles.secondaryButton} onPress={onEdit} testID={`activity-card-move-${activity.id}`}>
                     <Text style={styles.secondaryButtonText}>Move</Text>
                   </TouchableOpacity>
                 )}
                 {onSkip && (
-                  <TouchableOpacity style={styles.secondaryButton} onPress={onSkip}>
+                  <TouchableOpacity style={styles.secondaryButton} onPress={onSkip} testID={`activity-card-skip-${activity.id}`}>
                     <Text style={styles.secondaryButtonText}>Skip</Text>
                   </TouchableOpacity>
                 )}
@@ -112,12 +113,12 @@ export const ActivityCard = memo(function ActivityCard({ activity, onPress, onSk
               {(onLighter || onHarder) && (
                 <View style={styles.actionsRow}>
                   {onLighter && (
-                    <TouchableOpacity style={styles.secondaryButton} onPress={onLighter}>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={onLighter} testID={`activity-card-lighter-${activity.id}`}>
                       <Text style={styles.secondaryButtonText}>Lighter</Text>
                     </TouchableOpacity>
                   )}
                   {onHarder && (
-                    <TouchableOpacity style={styles.secondaryButton} onPress={onHarder}>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={onHarder} testID={`activity-card-harder-${activity.id}`}>
                       <Text style={styles.secondaryButtonText}>Harder</Text>
                     </TouchableOpacity>
                   )}

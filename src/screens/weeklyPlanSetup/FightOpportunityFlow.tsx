@@ -152,6 +152,7 @@ export function FightOpportunityFlow({
             selected={fightOpportunityStatus === option.value}
             label={option.label}
             onPress={() => setFightOpportunityStatus(option.value)}
+            testID={`fight-status-${option.value}`}
           />
         ))}
       </View>
@@ -194,7 +195,7 @@ export function FightOpportunityFlow({
         </View>
       )}
 
-      <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowOptionalDetails((current) => !current)} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowOptionalDetails((current) => !current)} activeOpacity={0.8} testID="fight-details-toggle">
         <View style={styles.advancedToggleTextWrap}>
           <Text style={styles.advancedToggleTitle}>Opponent, event, and timing</Text>
           <Text style={styles.advancedToggleDescription}>Optional details that sharpen the opportunity summary.</Text>
@@ -300,7 +301,7 @@ export function FightOpportunityFlow({
         </>
       ) : null}
 
-      <TouchableOpacity style={styles.advancedToggle} onPress={() => setSummaryVisible(true)} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.advancedToggle} onPress={() => setSummaryVisible(true)} activeOpacity={0.8} testID="fight-opportunity-evaluate">
         <View style={styles.advancedToggleTextWrap}>
           <Text style={styles.advancedToggleTitle}>{summary.ctaLabel}</Text>
           <Text style={styles.advancedToggleDescription}>Connect timing, readiness, fueling, body-mass context, and protected work.</Text>

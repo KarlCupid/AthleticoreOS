@@ -21,7 +21,6 @@ import { WeightTrendCard } from "../components/WeightTrendCard";
 import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
   IconBarbell,
-  IconBell,
   IconCheckCircle,
   IconDroplets,
   IconCalendar,
@@ -429,9 +428,7 @@ export function DashboardScreen() {
                   <Text style={styles.heroGreeting}>{getGreeting()}</Text>
                   <Text style={styles.heroDate}>{formatDashboardDate(todayLocalDate())}</Text>
                 </View>
-                <View style={styles.notificationButton}>
-                  <IconBell size={20} color={COLORS.accent} />
-                </View>
+                <View style={styles.headerSpacer} />
             </View>
 
             <View style={styles.todayMissionWrap}>
@@ -550,6 +547,7 @@ export function DashboardScreen() {
 
         <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={styles.quickActionGrid}>
             <AnimatedPressable
+                testID="dashboard-quick-action-check-in"
                 style={[styles.quickActionBlock, checkinDone && styles.quickActionBlockDone]}
                 onPress={() => navigation.navigate("Log")}
             >
@@ -562,6 +560,7 @@ export function DashboardScreen() {
             </AnimatedPressable>
             
             <AnimatedPressable
+                testID="dashboard-quick-action-train"
                 style={[styles.quickActionBlock, sessionDone && styles.quickActionBlockDone]}
                 onPress={() => void openTodayTraining()}
             >
@@ -574,6 +573,7 @@ export function DashboardScreen() {
             </AnimatedPressable>
 
             <AnimatedPressable
+                testID="dashboard-quick-action-fuel"
                 style={styles.quickActionBlock}
                 onPress={() => openFuelScreen("NutritionHome")}
             >
@@ -586,6 +586,7 @@ export function DashboardScreen() {
             </AnimatedPressable>
 
             <AnimatedPressable
+                testID="dashboard-quick-action-plan"
                 style={styles.quickActionBlock}
                 onPress={openPlanningSurface}
             >

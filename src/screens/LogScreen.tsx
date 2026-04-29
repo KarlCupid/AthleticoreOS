@@ -553,6 +553,7 @@ export function LogScreen() {
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]}>
         <AnimatedPressable
+          testID="check-in-submit"
           style={[styles.primaryWrap, isSaving && styles.disabled]}
           onPress={saveCheck}
           disabled={isSaving}

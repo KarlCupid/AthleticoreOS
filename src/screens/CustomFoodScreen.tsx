@@ -245,6 +245,7 @@ export function CustomFoodScreen() {
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
         <AnimatedPressable
+          testID="custom-food-submit"
           style={[styles.saveButtonWrapper, (!canSave || saving) && { opacity: 0.4 }]}
           onPress={handleSave}
           disabled={!canSave || saving}

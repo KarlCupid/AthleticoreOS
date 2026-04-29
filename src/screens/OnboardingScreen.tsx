@@ -655,6 +655,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         onPress={() => supabase.auth.signOut()}
                         style={styles.signOutButtonIcon}
                         accessibilityRole="button"
+                        testID="onboarding-sign-out"
                     >
                         <IconChevronLeft size={24} color={COLORS.text.tertiary} />
                         <Text style={styles.signOutButtonText}>Sign Out</Text>
@@ -707,7 +708,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     ]}
                 >
                     {step > 0 ? (
-                        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                        <TouchableOpacity style={styles.backButton} onPress={handleBack} testID="onboarding-back">
                             <IconChevronLeft size={20} color={COLORS.text.secondary} />
                             <Text style={styles.backText}>Back</Text>
                         </TouchableOpacity>
@@ -716,6 +717,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     )}
 
                     <AnimatedPressable
+                        testID={step === TOTAL_STEPS - 1 ? 'onboarding-submit' : 'onboarding-continue'}
                         style={[styles.nextButton, (!canProceed() || saving) && styles.nextButtonDisabled]}
                         onPress={handleNext}
                         disabled={!canProceed() || saving}

@@ -305,6 +305,7 @@ export function FoodDetailScreen() {
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
         <AnimatedPressable
+          testID="food-detail-submit"
           style={[styles.addButtonWrapper, saving && { opacity: 0.6 }]}
           onPress={handleAdd}
           disabled={saving}

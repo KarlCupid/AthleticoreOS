@@ -493,6 +493,7 @@ export function WeightClassPlanSetupScreen() {
             style={[styles.nextButton, isNextDisabled && styles.nextButtonDisabled]}
             onPress={handleNext}
             disabled={isNextDisabled}
+            testID="weight-class-setup-next"
           >
             <Text style={styles.nextButtonText}>
               {step === 1
@@ -505,7 +506,7 @@ export function WeightClassPlanSetupScreen() {
             </Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.activateButton} onPress={handleActivate} disabled={loading}>
+          <TouchableOpacity style={styles.activateButton} onPress={handleActivate} disabled={loading} testID="weight-class-setup-activate">
             {loading ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.nextButtonText}>Activate body-mass support</Text>}
           </TouchableOpacity>
         )}

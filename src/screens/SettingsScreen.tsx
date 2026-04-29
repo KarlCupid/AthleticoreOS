@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
+import { Alert, View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { Card } from '../components/Card';
-import { IconChevronRight, IconPerson } from '../components/icons';
+import { IconPerson } from '../components/icons';
 import { supabase } from '../../lib/supabase';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 
@@ -45,6 +45,26 @@ export function SettingsScreen() {
         return phase.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     };
 
+    async function updateCycleTracking(value: boolean) {
+        if (!profile) return;
+
+        const previous = profile.cycle_tracking;
+        setProfile({ ...profile, cycle_tracking: value });
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        const { error } = await supabase
+            .from('athlete_profiles')
+            .update({ cycle_tracking: value })
+            .eq('user_id', session.user.id);
+
+        if (error) {
+            setProfile((current) => current ? { ...current, cycle_tracking: previous } : current);
+            Alert.alert('Update failed', 'Could not save cycle tracking right now.');
+        }
+    }
+
     return (
         <View style={styles.container}>
             <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
@@ -63,7 +83,6 @@ export function SettingsScreen() {
                             <Text style={styles.profileName}>Athlete</Text>
                             <Text style={styles.profileEmail}>{email}</Text>
                         </View>
-                        <IconChevronRight size={20} color={COLORS.text.tertiary} />
                     </View>
                 </Card>
 
@@ -110,6 +129,7 @@ export function SettingsScreen() {
                                 <Text style={styles.settingLabel}>Cycle Tracking</Text>
                                 <Switch
                                     value={profile.cycle_tracking}
+                                    onValueChange={(value) => void updateCycleTracking(value)}
                                     trackColor={{ true: themeColor, false: COLORS.border }}
                                     thumbColor="#F5F5F0"
                                 />

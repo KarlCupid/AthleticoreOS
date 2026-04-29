@@ -26,7 +26,7 @@ import { addManualActivity, applySameDayOverride, skipActivity, updateScheduledA
 import { validateDayLoad } from '../../lib/engine/calculateSchedule';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
-import type { ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
+import type { ActivityType, ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
 import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
 import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
@@ -161,6 +161,26 @@ export function DayDetailScreen() {
         }
     };
 
+    const handleReadinessGateAdjustment = async (activity: ScheduledActivityRow, alternative: ActivityType) => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        try {
+            if (alternative === 'rest') {
+                await skipActivity(session.user.id, activity.id, 'Readiness gate changed this to rest.');
+            } else {
+                await applySameDayOverride(session.user.id, activity, {
+                    type: 'lighter',
+                    notes: `Readiness gate adjusted toward ${alternative.replace(/_/g, ' ')}.`,
+                });
+            }
+            setGateActivity(null);
+            loadData(true);
+        } catch (error) {
+            logError('DayDetailScreen.handleReadinessGateAdjustment', error, { date: dateParam, activityId: activity.id, alternative });
+        }
+    };
+
     const handleEditClick = (activity: ScheduledActivityRow) => {
         setEditingActivity(activity);
         setEditTime(activity.start_time ?? '');
@@ -198,11 +218,11 @@ export function DayDetailScreen() {
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
-                <AnimatedPressable onPress={() => navigation.goBack()}>
+                <AnimatedPressable onPress={() => navigation.goBack()} testID="day-detail-back">
                     <Text style={styles.backButton}>← Back</Text>
                 </AnimatedPressable>
                 <Text style={styles.headerTitle}>{formatDateLabel(dateParam)}</Text>
-                <AnimatedPressable onPress={() => setShowAddPicker(true)}>
+                <AnimatedPressable onPress={() => setShowAddPicker(true)} testID="day-detail-add-activity">
                     <Text style={[styles.addIcon, { color: themeColor }]}>+</Text>
                 </AnimatedPressable>
             </View>
@@ -278,12 +298,13 @@ export function DayDetailScreen() {
                                 key={opt.type}
                                 style={styles.pickerOption}
                                 onPress={() => handleAddActivity(opt.type)}
+                                testID={`day-detail-add-${opt.type}`}
                             >
                                 <Text style={styles.pickerOptionIcon}>{opt.icon}</Text>
                                 <Text style={styles.pickerOptionLabel}>{opt.label}</Text>
                             </TouchableOpacity>
                         ))}
-                        <TouchableOpacity style={styles.pickerCancel} onPress={() => setShowAddPicker(false)}>
+                        <TouchableOpacity style={styles.pickerCancel} onPress={() => setShowAddPicker(false)} testID="day-detail-add-cancel">
                             <Text style={styles.pickerCancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
@@ -326,17 +347,17 @@ export function DayDetailScreen() {
                             keyboardType="numeric"
                         />
 
-                        <TouchableOpacity style={[styles.applyButton, { backgroundColor: themeColor }]} onPress={() => handleSaveEdit('single')}>
+                        <TouchableOpacity style={[styles.applyButton, { backgroundColor: themeColor }]} onPress={() => handleSaveEdit('single')} testID="day-detail-edit-save-single">
                             <Text style={styles.applyButtonText}>Save (This Event Only)</Text>
                         </TouchableOpacity>
 
                         {editingActivity.recurring_activity_id && (
-                            <TouchableOpacity style={[styles.applyButton, { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: themeColor, marginTop: 8 }]} onPress={() => handleSaveEdit('future')}>
+                            <TouchableOpacity style={[styles.applyButton, { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: themeColor, marginTop: 8 }]} onPress={() => handleSaveEdit('future')} testID="day-detail-edit-save-future">
                                 <Text style={[styles.applyButtonText, { color: themeColor }]}>Save (All Future Events)</Text>
                             </TouchableOpacity>
                         )}
 
-                        <TouchableOpacity style={styles.pickerCancel} onPress={() => setEditingActivity(null)}>
+                        <TouchableOpacity style={styles.pickerCancel} onPress={() => setEditingActivity(null)} testID="day-detail-edit-cancel">
                             <Text style={styles.pickerCancelText}>Cancel</Text>
                         </TouchableOpacity>
                       </ScrollView>
@@ -351,7 +372,7 @@ export function DayDetailScreen() {
                     activity={gateActivity}
                     readinessState={readinessState}
                     onProceed={() => { void navigateToLogger(gateActivity); setGateActivity(null); }}
-                    onSwitch={() => { setGateActivity(null); loadData(true); }}
+                    onSwitch={(alternative) => { void handleReadinessGateAdjustment(gateActivity, alternative); }}
                     onDismiss={() => setGateActivity(null)}
                 />
             )}

@@ -10,11 +10,13 @@ export function OptionPill({
   label,
   onPress,
   compact = false,
+  testID,
 }: {
   selected: boolean;
   label: string;
   onPress: () => void;
   compact?: boolean;
+  testID?: string;
 }) {
   if (compact) {
     return (
@@ -22,6 +24,7 @@ export function OptionPill({
         style={[styles.optionPill, selected && styles.optionPillSelected]}
         onPress={onPress}
         activeOpacity={0.75}
+        testID={testID}
       >
         <Text style={[styles.optionPillText, selected && styles.optionPillTextSelected]}>{label}</Text>
       </TouchableOpacity>
@@ -33,6 +36,7 @@ export function OptionPill({
       style={[styles.optionCard, selected && styles.optionCardSelected]}
       onPress={onPress}
       activeOpacity={0.75}
+      testID={testID}
     >
       <Text style={[styles.optionCardText, selected && styles.optionCardTextSelected]}>{label}</Text>
       <View style={[styles.optionCardIndicator, selected && styles.optionCardIndicatorSelected]}>

@@ -2,13 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { suggestAlternative } from '../../lib/engine/calculateSchedule';
-import type { ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
+import type { ActivityType, ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
 
 interface ReadinessGateProps {
     activity: ScheduledActivityRow;
     readinessState: ReadinessState;
     onProceed: () => void;
-    onSwitch: () => void;
+    onSwitch: (alternative: ActivityType) => void;
     onDismiss: () => void;
 }
 
@@ -26,22 +26,24 @@ export function ReadinessGate({ activity, readinessState, onProceed, onSwitch, o
                     {suggestion.shouldSwap && (
                         <TouchableOpacity
                             style={[styles.button, styles.switchButton]}
-                            onPress={onSwitch}
+                            onPress={() => onSwitch(suggestion.alternative)}
+                            testID="readiness-gate-adjust"
                         >
                             <Text style={styles.switchText}>
-                                Switch to {suggestion.alternative.replace(/_/g, ' ')}
+                                Adjust to lighter work
                             </Text>
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
                         style={[styles.button, styles.proceedButton]}
                         onPress={onProceed}
+                        testID="readiness-gate-log-planned"
                     >
-                        <Text style={styles.proceedText}>Proceed Anyway</Text>
+                        <Text style={styles.proceedText}>Log planned session</Text>
                     </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity onPress={onDismiss} style={styles.cancelButton}>
+                <TouchableOpacity onPress={onDismiss} style={styles.cancelButton} testID="readiness-gate-cancel">
                     <Text style={styles.cancelText}>Cancel</Text>
                 </TouchableOpacity>
             </View>

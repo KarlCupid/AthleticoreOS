@@ -234,14 +234,14 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBackPhase} style={styles.backButton} activeOpacity={0.75}>
+          <TouchableOpacity onPress={handleBackPhase} style={styles.backButton} activeOpacity={0.75} testID="weekly-setup-back">
             <Text style={styles.backButtonText}>{phaseIndex > 0 || navigation.canGoBack() ? 'Back' : ''}</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Journey Planning</Text>
           {navigation.canGoBack() ? (
             <View style={styles.headerRight} />
           ) : (
-            <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.headerRight} activeOpacity={0.75}>
+            <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.headerRight} activeOpacity={0.75} testID="weekly-setup-sign-out">
               <Text style={styles.backButtonText}>Sign Out</Text>
             </TouchableOpacity>
           )}
@@ -270,7 +270,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           </Animated.View>
 
           <View style={styles.saveBarContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
+              testID="weekly-setup-submit"
               style={[styles.saveButtonWrap, proceedDisabled && styles.saveButtonDisabled]} 
               onPress={isLastPhase ? handleSave : handleNextPhase} 
               activeOpacity={0.8} 
@@ -311,6 +312,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                     setDurationPickerCommitmentId(null);
                   }}
                   activeOpacity={0.7}
+                  testID={`weekly-setup-duration-${minutes}`}
                 >
                   <Text style={[styles.durationPickerOptionText, selected && styles.durationPickerOptionTextSelected]}>
                     {minutes} min
@@ -318,7 +320,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.durationPickerCancel} onPress={() => setDurationPickerCommitmentId(null)}>
+            <TouchableOpacity style={styles.durationPickerCancel} onPress={() => setDurationPickerCommitmentId(null)} testID="weekly-setup-duration-cancel">
               <Text style={styles.durationPickerCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>

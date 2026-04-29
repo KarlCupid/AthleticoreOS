@@ -109,7 +109,7 @@ export const GuidedPhaseTransitionCard = memo(function GuidedPhaseTransitionCard
         </View>
       ) : null}
 
-      <AnimatedPressable style={styles.primaryButton} onPress={onContinue}>
+      <AnimatedPressable testID="phase-transition-primary-cta" style={styles.primaryButton} onPress={onContinue}>
         <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
           {transition.ctaLabel}
         </Text>
