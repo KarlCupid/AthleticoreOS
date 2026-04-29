@@ -22,6 +22,8 @@ const screen = read('src/screens/LogScreen.tsx');
 const hook = read('src/hooks/useLogScreenData.ts');
 const viewModel = read('lib/performance-engine/presentation/guidedReadinessViewModel.ts');
 const dailyService = read('lib/api/dailyPerformanceService.ts');
+const trackingEntries = read('lib/api/dailyPerformance/trackingEntries.ts');
+const unifiedDailyPerformance = read('lib/api/dailyPerformance/unifiedDailyPerformance.ts');
 
 console.log('\n-- guided readiness source --');
 
@@ -47,12 +49,12 @@ assert('guided readiness model includes nutrition or recovery adjustment copy', 
 assert('guided readiness model includes pain/injury copy', viewModel.includes('Pain or injury concern is present'));
 assert('guided readiness copy avoids black-box score framing', !viewModel.includes('/100') && !viewModel.includes('state yellow'));
 
-assert('daily service passes check-in fields into canonical UPE tracking', dailyService.includes('todayCheckin') && dailyService.includes("source: 'user_reported'"));
-assert('daily service maps sleep soreness stress pain and fatigue', ['sleep_quality', 'soreness', 'stress', 'pain', 'fatigue'].every((field) => dailyService.includes(field)));
-assert('daily service still preserves fallback legacy readiness projection', dailyService.includes('legacy-readiness-profile') && dailyService.includes("source: 'system_inferred'"));
-assert('daily service passes computed ACWR into UPE readiness', /acwr:\s*ACWRResult \| null/.test(dailyService) && dailyService.includes('acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr)'));
-assert('daily service only passes finite ACWR ratios into UPE readiness', dailyService.includes('function acwrRatioForUnifiedEngine') && dailyService.includes('Number.isFinite(ratio)'));
-assert('daily service no longer nulls ACWR at the UPE handoff', !dailyService.includes('acuteChronicWorkloadRatio: null'));
+assert('daily service passes check-in fields into canonical UPE tracking', dailyService.includes('todayCheckin') && trackingEntries.includes("source: 'user_reported'"));
+assert('daily service maps sleep soreness stress pain and fatigue', ['sleep_quality', 'soreness', 'stress', 'pain', 'fatigue'].every((field) => trackingEntries.includes(field)));
+assert('daily service still preserves fallback legacy readiness projection', trackingEntries.includes('legacy-readiness-profile') && trackingEntries.includes("source: 'system_inferred'"));
+assert('daily service passes computed ACWR into UPE readiness', /acwr:\s*ACWRResult \| null/.test(unifiedDailyPerformance) && unifiedDailyPerformance.includes('acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr)'));
+assert('daily service only passes finite ACWR ratios into UPE readiness', unifiedDailyPerformance.includes('function acwrRatioForUnifiedEngine') && unifiedDailyPerformance.includes('Number.isFinite(ratio)'));
+assert('daily service no longer nulls ACWR at the UPE handoff', !dailyService.includes('acuteChronicWorkloadRatio: null') && !unifiedDailyPerformance.includes('acuteChronicWorkloadRatio: null'));
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
 process.exit(failed > 0 ? 1 : 0);

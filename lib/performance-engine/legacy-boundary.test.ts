@@ -78,9 +78,13 @@ const dangerousHits = sources.filter((source) => dangerousMethodPattern.test(sou
 assert('active source does not recommend dangerous dehydration methods', dangerousHits.length === 0);
 
 const dailyAthleteSummary = read('lib/api/dailyPerformanceService.ts');
+const bodyMassMapping = read('lib/api/dailyPerformance/bodyMassMapping.ts');
+const unifiedDailyPerformance = read('lib/api/dailyPerformance/unifiedDailyPerformance.ts');
 assert('daily athlete summary no longer imports legacy protocol row type', !dailyAthleteSummary.includes('DailyCutProtocolRow'));
 assert('daily athlete summary no longer threads legacy body-mass guidance output', !dailyAthleteSummary.includes('LegacyCutProtocol') && !dailyAthleteSummary.includes('cutProtocol'));
-assert('unified daily performance preserves unknown body mass instead of legacy fallback', /currentWeight:\s*number \| null/.test(dailyAthleteSummary) && /const canonicalCurrentWeight = objectiveContext\.currentWeightLbs \?\? profile\?\.base_weight \?\? null/.test(dailyAthleteSummary));
+assert('unified daily performance preserves unknown body mass instead of legacy fallback', /currentWeight:\s*number \| null/.test(unifiedDailyPerformance)
+  && /const canonicalCurrentWeight = input\.objectiveContext\.currentWeightLbs \?\? input\.currentWeight \?\? null/.test(unifiedDailyPerformance)
+  && bodyMassMapping.includes("missingFields: current ? [] : [{ field: 'current_body_mass', reason: 'not_collected' }]"));
 
 const weightClassMigration = read('supabase/migrations/002_weight_cut.sql');
 assert('fresh schema does not create retired daily body-mass guidance table', !weightClassMigration.includes('daily_cut_protocols'));

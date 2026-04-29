@@ -85,11 +85,12 @@ async function run() {
 
   {
     const dailyService = read('lib/api/dailyPerformanceService.ts');
+    const unifiedDailyPerformance = read('lib/api/dailyPerformance/unifiedDailyPerformance.ts');
 
-    assert('daily UPE handoff maps ACWRResult ratio through finite mapper', dailyService.includes('function acwrRatioForUnifiedEngine(acwr: ACWRResult | null): number | null')
-      && dailyService.includes('const ratio = acwr?.ratio')
-      && dailyService.includes('Number.isFinite(ratio)'));
-    assert('daily UPE handoff passes mapped ACWR ratio instead of a hard-coded null', dailyService.includes('acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr)')
+    assert('daily UPE handoff maps ACWRResult ratio through finite mapper', unifiedDailyPerformance.includes('function acwrRatioForUnifiedEngine(acwr: ACWRResult | null): number | null')
+      && unifiedDailyPerformance.includes('const ratio = acwr?.ratio')
+      && unifiedDailyPerformance.includes('Number.isFinite(ratio)'));
+    assert('daily UPE handoff passes mapped ACWR ratio instead of a hard-coded null', unifiedDailyPerformance.includes('acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr)')
       && !dailyService.includes('acuteChronicWorkloadRatio: null'));
   }
 
