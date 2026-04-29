@@ -41,6 +41,7 @@ function toError(error: unknown): Error {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [journeyEntryState, setJourneyEntryState] = useState<AthleteJourneyAppEntryState | null>(null);
+  const [authLoadError, setAuthLoadError] = useState<Error | null>(null);
   const [journeyLoadError, setJourneyLoadError] = useState<Error | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [checkingJourney, setCheckingJourney] = useState(false);
@@ -58,7 +59,7 @@ export default function App() {
     let isActive = true;
 
     setCheckingAuth(true);
-    setJourneyLoadError(null);
+    setAuthLoadError(null);
 
     supabase.auth.getSession()
       .then(({ data: { session: currentSession }, error }) => {
@@ -79,7 +80,7 @@ export default function App() {
         }
 
         logError('App.authSessionLookup', error);
-        setJourneyLoadError(toError(error));
+        setAuthLoadError(toError(error));
       })
       .finally(() => {
         if (isActive) {
@@ -105,6 +106,9 @@ export default function App() {
 
       sessionUserIdRef.current = nextUserId;
       setSession(nextSession);
+      if (nextSession) {
+        setAuthLoadError(null);
+      }
 
       if (nextUserId && previousUserId !== nextUserId) {
         setJourneyLoadError(null);
@@ -151,15 +155,21 @@ export default function App() {
   }, [refreshJourneyEntryState]);
 
   const retryAppLoad = useCallback(() => {
+    if (authLoadError) {
+      setAuthLoadAttempt((attempt) => attempt + 1);
+      return;
+    }
+
     if (userId) {
       void refreshJourneyEntryState();
       return;
     }
 
     setAuthLoadAttempt((attempt) => attempt + 1);
-  }, [refreshJourneyEntryState, userId]);
+  }, [authLoadError, refreshJourneyEntryState, userId]);
 
   const handleSignOut = useCallback(async () => {
+    setAuthLoadError(null);
     setCheckingJourney(false);
     setJourneyEntryState(null);
     setJourneyLoadError(null);
@@ -184,11 +194,12 @@ export default function App() {
   }
 
   const entryStatus = journeyEntryState?.status ?? null;
-  const content = journeyLoadError ? (
-    <JourneyLoadErrorScreen
+  const appLoadError = authLoadError ?? journeyLoadError;
+  const content = appLoadError ? (
+    <AppLoadErrorScreen
       loading={checkingAuth || checkingJourney}
       onRetry={retryAppLoad}
-      onSignOut={handleSignOut}
+      onSignOut={session ? handleSignOut : undefined}
     />
   ) : checkingAuth ? (
     <View style={[styles.container, styles.centered]}>
@@ -228,19 +239,19 @@ export default function App() {
   );
 }
 
-function JourneyLoadErrorScreen({
+function AppLoadErrorScreen({
   loading,
   onRetry,
   onSignOut,
 }: {
   loading: boolean;
   onRetry: () => void;
-  onSignOut: () => void;
+  onSignOut?: () => void;
 }) {
   return (
     <View style={[styles.container, styles.centered, styles.errorScreen]}>
       <View style={styles.errorPanel}>
-        <Text style={styles.errorTitle}>We couldn&apos;t load your athlete profile.</Text>
+        <Text style={styles.errorTitle}>We couldn&apos;t load your athlete profile</Text>
         <Text style={styles.errorBody}>Your data is safe. Check your connection and try again.</Text>
 
         <View style={styles.errorActions}>
@@ -256,17 +267,19 @@ function JourneyLoadErrorScreen({
             <Text style={styles.primaryButtonText}>{loading ? 'Trying again...' : 'Try again'}</Text>
           </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={loading}
-            onPress={onSignOut}
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              (pressed || loading) && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.secondaryButtonText}>Sign out</Text>
-          </Pressable>
+          {onSignOut ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={loading}
+              onPress={onSignOut}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                (pressed || loading) && styles.buttonPressed,
+              ]}
+            >
+              <Text style={styles.secondaryButtonText}>Sign out</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </View>
