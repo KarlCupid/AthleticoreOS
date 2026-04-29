@@ -26,11 +26,10 @@ import {
   IconDroplets,
   IconCalendar,
 } from "../components/icons";
-import { MissionDashboardPanel } from "../components/dashboard/MissionDashboardPanel";
+import { TodayMissionPanel } from "../components/dashboard/TodayMissionPanel";
 import { UnifiedJourneySummaryCard } from "../components/performance/UnifiedJourneySummaryCard";
-import { buildCompassViewModel } from "../../lib/engine/presentation";
-import { buildMissionDashboardViewModel } from "../../lib/engine/presentation/missionDashboard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
+import type { TodayMissionAction, TodayMissionStatus } from "../../lib/performance-engine";
 
 import { getActiveUserId } from "../../lib/api/athleteContextService";
 import {
@@ -94,66 +93,18 @@ export function DashboardScreen() {
     loading,
     refreshing,
     onRefresh,
-    acwr,
     checkinDone,
     sessionDone,
     todayActivities,
     primaryActivity,
     currentLevel,
-    workoutPrescription,
     todayPlanEntry,
     readinessScore,
     weightTrend,
     weightHistory,
-    dailyAthleteSummary,
-    hasActiveFightCamp,
-    hasActiveWeightClassPlan,
-    weeklyReview,
-    recentTrainingSessions,
     performanceContext,
+    todayMission,
   } = useDashboardData();
-
-  const compassVM = React.useMemo(
-    () =>
-      buildCompassViewModel(
-        dailyAthleteSummary,
-        Boolean(workoutPrescription || todayPlanEntry),
-        checkinDone,
-        sessionDone,
-      ),
-    [dailyAthleteSummary, workoutPrescription, todayPlanEntry, checkinDone, sessionDone],
-  );
-
-  const missionDashboard = React.useMemo(
-    () =>
-      buildMissionDashboardViewModel({
-        mission: dailyAthleteSummary,
-        acwr,
-        readinessState: currentLevel,
-        checkinDone,
-        sessionDone,
-        hasActiveFightCamp,
-        hasActiveWeightClassPlan,
-        todayPlanEntryIsDeload: Boolean(todayPlanEntry?.is_deload),
-        weightTrend,
-        weeklyReview,
-        recentTrainingSessions,
-        bodyMassSafetyFlags: [],
-      }),
-    [
-      dailyAthleteSummary,
-      acwr,
-      currentLevel,
-      checkinDone,
-      sessionDone,
-      hasActiveFightCamp,
-      hasActiveWeightClassPlan,
-      todayPlanEntry?.is_deload,
-      weightTrend,
-      weeklyReview,
-      recentTrainingSessions,
-    ],
-  );
   const hasLivePlanningState = Boolean(todayPlanEntry) || todayActivities.length > 0;
   const D = 50;
   const openTrainScreen = React.useCallback(
@@ -259,48 +210,38 @@ export function DashboardScreen() {
     openPlanScreen,
   ]);
 
-  const handleCompassCTA = React.useCallback(() => {
-    switch (compassVM.primaryCTATarget) {
-      case "checkin":
+  const handleTodayMissionAction = React.useCallback((action: TodayMissionAction) => {
+    switch (action.intent) {
+      case "log_checkin":
         navigation.navigate("Log");
         break;
-      case "training":
+      case "start_training":
         void openTodayTraining();
         break;
-      case "nutrition":
+      case "review_fueling":
         openFuelScreen("NutritionHome");
         break;
-      case "plan":
+      case "log_body_mass":
+      case "review_body_mass":
+        openFuelScreen("WeightClassHome");
+        break;
+      case "confirm_fight":
+        openPlanScreen("WeeklyPlanSetup", {
+          initialGoalMode: "fight_camp",
+          initialPhaseKey: "objective",
+          source: "today_mission",
+        });
+        break;
+      case "take_recovery":
+      case "review_plan":
+      default:
         openPlanningSurface();
         break;
     }
   }, [
-    compassVM.primaryCTATarget,
     navigation,
     openFuelScreen,
-    openPlanningSurface,
-    openTodayTraining,
-  ]);
-
-  const handleCompassSecondaryCTA = React.useCallback(() => {
-    switch (compassVM.secondaryCTATarget) {
-      case "checkin":
-        navigation.navigate("Log");
-        break;
-      case "training":
-        void openTodayTraining();
-        break;
-      case "nutrition":
-        openFuelScreen("NutritionHome");
-        break;
-      case "plan":
-        openPlanningSurface();
-        break;
-    }
-  }, [
-    compassVM.secondaryCTATarget,
-    navigation,
-    openFuelScreen,
+    openPlanScreen,
     openPlanningSurface,
     openTodayTraining,
   ]);
@@ -490,6 +431,13 @@ export function DashboardScreen() {
                 </View>
             </View>
 
+            <View style={styles.todayMissionWrap}>
+              <TodayMissionPanel
+                mission={todayMission}
+                onAction={handleTodayMissionAction}
+              />
+            </View>
+
             <View style={styles.readinessHeroWrap}>
               <Card
                 style={[
@@ -516,7 +464,7 @@ export function DashboardScreen() {
                 >
                   <Text style={styles.readinessHeroKicker}>TODAY'S READINESS</Text>
                   <Text style={styles.readinessHeroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.82}>
-                    {getReadinessHeadline(currentLevel, missionDashboard.statusLabel)}
+                    {getReadinessHeadline(currentLevel, getTodayMissionStatusLabel(todayMission.status))}
                   </Text>
                   <Text
                     style={[
@@ -577,16 +525,6 @@ export function DashboardScreen() {
                   />
                 </View>
               </Card>
-            </View>
-
-            <View style={styles.missionDashboardWrap}>
-              <MissionDashboardPanel
-                viewModel={missionDashboard}
-                primaryActionLabel={compassVM.primaryCTALabel}
-                onPrimaryAction={handleCompassCTA}
-                secondaryActionLabel={compassVM.secondaryCTALabel}
-                onSecondaryAction={handleCompassSecondaryCTA}
-              />
             </View>
 
             <View style={styles.content}>
@@ -810,6 +748,14 @@ function getReadinessCircleCopy(level: string | null): string {
   if (level === "Caution") return "Train, but leave room in the tank.";
   if (level === "Depleted") return "Recovery needs to lead today.";
   return "Check in to sharpen this signal.";
+}
+
+function getTodayMissionStatusLabel(status: TodayMissionStatus): string {
+  if (status === "good_to_push") return "Ready";
+  if (status === "train_smart") return "Train smart";
+  if (status === "pull_back") return "Recovery first";
+  if (status === "blocked") return "Adjust first";
+  return "Needs context";
 }
 
 function getGreeting(): string {

@@ -31,9 +31,11 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
 import {
+  buildTodaysMissionViewModel,
   buildUnifiedPerformanceViewModel,
   nutritionNumbersFromUnifiedTarget,
   type ReadinessBand,
+  type TodayMissionViewModel,
   type UnifiedPerformanceViewModel,
 } from '../../lib/performance-engine';
 import type { CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
@@ -92,6 +94,7 @@ interface DashboardDataState {
   hasActiveFightCamp: boolean;
   hasActiveWeightClassPlan: boolean;
   performanceContext: UnifiedPerformanceViewModel;
+  todayMission: TodayMissionViewModel;
 }
 
 const INITIAL_STATE: DashboardDataState = {
@@ -123,6 +126,7 @@ const INITIAL_STATE: DashboardDataState = {
   hasActiveFightCamp: false,
   hasActiveWeightClassPlan: false,
   performanceContext: buildUnifiedPerformanceViewModel(null),
+  todayMission: buildTodaysMissionViewModel(null),
 };
 
 function getWeekStart(dateStr: string): string {
@@ -257,6 +261,18 @@ export function useDashboardData() {
           : engineState.readinessState,
       );
       const performanceContext = buildUnifiedPerformanceViewModel(engineState.unifiedPerformance);
+      const macroLedger = (ledger as MacroLedgerRow | null) ?? null;
+      const todayMission = buildTodaysMissionViewModel(engineState.unifiedPerformance, {
+        checkInLogged: Boolean(checkin),
+        trainingCompleted: Boolean(trainingSessions && trainingSessions.length > 0),
+        fuelingStarted: Boolean(
+          (macroLedger?.actual_calories ?? 0) > 0
+          || (macroLedger?.actual_protein ?? 0) > 0
+          || (macroLedger?.actual_carbs ?? 0) > 0
+          || (macroLedger?.actual_fat ?? 0) > 0,
+        ),
+        weeklyPlanAvailable: Boolean(engineState.primaryEnginePlanEntry || (engineState.scheduledActivities ?? []).length > 0),
+      });
       const canonicalNutritionNumbers = nutritionNumbersFromUnifiedTarget(
         engineState.unifiedPerformance?.canonicalOutputs.nutritionTarget,
       );
@@ -279,7 +295,7 @@ export function useDashboardData() {
           ?? engineState.readinessProfile.overallReadiness,
         todayActivities: engineState.scheduledActivities ?? [],
         primaryActivity: engineState.primaryScheduledActivity,
-        currentLedger: (ledger as MacroLedgerRow | null) ?? null,
+        currentLedger: macroLedger,
         prescriptionMessage: engineState.mission.summary,
         workoutPrescription: (engineState.workoutPrescription as WorkoutPrescription | null) ?? null,
         weightTrend: engineState.objectiveContext.weightTrend ?? null,
@@ -303,6 +319,7 @@ export function useDashboardData() {
         hasActiveFightCamp,
         hasActiveWeightClassPlan: Boolean(profile?.active_weight_class_plan_id),
         performanceContext,
+        todayMission,
       });
       setLoading(false);
       setRefreshing(false);

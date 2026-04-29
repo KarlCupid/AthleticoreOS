@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 2.8,
     textAlign: 'center',
   },
-  missionDashboardWrap: {
+  todayMissionWrap: {
     marginTop: SPACING.lg,
   },
   readinessHeroWrap: {
