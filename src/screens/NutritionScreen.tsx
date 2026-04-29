@@ -17,7 +17,6 @@ import {
 } from '../../lib/api/nutritionService';
 import { COLORS, FONT_FAMILY, GRADIENTS, RADIUS, SPACING, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { AnimatedNumber } from '../components/AnimatedNumber';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { HydrationTracker } from '../components/HydrationTracker';
@@ -31,6 +30,7 @@ import { IconBarcode } from '../components/icons';
 import { useFuelData } from '../hooks/useFuelData';
 import type { FuelStackParamList } from '../navigation/types';
 import type { FoodSearchResult, MealType, SessionFuelingWindow } from '../../lib/engine/types';
+import type { GuidedFuelingMacroTarget } from '../../lib/performance-engine';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { styles } from './NutritionScreen.styles';
 
@@ -113,6 +113,7 @@ export function NutritionScreen() {
   const { themeColor } = useReadinessTheme();
   const { loading, refreshing, error, viewModel, reload, onRefresh } = useFuelData();
   const [nutritionMode, setNutritionMode] = useState<'quick' | 'detailed'>('quick');
+  const [showFuelDetails, setShowFuelDetails] = useState(false);
   const quickVM = useMemo(
     () => buildNutritionQuickActionViewModel(viewModel.dailyAthleteSummary, viewModel.totals),
     [viewModel.dailyAthleteSummary, viewModel.totals],
@@ -249,12 +250,166 @@ export function NutritionScreen() {
     );
   };
 
+  const macroColor = (macro: GuidedFuelingMacroTarget) => {
+    if (macro.id === 'energy') return COLORS.chart.accent;
+    if (macro.id === 'protein') return COLORS.chart.protein;
+    if (macro.id === 'carbs') return COLORS.chart.carbs;
+    return COLORS.chart.fat;
+  };
+
+  const renderGuidedFuelingCard = (delay: number = STAGGER_DELAY) => {
+    const guided = viewModel.guidedFueling;
+
+    return (
+      <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
+        <Card
+          style={{ marginBottom: SPACING.md }}
+          backgroundTone="fuelQuiet"
+          backgroundScrimColor="rgba(10, 10, 10, 0.66)"
+        >
+          <Text style={inline.sectionEyebrow}>{guided.title}</Text>
+          <Text style={inline.cardHeadline}>{guided.primaryFocus}</Text>
+          <Text style={inline.copyMuted}>{guided.whyItMatters}</Text>
+          <Text style={[inline.noteLine, { color: COLORS.text.primary }]}>{guided.phaseContext}</Text>
+          {guided.bodyMassContext ? (
+            <View style={inline.guidanceBlock}>
+              <Text style={inline.guidanceLabel}>Body-mass context</Text>
+              <Text style={inline.copyMuted}>{guided.bodyMassContext}</Text>
+            </View>
+          ) : null}
+          {guided.riskHighlights.length > 0 ? (
+            <View style={inline.warningBanner}>
+              {guided.riskHighlights.map((risk) => (
+                <Text key={risk} style={inline.warningText}>
+                  {risk}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+        </Card>
+      </Animated.View>
+    );
+  };
+
+  const renderSessionFuelingCard = (delay: number = STAGGER_DELAY * 2) => (
+    <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
+      <Card
+        style={{ marginBottom: SPACING.md }}
+        backgroundTone="nutrition"
+        backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+      >
+        <Text style={inline.sectionEyebrow}>Session fueling</Text>
+        {viewModel.guidedFueling.sessionGuidance.map((line) => (
+          <Text key={line} style={inline.noteLine}>
+            {humanizeCoachSentence(line)}
+          </Text>
+        ))}
+        <View style={inline.guidanceBlock}>
+          <Text style={inline.guidanceLabel}>Recovery nutrition</Text>
+          <Text style={inline.copyMuted}>{viewModel.guidedFueling.recoveryNutritionFocus}</Text>
+        </View>
+      </Card>
+    </Animated.View>
+  );
+
+  const renderMacroTargetsCard = (delay: number = STAGGER_DELAY * 3) => (
+    <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
+      <Card
+        style={{ marginBottom: SPACING.md }}
+        backgroundTone="nutrition"
+        backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+      >
+        <Text style={inline.sectionEyebrow}>Macro ranges</Text>
+        <Text style={inline.copyMuted}>
+          These numbers support the fueling focus above. They are targets, not the whole point of the day.
+        </Text>
+        <View style={inline.macroList}>
+          {viewModel.guidedFueling.macroTargets.map((macro) => (
+            <View key={macro.id} style={inline.macroItem}>
+              {macro.targetValue != null ? (
+                <MacroProgressBar
+                  label={macro.label}
+                  current={macro.currentValue ?? 0}
+                  target={macro.targetValue}
+                  color={macroColor(macro)}
+                  unit={macro.unit === 'kcal' ? ' kcal' : 'g'}
+                />
+              ) : (
+                <View style={inline.macroUnknownRow}>
+                  <Text style={inline.macroUnknownLabel}>{macro.label}</Text>
+                  <Text style={inline.copyMuted}>{macro.targetLabel}</Text>
+                </View>
+              )}
+              <Text style={inline.macroRangeText}>
+                {macro.rangeLabel} - {macro.currentLabel}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+    </Animated.View>
+  );
+
+  const renderFoodLogConfidenceCard = (delay: number = STAGGER_DELAY * 4) => {
+    const confidence = viewModel.guidedFueling.foodLogConfidence;
+
+    return (
+      <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
+        <Card
+          style={{ marginBottom: SPACING.md }}
+          backgroundTone="default"
+          backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+        >
+          <View style={inline.cardTitleRow}>
+            <Text style={inline.sectionEyebrow}>Food log confidence</Text>
+            <View style={inline.confidencePill}>
+              <Text style={inline.confidencePillText}>{confidence.label}</Text>
+            </View>
+          </View>
+          <Text style={inline.copyMuted}>{confidence.summary}</Text>
+          {confidence.missingData.length > 0 ? (
+            <Text style={inline.noteLine}>
+              Missing: {confidence.missingData.slice(0, 4).join(', ')}. Athleticore treats that as unknown, not zero.
+            </Text>
+          ) : null}
+          <Text style={[inline.copyMuted, { marginTop: SPACING.sm }]}>
+            Meals logged: {viewModel.historySummary.mealCount} - Water logged: {viewModel.historySummary.waterOz} oz
+          </Text>
+        </Card>
+      </Animated.View>
+    );
+  };
+
+  const renderFuelDetailsCard = (delay: number = STAGGER_DELAY * 5) => (
+    <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
+      <AnimatedPressable style={inline.detailsToggle} onPress={() => setShowFuelDetails((current) => !current)}>
+        <Text style={[inline.linkText, { color: themeColor }]}>{showFuelDetails ? 'Hide details' : 'Show details'}</Text>
+      </AnimatedPressable>
+      {showFuelDetails ? (
+        <Card
+          style={{ marginBottom: SPACING.md }}
+          backgroundTone="default"
+          backgroundScrimColor="rgba(10, 10, 10, 0.68)"
+        >
+          <Text style={inline.sectionEyebrow}>Details</Text>
+          {viewModel.guidedFueling.detailLines.map((line) => (
+            <Text key={line} style={inline.noteLine}>
+              {humanizeCoachSentence(line)}
+            </Text>
+          ))}
+        </Card>
+      ) : null}
+    </Animated.View>
+  );
+
   const renderQuickMode = () => {
     const betweenSessions = viewModel.targets?.sessionFuelingPlan.betweenSessions ?? null;
 
     return (
       <>
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)}>
+        {renderGuidedFuelingCard(STAGGER_DELAY)}
+
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.normal)}>
           <Card
             style={{ marginBottom: SPACING.md }}
             backgroundTone="fuelQuiet"
@@ -305,29 +460,11 @@ export function NutritionScreen() {
 
         {renderMissionCards()}
 
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.normal)}>
-          <Card
-            style={{ marginBottom: SPACING.md }}
-            backgroundTone="nutrition"
-            backgroundScrimColor="rgba(10, 10, 10, 0.70)"
-          >
-            <MacroProgressBar
-              label="Calories"
-              current={viewModel.totals.calories}
-              target={viewModel.targets?.adjustedCalories ?? 0}
-              color={COLORS.chart.accent}
-              unit=" cal"
-            />
-            <MacroProgressBar
-              label="Protein"
-              current={viewModel.totals.protein}
-              target={viewModel.targets?.protein ?? 0}
-              color={COLORS.chart.protein}
-            />
-          </Card>
-        </Animated.View>
+        {renderMacroTargetsCard(STAGGER_DELAY * 4)}
+        {renderFoodLogConfidenceCard(STAGGER_DELAY * 5)}
+        {renderFuelDetailsCard(STAGGER_DELAY * 6)}
 
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.normal)}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 7).duration(ANIMATION.normal)}>
           <HydrationTracker
             currentOz={viewModel.totals.water}
             targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0}
@@ -355,8 +492,10 @@ export function NutritionScreen() {
         </AnimatedPressable>
       </Animated.View>
 
+      {renderGuidedFuelingCard(STAGGER_DELAY)}
+
       {viewModel.performanceContext.bodyMass ? (
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.normal)} style={styles.bodyMassBanner}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.normal)} style={styles.bodyMassBanner}>
           <View style={styles.bodyMassBannerTop}>
             <Text style={styles.bodyMassBannerPhase}>
               {viewModel.performanceContext.bodyMass.feasibilityLabel ?? 'Body-mass context'} - {viewModel.performanceContext.bodyMass.safetyLabel ?? 'monitored'}
@@ -374,48 +513,12 @@ export function NutritionScreen() {
         </Animated.View>
       ) : null}
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.normal)} style={styles.calorieHero}>
-        <AnimatedNumber value={viewModel.totals.calories} style={styles.calorieNumber} />
-        <Text style={styles.calorieLabel}>
-          of {viewModel.targets?.adjustedCalories ?? 0} cal
-        </Text>
-      </Animated.View>
+      {renderSessionFuelingCard(STAGGER_DELAY * 3)}
+      {renderMacroTargetsCard(STAGGER_DELAY * 4)}
+      {renderFoodLogConfidenceCard(STAGGER_DELAY * 5)}
+      {renderFuelDetailsCard(STAGGER_DELAY * 6)}
 
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.normal)}>
-        <Card
-          style={{ marginBottom: SPACING.md }}
-          backgroundTone="nutrition"
-          backgroundScrimColor="rgba(10, 10, 10, 0.70)"
-        >
-          <MacroProgressBar
-            label="Calories"
-            current={viewModel.totals.calories}
-            target={viewModel.targets?.adjustedCalories ?? 0}
-            color={COLORS.chart.accent}
-            unit=" cal"
-          />
-          <MacroProgressBar
-            label="Protein"
-            current={viewModel.totals.protein}
-            target={viewModel.targets?.protein ?? 0}
-            color={COLORS.chart.protein}
-          />
-          <MacroProgressBar
-            label="Carbs"
-            current={viewModel.totals.carbs}
-            target={viewModel.targets?.carbs ?? 0}
-            color={COLORS.chart.carbs}
-          />
-          <MacroProgressBar
-            label="Fat"
-            current={viewModel.totals.fat}
-            target={viewModel.targets?.fat ?? 0}
-            color={COLORS.chart.fat}
-          />
-        </Card>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.normal)}>
+      <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 7).duration(ANIMATION.normal)}>
         <HydrationTracker
           currentOz={viewModel.totals.water}
           targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0}
@@ -426,7 +529,7 @@ export function NutritionScreen() {
       {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealType[]).map((mealType, index) => (
         <Animated.View
           key={mealType}
-          entering={FadeInDown.delay(STAGGER_DELAY * (6 + index)).duration(ANIMATION.normal)}
+          entering={FadeInDown.delay(STAGGER_DELAY * (8 + index)).duration(ANIMATION.normal)}
         >
           <MealSection
             mealType={mealType}
@@ -542,6 +645,70 @@ const inline = {
     color: COLORS.text.secondary,
     lineHeight: 19,
     marginTop: SPACING.xs,
+  },
+  guidanceBlock: {
+    marginTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: SPACING.md,
+  },
+  guidanceLabel: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
+    marginBottom: SPACING.xs,
+  },
+  macroList: {
+    marginTop: SPACING.md,
+  },
+  macroItem: {
+    marginTop: SPACING.sm,
+  },
+  macroRangeText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    marginTop: -SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  macroUnknownRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingVertical: SPACING.sm,
+  },
+  macroUnknownLabel: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  cardTitleRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  confidencePill: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    backgroundColor: COLORS.surface,
+  },
+  confidencePillText: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  detailsToggle: {
+    alignSelf: 'flex-start' as const,
+    minHeight: 44,
+    justifyContent: 'center' as const,
+    marginBottom: SPACING.xs,
   },
   warningBanner: {
     backgroundColor: `${COLORS.error}18`,

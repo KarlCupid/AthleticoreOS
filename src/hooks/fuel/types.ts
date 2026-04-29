@@ -5,7 +5,10 @@ import type {
   NutritionFuelingTarget,
 } from '../../../lib/engine/types';
 import type { DashboardNutritionTotals } from '../dashboard/utils';
-import type { UnifiedPerformanceViewModel } from '../../../lib/performance-engine';
+import type {
+  GuidedFuelingViewModel,
+  UnifiedPerformanceViewModel,
+} from '../../../lib/performance-engine';
 
 export interface MealLogEntryViewModel {
   id: string;
@@ -50,6 +53,7 @@ export interface FuelHomeViewModel {
   missionReasonLines: string[];
   missionTraceLines: string[];
   performanceContext: UnifiedPerformanceViewModel;
+  guidedFueling: GuidedFuelingViewModel;
 }
 
 export interface FightWeekDayViewModel {

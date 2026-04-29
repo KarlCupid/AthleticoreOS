@@ -13,6 +13,7 @@ import type {
   HydrationEntryViewModel,
   MealLogEntryViewModel,
 } from './types';
+import type { ConfidenceValue } from '../../../lib/performance-engine';
 
 type FoodLogRowWithRelations = FoodLogRow & {
   created_at?: string | null;
@@ -259,6 +260,67 @@ export function summarizeFuelHistory(input: {
   return {
     mealCount,
     waterOz: Math.round(input.totalWaterOz ?? 0),
+  };
+}
+
+export function summarizeFoodLogConfidence(foodLog: FoodLogRowWithRelations[]): {
+  confidence: ConfidenceValue;
+  missingData: string[];
+  estimatedCount: number;
+} {
+  if (foodLog.length === 0) {
+    return {
+      confidence: {
+        level: 'unknown',
+        score: null,
+        reasons: ['No food entries are logged yet.'],
+      },
+      missingData: ['Food entries'],
+      estimatedCount: 0,
+    };
+  }
+
+  const scores = foodLog.map((entry) => {
+    const snapshotConfidence = entry.nutrition_snapshot?.confidence
+      ?? entry.nutrition_snapshot?.data_quality?.confidence
+      ?? null;
+    if (typeof snapshotConfidence?.score === 'number') return snapshotConfidence.score;
+    if (entry.nutrition_snapshot?.verified || entry.food_items?.verified) return 0.8;
+    if (entry.nutrition_snapshot?.source === 'custom' || entry.food_items?.source === 'custom') return 0.3;
+    return 0.55;
+  });
+  const score = scores.reduce((sum, item) => sum + item, 0) / scores.length;
+  const level = score >= 0.75 ? 'high' : score >= 0.45 ? 'medium' : score > 0 ? 'low' : 'unknown';
+  const missingData = foodLog.flatMap((entry) => {
+    const missingFromSnapshot = entry.nutrition_snapshot?.missing_nutrients ?? [];
+    const missingFromQuality = entry.nutrition_snapshot?.data_quality?.missingFields.map((field) => field.field) ?? [];
+    const missing = [...missingFromSnapshot, ...missingFromQuality];
+    if (!entry.nutrition_snapshot && !entry.food_items) return ['Food item detail'];
+    return missing;
+  });
+  const estimatedCount = foodLog.filter((entry) =>
+    entry.nutrition_snapshot?.data_quality?.userEstimate
+    || entry.nutrition_snapshot?.source === 'custom'
+    || entry.food_items?.source === 'custom'
+    || !(entry.nutrition_snapshot?.verified ?? entry.food_items?.verified ?? false),
+  ).length;
+
+  return {
+    confidence: {
+      level,
+      score,
+      reasons: [
+        `${foodLog.length} food entr${foodLog.length === 1 ? 'y' : 'ies'} logged today.`,
+        estimatedCount > 0
+          ? `${estimatedCount} entr${estimatedCount === 1 ? 'y uses' : 'ies use'} estimated or unverified food data.`
+          : 'Logged foods are source-traceable or verified.',
+        missingData.length > 0
+          ? 'Some nutrients are missing and stay unknown.'
+          : 'Core logged nutrients are available.',
+      ],
+    },
+    missingData: Array.from(new Set(missingData.map((item) => item.replace(/_/g, ' ')))),
+    estimatedCount,
   };
 }
 

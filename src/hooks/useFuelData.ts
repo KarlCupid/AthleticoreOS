@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import {
+  buildGuidedFuelingViewModel,
   buildUnifiedPerformanceViewModel,
   nutritionNumbersFromUnifiedTarget,
 } from '../../lib/performance-engine';
@@ -23,6 +24,7 @@ import {
   buildMealGroups,
   buildTotalsFromFoodLog,
   summarizeFuelHistory,
+  summarizeFoodLogConfidence,
 } from './fuel/utils';
 
 const EMPTY_MEALS: Record<MealType, []> = {
@@ -47,6 +49,7 @@ const EMPTY_MODEL: FuelHomeViewModel = {
   missionReasonLines: [],
   missionTraceLines: [],
   performanceContext: buildUnifiedPerformanceViewModel(null),
+  guidedFueling: buildGuidedFuelingViewModel(null),
 };
 
 export function useFuelData() {
@@ -121,6 +124,23 @@ export function useFuelData() {
         }>,
         nutritionData.summary?.total_water_oz,
       );
+      const foodLogConfidence = summarizeFoodLogConfidence(nutritionData.foodLog as never[]);
+      const historySummary = summarizeFuelHistory({
+        totalWaterOz: nutritionData.summary?.total_water_oz,
+        mealGroups: meals,
+      });
+      const guidedFueling = buildGuidedFuelingViewModel(engineState.unifiedPerformance, {
+        actuals: {
+          calories: totals.calories,
+          protein: totals.protein,
+          carbs: totals.carbs,
+          fat: totals.fat,
+        },
+        loggedMealCount: historySummary.mealCount,
+        foodLogConfidence: foodLogConfidence.confidence,
+        foodLogMissingData: foodLogConfidence.missingData,
+        foodLogEstimatedCount: foodLogConfidence.estimatedCount,
+      });
 
       if (!isCurrentRequest()) {
         return;
@@ -148,13 +168,11 @@ export function useFuelData() {
         hydrationEntries,
         favorites: favoriteRows.map(buildFoodSearchResultFromFoodItemRow),
         recent: recentRows.map(buildFoodSearchResultFromFoodItemRow),
-        historySummary: summarizeFuelHistory({
-          totalWaterOz: nutritionData.summary?.total_water_oz,
-          mealGroups: meals,
-        }),
+        historySummary,
         missionReasonLines: canonicalNutritionTarget?.explanation?.reasons ?? engineState.nutritionTargets.reasonLines,
         missionTraceLines: performanceContext.explanations.map((explanation) => explanation.summary),
         performanceContext,
+        guidedFueling,
       });
     } catch (loadError) {
       if (!isCurrentRequest()) {
