@@ -6,6 +6,7 @@ import type { ReadinessState, WeeklyPlanEntryRow } from '../../lib/engine/types'
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { PlanStackParamList } from '../navigation/types';
+import { todayLocalDate } from '../../lib/utils/date';
 
 type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 
@@ -85,8 +86,8 @@ export function useWeeklyPlanScreenController({
   }, [loadPlan]);
 
   const handleQuickLogPress = useCallback(() => {
-    Alert.alert('Coming Soon', 'Direct logging will open here.');
-  }, []);
+    navigation.navigate('DayDetail', { date: todayLocalDate() });
+  }, [navigation]);
 
   return {
     handleDayPress,

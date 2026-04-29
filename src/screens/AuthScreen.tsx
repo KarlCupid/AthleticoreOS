@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -38,7 +38,11 @@ export function AuthScreen() {
         >
             <StatusBar style="dark" />
 
-            <View style={styles.content}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Logo / Icon */}
                 <Animated.View entering={ZoomIn.duration(ANIMATION.normal).springify()} style={styles.logoContainer}>
                     <LinearGradient
@@ -112,7 +116,7 @@ export function AuthScreen() {
                         <Text style={styles.footerLink}>Create Account</Text>
                     </AnimatedPressable>
                 </Animated.View>
-            </View>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }
@@ -123,9 +127,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     content: {
-        flex: 1,
+        flexGrow: 1,
         justifyContent: 'center',
         paddingHorizontal: SPACING.xl,
+        paddingVertical: SPACING.xxl,
     },
     logoContainer: {
         alignItems: 'center',

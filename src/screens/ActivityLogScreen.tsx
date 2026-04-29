@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import {
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+    TextInput,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Modal,
+} from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -108,7 +118,10 @@ export function ActivityLogScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <KeyboardAvoidingView
+            style={[styles.container, { paddingTop: insets.top }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Text style={styles.backButton}>← Back</Text>
@@ -117,7 +130,14 @@ export function ActivityLogScreen() {
                 <View style={{ width: 50 }} />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.content,
+                    { paddingBottom: insets.bottom + SPACING.xxxl },
+                ]}
+                keyboardShouldPersistTaps="handled"
+            >
                 {/* Session Overview */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Session Overview</Text>
@@ -253,10 +273,14 @@ export function ActivityLogScreen() {
 
             {/* Component Picker */}
             {showComponentPicker && (
-                <View style={styles.pickerOverlay}>
-                    <View style={styles.pickerCard}>
+                <Modal visible transparent animationType="slide" onRequestClose={() => setShowComponentPicker(false)}>
+                    <KeyboardAvoidingView
+                        style={styles.pickerOverlay}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    >
+                    <View style={[styles.pickerCard, { paddingBottom: insets.bottom + SPACING.lg }]}>
                         <Text style={styles.pickerTitle}>Add Component</Text>
-                        <ScrollView style={{ maxHeight: 400 }}>
+                        <ScrollView style={styles.pickerOptionsList}>
                             {COMPONENT_OPTIONS.map(opt => (
                                 <TouchableOpacity
                                     key={opt.type}
@@ -272,9 +296,10 @@ export function ActivityLogScreen() {
                             <Text style={styles.pickerCancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                    </KeyboardAvoidingView>
+                </Modal>
             )}
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

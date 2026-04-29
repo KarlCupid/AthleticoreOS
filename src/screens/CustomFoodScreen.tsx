@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Switch,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -138,7 +140,10 @@ export function CustomFoodScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={styles.header}>
         <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
           <IconChevronLeft size={24} color={COLORS.text.primary} />
@@ -147,7 +152,11 @@ export function CustomFoodScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + SPACING.xxxl + 72 },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -232,7 +241,6 @@ export function CustomFoodScreen() {
           </Card>
         </Animated.View>
 
-        <View style={{ height: SPACING.xxl }} />
       </ScrollView>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
@@ -253,7 +261,7 @@ export function CustomFoodScreen() {
           </LinearGradient>
         </AnimatedPressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -318,6 +326,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  scroll: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

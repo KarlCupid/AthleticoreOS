@@ -174,7 +174,7 @@ export function WorkoutSummaryScreen() {
                 style={styles.scroll}
                 contentContainerStyle={[
                     styles.scrollContent,
-                    { paddingBottom: insets.bottom + SPACING.xl + 80 },
+                    { paddingBottom: insets.bottom + SPACING.xxl + 148 },
                 ]}
                 showsVerticalScrollIndicator={false}
             >

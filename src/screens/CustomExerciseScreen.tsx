@@ -7,6 +7,8 @@ import {
     TouchableOpacity,
     StyleSheet,
     Alert,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -101,7 +103,10 @@ export function CustomExerciseScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <KeyboardAvoidingView
+            style={[styles.container, { paddingTop: insets.top }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <IconChevronLeft size={24} color={COLORS.text.primary} />
@@ -109,7 +114,15 @@ export function CustomExerciseScreen() {
                 <Text style={styles.title}>Custom Exercise</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={[
+                    styles.content,
+                    { paddingBottom: insets.bottom + SPACING.xxxl + 72 },
+                ]}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            >
                 <Card>
                     <Field label="Exercise Name" value={name} onChangeText={setName} placeholder="e.g. Band Face Pull" />
                     <Field label="Description" value={description} onChangeText={setDescription} placeholder="What is this exercise?" />
@@ -167,7 +180,7 @@ export function CustomExerciseScreen() {
                     <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Create Exercise'}</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -212,6 +225,7 @@ const fieldStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: 'transparent' },
+    scroll: { flex: 1 },
     header: {
         flexDirection: 'row',
         alignItems: 'center',

@@ -15,6 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '../../lib/supabase';
 import { createWeightClassPlan } from '../../lib/api/weightClassPlanService';
@@ -62,6 +63,7 @@ const HEALTH_GUIDANCE_NOTE =
 
 export function WeightClassPlanSetupScreen() {
   const nav = useNavigation<NavProp>();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -446,7 +448,10 @@ export function WeightClassPlanSetupScreen() {
       style={{ flex: 1, backgroundColor: 'transparent' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient colors={['rgba(10, 10, 10, 0.92)', 'rgba(212, 175, 55, 0.22)']} style={styles.header}>
+      <LinearGradient
+        colors={['rgba(10, 10, 10, 0.92)', 'rgba(212, 175, 55, 0.22)']}
+        style={[styles.header, { paddingTop: insets.top + SPACING.lg }]}
+      >
         <TouchableOpacity
           onPress={() => (step === 1 ? nav.goBack() : setStep((current) => (current - 1) as Step))}
           style={styles.backButton}
@@ -464,7 +469,7 @@ export function WeightClassPlanSetupScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: SPACING.lg, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: SPACING.lg, paddingBottom: insets.bottom + 156 }}
           keyboardShouldPersistTaps="handled"
         >
           {step === 1 ? renderStep1() : null}
@@ -477,7 +482,12 @@ export function WeightClassPlanSetupScreen() {
         </ScrollView>
       </TouchableWithoutFeedback>
 
-      <View style={[styles.footer, keyboardVisible && { paddingBottom: SPACING.lg }]}>
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: keyboardVisible ? SPACING.md : Math.max(insets.bottom + SPACING.md, SPACING.lg) },
+        ]}
+      >
         {step < 5 ? (
           <TouchableOpacity
             style={[styles.nextButton, isNextDisabled && styles.nextButtonDisabled]}

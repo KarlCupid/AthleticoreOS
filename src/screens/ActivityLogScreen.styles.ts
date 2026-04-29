@@ -59,21 +59,27 @@ export const styles = StyleSheet.create({
     },
     completeButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.black, color: '#F5F5F0' },
     pickerOverlay: {
+        flex: 1,
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
     },
     pickerCard: {
         backgroundColor: COLORS.surface, borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl,
         padding: SPACING.lg, paddingBottom: SPACING.xxl,
+        maxHeight: '88%',
     },
     pickerTitle: { fontSize: 20, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, marginBottom: SPACING.md },
+    pickerOptionsList: {
+        maxHeight: 400,
+    },
     pickerOption: {
         flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+        minHeight: 48,
         paddingVertical: SPACING.sm + 2, borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: COLORS.borderLight,
     },
     pickerOptionIcon: { fontSize: 20 },
     pickerOptionLabel: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-    pickerCancel: { alignItems: 'center', paddingVertical: SPACING.md, marginTop: SPACING.sm },
+    pickerCancel: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.md, marginTop: SPACING.sm },
     pickerCancelText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
 });

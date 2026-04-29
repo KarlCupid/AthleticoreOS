@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
+import {
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+    RefreshControl,
+    TextInput,
+    Modal,
+    KeyboardAvoidingView,
+    Platform,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -199,6 +209,7 @@ export function DayDetailScreen() {
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.xxxl }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(true); }} tintColor={themeColor} />}
             >
                 {loading ? (
@@ -255,8 +266,12 @@ export function DayDetailScreen() {
 
             {/* Add Activity Picker Modal */}
             {showAddPicker && (
-                <View style={styles.pickerOverlay}>
-                    <View style={styles.pickerCard}>
+                <Modal visible transparent animationType="slide" onRequestClose={() => setShowAddPicker(false)}>
+                    <KeyboardAvoidingView
+                        style={styles.pickerOverlay}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    >
+                    <View style={[styles.pickerCard, { paddingBottom: insets.bottom + SPACING.lg }]}>
                         <Text style={styles.pickerTitle}>Add Activity</Text>
                         {MANUAL_ACTIVITY_OPTIONS.map(opt => (
                             <TouchableOpacity
@@ -272,13 +287,19 @@ export function DayDetailScreen() {
                             <Text style={styles.pickerCancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                    </KeyboardAvoidingView>
+                </Modal>
             )}
 
             {/* Edit Activity Modal */}
             {editingActivity && (
-                <View style={styles.pickerOverlay}>
-                    <View style={styles.pickerCard}>
+                <Modal visible transparent animationType="slide" onRequestClose={() => setEditingActivity(null)}>
+                    <KeyboardAvoidingView
+                        style={styles.pickerOverlay}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    >
+                    <View style={[styles.pickerCard, styles.pickerCardTall, { paddingBottom: Math.max(insets.bottom + SPACING.md, SPACING.lg) }]}>
+                      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.pickerScrollContent}>
                         <Text style={styles.pickerTitle}>Edit Activity</Text>
 
                         <Text style={styles.inputLabel}>Start Time (HH:MM / 24hr)</Text>
@@ -318,8 +339,10 @@ export function DayDetailScreen() {
                         <TouchableOpacity style={styles.pickerCancel} onPress={() => setEditingActivity(null)}>
                             <Text style={styles.pickerCancelText}>Cancel</Text>
                         </TouchableOpacity>
+                      </ScrollView>
                     </View>
-                </View>
+                    </KeyboardAvoidingView>
+                </Modal>
             )}
 
             {/* Readiness Gate */}

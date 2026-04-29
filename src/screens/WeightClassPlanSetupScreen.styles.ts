@@ -1,9 +1,8 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 
 export const styles = StyleSheet.create({
     header: {
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
         paddingBottom: SPACING.lg,
         paddingHorizontal: SPACING.lg,
         gap: SPACING.sm,
@@ -214,7 +213,7 @@ export const styles = StyleSheet.create({
     // ── Footer ────────────────────────────────────────────────────
     footer: {
         padding: SPACING.lg,
-        paddingBottom: Platform.OS === 'ios' ? 110 : 80,
+        paddingBottom: SPACING.lg,
         backgroundColor: 'rgba(10, 10, 10, 0.92)',
         borderTopWidth: 1,
         borderTopColor: COLORS.borderLight,

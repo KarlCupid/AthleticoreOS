@@ -28,22 +28,31 @@ export const styles = StyleSheet.create({
     emptyText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
     emptySubtext: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 4 },
     pickerOverlay: {
+        flex: 1,
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
     },
     pickerCard: {
         backgroundColor: COLORS.surface, borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl,
         padding: SPACING.lg, paddingBottom: SPACING.xxl,
+        maxHeight: '88%',
+    },
+    pickerCardTall: {
+        paddingBottom: SPACING.lg,
+    },
+    pickerScrollContent: {
+        paddingBottom: SPACING.sm,
     },
     pickerTitle: { fontSize: 20, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, marginBottom: SPACING.md },
     pickerOption: {
         flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+        minHeight: 48,
         paddingVertical: SPACING.sm + 4, borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: COLORS.borderLight,
     },
     pickerOptionIcon: { fontSize: 20 },
     pickerOptionLabel: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-    pickerCancel: { alignItems: 'center', paddingVertical: SPACING.md, marginTop: SPACING.sm },
+    pickerCancel: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.md, marginTop: SPACING.sm },
     pickerCancelText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
     inputLabel: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginTop: SPACING.sm, marginBottom: 4 },
     textInput: {
@@ -51,6 +60,6 @@ export const styles = StyleSheet.create({
         fontSize: 15, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary,
         borderWidth: 1, borderColor: COLORS.borderLight, marginBottom: SPACING.md
     },
-    applyButton: { paddingVertical: SPACING.md, borderRadius: RADIUS.md, alignItems: 'center', marginTop: SPACING.sm },
+    applyButton: { minHeight: 48, paddingVertical: SPACING.md, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.sm },
     applyButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: '#F5F5F0' },
 });

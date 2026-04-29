@@ -155,7 +155,7 @@ function PlanStat({ label, value }: { label: string; value: string }) {
 }
 
 function SectionCard({ title, items, color }: { title: string; items: string[]; color: string }) {
-  const filtered = items.map(sanitizeBodyMassCopy).filter(Boolean);
+  const filtered = uniqueSanitizedSectionItems(items);
   if (filtered.length === 0) return null;
 
   return (
@@ -172,6 +172,21 @@ function SectionCard({ title, items, color }: { title: string; items: string[]; 
       ))}
     </Card>
   );
+}
+
+function uniqueSanitizedSectionItems(items: string[]): string[] {
+  const seen = new Set<string>();
+  const filtered: string[] = [];
+
+  for (const item of items) {
+    const sanitized = sanitizeBodyMassCopy(item);
+    if (!sanitized || seen.has(sanitized)) continue;
+
+    seen.add(sanitized);
+    filtered.push(sanitized);
+  }
+
+  return filtered;
 }
 
 const styles = StyleSheet.create({

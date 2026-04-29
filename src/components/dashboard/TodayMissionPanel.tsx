@@ -137,6 +137,7 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
 
       {hasDetails ? (
         <AnimatedPressable
+          testID="today-mission-details-toggle"
           style={styles.detailsToggle}
           onPress={() => setShowDetails((current) => !current)}
         >
@@ -169,7 +170,11 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
       ) : null}
 
       {primaryAction ? (
-        <AnimatedPressable style={styles.primaryButton} onPress={() => onAction(primaryAction)}>
+        <AnimatedPressable
+          testID="today-mission-primary-cta"
+          style={styles.primaryButton}
+          onPress={() => onAction(primaryAction)}
+        >
           <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
             {primaryAction.label}
           </Text>
@@ -181,6 +186,7 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
         <View style={styles.secondaryActions}>
           {secondaryActions.map((action) => (
             <AnimatedPressable
+              testID={`today-mission-secondary-cta-${action.id}`}
               key={action.id}
               style={styles.secondaryButton}
               onPress={() => onAction(action)}
