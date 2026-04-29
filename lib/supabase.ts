@@ -4,8 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { logWarn } from './utils/logger';
 
+const EXPO_PUBLIC_SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const EXPO_PUBLIC_SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
 function getRequiredEnv(name: 'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_ANON_KEY'): string {
-  const value = process.env[name];
+  const value = name === 'EXPO_PUBLIC_SUPABASE_URL'
+    ? EXPO_PUBLIC_SUPABASE_URL
+    : EXPO_PUBLIC_SUPABASE_ANON_KEY;
   if (!value) {
     throw new Error(`${name} is required. Add it to your Expo env configuration.`);
   }

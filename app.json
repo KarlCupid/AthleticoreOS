@@ -3,7 +3,7 @@
     "name": "AthletiCore OS",
     "slug": "athleticore-os",
     "version": "1.0.0",
-    "description": "AthletiCore OS helps combat-sports athletes manage training, recovery, nutrition, hydration, and weight-cut planning in one guided daily system.",
+    "description": "AthletiCore OS helps combat-sports athletes manage training, recovery, nutrition, hydration, and body-mass and weight-class planning in one guided daily system.",
     "scheme": "athleticore",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

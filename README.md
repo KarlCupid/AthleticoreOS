@@ -1,6 +1,6 @@
 # Athleticore OS
 
-Athleticore OS is an Expo + React Native athlete operating system for combat-sports training. It combines onboarding, planning, readiness, nutrition, hydration, weight-cut workflows, and guided training into one app backed by Supabase and a deterministic engine in `lib/engine`.
+Athleticore OS is an Expo + React Native athlete operating system for combat-sports training. It combines onboarding, planning, readiness, nutrition, hydration, body-mass and weight-class workflows, and guided training into one app backed by Supabase and a deterministic engine in `lib/engine`.
 
 ## Product overview
 
@@ -23,7 +23,7 @@ The main app shell is a five-tab experience:
 - `Today`: dashboard, day detail, logging, and activity history.
 - `Train`: workout discovery, exercise detail, active workouts, guided workouts, and workout summaries.
 - `Plan`: weekly plan, calendar, weekly review, and workout detail.
-- `Fuel`: nutrition, food search, barcode scan, weight-cut home, cut-plan setup, and fight-week protocols.
+- `Fuel`: nutrition, food search, barcode scan, weight-class home, body-mass setup, and fight-week support.
 - `Me`: profile and settings, plus the hidden replay-lab entry path.
 
 ## Theme and design system
