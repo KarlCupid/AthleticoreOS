@@ -20,6 +20,7 @@ import { RadialProgress } from "../components/RadialProgress";
 import { WeightTrendCard } from "../components/WeightTrendCard";
 import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
+  IconAlertTriangle,
   IconBarbell,
   IconCheckCircle,
   IconDroplets,
@@ -127,6 +128,7 @@ export function DashboardScreen() {
   const {
     loading,
     refreshing,
+    error,
     onRefresh,
     checkinDone,
     sessionDone,
@@ -660,6 +662,41 @@ export function DashboardScreen() {
                 </View>
                 <View style={styles.headerSpacer} />
             </View>
+
+            {error ? (
+              <Card
+                style={styles.dashboardLoadErrorCard}
+                variant="outlined"
+                backgroundTone="none"
+              >
+                <View style={styles.dashboardLoadErrorHeader}>
+                  <View style={styles.dashboardLoadErrorIcon}>
+                    <IconAlertTriangle size={18} color={COLORS.error} />
+                  </View>
+                  <View style={styles.dashboardLoadErrorCopy}>
+                    <Text style={styles.dashboardLoadErrorTitle}>
+                      Today's mission couldn't refresh
+                    </Text>
+                    <Text style={styles.dashboardLoadErrorMessage}>
+                      {error.message}
+                    </Text>
+                  </View>
+                </View>
+                <AnimatedPressable
+                  style={[
+                    styles.dashboardLoadErrorButton,
+                    refreshing && styles.dashboardLoadErrorButtonDisabled,
+                  ]}
+                  onPress={handleRefresh}
+                  disabled={refreshing}
+                  testID="dashboard-load-error-retry"
+                >
+                  <Text style={styles.dashboardLoadErrorButtonText}>
+                    Try again
+                  </Text>
+                </AnimatedPressable>
+              </Card>
+            ) : null}
 
             <View style={styles.todayMissionWrap}>
               <TodayMissionPanel

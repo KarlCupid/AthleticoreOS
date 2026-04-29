@@ -64,6 +64,63 @@ export const styles = StyleSheet.create({
   todayMissionWrap: {
     marginTop: SPACING.lg,
   },
+  dashboardLoadErrorCard: {
+    marginTop: SPACING.lg,
+    borderColor: 'rgba(217, 130, 126, 0.48)',
+    backgroundColor: 'rgba(54, 20, 22, 0.68)',
+  },
+  dashboardLoadErrorHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  dashboardLoadErrorIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(217, 130, 126, 0.14)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(217, 130, 126, 0.38)',
+  },
+  dashboardLoadErrorCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dashboardLoadErrorTitle: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontFamily: FONT_FAMILY.black,
+    color: COLORS.text.primary,
+    letterSpacing: 0,
+  },
+  dashboardLoadErrorMessage: {
+    marginTop: 3,
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  dashboardLoadErrorButton: {
+    marginTop: SPACING.md,
+    minHeight: 44,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.text.primary,
+    paddingHorizontal: SPACING.lg,
+  },
+  dashboardLoadErrorButtonDisabled: {
+    opacity: 0.62,
+  },
+  dashboardLoadErrorButtonText: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: FONT_FAMILY.black,
+    color: COLORS.text.inverse,
+    letterSpacing: 0,
+  },
   phaseTransitionWrap: {
     marginTop: SPACING.lg,
   },

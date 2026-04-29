@@ -67,7 +67,23 @@ const EMPTY_NUTRITION: DashboardNutritionTotals = {
   water: 0,
 };
 
+export type DashboardLoadErrorKind =
+  | 'profile'
+  | 'schedule'
+  | 'engine_state'
+  | 'nutrition'
+  | 'weekly_review'
+  | 'network'
+  | 'unknown';
+
+export interface DashboardLoadError {
+  kind: DashboardLoadErrorKind;
+  message: string;
+}
+
 interface DashboardDataState {
+  error: DashboardLoadError | null;
+  nutritionWarning: DashboardLoadError | null;
   acwr: ACWRResult | null;
   biology: BiologyResult | null;
   hydration: HydrationResult | null;
@@ -101,6 +117,8 @@ interface DashboardDataState {
 }
 
 const INITIAL_STATE: DashboardDataState = {
+  error: null,
+  nutritionWarning: null,
   acwr: null,
   biology: null,
   hydration: null,
@@ -146,6 +164,51 @@ function mapUnifiedReadinessToLegacy(band: ReadinessBand) {
   return 'Depleted' as const;
 }
 
+class DashboardLoadFailure extends Error {
+  constructor(
+    readonly kind: DashboardLoadErrorKind,
+    readonly originalError: unknown,
+  ) {
+    super(originalError instanceof Error ? originalError.message : 'Dashboard load failed');
+    this.name = 'DashboardLoadFailure';
+  }
+}
+
+function failDashboardLoad(kind: DashboardLoadErrorKind, error: unknown): never {
+  throw new DashboardLoadFailure(kind, error);
+}
+
+function isNetworkLikeError(error: unknown): boolean {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'object' && error && 'message' in error
+      ? String((error as { message?: unknown }).message ?? '')
+      : String(error ?? '');
+
+  return /network|fetch|timeout|timed out|offline|connection|abort/i.test(message);
+}
+
+function createDashboardLoadError(
+  error: unknown,
+  fallbackKind: DashboardLoadErrorKind = 'unknown',
+): DashboardLoadError {
+  const originalError = error instanceof DashboardLoadFailure
+    ? error.originalError
+    : error;
+  const kind = error instanceof DashboardLoadFailure
+    ? error.kind
+    : isNetworkLikeError(originalError)
+      ? 'network'
+      : fallbackKind;
+
+  return {
+    kind,
+    message: kind === 'nutrition'
+      ? "Nutrition totals couldn't refresh. Fuel targets are still available, but logged intake may be out of date."
+      : "Some data may be out of date. Try again before making training decisions.",
+  };
+}
+
 export function useDashboardData() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -180,11 +243,17 @@ export function useDashboardData() {
           await ensureRollingScheduleFresh(userId, 4);
         } catch (error) {
           logError('useDashboardData.ensureRollingScheduleFresh', error, { userId });
-          throw error;
+          failDashboardLoad('schedule', error);
         }
       }
 
-      const athleteContext = await getAthleteContext(userId);
+      let athleteContext: Awaited<ReturnType<typeof getAthleteContext>>;
+      try {
+        athleteContext = await getAthleteContext(userId);
+      } catch (error) {
+        logError('useDashboardData.getAthleteContext', error, { userId });
+        failDashboardLoad('profile', error);
+      }
       const profile = athleteContext.profile;
 
       let hasActiveFightCamp = false;
@@ -198,9 +267,9 @@ export function useDashboardData() {
       }
 
       const [
-        { data: checkinData },
-        { data: trainingSessions },
-        { data: ledger },
+        checkinResult,
+        trainingSessionsResult,
+        ledgerResult,
         engineState,
         weightHistory,
         weeklyReview,
@@ -223,7 +292,10 @@ export function useDashboardData() {
           .eq('user_id', userId)
           .eq('date', todayStr)
           .maybeSingle(),
-        getDailyEngineState(userId, todayStr, { forceRefresh }),
+        getDailyEngineState(userId, todayStr, { forceRefresh }).catch((error) => {
+          logError('useDashboardData.getDailyEngineState', error, { userId, todayStr });
+          failDashboardLoad('engine_state', error);
+        }),
         getWeightHistory(userId, 30),
         getWeeklyReview(userId, getWeekStart(todayStr)).catch((error) => {
           logError('useDashboardData.getWeeklyReview', error, { userId });
@@ -242,6 +314,32 @@ export function useDashboardData() {
         return;
       }
 
+      if (checkinResult.error) {
+        logError('useDashboardData.dailyCheckin', checkinResult.error, { userId, todayStr });
+        failDashboardLoad(
+          isNetworkLikeError(checkinResult.error) ? 'network' : 'unknown',
+          checkinResult.error,
+        );
+      }
+
+      if (trainingSessionsResult.error) {
+        logError('useDashboardData.trainingSessions', trainingSessionsResult.error, { userId, todayStr });
+        failDashboardLoad(
+          isNetworkLikeError(trainingSessionsResult.error) ? 'network' : 'unknown',
+          trainingSessionsResult.error,
+        );
+      }
+
+      const nutritionWarning = ledgerResult.error
+        ? createDashboardLoadError(new DashboardLoadFailure('nutrition', ledgerResult.error))
+        : null;
+      if (ledgerResult.error) {
+        logError('useDashboardData.macroLedger', ledgerResult.error, { userId, todayStr });
+      }
+
+      const checkinData = checkinResult.data;
+      const trainingSessions = trainingSessionsResult.data;
+      const ledger = ledgerResult.error ? null : ledgerResult.data;
       const checkin = (checkinData as DailyCheckinRow | null) ?? null;
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
       if (recentTrainingResult.error) {
@@ -294,6 +392,8 @@ export function useDashboardData() {
         fat: Math.round(canonicalNutritionNumbers.fatG ?? engineState.mission.fuelDirective.fat),
       };
       setState({
+        error: null,
+        nutritionWarning,
         acwr: engineState.acwr,
         biology,
         hydration: engineState.hydration,
@@ -369,6 +469,7 @@ export function useDashboardData() {
           );
           setState((currentState) => ({
             ...currentState,
+            nutritionWarning: null,
             actualNutrition: actuals,
           }));
         } catch (error) {
@@ -379,6 +480,7 @@ export function useDashboardData() {
           logError('useDashboardData.getDailyNutrition', error, { userId });
           setState((currentState) => ({
             ...currentState,
+            nutritionWarning: createDashboardLoadError(new DashboardLoadFailure('nutrition', error)),
             actualNutrition: EMPTY_NUTRITION,
           }));
         }
@@ -391,6 +493,7 @@ export function useDashboardData() {
       logError('useDashboardData.loadDashboardData', error, { userId });
       setState((currentState) => ({
         ...currentState,
+        error: createDashboardLoadError(error),
         campRisk: null,
       }));
       setLoading(false);
