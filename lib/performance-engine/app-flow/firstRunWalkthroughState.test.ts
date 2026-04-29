@@ -4,6 +4,7 @@ import {
   createFirstRunWalkthroughState,
   dismissFirstRunWalkthrough,
   markFirstRunWalkthroughStepCompleted,
+  pauseFirstRunWalkthrough,
   resolveFirstRunWalkthroughState,
   resumeFirstRunWalkthrough,
   skipFirstRunWalkthroughStep,
@@ -136,10 +137,16 @@ console.log('\n-- first-run walkthrough state --');
   });
   const resumed = resumeFirstRunWalkthrough({ state: skipped, now: NOW });
   const dismissed = dismissFirstRunWalkthrough({ state: skipped, now: NOW });
+  const paused = pauseFirstRunWalkthrough({
+    state: initial,
+    currentStep: 'app_tour',
+    now: NOW,
+  });
 
   assert('skipped walkthrough can be resumed', skipped.canResume && resumed.status === 'in_progress');
   assert('skipped walkthrough can be safely dismissed', dismissed.status === 'dismissed' && !dismissed.canResume);
   assert('skipped step explains safe later guidance', skipped.explanations.some((item) => item.code === 'walkthrough_step_skipped'));
+  assert('paused app tour can be resumed later', paused.status === 'skipped' && paused.currentStep === 'app_tour' && paused.canResume);
 })();
 
 (() => {

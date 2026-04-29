@@ -122,11 +122,11 @@ console.log('\n-- firstRunSignupWalkthrough --');
   );
 
   assert(
-    'first-run walkthrough completion is persisted from onboarding',
+    'first-run walkthrough setup progress is persisted from onboarding',
     intake.includes('persistFirstRunWalkthroughState')
       && intake.includes("appliesTo: 'new_signup'")
       && intake.includes("step: 'today_mission_intro'")
-      && intake.includes('completeFirstRunWalkthrough'),
+      && !intake.includes('completeFirstRunWalkthrough'),
   );
 })();
 

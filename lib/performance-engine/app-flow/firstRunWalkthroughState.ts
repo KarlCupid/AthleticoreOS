@@ -456,6 +456,33 @@ export function resumeFirstRunWalkthrough(input: {
   });
 }
 
+export function pauseFirstRunWalkthrough(input: {
+  state: FirstRunWalkthroughState;
+  currentStep?: FirstRunWalkthroughStep;
+  now?: string;
+}): FirstRunWalkthroughState {
+  const timestamp = nowIso(input.now);
+  const currentStep = input.currentStep
+    ?? input.state.currentStep
+    ?? firstIncompleteStep(input.state.appliesTo, input.state.completedSteps, input.state.skippedSteps);
+
+  return withDerivedFlags({
+    ...input.state,
+    status: currentStep ? 'skipped' : input.state.status,
+    currentStep,
+    startedAt: input.state.startedAt ?? timestamp,
+    lastSeenAt: timestamp,
+    canResume: currentStep !== null,
+    explanations: [
+      ...input.state.explanations,
+      {
+        code: 'walkthrough_paused',
+        message: 'The walkthrough was paused and can resume later without blocking primary app actions.',
+      },
+    ],
+  });
+}
+
 export function completeFirstRunWalkthrough(input: {
   state: FirstRunWalkthroughState;
   now?: string;

@@ -7,6 +7,7 @@ import {
   determineFirstRunWalkthroughAppliesTo,
   dismissFirstRunWalkthrough,
   markFirstRunWalkthroughStepCompleted,
+  pauseFirstRunWalkthrough,
   resolveFirstRunWalkthroughState,
   resumeFirstRunWalkthrough,
   skipFirstRunWalkthroughStep,
@@ -31,6 +32,7 @@ export {
   determineFirstRunWalkthroughAppliesTo,
   dismissFirstRunWalkthrough,
   markFirstRunWalkthroughStepCompleted,
+  pauseFirstRunWalkthrough,
   resolveFirstRunWalkthroughState,
   resumeFirstRunWalkthrough,
   skipFirstRunWalkthroughStep,
@@ -329,6 +331,19 @@ export async function resumeAndPersistFirstRunWalkthrough(input: {
   const state = await ensureFirstRunWalkthroughState({ userId: input.userId });
   return persistFirstRunWalkthroughState(resumeFirstRunWalkthrough({
     state,
+    now: input.now,
+  }));
+}
+
+export async function pauseAndPersistFirstRunWalkthrough(input: {
+  userId: string;
+  currentStep?: FirstRunWalkthroughStep;
+  now?: string;
+}): Promise<FirstRunWalkthroughState> {
+  const state = await ensureFirstRunWalkthroughState({ userId: input.userId });
+  return persistFirstRunWalkthroughState(pauseFirstRunWalkthrough({
+    state,
+    currentStep: input.currentStep,
     now: input.now,
   }));
 }

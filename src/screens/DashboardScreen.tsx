@@ -28,6 +28,10 @@ import {
 import { TodayMissionPanel } from "../components/dashboard/TodayMissionPanel";
 import { GuidedPhaseTransitionCard } from "../components/phases/GuidedPhaseTransitionCard";
 import { UnifiedJourneySummaryCard } from "../components/performance/UnifiedJourneySummaryCard";
+import {
+  FirstSignInAppTourCard,
+  type FirstSignInAppTourStep,
+} from "../components/first-run/FirstSignInAppTourCard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 import type { TodayMissionAction, TodayMissionStatus } from "../../lib/performance-engine";
 
@@ -37,6 +41,13 @@ import {
   markFirstRunGuidanceIntroSeen,
   type FirstRunGuidanceState,
 } from "../../lib/api/firstRunGuidanceService";
+import {
+  completeAndPersistFirstRunWalkthroughStep,
+  ensureFirstRunWalkthroughState,
+  pauseAndPersistFirstRunWalkthrough,
+  resumeAndPersistFirstRunWalkthrough,
+  type FirstRunWalkthroughState,
+} from "../../lib/api/firstRunWalkthroughService";
 import { supabase } from "../../lib/supabase";
 import { todayLocalDate } from "../../lib/utils/date";
 import { logError } from "../../lib/utils/logger";
@@ -54,6 +65,9 @@ export function DashboardScreen() {
   const useCompactReadinessHero = screenWidth < 380;
   const [firstRunGuidance, setFirstRunGuidance] =
     React.useState<FirstRunGuidanceState | null>(null);
+  const [firstRunWalkthrough, setFirstRunWalkthrough] =
+    React.useState<FirstRunWalkthroughState | null>(null);
+  const [appTourIndex, setAppTourIndex] = React.useState(0);
   const [showFirstRunModal, setShowFirstRunModal] = React.useState(false);
 
   const loadFirstRunGuidance = React.useCallback(async () => {
@@ -65,9 +79,23 @@ export function DashboardScreen() {
         return;
       }
 
-      const next = await getAndSyncFirstRunGuidanceState(userId);
+      const [next, walkthrough] = await Promise.all([
+        getAndSyncFirstRunGuidanceState(userId),
+        ensureFirstRunWalkthroughState({
+          userId,
+          source: "auth_sign_in",
+        }).catch((error) => {
+          logError("DashboardScreen.loadFirstRunWalkthrough", error);
+          return null;
+        }),
+      ]);
       setFirstRunGuidance(next);
-      setShowFirstRunModal(next.status === "pending" && !next.introSeenAt);
+      setFirstRunWalkthrough(walkthrough);
+      setShowFirstRunModal(
+        next.status === "pending" &&
+        !next.introSeenAt &&
+        !shouldShowFirstSignInAppTour(walkthrough),
+      );
     } catch (error) {
       logError("DashboardScreen.loadFirstRunGuidance", error);
     }
@@ -320,6 +348,121 @@ export function DashboardScreen() {
     : [];
 
   const shouldShowFirstRunChecklist = firstRunGuidance?.status === "pending";
+  const showFightHubTourStep = Boolean(
+    performanceContext.available ||
+    performanceContext.journey.nextEventLabel ||
+    todayMission.fightOrCompetitionContext,
+  );
+  const appTourSteps = React.useMemo(
+    () => buildFirstSignInAppTourSteps(showFightHubTourStep),
+    [showFightHubTourStep],
+  );
+  const shouldShowAppTour = shouldShowFirstSignInAppTour(firstRunWalkthrough);
+  const appTourPaused = firstRunWalkthrough?.status === "skipped";
+
+  React.useEffect(() => {
+    setAppTourIndex((current) => Math.min(current, Math.max(appTourSteps.length - 1, 0)));
+  }, [appTourSteps.length]);
+
+  const handleAppTourBack = React.useCallback(() => {
+    setAppTourIndex((current) => Math.max(0, current - 1));
+  }, []);
+
+  const completeAppTour = React.useCallback(async () => {
+    setFirstRunWalkthrough((current) => current ? {
+      ...current,
+      status: "completed",
+      currentStep: null,
+      hasSeenAppTour: true,
+      completedSteps: Array.from(new Set([...current.completedSteps, "app_tour"])),
+    } : current);
+
+    try {
+      const userId = await getActiveUserId();
+      if (!userId) return;
+      const next = await completeAndPersistFirstRunWalkthroughStep({
+        userId,
+        step: "app_tour",
+      });
+      setFirstRunWalkthrough(next);
+    } catch (error) {
+      logError("DashboardScreen.completeFirstSignInAppTour", error);
+    }
+  }, []);
+
+  const handleAppTourNext = React.useCallback(() => {
+    if (appTourIndex >= appTourSteps.length - 1) {
+      void completeAppTour();
+      return;
+    }
+    setAppTourIndex((current) => Math.min(appTourSteps.length - 1, current + 1));
+  }, [appTourIndex, appTourSteps.length, completeAppTour]);
+
+  const handleAppTourSkip = React.useCallback(async () => {
+    setFirstRunWalkthrough((current) => current ? {
+      ...current,
+      status: "skipped",
+      currentStep: "app_tour",
+      canResume: true,
+    } : current);
+
+    try {
+      const userId = await getActiveUserId();
+      if (!userId) return;
+      const next = await pauseAndPersistFirstRunWalkthrough({
+        userId,
+        currentStep: "app_tour",
+      });
+      setFirstRunWalkthrough(next);
+    } catch (error) {
+      logError("DashboardScreen.pauseFirstSignInAppTour", error);
+    }
+  }, []);
+
+  const handleAppTourResume = React.useCallback(async () => {
+    setFirstRunWalkthrough((current) => current ? {
+      ...current,
+      status: "in_progress",
+      currentStep: "app_tour",
+      canResume: true,
+    } : current);
+
+    try {
+      const userId = await getActiveUserId();
+      if (!userId) return;
+      const next = await resumeAndPersistFirstRunWalkthrough({ userId });
+      setFirstRunWalkthrough(next);
+    } catch (error) {
+      logError("DashboardScreen.resumeFirstSignInAppTour", error);
+    }
+  }, []);
+
+  const handleOpenAppTourStep = React.useCallback((step: FirstSignInAppTourStep) => {
+    switch (step.id) {
+      case "training":
+        openTrainScreen("WorkoutHome");
+        break;
+      case "fueling":
+        openFuelScreen("NutritionHome");
+        break;
+      case "check_in":
+        navigation.navigate("Log");
+        break;
+      case "journey":
+        navigation.navigate("Plan");
+        break;
+      case "fight_hub":
+        openPlanScreen("WeeklyPlanSetup", {
+          initialGoalMode: "fight_camp",
+          initialPhaseKey: "objective",
+          source: "first_sign_in_tour",
+        });
+        break;
+      case "today_mission":
+      default:
+        break;
+    }
+  }, [navigation, openFuelScreen, openPlanScreen, openTrainScreen]);
 
   if (loading) {
     return (
@@ -444,6 +587,19 @@ export function DashboardScreen() {
                 onAction={handleTodayMissionAction}
               />
             </View>
+
+            {shouldShowAppTour ? (
+              <FirstSignInAppTourCard
+                steps={appTourSteps}
+                currentIndex={appTourIndex}
+                paused={appTourPaused}
+                onBack={handleAppTourBack}
+                onNext={handleAppTourNext}
+                onSkip={handleAppTourSkip}
+                onResume={handleAppTourResume}
+                onOpenStep={handleOpenAppTourStep}
+              />
+            ) : null}
 
             {phaseTransition.available ? (
               <View style={styles.phaseTransitionWrap}>
@@ -705,6 +861,63 @@ function getReadinessProgress(
   if (level === "Caution") return 0.58;
   if (level === "Depleted") return 0.28;
   return 0.18;
+}
+
+function shouldShowFirstSignInAppTour(state: FirstRunWalkthroughState | null): boolean {
+  if (!state) return false;
+  if (state.hasSeenAppTour) return false;
+  if (state.status === "completed" || state.status === "dismissed") return false;
+
+  return state.currentStep === "app_tour" || (
+    state.completedSteps.includes("today_mission_intro") &&
+    !state.completedSteps.includes("app_tour")
+  );
+}
+
+function buildFirstSignInAppTourSteps(includeFightHub: boolean): FirstSignInAppTourStep[] {
+  const steps: FirstSignInAppTourStep[] = [
+    {
+      id: "today_mission",
+      title: "Today's Mission",
+      body: "This is where Athleticore shows what matters today, why it matters, what changed, and what to do next.",
+      actionLabel: "Stay on Today",
+    },
+    {
+      id: "training",
+      title: "Training",
+      body: "Your plan adapts around your phase, readiness, and protected sessions.",
+      actionLabel: "Open Train",
+    },
+    {
+      id: "fueling",
+      title: "Fueling",
+      body: "Fueling targets adjust with your training load and fight timeline.",
+      actionLabel: "Open Fuel",
+    },
+    {
+      id: "check_in",
+      title: "Check-In / Readiness",
+      body: "A quick check-in helps Athleticore know when to push, trim, or protect recovery.",
+      actionLabel: "Log check-in",
+    },
+    {
+      id: "journey",
+      title: "Journey",
+      body: "Your phases, fights, recovery, and progress stay connected. You're not starting over each time the plan changes.",
+      actionLabel: "Open Plan",
+    },
+  ];
+
+  if (includeFightHub) {
+    steps.push({
+      id: "fight_hub",
+      title: "Fight / Competition Hub",
+      body: "Add tentative or confirmed fights here. Athleticore will adjust the journey around the time available.",
+      actionLabel: "Update fight details",
+    });
+  }
+
+  return steps;
 }
 
 function getReadinessColor(level: string | null): string {

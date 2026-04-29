@@ -5,7 +5,6 @@ import { setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { setupFightCamp } from '../../../lib/api/fightCampService';
 import { invalidateEngineDataCache } from '../../../lib/api/dailyPerformanceService';
 import {
-  completeFirstRunWalkthrough,
   createFirstRunWalkthroughState,
   markFirstRunWalkthroughStepCompleted,
   persistFirstRunWalkthroughState,
@@ -224,8 +223,7 @@ function buildCompletedWalkthroughState(input: {
     ? markFirstRunWalkthroughStepCompleted({ state, step: 'readiness_baseline', now: capturedAt })
     : skipFirstRunWalkthroughStep({ state, step: 'readiness_baseline', now: capturedAt });
 
-  state = markFirstRunWalkthroughStepCompleted({ state, step: 'today_mission_intro', now: capturedAt });
-  return completeFirstRunWalkthrough({ state, now: capturedAt });
+  return markFirstRunWalkthroughStepCompleted({ state, step: 'today_mission_intro', now: capturedAt });
 }
 
 export async function completeCoachIntake(input: CoachIntakeInput): Promise<CoachIntakeResult> {
