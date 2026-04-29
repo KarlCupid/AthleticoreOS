@@ -32,8 +32,13 @@ import {
   FirstSignInAppTourCard,
   type FirstSignInAppTourStep,
 } from "../components/first-run/FirstSignInAppTourCard";
+import { ExistingUserOverhaulIntroCard } from "../components/first-run/ExistingUserOverhaulIntroCard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
-import type { TodayMissionAction, TodayMissionStatus } from "../../lib/performance-engine";
+import type {
+  TodayMissionAction,
+  TodayMissionStatus,
+  UnifiedPerformanceViewModel,
+} from "../../lib/performance-engine";
 
 import { getActiveUserId } from "../../lib/api/athleteContextService";
 import {
@@ -43,6 +48,7 @@ import {
 } from "../../lib/api/firstRunGuidanceService";
 import {
   completeAndPersistFirstRunWalkthroughStep,
+  dismissAndPersistFirstRunWalkthrough,
   ensureFirstRunWalkthroughState,
   pauseAndPersistFirstRunWalkthrough,
   resumeAndPersistFirstRunWalkthrough,
@@ -94,6 +100,7 @@ export function DashboardScreen() {
       setShowFirstRunModal(
         next.status === "pending" &&
         !next.introSeenAt &&
+        !shouldShowExistingUserOverhaulIntro(walkthrough) &&
         !shouldShowFirstSignInAppTour(walkthrough),
       );
     } catch (error) {
@@ -353,12 +360,85 @@ export function DashboardScreen() {
     performanceContext.journey.nextEventLabel ||
     todayMission.fightOrCompetitionContext,
   );
+  const existingUserMissingDataPrompts = React.useMemo(
+    () => buildExistingUserMissingDataPrompts(performanceContext),
+    [performanceContext],
+  );
   const appTourSteps = React.useMemo(
     () => buildFirstSignInAppTourSteps(showFightHubTourStep),
     [showFightHubTourStep],
   );
-  const shouldShowAppTour = shouldShowFirstSignInAppTour(firstRunWalkthrough);
+  const shouldShowExistingUserIntro = shouldShowExistingUserOverhaulIntro(firstRunWalkthrough);
+  const shouldShowAppTour = !shouldShowExistingUserIntro && shouldShowFirstSignInAppTour(firstRunWalkthrough);
   const appTourPaused = firstRunWalkthrough?.status === "skipped";
+
+  const completeExistingUserIntro = React.useCallback(async () => {
+    setFirstRunWalkthrough((current) => current ? {
+      ...current,
+      status: "in_progress",
+      currentStep: "app_tour",
+      hasSeenTodayMissionIntro: true,
+      completedSteps: Array.from(new Set([...current.completedSteps, "today_mission_intro"])),
+    } : current);
+
+    try {
+      const userId = await getActiveUserId();
+      if (!userId) return;
+      const next = await completeAndPersistFirstRunWalkthroughStep({
+        userId,
+        step: "today_mission_intro",
+      });
+      setFirstRunWalkthrough(next);
+    } catch (error) {
+      logError("DashboardScreen.completeExistingUserOverhaulIntro", error);
+    }
+  }, []);
+
+  const dismissExistingUserIntro = React.useCallback(async () => {
+    setFirstRunWalkthrough((current) => current ? {
+      ...current,
+      status: "dismissed",
+      currentStep: null,
+      canResume: false,
+    } : current);
+
+    try {
+      const userId = await getActiveUserId();
+      if (!userId) return;
+      const next = await dismissAndPersistFirstRunWalkthrough({ userId });
+      setFirstRunWalkthrough(next);
+    } catch (error) {
+      logError("DashboardScreen.dismissExistingUserOverhaulIntro", error);
+    }
+  }, []);
+
+  const reviewExistingUserMissingContext = React.useCallback(() => {
+    const joinedPrompts = existingUserMissingDataPrompts.join(" ").toLowerCase();
+
+    if (joinedPrompts.includes("check-in")) {
+      navigation.navigate("Log");
+      return;
+    }
+
+    if (joinedPrompts.includes("body-mass") || joinedPrompts.includes("weight-class")) {
+      openFuelScreen("WeightClassHome");
+      return;
+    }
+
+    openPlanScreen("WeeklyPlanSetup", {
+      initialGoalMode: performanceContext.phase.current === "camp" || performanceContext.phase.current === "competition_week"
+        ? "fight_camp"
+        : "build_phase",
+      initialPhaseKey: joinedPrompts.includes("fight") ? "fight" : "objective",
+      source: "existing_user_overhaul_intro",
+    });
+  }, [
+    existingUserMissingDataPrompts,
+    navigation,
+    openFuelScreen,
+    openPlanScreen,
+    performanceContext.phase.current,
+  ]);
 
   React.useEffect(() => {
     setAppTourIndex((current) => Math.min(current, Math.max(appTourSteps.length - 1, 0)));
@@ -587,6 +667,15 @@ export function DashboardScreen() {
                 onAction={handleTodayMissionAction}
               />
             </View>
+
+            {shouldShowExistingUserIntro ? (
+              <ExistingUserOverhaulIntroCard
+                missingDataPrompts={existingUserMissingDataPrompts}
+                onContinue={completeExistingUserIntro}
+                onDismiss={dismissExistingUserIntro}
+                onReviewMissingData={reviewExistingUserMissingContext}
+              />
+            ) : null}
 
             {shouldShowAppTour ? (
               <FirstSignInAppTourCard
@@ -872,6 +961,62 @@ function shouldShowFirstSignInAppTour(state: FirstRunWalkthroughState | null): b
     state.completedSteps.includes("today_mission_intro") &&
     !state.completedSteps.includes("app_tour")
   );
+}
+
+function shouldShowExistingUserOverhaulIntro(state: FirstRunWalkthroughState | null): boolean {
+  if (!state) return false;
+  if (state.appliesTo !== "existing_user_overhaul_intro") return false;
+  if (state.hasSeenTodayMissionIntro) return false;
+  if (state.status === "completed" || state.status === "dismissed") return false;
+
+  return state.currentStep === "today_mission_intro"
+    || state.status === "not_started"
+    || state.status === "needs_update";
+}
+
+function buildExistingUserMissingDataPrompts(
+  performanceContext: UnifiedPerformanceViewModel,
+): string[] {
+  const prompts: string[] = [];
+
+  if (!performanceContext.available) {
+    prompts.push("Review planning context so Today's Mission does not have to guess.");
+  }
+
+  if (
+    performanceContext.readiness.band === "unknown"
+    || performanceContext.readiness.missingDataLabels.length > 0
+  ) {
+    prompts.push("Log today's check-in so readiness can guide the next call.");
+  }
+
+  if (performanceContext.protectedAnchors.length === 0) {
+    prompts.push("Add protected workouts if sparring, classes, or coach-led sessions should stay anchored.");
+  }
+
+  if (
+    !performanceContext.bodyMass
+    && (
+      Boolean(performanceContext.journey.nextEventLabel)
+      || performanceContext.phase.current === "camp"
+      || performanceContext.phase.current === "competition_week"
+      || performanceContext.focus.bodyMass != null
+    )
+  ) {
+    prompts.push("Add body-mass or weight-class context when it matters. Missing data stays unknown, not zero.");
+  }
+
+  if (
+    !performanceContext.journey.nextEventLabel
+    && (
+      performanceContext.phase.current === "camp"
+      || performanceContext.phase.current === "competition_week"
+    )
+  ) {
+    prompts.push("Add tentative or confirmed fight details if this phase is tied to an opportunity.");
+  }
+
+  return prompts.slice(0, 3);
 }
 
 function buildFirstSignInAppTourSteps(includeFightHub: boolean): FirstSignInAppTourStep[] {
