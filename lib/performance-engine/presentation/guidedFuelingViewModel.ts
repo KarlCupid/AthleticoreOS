@@ -149,7 +149,7 @@ export function buildGuidedFuelingViewModel(
       estimatedCount: options.foodLogEstimatedCount ?? null,
     }),
     bodyMassContext: buildBodyMassContext(target, weightClassPlan),
-    riskHighlights: risks.map(riskCopy).slice(0, 3),
+    riskHighlights: unique(risks.map(riskCopy)).slice(0, 3),
     detailLines: buildDetailLines(target, directives),
   };
 }

@@ -280,8 +280,8 @@ export function NutritionScreen() {
           ) : null}
           {guided.riskHighlights.length > 0 ? (
             <View style={inline.warningBanner}>
-              {guided.riskHighlights.map((risk) => (
-                <Text key={risk} style={inline.warningText}>
+              {guided.riskHighlights.map((risk, index) => (
+                <Text key={`${risk}-${index}`} style={inline.warningText}>
                   {risk}
                 </Text>
               ))}
@@ -300,8 +300,8 @@ export function NutritionScreen() {
         backgroundScrimColor="rgba(10, 10, 10, 0.70)"
       >
         <Text style={inline.sectionEyebrow}>Session fueling</Text>
-        {viewModel.guidedFueling.sessionGuidance.map((line) => (
-          <Text key={line} style={inline.noteLine}>
+        {viewModel.guidedFueling.sessionGuidance.map((line, index) => (
+          <Text key={`${line}-${index}`} style={inline.noteLine}>
             {humanizeCoachSentence(line)}
           </Text>
         ))}
@@ -393,8 +393,8 @@ export function NutritionScreen() {
           backgroundScrimColor="rgba(10, 10, 10, 0.68)"
         >
           <Text style={inline.sectionEyebrow}>Details</Text>
-          {viewModel.guidedFueling.detailLines.map((line) => (
-            <Text key={line} style={inline.noteLine}>
+          {viewModel.guidedFueling.detailLines.map((line, index) => (
+            <Text key={`${line}-${index}`} style={inline.noteLine}>
               {humanizeCoachSentence(line)}
             </Text>
           ))}
@@ -419,8 +419,8 @@ export function NutritionScreen() {
             <Text style={inline.cardHeadline}>{quickVM.fuelDirectiveHeadline}</Text>
             {[quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
               .filter(Boolean)
-              .map((cue) => (
-                <Text key={cue} style={inline.noteLine} numberOfLines={1}>
+              .map((cue, index) => (
+                <Text key={`${cue}-${index}`} style={inline.noteLine} numberOfLines={1}>
                   {humanizeCoachSentence(cue)}
                 </Text>
               ))}

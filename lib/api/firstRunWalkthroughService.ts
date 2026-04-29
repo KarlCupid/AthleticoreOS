@@ -84,6 +84,42 @@ interface AthleteProfileWalkthroughRow {
   base_weight?: number | null;
 }
 
+function isMissingWalkthroughStateTableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybe = error as { code?: string; message?: string };
+  const message = typeof maybe.message === 'string' ? maybe.message : '';
+
+  return (
+    maybe.code === 'PGRST205'
+    || maybe.code === '42P01'
+    || (
+      message.includes('user_walkthrough_state')
+      && (
+        message.includes('schema cache')
+        || message.includes('Could not find the table')
+        || message.includes('does not exist')
+      )
+    )
+  );
+}
+
+function unresolvedPersistenceFallback(state: FirstRunWalkthroughState): FirstRunWalkthroughState {
+  return {
+    ...state,
+    status: 'dismissed',
+    currentStep: null,
+    canResume: false,
+    source: state.source ?? 'app_entry',
+    explanations: [
+      ...state.explanations,
+      {
+        code: 'walkthrough_persistence_unavailable',
+        message: 'Versioned walkthrough persistence is unavailable, so the walkthrough is skipped without changing athlete data.',
+      },
+    ],
+  };
+}
+
 function isWalkthroughStatus(value: string): value is FirstRunWalkthroughStatus {
   return ['not_started', 'in_progress', 'completed', 'skipped', 'dismissed', 'needs_update'].includes(value);
 }
@@ -193,7 +229,10 @@ export async function getPersistedFirstRunWalkthroughState(userId: string): Prom
     .eq('walkthrough_key', FIRST_RUN_WALKTHROUGH_KEY)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingWalkthroughStateTableError(error)) return null;
+    throw error;
+  }
   return data ? deserializeFirstRunWalkthroughState(data as WalkthroughStateRow) : null;
 }
 
@@ -206,7 +245,12 @@ export async function persistFirstRunWalkthroughState(state: FirstRunWalkthrough
     .select('*')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingWalkthroughStateTableError(error)) {
+      return unresolvedPersistenceFallback(state);
+    }
+    throw error;
+  }
   return deserializeFirstRunWalkthroughState(data as WalkthroughStateRow);
 }
 
