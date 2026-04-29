@@ -25,6 +25,10 @@ function assert(label: string, condition: boolean): void {
   }
 }
 
+function allText(value: unknown): string {
+  return JSON.stringify(value).toLowerCase();
+}
+
 const ATHLETE_ID = 'athlete-phase-10';
 const DATE = '2026-05-06';
 const WEEK_START = '2026-05-04';
@@ -158,6 +162,7 @@ const fight = createFightOpportunity({
 const fightVm = buildUnifiedPerformanceViewModel(run({ fight }));
 assert('fight opportunity updates journey context', fightVm.journey.nextEventLabel?.toLowerCase().includes('short notice fight') === true);
 assert('phase transition context is shown', fightVm.journey.whatChangedLabel != null || fightVm.phase.changeSummary != null);
+assert('phase transition copy avoids robotic labels', !allText(fightVm).includes('phase transitioned') && !allText(fightVm).includes('transition executed'));
 
 const unsafeVm = buildUnifiedPerformanceViewModel(run({ fight, targetWeightLbs: 150 }));
 assert('body-mass screen receives feasibility and risk', unsafeVm.bodyMass?.feasibilityLabel === 'Unsafe' || unsafeVm.bodyMass?.riskLabel === 'Critical');

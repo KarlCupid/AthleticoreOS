@@ -6,6 +6,7 @@ import type {
   MeasurementRange,
   NutritionTarget,
   PerformanceState,
+  PhaseTransition,
   ProtectedWorkoutAnchor,
   ReadinessState,
   RiskFlag,
@@ -234,11 +235,12 @@ export function nutritionNumbersFromUnifiedTarget(
 function buildPhaseViewModel(performanceState: PerformanceState): UnifiedPerformanceViewModel['phase'] {
   const phase = performanceState.phase;
   const latestTransition = phase.transitionHistory[phase.transitionHistory.length - 1] ?? null;
-  const reason = phase.explanation?.summary
-    ?? latestTransition?.explanation?.summary
+  const reason = latestTransition
+    ? phaseReasonSummary(latestTransition)
+    : phase.explanation?.summary
     ?? humanize(phase.transitionReason);
   const changeSummary = latestTransition
-    ? `${humanize(latestTransition.from)} to ${humanize(latestTransition.to)}: ${latestTransition.explanation?.summary ?? humanize(latestTransition.reason)}`
+    ? phaseChangeSummary(latestTransition)
     : phase.previous
       ? `${humanize(phase.previous)} to ${humanize(phase.current)}`
       : null;
@@ -271,7 +273,7 @@ function buildJourneyViewModel(result: UnifiedPerformanceEngineResult): UnifiedP
     continuityLabel: 'Journey context is preserved across onboarding, phase transitions, fights, training, nutrition, readiness, and body-mass updates.',
     nextEventLabel,
     nextEventDateLabel,
-    whatChangedLabel: performanceState.phase.transitionHistory[performanceState.phase.transitionHistory.length - 1]?.explanation?.summary
+    whatChangedLabel: latestJourneyTransitionSummary(performanceState)
       ?? performanceState.phase.explanation?.summary
       ?? null,
   };
@@ -421,13 +423,56 @@ function toRiskViewModel(flag: RiskFlag): UnifiedPerformanceRiskViewModel {
 }
 
 function toExplanationViewModel(explanation: Explanation): UnifiedExplanationViewModel {
+  const isPhaseTransition = explanation.kind === 'phase_transition';
   return {
-    id: explanation.id ?? `${explanation.kind}:${explanation.summary}`,
+    id: explanation.id ?? (isPhaseTransition ? 'phase_transition:guided' : `${explanation.kind}:${explanation.summary}`),
     kind: explanation.kind,
-    summary: explanation.summary,
+    summary: isPhaseTransition
+      ? 'Athleticore changed the phase while keeping the athlete journey context attached.'
+      : explanation.summary,
     reasons: explanation.reasons,
     impact: explanation.impact,
   };
+}
+
+function latestJourneyTransitionSummary(performanceState: PerformanceState): string | null {
+  const latestTransition = performanceState.phase.transitionHistory[performanceState.phase.transitionHistory.length - 1] ?? null;
+  return latestTransition ? phaseChangeSummary(latestTransition) : null;
+}
+
+function phaseChangeSummary(transition: PhaseTransition): string {
+  if (transition.to === 'camp') {
+    return `You're moving from ${humanize(transition.from)} into Camp while Athleticore keeps recent training, readiness, body-mass context, and protected workouts attached.`;
+  }
+  if (transition.to === 'short_notice_camp') {
+    return 'A short-notice fight changed the phase. Athleticore is tightening the plan around the time available while protecting key sport work.';
+  }
+  if (transition.to === 'competition_week') {
+    return 'Competition week is active, so Athleticore is protecting freshness, keeping work specific, and avoiding unnecessary hard work.';
+  }
+  if (transition.to === 'recovery') {
+    return 'Recovery is part of the journey. Athleticore is reducing load so the previous block can settle.';
+  }
+  if (transition.reason === 'fight_canceled') {
+    return `The fight context changed, so Athleticore is moving toward ${humanize(transition.to)} while keeping the work already logged.`;
+  }
+  return `Athleticore moved from ${humanize(transition.from)} into ${humanize(transition.to)} while preserving the context behind the plan.`;
+}
+
+function phaseReasonSummary(transition: PhaseTransition): string {
+  if (transition.reason === 'fight_confirmed') {
+    return 'The fight is confirmed, so the plan is moving into camp without losing the build work behind it.';
+  }
+  if (transition.reason === 'short_notice_fight' || transition.to === 'short_notice_camp') {
+    return 'The fight timeline tightened, so Athleticore is prioritizing the work that carries over to fight readiness.';
+  }
+  if (transition.reason === 'competition_week_started' || transition.to === 'competition_week') {
+    return 'The fight is close, so freshness, specific training, and fueling need to lead.';
+  }
+  if (transition.reason === 'recovery_started' || transition.to === 'recovery') {
+    return 'Recovery follows the last phase so the athlete can absorb the work and return ready for the next block.';
+  }
+  return phaseChangeSummary(transition);
 }
 
 function trainingBlockLabel(block: TrainingBlock, fallbackGoal: string | null | undefined): string {

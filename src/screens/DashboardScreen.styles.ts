@@ -71,6 +71,9 @@ export const styles = StyleSheet.create({
   todayMissionWrap: {
     marginTop: SPACING.lg,
   },
+  phaseTransitionWrap: {
+    marginTop: SPACING.lg,
+  },
   readinessHeroWrap: {
     marginTop: SPACING.lg,
   },

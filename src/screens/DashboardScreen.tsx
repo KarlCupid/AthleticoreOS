@@ -27,6 +27,7 @@ import {
   IconCalendar,
 } from "../components/icons";
 import { TodayMissionPanel } from "../components/dashboard/TodayMissionPanel";
+import { GuidedPhaseTransitionCard } from "../components/phases/GuidedPhaseTransitionCard";
 import { UnifiedJourneySummaryCard } from "../components/performance/UnifiedJourneySummaryCard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 import type { TodayMissionAction, TodayMissionStatus } from "../../lib/performance-engine";
@@ -104,6 +105,7 @@ export function DashboardScreen() {
     weightHistory,
     performanceContext,
     todayMission,
+    phaseTransition,
   } = useDashboardData();
   const hasLivePlanningState = Boolean(todayPlanEntry) || todayActivities.length > 0;
   const D = 50;
@@ -437,6 +439,15 @@ export function DashboardScreen() {
                 onAction={handleTodayMissionAction}
               />
             </View>
+
+            {phaseTransition.available ? (
+              <View style={styles.phaseTransitionWrap}>
+                <GuidedPhaseTransitionCard
+                  transition={phaseTransition}
+                  onContinue={openPlanningSurface}
+                />
+              </View>
+            ) : null}
 
             <View style={styles.readinessHeroWrap}>
               <Card

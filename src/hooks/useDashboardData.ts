@@ -31,9 +31,11 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
 import {
+  buildGuidedPhaseTransitionViewModel,
   buildTodaysMissionViewModel,
   buildUnifiedPerformanceViewModel,
   nutritionNumbersFromUnifiedTarget,
+  type GuidedPhaseTransitionViewModel,
   type ReadinessBand,
   type TodayMissionViewModel,
   type UnifiedPerformanceViewModel,
@@ -95,6 +97,7 @@ interface DashboardDataState {
   hasActiveWeightClassPlan: boolean;
   performanceContext: UnifiedPerformanceViewModel;
   todayMission: TodayMissionViewModel;
+  phaseTransition: GuidedPhaseTransitionViewModel;
 }
 
 const INITIAL_STATE: DashboardDataState = {
@@ -127,6 +130,7 @@ const INITIAL_STATE: DashboardDataState = {
   hasActiveWeightClassPlan: false,
   performanceContext: buildUnifiedPerformanceViewModel(null),
   todayMission: buildTodaysMissionViewModel(null),
+  phaseTransition: buildGuidedPhaseTransitionViewModel(null),
 };
 
 function getWeekStart(dateStr: string): string {
@@ -273,6 +277,7 @@ export function useDashboardData() {
         ),
         weeklyPlanAvailable: Boolean(engineState.primaryEnginePlanEntry || (engineState.scheduledActivities ?? []).length > 0),
       });
+      const phaseTransition = buildGuidedPhaseTransitionViewModel(engineState.unifiedPerformance);
       const canonicalNutritionNumbers = nutritionNumbersFromUnifiedTarget(
         engineState.unifiedPerformance?.canonicalOutputs.nutritionTarget,
       );
@@ -320,6 +325,7 @@ export function useDashboardData() {
         hasActiveWeightClassPlan: Boolean(profile?.active_weight_class_plan_id),
         performanceContext,
         todayMission,
+        phaseTransition,
       });
       setLoading(false);
       setRefreshing(false);
