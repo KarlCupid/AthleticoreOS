@@ -229,6 +229,11 @@ function buildDailyBodyMassState(input: {
   };
 }
 
+function acwrRatioForUnifiedEngine(acwr: ACWRResult | null): number | null {
+  const ratio = acwr?.ratio;
+  return typeof ratio === 'number' && Number.isFinite(ratio) ? ratio : null;
+}
+
 interface DailyReadinessCheckinRow {
   date: string;
   sleep_quality?: number | null;
@@ -412,7 +417,7 @@ function resolveUnifiedDailyPerformance(input: {
       todayCheckin: input.todayCheckin,
     }),
     protectedAnchors: protectedAnchorsFromScheduledActivities(input.scheduledActivities),
-    acuteChronicWorkloadRatio: input.acwr?.ratio ?? null,
+    acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr),
     weightClass: hasWeightClassContext
       ? {
         competitionId: input.objectiveContext.camp?.id ?? profile.active_weight_class_plan_id ?? null,

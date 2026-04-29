@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
   DailyAthleteSummary,
   WeeklyPlanEntryRow,
@@ -74,8 +76,22 @@ function createDependencies(input: {
   };
 }
 
+function read(filePath: string): string {
+  return fs.readFileSync(path.join(process.cwd(), filePath), 'utf8');
+}
+
 async function run() {
   console.log('\n-- dailyPerformanceService weekly athlete summary --');
+
+  {
+    const dailyService = read('lib/api/dailyPerformanceService.ts');
+
+    assert('daily UPE handoff maps ACWRResult ratio through finite mapper', dailyService.includes('function acwrRatioForUnifiedEngine(acwr: ACWRResult | null): number | null')
+      && dailyService.includes('const ratio = acwr?.ratio')
+      && dailyService.includes('Number.isFinite(ratio)'));
+    assert('daily UPE handoff passes mapped ACWR ratio instead of a hard-coded null', dailyService.includes('acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr)')
+      && !dailyService.includes('acuteChronicWorkloadRatio: null'));
+  }
 
   {
     const mondaySummary = makeSummary('monday', '2026-04-20');

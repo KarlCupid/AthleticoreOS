@@ -413,6 +413,7 @@ console.log('\n-- unified performance engine --');
 
   assert('load spike prevents green readiness', result.canonicalOutputs.readiness.readinessBand !== 'green');
   assert('load spike creates workload risk', result.riskFlags.some((flag) => flag.code === 'excessive_training_load' && flag.evidence.some((item) => item.metric === 'acwr' && item.value === 1.62)));
+  assert('load spike prevents ready final plan', result.finalPlanStatus !== 'ready');
   assert('load spike softens training adjustment', trainingAdjustment.replaceWithMobility || (trainingAdjustment.intensityCap ?? 10) <= 5 || (trainingAdjustment.volumeMultiplier ?? 1) < 1);
   assert('load spike avoids adding extra hard generated training', generatedHard.length === 0);
 })();
