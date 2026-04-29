@@ -387,7 +387,11 @@ console.log('\n-- unified performance engine --');
 })();
 
 (() => {
-  const highWorkloadCampScenario = {
+  const highWorkloadCampScenario: {
+    phase: AthleticorePhase;
+    anchors: ProtectedAnchorInput[];
+    trackingEntries: TrackingEntry[];
+  } = {
     phase: 'camp',
     anchors: [
       anchor({
@@ -406,7 +410,7 @@ console.log('\n-- unified performance engine --');
       entry({ id: 'stress-moderate', type: 'stress', value: 3 }),
       entry({ id: 'nutrition-ok', type: 'nutrition_adherence', value: 72, unit: 'percent' }),
     ],
-  } as const;
+  };
   const result = run({
     ...highWorkloadCampScenario,
     acuteChronicWorkloadRatio: 1.62,
