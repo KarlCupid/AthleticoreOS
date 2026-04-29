@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
-import { generateRollingSchedule, getWeeklyReview } from '../../lib/api/scheduleService';
+import { ensureRollingScheduleFresh, getWeeklyReview } from '../../lib/api/scheduleService';
 import {
   getAthleteContext,
   getActiveUserId,
@@ -176,7 +176,12 @@ export function useDashboardData() {
 
     try {
       if (forceRefresh || firstDashboardLoadRef.current) {
-        await generateRollingSchedule(userId, 4);
+        try {
+          await ensureRollingScheduleFresh(userId, 4);
+        } catch (error) {
+          logError('useDashboardData.ensureRollingScheduleFresh', error, { userId });
+          throw error;
+        }
       }
 
       const athleteContext = await getAthleteContext(userId);

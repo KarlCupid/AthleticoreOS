@@ -37,7 +37,7 @@ assert('Dashboard hook exposes Today Mission in state', dashboardData.includes('
 assert('Dashboard hook does not reference legacy daily mission snapshot', !/daily_mission_snapshot|dailyPerformanceSnapshot|daily_performance_summary_snapshot/.test(dashboardData));
 assert('Dashboard hook waits for rolling schedule before daily engine on initial load or refresh', dashboardData.includes('firstDashboardLoadRef')
   && dashboardData.includes('if (forceRefresh || firstDashboardLoadRef.current)')
-  && dashboardData.indexOf('await generateRollingSchedule(userId, 4)') < dashboardData.indexOf('getDailyEngineState(userId, todayStr, { forceRefresh })'));
+  && dashboardData.indexOf('await ensureRollingScheduleFresh(userId, 4)') < dashboardData.indexOf('getDailyEngineState(userId, todayStr, { forceRefresh })'));
 assert('Dashboard hook does not fire-and-forget rolling schedule generation', !dashboardData.includes('void generateRollingSchedule'));
 
 const requiredMissionFields = [

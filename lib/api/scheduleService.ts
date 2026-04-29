@@ -95,6 +95,68 @@ type RecurringActivityInput = {
     constraint_tier?: 'mandatory' | 'preferred';
 };
 
+function getRollingScheduleWindow(weeksAhead: number): { startDateStr: string; endDateStr: string } {
+    const startDateStr = today();
+    return {
+        startDateStr,
+        endDateStr: addDays(startDateStr, weeksAhead * 7),
+    };
+}
+
+function getRecurringActivityScheduleDates(
+    tmpl: RecurringActivityRow,
+    startDateStr: string,
+    endDateStr: string,
+): string[] {
+    const dates: string[] = [];
+    const currentDate = new Date(`${startDateStr}T00:00:00`);
+    const maxDate = new Date(`${endDateStr}T00:00:00`);
+
+    while (currentDate <= maxDate) {
+        const dateStr = formatLocalDate(currentDate);
+        const dayOfWeek = currentDate.getDay();
+        const dateOfMonth = currentDate.getDate();
+
+        if (tmpl.recurrence.frequency === 'daily') {
+            dates.push(dateStr);
+        }
+
+        if (
+            tmpl.recurrence.frequency === 'weekly'
+            && (tmpl.recurrence.days_of_week || []).includes(dayOfWeek)
+        ) {
+            dates.push(dateStr);
+        }
+
+        if (
+            tmpl.recurrence.frequency === 'monthly'
+            && tmpl.recurrence.day_of_month === dateOfMonth
+        ) {
+            dates.push(dateStr);
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return dates;
+}
+
+function getExpectedRecurringScheduleKeys(
+    templates: RecurringActivityRow[],
+    startDateStr: string,
+    endDateStr: string,
+): Set<string> {
+    const keys = new Set<string>();
+
+    for (const tmpl of templates) {
+        for (const dateStr of getRecurringActivityScheduleDates(tmpl, startDateStr, endDateStr)) {
+            keys.add(`${dateStr}|${tmpl.id}`);
+        }
+    }
+
+    return keys;
+}
+
 async function insertScheduledActivities(
     rows: Record<string, unknown>[],
 ): Promise<ScheduledActivityRow[]> {
@@ -267,14 +329,7 @@ export async function generateRollingSchedule(
     const templates = await getRecurringActivities(userId);
     if (templates.length === 0) return [];
 
-    const now = new Date();
-    // Start generating from today
-    const startDateStr = today();
-
-    // End date is weeksAhead weeks from today
-    const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + (weeksAhead * 7));
-    const endDateStr = formatLocalDate(endDate);
+    const { startDateStr, endDateStr } = getRollingScheduleWindow(weeksAhead);
 
     const rowsToInsert: any[] = [];
 
@@ -319,13 +374,15 @@ export async function generateRollingSchedule(
     if (rowsToInsert.length === 0) return [];
 
     // Fetch existing up to endDate to avoid duplicate generation
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
         .from('scheduled_activities')
         .select('date, recurring_activity_id')
         .eq('user_id', userId)
         .gte('date', startDateStr)
         .lte('date', endDateStr)
         .not('recurring_activity_id', 'is', null);
+
+    if (existingError) throw existingError;
 
     const existingSet = new Set(
         (existing ?? []).map((e: any) => `${e.date}|${e.recurring_activity_id}`),
@@ -338,6 +395,39 @@ export async function generateRollingSchedule(
     if (newRows.length === 0) return [];
 
     return insertScheduledActivities(newRows);
+}
+
+export async function ensureRollingScheduleFresh(
+    userId: string,
+    weeksAhead: number = 4,
+): Promise<ScheduledActivityRow[]> {
+    const templates = await getRecurringActivities(userId);
+    if (templates.length === 0) return [];
+
+    const { startDateStr, endDateStr } = getRollingScheduleWindow(weeksAhead);
+    const expectedKeys = getExpectedRecurringScheduleKeys(templates, startDateStr, endDateStr);
+    if (expectedKeys.size === 0) return [];
+
+    const { data: existing, error } = await supabase
+        .from('scheduled_activities')
+        .select('date, recurring_activity_id')
+        .eq('user_id', userId)
+        .gte('date', startDateStr)
+        .lte('date', endDateStr)
+        .not('recurring_activity_id', 'is', null);
+
+    if (error) throw error;
+
+    const existingKeys = new Set(
+        ((existing ?? []) as Array<{ date: string; recurring_activity_id: string | null }>).
+            filter((row) => Boolean(row.recurring_activity_id)).
+            map((row) => `${row.date}|${row.recurring_activity_id}`),
+    );
+    const hasMissingEntry = Array.from(expectedKeys).some((key) => !existingKeys.has(key));
+
+    if (!hasMissingEntry) return [];
+
+    return generateRollingSchedule(userId, weeksAhead);
 }
 
 function createScheduledObj(tmpl: RecurringActivityRow, dateStr: string) {
