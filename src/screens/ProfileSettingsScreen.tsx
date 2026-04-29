@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   InteractionManager,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -456,19 +458,25 @@ export function ProfileSettingsScreen() {
 
   return (
     <ScreenWrapper>
-      <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
-        <ScreenHeader
-          kicker="Me"
-          title="Profile & settings"
-          subtitle="Profile, setup, account."
-        />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadSnapshot('refresh')} tintColor={themeColor} />}
+      <KeyboardAvoidingView
+        style={styles.keyboardRoot}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
+          <ScreenHeader
+            kicker="Me"
+            title="Profile & settings"
+            subtitle="Profile, setup, account."
+          />
+        </View>
+
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.xxxl }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadSnapshot('refresh')} tintColor={themeColor} />}
+        >
         <Animated.View entering={FadeInDown.delay(40).duration(ANIMATION.normal).springify()}>
           <Card
             variant="glass"
@@ -788,7 +796,8 @@ export function ProfileSettingsScreen() {
           <Text style={styles.version}>v1.0.0</Text>
         </AnimatedPressable>
         <View style={{ height: SPACING.xxl }} />
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {__DEV__ ? <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} /> : null}
     </ScreenWrapper>
@@ -865,7 +874,7 @@ function EditableRow(props: {
           <TouchableOpacity onPress={onSave} style={styles.saveButton}>
             <Text style={styles.saveButtonText}>Save</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onCancel} hitSlop={10}>
+          <TouchableOpacity onPress={onCancel} hitSlop={10} style={styles.cancelButton}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -900,7 +909,12 @@ function ActionButton(props: {
       style={[styles.actionButton, isPrimary ? styles.actionButtonPrimary : styles.actionButtonSecondary]}
       onPress={onPress}
     >
-      <Text style={[styles.actionButtonText, !isPrimary && styles.actionButtonTextSecondary]}>{label}</Text>
+      <Text
+        style={[styles.actionButtonText, !isPrimary && styles.actionButtonTextSecondary]}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
       <IconChevronRight size={16} color={isPrimary ? COLORS.text.inverse : COLORS.text.primary} />
     </AnimatedPressable>
   );
@@ -931,13 +945,18 @@ function AccountLinkButton(props: {
       style={[styles.accountLinkButton, danger && styles.accountLinkButtonDanger]}
       onPress={onPress}
     >
-      <Text style={[styles.accountLinkText, danger && styles.accountLinkTextDanger]}>{label}</Text>
+      <Text style={[styles.accountLinkText, danger && styles.accountLinkTextDanger]} numberOfLines={2}>
+        {label}
+      </Text>
       <IconChevronRight size={16} color={danger ? COLORS.readiness.depleted : COLORS.text.secondary} />
     </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardRoot: {
+    flex: 1,
+  },
   loadingState: {
     flex: 1,
     justifyContent: 'center',
@@ -985,6 +1004,7 @@ const styles = StyleSheet.create({
   },
   heroContent: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     gap: SPACING.md,
     padding: SPACING.md,
@@ -1004,13 +1024,16 @@ const styles = StyleSheet.create({
   },
   heroIdentity: {
     flex: 1,
+    minWidth: 0,
   },
   name: {
+    flexShrink: 1,
     fontSize: 20,
     fontFamily: FONT_FAMILY.extraBold,
     color: COLORS.text.primary,
   },
   email: {
+    flexShrink: 1,
     marginTop: 2,
     fontSize: 13,
     fontFamily: FONT_FAMILY.regular,
@@ -1042,6 +1065,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
   },
   heroSummary: {
+    flexShrink: 1,
     marginTop: SPACING.sm,
     fontSize: 13,
     fontFamily: FONT_FAMILY.regular,
@@ -1054,6 +1078,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.sm,
@@ -1092,13 +1117,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     flex: 1,
+    minWidth: 0,
   },
   detailValueGroup: {
+    flex: 1,
+    minWidth: 0,
     flexShrink: 1,
     alignItems: 'flex-end',
     gap: 2,
   },
   detailNote: {
+    flexShrink: 1,
     fontSize: 12,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.tertiary,
@@ -1109,13 +1138,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     flex: 1,
+    minWidth: 0,
   },
   settingLabel: {
+    flexShrink: 1,
     fontSize: 15,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.primary,
   },
   settingValue: {
+    flexShrink: 1,
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.secondary,
@@ -1123,6 +1155,7 @@ const styles = StyleSheet.create({
   },
   editRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: SPACING.md,
@@ -1131,11 +1164,18 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.borderLight,
   },
   editActions: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-end',
+    justifyContent: 'flex-end',
     gap: SPACING.sm,
   },
   editInput: {
     minWidth: 118,
+    flexGrow: 1,
+    maxWidth: 190,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
     borderBottomWidth: 1,
@@ -1148,6 +1188,9 @@ const styles = StyleSheet.create({
   saveButton: {
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: RADIUS.sm,
     backgroundColor: COLORS.accent,
   },
@@ -1155,6 +1198,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.inverse,
+  },
+  cancelButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.sm,
   },
   cancelButtonText: {
     fontSize: 12,
@@ -1183,6 +1232,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   actionButtonText: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.inverse,
@@ -1204,6 +1255,8 @@ const styles = StyleSheet.create({
     borderColor: `${COLORS.error}44`,
   },
   resetProgrammingButtonText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.readiness.depleted,
@@ -1293,6 +1346,8 @@ const styles = StyleSheet.create({
     borderColor: `${COLORS.error}36`,
   },
   accountLinkText: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.primary,

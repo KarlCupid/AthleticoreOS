@@ -265,6 +265,7 @@ const styles = StyleSheet.create({
   },
   topRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: SPACING.md,
@@ -303,6 +304,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
   },
   statusPill: {
+    alignSelf: 'flex-start',
     maxWidth: 136,
     minHeight: 34,
     borderWidth: 1,
@@ -442,6 +444,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm,
   },
   detailsToggleText: {
+    flex: 1,
     fontSize: 13,
     lineHeight: 18,
     fontFamily: FONT_FAMILY.semiBold,

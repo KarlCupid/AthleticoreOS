@@ -374,32 +374,37 @@ export function DashboardScreen() {
       >
         <View style={styles.firstRunModalOverlay}>
           <View style={styles.firstRunModalCard}>
-            <Text style={styles.firstRunModalKicker}>WELCOME</Text>
-            <Text style={styles.firstRunModalTitle}>
-              Your First Wins Start Here
-            </Text>
-            <Text style={styles.firstRunModalBody}>
-              First, check in. Then complete today's training and log one meal. We will tighten the details as you build rhythm.
-            </Text>
-
-            <AnimatedPressable
-              style={styles.firstRunModalPrimaryButton}
-              onPress={() => {
-                void dismissFirstRunModal();
-                openFirstRunStep("checkin");
-              }}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.firstRunModalContent}
             >
-              <Text style={styles.firstRunModalPrimaryText}>Check In</Text>
-            </AnimatedPressable>
+              <Text style={styles.firstRunModalKicker}>WELCOME</Text>
+              <Text style={styles.firstRunModalTitle}>
+                Your First Wins Start Here
+              </Text>
+              <Text style={styles.firstRunModalBody}>
+                First, check in. Then complete today's training and log one meal. We will tighten the details as you build rhythm.
+              </Text>
 
-            <AnimatedPressable
-              style={styles.firstRunModalSecondaryButton}
-              onPress={() => {
-                void dismissFirstRunModal();
-              }}
-            >
-              <Text style={styles.firstRunModalSecondaryText}>Not now</Text>
-            </AnimatedPressable>
+              <AnimatedPressable
+                style={styles.firstRunModalPrimaryButton}
+                onPress={() => {
+                  void dismissFirstRunModal();
+                  openFirstRunStep("checkin");
+                }}
+              >
+                <Text style={styles.firstRunModalPrimaryText}>Check In</Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                style={styles.firstRunModalSecondaryButton}
+                onPress={() => {
+                  void dismissFirstRunModal();
+                }}
+              >
+                <Text style={styles.firstRunModalSecondaryText}>Not now</Text>
+              </AnimatedPressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>

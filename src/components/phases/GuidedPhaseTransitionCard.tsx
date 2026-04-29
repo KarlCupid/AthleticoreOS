@@ -170,6 +170,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: SPACING.md,
@@ -211,6 +212,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   phasePill: {
+    alignSelf: 'flex-start',
     maxWidth: 138,
     minHeight: 34,
     borderRadius: RADIUS.full,

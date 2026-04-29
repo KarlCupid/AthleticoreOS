@@ -757,7 +757,11 @@ export const styles = StyleSheet.create({
     backgroundColor: '#0A0A0A', // Slate 900
     borderRadius: RADIUS.xxl,
     padding: SPACING.xl,
+    maxHeight: '86%',
     ...SHADOWS.md,
+  },
+  firstRunModalContent: {
+    flexGrow: 1,
   },
   firstRunModalKicker: {
     fontSize: 12,
