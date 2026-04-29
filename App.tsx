@@ -1,7 +1,7 @@
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -21,7 +21,7 @@ import { PlanningSetupStackNavigator } from './src/navigation/PlanningSetupStack
 import { appLinking } from './src/navigation/linking';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
-import { APP_CHROME, COLORS } from './src/theme/theme';
+import { APP_CHROME, COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from './src/theme/theme';
 import { logError } from './lib/utils/logger';
 import { AuroraBackground, type AuroraBackgroundMood } from './src/components/AuroraBackground';
 import { OceanLoader } from './src/components/OceanLoader';
@@ -34,10 +34,18 @@ const myTheme = {
   },
 };
 
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [journeyEntryState, setJourneyEntryState] = useState<AthleteJourneyAppEntryState | null>(null);
+  const [journeyLoadError, setJourneyLoadError] = useState<Error | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [checkingJourney, setCheckingJourney] = useState(false);
+  const [authLoadAttempt, setAuthLoadAttempt] = useState(0);
+  const sessionUserIdRef = useRef<string | null>(null);
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -49,21 +57,63 @@ export default function App() {
   useEffect(() => {
     let isActive = true;
 
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      if (isActive) {
+    setCheckingAuth(true);
+    setJourneyLoadError(null);
+
+    supabase.auth.getSession()
+      .then(({ data: { session: currentSession }, error }) => {
+        if (!isActive) {
+          return;
+        }
+
+        if (error) {
+          throw error;
+        }
+
+        sessionUserIdRef.current = currentSession?.user.id ?? null;
         setSession(currentSession);
-      }
-    });
+      })
+      .catch((error) => {
+        if (!isActive) {
+          return;
+        }
+
+        logError('App.authSessionLookup', error);
+        setJourneyLoadError(toError(error));
+      })
+      .finally(() => {
+        if (isActive) {
+          setCheckingAuth(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [authLoadAttempt]);
+
+  useEffect(() => {
+    let isActive = true;
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!isActive) {
         return;
       }
 
+      const previousUserId = sessionUserIdRef.current;
+      const nextUserId = nextSession?.user.id ?? null;
+
+      sessionUserIdRef.current = nextUserId;
       setSession(nextSession);
+
+      if (nextUserId && previousUserId !== nextUserId) {
+        setJourneyLoadError(null);
+        setJourneyEntryState(null);
+      }
 
       if (!nextSession) {
         setJourneyEntryState(null);
+        setJourneyLoadError(null);
         setCheckingJourney(false);
       }
     });
@@ -74,34 +124,56 @@ export default function App() {
     };
   }, []);
 
+  const userId = session?.user.id ?? null;
+
   const refreshJourneyEntryState = useCallback(async () => {
-    if (!session?.user) {
+    if (!userId) {
       setCheckingJourney(false);
       setJourneyEntryState(null);
       return;
     }
 
     setCheckingJourney(true);
+    setJourneyLoadError(null);
     try {
-      const entryState = await getAthleteJourneyAppEntryState(session.user.id);
+      const entryState = await getAthleteJourneyAppEntryState(userId);
       setJourneyEntryState(entryState);
     } catch (error) {
       logError('App.journeyEntryLookup', error);
-      setJourneyEntryState({
-        status: 'needs_onboarding',
-        hasProfile: false,
-        needsTrainingSetup: false,
-        journey: null,
-        performanceState: null,
-      });
+      setJourneyLoadError(toError(error));
     } finally {
       setCheckingJourney(false);
     }
-  }, [session?.user]);
+  }, [userId]);
 
   useEffect(() => {
     void refreshJourneyEntryState();
   }, [refreshJourneyEntryState]);
+
+  const retryAppLoad = useCallback(() => {
+    if (userId) {
+      void refreshJourneyEntryState();
+      return;
+    }
+
+    setAuthLoadAttempt((attempt) => attempt + 1);
+  }, [refreshJourneyEntryState, userId]);
+
+  const handleSignOut = useCallback(async () => {
+    setCheckingJourney(false);
+    setJourneyEntryState(null);
+    setJourneyLoadError(null);
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      logError('App.signOut', error);
+      setJourneyLoadError(error);
+      return;
+    }
+
+    setSession(null);
+    sessionUserIdRef.current = null;
+  }, []);
 
   if (!fontsLoaded) {
     return (
@@ -112,7 +184,17 @@ export default function App() {
   }
 
   const entryStatus = journeyEntryState?.status ?? null;
-  const content = !session ? (
+  const content = journeyLoadError ? (
+    <JourneyLoadErrorScreen
+      loading={checkingAuth || checkingJourney}
+      onRetry={retryAppLoad}
+      onSignOut={handleSignOut}
+    />
+  ) : checkingAuth ? (
+    <View style={[styles.container, styles.centered]}>
+      <OceanLoader color={COLORS.readiness.prime} />
+    </View>
+  ) : !session ? (
     <AuthScreen />
   ) : checkingJourney || entryStatus === null ? (
     <View style={[styles.container, styles.centered]}>
@@ -146,6 +228,51 @@ export default function App() {
   );
 }
 
+function JourneyLoadErrorScreen({
+  loading,
+  onRetry,
+  onSignOut,
+}: {
+  loading: boolean;
+  onRetry: () => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <View style={[styles.container, styles.centered, styles.errorScreen]}>
+      <View style={styles.errorPanel}>
+        <Text style={styles.errorTitle}>We couldn&apos;t load your athlete profile.</Text>
+        <Text style={styles.errorBody}>Your data is safe. Check your connection and try again.</Text>
+
+        <View style={styles.errorActions}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={loading}
+            onPress={onRetry}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              (pressed || loading) && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.primaryButtonText}>{loading ? 'Trying again...' : 'Try again'}</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={loading}
+            onPress={onSignOut}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              (pressed || loading) && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.secondaryButtonText}>Sign out</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -154,5 +281,68 @@ const styles = StyleSheet.create({
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorScreen: {
+    paddingHorizontal: SPACING.xl,
+  },
+  errorPanel: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.xl,
+    ...SHADOWS.card,
+  },
+  errorTitle: {
+    color: COLORS.text.primary,
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 24,
+    lineHeight: 30,
+    textAlign: 'center',
+  },
+  errorBody: {
+    marginTop: SPACING.md,
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  errorActions: {
+    marginTop: SPACING.xl,
+    gap: SPACING.md,
+  },
+  primaryButton: {
+    minHeight: 52,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: SPACING.lg,
+  },
+  primaryButtonText: {
+    color: COLORS.text.inverse,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 16,
+  },
+  secondaryButton: {
+    minHeight: 52,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.lg,
+  },
+  secondaryButtonText: {
+    color: COLORS.text.primary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 16,
+  },
+  buttonPressed: {
+    opacity: 0.65,
   },
 });
