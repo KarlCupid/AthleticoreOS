@@ -45,7 +45,7 @@ export type OnboardingTrainingBackground = 'new' | 'some' | 'advanced';
 
 export interface OnboardingFixedSessionInput {
   id: string;
-  activityType: 'boxing_practice' | 'sparring';
+  activityType: 'boxing_practice' | 'sparring' | 'conditioning' | 'sc' | 'other';
   dayOfWeek: number;
   startTime: string;
   durationMin: number;
