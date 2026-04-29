@@ -161,7 +161,7 @@ export function FightOpportunityFlow({
         <>
           <Text style={styles.subLabel}>Fight Date</Text>
           <FieldNote>{fightOpportunityStatus === 'tentative' ? 'Add it if you have it. Tentative fights should not fully override your build.' : 'This tells Athleticore how much time is available.'}</FieldNote>
-          <DatePickerField label="Fight Date" value={fightDate} onChange={setFightDate} />
+          <DatePickerField label="Fight Date" value={fightDate} onChange={setFightDate} testID="fight-date-picker" />
 
           <Text style={styles.subLabel}>Target Weight Class</Text>
           <FieldNote>Add the class name, scale target, or both. Missing body-mass context stays unknown.</FieldNote>
@@ -184,8 +184,8 @@ export function FightOpportunityFlow({
           <Text style={styles.subLabel}>Weigh-in</Text>
           <FieldNote>Same-day weigh-ins call for more conservative assumptions.</FieldNote>
           <View style={styles.optionList}>
-            <OptionPill selected={weighInTiming === 'same_day'} label="Same Day" onPress={() => setWeighInTiming('same_day')} />
-            <OptionPill selected={weighInTiming === 'next_day'} label="Next Day" onPress={() => setWeighInTiming('next_day')} />
+            <OptionPill selected={weighInTiming === 'same_day'} label="Same Day" onPress={() => setWeighInTiming('same_day')} testID="fight-weigh-in-same-day" />
+            <OptionPill selected={weighInTiming === 'next_day'} label="Next Day" onPress={() => setWeighInTiming('next_day')} testID="fight-weigh-in-next-day" />
           </View>
         </>
       ) : (
@@ -217,7 +217,7 @@ export function FightOpportunityFlow({
               />
 
               <Text style={styles.subLabel}>Weigh-in Date</Text>
-              <DatePickerField label="Weigh-in Date" value={weighInDate} onChange={setWeighInDate} />
+              <DatePickerField label="Weigh-in Date" value={weighInDate} onChange={setWeighInDate} testID="fight-weigh-in-date-picker" />
 
               <Text style={styles.subLabel}>Weigh-in Time</Text>
               <TextInput
@@ -232,8 +232,8 @@ export function FightOpportunityFlow({
 
           <Text style={styles.subLabel}>Weight-Class Change</Text>
           <View style={styles.optionList}>
-            <OptionPill selected={weightClassChanged} label="Weight class changed" onPress={() => setWeightClassChanged(true)} />
-            <OptionPill selected={!weightClassChanged} label="No change" onPress={() => setWeightClassChanged(false)} />
+            <OptionPill selected={weightClassChanged} label="Weight class changed" onPress={() => setWeightClassChanged(true)} testID="fight-weight-class-changed" />
+            <OptionPill selected={!weightClassChanged} label="No change" onPress={() => setWeightClassChanged(false)} testID="fight-weight-class-unchanged" />
           </View>
 
           <Text style={styles.subLabel}>Opponent</Text>
@@ -252,6 +252,7 @@ export function FightOpportunityFlow({
                 selected={opponentStance === option.value}
                 label={option.label}
                 onPress={() => setOpponentStance(option.value)}
+                testID={`fight-opponent-stance-${option.value ?? 'none'}`}
               />
             ))}
           </View>
@@ -273,29 +274,29 @@ export function FightOpportunityFlow({
           />
 
           <Text style={styles.subLabel}>Travel Start (optional)</Text>
-          <DatePickerField label="Travel Start" value={travelStartDate} onChange={setTravelStartDate} />
+          <DatePickerField label="Travel Start" value={travelStartDate} onChange={setTravelStartDate} testID="fight-travel-start-picker" />
 
           <Text style={styles.subLabel}>Travel End (optional)</Text>
-          <DatePickerField label="Travel End" value={travelEndDate} onChange={setTravelEndDate} />
+          <DatePickerField label="Travel End" value={travelEndDate} onChange={setTravelEndDate} testID="fight-travel-end-picker" />
 
           <Text style={styles.subLabel}>Rounds</Text>
           <View style={styles.pillRow}>
             {ROUND_OPTIONS.map((value) => (
-              <OptionPill compact key={value} selected={roundCount === value} label={String(value)} onPress={() => setRoundCount(value)} />
+              <OptionPill compact key={value} selected={roundCount === value} label={String(value)} onPress={() => setRoundCount(value)} testID={`fight-round-count-${value}`} />
             ))}
           </View>
 
           <Text style={styles.subLabel}>Round Duration</Text>
           <View style={styles.pillRow}>
             {ROUND_DURATION_OPTIONS.map((value) => (
-              <OptionPill compact key={value} selected={roundDurationSec === value} label={`${Math.round(value / 60)}m`} onPress={() => setRoundDurationSec(value)} />
+              <OptionPill compact key={value} selected={roundDurationSec === value} label={`${Math.round(value / 60)}m`} onPress={() => setRoundDurationSec(value)} testID={`fight-round-duration-${value}`} />
             ))}
           </View>
 
           <Text style={styles.subLabel}>Rest</Text>
           <View style={styles.pillRow}>
             {REST_DURATION_OPTIONS.map((value) => (
-              <OptionPill compact key={value} selected={restDurationSec === value} label={`${value}s`} onPress={() => setRestDurationSec(value)} />
+              <OptionPill compact key={value} selected={restDurationSec === value} label={`${value}s`} onPress={() => setRestDurationSec(value)} testID={`fight-rest-duration-${value}`} />
             ))}
           </View>
         </>

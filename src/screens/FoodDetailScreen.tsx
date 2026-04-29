@@ -190,7 +190,7 @@ export function FoodDetailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
-        <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
+        <AnimatedPressable testID="food-detail-back" onPress={() => navigation.goBack()} style={styles.backButton}>
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </AnimatedPressable>
         <Text style={styles.title} numberOfLines={1}>
@@ -292,6 +292,7 @@ export function FoodDetailScreen() {
           <Card style={{ marginTop: SPACING.md }}>
             <Text style={styles.favoriteTitle}>Quick access</Text>
             <AnimatedPressable
+              testID="food-detail-save-favorite"
               style={[styles.favoriteChip, favoriteOnSave && styles.favoriteChipActive]}
               onPress={() => setFavoriteOnSave((current) => !current)}
             >

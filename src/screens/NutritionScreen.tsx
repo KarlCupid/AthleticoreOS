@@ -91,6 +91,7 @@ function FuelRail({
             key={item.key}
             style={inline.quickFoodCard}
             onPress={() => onSelect(item)}
+            testID={`fuel-rail-item-${item.key}`}
           >
             <Text style={inline.quickFoodTitle} numberOfLines={1}>
               {item.name}
@@ -202,7 +203,7 @@ export function NutritionScreen() {
       >
         <Text style={inline.errorTitle}>Fuel is temporarily unavailable</Text>
         <Text style={inline.copyMuted}>{error}</Text>
-        <AnimatedPressable style={inline.secondaryButton} onPress={() => void reload(true)}>
+        <AnimatedPressable style={inline.secondaryButton} onPress={() => void reload(true)} testID="fuel-error-retry">
           <Text style={inline.secondaryButtonText}>Try again</Text>
         </AnimatedPressable>
       </Card>
@@ -382,7 +383,7 @@ export function NutritionScreen() {
 
   const renderFuelDetailsCard = (delay: number = STAGGER_DELAY * 5) => (
     <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
-      <AnimatedPressable style={inline.detailsToggle} onPress={() => setShowFuelDetails((current) => !current)}>
+      <AnimatedPressable style={inline.detailsToggle} onPress={() => setShowFuelDetails((current) => !current)} testID="fuel-details-toggle">
         <Text style={[inline.linkText, { color: themeColor }]}>{showFuelDetails ? 'Hide details' : 'Show details'}</Text>
       </AnimatedPressable>
       {showFuelDetails ? (
@@ -446,6 +447,7 @@ export function NutritionScreen() {
                     mealType: inferMealTypeForNow(),
                     date: viewModel.date,
                   })}
+                  testID={`fuel-quick-intent-${intent.id}`}
                 >
                   <Text style={inline.intentTitle}>{intent.label}</Text>
                   <Text style={inline.intentMacro}>~{intent.calTarget} cal</Text>
@@ -476,7 +478,7 @@ export function NutritionScreen() {
         <FuelRail title="Recent" items={viewModel.recent} onSelect={handleQuickFoodSelect} />
 
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.normal)}>
-          <AnimatedPressable onPress={() => setNutritionMode('detailed')}>
+          <AnimatedPressable onPress={() => setNutritionMode('detailed')} testID="fuel-open-full-tracker">
             <Text style={[inline.linkText, { color: themeColor }]}>Full tracker</Text>
           </AnimatedPressable>
         </Animated.View>
@@ -487,7 +489,7 @@ export function NutritionScreen() {
   const renderDetailedMode = () => (
     <>
       <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.normal)} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
-        <AnimatedPressable onPress={() => setNutritionMode('quick')}>
+        <AnimatedPressable onPress={() => setNutritionMode('quick')} testID="fuel-open-quick-log">
           <Text style={[inline.linkText, { color: themeColor }]}>Quick log</Text>
         </AnimatedPressable>
       </Animated.View>
@@ -507,7 +509,7 @@ export function NutritionScreen() {
             ) : null}
           </View>
           <Text style={styles.bodyMassBannerInstruction}>{viewModel.performanceContext.bodyMass.explanation}</Text>
-          <AnimatedPressable onPress={() => navigation.navigate('WeightClassHome')}>
+          <AnimatedPressable onPress={() => navigation.navigate('WeightClassHome')} testID="fuel-open-weight-class">
             <Text style={[inline.linkText, { color: COLORS.text.primary }]}>Weight-class context</Text>
           </AnimatedPressable>
         </Animated.View>
@@ -550,6 +552,7 @@ export function NutritionScreen() {
         <AnimatedPressable
           style={styles.quickActionButton}
           onPress={() => navigation.navigate('BarcodeScan', { mealType: inferMealTypeForNow(), date: viewModel.date })}
+          testID="fuel-scan-food"
         >
           <LinearGradient colors={[...GRADIENTS.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.quickActionGradient}>
             <IconBarcode size={18} color={COLORS.text.inverse} />
@@ -559,6 +562,7 @@ export function NutritionScreen() {
         <AnimatedPressable
           style={styles.quickActionButton}
           onPress={() => navigation.navigate('CustomFood')}
+          testID="fuel-custom-food"
         >
           <LinearGradient colors={[...GRADIENTS.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.quickActionGradient}>
             <Text style={styles.quickActionTextGradient}>Custom</Text>
@@ -577,6 +581,7 @@ export function NutritionScreen() {
             <AnimatedPressable
               style={[styles.modeChip, nutritionMode === 'quick' && { backgroundColor: COLORS.accent }]}
               onPress={() => setNutritionMode('quick')}
+              testID="fuel-mode-quick"
             >
               <Text style={[styles.modeChipText, nutritionMode === 'quick' && styles.modeChipTextActive]}>
                 Quick log
@@ -585,6 +590,7 @@ export function NutritionScreen() {
             <AnimatedPressable
               style={[styles.modeChip, nutritionMode === 'detailed' && { backgroundColor: COLORS.accent }]}
               onPress={() => setNutritionMode('detailed')}
+              testID="fuel-mode-detailed"
             >
               <Text style={[styles.modeChipText, nutritionMode === 'detailed' && styles.modeChipTextActive]}>
                 Tracker

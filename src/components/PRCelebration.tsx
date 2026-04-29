@@ -167,6 +167,7 @@ export default function PRCelebration({
             style={styles.dismissBtn}
             onPress={onDismiss}
             activeOpacity={0.8}
+            testID="pr-celebration-dismiss"
           >
             <Text style={styles.dismissBtnText}>Nice!</Text>
           </TouchableOpacity>

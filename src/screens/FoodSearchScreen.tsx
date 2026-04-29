@@ -250,6 +250,7 @@ export function FoodSearchScreen() {
               onPress={() => {
                 void loadSections(query);
               }}
+              testID="food-search-retry"
             >
               <Text style={styles.retryButtonText}>Retry search</Text>
             </AnimatedPressable>
@@ -291,7 +292,7 @@ export function FoodSearchScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
+        <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton} testID="food-search-back">
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </AnimatedPressable>
         <Text style={styles.title}>Add to {MEAL_LABELS[mealType]}</Text>
@@ -313,10 +314,12 @@ export function FoodSearchScreen() {
             clearButtonMode="while-editing"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
+            testID="food-search-input"
           />
           <AnimatedPressable
             style={styles.barcodeButton}
             onPress={() => navigation.navigate('BarcodeScan', { mealType, date })}
+            testID="food-search-scan"
           >
             <IconBarcode size={22} color={COLORS.text.primary} />
           </AnimatedPressable>
@@ -330,6 +333,7 @@ export function FoodSearchScreen() {
                 key={mode}
                 style={[styles.modeChip, active && styles.modeChipActive]}
                 onPress={() => handleSelectMode(mode)}
+                testID={`food-search-mode-${mode}`}
               >
                 <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>
                   {SEARCH_MODE_LABELS[mode]}

@@ -10,10 +10,11 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ITEM_H = 48;
 
-export function DatePickerField({ label, value, onChange }: {
+export function DatePickerField({ label, value, onChange, testID }: {
     label: string;
     value: string;
     onChange: (v: string) => void;
+    testID?: string;
 }) {
     const [open, setOpen] = useState(false);
 
@@ -63,7 +64,7 @@ export function DatePickerField({ label, value, onChange }: {
 
     return (
         <>
-            <TouchableOpacity style={styles.dateField} onPress={onOpen} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.dateField} onPress={onOpen} activeOpacity={0.7} testID={testID}>
                 <Text style={[styles.dateFieldText, !value && { color: COLORS.text.tertiary }]}>
                     {displayDate}
                 </Text>
@@ -72,14 +73,14 @@ export function DatePickerField({ label, value, onChange }: {
 
             <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
                 <View style={styles.pickerOverlay}>
-                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} testID={testID ? `${testID}-scrim` : undefined} />
                     <View style={styles.pickerSheet}>
                         <View style={styles.pickerHeader}>
-                            <TouchableOpacity onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <TouchableOpacity onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-cancel` : undefined}>
                                 <Text style={styles.pickerCancel}>Cancel</Text>
                             </TouchableOpacity>
                             <Text style={styles.pickerTitle}>{label}</Text>
-                            <TouchableOpacity onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <TouchableOpacity onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-done` : undefined}>
                                 <Text style={styles.pickerDone}>Done</Text>
                             </TouchableOpacity>
                         </View>

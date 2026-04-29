@@ -392,6 +392,7 @@ export function DashboardScreen() {
                   void dismissFirstRunModal();
                   openFirstRunStep("checkin");
                 }}
+                testID="first-run-check-in"
               >
                 <Text style={styles.firstRunModalPrimaryText}>Check In</Text>
               </AnimatedPressable>
@@ -401,6 +402,7 @@ export function DashboardScreen() {
                 onPress={() => {
                   void dismissFirstRunModal();
                 }}
+                testID="first-run-not-now"
               >
                 <Text style={styles.firstRunModalSecondaryText}>Not now</Text>
               </AnimatedPressable>

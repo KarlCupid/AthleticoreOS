@@ -17,6 +17,7 @@ export function FoodSearchItem({ item, onSelect }: FoodSearchItemProps) {
       style={styles.container}
       onPress={() => onSelect(item)}
       activeOpacity={0.75}
+      testID={`food-search-result-${item.key}`}
     >
       {item.image_url ? (
         <Image source={{ uri: item.image_url }} style={styles.image} />

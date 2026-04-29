@@ -219,7 +219,7 @@ export function WorkoutPrescriptionSection({
     <View style={styles.wrapper}>
       {content}
       {showStartButton && onStart ? (
-        <AnimatedPressable style={styles.startButtonWrapper} onPress={onStart}>
+        <AnimatedPressable style={styles.startButtonWrapper} onPress={onStart} testID="workout-prescription-start">
           <LinearGradient
             colors={[...GRADIENTS.accent] as any}
             start={{ x: 0, y: 0 }}

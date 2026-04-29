@@ -53,10 +53,11 @@ function formatDisplay(value: string): string {
   return `${hour}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
-export function TimePickerField({ label, value, onChange }: {
+export function TimePickerField({ label, value, onChange, testID }: {
   label: string;
   value: string;
   onChange: (nextValue: string) => void;
+  testID?: string;
 }) {
   const [open, setOpen] = useState(false);
   const initial = parseTime(value);
@@ -79,20 +80,20 @@ export function TimePickerField({ label, value, onChange }: {
 
   return (
     <>
-      <TouchableOpacity style={styles.field} onPress={onOpen} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.field} onPress={onOpen} activeOpacity={0.7} testID={testID}>
         <Text style={styles.fieldText}>{formatDisplay(value)}</Text>
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={styles.overlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} testID={testID ? `${testID}-scrim` : undefined} />
           <View style={styles.sheet}>
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-cancel` : undefined}>
                 <Text style={styles.cancel}>Cancel</Text>
               </TouchableOpacity>
               <Text style={styles.title}>{label}</Text>
-              <TouchableOpacity onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-done` : undefined}>
                 <Text style={styles.done}>Done</Text>
               </TouchableOpacity>
             </View>

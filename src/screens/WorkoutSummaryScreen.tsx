@@ -257,6 +257,7 @@ export function WorkoutSummaryScreen() {
                     style={styles.primaryButton}
                     onPress={handleBackToPlan}
                     activeOpacity={0.85}
+                    testID="workout-summary-back-to-plan"
                 >
                     <Text style={styles.primaryButtonText}>Back to Plan</Text>
                 </TouchableOpacity>
@@ -265,6 +266,7 @@ export function WorkoutSummaryScreen() {
                     style={styles.outlinedButton}
                     onPress={handleViewHistory}
                     activeOpacity={0.8}
+                    testID="workout-summary-training-home"
                 >
                     <Text style={styles.outlinedButtonText}>Training Home</Text>
                 </TouchableOpacity>

@@ -53,6 +53,7 @@ export function MealSection({
         style={styles.header}
         onPress={() => setExpanded(!expanded)}
         activeOpacity={0.7}
+        testID={`meal-section-toggle-${mealType}`}
       >
         <View style={styles.headerLeft}>
           <Text style={styles.mealIcon}>{MEAL_ICONS[mealType]}</Text>
@@ -80,6 +81,7 @@ export function MealSection({
               onPress={() => onSelectFood(food.id)}
               onLongPress={() => onRemoveFood(food.id)}
               activeOpacity={0.7}
+              testID={`meal-food-row-${food.id}`}
             >
               <View style={styles.foodInfo}>
                 <Text style={styles.foodName} numberOfLines={1}>
@@ -94,14 +96,14 @@ export function MealSection({
             </TouchableOpacity>
           ))}
 
-          <TouchableOpacity style={styles.addButton} onPress={onAddFood} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.addButton} onPress={onAddFood} activeOpacity={0.7} testID={`meal-add-${mealType}`}>
             <IconPlus size={16} color={COLORS.text.tertiary} strokeWidth={2} />
             <Text style={styles.addText}>Add</Text>
           </TouchableOpacity>
         </View>
       )}
       {!expanded && !hasFoods && (
-        <TouchableOpacity style={styles.addButtonCompact} onPress={onAddFood} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.addButtonCompact} onPress={onAddFood} activeOpacity={0.7} testID={`meal-add-${mealType}`}>
           <IconPlus size={16} color={COLORS.text.tertiary} strokeWidth={2} />
           <Text style={styles.addText}>Add</Text>
         </TouchableOpacity>

@@ -22,7 +22,7 @@ function shouldHideTabBar(route: Parameters<typeof getFocusedRouteNameFromRoute>
   return focusedRouteName === 'GuidedWorkout' || focusedRouteName === 'WorkoutSummary';
 }
 
-function TabIcon({ focused, color, label, IconComponent }: { focused: boolean; color: string; label: string; IconComponent: any }) {
+function TabIcon({ focused, color, label, IconComponent, testID }: { focused: boolean; color: string; label: string; IconComponent: any; testID: string }) {
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(focused ? 1.05 : 1, { damping: 12, stiffness: 200 }) }],
     alignItems: 'center',
@@ -35,7 +35,7 @@ function TabIcon({ focused, color, label, IconComponent }: { focused: boolean; c
   }), [focused]);
 
   return (
-    <Animated.View style={[animatedStyle, styles.tabIconWrap]}>
+    <Animated.View style={[animatedStyle, styles.tabIconWrap]} testID={testID}>
       <View style={[styles.iconChip, focused && { backgroundColor: `${APP_CHROME.accent}18` }]}>
         <IconComponent size={20} color={color} focused={focused} />
       </View>
@@ -133,14 +133,14 @@ export function TabNavigator() {
         name="Today"
         component={TodayStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Today" IconComponent={IconBarChart} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Today" IconComponent={IconBarChart} testID="tab-today" />,
         }}
       />
       <Tab.Screen
         name="Train"
         component={TrainStackNavigator}
         options={({ route }) => ({
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Train" IconComponent={IconActivity} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Train" IconComponent={IconActivity} testID="tab-train" />,
           tabBarStyle: shouldHideTabBar(route)
             ? { display: 'none' }
             : baseTabBarStyle,
@@ -150,21 +150,21 @@ export function TabNavigator() {
         name="Plan"
         component={PlanStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Plan" IconComponent={IconCalendar} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Plan" IconComponent={IconCalendar} testID="tab-plan" />,
         }}
       />
       <Tab.Screen
         name="Fuel"
         component={FuelStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Fuel" IconComponent={IconRestaurant} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Fuel" IconComponent={IconRestaurant} testID="tab-fuel" />,
         }}
       />
       <Tab.Screen
         name="Me"
         component={MeStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Me" IconComponent={IconPerson} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Me" IconComponent={IconPerson} testID="tab-me" />,
         }}
       />
     </Tab.Navigator>

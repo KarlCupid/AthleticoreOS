@@ -133,7 +133,7 @@ export function WeightClassHomeScreen() {
         <Text style={{ fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: COLORS.error, textAlign: 'center', marginHorizontal: SPACING.xl }}>
           {error}
         </Text>
-        <TouchableOpacity onPress={refresh} style={{ marginTop: SPACING.md, padding: SPACING.md }}>
+        <TouchableOpacity onPress={refresh} style={{ marginTop: SPACING.md, padding: SPACING.md }} testID="weight-class-retry">
           <Text style={{ fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: COLORS.accent }}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -159,6 +159,7 @@ export function WeightClassHomeScreen() {
           <TouchableOpacity
             style={styles.startButton}
             onPress={() => nav.navigate('WeightClassPlanSetup')}
+            testID="weight-class-evaluate-class"
           >
             <Text style={styles.startButtonText}>Evaluate Class</Text>
           </TouchableOpacity>
@@ -166,6 +167,7 @@ export function WeightClassHomeScreen() {
             <TouchableOpacity
               style={styles.historyLink}
               onPress={() => nav.navigate('WeightClassHistory')}
+              testID="weight-class-view-history-empty"
             >
               <Text style={styles.historyLinkText}>View Past Class Plans ({weightClassHistory.length})</Text>
             </TouchableOpacity>
@@ -370,6 +372,7 @@ export function WeightClassHomeScreen() {
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: phaseColors[0] }]}
             onPress={() => nav.navigate('CompetitionBodyMass')}
+            testID="weight-class-fight-week-support"
           >
             <Text style={styles.actionButtonText}>Fight Week Support</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />
@@ -383,6 +386,7 @@ export function WeightClassHomeScreen() {
               weighInWeightLbs: currentWeight,
               hoursToFight: 24,
             })}
+            testID="weight-class-post-weigh-in-recovery"
           >
             <Text style={styles.actionButtonText}>Post Weigh-In Recovery</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />
@@ -392,6 +396,7 @@ export function WeightClassHomeScreen() {
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: COLORS.surfaceSecondary }]}
           onPress={() => nav.navigate('WeightClassHistory')}
+          testID="weight-class-past-plans"
         >
           <Text style={[styles.actionButtonText, { color: COLORS.text.primary }]}>Past Class Plans</Text>
           <IconChevronRight size={18} color={COLORS.text.secondary} />
@@ -400,6 +405,7 @@ export function WeightClassHomeScreen() {
         <TouchableOpacity
           style={styles.endPlanButton}
           onPress={handleEndPlan}
+          testID="weight-class-end-plan"
         >
           <Text style={styles.endPlanText}>End Weight-Class Plan</Text>
         </TouchableOpacity>

@@ -531,6 +531,7 @@ export function GuidedWorkoutScreen() {
                         style={[styles.primaryButton, { marginBottom: SPACING.sm }]}
                         onPress={() => setActivationCheckDone(true)}
                         activeOpacity={0.82}
+                        testID="guided-workout-activation-done"
                     >
                         <Text style={styles.primaryButtonText}>Activation done - continue</Text>
                     </TouchableOpacity>
@@ -538,6 +539,7 @@ export function GuidedWorkoutScreen() {
                         style={styles.skipLink}
                         onPress={() => setActivationCheckDone(true)}
                         activeOpacity={0.7}
+                        testID="guided-workout-skip-activation"
                     >
                         <Text style={styles.skipLinkText}>Skip activation</Text>
                     </TouchableOpacity>
@@ -578,6 +580,7 @@ export function GuidedWorkoutScreen() {
                             style={styles.autoStartBackButton}
                             onPress={handleLeaveWorkout}
                             activeOpacity={0.8}
+                            testID="guided-workout-auto-start-back"
                         >
                             <Text style={styles.autoStartBackText}>Back</Text>
                         </TouchableOpacity>
@@ -596,6 +599,7 @@ export function GuidedWorkoutScreen() {
                             disabled={currentExerciseIndex === 0 || restSeconds !== null}
                             haptic
                             activeScale={0.88}
+                            testID="guided-workout-previous-exercise"
                         >
                             <Text
                                 style={[
@@ -627,6 +631,7 @@ export function GuidedWorkoutScreen() {
                             style={styles.leaveButton}
                             onPress={handleLeaveWorkout}
                             activeOpacity={0.7}
+                            testID="guided-workout-leave"
                         >
                             <Text style={styles.leaveButtonText}>Leave</Text>
                         </TouchableOpacity>
@@ -694,6 +699,7 @@ export function GuidedWorkoutScreen() {
                                 params.isDeloadWeek,
                             )
                         }
+                        testID="guided-workout-retry"
                     >
                         <Text style={styles.retryButtonText}>Retry</Text>
                     </TouchableOpacity>

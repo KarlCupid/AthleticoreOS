@@ -429,15 +429,16 @@ export function LogScreen() {
 
         <View style={styles.weightGroup}>
           <Text style={styles.fieldLabel}>Morning Weight (optional)</Text>
-          <TextInput
-            style={styles.weightInput}
-            value={weight}
-            onChangeText={(next) => setWeight(sanitizeNumericInput(next))}
-            keyboardType="decimal-pad"
-            placeholder="155.0"
-            placeholderTextColor={COLORS.text.tertiary}
-            returnKeyType="done"
-          />
+            <TextInput
+              style={styles.weightInput}
+              value={weight}
+              onChangeText={(next) => setWeight(sanitizeNumericInput(next))}
+              keyboardType="decimal-pad"
+              placeholder="155.0"
+              placeholderTextColor={COLORS.text.tertiary}
+              returnKeyType="done"
+              testID="check-in-weight-input"
+            />
         </View>
 
         {CHECK_SCALES.map((scale, index) => (
@@ -456,6 +457,7 @@ export function LogScreen() {
                 onPress={() => setTooltip(scale)}
                 accessibilityLabel={`${scale.label} scoring help`}
                 accessibilityRole="button"
+                testID={`check-in-help-${scale.key}`}
               >
                 <IconInfo size={16} color={COLORS.text.secondary} />
               </TouchableOpacity>
@@ -479,6 +481,7 @@ export function LogScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     accessibilityLabel={`${scale.label} ${value} ${label}`}
+                    testID={`check-in-${scale.key}-${value}`}
                   >
                     <Text style={[styles.choiceNumber, selected && { color: bandColor }]}>{value}</Text>
                     <Text style={[styles.choiceLabel, selected && { color: COLORS.text.primary }]} numberOfLines={2}>
@@ -507,6 +510,7 @@ export function LogScreen() {
                   tooltip: 'Score pain only if it changes movement, range, loading, or contact. Sharp or limiting pain is 4-5 so Athleticore protects the plan.',
                   values: ['None', 'Mild', 'Moderate', 'Limiting', 'Stop'],
                 })}
+                testID="check-in-help-pain"
               >
                 <IconInfo size={16} color={COLORS.text.secondary} />
               </TouchableOpacity>
@@ -530,6 +534,7 @@ export function LogScreen() {
                       Haptics.selectionAsync();
                     }}
                     activeOpacity={0.78}
+                    testID={`check-in-pain-${value}`}
                   >
                     <Text style={[styles.choiceNumber, selected && { color: bandColor }]}>{value}</Text>
                     <Text style={[styles.choiceLabel, selected && { color: COLORS.text.primary }]} numberOfLines={2}>
@@ -545,6 +550,7 @@ export function LogScreen() {
             style={[styles.addPainButton, { borderColor: themeColor, backgroundColor: lightTint }]}
             onPress={() => setShowPainScale(true)}
             activeOpacity={0.78}
+            testID="check-in-add-pain"
           >
             <Text style={[styles.addPainText, { color: themeColor }]}>Add pain or injury concern</Text>
           </TouchableOpacity>
@@ -576,12 +582,12 @@ export function LogScreen() {
         animationType="fade"
         onRequestClose={() => setTooltip(null)}
       >
-        <TouchableOpacity style={styles.modalScrim} activeOpacity={1} onPress={() => setTooltip(null)}>
+        <TouchableOpacity style={styles.modalScrim} activeOpacity={1} onPress={() => setTooltip(null)} testID="check-in-tooltip-scrim">
           <View style={[styles.tooltipSheet, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}>
             <Text style={styles.tooltipTitle}>{tooltip?.label}</Text>
             <Text style={styles.tooltipQuestion}>{tooltip?.question}</Text>
             <Text style={styles.tooltipBody}>{tooltip?.tooltip}</Text>
-            <TouchableOpacity style={styles.tooltipClose} onPress={() => setTooltip(null)}>
+            <TouchableOpacity style={styles.tooltipClose} onPress={() => setTooltip(null)} testID="check-in-tooltip-close">
               <Text style={styles.tooltipCloseText}>Got it</Text>
             </TouchableOpacity>
           </View>

@@ -334,6 +334,7 @@ export function WeightClassPlanSetupScreen() {
             key={sport}
             style={[styles.toggleOption, form.sport === sport && styles.toggleOptionActive]}
             onPress={() => setForm((current) => ({ ...current, sport }))}
+            testID={`weight-class-sport-${sport}`}
           >
             <Text style={[styles.toggleText, form.sport === sport && styles.toggleTextActive]}>{sport.toUpperCase()}</Text>
           </TouchableOpacity>
@@ -368,6 +369,7 @@ export function WeightClassPlanSetupScreen() {
       <DatePickerField
         label="Fight Date"
         value={form.fightDate}
+        testID="weight-class-fight-date-picker"
         onChange={(value) => {
           let autoWeighInDate = form.weighInDate;
 
@@ -390,6 +392,7 @@ export function WeightClassPlanSetupScreen() {
         label="Weigh-in Date"
         value={form.weighInDate}
         onChange={(value) => setForm((current) => ({ ...current, weighInDate: value }))}
+        testID="weight-class-weigh-in-date-picker"
       />
 
       <View style={styles.infoBox}>
@@ -455,6 +458,7 @@ export function WeightClassPlanSetupScreen() {
         <TouchableOpacity
           onPress={() => (step === 1 ? nav.goBack() : setStep((current) => (current - 1) as Step))}
           style={styles.backButton}
+          testID="weight-class-setup-back"
         >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
