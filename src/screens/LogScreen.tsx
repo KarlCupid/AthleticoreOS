@@ -19,6 +19,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { Card } from '../components/Card';
 import { IconInfo } from '../components/icons';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { useLogScreenData } from '../hooks/useLogScreenData';
@@ -71,35 +72,35 @@ const CHECK_SCALES: CheckScale[] = [
   {
     key: 'sleep',
     label: 'Sleep',
-    question: 'Sleep quality last night?',
-    tooltip: 'Rate the sleep you got, not the plan. If you woke often or feel foggy, score lower.',
+    question: 'How was sleep last night?',
+    tooltip: 'Rate the sleep you got, not the plan. If you woke often or feel foggy, score lower so Athleticore keeps more margin.',
     values: ['Very poor', 'Poor', 'Fair', 'Good', 'Excellent'],
   },
   {
     key: 'energy',
-    label: 'Energy',
-    question: 'Current energy level?',
-    tooltip: 'Rate how ready your body feels to produce work now. Low energy means speed, focus, or output feels limited.',
+    label: 'Recovery feeling',
+    question: 'How ready does your body feel?',
+    tooltip: 'This is your quick fatigue read. Low recovery feeling means speed, focus, or output may need more protection.',
     values: ['Very low', 'Low', 'Moderate', 'High', 'Very high'],
   },
   {
     key: 'stress',
-    label: 'Stress',
-    question: 'Current life stress?',
-    tooltip: 'Include work, school, travel, and mental load. Higher stress increases recovery cost.',
+    label: 'Mood / stress',
+    question: 'How much stress are you carrying?',
+    tooltip: 'Include work, school, travel, and mental load. Higher stress can raise the recovery cost of the same session.',
     values: ['Very low', 'Low', 'Moderate', 'High', 'Very high'],
   },
   {
     key: 'soreness',
     label: 'Soreness',
-    question: 'Muscle soreness today?',
-    tooltip: 'Score soreness that affects movement. If range, speed, or contact changes, use 4-5.',
+    question: 'How sore are you moving today?',
+    tooltip: 'Score soreness that affects movement. If range, speed, loading, or contact changes, use 4-5.',
     values: ['None', 'Mild', 'Moderate', 'High', 'Severe'],
   },
   {
     key: 'confidence',
-    label: 'Confidence',
-    question: 'Confidence to train well?',
+    label: 'Training confidence',
+    question: 'Can you train with control today?',
     tooltip: 'Rate confidence to complete the planned work with control. This is not a toughness score.',
     values: ['Very low', 'Low', 'Moderate', 'High', 'Very high'],
   },
@@ -107,16 +108,16 @@ const CHECK_SCALES: CheckScale[] = [
 
 const BAND_COPY: Record<DailyPerformanceBand, { title: string; body: string }> = {
   Push: {
-    title: 'Push',
-    body: 'Planned work is appropriate. Follow the prescription as written.',
+    title: 'Ready',
+    body: 'Readiness supports the plan. Keep the work focused and log anything that changes.',
   },
   Build: {
-    title: 'Build',
-    body: 'Main work stays. Optional volume may be reduced.',
+    title: 'Train smart',
+    body: 'Keep the main work sharp. Trim extras if sleep, soreness, or stress is pulling recovery down.',
   },
   Protect: {
-    title: 'Protect',
-    body: 'Training cost is reduced today to lower risk.',
+    title: 'Recovery first',
+    body: 'Protect recovery today. Keep the key work controlled and avoid piling on stress.',
   },
 };
 
@@ -136,6 +137,59 @@ function getCoachingFocus(primaryLimiter: ReturnType<typeof inferPrimaryLimiterF
   if (primaryLimiter === 'nutrition' || primaryLimiter === 'hydration') return 'nutrition';
   if (primaryLimiter === 'none') return 'execution';
   return 'recovery';
+}
+
+function buildDraftReadinessGuidance(input: {
+  checkInput: DailyPerformanceCheckInput;
+  band: DailyPerformanceBand;
+  canonicalConfidenceSummary: string;
+}) {
+  const { checkInput, band, canonicalConfidenceSummary } = input;
+  const hasPainConcern = (checkInput.painLevel ?? 1) >= 4;
+  const sleepLow = checkInput.sleepQuality <= 2;
+  const sorenessHigh = checkInput.sorenessLevel >= 4;
+  const stressHigh = checkInput.stressLevel >= 4;
+  const energyLow = checkInput.energyLevel <= 2;
+
+  if (hasPainConcern) {
+    return {
+      title: 'Adjust around pain first.',
+      body: 'Pain or injury concern changes the plan before intensity does. Athleticore will protect movement quality and avoid hard work that conflicts with it.',
+      training: 'Review today before adding load, contact, or range that feels off.',
+      recovery: 'Recovery priority: calm symptoms, easy movement, food, hydration, and sleep.',
+      confidence: canonicalConfidenceSummary,
+    };
+  }
+
+  if (band === 'Protect') {
+    return {
+      title: 'Recovery leads today.',
+      body: sleepLow && sorenessHigh
+        ? "Sleep was short and soreness is up, so Athleticore will keep the main work controlled and cut the extra volume."
+        : "You're under-recovered today, so the useful move is to protect recovery instead of forcing extra work.",
+      training: 'Keep intensity capped and skip low-value extras.',
+      recovery: 'Recovery is the work: easy movement, enough food, hydration, and sleep.',
+      confidence: canonicalConfidenceSummary,
+    };
+  }
+
+  if (band === 'Build' || sleepLow || sorenessHigh || stressHigh || energyLow) {
+    return {
+      title: 'Keep the main work sharp.',
+      body: "You're carrying a little more fatigue today, so Athleticore can keep the key session and trim the work that does not need to be there.",
+      training: 'Main session stays. Extra volume should earn its place.',
+      recovery: 'Protect sleep after training and keep fueling steady.',
+      confidence: canonicalConfidenceSummary,
+    };
+  }
+
+  return {
+    title: 'You look ready to train.',
+    body: 'Readiness supports the plan today. Keep the work clean, fuel it well, and update Athleticore if anything changes.',
+    training: 'Follow the plan and keep the quality high.',
+    recovery: 'Stay consistent with food, hydration, cooldown, and sleep.',
+    confidence: canonicalConfidenceSummary,
+  };
 }
 
 function getValue(values: Record<CheckKey, number>, key: CheckKey): number {
@@ -187,6 +241,12 @@ export function LogScreen() {
   const band = useMemo(() => mapScoreToPerformanceBand(estimatedScore), [estimatedScore]);
   const bandColor = getBandColor(band);
   const bandCopy = BAND_COPY[band];
+  const guidedReadiness = logScreenData.guidedReadiness;
+  const draftGuidance = useMemo(() => buildDraftReadinessGuidance({
+    checkInput,
+    band,
+    canonicalConfidenceSummary: guidedReadiness.confidence.summary,
+  }), [band, checkInput, guidedReadiness.confidence.summary]);
   const bottomActionClearance = Math.max(tabBarHeight, insets.bottom) + SPACING.lg;
 
   const setScaleValue = (key: CheckKey, value: number) => {
@@ -309,8 +369,8 @@ export function LogScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
         <View>
-          <Text style={styles.headerTitle}>Daily Performance Check</Text>
-          <Text style={styles.headerSubtitle}>Score the factors that affect training today.</Text>
+          <Text style={styles.headerTitle}>Quick Check-In</Text>
+          <Text style={styles.headerSubtitle}>Tell Athleticore how you are doing so today's plan can adapt.</Text>
         </View>
       </View>
 
@@ -320,25 +380,51 @@ export function LogScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()}>
+          <Card
+            variant="glass"
+            style={[styles.readinessGuidanceCard, { borderColor: bandColor }]}
+            backgroundTone="performance"
+            backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+          >
+            <View style={styles.resultHeaderRow}>
+              <View style={styles.resultCopy}>
+                <Text style={styles.resultLabel}>READINESS GUIDANCE</Text>
+                <Text style={styles.resultTitle}>{draftGuidance.title}</Text>
+              </View>
+              <View style={[styles.resultPill, { backgroundColor: `${bandColor}22`, borderColor: `${bandColor}55` }]}>
+                <Text style={[styles.resultPillText, { color: bandColor }]}>{bandCopy.title}</Text>
+              </View>
+            </View>
+            <Text style={styles.resultBody}>{draftGuidance.body}</Text>
+            <View style={styles.guidanceRows}>
+              <View style={styles.guidanceRow}>
+                <Text style={styles.guidanceLabel}>Training</Text>
+                <Text style={styles.guidanceText}>{draftGuidance.training}</Text>
+              </View>
+              <View style={styles.guidanceRow}>
+                <Text style={styles.guidanceLabel}>Recovery / fuel</Text>
+                <Text style={styles.guidanceText}>{draftGuidance.recovery}</Text>
+              </View>
+              <View style={styles.guidanceRow}>
+                <Text style={styles.guidanceLabel}>{guidedReadiness.confidence.label}</Text>
+                <Text style={styles.guidanceText}>{draftGuidance.confidence}</Text>
+              </View>
+            </View>
+            {guidedReadiness.riskHighlights[0] ? (
+              <View style={styles.guidanceCallout}>
+                <Text style={styles.guidanceCalloutText}>{guidedReadiness.riskHighlights[0]}</Text>
+              </View>
+            ) : null}
+          </Card>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(45).duration(ANIMATION.normal).springify()}>
           <UnifiedJourneySummaryCard
             summary={logScreenData.performanceContext}
             compact
             showProtectedAnchors={false}
             showBodyMass={Boolean(logScreenData.performanceContext.bodyMass)}
           />
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()} style={[styles.resultPanel, { borderColor: bandColor }]}>
-          <View style={styles.resultHeaderRow}>
-            <View>
-              <Text style={styles.resultLabel}>TODAY</Text>
-              <Text style={[styles.resultBand, { color: bandColor }]}>{bandCopy.title}</Text>
-            </View>
-            <View style={[styles.scoreBadge, { backgroundColor: `${bandColor}22`, borderColor: `${bandColor}55` }]}>
-              <Text style={[styles.scoreText, { color: bandColor }]}>{estimatedScore}</Text>
-            </View>
-          </View>
-          <Text style={styles.resultBody}>{bandCopy.body}</Text>
         </Animated.View>
 
         <View style={styles.weightGroup}>
@@ -409,16 +495,16 @@ export function LogScreen() {
           <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()} style={styles.scaleGroup}>
             <View style={styles.scaleHeader}>
               <View>
-                <Text style={styles.scaleLabel}>Pain</Text>
-                <Text style={styles.scaleQuestion}>Pain with movement?</Text>
+                <Text style={styles.scaleLabel}>Pain / injury concern</Text>
+                <Text style={styles.scaleQuestion}>Any pain changing movement?</Text>
               </View>
               <TouchableOpacity
                 style={styles.infoButton}
                 onPress={() => setTooltip({
                   key: 'soreness',
-                  label: 'Pain',
-                  question: 'Pain with movement?',
-                  tooltip: 'Score pain only if it changes movement, range, loading, or contact. Sharp or limiting pain is 4-5.',
+                  label: 'Pain / injury concern',
+                  question: 'Any pain changing movement?',
+                  tooltip: 'Score pain only if it changes movement, range, loading, or contact. Sharp or limiting pain is 4-5 so Athleticore protects the plan.',
                   values: ['None', 'Mild', 'Moderate', 'Limiting', 'Stop'],
                 })}
               >
@@ -460,7 +546,7 @@ export function LogScreen() {
             onPress={() => setShowPainScale(true)}
             activeOpacity={0.78}
           >
-            <Text style={[styles.addPainText, { color: themeColor }]}>Add pain score</Text>
+            <Text style={[styles.addPainText, { color: themeColor }]}>Add pain or injury concern</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -478,7 +564,7 @@ export function LogScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.primaryButton}
           >
-            <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save Check'}</Text>
+            <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save check-in'}</Text>
           </LinearGradient>
         </AnimatedPressable>
       </View>
@@ -526,10 +612,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.xxl,
   },
-  resultPanel: {
+  readinessGuidanceCard: {
     borderWidth: 1,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surface,
     padding: SPACING.md,
     marginBottom: SPACING.md,
     ...SHADOWS.card,
@@ -540,16 +624,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: SPACING.md,
   },
+  resultCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   resultLabel: {
     fontSize: 11,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.tertiary,
     letterSpacing: 0.8,
   },
-  resultBand: {
-    marginTop: 2,
-    fontSize: 30,
-    fontFamily: FONT_FAMILY.black,
+  resultTitle: {
+    marginTop: 3,
+    fontSize: 24,
+    lineHeight: 30,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
   },
   resultBody: {
     marginTop: SPACING.sm,
@@ -558,17 +648,57 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
   },
-  scoreBadge: {
-    minWidth: 64,
-    height: 56,
-    borderRadius: RADIUS.lg,
+  resultPill: {
+    maxWidth: 126,
+    minHeight: 34,
+    borderRadius: RADIUS.full,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: SPACING.sm,
   },
-  scoreText: {
-    fontSize: 25,
-    fontFamily: FONT_FAMILY.black,
+  resultPillText: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  guidanceRows: {
+    marginTop: SPACING.md,
+    gap: SPACING.sm,
+  },
+  guidanceRow: {
+    paddingTop: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.borderLight,
+  },
+  guidanceLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  guidanceText: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  guidanceCallout: {
+    marginTop: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surfaceSecondary,
+    padding: SPACING.sm,
+  },
+  guidanceCalloutText: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
   },
   weightGroup: {
     marginBottom: SPACING.md,

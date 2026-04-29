@@ -647,10 +647,21 @@ function safetyRelevantMissingDataLabels(
 ): string[] {
   return unique([
     ...performanceState.unknowns.map((field) => humanize(field.field)),
-    ...readiness.missingData.map((field) => humanize(field.field)),
+    ...readiness.missingData
+      .filter((field) => isCoreReadinessSafetyField(field.field))
+      .map((field) => humanize(field.field)),
     ...(weightClassPlan?.feasibilityStatus === 'insufficient_data' ? ['Weight-class feasibility'] : []),
     ...(weightClassPlan?.confidence.level === 'unknown' ? ['Weight-class confidence'] : []),
   ]).slice(0, 6);
+}
+
+function isCoreReadinessSafetyField(field: string): boolean {
+  return [
+    'subjective_readiness',
+    'sleep_duration_or_quality',
+    'soreness',
+    'readiness_check_in',
+  ].includes(field);
 }
 
 function readinessAdjustmentCopy(readiness: ReadinessState): string {

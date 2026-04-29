@@ -4,7 +4,9 @@ import { supabase } from '../../lib/supabase';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import {
+  buildGuidedReadinessViewModel,
   buildUnifiedPerformanceViewModel,
+  type GuidedReadinessViewModel,
   type UnifiedPerformanceViewModel,
 } from '../../lib/performance-engine';
 import type {
@@ -120,6 +122,7 @@ interface LogScreenDataState {
   nutritionWaterDraft: string;
   acwrContext: AcwrContextState;
   performanceContext: UnifiedPerformanceViewModel;
+  guidedReadiness: GuidedReadinessViewModel;
 }
 
 const DEFAULT_INITIAL_VALUES: LogScreenInitialValues = {
@@ -234,6 +237,7 @@ function buildDefaultState(): LogScreenDataState {
     nutritionWaterDraft: '0',
     acwrContext: DEFAULT_ACWR_CONTEXT,
     performanceContext: buildUnifiedPerformanceViewModel(null),
+    guidedReadiness: buildGuidedReadinessViewModel(null),
   };
 }
 
@@ -405,6 +409,7 @@ export function useLogScreenData() {
           hasActiveWeightClassPlan: engineState.objectiveContext.hasActiveWeightClassPlan,
         },
         performanceContext: buildUnifiedPerformanceViewModel(engineState.unifiedPerformance),
+        guidedReadiness: buildGuidedReadinessViewModel(engineState.unifiedPerformance),
       };
 
       setState((prev) => ({
