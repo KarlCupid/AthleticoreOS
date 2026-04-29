@@ -2,18 +2,18 @@
 
 Read `STATE.md` first for the current direction. This file explains how the codebase is organized today and how the product is meant to feel.
 
-Athleticore OS is an athlete operating system for combat-sports training. The product is built around a shared daily engine state that turns planning, readiness, nutrition, hydration, workload, and weight-management data into one actionable mission.
+Athleticore OS is an athlete operating system for combat-sports training. The product is built around Unified Performance Engine output and a shared daily engine state that turn planning, readiness, nutrition, hydration, workload, and body-mass data into one actionable mission.
 
 ## Product shape
 
 - Primary experience: authenticated athlete dashboard plus planning, fueling, and execution flows.
 - Goal modes: `build_phase` and `fight_camp`.
-- Core loop: auth -> onboarding -> planning setup -> rolling schedule plus daily engine -> dashboard and plan execution -> logs and snapshots.
+- Core loop: auth -> onboarding -> planning setup -> rolling schedule plus Unified Performance Engine-backed daily state -> dashboard and plan execution -> logs and guided training records.
 - Main surfaces:
   - `Today`: dashboard, day detail, logging, and activity history.
   - `Train`: workout home, active training, guided sessions, exercise discovery, and summaries.
   - `Plan`: weekly plan, calendar, weekly review, and workout detail.
-  - `Fuel`: nutrition, food search, barcode scanning, weight-cut home, cut-plan setup, fight-week protocol, and rehydration.
+  - `Fuel`: nutrition, food search, barcode scanning, weight-class planning, competition body-mass support, fight-week fueling, and rehydration.
   - `Me`: profile and settings.
   - Internal-only replay inspection: `Engine Replay Lab` from the hidden Me/Profile version-tap entry.
 
@@ -64,14 +64,14 @@ For the practical contributor rules, read `DESIGN_SYSTEM.md`.
 - `PlanningSetupStackNavigator`
 - `TabNavigator`
 
-That decision depends on Supabase auth, the existence of an athlete profile, and `getPlanningSetupStatus`.
+That decision depends on Supabase auth and `getAthleteJourneyAppEntryState`, which resolves whether the user needs onboarding, planning setup, or the main tab app.
 
 ### Navigation
 
 - `src/navigation/TodayStack.tsx`: dashboard, day detail, logs, and quick logging flows.
 - `src/navigation/TrainStack.tsx`: training home, active workouts, guided workouts, exercise search, and summaries.
 - `src/navigation/PlanStack.tsx`: weekly planning, calendar, review, and workout detail flows.
-- `src/navigation/FuelStack.tsx`: nutrition and weight-cut flows.
+- `src/navigation/FuelStack.tsx`: nutrition, body-mass, and weight-class flows.
 - `src/navigation/MeStack.tsx`: profile and settings.
 - `src/navigation/PlanningSetupStack.tsx`: setup gate before the main app.
 - `src/navigation/TabNavigator.tsx`: bottom-tab shell.
@@ -95,29 +95,30 @@ Users are not fully admitted into the app until they have:
 
 Legacy usage can satisfy the gate for older accounts.
 
-### Daily engine state is the center of the app
+### Unified daily performance is the center of the app
 
-`lib/api/dailyMissionService.ts` resolves, in order:
+`lib/api/dailyPerformanceService.ts` is the canonical daily orchestration path. It resolves and composes:
 
 - objective context
 - ACWR
 - readiness profile and stimulus constraints
-- cut protocol
-- nutrition targets
+- Unified Performance Engine state
+- body-mass and weight-class context
+- nutrition and fueling targets
 - hydration
 - workout prescription
 - camp risk
-- final mission
+- daily athlete summary compatibility output
 
-This state powers the dashboard and much of the planning, fueling, and training UI.
+This state powers the dashboard and much of the planning, fueling, and training UI. New UI should consume Unified Performance Engine outputs first through the presentation view models exposed as `performanceContext`, `todayMission`, and `phaseTransition`.
 
-### Snapshot persistence is part of the contract
+### Legacy daily mission snapshots are compatibility only
 
-Engine outputs are persisted in `daily_engine_snapshots` and mirrored into `weekly_plan_entries.daily_mission_snapshot`. If mission or engine shapes change, consider persistence and reuse paths, not just the local caller.
+Daily mission snapshot persistence is not the future architecture. Retired structures such as `daily_engine_snapshots`, `daily_mission_snapshot`, and daily performance summary mirrors should be treated as legacy compatibility concerns, not public contracts for new work. Weekly plan `prescription_snapshot` data is still used for guided workout execution and is a separate training-prescription compatibility contract.
 
 ### Intervention logic is engine-driven
 
-There is no separate `interventionService` at the moment. Safety and intervention behavior is coordinated through the Unified Performance Engine, Risk and Safety Engine, Body Mass and Weight-Class Management Engine, and the orchestration in `lib/api/dailyMissionService.ts`.
+There is no separate `interventionService` at the moment. Safety and intervention behavior is coordinated through the Unified Performance Engine, Risk and Safety Engine, Body Mass and Weight-Class Management Engine, and the orchestration in `lib/api/dailyPerformanceService.ts`.
 
 ### Guided sessions have ownership rules
 
@@ -150,7 +151,7 @@ If you change simulation output shape, you usually need to update both the repla
 - `src/hooks`: orchestration hooks like `useDashboardData`, `useWeeklyPlan`, and workout hooks.
 - `src/theme`: theme tokens, typography, spacing, semantic palettes, and readiness accent helpers.
 - `src/context`: shared runtime UI contexts.
-- `lib/api`: service layer for athlete context, planning, mission, schedules, nutrition, fight camp, weight, and weight cut.
+- `lib/api`: service layer for athlete context, planning, daily performance, schedules, nutrition, fight camp, body mass, and weight class.
 - `lib/engine`: deterministic business logic.
 - `lib/engine/presentation`: engine-to-copy mapping for summaries and semantic presentation.
 - `lib/engine/simulation`: persona library, runner, and reporting.
@@ -164,12 +165,12 @@ If you change simulation output shape, you usually need to update both the repla
    Five-tab shell and gym-floor navigation behavior.
 3. `src/theme/theme.ts`
    Color, spacing, typography, semantic, and interaction tokens.
-4. `lib/api/dailyMissionService.ts`
-   Main daily engine orchestration path.
+4. `lib/api/dailyPerformanceService.ts`
+   Canonical daily engine orchestration path and Unified Performance Engine handoff.
 5. `src/hooks/useDashboardData.ts`
-   Dashboard state assembly and refresh behavior.
+   Dashboard state assembly, including `performanceContext`, `todayMission`, and `phaseTransition` view models.
 6. `lib/api/weeklyPlanService.ts` and `src/screens/WeeklyPlanScreen.tsx`
-   Weekly planning, mission reuse, and plan execution entry points.
+   Weekly planning, guided prescription reuse, and plan execution entry points.
 7. `lib/engine/index.ts` and `lib/engine/types.ts`
    Export surface and shared engine contracts.
 8. `lib/engine/simulation/runner.ts`, `lib/engine/simulation/lab.ts`, and `src/components/replay-lab/`
@@ -179,7 +180,8 @@ If you change simulation output shape, you usually need to update both the repla
 
 - Prefer fixing behavior in the engine or service layer when multiple screens depend on it.
 - Reuse shared engine types instead of redefining API or UI-only variants.
-- Treat snapshots and mirrored mission fields as public contracts inside the app.
+- Treat Unified Performance Engine output and presentation view models as the first-class UI contract.
+- Treat legacy daily mission/snapshot structures as compatibility only; do not add new dashboard behavior that depends on daily mission mirrors or daily snapshot persistence.
 - Preserve the auth, profile, and planning gate unless the task explicitly targets it.
 - If the code path is mode-sensitive, check both `build_phase` and `fight_camp`.
 - For replay-lab work, do not fork engine logic for visualization. Reuse engine outputs and add adapter or view-model fields instead.
