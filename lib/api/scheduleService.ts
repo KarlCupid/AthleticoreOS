@@ -194,6 +194,21 @@ async function updateScheduledActivities(
     if (error) throw error;
 }
 
+async function getScheduledActivityMutationContext(
+    userId: string,
+    activityId: string,
+): Promise<{ date: string | null }> {
+    const { data, error } = await supabase
+        .from('scheduled_activities')
+        .select('date')
+        .eq('id', activityId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (error) throw error;
+    return { date: data?.date ?? null };
+}
+
 /**
  * Fetch the user's recurring activities.
  */
@@ -254,26 +269,43 @@ export async function removeRecurringActivity(
     entryId: string,
     deleteFutureInstances: boolean = true
 ): Promise<void> {
-    const { error } = await supabase
+    const { data: template, error: templateError } = await supabase
         .from('recurring_activities')
-        .update({ is_active: false })
-        .eq('id', entryId);
+        .select('user_id')
+        .eq('id', entryId)
+        .maybeSingle();
 
-    if (error) throw error;
+    if (templateError) throw templateError;
 
-    if (deleteFutureInstances) {
-        const todayStr = today();
-        const { error: delError } = await supabase
-            .from('scheduled_activities')
-            .delete()
-            .eq('recurring_activity_id', entryId)
-            .gte('date', todayStr)
-            .eq('status', 'scheduled'); // Only delete if not already completed/skipped
+    const mutation = async () => {
+        const { error } = await supabase
+            .from('recurring_activities')
+            .update({ is_active: false })
+            .eq('id', entryId);
 
-        if (delError) {
-            logWarn('scheduleService.deleteFutureScheduledInstances', delError);
+        if (error) throw error;
+
+        if (deleteFutureInstances) {
+            const todayStr = today();
+            const { error: delError } = await supabase
+                .from('scheduled_activities')
+                .delete()
+                .eq('recurring_activity_id', entryId)
+                .gte('date', todayStr)
+                .eq('status', 'scheduled'); // Only delete if not already completed/skipped
+
+            if (delError) {
+                logWarn('scheduleService.deleteFutureScheduledInstances', delError);
+            }
         }
+    };
+
+    if (!template?.user_id) {
+        await mutation();
+        return;
     }
+
+    return withEngineInvalidation({ userId: template.user_id, reason: 'recurring_activity_remove' }, mutation);
 }
 
 
@@ -394,7 +426,9 @@ export async function generateRollingSchedule(
 
     if (newRows.length === 0) return [];
 
-    return insertScheduledActivities(newRows);
+    return withEngineInvalidation({ userId, reason: 'rolling_schedule_generate' }, () =>
+        insertScheduledActivities(newRows),
+    );
 }
 
 export async function ensureRollingScheduleFresh(
@@ -529,26 +563,28 @@ export async function addManualActivity(
         throw new Error('Engine-managed S&C and conditioning sessions must come from the centralized planner.');
     }
 
-    return insertScheduledActivity({
-        user_id: userId,
-        date: activity.date,
-        activity_type: activity.activity_type,
-        custom_label: activity.custom_label ?? null,
-        start_time: activity.start_time ?? null,
-        estimated_duration_min: activity.estimated_duration_min ?? 60,
-        expected_intensity: activity.expected_intensity ?? 5,
-        session_components: activity.session_components ?? [],
-        session_kind: activity.session_kind ?? null,
-        rounds: activity.rounds ?? null,
-        round_duration_sec: activity.round_duration_sec ?? null,
-        rest_duration_sec: activity.rest_duration_sec ?? null,
-        athlete_locked: activity.athlete_locked ?? true,
-        intended_intensity: activity.intended_intensity ?? null,
-        notes: activity.notes ?? null,
-        source: 'manual' as ScheduleSource,
-        recurring_activity_id: null,
-        status: 'scheduled',
-    });
+    return withEngineInvalidation({ userId, date: activity.date, reason: 'activity_add' }, () =>
+        insertScheduledActivity({
+            user_id: userId,
+            date: activity.date,
+            activity_type: activity.activity_type,
+            custom_label: activity.custom_label ?? null,
+            start_time: activity.start_time ?? null,
+            estimated_duration_min: activity.estimated_duration_min ?? 60,
+            expected_intensity: activity.expected_intensity ?? 5,
+            session_components: activity.session_components ?? [],
+            session_kind: activity.session_kind ?? null,
+            rounds: activity.rounds ?? null,
+            round_duration_sec: activity.round_duration_sec ?? null,
+            rest_duration_sec: activity.rest_duration_sec ?? null,
+            athlete_locked: activity.athlete_locked ?? true,
+            intended_intensity: activity.intended_intensity ?? null,
+            notes: activity.notes ?? null,
+            source: 'manual' as ScheduleSource,
+            recurring_activity_id: null,
+            status: 'scheduled',
+        }),
+    );
 }
 
 /**
@@ -566,32 +602,16 @@ export async function updateScheduledActivity(
     recurringActivityId?: string | null,
     updateType: 'single' | 'future' = 'single'
 ): Promise<void> {
-    if (updateType === 'future' && recurringActivityId) {
-        // 1. Update the template
-        const { error: tmplError } = await supabase
-            .from('recurring_activities')
-            .update({
-                custom_label: updates.custom_label,
-                start_time: updates.start_time,
-                estimated_duration_min: updates.estimated_duration_min,
-                expected_intensity: updates.expected_intensity,
-                session_components: updates.session_components,
-            })
-            .eq('id', recurringActivityId)
-            .eq('user_id', userId);
+    const context = await getScheduledActivityMutationContext(userId, activityId);
+    const invalidationInput = updateType === 'future' && recurringActivityId
+        ? { userId, reason: 'activity_future_update' }
+        : { userId, date: context.date ?? undefined, reason: 'activity_update' };
 
-        if (tmplError) throw tmplError;
-
-        // 2. Update this and future scheduled activities
-        const { data: activity } = await supabase
-            .from('scheduled_activities')
-            .select('date')
-            .eq('id', activityId)
-            .maybeSingle();
-        const activityDate = activity?.date ?? null;
-        if (activityDate) {
-            const { error: bulkUpdateError } = await supabase
-                .from('scheduled_activities')
+    return withEngineInvalidation(invalidationInput, async () => {
+        if (updateType === 'future' && recurringActivityId) {
+            // 1. Update the template
+            const { error: tmplError } = await supabase
+                .from('recurring_activities')
                 .update({
                     custom_label: updates.custom_label,
                     start_time: updates.start_time,
@@ -599,23 +619,40 @@ export async function updateScheduledActivity(
                     expected_intensity: updates.expected_intensity,
                     session_components: updates.session_components,
                 })
-                .eq('recurring_activity_id', recurringActivityId)
-                .eq('user_id', userId)
-                .gte('date', activityDate)
-                .eq('status', 'scheduled');
+                .eq('id', recurringActivityId)
+                .eq('user_id', userId);
 
-            if (bulkUpdateError) throw bulkUpdateError;
+            if (tmplError) throw tmplError;
+
+            // 2. Update this and future scheduled activities
+            if (context.date) {
+                const { error: bulkUpdateError } = await supabase
+                    .from('scheduled_activities')
+                    .update({
+                        custom_label: updates.custom_label,
+                        start_time: updates.start_time,
+                        estimated_duration_min: updates.estimated_duration_min,
+                        expected_intensity: updates.expected_intensity,
+                        session_components: updates.session_components,
+                    })
+                    .eq('recurring_activity_id', recurringActivityId)
+                    .eq('user_id', userId)
+                    .gte('date', context.date)
+                    .eq('status', 'scheduled');
+
+                if (bulkUpdateError) throw bulkUpdateError;
+            }
+        } else {
+            // Just update single activity
+            const { error } = await supabase
+                .from('scheduled_activities')
+                .update(updates)
+                .eq('id', activityId)
+                .eq('user_id', userId);
+
+            if (error) throw error;
         }
-    } else {
-        // Just update single activity
-        const { error } = await supabase
-            .from('scheduled_activities')
-            .update(updates)
-            .eq('id', activityId)
-            .eq('user_id', userId);
-
-        if (error) throw error;
-    }
+    });
 }
 
 

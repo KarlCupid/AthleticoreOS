@@ -2,6 +2,7 @@ import { supabase } from '../supabase';
 import { FitnessLevel, FitnessAssessmentInput, FitnessAssessmentResult } from '../engine/types';
 import { assessFitnessFromQuestionnaire } from '../engine/calculateFitness';
 import { logError } from '../utils/logger';
+import { withEngineInvalidation } from './engineInvalidation';
 
 export interface FitnessProfileRow {
     user_id: string;
@@ -48,20 +49,22 @@ export async function submitFitnessQuestionnaire(
     // 1. Calculate fitness level using the pure engine
     const result = assessFitnessFromQuestionnaire(input);
 
-    // 2. Save result to athlete_profiles
-    const { error: profileError } = await supabase
-        .from('athlete_profiles')
-        .update({
-            fitness_level: result.level,
-            fitness_score: result.compositeScore,
-            updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
+    await withEngineInvalidation({ userId, reason: 'fitness_questionnaire_save' }, async () => {
+        // 2. Save result to athlete_profiles
+        const { error: profileError } = await supabase
+            .from('athlete_profiles')
+            .update({
+                fitness_level: result.level,
+                fitness_score: result.compositeScore,
+                updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
 
-    if (profileError) {
-        logError('fitnessService.updateFitnessLevel', profileError);
-        throw profileError;
-    }
+        if (profileError) {
+            logError('fitnessService.updateFitnessLevel', profileError);
+            throw profileError;
+        }
+    });
 
     // 3. Optional: save raw questionnaire results to a history table if desired
     // Example: await supabase.from('fitness_assessments').insert({...})
@@ -77,14 +80,16 @@ export async function updateFitnessLevel(
     level: FitnessLevel,
     score: number
 ): Promise<void> {
-    const { error } = await supabase
-        .from('athlete_profiles')
-        .update({
-            fitness_level: level,
-            fitness_score: score,
-            updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
+    return withEngineInvalidation({ userId, reason: 'fitness_level_update' }, async () => {
+        const { error } = await supabase
+            .from('athlete_profiles')
+            .update({
+                fitness_level: level,
+                fitness_score: score,
+                updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
 
-    if (error) throw error;
+        if (error) throw error;
+    });
 }

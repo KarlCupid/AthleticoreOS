@@ -49,7 +49,7 @@ export function invalidateEngineDataCache(input: {
   clearUserScopedKeys(weeklyAthleteSummaryInFlight, userId);
 }
 
-export async function withEngineInvalidation<T>(
+export async function mutateEngineAffectingData<T>(
   input: {
     userId: string;
     date?: string;
@@ -61,4 +61,16 @@ export async function withEngineInvalidation<T>(
   const result = await mutation();
   invalidateEngineDataCache(input);
   return result;
+}
+
+export async function withEngineInvalidation<T>(
+  input: {
+    userId: string;
+    date?: string;
+    weekStart?: string;
+    reason: string;
+  },
+  mutation: () => Promise<T>,
+): Promise<T> {
+  return mutateEngineAffectingData(input, mutation);
 }

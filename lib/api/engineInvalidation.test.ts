@@ -5,6 +5,7 @@ import {
   dailyEngineStateInFlight,
   weeklyAthleteSummaryCache,
   weeklyAthleteSummaryInFlight,
+  mutateEngineAffectingData,
   withEngineInvalidation,
 } from './engineInvalidation.ts';
 
@@ -60,6 +61,13 @@ async function run() {
   assert('helper clears weekly cache key', !weeklyAthleteSummaryCache.has('user-1::2026-04-27'));
   assert('helper clears weekly in-flight key', !weeklyAthleteSummaryInFlight.has('user-1::2026-04-27'));
 
+  dailyEngineStateCache.set('user-alias::2026-04-29', {} as never);
+  await mutateEngineAffectingData(
+    { userId: 'user-alias', date: '2026-04-29', reason: 'alias_mutation' },
+    async () => undefined,
+  );
+  assert('mutateEngineAffectingData clears daily cache key', !dailyEngineStateCache.has('user-alias::2026-04-29'));
+
   dailyEngineStateCache.set('user-date-only::2026-04-29', {} as never);
   weeklyAthleteSummaryCache.set('user-date-only::2026-04-27', {} as never);
   weeklyAthleteSummaryInFlight.set('user-date-only::2026-04-27', Promise.resolve({} as never));
@@ -83,7 +91,7 @@ async function run() {
   assert('helper preserves daily cache when mutation fails', dailyEngineStateCache.has('user-2::2026-04-29'));
   assert('helper preserves weekly cache when mutation fails', weeklyAthleteSummaryCache.has('user-2::2026-04-27'));
 
-  const dailyCheckIn = read('src/screens/LogScreen.tsx');
+  const dailyCheckIn = read('lib/api/dailyCheckInService.ts');
   const nutrition = read('lib/api/nutritionService.ts');
   const schedule = read('lib/api/scheduleService.ts');
   const sc = read('lib/api/scService.ts');
@@ -92,9 +100,11 @@ async function run() {
   const onboarding = read('src/screens/onboarding/completeCoachIntake.ts');
   const fightCamp = read('lib/api/fightCampService.ts');
   const weightClass = read('lib/api/weightClassPlanService.ts');
+  const fitness = read('lib/api/fitnessService.ts');
+  const gymProfiles = read('lib/api/gymProfileService.ts');
 
   assertIncludes(dailyCheckIn, 'daily check-in/bodyweight save', [
-    'withEngineInvalidation',
+    'mutateEngineAffectingData',
     "reason: 'daily_checkin_save'",
     "reason: 'daily_checkin_readiness_score_update'",
   ]);
@@ -107,9 +117,14 @@ async function run() {
     "reason: 'hydration_log_remove'",
   ]);
   assertIncludes(schedule, 'activity and commitment mutations', [
+    "reason: 'activity_add'",
+    "reason: 'activity_update'",
+    "reason: 'activity_future_update'",
     "reason: 'activity_complete'",
     "reason: 'activity_skip'",
+    "reason: 'recurring_activity_remove'",
     "reason: 'recurring_activities_replace'",
+    "reason: 'rolling_schedule_generate'",
   ]);
   assertIncludes(sc, 'guided workout mutations', [
     "reason: 'guided_workout_start'",
@@ -143,6 +158,16 @@ async function run() {
     "reason: 'weight_class_plan_abandon'",
     "reason: 'body_mass_safety_check_upsert'",
     "reason: 'weight_class_plan_complete'",
+  ]);
+  assertIncludes(fitness, 'fitness profile updates', [
+    "reason: 'fitness_questionnaire_save'",
+    "reason: 'fitness_level_update'",
+  ]);
+  assertIncludes(gymProfiles, 'gym profile updates', [
+    "reason: 'gym_profile_create'",
+    "reason: 'gym_profile_update'",
+    "reason: 'gym_profile_delete'",
+    "reason: 'gym_profile_default_update'",
   ]);
 
   const files = [

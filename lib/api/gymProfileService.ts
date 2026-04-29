@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { GymProfileRow, EquipmentItem } from '../engine/types';
+import { withEngineInvalidation } from './engineInvalidation';
 
 // ─── Gym Profile CRUD ────────────────────────────────────────
 
@@ -40,28 +41,41 @@ export async function createGymProfile(
     userId: string,
     profile: { name: string; equipment: EquipmentItem[]; is_default?: boolean },
 ): Promise<GymProfileRow> {
-    // If setting as default, unset other defaults first
-    if (profile.is_default) {
-        await supabase
-            .from('gym_profiles')
-            .update({ is_default: false })
-            .eq('user_id', userId)
-            .eq('is_default', true);
-    }
+    return withEngineInvalidation({ userId, reason: 'gym_profile_create' }, async () => {
+        // If setting as default, unset other defaults first
+        if (profile.is_default) {
+            await supabase
+                .from('gym_profiles')
+                .update({ is_default: false })
+                .eq('user_id', userId)
+                .eq('is_default', true);
+        }
 
+        const { data, error } = await supabase
+            .from('gym_profiles')
+            .insert({
+                user_id: userId,
+                name: profile.name,
+                equipment: profile.equipment,
+                is_default: profile.is_default ?? false,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as GymProfileRow;
+    });
+}
+
+async function getGymProfileUserId(profileId: string): Promise<string | null> {
     const { data, error } = await supabase
         .from('gym_profiles')
-        .insert({
-            user_id: userId,
-            name: profile.name,
-            equipment: profile.equipment,
-            is_default: profile.is_default ?? false,
-        })
-        .select()
-        .single();
+        .select('user_id')
+        .eq('id', profileId)
+        .maybeSingle();
 
     if (error) throw error;
-    return data as GymProfileRow;
+    return data?.user_id ?? null;
 }
 
 /**
@@ -71,27 +85,44 @@ export async function updateGymProfile(
     profileId: string,
     updates: Partial<Pick<GymProfileRow, 'name' | 'equipment' | 'is_default'>>,
 ): Promise<GymProfileRow> {
-    const { data, error } = await supabase
-        .from('gym_profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', profileId)
-        .select()
-        .single();
+    const userId = await getGymProfileUserId(profileId);
+    const mutation = async () => {
+        const { data, error } = await supabase
+            .from('gym_profiles')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', profileId)
+            .select()
+            .single();
 
-    if (error) throw error;
-    return data as GymProfileRow;
+        if (error) throw error;
+        return data as GymProfileRow;
+    };
+
+    return userId
+        ? withEngineInvalidation({ userId, reason: 'gym_profile_update' }, mutation)
+        : mutation();
 }
 
 /**
  * Delete a gym profile.
  */
 export async function deleteGymProfile(profileId: string): Promise<void> {
-    const { error } = await supabase
-        .from('gym_profiles')
-        .delete()
-        .eq('id', profileId);
+    const userId = await getGymProfileUserId(profileId);
+    const mutation = async () => {
+        const { error } = await supabase
+            .from('gym_profiles')
+            .delete()
+            .eq('id', profileId);
 
-    if (error) throw error;
+        if (error) throw error;
+    };
+
+    if (!userId) {
+        await mutation();
+        return;
+    }
+
+    return withEngineInvalidation({ userId, reason: 'gym_profile_delete' }, mutation);
 }
 
 /**
@@ -101,18 +132,20 @@ export async function setDefaultGymProfile(
     userId: string,
     profileId: string,
 ): Promise<void> {
-    // Unset current defaults
-    await supabase
-        .from('gym_profiles')
-        .update({ is_default: false })
-        .eq('user_id', userId)
-        .eq('is_default', true);
+    return withEngineInvalidation({ userId, reason: 'gym_profile_default_update' }, async () => {
+        // Unset current defaults
+        await supabase
+            .from('gym_profiles')
+            .update({ is_default: false })
+            .eq('user_id', userId)
+            .eq('is_default', true);
 
-    // Set new default
-    const { error } = await supabase
-        .from('gym_profiles')
-        .update({ is_default: true, updated_at: new Date().toISOString() })
-        .eq('id', profileId);
+        // Set new default
+        const { error } = await supabase
+            .from('gym_profiles')
+            .update({ is_default: true, updated_at: new Date().toISOString() })
+            .eq('id', profileId);
 
-    if (error) throw error;
+        if (error) throw error;
+    });
 }

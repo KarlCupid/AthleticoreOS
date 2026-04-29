@@ -26,39 +26,16 @@ import { useLogScreenData } from '../hooks/useLogScreenData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
+import { saveDailyPerformanceCheck } from '../../lib/api/dailyCheckInService';
 import {
-  getDailyEngineState,
-} from '../../lib/api/dailyPerformanceService';
-import { withEngineInvalidation } from '../../lib/api/engineInvalidation';
-import { supabase } from '../../lib/supabase';
-import {
-  deriveLegacyReadinessFromDailyCheck,
   estimateDailyPerformanceReadinessScore,
-  inferPrimaryLimiterFromDailyCheck,
   mapScoreToPerformanceBand,
   type DailyPerformanceBand,
   type DailyPerformanceCheckInput,
 } from '../../lib/engine/readiness/dailyCheck';
-import { generateDailyCoachDebrief } from '../../lib/engine/calculateDailyCoachDebrief';
-import type { CoachingFocus, NutritionBarrier } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
 
 type CheckKey = 'sleep' | 'energy' | 'stress' | 'soreness' | 'confidence';
-
-const DAILY_PERFORMANCE_CHECK_COLUMNS = [
-  'energy_level',
-  'pain_level',
-  'readiness_score',
-  'checkin_version',
-] as const;
-
-function isMissingDailyPerformanceCheckColumnError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const maybe = error as { code?: string; message?: string };
-  const message = typeof maybe.message === 'string' ? maybe.message : '';
-  return (maybe.code === 'PGRST204' || maybe.code === '42703')
-    && DAILY_PERFORMANCE_CHECK_COLUMNS.some((column) => message.includes(column));
-}
 
 interface CheckScale {
   key: CheckKey;
@@ -131,12 +108,6 @@ function getBandColor(band: DailyPerformanceBand): string {
   if (band === 'Push') return COLORS.readiness.prime;
   if (band === 'Build') return COLORS.readiness.caution;
   return COLORS.readiness.depleted;
-}
-
-function getCoachingFocus(primaryLimiter: ReturnType<typeof inferPrimaryLimiterFromDailyCheck>): CoachingFocus {
-  if (primaryLimiter === 'nutrition' || primaryLimiter === 'hydration') return 'nutrition';
-  if (primaryLimiter === 'none') return 'execution';
-  return 'recovery';
 }
 
 function buildDraftReadinessGuidance(input: {
@@ -266,20 +237,11 @@ export function LogScreen() {
         return;
       }
 
-      const legacyReadiness = deriveLegacyReadinessFromDailyCheck(checkInput);
-      const primaryLimiter = inferPrimaryLimiterFromDailyCheck(checkInput);
-      const debrief = generateDailyCoachDebrief({
-        sleepQuality: values.sleep,
-        readiness: legacyReadiness,
-        energyLevel: values.energy,
-        painLevel: showPainScale ? painLevel : null,
-        stressLevel: values.stress,
-        sorenessLevel: Math.max(values.soreness, showPainScale ? painLevel : 1),
-        confidenceLevel: values.confidence,
-        primaryLimiter,
-        nutritionAdherence: null,
-        nutritionBarrier: 'none' as NutritionBarrier,
-        coachingFocus: getCoachingFocus(primaryLimiter),
+      await saveDailyPerformanceCheck({
+        userId,
+        date: logScreenData.logDate,
+        morningWeightLbs: weight.trim() ? Number.parseFloat(weight) : null,
+        checkInput,
         trainingLoadSummary: {
           plannedMinutes: logScreenData.todayTrainingLoad.totalMinutes,
           plannedIntensity: logScreenData.todayTrainingLoad.weightedIntensity,
@@ -295,73 +257,6 @@ export function LogScreen() {
         },
         previousDebrief: logScreenData.previousDebrief,
       });
-
-      const performancePayload = {
-        user_id: userId,
-        date: logScreenData.logDate,
-        morning_weight: weight.trim() ? Number.parseFloat(weight) : null,
-        sleep_quality: values.sleep,
-        readiness: legacyReadiness,
-        energy_level: values.energy,
-        stress_level: values.stress,
-        soreness_level: values.soreness,
-        pain_level: showPainScale ? painLevel : null,
-        confidence_level: values.confidence,
-        primary_limiter: primaryLimiter,
-        nutrition_barrier: 'none',
-        coaching_focus: getCoachingFocus(primaryLimiter),
-        coach_debrief: debrief,
-        readiness_score: estimatedScore,
-        checkin_version: 2,
-      };
-      const legacyPayload = {
-        user_id: userId,
-        date: logScreenData.logDate,
-        morning_weight: weight.trim() ? Number.parseFloat(weight) : null,
-        sleep_quality: values.sleep,
-        readiness: legacyReadiness,
-        stress_level: values.stress,
-        soreness_level: values.soreness,
-        confidence_level: values.confidence,
-        primary_limiter: primaryLimiter,
-        nutrition_barrier: 'none',
-        coaching_focus: getCoachingFocus(primaryLimiter),
-        coach_debrief: debrief,
-      };
-
-      const savedWithPerformanceColumns = await withEngineInvalidation(
-        { userId, date: logScreenData.logDate, reason: 'daily_checkin_save' },
-        async () => {
-          const { error } = await supabase.from('daily_checkins').upsert(performancePayload, { onConflict: 'user_id,date' });
-          if (!error) return true;
-          if (!isMissingDailyPerformanceCheckColumnError(error)) throw error;
-          const fallback = await supabase.from('daily_checkins').upsert(legacyPayload, { onConflict: 'user_id,date' });
-          if (fallback.error) throw fallback.error;
-          return false;
-        },
-      );
-
-      const engineState = await getDailyEngineState(userId, logScreenData.logDate, { forceRefresh: true });
-
-      if (savedWithPerformanceColumns) {
-        const canonicalReadinessScore = engineState.unifiedPerformance?.canonicalOutputs.readiness.overallReadiness
-          ?? engineState.readinessProfile.overallReadiness;
-        await withEngineInvalidation(
-          { userId, date: logScreenData.logDate, reason: 'daily_checkin_readiness_score_update' },
-          async () => {
-            const readinessUpdate = await supabase
-              .from('daily_checkins')
-              .update({
-                readiness_score: canonicalReadinessScore,
-              })
-              .eq('user_id', userId)
-              .eq('date', logScreenData.logDate);
-            if (readinessUpdate.error && !isMissingDailyPerformanceCheckColumnError(readinessUpdate.error)) {
-              throw readinessUpdate.error;
-            }
-          },
-        );
-      }
 
       navigation.navigate('TodayHome');
     } catch (error) {

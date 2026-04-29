@@ -584,7 +584,7 @@ export async function rescheduleMissedDay(
 ): Promise<void> {
     const context = await getPlanEntryMutationContext(entryId);
 
-    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_day_reschedule' }, async () => {
+    return withEngineInvalidation({ userId: context.userId, weekStart: context.weekStart, reason: 'weekly_plan_day_reschedule' }, async () => {
         const { error } = await supabase
             .from('weekly_plan_entries')
             .update({
