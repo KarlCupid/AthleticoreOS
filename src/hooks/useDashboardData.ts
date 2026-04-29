@@ -153,6 +153,7 @@ export function useDashboardData() {
 
   const { setReadiness, currentLevel } = useReadinessTheme();
   const requestIdRef = useRef(0);
+  const firstDashboardLoadRef = useRef(true);
 
   const loadDashboardData = useCallback(async (forceRefresh: boolean = false) => {
     const requestId = ++requestIdRef.current;
@@ -174,9 +175,9 @@ export function useDashboardData() {
     const todayStr = todayLocalDate();
 
     try {
-      void generateRollingSchedule(userId, 4).catch((error) => {
-        logError('useDashboardData.generateRollingSchedule', error, { userId });
-      });
+      if (forceRefresh || firstDashboardLoadRef.current) {
+        await generateRollingSchedule(userId, 4);
+      }
 
       const athleteContext = await getAthleteContext(userId);
       const profile = athleteContext.profile;
@@ -327,6 +328,7 @@ export function useDashboardData() {
         todayMission,
         phaseTransition,
       });
+      firstDashboardLoadRef.current = false;
       setLoading(false);
       setRefreshing(false);
 

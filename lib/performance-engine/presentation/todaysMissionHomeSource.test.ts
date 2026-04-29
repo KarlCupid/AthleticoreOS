@@ -35,6 +35,10 @@ assert('Dashboard no longer uses legacy mission panel as home source', !/Mission
 assert('Dashboard hook builds Today Mission from UPE output', dashboardData.includes('buildTodaysMissionViewModel(engineState.unifiedPerformance'));
 assert('Dashboard hook exposes Today Mission in state', dashboardData.includes('todayMission: TodayMissionViewModel'));
 assert('Dashboard hook does not reference legacy daily mission snapshot', !/daily_mission_snapshot|dailyPerformanceSnapshot|daily_performance_summary_snapshot/.test(dashboardData));
+assert('Dashboard hook waits for rolling schedule before daily engine on initial load or refresh', dashboardData.includes('firstDashboardLoadRef')
+  && dashboardData.includes('if (forceRefresh || firstDashboardLoadRef.current)')
+  && dashboardData.indexOf('await generateRollingSchedule(userId, 4)') < dashboardData.indexOf('getDailyEngineState(userId, todayStr, { forceRefresh })'));
+assert('Dashboard hook does not fire-and-forget rolling schedule generation', !dashboardData.includes('void generateRollingSchedule'));
 
 const requiredMissionFields = [
   'mission.missionTitle',
