@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+      - master
+      - fix/schedule-service-corruption
 
 jobs:
   quality:
