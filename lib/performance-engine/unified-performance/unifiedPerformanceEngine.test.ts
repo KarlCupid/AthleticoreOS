@@ -387,9 +387,8 @@ console.log('\n-- unified performance engine --');
 })();
 
 (() => {
-  const result = run({
+  const highWorkloadCampScenario = {
     phase: 'camp',
-    acuteChronicWorkloadRatio: 1.62,
     anchors: [
       anchor({
         id: 'intense-camp-session',
@@ -407,6 +406,14 @@ console.log('\n-- unified performance engine --');
       entry({ id: 'stress-moderate', type: 'stress', value: 3 }),
       entry({ id: 'nutrition-ok', type: 'nutrition_adherence', value: 72, unit: 'percent' }),
     ],
+  } as const;
+  const result = run({
+    ...highWorkloadCampScenario,
+    acuteChronicWorkloadRatio: 1.62,
+  });
+  const acwrDropped = run({
+    ...highWorkloadCampScenario,
+    acuteChronicWorkloadRatio: null,
   });
   const generatedHard = result.training.composedSessions.filter((session) => !session.protectedAnchor && (session.intensityRpe.target ?? 0) >= 7);
   const trainingAdjustment = result.canonicalOutputs.readiness.recommendedTrainingAdjustment;
@@ -416,6 +423,9 @@ console.log('\n-- unified performance engine --');
   assert('load spike prevents ready final plan', result.finalPlanStatus !== 'ready');
   assert('load spike softens training adjustment', trainingAdjustment.replaceWithMobility || (trainingAdjustment.intensityCap ?? 10) <= 5 || (trainingAdjustment.volumeMultiplier ?? 1) < 1);
   assert('load spike avoids adding extra hard generated training', generatedHard.length === 0);
+  assert('dropping ACWR removes workload risk in the same scenario', !acwrDropped.riskFlags.some((flag) => flag.code === 'excessive_training_load'));
+  assert('ACWR materially changes canonical readiness output', result.canonicalOutputs.readiness.readinessBand !== acwrDropped.canonicalOutputs.readiness.readinessBand);
+  assert('ACWR materially changes canonical final plan status', result.finalPlanStatus !== acwrDropped.finalPlanStatus);
 })();
 
 (() => {
