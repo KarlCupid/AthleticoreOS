@@ -97,9 +97,9 @@ const UNAVAILABLE_GUIDED_BODY_MASS: GuidedBodyMassViewModel = {
   saferAlternatives: [],
   nutritionImplications: [],
   trainingImplications: [],
-  confidenceSummary: 'Confidence is unknown because the unified performance state is unavailable.',
-  missingData: ['Unified performance state'],
-  clearExplanation: 'Athleticore needs the unified performance state before it can connect body mass, fueling, readiness, training, and fight timing.',
+  confidenceSummary: "Confidence is unknown because today's connected body-mass context is unavailable.",
+  missingData: ['Body-mass, fueling, readiness, and timing context'],
+  clearExplanation: "Athleticore needs today's body-mass, fueling, readiness, training, and fight timing context before it can make a safer call.",
   riskHighlights: [],
   detailRows: [],
   nextActions: ['Load performance state'],
@@ -275,7 +275,7 @@ function clearExplanation(plan: WeightClassPlan): string {
   const required = requiredChangeLabel(plan).toLowerCase();
   const timeline = timeAvailableLabel(plan.timeframeDays).toLowerCase();
   const rate = requiredRateLabel(plan).toLowerCase();
-  return `Athleticore compared the ${required}, ${timeline}, ${rate}, readiness, fueling, and safety flags before setting this status.`;
+  return `Athleticore compared the ${required}, ${timeline}, ${rate}, readiness, fueling, and safety flags before making this call.`;
 }
 
 function saferAlternatives(plan: WeightClassPlan): string[] {

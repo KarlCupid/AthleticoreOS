@@ -290,18 +290,18 @@ function transitionCopy(opportunity: FightOpportunity): string {
     return `Stay in ${humanize(recommendation.recommendedPhase)} for now.`;
   }
   if (recommendation.recommendedPhase === 'short_notice_camp') {
-    return 'Recommended transition: tighten into short-notice camp.';
+    return 'Athleticore recommends tightening into short-notice camp.';
   }
   if (recommendation.recommendedPhase === 'camp') {
-    return 'Recommended transition: move into camp.';
+    return 'Athleticore recommends moving into camp.';
   }
   if (recommendation.recommendedPhase === 'competition_week') {
-    return 'Recommended transition: competition week.';
+    return 'Athleticore recommends moving into competition week.';
   }
   if (recommendation.recommendedPhase === 'build') {
-    return 'Recommended transition: return to build while keeping the work already logged.';
+    return 'Athleticore recommends a return to build while keeping the work already logged.';
   }
-  return `Recommended transition: ${humanize(recommendation.recommendedPhase)}.`;
+  return `Athleticore recommends ${humanize(recommendation.recommendedPhase).toLowerCase()}.`;
 }
 
 function trainingAdjustmentCopy(status: FightOpportunityStatus): string {
@@ -340,7 +340,7 @@ function readinessCopy(readinessLabel?: string | null): string {
   if (!readinessLabel) {
     return "Readiness is unknown until today's check-in. Athleticore should not treat missing readiness as safe to push.";
   }
-  return `Readiness context: ${readinessLabel}. Athleticore should let this shape training, fuel, and recovery around the fight.`;
+  return `Readiness: ${readinessLabel}. Athleticore should let this shape training, fuel, and recovery around the fight.`;
 }
 
 function protectedWorkoutCopy(labels: string[]): string {

@@ -334,7 +334,7 @@ export function ProfileSettingsScreen() {
       setSnapshot((current) => current
         ? { ...current, guidanceState: { ...current.guidanceState, status: 'pending', introSeenAt: null } }
         : current);
-      Alert.alert('Setup guide restarted', 'The guide will appear again on the Today screen.');
+      Alert.alert('Setup guide ready', 'The guide will appear again on the Today screen.');
     } catch (resetError) {
       logError('ProfileSettingsScreen.handleReplaySetupGuide', resetError);
       Alert.alert('Error', 'Could not reset the setup guide right now.');

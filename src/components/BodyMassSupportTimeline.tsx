@@ -10,12 +10,12 @@ interface Props {
 }
 
 const PHASES: { key: BodyMassSupportPhase; label: string; short: string; color: string }[] = [
-  { key: 'long_term_body_composition', label: 'Long-Term', short: 'LT', color: '#D4AF37' },
-  { key: 'gradual_weight_class_preparation', label: 'Class Prep', short: 'CP', color: '#15803D' },
-  { key: 'competition_week_body_mass_monitoring', label: 'Monitoring', short: 'MON', color: '#B8C0C2' },
-  { key: 'high_risk_review', label: 'Review', short: 'REV', color: '#D4AF37' },
-  { key: 'weigh_in_logistics', label: 'Weigh-in', short: 'WI', color: '#D9827E' },
-  { key: 'post_weigh_in_recovery_tracking', label: 'Recovery', short: 'REC', color: '#10B981' },
+  { key: 'long_term_body_composition', label: 'Long-Term', short: 'LT', color: COLORS.accent },
+  { key: 'gradual_weight_class_preparation', label: 'Class Prep', short: 'CP', color: COLORS.success },
+  { key: 'competition_week_body_mass_monitoring', label: 'Monitoring', short: 'MON', color: COLORS.chart.water },
+  { key: 'high_risk_review', label: 'Review', short: 'REV', color: COLORS.warning },
+  { key: 'weigh_in_logistics', label: 'Weigh-in', short: 'WI', color: COLORS.error },
+  { key: 'post_weigh_in_recovery_tracking', label: 'Recovery', short: 'REC', color: COLORS.success },
 ];
 
 const PHASE_ORDER = PHASES.map(p => p.key);
@@ -51,7 +51,7 @@ export function BodyMassSupportTimeline({ plan, currentPhase }: Props) {
           : COLORS.surfaceSecondary;
 
         const chipText = isCurrent
-          ? '#F5F5F0'
+          ? COLORS.text.inverse
           : isPast
           ? phase.color
           : COLORS.text.tertiary;

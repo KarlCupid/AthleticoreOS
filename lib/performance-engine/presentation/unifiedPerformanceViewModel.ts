@@ -113,19 +113,19 @@ const UNAVAILABLE_MODEL: UnifiedPerformanceViewModel = {
   available: false,
   engineVersion: null,
   planStatus: 'unknown',
-  planStatusLabel: 'Performance state pending',
+  planStatusLabel: 'Planning context pending',
   planStatusTone: 'unknown',
   phase: {
     current: 'unknown',
     label: 'Phase unknown',
-    reason: 'The unified performance state has not been resolved yet.',
+    reason: "Today's connected planning context has not resolved yet.",
     activeSinceLabel: null,
     plannedUntilLabel: null,
     changeSummary: null,
   },
   journey: {
     segmentLabel: 'Journey pending',
-    continuityLabel: 'Onboarding, phase, training, nutrition, readiness, and body-mass context will appear after the engine resolves.',
+    continuityLabel: 'Onboarding, phase, training, nutrition, readiness, and body-mass context will appear once Athleticore connects the day.',
     nextEventLabel: null,
     nextEventDateLabel: null,
     whatChangedLabel: null,
@@ -142,7 +142,7 @@ const UNAVAILABLE_MODEL: UnifiedPerformanceViewModel = {
     scoreLabel: 'Unknown',
     confidenceLabel: 'Unknown confidence',
     explanation: 'Readiness is unknown until check-in and recent context are available.',
-    missingDataLabels: ['Unified performance state'],
+    missingDataLabels: ['Training, readiness, and fuel context'],
     recommendedTrainingAdjustmentLabel: null,
     recommendedNutritionAdjustmentLabel: null,
   },
@@ -165,7 +165,7 @@ const UNAVAILABLE_MODEL: UnifiedPerformanceViewModel = {
   blockingRiskSummary: null,
   explanations: [],
   lowConfidence: true,
-  confidenceSummary: 'Confidence is unknown because the unified engine output is unavailable.',
+  confidenceSummary: "Confidence is unknown because today's connected planning context is unavailable.",
 };
 
 export function buildUnifiedPerformanceViewModel(
@@ -210,7 +210,7 @@ export function buildUnifiedPerformanceViewModel(
     protectedAnchors: buildProtectedAnchors(performanceState),
     riskFlags: result.riskFlags.map(toRiskViewModel),
     blockingRiskSummary: result.blockingRiskFlags.length > 0
-      ? `${result.blockingRiskFlags.length} blocking risk ${result.blockingRiskFlags.length === 1 ? 'flag' : 'flags'} active`
+      ? `${result.blockingRiskFlags.length} safety concern${result.blockingRiskFlags.length === 1 ? '' : 's'} need review before Athleticore pushes the plan`
       : null,
     explanations: result.explanations.map(toExplanationViewModel).slice(0, 8),
     lowConfidence,
@@ -291,7 +291,7 @@ function buildFocusViewModel(input: {
     session.protectedAnchor && rangeTarget(session.intensityRpe) != null && (rangeTarget(session.intensityRpe) ?? 0) >= 7,
   ).length;
   const training = input.trainingBlock.explanation?.summary
-    ?? `${humanize(input.trainingBlock.goal)} focus with ${input.trainingBlock.sessions.length} composed sessions${hardAnchors > 0 ? ` and ${hardAnchors} hard protected anchor${hardAnchors === 1 ? '' : 's'}` : ''}.`;
+    ?? `${humanize(input.trainingBlock.goal)} focus with ${input.trainingBlock.sessions.length} planned training touch${input.trainingBlock.sessions.length === 1 ? '' : 'es'}${hardAnchors > 0 ? ` and ${hardAnchors} hard protected anchor${hardAnchors === 1 ? '' : 's'}` : ''}.`;
   const nutrition = input.nutritionTarget.explanation?.summary
     ?? `${humanize(input.nutritionTarget.purpose)} fueling for ${humanize(input.nutritionTarget.phase)} phase.`;
   const readiness = input.readiness.explanation?.summary
@@ -327,7 +327,7 @@ function buildReadinessViewModel(readiness: ReadinessState): UnifiedPerformanceV
 function buildNutritionViewModel(target: NutritionTarget): UnifiedPerformanceViewModel['nutrition'] {
   const numbers = nutritionNumbersFromUnifiedTarget(target);
   const sessionFuelingSummary = target.sessionFuelingDirectives.length > 0
-    ? `${target.sessionFuelingDirectives.length} session fueling directive${target.sessionFuelingDirectives.length === 1 ? '' : 's'}`
+    ? `${target.sessionFuelingDirectives.length} session fueling note${target.sessionFuelingDirectives.length === 1 ? '' : 's'}`
     : null;
 
   return {
@@ -367,7 +367,7 @@ function buildBodyMassViewModel(
     feasibilityLabel: humanize(weightClassPlan.feasibilityStatus),
     riskLabel: humanize(weightClassPlan.riskLevel),
     explanation: weightClassPlan.explanation?.summary
-      ?? 'Weight-class planning is safety gated by body-mass trend, timeframe, fueling, readiness, and risk flags.',
+      ?? 'Weight-class planning is safety-checked against body-mass trend, timeframe, fueling, readiness, and risk context.',
     safetyLabel: weightClassPlan.professionalReviewRequired
       ? 'Professional review required'
       : weightClassPlan.safetyStatus === 'unsafe'

@@ -69,7 +69,7 @@ export const BUILD_METRIC_OPTIONS: Record<BuildPhaseGoalType, BuildMetricOption[
   weight_class_prep: [
     { value: 'body_weight_lbs', label: 'Body Weight', description: 'Target bodyweight you want to reach before camp pressure sets in.', unit: 'lbs', placeholder: '155' },
     { value: 'weekly_weight_change_lbs', label: 'Weekly Weight Change', description: 'How much weight you want to lose or gain each week on average.', unit: 'lbs / week', placeholder: '1.5' },
-    { value: 'nutrition_compliance_days_per_week', label: 'Nutrition Compliance Days / Week', description: 'How many days per week you want to hit your nutrition plan on target.', unit: 'days / week', placeholder: '6' },
+    { value: 'nutrition_compliance_days_per_week', label: 'Fueling Target Days / Week', description: 'How many days per week you want fueling to match the work on the plan.', unit: 'days / week', placeholder: '6' },
   ],
 };
 

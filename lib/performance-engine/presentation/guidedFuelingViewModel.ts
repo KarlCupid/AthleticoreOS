@@ -72,7 +72,7 @@ const UNAVAILABLE_GUIDED_FUELING: GuidedFuelingViewModel = {
   phaseLabel: 'Unknown',
   title: "Today's fueling focus",
   primaryFocus: 'Fueling context is pending.',
-  whyItMatters: 'Athleticore needs the unified performance state before it can connect fuel to training, readiness, body mass, and risk.',
+  whyItMatters: "Athleticore needs today's training, readiness, body-mass, and risk context before it can guide fuel.",
   sessionGuidance: ['Session fueling will appear once training demand is available.'],
   recoveryNutritionFocus: 'Keep normal meals, hydration, and sleep steady while context loads.',
   phaseContext: 'Phase context is pending.',
@@ -81,7 +81,7 @@ const UNAVAILABLE_GUIDED_FUELING: GuidedFuelingViewModel = {
     level: 'unknown',
     label: 'Unknown confidence',
     summary: 'Food log confidence is unknown until Athleticore can read today\'s nutrition context.',
-    missingData: ['Unified performance state'],
+    missingData: ['Training, readiness, and fuel context'],
   },
   bodyMassContext: null,
   riskHighlights: [],
@@ -212,7 +212,7 @@ function buildWhyItMatters(input: {
   }
   return input.target.explanation?.summary
     ? humanizeSentence(input.target.explanation.summary)
-    : 'Fueling is being resolved from training, readiness, phase, body-mass context, and risk in one performance state.';
+    : 'Fueling is being resolved from training, readiness, phase, body-mass context, and risk together.';
 }
 
 function buildSessionGuidance(
@@ -233,7 +233,7 @@ function buildSessionGuidance(
   ].filter((line): line is string => Boolean(line));
 
   return lines.length > 0 ? lines.slice(0, 3).map(humanizeSentence) : [
-    `${sessionLabel} has a fueling directive. Keep food and fluids close to the session window.`,
+    `${sessionLabel} has a session fueling note. Keep food and fluids close to the session window.`,
   ];
 }
 
@@ -272,7 +272,7 @@ function buildPhaseContext(phase: AthleticorePhase): string {
   if (isRecoveryPhase(phase)) {
     return 'Recovery phase: food supports restoration, not restriction.';
   }
-  return `${humanize(phase)} phase: fuel is matched to the current performance state.`;
+  return `${humanize(phase)} phase: fuel is matched to the current training and recovery context.`;
 }
 
 function buildMacroTargets(
@@ -367,7 +367,7 @@ function buildDetailLines(
     ...(target.explanation?.reasons ?? []),
     target.sodiumElectrolyteGuidance?.electrolyteNotes[0] ?? null,
     target.micronutrientFocus.length > 0 ? `Focus nutrients: ${target.micronutrientFocus.slice(0, 4).join(', ')}.` : null,
-    directives.length > 0 ? `${directives.length} session fueling directive${directives.length === 1 ? '' : 's'} active.` : null,
+    directives.length > 0 ? `${directives.length} session fueling note${directives.length === 1 ? '' : 's'} active.` : null,
   ].filter((line): line is string => Boolean(line)).map(humanizeSentence)).slice(0, 5);
 }
 

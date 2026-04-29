@@ -112,15 +112,15 @@ const UNAVAILABLE_GUIDED_READINESS: GuidedReadinessViewModel = {
   status: 'needs_context',
   readinessLabel: 'Needs context',
   title: 'Readiness guidance',
-  primaryMessage: 'Athleticore needs today\'s performance state before it can guide readiness.',
-  whyItChanged: 'Missing performance state is unknown, not safe. A quick check-in helps Athleticore guide the plan with more care.',
+  primaryMessage: 'Athleticore needs today\'s training, recovery, and check-in context before it can guide readiness.',
+  whyItChanged: 'Some key readiness context is missing. A quick check-in helps Athleticore guide the plan with more care.',
   confidence: {
     level: 'unknown',
     label: 'Unknown confidence',
-    summary: 'Confidence is unknown because the Unified Performance Engine output is unavailable.',
-    missingData: ['Unified performance state'],
+    summary: "Confidence is unknown because today's readiness context is unavailable.",
+    missingData: ['Readiness context'],
   },
-  trainingAdjustment: 'Training adjustment is pending until the unified performance state is available.',
+  trainingAdjustment: "Training guidance is pending until today's context is available.",
   fuelingOrRecoveryAdjustment: 'Fueling and recovery guidance will appear once readiness context is available.',
   riskHighlights: [],
   quickInputs: QUICK_INPUTS,
@@ -257,7 +257,7 @@ function buildConfidence(
   return {
     level: confidence.level,
     label: confidenceLabel(confidence),
-    summary: 'Confidence is strong enough for Athleticore to guide today from the unified performance state.',
+    summary: 'Confidence is strong enough for Athleticore to guide today from the current readiness context.',
     missingData,
   };
 }

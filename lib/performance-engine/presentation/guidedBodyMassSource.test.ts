@@ -22,6 +22,8 @@ const home = read('src/screens/WeightClassHomeScreen.tsx');
 const setup = read('src/screens/WeightClassPlanSetupScreen.tsx');
 const preview = read('src/components/WeightClassEvaluationPreviewStep.tsx');
 const fightWeek = read('src/screens/CompetitionBodyMassScreen.tsx');
+const timeline = read('src/components/BodyMassSupportTimeline.tsx');
+const setupConstants = read('src/constants/weightClassPlanSetup.ts');
 const hook = read('src/hooks/useBodyMassPlanData.ts');
 const viewModel = read('lib/performance-engine/presentation/guidedBodyMassViewModel.ts');
 
@@ -46,6 +48,9 @@ assert('professional review recommendation is surfaced', viewModel.includes('Qua
 assert('fight week body-mass screen uses guided feasibility', fightWeek.includes('guidedBodyMass.primaryMessage') && fightWeek.includes('guidedBodyMass.statusLabel'));
 assert('existing theme and components are preserved', home.includes("import { Card }") && home.includes('COLORS') && preview.includes("import { Card }") && fightWeek.includes("import { Card }"));
 assert('current palette is preserved instead of new phase hexes', !/const PHASE_COLORS[\s\S]*#[0-9A-Fa-f]{3,8}/.test(home) && !/const PHASE_COLORS[\s\S]*#[0-9A-Fa-f]{3,8}/.test(fightWeek));
+assert('body-mass timeline uses existing theme tokens', timeline.includes('COLORS.accent') && timeline.includes('COLORS.success') && !/#[0-9A-Fa-f]{3,8}/.test(timeline));
+assert('weight-class setup constants use theme tokens', setupConstants.includes("import { COLORS }") && setupConstants.includes('COLORS.chart.protein') && !/color: '#[0-9A-Fa-f]{3,8}'/.test(setupConstants));
+assert('weight-class setup copy avoids restart language', !/start over|restart|restarted|reset/.test(setupConstants.toLowerCase()));
 assert('weight cut language is not user-facing', !/weight[- ]cut/.test(userFacing));
 assert('dangerous method names are not user-facing', !/sauna|sweat suit|diuretic|laxative|vomit|severe fasting|extreme fluid restriction|dehydration/.test(userFacing));
 assert('unsafe targets are not normalized as ordinary plans', !userFacing.includes('automatic plan is blocked') && userFacing.includes('automatic support blocked'));

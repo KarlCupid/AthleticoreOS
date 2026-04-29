@@ -56,7 +56,7 @@ const UNAVAILABLE_PHASE_TRANSITION: GuidedPhaseTransitionViewModel = {
   previousPhaseLabel: null,
   title: 'Phase update',
   whereYouAreNow: 'Phase context is not ready yet.',
-  whyChanging: 'Athleticore needs the unified performance state before it explains a phase change.',
+  whyChanging: 'Athleticore needs the current journey context before it explains a phase change.',
   transitionSummary: 'The athlete journey stays continuous while Athleticore resolves the current phase.',
   preservedContext: [],
   changedFocus: [],
@@ -65,12 +65,12 @@ const UNAVAILABLE_PHASE_TRANSITION: GuidedPhaseTransitionViewModel = {
   recoveryExpectations: 'Recovery expectations are pending.',
   protectedWorkoutHandling: 'Protected workout context is pending.',
   fightOrCompetitionContext: null,
-  nextFocus: 'Wait for the current performance state to resolve.',
+  nextFocus: 'Wait for the current journey context to resolve.',
   ctaLabel: 'Review plan',
   confidence: {
     level: 'unknown',
     label: 'Unknown confidence',
-    summary: 'Confidence is unknown because the Unified Performance Engine output is unavailable.',
+    summary: "Confidence is unknown because today's journey context is unavailable.",
   },
   explanations: [],
   sourcePerformanceStateId: null,
@@ -191,7 +191,7 @@ function buildWhyChanging(
   if (hasFight) {
     return 'Fight context changed, so training, fueling, recovery, and body-mass decisions need to move together.';
   }
-  return `The phase changed because ${humanize(reason).toLowerCase()} is now part of the performance state.`;
+  return `The phase changed because ${humanize(reason).toLowerCase()} is now shaping the plan.`;
 }
 
 function buildPreservedContext(input: {
@@ -261,7 +261,7 @@ function buildChangedFocus(
 
   return [
     `The main focus shifts toward ${humanize(to).toLowerCase()}.`,
-    'Training, fueling, readiness, and body-mass context stay connected through the same performance state.',
+    'Training, fueling, readiness, and body-mass context stay connected through the same day context.',
   ];
 }
 
@@ -384,7 +384,7 @@ function buildConfidence(performanceState: PerformanceState): GuidedPhaseTransit
     label: level === 'unknown' ? 'Unknown confidence' : `${humanize(level)} confidence`,
     summary: level === 'unknown' || level === 'low'
       ? 'Athleticore has limited context for this phase change, so the plan should stay conservative until more data comes in.'
-      : 'Confidence is strong enough to explain the phase change from the unified performance state.',
+      : 'Confidence is strong enough to explain this phase change from the current journey context.',
   };
 }
 
@@ -397,7 +397,7 @@ function buildExplanations(input: {
   const impact = input.latest?.explanation?.impact ?? 'adjusted';
   return [{
     id: input.latest?.explanation?.id ?? `guided-phase:${input.latest?.from ?? 'unknown'}:${input.latest?.to ?? 'unknown'}`,
-    summary: 'Athleticore changed the phase through the unified performance state, then kept training, fuel, readiness, body mass, risk, and anchors together.',
+    summary: 'Athleticore changed the phase while keeping training, fuel, readiness, body mass, risk, and anchors together.',
     reasons: unique([
       input.whyChanging,
       input.preservedContext[0],

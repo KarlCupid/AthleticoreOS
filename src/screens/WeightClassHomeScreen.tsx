@@ -192,7 +192,7 @@ export function WeightClassHomeScreen() {
   const bodyMassGuidance = guidedBodyMass.available ? guidedBodyMass.primaryMessage
     : performanceContext.bodyMass?.explanation
     ?? performanceContext.nutrition.explanation
-    ?? 'Body-mass support is resolved through the Unified Performance Engine using phase, training, fueling, readiness, and safety context.';
+    ?? 'Body-mass support is guided by phase, training, fueling, readiness, and safety context together.';
   const confidenceNote = performanceContext.lowConfidence
     ? guidedBodyMass.confidenceSummary || performanceContext.confidenceSummary
     : performanceContext.bodyMass?.riskLabel

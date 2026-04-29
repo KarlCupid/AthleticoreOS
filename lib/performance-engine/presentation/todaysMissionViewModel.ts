@@ -94,12 +94,12 @@ const UNAVAILABLE_TODAY_MISSION: TodayMissionViewModel = {
   currentPhase: 'unknown',
   phaseLabel: 'Unknown',
   missionTitle: "Today's Mission",
-  primaryFocus: "Athleticore needs today's performance state before it can guide the day.",
-  whyTodayMatters: 'Missing performance state is unknown, not safe. Resolve the unified engine output before pushing training.',
+  primaryFocus: "Athleticore needs today's training, readiness, and fuel context before it can guide the day.",
+  whyTodayMatters: "Some key context is missing, so Athleticore will not treat today as safe to push yet.",
   trainingSummary: 'Training context is pending.',
   protectedWorkoutSummary: null,
   fuelingFocus: 'Fueling context is pending.',
-  readinessSummary: 'Readiness is unknown until the unified performance state is available.',
+  readinessSummary: "Readiness is unknown until today's check-in and training context are available.",
   recoveryPriority: 'Keep recovery steady while Athleticore gathers enough context.',
   bodyMassContext: null,
   fightOrCompetitionContext: null,
@@ -109,8 +109,8 @@ const UNAVAILABLE_TODAY_MISSION: TodayMissionViewModel = {
   confidence: {
     level: 'unknown',
     label: 'Unknown confidence',
-    summary: 'Confidence is unknown because the Unified Performance Engine output is unavailable.',
-    missingData: ['Unified performance state'],
+    summary: "Confidence is unknown because today's connected planning context is unavailable.",
+    missingData: ['Training, readiness, and fuel context'],
   },
   explanations: [],
   sourcePerformanceStateId: null,
@@ -324,7 +324,7 @@ function buildWhyTodayMatters(input: {
   if (input.readiness.readinessBand === 'green' && input.sessions.length > 0) {
     return 'Readiness supports the plan, so today can move the week forward.';
   }
-  return 'Today matters because training, fuel, readiness, and recovery are being resolved from the same performance state.';
+  return "Today matters because training, fuel, readiness, and recovery are being connected from the same day context.";
 }
 
 function buildTrainingSummary(
@@ -449,7 +449,7 @@ function buildFightContext(
     return `Confirmed fight context is active${dateText}; Athleticore is shaping training, fuel, and recovery around it.`;
   }
   if (fight.status === 'tentative') {
-    return `Tentative fight context is on the radar${dateText}; Athleticore will adapt without treating the journey as restarted.`;
+    return `Tentative fight context is on the radar${dateText}; Athleticore will keep the current build attached while it watches the opportunity.`;
   }
   if (fight.status === 'rescheduled') {
     return `Fight timing changed${dateText}; Athleticore should preserve your history and reshape the plan.`;
@@ -575,7 +575,7 @@ function buildConfidence(input: {
   return {
     level: confidence.level,
     label: confidenceLabel(confidence),
-    summary: 'Confidence is strong enough to guide the day from the unified performance state.',
+    summary: "Confidence is strong enough to guide the day from today's connected training, fuel, and readiness context.",
     missingData: [],
   };
 }
