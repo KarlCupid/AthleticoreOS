@@ -52,19 +52,21 @@ export function FirstSignInAppTourCard({
     return (
       <Card style={styles.card} backgroundTone="planning" backgroundScrimColor="rgba(10, 10, 10, 0.72)">
         <View style={styles.topRow}>
-          <Text style={styles.kicker}>APP TOUR</Text>
-          <Text style={styles.progress}>Paused</Text>
+          <Text style={styles.kicker}>FIRST LOOK</Text>
+          <Text style={styles.progress}>Saved</Text>
         </View>
-        <Text style={styles.title}>Pick up the app tour</Text>
+        <Text style={styles.title}>Pick up the walkthrough</Text>
         <Text style={styles.body}>
-          A short walkthrough is waiting when you want it. Today's Mission and the main actions stay open.
+          Your walkthrough is saved. Today's Mission and the main actions stay open when you need them.
         </Text>
         <AnimatedPressable
           testID="first-sign-in-tour-resume"
           style={styles.primaryButton}
           onPress={onResume}
+          accessibilityRole="button"
+          accessibilityLabel="Resume first-run walkthrough"
         >
-          <Text style={styles.primaryText}>Resume tour</Text>
+          <Text style={styles.primaryText}>Resume walkthrough</Text>
           <IconChevronRight size={18} color={COLORS.text.inverse} />
         </AnimatedPressable>
       </Card>
@@ -74,7 +76,7 @@ export function FirstSignInAppTourCard({
   return (
     <Card style={styles.card} backgroundTone="planning" backgroundScrimColor="rgba(10, 10, 10, 0.72)">
       <View style={styles.topRow}>
-        <Text style={styles.kicker}>APP TOUR</Text>
+        <Text style={styles.kicker}>FIRST LOOK</Text>
         <Text style={styles.progress}>{safeIndex + 1}/{steps.length}</Text>
       </View>
 
@@ -86,6 +88,8 @@ export function FirstSignInAppTourCard({
           testID="first-sign-in-tour-open-step"
           style={styles.secondaryButton}
           onPress={() => onOpenStep(step)}
+          accessibilityRole="button"
+          accessibilityLabel={step.actionLabel}
         >
           <Text style={styles.secondaryText}>{step.actionLabel}</Text>
         </AnimatedPressable>
@@ -96,8 +100,10 @@ export function FirstSignInAppTourCard({
           testID="first-sign-in-tour-skip"
           style={styles.quietButton}
           onPress={onSkip}
+          accessibilityRole="button"
+          accessibilityLabel="Save walkthrough for later"
         >
-          <Text style={styles.quietText}>Skip for now</Text>
+          <Text style={styles.quietText}>Save for later</Text>
         </AnimatedPressable>
 
         <View style={styles.navButtons}>
@@ -106,6 +112,8 @@ export function FirstSignInAppTourCard({
               testID="first-sign-in-tour-back"
               style={styles.navButton}
               onPress={onBack}
+              accessibilityRole="button"
+              accessibilityLabel="Previous walkthrough step"
             >
               <Text style={styles.navText}>Back</Text>
             </AnimatedPressable>
@@ -115,6 +123,8 @@ export function FirstSignInAppTourCard({
             testID={isLast ? 'first-sign-in-tour-complete' : 'first-sign-in-tour-next'}
             style={styles.primaryButton}
             onPress={onNext}
+            accessibilityRole="button"
+            accessibilityLabel={isLast ? 'Finish first-run walkthrough' : 'Next walkthrough step'}
           >
             <Text style={styles.primaryText}>{isLast ? 'Done' : 'Next'}</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />

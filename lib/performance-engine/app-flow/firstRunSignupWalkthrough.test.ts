@@ -77,8 +77,8 @@ console.log('\n-- firstRunSignupWalkthrough --');
       && onboarding.includes('availableDays.length > 0')
       && onboarding.includes("Age (optional)")
       && onboarding.includes("Current weight (optional)")
-      && onboarding.includes("Skip for now")
-      && onboarding.includes('Optional. You can skip this and add anchors later.'),
+      && onboarding.includes("Not sure yet")
+      && onboarding.includes('Optional. Skip this if nothing is fixed yet. Athleticore can ask again later.'),
   );
 
   assert(
@@ -149,6 +149,7 @@ console.log('\n-- firstRunSignupWalkthrough --');
   assert(
     'body-mass and weight-class setup uses safe language',
     source.includes('athleticore checks whether a target looks realistic while protecting performance.')
+      && source.includes('we need a little body-mass history before making a confident call.')
       && !unsafeTerms.some((term) => source.includes(term)),
   );
 })();

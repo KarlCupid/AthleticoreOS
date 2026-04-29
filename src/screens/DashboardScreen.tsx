@@ -336,19 +336,19 @@ export function DashboardScreen() {
         {
           id: "checkin" as const,
           title: "Check in once",
-          subtitle: "Tell coach how you feel today.",
+          subtitle: "Give Athleticore today's readiness context.",
           done: firstRunGuidance.progress.checkinDone,
         },
         {
           id: "workout" as const,
           title: "Complete today's training",
-          subtitle: "Get one session in the books.",
+          subtitle: "Do the work that moves today forward.",
           done: firstRunGuidance.progress.workoutDone,
         },
         {
           id: "nutrition" as const,
           title: "Log one meal",
-          subtitle: "Start your fuel picture.",
+          subtitle: "Help Athleticore understand how fuel is matching the work.",
           done: firstRunGuidance.progress.nutritionDone,
         },
       ]
@@ -603,10 +603,10 @@ export function DashboardScreen() {
             >
               <Text style={styles.firstRunModalKicker}>WELCOME</Text>
               <Text style={styles.firstRunModalTitle}>
-                Your First Wins Start Here
+                Start With Today's Context
               </Text>
               <Text style={styles.firstRunModalBody}>
-                First, check in. Then complete today's training and log one meal. We will tighten the details as you build rhythm.
+                Start with a check-in. Athleticore will use that context to guide training, fuel, and recovery without guessing.
               </Text>
 
               <AnimatedPressable
@@ -617,7 +617,7 @@ export function DashboardScreen() {
                 }}
                 testID="first-run-check-in"
               >
-                <Text style={styles.firstRunModalPrimaryText}>Check In</Text>
+                <Text style={styles.firstRunModalPrimaryText}>Log check-in</Text>
               </AnimatedPressable>
 
               <AnimatedPressable
@@ -886,9 +886,9 @@ export function DashboardScreen() {
                     {firstRunGuidance.progress.totalCount} complete
                   </Text>
                 </View>
-                <Text style={styles.firstRunTitle}>Your first 3 wins</Text>
-                <Text style={styles.firstRunSubtitle}>
-                  Build rhythm first. Precision comes after reps.
+                  <Text style={styles.firstRunTitle}>Start with today's rhythm</Text>
+                  <Text style={styles.firstRunSubtitle}>
+                  A few simple actions help Athleticore make the next call with more context.
                 </Text>
 
                 <View style={styles.firstRunStepList}>
@@ -980,18 +980,18 @@ function buildExistingUserMissingDataPrompts(
   const prompts: string[] = [];
 
   if (!performanceContext.available) {
-    prompts.push("Review planning context so Today's Mission does not have to guess.");
+    prompts.push("Review planning context so Today's Mission can make the next call with more confidence.");
   }
 
   if (
     performanceContext.readiness.band === "unknown"
     || performanceContext.readiness.missingDataLabels.length > 0
   ) {
-    prompts.push("Log today's check-in so readiness can guide the next call.");
+    prompts.push("Log today's check-in so readiness can shape the work safely.");
   }
 
   if (performanceContext.protectedAnchors.length === 0) {
-    prompts.push("Add protected workouts if sparring, classes, or coach-led sessions should stay anchored.");
+    prompts.push("Add protected workouts if sparring, classes, or coach-led sessions need to stay locked in.");
   }
 
   if (
@@ -1003,7 +1003,7 @@ function buildExistingUserMissingDataPrompts(
       || performanceContext.focus.bodyMass != null
     )
   ) {
-    prompts.push("Add body-mass or weight-class context when it matters. Missing data stays unknown, not zero.");
+    prompts.push("Add body-mass or weight-class context when it matters. We need a little history before making a confident call.");
   }
 
   if (
@@ -1024,31 +1024,31 @@ function buildFirstSignInAppTourSteps(includeFightHub: boolean): FirstSignInAppT
     {
       id: "today_mission",
       title: "Today's Mission",
-      body: "This is where Athleticore shows what matters today, why it matters, what changed, and what to do next.",
+      body: "Start here. Athleticore shows what matters today, why it matters, what changed, and what to do next.",
       actionLabel: "Stay on Today",
     },
     {
       id: "training",
       title: "Training",
-      body: "Your plan adapts around your phase, readiness, and protected sessions.",
+      body: "Your plan adapts around your phase, readiness, and protected workouts.",
       actionLabel: "Open Train",
     },
     {
       id: "fueling",
       title: "Fueling",
-      body: "Fueling targets adjust with your training load and fight timeline.",
+      body: "Fueling targets move with your training load, recovery needs, and fight timeline.",
       actionLabel: "Open Fuel",
     },
     {
       id: "check_in",
       title: "Check-In / Readiness",
-      body: "A quick check-in helps Athleticore know when to push, trim, or protect recovery.",
+      body: "A quick check-in helps Athleticore know when to push, trim extras, or protect recovery.",
       actionLabel: "Log check-in",
     },
     {
       id: "journey",
       title: "Journey",
-      body: "Your phases, fights, recovery, and progress stay connected. You're not starting over each time the plan changes.",
+      body: "Your phases, fights, recovery, and progress stay connected. The plan can change without the journey restarting.",
       actionLabel: "Open Plan",
     },
   ];
@@ -1057,7 +1057,7 @@ function buildFirstSignInAppTourSteps(includeFightHub: boolean): FirstSignInAppT
     steps.push({
       id: "fight_hub",
       title: "Fight / Competition Hub",
-      body: "Add tentative or confirmed fights here. Athleticore will adjust the journey around the time available.",
+      body: "Add tentative or confirmed fights here. Athleticore will adjust training, fuel, and recovery around the time available.",
       actionLabel: "Update fight details",
     });
   }

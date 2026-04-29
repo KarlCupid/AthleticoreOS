@@ -229,7 +229,7 @@ function buildCompletedWalkthroughState(input: {
 export async function completeCoachIntake(input: CoachIntakeInput): Promise<CoachIntakeResult> {
   const userId = await getActiveUserId();
   if (!userId) {
-    throw new Error('Not authenticated');
+    throw new Error('Sign in again to finish setup.');
   }
 
   await ensureCurrentUserMirror();
@@ -240,7 +240,7 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
   }
 
   if (input.goalMode === 'fight_camp' && !input.fightDate) {
-    throw new Error('Fight Camp needs a fight date.');
+    throw new Error('Add the fight date so Athleticore can shape camp around the timeline.');
   }
 
   input.fixedSessions.forEach((session) => assertValidTime(session.startTime));

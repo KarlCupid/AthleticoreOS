@@ -46,7 +46,7 @@ console.log('\n-- existing user overhaul intro source --');
 
   assert(
     'Today Mission is introduced in the existing-user intro',
-    card.includes("Today's Mission brings the key pieces together so you know what to do and why.")
+    card.includes("Today's Mission now brings the key pieces together so you know what to do and why.")
       && card.includes("Open Today's Mission")
       && dashboard.indexOf('<TodayMissionPanel') < dashboard.indexOf('<ExistingUserOverhaulIntroCard'),
   );
@@ -62,10 +62,10 @@ console.log('\n-- existing user overhaul intro source --');
   assert(
     'missing critical data prompts appear without full re-onboarding',
     dashboard.includes('buildExistingUserMissingDataPrompts')
-      && dashboard.includes("Log today's check-in so readiness can guide the next call.")
-      && dashboard.includes('Add protected workouts if sparring, classes, or coach-led sessions should stay anchored.')
-      && dashboard.includes('Missing data stays unknown, not zero.')
-      && card.includes('Review missing context')
+      && dashboard.includes("Log today's check-in so readiness can shape the work safely.")
+      && dashboard.includes('Add protected workouts if sparring, classes, or coach-led sessions need to stay locked in.')
+      && dashboard.includes('We need a little history before making a confident call.')
+      && card.includes('Review context')
       && !dashboard.includes('<OnboardingScreen'),
   );
 
@@ -73,7 +73,7 @@ console.log('\n-- existing user overhaul intro source --');
     'user can skip without losing data',
     dashboard.includes('dismissAndPersistFirstRunWalkthrough')
       && card.includes('existing-user-overhaul-dismiss')
-      && card.includes('Dismiss'),
+      && card.includes('Not now'),
   );
 
   assert(
@@ -100,13 +100,15 @@ console.log('\n-- existing user overhaul intro source --');
       && card.includes('RADIUS.full')
       && card.includes('flexWrap: \'wrap\'')
       && card.includes('minHeight: 48')
-      && card.includes('minHeight: 44'),
+      && card.includes('minHeight: 44')
+      && card.includes('accessibilityRole="button"')
+      && card.includes('accessibilityLabel="Dismiss guided journey intro"'),
   );
 
   const lowerCard = card.toLowerCase();
   assert(
     'body-mass and weight-class copy remains safety-first',
-    lowerCard.includes('weight-class guidance safety-first')
+    lowerCard.includes('weight-class guidance stays safety-first')
       && lowerCard.includes('asks for more context')
       && ![
         'water cut',

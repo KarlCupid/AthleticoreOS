@@ -46,38 +46,38 @@ const STEP_META = [
     {
         eyebrow: 'Step 1',
         title: 'Welcome',
-        description: 'Set the starting point for a continuous athlete journey.',
+        description: 'Start from where you are and keep the work connected.',
     },
     {
         eyebrow: 'Step 2',
-        title: 'Athlete Basics',
-        description: 'Confirm the sport, training level, goal, and current rhythm.',
+        title: 'Starting Point',
+        description: 'Give Athleticore enough context to coach the first stretch.',
     },
     {
         eyebrow: 'Step 3',
-        title: 'Journey & Fight',
-        description: 'Tell Athleticore where you are in the fight timeline.',
+        title: 'Journey And Fight',
+        description: 'Set the phase and fight context without treating it like a restart.',
     },
     {
         eyebrow: 'Step 4',
-        title: 'Anchors',
-        description: 'Add fixed sessions and the days the plan can really use.',
+        title: 'Anchors And Days',
+        description: 'Lock in the sessions and days the plan should build around.',
     },
     {
         eyebrow: 'Step 5',
-        title: 'Fuel & Readiness',
-        description: 'Add lightweight safety context without overloading setup.',
+        title: 'Fuel And Readiness',
+        description: 'Add the context Athleticore needs to stay useful and cautious.',
     },
     {
         eyebrow: 'Step 6',
         title: "Today's Mission",
-        description: 'Start with the daily coaching surface, not a generic dashboard.',
+        description: 'Land on the daily call: what matters, why, and what to do next.',
     },
 ] as const;
 
 const BIO_SEX_OPTIONS = [
-    { value: 'male', label: 'Male physiology', descriptor: 'Uses male nutrition and recovery defaults.' },
-    { value: 'female', label: 'Female physiology', descriptor: 'Uses female nutrition and recovery defaults.' },
+    { value: 'male', label: 'Male baseline', descriptor: 'Uses male-based fueling and recovery defaults until your logs sharpen them.' },
+    { value: 'female', label: 'Female baseline', descriptor: 'Uses female-based fueling and recovery defaults until your logs sharpen them.' },
 ] as const;
 
 const TRAINING_BACKGROUND_OPTIONS: Array<{
@@ -85,9 +85,9 @@ const TRAINING_BACKGROUND_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'new', label: 'New to structure', descriptor: 'Lower starting load while Athleticore learns your response.' },
-    { value: 'some', label: 'Some experience', descriptor: 'Consistent training with room for guided progression.' },
-    { value: 'advanced', label: 'Advanced', descriptor: 'Higher training tolerance and more structured history.' },
+    { value: 'new', label: 'New to structure', descriptor: 'Start lighter while Athleticore learns how you respond.' },
+    { value: 'some', label: 'Some experience', descriptor: 'Build from a steady base with room for guided progression.' },
+    { value: 'advanced', label: 'Advanced', descriptor: 'Use more structured history while still protecting recovery.' },
 ];
 
 const TRAINING_STATUS_OPTIONS: Array<{
@@ -97,8 +97,8 @@ const TRAINING_STATUS_OPTIONS: Array<{
 }> = [
     { value: 'consistent', label: 'Consistent now', descriptor: 'Training has a current rhythm Athleticore can build around.' },
     { value: 'inconsistent', label: 'Inconsistent lately', descriptor: 'The first mission should stay realistic while rhythm returns.' },
-    { value: 'returning', label: 'Returning', descriptor: 'Recovery and load progression need a little more caution.' },
-    { value: 'new_rhythm', label: 'New routine', descriptor: 'Start simple and let the plan learn from check-ins.' },
+    { value: 'returning', label: 'Returning', descriptor: 'Build back carefully and let readiness guide the load.' },
+    { value: 'new_rhythm', label: 'New routine', descriptor: 'Start simple and let check-ins sharpen the plan.' },
 ];
 
 type MainGoal = BuildPhaseGoalType;
@@ -111,7 +111,7 @@ const MAIN_GOAL_OPTIONS: Array<{
     { value: 'conditioning', label: 'Conditioning', descriptor: 'Improve pace, output, and repeatability.' },
     { value: 'strength', label: 'Strength', descriptor: 'Build strength while managing total load.' },
     { value: 'boxing_skill', label: 'Boxing skill', descriptor: 'Protect technical work and skill rhythm.' },
-    { value: 'weight_class_prep', label: 'Weight-class prep', descriptor: 'Keep body-mass context safety-first and gradual.' },
+    { value: 'weight_class_prep', label: 'Weight-class context', descriptor: 'Keep body-mass guidance safety-first and gradual.' },
 ];
 
 const JOURNEY_STATE_OPTIONS: Array<{
@@ -121,9 +121,9 @@ const JOURNEY_STATE_OPTIONS: Array<{
 }> = [
     { value: 'building', label: 'Building', descriptor: 'No immediate camp pressure. Build capacity and skill.' },
     { value: 'in_camp', label: 'In camp', descriptor: 'A confirmed fight is shaping training, fuel, and recovery.' },
-    { value: 'fight_coming', label: 'Fight coming up', descriptor: 'Capture what is known and Athleticore will adapt around it.' },
+    { value: 'fight_coming', label: 'Fight coming up', descriptor: 'Add what is known and Athleticore will adapt around it.' },
     { value: 'recovering', label: 'Recovering', descriptor: 'Keep the first mission controlled while you absorb the work.' },
-    { value: 'not_sure', label: 'Not sure', descriptor: 'Athleticore can recommend a starting point from your context.' },
+    { value: 'not_sure', label: 'Not sure', descriptor: 'Athleticore can start conservatively and refine from check-ins.' },
 ];
 
 const FIGHT_STATUS_OPTIONS: Array<{
@@ -131,7 +131,7 @@ const FIGHT_STATUS_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'none', label: 'No fight yet', descriptor: "No fight on the calendar? That's fine. Athleticore will help you build." },
+    { value: 'none', label: 'No fight yet', descriptor: "No fight on the calendar? That's fine. Athleticore will help you build so you are ready when one appears." },
     { value: 'tentative', label: 'Tentative fight', descriptor: 'Add what you know without forcing camp language too early.' },
     { value: 'confirmed', label: 'Confirmed fight', descriptor: 'Use the date to shape camp, fuel, recovery, and body-mass context.' },
 ];
@@ -149,9 +149,9 @@ const FUELING_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'simple', label: 'Simple guidance', descriptor: 'Start with practical fueling prompts around training.' },
-    { value: 'detailed', label: 'More detail', descriptor: 'Use food notes and preferences to sharpen guidance earlier.' },
-    { value: 'later', label: 'Ask me later', descriptor: 'Keep fueling cautious and collect more context on Today.' },
+    { value: 'simple', label: 'Simple guidance', descriptor: 'Use practical fueling prompts around training.' },
+    { value: 'detailed', label: 'More detail', descriptor: 'Use food notes and preferences to sharpen fueling sooner.' },
+    { value: 'later', label: 'Ask me later', descriptor: "Keep fueling guidance simple until Today's Mission has more context." },
 ];
 
 const PAIN_OPTIONS: Array<{
@@ -159,7 +159,7 @@ const PAIN_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'unknown', label: 'Skip for now', descriptor: 'Athleticore will treat pain context as unknown.' },
+    { value: 'unknown', label: 'Not sure yet', descriptor: 'Athleticore will keep this unknown and stay cautious.' },
     { value: 'none', label: 'No concern', descriptor: 'No current pain or injury concern to account for.' },
     { value: 'some', label: 'Some concern', descriptor: 'The first mission should protect this and avoid guessing.' },
 ];
@@ -477,15 +477,15 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             if (!result.generatedPlan) {
                 setSaving(false);
                 Alert.alert(
-                    'Gym profile needed',
-                    "Your athlete baseline is saved. Today's Mission will stay cautious until equipment context is added.",
-                    [{ text: 'Continue', onPress: onComplete }],
+                    'Equipment context next',
+                    "Your athlete baseline is saved. Today's Mission will stay cautious until Athleticore knows what equipment you can use.",
+                    [{ text: "Open Today's Mission", onPress: onComplete }],
                 );
                 return;
             }
             onComplete();
         } catch (err: any) {
-            Alert.alert('Could not build your first mission', err.message || 'Please try again.');
+            Alert.alert("We couldn't build your first mission", err.message || 'Please try again.');
         } finally {
             setSaving(false);
         }
@@ -698,21 +698,21 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Continuous journey</Text>
                                 <Text style={styles.coachPointText}>
-                                    Build phases, camp, recovery, and fight changes update the same athlete context.
+                                    Build phases, camp, recovery, and fight changes all update the same athlete journey.
                                 </Text>
                             </View>
                             <View style={styles.coachPoint}>
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Protected anchors</Text>
                                 <Text style={styles.coachPointText}>
-                                    Fixed boxing work stays anchored. Supporting work moves around it.
+                                    These sessions stay locked in. Athleticore will build around them.
                                 </Text>
                             </View>
                             <View style={styles.coachPoint}>
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Today first</Text>
                                 <Text style={styles.coachPointText}>
-                                    The walkthrough ends with Today's Mission: what matters, why it matters, and what to do next.
+                                    Today's Mission shows what matters, why it matters, what changed, and what to do next.
                                 </Text>
                             </View>
                         </View>
@@ -732,7 +732,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <Text style={[styles.pillText, styles.pillTextActive]}>Boxing</Text>
                             </View>
                         </View>
-                        <Text style={styles.helperText}>Multi-sport support can come later. This setup is boxing-first.</Text>
+                        <Text style={styles.helperText}>This setup is boxing-first so the first mission can be specific.</Text>
 
                         <View style={styles.inputRow}>
                             <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -827,7 +827,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             <View style={styles.optionalBlock}>
                                 <Text style={styles.inputLabel}>Fight details</Text>
                                 <Text style={styles.helperText}>
-                                    Fight details can change. Athleticore will adapt without throwing away what it already knows.
+                                    Fight details can change. Athleticore will adapt training, fuel, recovery, and body-mass context without throwing away what it already knows.
                                 </Text>
                                 {fightStatus === 'tentative' ? (
                                     <View style={styles.pillRow}>
@@ -875,7 +875,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 </View>
 
                                 <Text style={styles.helperText}>
-                                    Athleticore checks whether a target looks realistic while protecting performance.
+                                    Athleticore checks whether a target looks realistic while protecting performance. If context is thin, it stays cautious.
                                 </Text>
 
                                 <View style={styles.pillRow}>
@@ -954,7 +954,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             <View style={styles.optionalHeader}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.inputLabel}>Protected workouts</Text>
-                                    <Text style={styles.helperText}>Add sparring, team training, coached sessions, fixed classes, or recurring workouts.</Text>
+                                    <Text style={styles.helperText}>These sessions stay locked in. Athleticore will move the supporting work around them.</Text>
                                 </View>
                                 <TouchableOpacity
                                     style={styles.addSmallButton}
@@ -967,7 +967,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 </TouchableOpacity>
                             </View>
                             {fixedSessions.length === 0 ? (
-                                <Text style={styles.helperText}>Optional. You can skip this and add anchors later.</Text>
+                                <Text style={styles.helperText}>Optional. Skip this if nothing is fixed yet. Athleticore can ask again later.</Text>
                             ) : null}
                             {fixedSessions.map(renderFixedSession)}
                         </View>
@@ -982,7 +982,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         </Text>
 
                         <Text style={styles.inputLabel}>Fueling basics</Text>
-                        <Text style={styles.helperText}>Fueling helps Athleticore match your training, recovery, and fight timeline.</Text>
+                        <Text style={styles.helperText}>We'll use this to guide fueling around your training, recovery, and fight timeline.</Text>
                         <View style={styles.activityOptionsList}>
                             {FUELING_OPTIONS.map((option) => renderOptionCard(
                                 fuelingPreference === option.value,
@@ -1008,7 +1008,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Body-mass safety</Text>
                                 <Text style={styles.coachPointText}>
-                                    Athleticore checks whether a target looks realistic while protecting performance. Missing body-mass context stays unknown and keeps confidence lower.
+                                    Athleticore checks whether a target looks realistic while protecting performance. We need a little body-mass history before making a confident call.
                                 </Text>
                             </View>
                         ) : null}
@@ -1053,7 +1053,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Training guidance</Text>
                                 <Text style={styles.coachPointText}>
-                                    Training starts with what matters most today, then adapts around readiness, anchors, and the week ahead.
+                                    Training starts with what matters most today, then adapts around readiness, protected anchors, and the week ahead.
                                 </Text>
                             </View>
                             <View style={styles.coachPoint}>
@@ -1067,7 +1067,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Low-confidence guidance</Text>
                                 <Text style={styles.coachPointText}>
-                                    If data is limited, Athleticore will stay calm, ask for the smallest useful check-in, and avoid treating unknowns as safe.
+                                    If data is limited, Athleticore will ask for the smallest useful check-in and avoid treating unknowns as safe.
                                 </Text>
                             </View>
                         </View>
@@ -1170,7 +1170,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         disabled={!canProceed() || saving}
                     >
                         <Text style={styles.nextText}>
-                            {saving ? 'Building...' : step === TOTAL_STEPS - 1 ? 'Build my first mission' : 'Continue'}
+                            {saving ? 'Building your mission...' : step === TOTAL_STEPS - 1 ? 'Build my first mission' : 'Continue'}
                         </Text>
                         {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color={COLORS.text.inverse} /> : null}
                     </AnimatedPressable>

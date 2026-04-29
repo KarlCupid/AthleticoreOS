@@ -77,31 +77,31 @@ console.log('\n-- first sign-in app tour source --');
   assert(
     'Today Mission tour step appears',
     dashboard.includes('title: "Today')
-      && dashboard.includes('This is where Athleticore shows what matters today, why it matters, what changed, and what to do next.'),
+      && dashboard.includes('Start here. Athleticore shows what matters today, why it matters, what changed, and what to do next.'),
   );
 
   assert(
     'Training tour step appears',
     dashboard.includes('id: "training"')
-      && dashboard.includes('Your plan adapts around your phase, readiness, and protected sessions.'),
+      && dashboard.includes('Your plan adapts around your phase, readiness, and protected workouts.'),
   );
 
   assert(
     'Fueling tour step appears',
     dashboard.includes('id: "fueling"')
-      && dashboard.includes('Fueling targets adjust with your training load and fight timeline.'),
+      && dashboard.includes('Fueling targets move with your training load, recovery needs, and fight timeline.'),
   );
 
   assert(
     'Check-In tour step appears',
     dashboard.includes('id: "check_in"')
-      && dashboard.includes('A quick check-in helps Athleticore know when to push, trim, or protect recovery.'),
+      && dashboard.includes('A quick check-in helps Athleticore know when to push, trim extras, or protect recovery.'),
   );
 
   assert(
     'Journey tour step appears',
     dashboard.includes('id: "journey"')
-      && dashboard.includes("You're not starting over each time the plan changes."),
+      && dashboard.includes('The plan can change without the journey restarting.'),
   );
 
   assert(
@@ -109,7 +109,7 @@ console.log('\n-- first sign-in app tour source --');
     dashboard.includes('showFightHubTourStep')
       && dashboard.includes('if (includeFightHub)')
       && dashboard.includes('id: "fight_hub"')
-      && dashboard.includes('Add tentative or confirmed fights here. Athleticore will adjust the journey around the time available.'),
+      && dashboard.includes('Add tentative or confirmed fights here. Athleticore will adjust training, fuel, and recovery around the time available.'),
   );
 })();
 
@@ -123,7 +123,8 @@ console.log('\n-- first sign-in app tour source --');
       && card.includes("from '../../theme/theme'")
       && card.includes('COLORS.accent')
       && card.includes('SPACING.lg')
-      && card.includes('RADIUS.full'),
+      && card.includes('RADIUS.full')
+      && card.includes('FIRST LOOK'),
   );
 
   assert(
@@ -131,7 +132,9 @@ console.log('\n-- first sign-in app tour source --');
     card.includes('flexWrap: \'wrap\'')
       && card.includes('minHeight: 48')
       && card.includes('minHeight: 44')
-      && card.includes('flexShrink: 1'),
+      && card.includes('flexShrink: 1')
+      && card.includes('accessibilityRole="button"')
+      && card.includes('accessibilityLabel="Save walkthrough for later"'),
   );
 })();
 

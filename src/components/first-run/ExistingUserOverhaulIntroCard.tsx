@@ -16,11 +16,11 @@ interface ExistingUserOverhaulIntroCardProps {
 const CONTINUITY_NOTES = [
   {
     title: 'What changed',
-    body: "Today's Mission brings the key pieces together so you know what to do and why.",
+    body: "Today's Mission now brings the key pieces together so you know what to do and why.",
   },
   {
     title: 'What stayed',
-    body: 'Your history is coming with you. Athleticore now uses it to guide your daily mission, phase transitions, fueling, and readiness.',
+    body: 'Your history is coming with you. Athleticore uses it to guide your daily mission, phase transitions, fueling, and readiness.',
   },
   {
     title: 'No restart',
@@ -47,77 +47,83 @@ export function ExistingUserOverhaulIntroCard({
         backgroundTone="planning"
         backgroundScrimColor="rgba(10, 10, 10, 0.72)"
       >
-      <View style={styles.topRow}>
-        <Text style={styles.kicker}>GUIDED JOURNEY</Text>
-        <Text style={styles.status}>Updated</Text>
-      </View>
-
-      <Text style={styles.title}>Your history is coming with you</Text>
-      <Text style={styles.body}>
-        Your app is now organized around your athlete journey. Your training, fueling, readiness, body mass, and fight timeline work together through Today's Mission.
-      </Text>
-
-      <View style={styles.noteGrid}>
-        {CONTINUITY_NOTES.map((note) => (
-          <View key={note.title} style={styles.note}>
-            <Text style={styles.noteTitle}>{note.title}</Text>
-            <Text style={styles.noteBody}>{note.body}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.contextBox}>
-        <Text style={styles.contextTitle}>Worth updating</Text>
-        {hasMissingData ? (
-          <View style={styles.promptList}>
-            {missingDataPrompts.map((prompt) => (
-              <View key={prompt} style={styles.promptRow}>
-                <View style={styles.promptDot} />
-                <Text style={styles.promptText}>{prompt}</Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.contextBody}>
-            No critical setup gaps found. You can keep moving from Today's Mission.
-          </Text>
-        )}
-      </View>
-
-      <Text style={styles.safetyCopy}>
-        Fight opportunities, fueling, readiness, and body-mass context stay connected. Athleticore keeps weight-class guidance safety-first and asks for more context when it needs it.
-      </Text>
-
-      <View style={styles.footerRow}>
-        <AnimatedPressable
-          testID="existing-user-overhaul-dismiss"
-          style={styles.quietButton}
-          onPress={onDismiss}
-        >
-          <Text style={styles.quietText}>Dismiss</Text>
-        </AnimatedPressable>
-
-        <View style={styles.actionButtons}>
-          {hasMissingData ? (
-            <AnimatedPressable
-              testID="existing-user-overhaul-review-missing"
-              style={styles.secondaryButton}
-              onPress={onReviewMissingData}
-            >
-              <Text style={styles.secondaryText}>Review missing context</Text>
-            </AnimatedPressable>
-          ) : null}
-
-          <AnimatedPressable
-            testID="existing-user-overhaul-continue"
-            style={styles.primaryButton}
-            onPress={onContinue}
-          >
-            <Text style={styles.primaryText}>Open Today's Mission</Text>
-            <IconChevronRight size={18} color={COLORS.text.inverse} />
-          </AnimatedPressable>
+        <View style={styles.topRow}>
+          <Text style={styles.kicker}>GUIDED JOURNEY</Text>
+          <Text style={styles.status}>Updated</Text>
         </View>
-      </View>
+
+        <Text style={styles.title}>Your history is coming with you</Text>
+        <Text style={styles.body}>
+          Athleticore is now organized around your athlete journey. Training, fueling, readiness, body mass, and fight timeline all work together through Today's Mission.
+        </Text>
+
+        <View style={styles.noteGrid}>
+          {CONTINUITY_NOTES.map((note) => (
+            <View key={note.title} style={styles.note}>
+              <Text style={styles.noteTitle}>{note.title}</Text>
+              <Text style={styles.noteBody}>{note.body}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.contextBox}>
+          <Text style={styles.contextTitle}>Worth a quick update</Text>
+          {hasMissingData ? (
+            <View style={styles.promptList}>
+              {missingDataPrompts.map((prompt) => (
+                <View key={prompt} style={styles.promptRow}>
+                  <View style={styles.promptDot} />
+                  <Text style={styles.promptText}>{prompt}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.contextBody}>
+              No key setup gaps found. You can keep moving from Today's Mission.
+            </Text>
+          )}
+        </View>
+
+        <Text style={styles.safetyCopy}>
+          Fight opportunities, fueling, readiness, and body-mass context stay connected. Weight-class guidance stays safety-first and asks for more context when it needs it.
+        </Text>
+
+        <View style={styles.footerRow}>
+          <AnimatedPressable
+            testID="existing-user-overhaul-dismiss"
+            style={styles.quietButton}
+            onPress={onDismiss}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss guided journey intro"
+          >
+            <Text style={styles.quietText}>Not now</Text>
+          </AnimatedPressable>
+
+          <View style={styles.actionButtons}>
+            {hasMissingData ? (
+              <AnimatedPressable
+                testID="existing-user-overhaul-review-missing"
+                style={styles.secondaryButton}
+                onPress={onReviewMissingData}
+                accessibilityRole="button"
+                accessibilityLabel="Review missing first-run context"
+              >
+                <Text style={styles.secondaryText}>Review context</Text>
+              </AnimatedPressable>
+            ) : null}
+
+            <AnimatedPressable
+              testID="existing-user-overhaul-continue"
+              style={styles.primaryButton}
+              onPress={onContinue}
+              accessibilityRole="button"
+              accessibilityLabel="Open Today's Mission"
+            >
+              <Text style={styles.primaryText}>Open Today's Mission</Text>
+              <IconChevronRight size={18} color={COLORS.text.inverse} />
+            </AnimatedPressable>
+          </View>
+        </View>
       </Card>
     </View>
   );
