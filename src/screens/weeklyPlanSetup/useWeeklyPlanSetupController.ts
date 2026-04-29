@@ -12,6 +12,12 @@ import { getRecurringActivities, replaceRecurringActivities } from '../../../lib
 import { isGuidedEngineActivityType } from '../../../lib/engine/sessionOwnership';
 import { logError } from '../../../lib/utils/logger';
 import { todayLocalDate } from '../../../lib/utils/date';
+import {
+  buildGuidedFightOpportunityViewModel,
+  type AthleticorePhase,
+  type FightOpportunityStatus,
+  type FightOpponentMetadata,
+} from '../../../lib/performance-engine';
 import type {
   AthleteGoalMode,
   AvailabilityWindow,
@@ -59,6 +65,8 @@ type UseWeeklyPlanSetupControllerArgs = {
   onComplete?: () => void;
 };
 
+type FightFlowStatus = Exclude<FightOpportunityStatus, 'completed'>;
+
 export function useWeeklyPlanSetupController({
   initialGoalMode,
   initialPhaseIndex,
@@ -67,6 +75,8 @@ export function useWeeklyPlanSetupController({
 }: UseWeeklyPlanSetupControllerArgs) {
   const [userId, setUserId] = useState<string | null>(null);
   const [profileTargetWeight, setProfileTargetWeight] = useState<number | null>(null);
+  const [profileBaseWeight, setProfileBaseWeight] = useState<number | null>(null);
+  const [currentAthleticorePhase, setCurrentAthleticorePhase] = useState<AthleticorePhase>('build');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [phaseIndex, setPhaseIndex] = useState(0);
@@ -90,10 +100,20 @@ export function useWeeklyPlanSetupController({
   const [showAdvancedOverride, setShowAdvancedOverride] = useState(false);
 
   const [fightDate, setFightDate] = useState<string>(addDays(todayLocalDate(), 84));
+  const [fightOpportunityStatus, setFightOpportunityStatus] = useState<FightFlowStatus>('confirmed');
+  const [competitionTime, setCompetitionTime] = useState('');
+  const [weighInDate, setWeighInDate] = useState('');
+  const [weighInTime, setWeighInTime] = useState('');
+  const [targetWeightClassName, setTargetWeightClassName] = useState('');
   const [travelStartDate, setTravelStartDate] = useState('');
   const [travelEndDate, setTravelEndDate] = useState('');
   const [weighInTiming, setWeighInTiming] = useState<WeighInTiming>('next_day');
   const [targetWeight, setTargetWeight] = useState('');
+  const [weightClassChanged, setWeightClassChanged] = useState(false);
+  const [opponentName, setOpponentName] = useState('');
+  const [opponentStance, setOpponentStance] = useState<FightOpponentMetadata['stance']>('unknown');
+  const [eventName, setEventName] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
   const [roundCount, setRoundCount] = useState<number>(3);
   const [roundDurationSec, setRoundDurationSec] = useState<number>(180);
   const [restDurationSec, setRestDurationSec] = useState<number>(60);
@@ -118,6 +138,46 @@ export function useWeeklyPlanSetupController({
   const daysToFight = goalMode === 'fight_camp' && fightDate
     ? Math.max(0, daysBetween(todayLocalDate(), fightDate))
     : null;
+  const fightOpportunitySummary = useMemo(() => buildGuidedFightOpportunityViewModel({
+    athleteId: userId ?? 'pending-athlete',
+    status: fightOpportunityStatus,
+    asOfDate: todayLocalDate(),
+    generatedAt: new Date(`${todayLocalDate()}T12:00:00.000Z`).toISOString(),
+    currentPhase: currentAthleticorePhase,
+    competitionDate: fightDate.trim() ? fightDate : null,
+    competitionTime: competitionTime.trim() || null,
+    weighInDate: weighInDate.trim() || null,
+    weighInTime: weighInTime.trim() || null,
+    targetWeightClassName: targetWeightClassName.trim() || null,
+    targetWeightLbs: parseNumberInput(targetWeight),
+    currentBodyMassLbs: profileBaseWeight,
+    opponentName: opponentName.trim() || null,
+    opponentStance,
+    eventName: eventName.trim() || null,
+    eventLocation: eventLocation.trim() || null,
+    weightClassChanged,
+    protectedWorkoutLabels: commitments.map((commitment) =>
+      commitment.label.trim()
+      || (commitment.activityType === 'sparring' ? 'Sparring' : 'Boxing practice'),
+    ),
+  }), [
+    commitments,
+    competitionTime,
+    currentAthleticorePhase,
+    eventLocation,
+    eventName,
+    fightDate,
+    fightOpportunityStatus,
+    opponentName,
+    opponentStance,
+    profileBaseWeight,
+    targetWeight,
+    targetWeightClassName,
+    userId,
+    weighInDate,
+    weighInTime,
+    weightClassChanged,
+  ]);
 
   useEffect(() => {
     if (goalMode !== 'build_phase') return;
@@ -160,7 +220,7 @@ export function useWeeklyPlanSetupController({
           getActiveBuildPhaseGoal(currentUserId),
           supabase
             .from('athlete_profiles')
-            .select('athlete_goal_mode, performance_goal_type, fight_date, target_weight')
+            .select('athlete_goal_mode, performance_goal_type, fight_date, target_weight, base_weight')
             .eq('user_id', currentUserId)
             .maybeSingle(),
           getRecurringActivities(currentUserId),
@@ -176,10 +236,13 @@ export function useWeeklyPlanSetupController({
 
         const profile = profileResult.data;
         setProfileTargetWeight(profile?.target_weight ?? null);
+        setProfileBaseWeight(profile?.base_weight ?? null);
         if (profile?.target_weight != null) setTargetWeight(String(profile.target_weight));
         if (profile?.fight_date) setFightDate(profile.fight_date);
 
         if (camp) {
+          setCurrentAthleticorePhase('camp');
+          setFightOpportunityStatus('confirmed');
           setFightDate(camp.fightDate);
           setTravelStartDate(camp.travelStartDate ?? '');
           setTravelEndDate(camp.travelEndDate ?? '');
@@ -211,7 +274,9 @@ export function useWeeklyPlanSetupController({
           }
         }
 
-        setGoalMode(profile?.athlete_goal_mode === 'fight_camp' || camp ? 'fight_camp' : 'build_phase');
+        const loadedGoalMode = profile?.athlete_goal_mode === 'fight_camp' || camp ? 'fight_camp' : 'build_phase';
+        setCurrentAthleticorePhase(loadedGoalMode === 'fight_camp' ? 'camp' : 'build');
+        setGoalMode(loadedGoalMode);
 
         setCommitments(
           recurring
@@ -300,17 +365,28 @@ export function useWeeklyPlanSetupController({
 
   function validateObjectivePhase(showAlerts: boolean): boolean {
     if (goalMode === 'fight_camp') {
-      if (!fightDate || !targetWeight.trim()) {
+      if (fightOpportunityStatus === 'canceled' || fightOpportunityStatus === 'tentative') {
+        const parsedTentativeTargetWeight = targetWeight.trim() === '' ? null : parseNumberInput(targetWeight);
+        if (targetWeight.trim() !== '' && parsedTentativeTargetWeight == null) {
+          if (showAlerts) {
+            Alert.alert('Invalid target weight', 'Enter a valid number for target scale weight, or leave it blank.');
+          }
+          return false;
+        }
+        return true;
+      }
+
+      if (!fightDate) {
         if (showAlerts) {
-          Alert.alert('Camp setup incomplete', 'Fight Camp needs a fight date and target weight.');
+          Alert.alert('Fight timing needed', 'Add the fight date so Athleticore can evaluate the opportunity.');
         }
         return false;
       }
 
-      const parsedTargetWeight = parseNumberInput(targetWeight);
-      if (parsedTargetWeight == null) {
+      const parsedTargetWeight = targetWeight.trim() === '' ? null : parseNumberInput(targetWeight);
+      if (targetWeight.trim() !== '' && parsedTargetWeight == null) {
         if (showAlerts) {
-          Alert.alert('Invalid target weight', 'Enter a valid number for target weight.');
+          Alert.alert('Invalid target weight', 'Enter a valid number for target scale weight, or leave it blank.');
         }
         return false;
       }
@@ -463,18 +539,35 @@ export function useWeeklyPlanSetupController({
       );
 
       if (goalMode === 'fight_camp') {
-        await setupFightCamp(userId, {
-          goalMode: 'fight_camp',
-          performanceGoalType: buildGoalType as PerformanceGoalType,
-          fightDate,
-          weighInTiming,
-          targetWeight: parsedTargetWeight,
-          roundCount,
-          roundDurationSec,
-          restDurationSec,
-          travelStartDate: travelStartDate.trim() || null,
-          travelEndDate: travelEndDate.trim() || null,
-        });
+        if (fightOpportunityStatus === 'canceled' || fightOpportunityStatus === 'tentative') {
+          await setupFightCamp(userId, {
+            goalMode: 'build_phase',
+            performanceGoalType: buildGoalType as PerformanceGoalType,
+          });
+        } else {
+          await setupFightCamp(userId, {
+            goalMode: 'fight_camp',
+            performanceGoalType: buildGoalType as PerformanceGoalType,
+            fightDate,
+            fightOpportunityStatus,
+            competitionTime: competitionTime.trim() || null,
+            weighInDate: weighInDate.trim() || null,
+            weighInTime: weighInTime.trim() || null,
+            targetWeightClassName: targetWeightClassName.trim() || null,
+            weightClassChanged,
+            opponentName: opponentName.trim() || null,
+            opponentStance,
+            eventName: eventName.trim() || null,
+            eventLocation: eventLocation.trim() || null,
+            weighInTiming,
+            targetWeight: parsedTargetWeight,
+            roundCount,
+            roundDurationSec,
+            restDurationSec,
+            travelStartDate: travelStartDate.trim() || null,
+            travelEndDate: travelEndDate.trim() || null,
+          });
+        }
       } else {
         await setupBuildPhaseGoal(userId, {
           goalType: buildGoalType,
@@ -569,6 +662,16 @@ export function useWeeklyPlanSetupController({
     setShowAdvancedOverride,
     fightDate,
     setFightDate,
+    fightOpportunityStatus,
+    setFightOpportunityStatus,
+    competitionTime,
+    setCompetitionTime,
+    weighInDate,
+    setWeighInDate,
+    weighInTime,
+    setWeighInTime,
+    targetWeightClassName,
+    setTargetWeightClassName,
     travelStartDate,
     setTravelStartDate,
     travelEndDate,
@@ -577,6 +680,17 @@ export function useWeeklyPlanSetupController({
     setWeighInTiming,
     targetWeight,
     setTargetWeight,
+    weightClassChanged,
+    setWeightClassChanged,
+    opponentName,
+    setOpponentName,
+    opponentStance,
+    setOpponentStance,
+    eventName,
+    setEventName,
+    eventLocation,
+    setEventLocation,
+    fightOpportunitySummary,
     roundCount,
     setRoundCount,
     roundDurationSec,

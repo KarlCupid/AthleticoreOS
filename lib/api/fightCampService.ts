@@ -3,7 +3,7 @@ import { generateCampPlan, determineCampPhase, toCampEnginePhase } from '../engi
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getAthleteContext } from './athleteContextService';
 import { getEffectiveWeight } from './weightService';
-import { createFightOpportunity, mapPerformancePhaseToLegacyPhase } from '../performance-engine';
+import { createFightOpportunity, mapPerformancePhaseToLegacyPhase, type FightOpportunityStatus } from '../performance-engine';
 import { PLANNING_SETUP_VERSION } from './planningConstants';
 import type {
   CampConfig,
@@ -27,6 +27,18 @@ function daysBetween(start: string, end: string): number {
   const a = new Date(`${start}T00:00:00`).getTime();
   const b = new Date(`${end}T00:00:00`).getTime();
   return Math.round((b - a) / 86400000);
+}
+
+function resolveFightOpportunityStatus(input: {
+  requestedStatus?: 'confirmed' | 'short_notice' | 'rescheduled';
+  asOfDate: string;
+  fightDate: string;
+}): FightOpportunityStatus {
+  if (input.requestedStatus === 'short_notice' || input.requestedStatus === 'rescheduled') {
+    return input.requestedStatus;
+  }
+  const daysOut = daysBetween(input.asOfDate, input.fightDate);
+  return daysOut <= 28 ? 'short_notice' : 'confirmed';
 }
 
 function normalizeStatus(rawStatus: string | null | undefined): 'active' | 'completed' | 'abandoned' {
@@ -262,15 +274,33 @@ export async function setupFightCamp(userId: string, input: FightCampSetupInput)
 
   const camp = normalizeCampConfig(data as CampPlanRow);
   const targetWeight = input.targetWeight ?? athleteContext.profile?.target_weight ?? null;
+  const fightOpportunityStatus = resolveFightOpportunityStatus({
+    requestedStatus: input.fightOpportunityStatus,
+    asOfDate: today,
+    fightDate: input.fightDate,
+  });
   const opportunity = createFightOpportunity({
     id: activeCamp?.id ?? `${userId}:fight-opportunity:${input.fightDate}`,
     athleteId: userId,
-    status: 'confirmed',
+    status: fightOpportunityStatus,
     asOfDate: today,
     createdAt: new Date().toISOString(),
     currentPhase: athleteContext.goalMode === 'fight_camp' ? 'camp' : 'build',
     competitionDate: input.fightDate,
+    competitionTime: input.competitionTime ?? null,
+    weighInDate: input.weighInDate ?? null,
+    weighInTime: input.weighInTime ?? null,
+    targetWeightClassName: input.targetWeightClassName ?? null,
     targetWeightLbs: targetWeight,
+    opponent: {
+      name: input.opponentName ?? null,
+      stance: input.opponentStance ?? null,
+      notes: input.weightClassChanged ? ['Weight class changed for this opportunity.'] : [],
+    },
+    event: {
+      eventName: input.eventName ?? null,
+      location: input.eventLocation ?? null,
+    },
   });
   const phaseForToday = camp ? determineCampPhase(camp, today) : null;
   const generatedCampLegacyPhase = phaseForToday ? toCampEnginePhase(phaseForToday) : null;

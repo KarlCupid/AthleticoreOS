@@ -9,14 +9,17 @@ import type {
   ObjectiveSecondaryConstraint,
   WeighInTiming,
 } from '../../../lib/engine/types';
+import type {
+  FightOpportunityStatus,
+  FightOpponentMetadata,
+  GuidedFightOpportunityViewModel,
+} from '../../../lib/performance-engine';
 import {
   BUILD_GOAL_OBJECTIVE_PLACEHOLDERS,
   BUILD_GOAL_OPTIONS,
-  REST_DURATION_OPTIONS,
-  ROUND_DURATION_OPTIONS,
-  ROUND_OPTIONS,
   SECONDARY_CONSTRAINT_OPTIONS,
 } from './constants';
+import { FightOpportunityFlow } from './FightOpportunityFlow';
 import { FieldNote, OptionPill, Section } from './shared';
 import { styles } from './styles';
 import { getBuildMetricOptions } from './utils';
@@ -52,8 +55,28 @@ type ObjectivePhaseProps = {
   setTargetHorizonWeeks: (value: string) => void;
   fightDate: string;
   setFightDate: (value: string) => void;
+  fightOpportunityStatus: Exclude<FightOpportunityStatus, 'completed'>;
+  setFightOpportunityStatus: (value: Exclude<FightOpportunityStatus, 'completed'>) => void;
+  competitionTime: string;
+  setCompetitionTime: (value: string) => void;
+  weighInDate: string;
+  setWeighInDate: (value: string) => void;
+  weighInTime: string;
+  setWeighInTime: (value: string) => void;
+  targetWeightClassName: string;
+  setTargetWeightClassName: (value: string) => void;
   targetWeight: string;
   setTargetWeight: (value: string) => void;
+  weightClassChanged: boolean;
+  setWeightClassChanged: (value: boolean) => void;
+  opponentName: string;
+  setOpponentName: (value: string) => void;
+  opponentStance: FightOpponentMetadata['stance'];
+  setOpponentStance: (value: FightOpponentMetadata['stance']) => void;
+  eventName: string;
+  setEventName: (value: string) => void;
+  eventLocation: string;
+  setEventLocation: (value: string) => void;
   weighInTiming: WeighInTiming;
   setWeighInTiming: (value: WeighInTiming) => void;
   travelStartDate: string;
@@ -67,6 +90,7 @@ type ObjectivePhaseProps = {
   restDurationSec: number;
   setRestDurationSec: (value: number) => void;
   daysToFight: number | null;
+  fightOpportunitySummary: GuidedFightOpportunityViewModel;
 };
 
 export function ObjectivePhase(props: ObjectivePhaseProps) {
@@ -99,8 +123,28 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
     setTargetHorizonWeeks,
     fightDate,
     setFightDate,
+    fightOpportunityStatus,
+    setFightOpportunityStatus,
+    competitionTime,
+    setCompetitionTime,
+    weighInDate,
+    setWeighInDate,
+    weighInTime,
+    setWeighInTime,
+    targetWeightClassName,
+    setTargetWeightClassName,
     targetWeight,
     setTargetWeight,
+    weightClassChanged,
+    setWeightClassChanged,
+    opponentName,
+    setOpponentName,
+    opponentStance,
+    setOpponentStance,
+    eventName,
+    setEventName,
+    eventLocation,
+    setEventLocation,
     weighInTiming,
     setWeighInTiming,
     travelStartDate,
@@ -114,12 +158,11 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
     restDurationSec,
     setRestDurationSec,
     daysToFight,
+    fightOpportunitySummary,
   } = props;
 
-  const [showFightDetails, setShowFightDetails] = React.useState(false);
   const selectedConstraintLabel =
     SECONDARY_CONSTRAINT_OPTIONS.find((option) => option.value === secondaryConstraint)?.label ?? 'Recovery';
-  const weighInLabel = weighInTiming === 'same_day' ? 'Same day' : 'Next day';
 
   return (
     <>
@@ -230,68 +273,46 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
             ) : null}
           </>
         ) : (
-          <>
-            <Text style={styles.subLabel}>Fight Date</Text>
-            <FieldNote>Your current journey adapts around this date.</FieldNote>
-            <DatePickerField label="Fight Date" value={fightDate} onChange={setFightDate} />
-
-            <Text style={styles.subLabel}>Target Weight (lbs)</Text>
-            <FieldNote>Use the contracted or intended weigh-in weight.</FieldNote>
-            <TextInput style={styles.input} value={targetWeight} onChangeText={setTargetWeight} keyboardType="decimal-pad" placeholder="155" placeholderTextColor={COLORS.text.tertiary} />
-
-            <Text style={styles.subLabel}>Weigh-in Timing</Text>
-            <FieldNote>Same-day weigh-ins need more conservative assumptions.</FieldNote>
-            <View style={styles.optionList}>
-              <OptionPill selected={weighInTiming === 'same_day'} label="Same Day" onPress={() => setWeighInTiming('same_day')} />
-              <OptionPill selected={weighInTiming === 'next_day'} label="Next Day" onPress={() => setWeighInTiming('next_day')} />
-            </View>
-
-            <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Camp Target</Text>
-              <Text style={styles.previewLine}>Fight: {daysToFight != null ? `${daysToFight} days out` : 'Set fight date'}.</Text>
-              <Text style={styles.previewLine}>Target weight: {targetWeight.trim() ? `${targetWeight.trim()} lbs` : 'Add target weight'}.</Text>
-              <Text style={styles.previewLine}>Weigh-in: {weighInLabel}.</Text>
-            </View>
-
-            <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowFightDetails((current) => !current)} activeOpacity={0.8}>
-              <View style={styles.advancedToggleTextWrap}>
-                <Text style={styles.advancedToggleTitle}>Fight Details</Text>
-                <Text style={styles.advancedToggleDescription}>Optional travel and round format.</Text>
-              </View>
-              <Text style={styles.advancedToggleAction}>{showFightDetails ? 'Hide' : 'Open'}</Text>
-            </TouchableOpacity>
-
-            {showFightDetails ? (
-              <>
-                <Text style={styles.subLabel}>Travel Start (optional)</Text>
-                <DatePickerField label="Travel Start" value={travelStartDate} onChange={setTravelStartDate} />
-
-                <Text style={styles.subLabel}>Travel End (optional)</Text>
-                <DatePickerField label="Travel End" value={travelEndDate} onChange={setTravelEndDate} />
-
-                <Text style={styles.subLabel}>Rounds</Text>
-                <View style={styles.pillRow}>
-                  {ROUND_OPTIONS.map((value) => (
-                    <OptionPill compact key={value} selected={roundCount === value} label={String(value)} onPress={() => setRoundCount(value)} />
-                  ))}
-                </View>
-
-                <Text style={styles.subLabel}>Round Duration</Text>
-                <View style={styles.pillRow}>
-                  {ROUND_DURATION_OPTIONS.map((value) => (
-                    <OptionPill compact key={value} selected={roundDurationSec === value} label={`${Math.round(value / 60)}m`} onPress={() => setRoundDurationSec(value)} />
-                  ))}
-                </View>
-
-                <Text style={styles.subLabel}>Rest</Text>
-                <View style={styles.pillRow}>
-                  {REST_DURATION_OPTIONS.map((value) => (
-                    <OptionPill compact key={value} selected={restDurationSec === value} label={`${value}s`} onPress={() => setRestDurationSec(value)} />
-                  ))}
-                </View>
-              </>
-            ) : null}
-          </>
+          <FightOpportunityFlow
+            fightOpportunityStatus={fightOpportunityStatus}
+            setFightOpportunityStatus={setFightOpportunityStatus}
+            fightDate={fightDate}
+            setFightDate={setFightDate}
+            competitionTime={competitionTime}
+            setCompetitionTime={setCompetitionTime}
+            weighInDate={weighInDate}
+            setWeighInDate={setWeighInDate}
+            weighInTime={weighInTime}
+            setWeighInTime={setWeighInTime}
+            targetWeightClassName={targetWeightClassName}
+            setTargetWeightClassName={setTargetWeightClassName}
+            targetWeight={targetWeight}
+            setTargetWeight={setTargetWeight}
+            weightClassChanged={weightClassChanged}
+            setWeightClassChanged={setWeightClassChanged}
+            opponentName={opponentName}
+            setOpponentName={setOpponentName}
+            opponentStance={opponentStance}
+            setOpponentStance={setOpponentStance}
+            eventName={eventName}
+            setEventName={setEventName}
+            eventLocation={eventLocation}
+            setEventLocation={setEventLocation}
+            weighInTiming={weighInTiming}
+            setWeighInTiming={setWeighInTiming}
+            travelStartDate={travelStartDate}
+            setTravelStartDate={setTravelStartDate}
+            travelEndDate={travelEndDate}
+            setTravelEndDate={setTravelEndDate}
+            roundCount={roundCount}
+            setRoundCount={setRoundCount}
+            roundDurationSec={roundDurationSec}
+            setRoundDurationSec={setRoundDurationSec}
+            restDurationSec={restDurationSec}
+            setRestDurationSec={setRestDurationSec}
+            daysToFight={daysToFight}
+            summary={fightOpportunitySummary}
+          />
         )}
       </Section>
     </>

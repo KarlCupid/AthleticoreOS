@@ -75,6 +75,16 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     setShowAdvancedOverride,
     fightDate,
     setFightDate,
+    fightOpportunityStatus,
+    setFightOpportunityStatus,
+    competitionTime,
+    setCompetitionTime,
+    weighInDate,
+    setWeighInDate,
+    weighInTime,
+    setWeighInTime,
+    targetWeightClassName,
+    setTargetWeightClassName,
     travelStartDate,
     setTravelStartDate,
     travelEndDate,
@@ -83,6 +93,16 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     setWeighInTiming,
     targetWeight,
     setTargetWeight,
+    weightClassChanged,
+    setWeightClassChanged,
+    opponentName,
+    setOpponentName,
+    opponentStance,
+    setOpponentStance,
+    eventName,
+    setEventName,
+    eventLocation,
+    setEventLocation,
     roundCount,
     setRoundCount,
     roundDurationSec,
@@ -100,6 +120,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     handleNextPhase,
     handleBackPhase,
     handleSave,
+    fightOpportunitySummary,
   } = controller;
 
   function renderCurrentPhase() {
@@ -135,8 +156,28 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             setTargetHorizonWeeks={setTargetHorizonWeeks}
             fightDate={fightDate}
             setFightDate={setFightDate}
+            fightOpportunityStatus={fightOpportunityStatus}
+            setFightOpportunityStatus={setFightOpportunityStatus}
+            competitionTime={competitionTime}
+            setCompetitionTime={setCompetitionTime}
+            weighInDate={weighInDate}
+            setWeighInDate={setWeighInDate}
+            weighInTime={weighInTime}
+            setWeighInTime={setWeighInTime}
+            targetWeightClassName={targetWeightClassName}
+            setTargetWeightClassName={setTargetWeightClassName}
             targetWeight={targetWeight}
             setTargetWeight={setTargetWeight}
+            weightClassChanged={weightClassChanged}
+            setWeightClassChanged={setWeightClassChanged}
+            opponentName={opponentName}
+            setOpponentName={setOpponentName}
+            opponentStance={opponentStance}
+            setOpponentStance={setOpponentStance}
+            eventName={eventName}
+            setEventName={setEventName}
+            eventLocation={eventLocation}
+            setEventLocation={setEventLocation}
             weighInTiming={weighInTiming}
             setWeighInTiming={setWeighInTiming}
             travelStartDate={travelStartDate}
@@ -150,6 +191,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             restDurationSec={restDurationSec}
             setRestDurationSec={setRestDurationSec}
             daysToFight={daysToFight}
+            fightOpportunitySummary={fightOpportunitySummary}
           />
         );
       case 'availability':
