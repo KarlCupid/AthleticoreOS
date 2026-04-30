@@ -240,7 +240,7 @@ export function useDashboardData() {
     try {
       if (forceRefresh || firstDashboardLoadRef.current) {
         try {
-          await ensureRollingScheduleFresh(userId, 4);
+          await ensureRollingScheduleFresh(userId, todayStr, 4);
         } catch (error) {
           logError('useDashboardData.ensureRollingScheduleFresh', error, { userId });
           failDashboardLoad('schedule', error);

@@ -1,4 +1,5 @@
 const path = require('node:path');
+const fs = require('node:fs');
 
 let passed = 0;
 let failed = 0;
@@ -20,11 +21,15 @@ function assertEqual(label: string, actual: unknown, expected: unknown) {
 function createMockSupabase(config: {
   activityType?: string;
   activityDate?: string | null;
-  trainingSessionError?: unknown;
+  completeActivityError?: unknown;
 }) {
   const calls: Array<{ table: string; method: string; args: unknown[] }> = [];
 
   const supabase = {
+    rpc(...args: unknown[]) {
+      calls.push({ table: 'rpc', method: 'rpc', args });
+      return Promise.resolve({ error: config.completeActivityError ?? null });
+    },
     from(table: string) {
       const state = {
         operation: '',
@@ -43,9 +48,6 @@ function createMockSupabase(config: {
         },
         insert(...args: unknown[]) {
           calls.push({ table, method: 'insert', args });
-          if (table === 'training_sessions') {
-            return Promise.resolve({ error: config.trainingSessionError ?? null });
-          }
           return Promise.resolve({ error: null });
         },
         eq(...args: unknown[]) {
@@ -109,16 +111,18 @@ async function run() {
       components: [],
     });
 
-    const trainingInsert = calls.find((call) => call.table === 'training_sessions' && call.method === 'insert');
-    assert('training activity inserts ACWR workload row', Boolean(trainingInsert));
-    assertEqual('training session uses scheduled activity date', (trainingInsert?.args[0] as any)?.date, '2026-04-29');
+    const completionRpc = calls.find((call) => call.table === 'rpc' && call.args[0] === 'complete_scheduled_activity');
+    assert('training activity delegates to transactional completion RPC', Boolean(completionRpc));
+    assertEqual('completion RPC receives activity id', (completionRpc?.args[1] as any)?.p_activity_id, 'activity-1');
+    assertEqual('completion RPC receives actual duration', (completionRpc?.args[1] as any)?.p_actual_duration_min, 60);
+    assertEqual('completion RPC receives actual rpe', (completionRpc?.args[1] as any)?.p_actual_rpe, 7);
   }
 
   {
     const sessionError = new Error('training session insert failed');
     const { supabase, calls } = createMockSupabase({
       activityType: 'boxing_practice',
-      trainingSessionError: sessionError,
+      completeActivityError: sessionError,
     });
     const { completeActivity } = loadScheduleService(supabase);
 
@@ -134,7 +138,7 @@ async function run() {
     }
 
     assert('training session insert failure is thrown', thrown === sessionError);
-    assert('scheduled activity update happened before workload insert failure', calls.some((call) => call.table === 'scheduled_activities' && call.method === 'update'));
+    assert('completion failure does not leave client-side partial writes', !calls.some((call) => call.table !== 'rpc'));
   }
 
   {
@@ -147,8 +151,22 @@ async function run() {
       components: [],
     });
 
-    assert('rest completion skips training_sessions by explicit rule', !calls.some((call) => call.table === 'training_sessions' && call.method === 'insert'));
-    assert('rest completion still updates scheduled activity', calls.some((call) => call.table === 'scheduled_activities' && call.method === 'update'));
+    const completionRpc = calls.find((call) => call.table === 'rpc' && call.args[0] === 'complete_scheduled_activity');
+    assert('rest completion delegates to transactional completion RPC', Boolean(completionRpc));
+    assertEqual('rest completion RPC receives activity id', (completionRpc?.args[1] as any)?.p_activity_id, 'rest-activity');
+  }
+
+  {
+    const migration = fs.readFileSync(
+      path.join(process.cwd(), 'supabase', 'migrations', '031_complete_activity_transaction.sql'),
+      'utf8',
+    );
+
+    assert('completion mutation is implemented as a Postgres transaction RPC', migration.includes('CREATE OR REPLACE FUNCTION public.complete_scheduled_activity'));
+    assert('completion transaction locks the scheduled activity row', migration.includes('FOR UPDATE'));
+    assert('completion transaction writes activity_log inside the RPC', migration.includes('INSERT INTO public.activity_log'));
+    assert('completion transaction writes ACWR workload inside the RPC', migration.includes('INSERT INTO public.training_sessions'));
+    assert('completion transaction skips rest workload rows', migration.includes("IF v_activity.activity_type <> 'rest' THEN"));
   }
 }
 

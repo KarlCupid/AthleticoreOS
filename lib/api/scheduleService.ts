@@ -95,8 +95,10 @@ type RecurringActivityInput = {
     constraint_tier?: 'mandatory' | 'preferred';
 };
 
-function getRollingScheduleWindow(weeksAhead: number): { startDateStr: string; endDateStr: string } {
-    const startDateStr = today();
+function getRollingScheduleWindow(
+    startDateStr: string = today(),
+    weeksAhead: number = 4,
+): { startDateStr: string; endDateStr: string } {
     return {
         startDateStr,
         endDateStr: addDays(startDateStr, weeksAhead * 7),
@@ -207,11 +209,6 @@ async function getScheduledActivityMutationContext(
 
     if (error) throw error;
     return { date: data?.date ?? null };
-}
-
-function shouldRecordTrainingSessionForActivity(activityType: ActivityType): boolean {
-    // Rest is an explicit non-training schedule marker, so it has no workload/ACWR dose to record.
-    return activityType !== 'rest';
 }
 
 /**
@@ -361,12 +358,13 @@ export async function replaceRecurringActivities(
 }
 export async function generateRollingSchedule(
     userId: string,
+    startDate: string = today(),
     weeksAhead: number = 4
 ): Promise<ScheduledActivityRow[]> {
     const templates = await getRecurringActivities(userId);
     if (templates.length === 0) return [];
 
-    const { startDateStr, endDateStr } = getRollingScheduleWindow(weeksAhead);
+    const { startDateStr, endDateStr } = getRollingScheduleWindow(startDate, weeksAhead);
 
     const rowsToInsert: any[] = [];
 
@@ -438,12 +436,13 @@ export async function generateRollingSchedule(
 
 export async function ensureRollingScheduleFresh(
     userId: string,
+    startDate: string = today(),
     weeksAhead: number = 4,
 ): Promise<ScheduledActivityRow[]> {
     const templates = await getRecurringActivities(userId);
     if (templates.length === 0) return [];
 
-    const { startDateStr, endDateStr } = getRollingScheduleWindow(weeksAhead);
+    const { startDateStr, endDateStr } = getRollingScheduleWindow(startDate, weeksAhead);
     const expectedKeys = getExpectedRecurringScheduleKeys(templates, startDateStr, endDateStr);
     if (expectedKeys.size === 0) return [];
 
@@ -466,7 +465,7 @@ export async function ensureRollingScheduleFresh(
 
     if (!hasMissingEntry) return [];
 
-    return generateRollingSchedule(userId, weeksAhead);
+    return generateRollingSchedule(userId, startDate, weeksAhead);
 }
 
 function createScheduledObj(tmpl: RecurringActivityRow, dateStr: string) {
@@ -736,78 +735,16 @@ export async function completeActivity(
     },
 ): Promise<void> {
     return withEngineInvalidation({ userId, reason: 'activity_complete' }, async () => {
-        const { data: activity, error: activityError } = await supabase
-            .from('scheduled_activities')
-            .select('date, activity_type')
-            .eq('id', activityId)
-            .eq('user_id', userId)
-            .single();
+        const { error } = await supabase.rpc('complete_scheduled_activity', {
+            p_user_id: userId,
+            p_activity_id: activityId,
+            p_actual_duration_min: log.actual_duration_min,
+            p_actual_rpe: log.actual_rpe,
+            p_notes: log.notes ?? null,
+            p_components: log.components,
+        });
 
-        if (activityError) throw activityError;
-        if (!activity) {
-            throw new Error('Scheduled activity not found.');
-        }
-
-        const scheduledActivity = activity as Pick<ScheduledActivityRow, 'date' | 'activity_type'>;
-        const activityDate = scheduledActivity.date ?? today();
-
-        // 1. Update the scheduled activity
-        await updateScheduledActivities(
-            {
-                status: 'completed',
-                actual_duration_min: log.actual_duration_min,
-                actual_rpe: log.actual_rpe,
-                notes: log.notes ?? null,
-                recommendation_status: 'completed',
-            },
-            (nextPayload) => supabase
-                .from('scheduled_activities')
-                .update(nextPayload)
-                .eq('id', activityId)
-                .eq('user_id', userId),
-        );
-
-        // 2. Insert component logs
-        if (log.components.length > 0) {
-            const componentRows = log.components.map(c => ({
-                scheduled_activity_id: activityId,
-                user_id: userId,
-                date: activityDate,
-                component_type: c.component_type,
-                duration_min: c.duration_min,
-                distance_miles: c.distance_miles ?? null,
-                pace_per_mile: c.pace_per_mile ?? null,
-                rounds: c.rounds ?? null,
-                intensity: c.intensity,
-                heart_rate_avg: c.heart_rate_avg ?? null,
-                notes: c.notes ?? null,
-            }));
-
-            const { error: activityLogError } = await supabase
-                .from('activity_log')
-                .insert(componentRows);
-
-            if (activityLogError) throw activityLogError;
-        }
-
-        if (!shouldRecordTrainingSessionForActivity(scheduledActivity.activity_type)) {
-            return;
-        }
-
-        // 3. Also insert into training_sessions for ACWR calculation
-        const { error: sessionError } = await supabase
-            .from('training_sessions')
-            .insert({
-                user_id: userId,
-                date: activityDate,
-                duration_minutes: log.actual_duration_min,
-                intensity_srpe: log.actual_rpe,
-            });
-
-        if (sessionError) {
-            logWarn('scheduleService.insertTrainingSession', sessionError);
-            throw sessionError;
-        }
+        if (error) throw error;
     });
 }
 
