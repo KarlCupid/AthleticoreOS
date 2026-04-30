@@ -70,6 +70,15 @@ function createMockSupabase(config: {
             error: null,
           });
         },
+        maybeSingle() {
+          calls.push({ table, method: 'maybeSingle', args: [] });
+          return Promise.resolve({
+            data: {
+              date: config.activityDate ?? '2026-04-29',
+            },
+            error: null,
+          });
+        },
       };
 
       return builder;
@@ -138,7 +147,7 @@ async function run() {
     }
 
     assert('training session insert failure is thrown', thrown === sessionError);
-    assert('completion failure does not leave client-side partial writes', !calls.some((call) => call.table !== 'rpc'));
+    assert('completion failure does not leave client-side partial writes', !calls.some((call) => call.method === 'update' || call.method === 'insert'));
   }
 
   {
@@ -158,11 +167,13 @@ async function run() {
 
   {
     const migration = fs.readFileSync(
-      path.join(process.cwd(), 'supabase', 'migrations', '031_complete_activity_transaction.sql'),
+      path.join(process.cwd(), 'supabase', 'migrations', '032_complete_activity_returns_completed_row.sql'),
       'utf8',
     );
 
     assert('completion mutation is implemented as a Postgres transaction RPC', migration.includes('CREATE OR REPLACE FUNCTION public.complete_scheduled_activity'));
+    assert('completion RPC accepts numeric RPE input', migration.includes('p_actual_rpe NUMERIC'));
+    assert('completion RPC returns the completed activity row', migration.includes('RETURNS TABLE'));
     assert('completion transaction locks the scheduled activity row', migration.includes('FOR UPDATE'));
     assert('completion transaction writes activity_log inside the RPC', migration.includes('INSERT INTO public.activity_log'));
     assert('completion transaction writes ACWR workload inside the RPC', migration.includes('INSERT INTO public.training_sessions'));

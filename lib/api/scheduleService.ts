@@ -734,7 +734,9 @@ export async function completeActivity(
         }[];
     },
 ): Promise<void> {
-    return withEngineInvalidation({ userId, reason: 'activity_complete' }, async () => {
+    const context = await getScheduledActivityMutationContext(userId, activityId);
+
+    return withEngineInvalidation({ userId, date: context.date ?? undefined, reason: 'activity_complete' }, async () => {
         const { error } = await supabase.rpc('complete_scheduled_activity', {
             p_user_id: userId,
             p_activity_id: activityId,
