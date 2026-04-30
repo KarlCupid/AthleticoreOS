@@ -74,7 +74,7 @@ export interface SameDayOverrideInput {
     estimated_duration_min?: number;
     actual_duration_min?: number;
     actual_rpe?: number;
-    notes?: string;
+    notes?: string | undefined;
 }
 
 type RecurringActivityInput = {
@@ -561,7 +561,7 @@ export async function addManualActivity(
         athlete_locked?: boolean;
         intended_intensity?: number;
         constraint_tier?: 'mandatory' | 'preferred';
-        notes?: string;
+        notes?: string | undefined;
     },
 ): Promise<ScheduledActivityRow> {
     if (isGuidedEngineActivityType(activity.activity_type)) {
@@ -720,18 +720,18 @@ export async function completeActivity(
     log: {
         actual_duration_min: number;
         actual_rpe: number;
-        notes?: string;
-        constraint_tier?: 'mandatory' | 'preferred';
+        notes?: string | undefined;
+        constraint_tier?: 'mandatory' | 'preferred' | undefined;
         components: {
             component_type: ComponentType;
             duration_min: number;
-            distance_miles?: number;
-            pace_per_mile?: string;
-            rounds?: number;
+            distance_miles?: number | undefined;
+            pace_per_mile?: string | undefined;
+            rounds?: number | undefined;
             intensity: number;
-            heart_rate_avg?: number;
-            notes?: string;
-            constraint_tier?: 'mandatory' | 'preferred';
+            heart_rate_avg?: number | undefined;
+            notes?: string | undefined;
+            constraint_tier?: 'mandatory' | 'preferred' | undefined;
         }[];
     },
 ): Promise<void> {

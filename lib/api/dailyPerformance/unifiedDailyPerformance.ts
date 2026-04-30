@@ -31,7 +31,7 @@ export function resolveUnifiedDailyPerformance(input: {
   objectiveContext: MacrocycleContext;
   readinessProfile: ReadinessProfile;
   acwr: ACWRResult | null;
-  todayCheckin?: DailyReadinessCheckinRow | null;
+  todayCheckin?: DailyReadinessCheckinRow | null | undefined;
   scheduledActivities: ScheduledActivityRow[];
   currentWeight: number | null;
   targetWeight: number | null;

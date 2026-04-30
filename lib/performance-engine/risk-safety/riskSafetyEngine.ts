@@ -12,8 +12,9 @@ import type {
   UnknownField,
 } from '../types/index.ts';
 import { UNKNOWN_CONFIDENCE } from '../types/index.ts';
-import { createExplanation, explainMissingData, explainRisk } from '../explanation-engine/explanationEngine.ts';
+import { createExplanation, explainMissingData, explainRisk, type CreateExplanationInput } from '../explanation-engine/explanationEngine.ts';
 import { confidenceFromLevel } from '../utils/confidence.ts';
+import { omitUndefinedProperties } from '../../utils/optionalProperties.ts';
 
 export interface RiskFlagDefinition {
   code: RiskFlagCode;
@@ -162,21 +163,21 @@ export const RISK_FLAG_DEFINITIONS: Record<RiskFlagCode, RiskFlagDefinition> = {
 export const RISK_FLAG_CODES = Object.freeze(Object.keys(RISK_FLAG_DEFINITIONS) as RiskFlagCode[]);
 
 export interface CreateRiskFlagInput {
-  id?: string;
+  id?: string | undefined;
   code: RiskFlagCode;
-  domain?: RiskDomain;
-  severity?: RiskSeverity;
-  status?: RiskFlagStatus;
-  message?: string;
-  evidence?: RiskEvidence[];
-  blocksPlan?: boolean;
-  hardStop?: boolean;
-  requiresProfessionalReview?: boolean;
-  appliesOn?: ISODateString | null;
-  resolvedAt?: ISODateTimeString | null;
-  confidence?: ConfidenceValue;
-  explanation?: Explanation | null;
-  generatedAt?: ISODateTimeString | null;
+  domain?: RiskDomain | undefined;
+  severity?: RiskSeverity | undefined;
+  status?: RiskFlagStatus | undefined;
+  message?: string | undefined;
+  evidence?: RiskEvidence[] | undefined;
+  blocksPlan?: boolean | undefined;
+  hardStop?: boolean | undefined;
+  requiresProfessionalReview?: boolean | undefined;
+  appliesOn?: ISODateString | null | undefined;
+  resolvedAt?: ISODateTimeString | null | undefined;
+  confidence?: ConfidenceValue | undefined;
+  explanation?: Explanation | null | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }
 
 export function getRiskSeverityRank(severity: RiskSeverity): number {
@@ -237,7 +238,7 @@ export function createRiskFlag(input: CreateRiskFlagInput): RiskFlag {
     resolvedAt: input.resolvedAt ?? null,
     confidence,
     explanation: input.explanation === undefined
-      ? explainRisk({ flag: draft, generatedAt: input.generatedAt })
+      ? explainRisk(omitUndefinedProperties({ flag: draft, generatedAt: input.generatedAt }))
       : input.explanation,
   };
 
@@ -245,20 +246,20 @@ export function createRiskFlag(input: CreateRiskFlagInput): RiskFlag {
 }
 
 export function createMissingDataRisk(input: {
-  id?: string;
+  id?: string | undefined;
   context: string;
   missingFields: Array<UnknownField | string>;
-  severity?: RiskSeverity;
-  appliesOn?: ISODateString | null;
-  confidence?: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  severity?: RiskSeverity | undefined;
+  appliesOn?: ISODateString | null | undefined;
+  confidence?: ConfidenceValue | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): RiskFlag {
   const fields = input.missingFields.map((field) => (typeof field === 'string' ? field : field.field));
   const confidence = input.confidence ?? confidenceFromLevel('low', [
     `${input.context} is missing ${fields.length || 'unknown'} required field(s).`,
   ]);
 
-  return createRiskFlag({
+  return createRiskFlag(omitUndefinedProperties<CreateRiskFlagInput>({
     id: input.id,
     code: 'missing_data',
     severity: input.severity ?? (fields.length > 2 ? 'moderate' : 'low'),
@@ -266,30 +267,35 @@ export function createMissingDataRisk(input: {
     evidence: fields.map((field) => ({ metric: field, value: null, note: 'missing' })),
     appliesOn: input.appliesOn,
     confidence,
-    explanation: explainMissingData({
+    explanation: explainMissingData(omitUndefinedProperties<{
+      context: string;
+      missingFields: Array<UnknownField | string>;
+      confidence?: ConfidenceValue;
+      generatedAt?: ISODateTimeString | null;
+    }>({
       context: input.context,
       missingFields: input.missingFields,
       confidence,
       generatedAt: input.generatedAt,
-    }),
+    })),
     generatedAt: input.generatedAt,
-  });
+  }));
 }
 
 export function createProfessionalReviewRisk(input: {
-  id?: string;
-  message?: string;
-  reasons?: string[];
-  evidence?: RiskEvidence[];
-  appliesOn?: ISODateString | null;
-  confidence?: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  id?: string | undefined;
+  message?: string | undefined;
+  reasons?: string[] | undefined;
+  evidence?: RiskEvidence[] | undefined;
+  appliesOn?: ISODateString | null | undefined;
+  confidence?: ConfidenceValue | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): RiskFlag {
   const confidence = input.confidence ?? confidenceFromLevel('medium', [
     'Professional review requirement was raised by a safety boundary.',
   ]);
 
-  return createRiskFlag({
+  return createRiskFlag(omitUndefinedProperties<CreateRiskFlagInput>({
     id: input.id,
     code: 'professional_review_required',
     severity: 'high',
@@ -297,16 +303,16 @@ export function createProfessionalReviewRisk(input: {
     evidence: input.evidence,
     appliesOn: input.appliesOn,
     confidence,
-    explanation: createExplanation({
+    explanation: createExplanation(omitUndefinedProperties<CreateExplanationInput>({
       kind: 'risk',
       summary: input.message ?? RISK_FLAG_DEFINITIONS.professional_review_required.defaultMessage,
       reasons: input.reasons ?? RISK_FLAG_DEFINITIONS.professional_review_required.defaultReasons,
       impact: 'escalated',
       confidence,
       generatedAt: input.generatedAt,
-    }),
+    })),
     generatedAt: input.generatedAt,
-  });
+  }));
 }
 
 export function getBlockingRiskFlags(flags: RiskFlag[]): RiskFlag[] {

@@ -19,19 +19,19 @@ import {
 
 interface ExerciseCardProps {
   exercise: ExerciseVM;
-  index?: number;
-  progress?: ExerciseProgressVM | null;
-  mode?: WorkoutRenderMode;
-  currentWeight?: number | null;
-  formatWeight?: (value: number) => string;
-  children?: React.ReactNode;
+  index?: number | undefined;
+  progress?: ExerciseProgressVM | null | undefined;
+  mode?: WorkoutRenderMode | undefined;
+  currentWeight?: number | null | undefined;
+  formatWeight?: ((value: number) => string) | undefined;
+  children?: React.ReactNode | undefined;
 }
 
 function buildMetrics(input: {
   exercise: ExerciseVM;
-  progress?: ExerciseProgressVM | null;
-  currentWeight?: number | null;
-  formatWeight?: (value: number) => string;
+  progress?: ExerciseProgressVM | null | undefined;
+  currentWeight?: number | null | undefined;
+  formatWeight?: ((value: number) => string) | undefined;
 }): TrainingMetric[] {
   const { exercise, progress, currentWeight, formatWeight } = input;
   const strategyMeta = getLoadingStrategyMeta(exercise.loadingStrategy);

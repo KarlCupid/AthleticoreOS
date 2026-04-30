@@ -1272,9 +1272,9 @@ export function mapConditioningTypeToSessionFamily(type: ConditioningType): SCSe
 export function resolveSCSessionFamily(input: {
   focus: WorkoutFocus | 'strength';
   primaryAdaptation: WorkoutPrescriptionV2['primaryAdaptation'];
-  scSessionFamily?: SCSessionFamily | null;
-  engineSessionFamily?: string | null;
-  conditioningType?: ConditioningType | null;
+  scSessionFamily?: SCSessionFamily | null | undefined;
+  engineSessionFamily?: string | null | undefined;
+  conditioningType?: ConditioningType | null | undefined;
 }): SCSessionFamily {
   if (input.scSessionFamily) return input.scSessionFamily;
   if (input.conditioningType) return mapConditioningTypeToSessionFamily(input.conditioningType);
@@ -1338,9 +1338,9 @@ export function buildSessionPrescriptionFromTemplate(sessionFamily: SCSessionFam
 export function buildSessionPrescriptionForWorkout(input: {
   focus: WorkoutFocus | 'strength';
   primaryAdaptation: WorkoutPrescriptionV2['primaryAdaptation'];
-  scSessionFamily?: SCSessionFamily | null;
-  engineSessionFamily?: string | null;
-  conditioningType?: ConditioningType | null;
+  scSessionFamily?: SCSessionFamily | null | undefined;
+  engineSessionFamily?: string | null | undefined;
+  conditioningType?: ConditioningType | null | undefined;
 }): SessionPrescription {
   return buildSessionPrescriptionFromTemplate(resolveSCSessionFamily(input));
 }

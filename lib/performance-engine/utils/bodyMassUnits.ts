@@ -29,9 +29,9 @@ export function convertBodyMass(value: number, fromUnit: BodyMassUnit, toUnit: B
 export function normalizeBodyMass(input: {
   value: unknown;
   fromUnit: BodyMassUnit;
-  toUnit?: BodyMassUnit;
-  measuredOn?: ISODateString | null;
-  confidence?: ConfidenceValue;
+  toUnit?: BodyMassUnit | undefined;
+  measuredOn?: ISODateString | null | undefined;
+  confidence?: ConfidenceValue | undefined;
 }): BodyMassMeasurement | null {
   const value = toPositiveNumberOrNull(input.value);
 

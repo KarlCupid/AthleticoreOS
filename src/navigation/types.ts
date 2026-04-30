@@ -34,17 +34,17 @@ export type TrainStackParamList = {
   ExerciseDetail: { exercise: ExerciseLibraryRow };
   CustomExercise: undefined;
   GuidedWorkout: {
-    weeklyPlanEntryId?: string;
-    scheduledActivityId?: string;
-    focus?: WorkoutFocus | string;
-    availableMinutes?: number;
+    weeklyPlanEntryId?: string | undefined;
+    scheduledActivityId?: string | undefined;
+    focus?: WorkoutFocus | string | undefined;
+    availableMinutes?: number | undefined;
     readinessState: ReadinessState;
     phase: Phase;
     fitnessLevel: FitnessLevel;
-    trainingDate?: string;
-    isDeloadWeek?: boolean;
-    autoStart?: boolean;
-    entrySource?: 'dashboard' | 'train' | 'day-detail' | 'plan';
+    trainingDate?: string | undefined;
+    isDeloadWeek?: boolean | undefined;
+    autoStart?: boolean | undefined;
+    entrySource?: 'dashboard' | 'train' | 'day-detail' | 'plan' | undefined;
   };
   WorkoutSummary: {
     workoutLogId?: string;

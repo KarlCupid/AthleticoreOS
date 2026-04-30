@@ -78,30 +78,30 @@ export interface AdaptiveSessionCandidate {
   priority: AdaptationPriority;
   durationMinutes: number;
   intensityRpe: number;
-  earliestDayOfWeek?: number | null;
-  preferredDayOfWeek?: number | null;
-  fixedDate?: ISODateString | null;
-  protectedAnchor?: boolean;
-  anchorId?: string | null;
-  source?: SessionSource;
-  canMerge?: boolean;
-  tissueLoads?: TissueLoad[];
-  explanation?: Explanation | null;
+  earliestDayOfWeek?: number | null | undefined;
+  preferredDayOfWeek?: number | null | undefined;
+  fixedDate?: ISODateString | null | undefined;
+  protectedAnchor?: boolean | undefined;
+  anchorId?: string | null | undefined;
+  source?: SessionSource | undefined;
+  canMerge?: boolean | undefined;
+  tissueLoads?: TissueLoad[] | undefined;
+  explanation?: Explanation | null | undefined;
 }
 
 export interface ProtectedAnchorInput {
   id: string;
   label: string;
   kind: AdaptiveSessionKind;
-  family?: SessionFamily;
+  family?: SessionFamily | undefined;
   dayOfWeek: number;
-  date?: ISODateString | null;
-  startTime?: string | null;
+  date?: ISODateString | null | undefined;
+  startTime?: string | null | undefined;
   durationMinutes: number;
   intensityRpe: number;
-  source?: SessionSource;
-  canMerge?: boolean;
-  reason?: string;
+  source?: SessionSource | undefined;
+  canMerge?: boolean | undefined;
+  reason?: string | undefined;
 }
 
 export interface MergeScoreBreakdown {
@@ -164,10 +164,10 @@ export interface TrainingConflict {
 export interface AdaptiveTrainingWeekInput {
   performanceState: PerformanceState;
   weekStartDate: ISODateString;
-  protectedAnchors?: ProtectedAnchorInput[];
-  existingSessions?: AdaptiveSessionCandidate[];
-  candidateSessions?: AdaptiveSessionCandidate[];
-  generatedAt?: ISODateTimeString | null;
+  protectedAnchors?: ProtectedAnchorInput[] | undefined;
+  existingSessions?: AdaptiveSessionCandidate[] | undefined;
+  candidateSessions?: AdaptiveSessionCandidate[] | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }
 
 export interface AdaptiveTrainingWeekResult {
@@ -421,11 +421,11 @@ function asCandidateFromSession(session: ComposedSession): AdaptiveSessionCandid
 export function scoreTrainingMerge(input: {
   primary: AdaptiveSessionCandidate;
   secondary: AdaptiveSessionCandidate;
-  phase?: AthleticorePhase;
-  readinessBand?: string;
-  underFueled?: boolean;
-  nearCompetition?: boolean;
-  availabilityMinutes?: number | null;
+  phase?: AthleticorePhase | undefined;
+  readinessBand?: string | undefined;
+  underFueled?: boolean | undefined;
+  nearCompetition?: boolean | undefined;
+  availabilityMinutes?: number | null | undefined;
 }): MergeScore {
   const { primary, secondary } = input;
   const breakdown = emptyBreakdown();
@@ -637,7 +637,7 @@ function protectedAnchorToCandidate(anchor: ProtectedAnchorInput, weekStartDate:
 export function loadProtectedAnchors(input: {
   journey: AthleteJourneyState;
   weekStartDate: ISODateString;
-  protectedAnchors?: ProtectedAnchorInput[];
+  protectedAnchors?: ProtectedAnchorInput[] | undefined;
 }): AdaptiveSessionCandidate[] {
   const explicit = input.protectedAnchors ?? [];
   const fromJourney = input.journey.protectedWorkoutAnchors
@@ -680,9 +680,9 @@ export function loadProtectedAnchors(input: {
 
 function createSession(candidate: AdaptiveSessionCandidate, input: {
   date: ISODateString | null;
-  mergeDecisionId?: string | null;
-  generatedAt?: ISODateTimeString | null;
-  explanation?: Explanation | null;
+  mergeDecisionId?: string | null | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
+  explanation?: Explanation | null | undefined;
 }): ComposedSession {
   const explanation = input.explanation ?? candidate.explanation ?? createExplanation({
     kind: 'decision',
@@ -905,7 +905,7 @@ function findPlacement(input: {
   weekStartDate: ISODateString;
   allowedDays: number[];
   phase: AthleticorePhase;
-  readinessBand?: string;
+  readinessBand?: string | undefined;
   underFueled: boolean;
   nearCompetition: boolean;
 }): { date: ISODateString | null; mergeScore: MergeScore | null; explanation: Explanation | null } {

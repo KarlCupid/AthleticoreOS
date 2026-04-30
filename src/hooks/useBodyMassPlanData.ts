@@ -15,6 +15,7 @@ import {
   type UnifiedPerformanceViewModel,
 } from '../../lib/performance-engine';
 import { todayLocalDate } from '../../lib/utils/date';
+import { omitUndefinedProperties } from '../../lib/utils/optionalProperties';
 
 interface BodyMassPlanState {
   loading: boolean;
@@ -88,10 +89,10 @@ export function useBodyMassPlanData(userId: string | null) {
   }, [userId, state.data?.activePlan, refresh]);
 
   const complete = useCallback(async (outcome: {
-    finalWeighInWeight?: number;
-    madeWeight?: boolean;
-    fightDayWeight?: number;
-    rehydrationWeightRegained?: number;
+    finalWeighInWeight?: number | undefined;
+    madeWeight?: boolean | undefined;
+    fightDayWeight?: number | undefined;
+    rehydrationWeightRegained?: number | undefined;
   }) => {
     if (!userId || !state.data?.activePlan) return;
     await completeWeightClassPlan(userId, state.data.activePlan.id, outcome);
@@ -99,20 +100,20 @@ export function useBodyMassPlanData(userId: string | null) {
   }, [userId, state.data?.activePlan, refresh]);
 
   const logSafetyCheck = useCallback(async (fields: {
-    urineColor?: number;
-    bodyTempF?: number;
-    cognitiveScore?: number;
-    moodRating?: number;
-    dizziness?: boolean;
-    headache?: boolean;
-    muscleCramps?: boolean;
-    postWeighInWeight?: number;
-    rehydrationWeightRegained?: number;
+    urineColor?: number | undefined;
+    bodyTempF?: number | undefined;
+    cognitiveScore?: number | undefined;
+    moodRating?: number | undefined;
+    dizziness?: boolean | undefined;
+    headache?: boolean | undefined;
+    muscleCramps?: boolean | undefined;
+    postWeighInWeight?: number | undefined;
+    rehydrationWeightRegained?: number | undefined;
   }) => {
     if (!userId || !state.data?.activePlan) return;
     const planId = state.data.activePlan.id;
     const date = todayLocalDate();
-    await upsertBodyMassSafetyCheck(userId, planId, date, {
+    await upsertBodyMassSafetyCheck(userId, planId, date, omitUndefinedProperties({
       urine_color: fields.urineColor,
       body_temp_f: fields.bodyTempF,
       cognitive_score: fields.cognitiveScore,
@@ -122,7 +123,7 @@ export function useBodyMassPlanData(userId: string | null) {
       muscle_cramps: fields.muscleCramps,
       post_weigh_in_weight: fields.postWeighInWeight,
       rehydration_weight_regained: fields.rehydrationWeightRegained,
-    });
+    }));
     if (fields.cognitiveScore && !state.data.activePlan.baseline_cognitive_score) {
       await setBaselineCognitiveScore(planId, fields.cognitiveScore);
     }

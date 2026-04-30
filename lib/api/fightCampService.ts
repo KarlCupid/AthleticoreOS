@@ -31,7 +31,7 @@ function daysBetween(start: string, end: string): number {
 }
 
 function resolveFightOpportunityStatus(input: {
-  requestedStatus?: 'confirmed' | 'short_notice' | 'rescheduled';
+  requestedStatus?: 'confirmed' | 'short_notice' | 'rescheduled' | undefined;
   asOfDate: string;
   fightDate: string;
 }): FightOpportunityStatus {

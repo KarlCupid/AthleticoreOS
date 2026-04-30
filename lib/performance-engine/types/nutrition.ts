@@ -197,11 +197,11 @@ export interface FoodEntry {
 function combineConfidence(input: {
   verified: boolean;
   sourceType: NutritionDataSourceType;
-  servingConfidence?: ConfidenceValue;
-  nutrientCompleteness?: ConfidenceValue;
-  portionConfidence?: ConfidenceValue;
-  userEstimate?: boolean;
-  missingFields?: UnknownField[];
+  servingConfidence?: ConfidenceValue | undefined;
+  nutrientCompleteness?: ConfidenceValue | undefined;
+  portionConfidence?: ConfidenceValue | undefined;
+  userEstimate?: boolean | undefined;
+  missingFields?: UnknownField[] | undefined;
 }): ConfidenceValue {
   const servingScore = input.servingConfidence?.score ?? (input.verified ? 0.75 : input.userEstimate ? 0.25 : 0.55);
   const nutrientScore = input.nutrientCompleteness?.score ?? (input.verified ? 0.85 : 0.35);
@@ -223,17 +223,17 @@ function combineConfidence(input: {
 }
 
 export function createNutritionDataQuality(input: {
-  sourceType?: NutritionDataSourceType;
-  verified?: boolean;
-  servingConfidence?: ConfidenceValue;
-  nutrientCompleteness?: ConfidenceValue;
-  portionConfidence?: ConfidenceValue;
-  userEstimate?: boolean;
-  lastUpdated?: ISODateTimeString | null;
-  warnings?: string[];
-  missingFields?: UnknownField[];
-  estimatedFields?: string[];
-  source?: SourceReference | null;
+  sourceType?: NutritionDataSourceType | undefined;
+  verified?: boolean | undefined;
+  servingConfidence?: ConfidenceValue | undefined;
+  nutrientCompleteness?: ConfidenceValue | undefined;
+  portionConfidence?: ConfidenceValue | undefined;
+  userEstimate?: boolean | undefined;
+  lastUpdated?: ISODateTimeString | null | undefined;
+  warnings?: string[] | undefined;
+  missingFields?: UnknownField[] | undefined;
+  estimatedFields?: string[] | undefined;
+  source?: SourceReference | null | undefined;
 } = {}): NutritionDataQuality {
   const missingFields = input.missingFields ?? [];
   const sourceType = input.sourceType ?? 'unknown';

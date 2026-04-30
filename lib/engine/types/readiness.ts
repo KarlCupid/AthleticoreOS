@@ -51,7 +51,7 @@ export interface HydrationInput {
   fightStatus: FightStatus;
   currentWeightLbs: number;
   targetWeightLbs: number;
-  weeklyVelocityLbs?: number;
+  weeklyVelocityLbs?: number | undefined;
 }
 
 export interface HydrationResult {
@@ -165,13 +165,13 @@ export interface ReadinessProfileInput {
 }
 
 export interface ConstraintContext {
-  phase?: Phase | null;
-  goalMode?: 'build_phase' | 'fight_camp';
-  daysOut?: number | null;
-  isSparringDay?: boolean;
-  hasTechnicalSession?: boolean;
-  isDeloadWeek?: boolean;
-  trainingIntensityCap?: number | null;
+  phase?: Phase | null | undefined;
+  goalMode?: 'build_phase' | 'fight_camp' | undefined;
+  daysOut?: number | null | undefined;
+  isSparringDay?: boolean | undefined;
+  hasTechnicalSession?: boolean | undefined;
+  isDeloadWeek?: boolean | undefined;
+  trainingIntensityCap?: number | null | undefined;
 }
 
 export interface MEDExposureStatus {

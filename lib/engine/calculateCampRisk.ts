@@ -37,7 +37,7 @@ function toRiskLevel(score: number): CampRiskLevel {
 function formatProjectedMakeWeightStatus(input: {
   remainingWeightLbs: number | null;
   weightClassState: WeightClassInfluenceState;
-  weighInTiming?: WeighInTiming | null;
+  weighInTiming?: WeighInTiming | null | undefined;
 }): string {
   const { remainingWeightLbs, weightClassState, weighInTiming } = input;
 

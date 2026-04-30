@@ -222,9 +222,9 @@ function targetBodyMassRange(value: number | null, unit: BodyMassUnit, confidenc
 
 function buildAvailability(input: {
   availableDays: number[];
-  windows?: Array<{ dayOfWeek: number; startTime?: string | null; endTime?: string | null }> | null;
-  sessionDurationMin?: number | null;
-  allowTwoADays?: boolean | null;
+  windows?: Array<{ dayOfWeek: number; startTime?: string | null | undefined; endTime?: string | null | undefined }> | null | undefined;
+  sessionDurationMin?: number | null | undefined;
+  allowTwoADays?: boolean | null | undefined;
   confidence: ConfidenceValue;
 }): TrainingAvailability {
   const availableDays = [...new Set(input.availableDays)].sort((a, b) => a - b);

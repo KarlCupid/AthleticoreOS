@@ -32,26 +32,26 @@ import { normalizeTimeZone } from '../utils/timezones.ts';
 export interface CreateTrackingEntryInput {
   id: string;
   athleteId: string;
-  timestamp?: ISODateTimeString | null;
-  timezone?: string | null;
+  timestamp?: ISODateTimeString | null | undefined;
+  timezone?: string | null | undefined;
   type: TrackingEntryType;
-  source?: TrackingEntrySource;
-  value?: unknown;
-  unit?: string | null;
-  confidence?: ConfidenceValue;
-  context?: Record<string, unknown>;
-  notes?: string | null;
+  source?: TrackingEntrySource | undefined;
+  value?: unknown | undefined;
+  unit?: string | null | undefined;
+  confidence?: ConfidenceValue | undefined;
+  context?: Record<string, unknown> | undefined;
+  notes?: string | null | undefined;
 }
 
 export interface ResolveReadinessInput {
   athleteId: string;
   date: ISODateString;
-  timezone?: string | null;
-  entries?: TrackingEntry[];
-  completedSessions?: ComposedSession[];
-  plannedSessions?: ComposedSession[];
-  acuteChronicWorkloadRatio?: number | null;
-  generatedAt?: ISODateTimeString | null;
+  timezone?: string | null | undefined;
+  entries?: TrackingEntry[] | undefined;
+  completedSessions?: ComposedSession[] | undefined;
+  plannedSessions?: ComposedSession[] | undefined;
+  acuteChronicWorkloadRatio?: number | null | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }
 
 export interface TrackingReadinessResult {
@@ -729,12 +729,12 @@ export function resolveReadinessState(input: ResolveReadinessInput): TrackingRea
 
 export function resolveReadinessFromPerformanceState(input: {
   performanceState: PerformanceState;
-  date?: ISODateString | null;
-  entries?: TrackingEntry[];
-  completedSessions?: ComposedSession[];
-  plannedSessions?: ComposedSession[];
-  acuteChronicWorkloadRatio?: number | null;
-  generatedAt?: ISODateTimeString | null;
+  date?: ISODateString | null | undefined;
+  entries?: TrackingEntry[] | undefined;
+  completedSessions?: ComposedSession[] | undefined;
+  plannedSessions?: ComposedSession[] | undefined;
+  acuteChronicWorkloadRatio?: number | null | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): TrackingReadinessResult {
   const date = input.date ?? input.performanceState.asOfDate ?? new Date().toISOString().slice(0, 10);
 

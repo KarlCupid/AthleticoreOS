@@ -349,9 +349,9 @@ export function getStapleFallbackResults(profile: FoodSearchQueryProfile): FoodS
 
 export function buildFoodSearchMetadataText(input: {
   name: string;
-  brand?: string | null;
-  servingLabel?: string | null;
-  portionOptions?: Array<{ label?: string | null }>;
+  brand?: string | null | undefined;
+  servingLabel?: string | null | undefined;
+  portionOptions?: Array<{ label?: string | null | undefined }> | undefined;
 }): string {
   const normalizedName = normalizeFoodSearchText(input.name);
   const nameTokens = normalizedName.split(' ').filter(Boolean);

@@ -1257,7 +1257,7 @@ export async function createCustomFood(
   userId: string,
   food: {
     name: string;
-    brand?: string;
+    brand?: string | undefined;
     serving_size_g: number;
     serving_label: string;
     calories_per_serving: number;

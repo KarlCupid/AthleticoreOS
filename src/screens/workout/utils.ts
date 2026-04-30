@@ -70,13 +70,13 @@ export function getWorkoutFocusLabel(
   focus: string | null | undefined,
   sessionType: string,
   prescription?: {
-    sessionFamily?: string | null;
-    scSessionFamily?: string | null;
-    sessionPrescription?: { sessionFamily?: string | null; modality?: string | null; wizardKind?: string | null } | null;
-    workoutType?: string | null;
-    focus?: string | null;
-    modality?: string | null;
-    wizardKind?: string | null;
+    sessionFamily?: string | null | undefined;
+    scSessionFamily?: string | null | undefined;
+    sessionPrescription?: { sessionFamily?: string | null | undefined; modality?: string | null | undefined; wizardKind?: string | null | undefined } | null | undefined;
+    workoutType?: string | null | undefined;
+    focus?: string | null | undefined;
+    modality?: string | null | undefined;
+    wizardKind?: string | null | undefined;
   } | null,
   scSessionFamily?: string | null,
 ): string {

@@ -58,19 +58,19 @@ export interface DailyCoachDebriefHistory {
 export interface DailyCoachDebriefInput {
   sleepQuality: number;
   readiness: number;
-  energyLevel?: number | null;
-  fuelHydrationStatus?: number | null;
-  painLevel?: number | null;
-  stressLevel?: number | null;
-  sorenessLevel?: number | null;
-  confidenceLevel?: number | null;
-  primaryLimiter?: PrimaryLimiter | null;
-  nutritionAdherence?: MacroAdherenceStatus | null;
-  nutritionBarrier?: NutritionBarrier | null;
-  coachingFocus?: CoachingFocus | null;
-  complianceReason?: ComplianceReason | null;
-  complianceReasonHistory14d?: ComplianceReason[] | null;
-  skippedMovementPatterns48h?: string[] | null;
+  energyLevel?: number | null | undefined;
+  fuelHydrationStatus?: number | null | undefined;
+  painLevel?: number | null | undefined;
+  stressLevel?: number | null | undefined;
+  sorenessLevel?: number | null | undefined;
+  confidenceLevel?: number | null | undefined;
+  primaryLimiter?: PrimaryLimiter | null | undefined;
+  nutritionAdherence?: MacroAdherenceStatus | null | undefined;
+  nutritionBarrier?: NutritionBarrier | null | undefined;
+  coachingFocus?: CoachingFocus | null | undefined;
+  complianceReason?: ComplianceReason | null | undefined;
+  complianceReasonHistory14d?: ComplianceReason[] | null | undefined;
+  skippedMovementPatterns48h?: string[] | null | undefined;
   trainingLoadSummary: {
     plannedMinutes: number;
     plannedIntensity: number;
@@ -82,8 +82,8 @@ export interface DailyCoachDebriefInput {
   };
   context: {
     phase: Phase;
-    campLabel?: string | null;
-    hasActiveWeightClassPlan?: boolean;
+    campLabel?: string | null | undefined;
+    hasActiveWeightClassPlan?: boolean | undefined;
   };
-  previousDebrief?: DailyCoachDebriefHistory | null;
+  previousDebrief?: DailyCoachDebriefHistory | null | undefined;
 }

@@ -76,42 +76,42 @@ export interface PrescribedExercise {
   targetRPE: number;
   supersetGroup: number | null;
   score: number;
-  recoveryCost?: number;
+  recoveryCost?: number | undefined;
 }
 
 export interface ExerciseScoringContext {
   readinessState: ReadinessState;
-  readinessProfile?: ReadinessProfile | null;
-  constraintSet?: StimulusConstraintSet | null;
+  readinessProfile?: ReadinessProfile | null | undefined;
+  constraintSet?: StimulusConstraintSet | null | undefined;
   phase: Phase;
   acwr: number;
   recentExerciseIds: string[];
   recentMuscleVolume: Record<MuscleGroup, number>;
   cnsBudgetRemaining: number;
   fitnessLevel: FitnessLevel;
-  performanceGoalType?: PerformanceGoalType;
-  performanceRiskLevel?: PerformanceRiskLevel;
-  allowHighImpact?: boolean;
-  blockPhase?: TrainingBlockPhase;
-  recoveryBudget?: number;
-  exerciseUsageSummary?: ExerciseUsageSummary;
+  performanceGoalType?: PerformanceGoalType | undefined;
+  performanceRiskLevel?: PerformanceRiskLevel | undefined;
+  allowHighImpact?: boolean | undefined;
+  blockPhase?: TrainingBlockPhase | undefined;
+  recoveryBudget?: number | undefined;
+  exerciseUsageSummary?: ExerciseUsageSummary | undefined;
 }
 
 export interface GenerateWorkoutInput {
   readinessState: ReadinessState;
-  readinessProfile?: ReadinessProfile | null;
-  constraintSet?: StimulusConstraintSet | null;
+  readinessProfile?: ReadinessProfile | null | undefined;
+  constraintSet?: StimulusConstraintSet | null | undefined;
   phase: Phase;
   acwr: number;
   exerciseLibrary: ExerciseLibraryRow[];
   recentExerciseIds: string[];
   recentMuscleVolume: Record<MuscleGroup, number>;
-  trainingDate?: string;
-  focus?: WorkoutFocus;
-  trainingIntensityCap?: number | null;
+  trainingDate?: string | undefined;
+  focus?: WorkoutFocus | undefined;
+  trainingIntensityCap?: number | null | undefined;
   fitnessLevel: FitnessLevel;
-  trainingAge?: TrainingAge;
-  complianceHistory28d?: number[];
+  trainingAge?: TrainingAge | undefined;
+  complianceHistory28d?: number[] | undefined;
 }
 
 export interface WorkoutLogRow {
@@ -767,17 +767,17 @@ export type ConditioningType =
 export interface TimedWorkPrescription {
   format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
   totalDurationSec: number;
-  workIntervalSec?: number;
-  restIntervalSec?: number;
-  roundCount?: number;
-  targetRounds?: number;
+  workIntervalSec?: number | undefined;
+  restIntervalSec?: number | undefined;
+  roundCount?: number | undefined;
+  targetRounds?: number | undefined;
 }
 
 export interface CircuitRoundPrescription {
   roundCount: number;
   restBetweenRoundsSec: number;
   movements: {
-    exerciseId?: string;
+    exerciseId?: string | undefined;
     exerciseName: string;
     reps: number | null;
     durationSec: number | null;
@@ -786,14 +786,14 @@ export interface CircuitRoundPrescription {
 }
 
 export interface ConditioningExercise {
-  exerciseId?: string;
+  exerciseId?: string | undefined;
   name: string;
   durationSec: number | null;
   reps: number | null;
   rounds: number;
   restSec: number;
-  timedWork?: TimedWorkPrescription;
-  format?: 'steady_state' | 'intervals' | 'emom' | 'tabata' | 'amrap' | 'for_time';
+  timedWork?: TimedWorkPrescription | undefined;
+  format?: 'steady_state' | 'intervals' | 'emom' | 'tabata' | 'amrap' | 'for_time' | undefined;
 }
 
 export interface ConditioningPrescription {
@@ -807,9 +807,9 @@ export interface ConditioningPrescription {
   message: string;
   cnsBudget: number;
   estimatedLoad: number;
-  format?: 'rounds' | 'emom' | 'amrap' | 'tabata' | 'for_time' | 'intervals';
-  circuitRound?: CircuitRoundPrescription;
-  timedWork?: TimedWorkPrescription;
+  format?: 'rounds' | 'emom' | 'amrap' | 'tabata' | 'for_time' | 'intervals' | undefined;
+  circuitRound?: CircuitRoundPrescription | undefined;
+  timedWork?: TimedWorkPrescription | undefined;
 }
 
 export interface WeeklyConditioningInput {
@@ -854,59 +854,59 @@ export interface WorkoutModuleBlock {
 }
 
 export interface GenerateWorkoutInputV2 extends GenerateWorkoutInput {
-  availableMinutes?: number;
-  gymEquipment?: EquipmentItem[];
-  exerciseHistory?: Map<string, ExerciseHistoryEntry[]>;
-  scDayCount?: number;
-  recentFocuses7d?: WorkoutFocus[];
-  isDeloadWeek?: boolean;
-  weeklyPlanFocus?: WorkoutFocus;
-  sparringDaysThisWeek?: number;
-  isSparringDay?: boolean;
-  progressionModel?: ProgressionModel;
-  performanceGoalType?: PerformanceGoalType;
-  performanceRisk?: PerformanceRiskState | null;
-  blockContext?: TrainingBlockContext | null;
-  medStatus?: MEDStatus | null;
-  sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
-  scSessionFamily?: SCSessionFamily | null;
-  sessionModules?: SessionModulePlan[] | null;
+  availableMinutes?: number | undefined;
+  gymEquipment?: EquipmentItem[] | undefined;
+  exerciseHistory?: Map<string, ExerciseHistoryEntry[]> | undefined;
+  scDayCount?: number | undefined;
+  recentFocuses7d?: WorkoutFocus[] | undefined;
+  isDeloadWeek?: boolean | undefined;
+  weeklyPlanFocus?: WorkoutFocus | undefined;
+  sparringDaysThisWeek?: number | undefined;
+  isSparringDay?: boolean | undefined;
+  progressionModel?: ProgressionModel | undefined;
+  performanceGoalType?: PerformanceGoalType | undefined;
+  performanceRisk?: PerformanceRiskState | null | undefined;
+  blockContext?: TrainingBlockContext | null | undefined;
+  medStatus?: MEDStatus | null | undefined;
+  sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null | undefined;
+  scSessionFamily?: SCSessionFamily | null | undefined;
+  sessionModules?: SessionModulePlan[] | null | undefined;
 }
 
 export interface PrescribedExerciseV2 extends PrescribedExercise {
-  suggestedWeight?: number;
-  weightSuggestionReasoning?: string;
-  warmupSets?: WarmupSet[];
-  restSeconds?: number;
-  formCues?: string;
-  isSubstitute?: boolean;
-  originalExerciseId?: string;
-  originalExerciseName?: string;
-  overloadSuggestion?: OverloadSuggestion;
-  role?: ExerciseRole;
-  loadingStrategy?: LoadingStrategy;
-  progressionAnchor?: ProgressionAnchor | null;
-  preferredExercise?: ExerciseLibraryRow;
-  substitutions?: ExerciseSubstitution[];
-  coachingCues?: string[];
-  fatigueCost?: 'low' | 'moderate' | 'high';
-  setScheme?: string;
-  loadingNotes?: string;
-  setPrescription?: ExerciseSetPrescription[];
-  sectionId?: string;
-  sectionTemplate?: WorkoutSectionTemplate;
-  sectionIntent?: string;
-  recoveryCost?: number;
-  expectedActivationRPE?: number | null;
-  modality?: SCModality | null;
-  energySystem?: EnergySystem | null;
-  modalityDose?: ModalityDose | null;
-  trackingSchemaId?: string | null;
-  wizardKind?: TrackingWizardKind | null;
+  suggestedWeight?: number | undefined;
+  weightSuggestionReasoning?: string | undefined;
+  warmupSets?: WarmupSet[] | undefined;
+  restSeconds?: number | undefined;
+  formCues?: string | undefined;
+  isSubstitute?: boolean | undefined;
+  originalExerciseId?: string | undefined;
+  originalExerciseName?: string | undefined;
+  overloadSuggestion?: OverloadSuggestion | undefined;
+  role?: ExerciseRole | undefined;
+  loadingStrategy?: LoadingStrategy | undefined;
+  progressionAnchor?: ProgressionAnchor | null | undefined;
+  preferredExercise?: ExerciseLibraryRow | undefined;
+  substitutions?: ExerciseSubstitution[] | undefined;
+  coachingCues?: string[] | undefined;
+  fatigueCost?: 'low' | 'moderate' | 'high' | undefined;
+  setScheme?: string | undefined;
+  loadingNotes?: string | undefined;
+  setPrescription?: ExerciseSetPrescription[] | undefined;
+  sectionId?: string | undefined;
+  sectionTemplate?: WorkoutSectionTemplate | undefined;
+  sectionIntent?: string | undefined;
+  recoveryCost?: number | undefined;
+  expectedActivationRPE?: number | null | undefined;
+  modality?: SCModality | null | undefined;
+  energySystem?: EnergySystem | null | undefined;
+  modalityDose?: ModalityDose | null | undefined;
+  trackingSchemaId?: string | null | undefined;
+  wizardKind?: TrackingWizardKind | null | undefined;
   interferenceAdjustment?: {
     penalty: number;
     warning: string | null;
-  } | null;
+  } | null | undefined;
 }
 
 export type PerformanceRiskLevel = 'green' | 'yellow' | 'orange' | 'red';
@@ -970,9 +970,9 @@ export interface ExerciseSetPrescription {
   reps: number | string;
   targetRPE: number;
   restSeconds: number;
-  intensityNote?: string;
-  timedWork?: TimedWorkPrescription;
-  circuitRound?: CircuitRoundPrescription;
+  intensityNote?: string | undefined;
+  timedWork?: TimedWorkPrescription | undefined;
+  circuitRound?: CircuitRoundPrescription | undefined;
 }
 
 export interface SectionExercisePrescription extends PrescribedExerciseV2 {
@@ -1001,7 +1001,7 @@ export interface WorkoutSessionSection {
   densityRule: string | null;
   exercises: SectionExercisePrescription[];
   decisionTrace: string[];
-  finisherReason?: string | null;
+  finisherReason?: string | null | undefined;
 }
 
 export interface PerformanceRiskState {
@@ -1011,10 +1011,10 @@ export interface PerformanceRiskState {
   cnsMultiplier: number;
   allowHighImpact: boolean;
   reasons: string[];
-  readinessProfile?: ReadinessProfile | null;
-  constraintSet?: StimulusConstraintSet | null;
-  requiresSubstitution?: boolean;
-  protectMode?: boolean;
+  readinessProfile?: ReadinessProfile | null | undefined;
+  constraintSet?: StimulusConstraintSet | null | undefined;
+  requiresSubstitution?: boolean | undefined;
+  protectMode?: boolean | undefined;
 }
 
 export interface TrainingBlockContext {
@@ -1028,42 +1028,42 @@ export interface TrainingBlockContext {
 
 export interface WorkoutPrescriptionV2 extends WorkoutPrescription {
   exercises: PrescribedExerciseV2[];
-  payloadVersion?: 'v2' | 'v3';
-  sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null;
-  scSessionFamily?: SCSessionFamily | null;
-  sessionComposition?: SessionModulePlan[] | null;
-  secondaryAdaptations?: WorkoutDoseBucket[];
-  plannedBucket?: WorkoutDoseBucket | null;
-  realizedBucket?: WorkoutDoseBucket | null;
-  moduleBlocks?: WorkoutModuleBlock[];
-  doseCredits?: WorkoutDoseCredit[];
+  payloadVersion?: 'v2' | 'v3' | undefined;
+  sessionFamily?: import('./schedule.ts').TrainingSessionFamily | null | undefined;
+  scSessionFamily?: SCSessionFamily | null | undefined;
+  sessionComposition?: SessionModulePlan[] | null | undefined;
+  secondaryAdaptations?: WorkoutDoseBucket[] | undefined;
+  plannedBucket?: WorkoutDoseBucket | null | undefined;
+  realizedBucket?: WorkoutDoseBucket | null | undefined;
+  moduleBlocks?: WorkoutModuleBlock[] | undefined;
+  doseCredits?: WorkoutDoseCredit[] | undefined;
   estimatedDurationMin: number;
   isDeloadWorkout: boolean;
   equipmentProfile: string | null;
   campPhaseContext: CampPhase | null;
   weeklyPlanDay: number | null;
   sparringDayGuidance: SparringDayGuidance | null;
-  sessionTemplate?: WorkoutSectionTemplate[];
-  sessionGoal?: string | null;
-  sections?: WorkoutSessionSection[];
+  sessionTemplate?: WorkoutSectionTemplate[] | undefined;
+  sessionGoal?: string | null | undefined;
+  sections?: WorkoutSessionSection[] | undefined;
   sessionIntent: string | null;
   primaryAdaptation: 'strength' | 'power' | 'conditioning' | 'recovery' | 'mixed';
-  sessionPrescription?: SessionPrescription | null;
-  modality?: SCModality | null;
-  energySystem?: EnergySystem | null;
-  trackingSchemaId?: string | null;
-  doseSummary?: SessionDoseSummary | null;
-  safetyFlags?: SafetyFlag[] | null;
-  wizardKind?: TrackingWizardKind | null;
+  sessionPrescription?: SessionPrescription | null | undefined;
+  modality?: SCModality | null | undefined;
+  energySystem?: EnergySystem | null | undefined;
+  trackingSchemaId?: string | null | undefined;
+  doseSummary?: SessionDoseSummary | null | undefined;
+  safetyFlags?: SafetyFlag[] | null | undefined;
+  wizardKind?: TrackingWizardKind | null | undefined;
   performanceRisk: PerformanceRiskState | null;
-  readinessProfile?: ReadinessProfile | null;
-  constraintSet?: StimulusConstraintSet | null;
-  medStatus?: MEDStatus | null;
+  readinessProfile?: ReadinessProfile | null | undefined;
+  constraintSet?: StimulusConstraintSet | null | undefined;
+  medStatus?: MEDStatus | null | undefined;
   blockContext: TrainingBlockContext | null;
   decisionTrace: string[];
-  expectedActivationRPE?: number | null;
-  activationGuidance?: string | null;
-  interferenceWarnings?: string[];
+  expectedActivationRPE?: number | null | undefined;
+  activationGuidance?: string | null | undefined;
+  interferenceWarnings?: string[] | undefined;
 }
 
 export interface CNSBudgetProfile {

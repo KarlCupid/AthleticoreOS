@@ -175,10 +175,10 @@ type SetTargetLike = Pick<ExerciseSetPrescription, 'sets' | 'reps' | 'targetRPE'
 
 type LoadingStrategyEducationInput = {
   strategy: LoadingStrategy | null | undefined;
-  loadingNotes?: string | null;
-  setPrescriptions?: SetTargetLike[] | null;
-  currentWeight?: number | null;
-  formatWeight?: ((value: number) => string) | null;
+  loadingNotes?: string | null | undefined;
+  setPrescriptions?: SetTargetLike[] | null | undefined;
+  currentWeight?: number | null | undefined;
+  formatWeight?: ((value: number) => string) | null | undefined;
 };
 
 export function formatDisplayLabel(value: string | null | undefined): string {
@@ -287,8 +287,8 @@ export function getExerciseCardDisplayMeta(input: {
   loadingStrategy: LoadingStrategy | null | undefined;
   loadingNotes: string | null | undefined;
   setPrescriptions: SetTargetLike[] | null | undefined;
-  currentWeight?: number | null;
-  formatWeight?: ((value: number) => string) | null;
+  currentWeight?: number | null | undefined;
+  formatWeight?: ((value: number) => string) | null | undefined;
   coachingCues: string[] | null | undefined;
 }): ExerciseCardDisplayMeta {
   const strategyMeta = getLoadingStrategyMeta(input.loadingStrategy);

@@ -212,8 +212,8 @@ export function buildGuidedBodyMassViewModel(
 
 export function buildGuidedBodyMassPlanCopy(input: {
   plan: WeightClassPlan;
-  risks?: RiskFlag[];
-  shouldGenerateProtocol?: boolean | null;
+  risks?: RiskFlag[] | undefined;
+  shouldGenerateProtocol?: boolean | null | undefined;
 }): GuidedBodyMassPlanCopy {
   const status = input.plan.feasibilityStatus;
   const planBlocked = isPlanBlocked(input.plan, input.shouldGenerateProtocol);
@@ -341,7 +341,7 @@ function professionalReviewCopy(plan: WeightClassPlan, risks: RiskFlag[]): strin
   return 'Qualified review is recommended before automatic body-mass support continues.';
 }
 
-function isPlanBlocked(plan: WeightClassPlan, shouldGenerateProtocol?: boolean | null): boolean {
+function isPlanBlocked(plan: WeightClassPlan, shouldGenerateProtocol?: boolean | null | undefined): boolean {
   return plan.feasibilityStatus === 'unsafe'
     || plan.feasibilityStatus === 'high_risk'
     || plan.professionalReviewRequired

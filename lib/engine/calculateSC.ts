@@ -295,15 +295,15 @@ function buildTemplateResourceWorkoutV2(input: {
     focus: WorkoutFocus;
     engineSessionFamily: GenerateWorkoutInputV2['sessionFamily'];
     candidateExercises: ExerciseLibraryRow[];
-    availableMinutes?: number;
-    gymEquipment?: EquipmentItem[];
+    availableMinutes?: number | undefined;
+    gymEquipment?: EquipmentItem[] | undefined;
     campPhaseContext: CampPhase | null;
-    readinessProfile?: ReadinessProfile | null;
+    readinessProfile?: ReadinessProfile | null | undefined;
     constraintSet: StimulusConstraintSet;
     performanceRisk: PerformanceRiskState;
     blockContext: TrainingBlockContext | null;
-    medStatus?: MEDStatus | null;
-    sessionModules?: SessionModulePlan[] | null;
+    medStatus?: MEDStatus | null | undefined;
+    sessionModules?: SessionModulePlan[] | null | undefined;
     isDeloadWeek: boolean;
 }): WorkoutPrescriptionV2 | null {
     const sessionPrescription = buildSessionPrescriptionForWorkout({
@@ -1066,10 +1066,10 @@ function resolvePrimaryAdaptation(
 function buildSessionIntent(input: {
     focus: WorkoutFocus;
     primaryAdaptation: WorkoutPrescriptionV2['primaryAdaptation'];
-    performanceGoalType?: PerformanceGoalType;
+    performanceGoalType?: PerformanceGoalType | undefined;
     performanceRisk: PerformanceRiskState;
     blockContext: TrainingBlockContext | null;
-    availableMinutes?: number;
+    availableMinutes?: number | undefined;
 }): string {
     const focusLabel = input.focus.replace(/_/g, ' ');
     const goalLabel = (input.performanceGoalType ?? 'conditioning').replace(/_/g, ' ');
@@ -1222,15 +1222,15 @@ function buildSecondaryConditioningSection(input: {
     phase: Phase;
     fitnessLevel: FitnessLevel;
     readinessState: ReadinessState;
-    readinessProfile?: ReadinessProfile | null;
+    readinessProfile?: ReadinessProfile | null | undefined;
     constraintSet: StimulusConstraintSet;
     acwr: number;
-    trainingIntensityCap?: number;
-    availableMinutes?: number;
+    trainingIntensityCap?: number | undefined;
+    availableMinutes?: number | undefined;
     campPhaseContext: CampPhase | null;
     performanceRisk: PerformanceRiskState;
     blockContext: TrainingBlockContext | null;
-    medStatus?: MEDStatus | null;
+    medStatus?: MEDStatus | null | undefined;
 }): WorkoutSessionSection | null {
     const {
         phase,
@@ -1393,14 +1393,14 @@ function buildDoseOutputs(input: {
 function buildConditioningWorkoutV2(input: {
     prescription: ConditioningPrescription;
     campPhaseContext: CampPhase | null;
-    availableMinutes?: number;
-    gymEquipment?: EquipmentItem[];
-    readinessProfile?: ReadinessProfile | null;
+    availableMinutes?: number | undefined;
+    gymEquipment?: EquipmentItem[] | undefined;
+    readinessProfile?: ReadinessProfile | null | undefined;
     constraintSet: StimulusConstraintSet;
     performanceRisk: PerformanceRiskState;
     blockContext: TrainingBlockContext | null;
-    medStatus?: MEDStatus | null;
-    scSessionFamily?: SCSessionFamily | null;
+    medStatus?: MEDStatus | null | undefined;
+    scSessionFamily?: SCSessionFamily | null | undefined;
 }): WorkoutPrescriptionV2 {
     const {
         prescription,

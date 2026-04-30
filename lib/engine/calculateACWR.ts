@@ -137,10 +137,10 @@ function inferFitnessLevel(chronicLoad: number): FitnessLevel {
 }
 
 export function getPersonalizedACWRThresholds(input: {
-  fitnessLevel?: FitnessLevel | null;
-  phase?: Phase | null;
-  hasActiveWeightClassPlan?: boolean;
-  cycleDay?: number | null;
+  fitnessLevel?: FitnessLevel | null | undefined;
+  phase?: Phase | null | undefined;
+  hasActiveWeightClassPlan?: boolean | undefined;
+  cycleDay?: number | null | undefined;
   daysOfData: number;
   chronicLoad: number;
   loadMetrics: LoadMetrics;

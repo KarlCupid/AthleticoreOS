@@ -18,7 +18,7 @@ interface WeightSuggestionBannerProps {
   reasoning: string;
   onAccept: () => void;
   onModify: () => void;
-  isDeload?: boolean;
+  isDeload?: boolean | undefined;
 }
 
 const WeightSuggestionBanner: React.FC<WeightSuggestionBannerProps> = ({

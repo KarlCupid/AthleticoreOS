@@ -5,7 +5,7 @@ import type {
 } from '../engine/index.ts';
 
 export interface WeeklyAthleteSummaryResolverOptions {
-  forceRefresh?: boolean;
+  forceRefresh?: boolean | undefined;
 }
 
 export interface WeeklyAthleteSummaryResolverDependencies {

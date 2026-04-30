@@ -225,14 +225,14 @@ export function determineFirstRunWalkthroughAppliesTo(
 
 export function createFirstRunWalkthroughState(input: {
   userId: string;
-  athleteId?: string | null;
+  athleteId?: string | null | undefined;
   appliesTo: FirstRunWalkthroughAppliesTo;
-  source?: FirstRunWalkthroughSource;
-  walkthroughVersion?: number;
-  now?: string;
-  completedSteps?: FirstRunWalkthroughStep[];
-  skippedSteps?: FirstRunWalkthroughStep[];
-  explanations?: FirstRunWalkthroughExplanation[];
+  source?: FirstRunWalkthroughSource | undefined;
+  walkthroughVersion?: number | undefined;
+  now?: string | undefined;
+  completedSteps?: FirstRunWalkthroughStep[] | undefined;
+  skippedSteps?: FirstRunWalkthroughStep[] | undefined;
+  explanations?: FirstRunWalkthroughExplanation[] | undefined;
 }): FirstRunWalkthroughState {
   const completedSteps = uniqueSteps(input.completedSteps ?? []);
   const skippedSteps = uniqueSteps(input.skippedSteps ?? []);
@@ -378,7 +378,7 @@ export function resolveFirstRunWalkthroughState(
 export function markFirstRunWalkthroughStepCompleted(input: {
   state: FirstRunWalkthroughState;
   step: FirstRunWalkthroughStep;
-  now?: string;
+  now?: string | undefined;
 }): FirstRunWalkthroughState {
   const timestamp = nowIso(input.now);
   const completedSteps = uniqueSteps([...input.state.completedSteps, input.step]);
@@ -407,7 +407,7 @@ export function markFirstRunWalkthroughStepCompleted(input: {
 export function skipFirstRunWalkthroughStep(input: {
   state: FirstRunWalkthroughState;
   step: FirstRunWalkthroughStep;
-  now?: string;
+  now?: string | undefined;
 }): FirstRunWalkthroughState {
   const timestamp = nowIso(input.now);
   const skippedSteps = uniqueSteps([...input.state.skippedSteps, input.step]);
@@ -433,7 +433,7 @@ export function skipFirstRunWalkthroughStep(input: {
 
 export function resumeFirstRunWalkthrough(input: {
   state: FirstRunWalkthroughState;
-  now?: string;
+  now?: string | undefined;
 }): FirstRunWalkthroughState {
   const timestamp = nowIso(input.now);
   const currentStep = input.state.currentStep
@@ -458,8 +458,8 @@ export function resumeFirstRunWalkthrough(input: {
 
 export function pauseFirstRunWalkthrough(input: {
   state: FirstRunWalkthroughState;
-  currentStep?: FirstRunWalkthroughStep;
-  now?: string;
+  currentStep?: FirstRunWalkthroughStep | undefined;
+  now?: string | undefined;
 }): FirstRunWalkthroughState {
   const timestamp = nowIso(input.now);
   const currentStep = input.currentStep
@@ -485,7 +485,7 @@ export function pauseFirstRunWalkthrough(input: {
 
 export function completeFirstRunWalkthrough(input: {
   state: FirstRunWalkthroughState;
-  now?: string;
+  now?: string | undefined;
 }): FirstRunWalkthroughState {
   const timestamp = nowIso(input.now);
 
@@ -509,7 +509,7 @@ export function completeFirstRunWalkthrough(input: {
 export async function completeFirstRunWalkthroughWithRepository(input: {
   state: FirstRunWalkthroughState;
   repository: FirstRunWalkthroughStateRepository;
-  now?: string;
+  now?: string | undefined;
 }): Promise<FirstRunWalkthroughState> {
   const completed = completeFirstRunWalkthrough({
     state: input.state,
@@ -521,7 +521,7 @@ export async function completeFirstRunWalkthroughWithRepository(input: {
 
 export function dismissFirstRunWalkthrough(input: {
   state: FirstRunWalkthroughState;
-  now?: string;
+  now?: string | undefined;
 }): FirstRunWalkthroughState {
   const timestamp = nowIso(input.now);
 

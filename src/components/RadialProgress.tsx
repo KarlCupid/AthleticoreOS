@@ -6,21 +6,21 @@ import { COLORS, FONT_FAMILY, SPACING } from '../theme/theme';
 
 interface RadialProgressProps {
   progress: number;
-  size?: number;
-  strokeWidth?: number;
+  size?: number | undefined;
+  strokeWidth?: number | undefined;
   color: string;
-  trackColor?: string;
-  label?: string;
-  sublabel?: string;
-  centerSublabel?: string;
-  icon?: React.ReactNode;
-  textColor?: string;
-  labelStyle?: StyleProp<TextStyle>;
-  sublabelStyle?: StyleProp<TextStyle>;
-  centerSublabelStyle?: StyleProp<TextStyle>;
-  glowColor?: string;
-  centerFillColor?: string;
-  centerBorderColor?: string;
+  trackColor?: string | undefined;
+  label?: string | undefined;
+  sublabel?: string | undefined;
+  centerSublabel?: string | undefined;
+  icon?: React.ReactNode | undefined;
+  textColor?: string | undefined;
+  labelStyle?: StyleProp<TextStyle> | undefined;
+  sublabelStyle?: StyleProp<TextStyle> | undefined;
+  centerSublabelStyle?: StyleProp<TextStyle> | undefined;
+  glowColor?: string | undefined;
+  centerFillColor?: string | undefined;
+  centerBorderColor?: string | undefined;
 }
 
 export const RadialProgress = memo(function RadialProgress(props: RadialProgressProps) {
@@ -217,12 +217,12 @@ function CenterContent({
   labelStyle,
   centerSublabelStyle,
 }: {
-  icon?: React.ReactNode;
-  label?: string;
-  centerSublabel?: string;
+  icon?: React.ReactNode | undefined;
+  label?: string | undefined;
+  centerSublabel?: string | undefined;
   textColor: string;
-  labelStyle?: StyleProp<TextStyle>;
-  centerSublabelStyle?: StyleProp<TextStyle>;
+  labelStyle?: StyleProp<TextStyle> | undefined;
+  centerSublabelStyle?: StyleProp<TextStyle> | undefined;
 }) {
   if (icon) return <>{icon}</>;
 

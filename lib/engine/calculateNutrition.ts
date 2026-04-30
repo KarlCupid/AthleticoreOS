@@ -45,19 +45,19 @@ type DayActivity = {
   activity_type: ActivityType;
   expected_intensity: number;
   estimated_duration_min: number;
-  start_time?: string | null;
-  custom_label?: string | null;
+  start_time?: string | null | undefined;
+  custom_label?: string | null | undefined;
 };
 
 type NutritionResolutionOptions = {
-  daysToWeighIn?: number | null;
-  bodyweightLbs?: number | null;
-  leanMassKg?: number | null;
-  athleteAge?: number | null;
-  readinessProfile?: ReadinessProfile | null;
-  constraintSet?: StimulusConstraintSet | null;
-  macrocycleContext?: MacrocycleContext | null;
-  medStatus?: MEDStatus | null;
+  daysToWeighIn?: number | null | undefined;
+  bodyweightLbs?: number | null | undefined;
+  leanMassKg?: number | null | undefined;
+  athleteAge?: number | null | undefined;
+  readinessProfile?: ReadinessProfile | null | undefined;
+  constraintSet?: StimulusConstraintSet | null | undefined;
+  macrocycleContext?: MacrocycleContext | null | undefined;
+  medStatus?: MEDStatus | null | undefined;
 };
 
 const ENGINE_VERSION = 'nutrition_fueling_engine_v1' as const;
@@ -296,8 +296,8 @@ function createReadinessState(profile: ReadinessProfile | null | undefined, date
 function buildPerformanceState(input: {
   profile: NutritionProfileInput;
   date: string;
-  activities?: DayActivity[];
-  options?: NutritionResolutionOptions;
+  activities?: DayActivity[] | undefined;
+  options?: NutritionResolutionOptions | undefined;
 }): PerformanceState {
   const canonicalPhase = mapPhase(input.options?.macrocycleContext?.phase ?? input.profile.phase, input.options?.macrocycleContext);
   const athlete = createAthleteProfile({
@@ -352,8 +352,8 @@ function buildPerformanceState(input: {
 function getEngineTarget(input: {
   profile: NutritionProfileInput;
   date: string;
-  activities?: DayActivity[];
-  options?: NutritionResolutionOptions;
+  activities?: DayActivity[] | undefined;
+  options?: NutritionResolutionOptions | undefined;
 }): NutritionTarget {
   return generateNutritionTarget({
     performanceState: buildPerformanceState(input),

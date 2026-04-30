@@ -104,10 +104,10 @@ export const Card = memo(function Card({
     if (pressable || onPress) {
         return (
             <AnimatedPressable
-                onPress={onPress}
+                {...(onPress ? { onPress } : {})}
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
-                entering={enteringAnim}
+                {...(enteringAnim ? { entering: enteringAnim } : {})}
                 style={[containerStyle, animatedStyle]}
             >
                 {backgroundLayer}
@@ -119,7 +119,7 @@ export const Card = memo(function Card({
 
     if (entering) {
         return (
-            <Animated.View entering={enteringAnim} style={containerStyle}>
+            <Animated.View {...(enteringAnim ? { entering: enteringAnim } : {})} style={containerStyle}>
                 {backgroundLayer}
                 {header}
                 {children}

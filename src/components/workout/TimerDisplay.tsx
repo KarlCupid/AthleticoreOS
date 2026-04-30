@@ -48,9 +48,9 @@ interface CountdownTimerProps extends BaseTimerProps {
 interface CountupTimerProps extends BaseTimerProps {
   mode: 'countup';
   /** Optional time cap in seconds */
-  timeCap?: number;
+  timeCap?: number | undefined;
   /** Optional label */
-  label?: string;
+  label?: string | undefined;
 }
 
 // ---------------------------------------------------------------------------

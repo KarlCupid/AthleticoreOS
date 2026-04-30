@@ -24,14 +24,15 @@ export function BodyMassSupportTimeline({ plan, currentPhase }: Props) {
   const currentIndex = PHASE_ORDER.indexOf(currentPhase);
 
   // Map phase keys to date labels from the plan
-  const phaseDates: Partial<Record<BodyMassSupportPhase, string>> = {
-    long_term_body_composition: plan.chronic_phase_start ? fmtDate(plan.chronic_phase_start) : undefined,
-    gradual_weight_class_preparation: plan.intensified_phase_start ? fmtDate(plan.intensified_phase_start) : undefined,
-    competition_week_body_mass_monitoring: plan.fight_week_start ? fmtDate(plan.fight_week_start) : undefined,
-    high_risk_review: plan.fight_week_start ? fmtDateOffset(plan.fight_week_start, 3) : undefined,
-    weigh_in_logistics: plan.weigh_in_day ? fmtDate(plan.weigh_in_day) : undefined,
-    post_weigh_in_recovery_tracking: plan.rehydration_start ? fmtDate(plan.rehydration_start) : undefined,
-  };
+  const phaseDates: Partial<Record<BodyMassSupportPhase, string>> = {};
+  if (plan.chronic_phase_start) phaseDates.long_term_body_composition = fmtDate(plan.chronic_phase_start);
+  if (plan.intensified_phase_start) phaseDates.gradual_weight_class_preparation = fmtDate(plan.intensified_phase_start);
+  if (plan.fight_week_start) {
+    phaseDates.competition_week_body_mass_monitoring = fmtDate(plan.fight_week_start);
+    phaseDates.high_risk_review = fmtDateOffset(plan.fight_week_start, 3);
+  }
+  if (plan.weigh_in_day) phaseDates.weigh_in_logistics = fmtDate(plan.weigh_in_day);
+  if (plan.rehydration_start) phaseDates.post_weigh_in_recovery_tracking = fmtDate(plan.rehydration_start);
 
   return (
     <ScrollView

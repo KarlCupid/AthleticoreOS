@@ -25,7 +25,7 @@ import { findSubstituteExercise, getRestTimerDefaults } from './adaptiveWorkout.
 type ScoredExercise = {
     exercise: ExerciseLibraryRow;
     score: number;
-    recoveryCost?: number;
+    recoveryCost?: number | undefined;
 };
 
 type SectionBlueprint = {
@@ -47,16 +47,16 @@ export interface BuildSectionedWorkoutInput {
     readinessState: ReadinessState;
     rpeCap: number;
     performanceRisk: PerformanceRiskState;
-    performanceGoalType?: PerformanceGoalType;
+    performanceGoalType?: PerformanceGoalType | undefined;
     blockContext: TrainingBlockContext | null;
-    availableMinutes?: number;
+    availableMinutes?: number | undefined;
     fitnessLevel: FitnessLevel;
-    exerciseHistory?: Map<string, ExerciseHistoryEntry[]>;
-    progressionModel?: GenerateWorkoutInputV2['progressionModel'];
+    exerciseHistory?: Map<string, ExerciseHistoryEntry[]> | undefined;
+    progressionModel?: GenerateWorkoutInputV2['progressionModel'] | undefined;
     isDeloadWeek: boolean;
     targetExerciseCount: number;
-    recoveryBudget?: number;
-    trainingDate?: string;
+    recoveryBudget?: number | undefined;
+    trainingDate?: string | undefined;
 }
 
 export interface BuildSectionedWorkoutResult {
@@ -993,7 +993,7 @@ function getAdditionalSetTimeCost(exercise: SectionExercisePrescription): number
 function scaleExerciseVolume(
     sections: WorkoutSessionSection[],
     remainingBudget: number,
-    availableMinutes?: number,
+    availableMinutes?: number | undefined,
 ): void {
     let budgetLeft = remainingBudget;
     let minutesLeft = availableMinutes != null
@@ -1049,10 +1049,10 @@ function buildSectionExercise(input: {
     rpeCap: number;
     readinessState: ReadinessState;
     blockContext: TrainingBlockContext | null;
-    availableMinutes?: number;
+    availableMinutes?: number | undefined;
     fitnessLevel: FitnessLevel;
-    exerciseHistory?: Map<string, ExerciseHistoryEntry[]>;
-    progressionModel?: GenerateWorkoutInputV2['progressionModel'];
+    exerciseHistory?: Map<string, ExerciseHistoryEntry[]> | undefined;
+    progressionModel?: GenerateWorkoutInputV2['progressionModel'] | undefined;
     isDeloadWeek: boolean;
     usableExerciseLibrary: ExerciseLibraryRow[];
     muscleGroupsSeen: Set<MuscleGroup>;

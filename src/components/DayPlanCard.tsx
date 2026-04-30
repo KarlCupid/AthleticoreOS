@@ -47,7 +47,7 @@ interface DayPlanCardProps {
   isToday: boolean;
   isDeload: boolean;
   onPress: () => void;
-  onReschedule?: () => void;
+  onReschedule?: (() => void) | undefined;
 }
 
 const STATUS_COLORS: Record<Session['status'], string> = {

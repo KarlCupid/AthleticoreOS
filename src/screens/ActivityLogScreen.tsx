@@ -37,11 +37,11 @@ const COMPONENT_OPTIONS: { type: ComponentType; label: string; icon: string }[] 
 interface LoggedComponent {
     component_type: ComponentType;
     duration_min: number;
-    distance_miles?: number;
-    pace_per_mile?: string;
-    rounds?: number;
+    distance_miles?: number | undefined;
+    pace_per_mile?: string | undefined;
+    rounds?: number | undefined;
     intensity: number;
-    notes?: string;
+    notes?: string | undefined;
 }
 
 export function ActivityLogScreen() {

@@ -59,10 +59,10 @@ type NavigationLike = {
 };
 
 type UseWeeklyPlanSetupControllerArgs = {
-  initialGoalMode?: AthleteGoalMode;
+  initialGoalMode?: AthleteGoalMode | undefined;
   initialPhaseIndex: number;
   navigation: NavigationLike;
-  onComplete?: () => void;
+  onComplete?: (() => void) | undefined;
 };
 
 type FightFlowStatus = Exclude<FightOpportunityStatus, 'completed'>;

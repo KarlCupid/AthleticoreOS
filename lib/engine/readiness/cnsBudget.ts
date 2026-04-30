@@ -20,7 +20,7 @@ export function getBaselineCNSBudget(trainingAge: TrainingAge): { fresh: number;
 export function getCalibratedCNSBudget(input: {
   readinessState: ReadinessState;
   trainingAge: TrainingAge;
-  complianceHistory28d?: number[];
+  complianceHistory28d?: number[] | undefined;
 }): number {
   const { readinessState, trainingAge, complianceHistory28d = [] } = input;
   const baseline = BASELINE_BUDGETS[trainingAge];

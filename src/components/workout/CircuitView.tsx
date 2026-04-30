@@ -19,11 +19,11 @@ interface CircuitViewProps {
   /** Current round (1-based) */
   currentRound: number;
   /** Set of completed movement indices for the current round */
-  completedMovements?: Set<number>;
+  completedMovements?: Set<number> | undefined;
   /** Called when a movement is toggled */
-  onToggleMovement?: (movementIndex: number) => void;
+  onToggleMovement?: ((movementIndex: number) => void) | undefined;
   /** Whether the UI is interactive (live workout) or readonly (replay) */
-  interactive?: boolean;
+  interactive?: boolean | undefined;
 }
 
 export function CircuitView({
@@ -102,7 +102,7 @@ interface MovementRowProps {
   movement: CircuitMovementVM;
   index: number;
   completed: boolean;
-  onToggle?: () => void;
+  onToggle?: (() => void) | undefined;
   interactive: boolean;
 }
 

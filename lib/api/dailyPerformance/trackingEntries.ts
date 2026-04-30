@@ -20,7 +20,7 @@ export function buildUnifiedTrackingEntries(input: {
   date: string;
   readinessProfile: ReadinessProfile;
   currentWeightLbs: number | null;
-  todayCheckin?: DailyReadinessCheckinRow | null;
+  todayCheckin?: DailyReadinessCheckinRow | null | undefined;
 }) {
   const checkinConfidence = confidenceFromLevel('medium', [
     'Daily check-in was entered by the athlete and projected into canonical tracking state.',

@@ -52,7 +52,7 @@ export interface BuildGuidedFightOpportunityInput {
   eventLocation?: string | null;
   weightClassChanged?: boolean;
   protectedWorkoutLabels?: string[];
-  readinessLabel?: string | null;
+  readinessLabel?: string | null | undefined;
 }
 
 const UNAVAILABLE_FIGHT_OPPORTUNITY: GuidedFightOpportunityViewModel = {
@@ -233,7 +233,7 @@ function buildRiskHighlights(input: {
   status: FightOpportunityStatus;
   daysOut: number | null;
   hasCompetitionDate: boolean;
-  readinessLabel?: string | null;
+  readinessLabel?: string | null | undefined;
   weightClass: { level: 'none' | 'handoff' | 'watch' | 'aggressive'; copy: string };
 }): string[] {
   const risks: string[] = [];
@@ -336,7 +336,7 @@ function fuelingAdjustmentCopy(status: FightOpportunityStatus, bodyMassLevel: 'n
   return 'Fueling should follow the fight timeline, session demand, readiness, and any weight-class feasibility handoff.';
 }
 
-function readinessCopy(readinessLabel?: string | null): string {
+function readinessCopy(readinessLabel?: string | null | undefined): string {
   if (!readinessLabel) {
     return "Readiness is unknown until today's check-in. Athleticore should not treat missing readiness as safe to push.";
   }

@@ -70,7 +70,7 @@ async function createWeightClassPlanMutation(
     fightStatus: 'amateur' | 'pro';
     biologicalSex: 'male' | 'female';
     weightClassEvaluation: WeightClassManagementResult;
-    coachNotes?: string;
+    coachNotes?: string | undefined;
   }
 ): Promise<WeightClassPlanRow> {
   const { weightClassEvaluation } = input;
@@ -147,7 +147,7 @@ export async function createWeightClassPlan(
     fightStatus: 'amateur' | 'pro';
     biologicalSex: 'male' | 'female';
     weightClassEvaluation: WeightClassManagementResult;
-    coachNotes?: string;
+    coachNotes?: string | undefined;
   }
 ): Promise<WeightClassPlanRow> {
   return withEngineInvalidation({ userId, reason: 'weight_class_plan_create' }, () =>
@@ -258,10 +258,10 @@ export async function completeWeightClassPlan(
   userId: string,
   planId: string,
   outcome: {
-    finalWeighInWeight?: number;
-    madeWeight?: boolean;
-    fightDayWeight?: number;
-    rehydrationWeightRegained?: number;
+    finalWeighInWeight?: number | undefined;
+    madeWeight?: boolean | undefined;
+    fightDayWeight?: number | undefined;
+    rehydrationWeightRegained?: number | undefined;
   }
 ): Promise<void> {
   return withEngineInvalidation({ userId, reason: 'weight_class_plan_complete' }, async () => {

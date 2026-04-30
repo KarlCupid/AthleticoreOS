@@ -58,20 +58,20 @@ export interface EngineReplaySetPrescription {
   reps: number | string;
   targetRPE: number;
   restSeconds: number;
-  intensityNote?: string;
+  intensityNote?: string | undefined;
   timedWork?: {
     format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
     totalDurationSec: number;
-    workIntervalSec?: number;
-    restIntervalSec?: number;
-    roundCount?: number;
-    targetRounds?: number;
+    workIntervalSec?: number | undefined;
+    restIntervalSec?: number | undefined;
+    roundCount?: number | undefined;
+    targetRounds?: number | undefined;
   } | null;
   circuitRound?: {
     roundCount: number;
     restBetweenRoundsSec: number;
     movements: Array<{
-      exerciseId?: string;
+      exerciseId?: string | undefined;
       exerciseName: string;
       reps: number | null;
       durationSec: number | null;
@@ -108,7 +108,7 @@ export interface EngineReplayWorkoutSection {
   restRule: string;
   densityRule: string | null;
   decisionTrace: string[];
-  finisherReason?: string | null;
+  finisherReason?: string | null | undefined;
   exercises: EngineReplayPrescribedExercise[];
 }
 
@@ -141,20 +141,20 @@ export interface EngineReplayConditioningPrescription {
   rounds: number;
   workIntervalSec: number;
   restIntervalSec: number;
-  format?: 'rounds' | 'emom' | 'amrap' | 'tabata' | 'for_time' | 'intervals';
+  format?: 'rounds' | 'emom' | 'amrap' | 'tabata' | 'for_time' | 'intervals' | undefined;
   timedWork?: {
     format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
     totalDurationSec: number;
-    workIntervalSec?: number;
-    restIntervalSec?: number;
-    roundCount?: number;
-    targetRounds?: number;
+    workIntervalSec?: number | undefined;
+    restIntervalSec?: number | undefined;
+    roundCount?: number | undefined;
+    targetRounds?: number | undefined;
   } | null;
   circuitRound?: {
     roundCount: number;
     restBetweenRoundsSec: number;
     movements: Array<{
-      exerciseId?: string;
+      exerciseId?: string | undefined;
       exerciseName: string;
       reps: number | null;
       durationSec: number | null;
@@ -171,14 +171,14 @@ export interface EngineReplayConditioningPrescription {
     reps: number | null;
     rounds: number;
     restSec: number;
-    format?: 'steady_state' | 'intervals' | 'emom' | 'tabata' | 'amrap' | 'for_time';
+    format?: 'steady_state' | 'intervals' | 'emom' | 'tabata' | 'amrap' | 'for_time' | undefined;
     timedWork?: {
       format: 'emom' | 'amrap' | 'tabata' | 'timed_set' | 'for_time';
       totalDurationSec: number;
-      workIntervalSec?: number;
-      restIntervalSec?: number;
-      roundCount?: number;
-      targetRounds?: number;
+      workIntervalSec?: number | undefined;
+      restIntervalSec?: number | undefined;
+      roundCount?: number | undefined;
+      targetRounds?: number | undefined;
     } | null;
   }>;
 }

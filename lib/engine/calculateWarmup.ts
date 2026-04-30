@@ -39,7 +39,7 @@ interface DynamicWarmupResult {
   total_duration_min: number;
   focus: DynamicWarmupFocus;
   phases: DynamicWarmupPhase[];
-  safety_warning?: string;
+  safety_warning?: string | undefined;
 }
 
 const MOVEMENT_LIB: Record<string, WarmupMoveSeed> = {

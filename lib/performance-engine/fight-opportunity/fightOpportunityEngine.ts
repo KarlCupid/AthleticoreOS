@@ -161,8 +161,8 @@ function updateOpportunity(
     asOfDate: ISODateString;
     updatedAt: ISODateTimeString;
     currentPhase: AthleticorePhase;
-    timing?: Partial<FightOpportunityTiming>;
-    target?: Partial<Pick<FightOpportunityWeightTarget, 'weightClassName' | 'targetWeightLbs'>>;
+    timing?: Partial<FightOpportunityTiming> | undefined;
+    target?: Partial<Pick<FightOpportunityWeightTarget, 'weightClassName' | 'targetWeightLbs'>> | undefined;
     historyType: FightOpportunityHistoryEvent['type'];
     historySummary: string;
   },

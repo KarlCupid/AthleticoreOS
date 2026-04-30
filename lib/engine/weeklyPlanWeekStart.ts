@@ -1,8 +1,8 @@
 export function resolveWeeklyPlanWeekStart(input: {
-  forceStartDate?: string;
-  activeWeekStart?: string | null;
-  todayEngineWeekStart?: string | null;
-  latestGeneratedWeekStart?: string | null;
+  forceStartDate?: string | undefined;
+  activeWeekStart?: string | null | undefined;
+  todayEngineWeekStart?: string | null | undefined;
+  latestGeneratedWeekStart?: string | null | undefined;
 }): string | null {
   const {
     forceStartDate,

@@ -1,27 +1,27 @@
 import type { RouteProp } from '@react-navigation/native';
 
 export type GuidedWorkoutParams = {
-  weeklyPlanEntryId?: string;
-  scheduledActivityId?: string;
-  focus?: string;
-  availableMinutes?: number;
+  weeklyPlanEntryId?: string | undefined;
+  scheduledActivityId?: string | undefined;
+  focus?: string | undefined;
+  availableMinutes?: number | undefined;
   readinessState: 'Prime' | 'Caution' | 'Depleted';
   phase: string;
   fitnessLevel: string;
-  trainingDate?: string;
-  isDeloadWeek?: boolean;
-  autoStart?: boolean;
-  entrySource?: 'dashboard' | 'train' | 'day-detail' | 'plan';
+  trainingDate?: string | undefined;
+  isDeloadWeek?: boolean | undefined;
+  autoStart?: boolean | undefined;
+  entrySource?: 'dashboard' | 'train' | 'day-detail' | 'plan' | undefined;
 };
 
 export type GuidedWorkoutStackParamList = {
   GuidedWorkout: GuidedWorkoutParams;
   WorkoutSummary: {
-    workoutLogId?: string;
-    durationMin?: number;
-    totalSets?: number;
-    totalVolume?: number;
-    avgRPE?: number | null;
+    workoutLogId?: string | undefined;
+    durationMin?: number | undefined;
+    totalSets?: number | undefined;
+    totalVolume?: number | undefined;
+    avgRPE?: number | null | undefined;
   };
 };
 

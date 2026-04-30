@@ -28,18 +28,18 @@ export interface AthleteProfile {
 export function createAthleteProfile(input: {
   athleteId: string;
   userId: string;
-  displayName?: string | null;
-  sport?: AthleteSport | null;
-  competitionLevel?: CompetitionLevel | null;
-  biologicalSex?: BiologicalSex | null;
-  birthDate?: ISODateString | null;
-  ageYears?: number | null;
-  timeZone?: string | null;
-  preferredBodyMassUnit?: BodyMassUnit | null;
-  trainingBackground?: TrainingBackground | null;
-  onboardingCompletedAt?: ISODateTimeString | null;
-  missingFields?: UnknownField[];
-  confidence?: ConfidenceValue;
+  displayName?: string | null | undefined;
+  sport?: AthleteSport | null | undefined;
+  competitionLevel?: CompetitionLevel | null | undefined;
+  biologicalSex?: BiologicalSex | null | undefined;
+  birthDate?: ISODateString | null | undefined;
+  ageYears?: number | null | undefined;
+  timeZone?: string | null | undefined;
+  preferredBodyMassUnit?: BodyMassUnit | null | undefined;
+  trainingBackground?: TrainingBackground | null | undefined;
+  onboardingCompletedAt?: ISODateTimeString | null | undefined;
+  missingFields?: UnknownField[] | undefined;
+  confidence?: ConfidenceValue | undefined;
 }): AthleteProfile {
   return {
     athleteId: input.athleteId,

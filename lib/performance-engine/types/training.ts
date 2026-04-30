@@ -98,18 +98,18 @@ export function createComposedSession(input: {
   id: string;
   family: SessionFamily;
   title: string;
-  date?: ISODateString | null;
-  source?: SessionSource;
-  protectedAnchor?: boolean;
-  anchorId?: string | null;
+  date?: ISODateString | null | undefined;
+  source?: SessionSource | undefined;
+  protectedAnchor?: boolean | undefined;
+  anchorId?: string | null | undefined;
   durationMinutes: MeasurementRange<'minute'>;
   intensityRpe: MeasurementRange<'rpe'>;
-  startsAt?: ISODateTimeString | null;
-  mergeDecisionId?: string | null;
-  stressScore?: number | null;
-  tissueLoads?: string[];
-  explanation?: Explanation | null;
-  confidence?: ConfidenceValue;
+  startsAt?: ISODateTimeString | null | undefined;
+  mergeDecisionId?: string | null | undefined;
+  stressScore?: number | null | undefined;
+  tissueLoads?: string[] | undefined;
+  explanation?: Explanation | null | undefined;
+  confidence?: ConfidenceValue | undefined;
 }): ComposedSession {
   const protectedAnchor = input.protectedAnchor ?? input.source === 'protected_anchor';
 

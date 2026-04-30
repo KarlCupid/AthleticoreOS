@@ -63,25 +63,25 @@ export interface UnderFuelingScreenInput {
 export interface WeightClassManagementInput {
   athleteId: string;
   sport: WeightClassPlan['sport'];
-  competitionId?: string | null;
-  competitionDate?: ISODateString | null;
-  weighInDateTime?: ISODateTimeString | null;
-  competitionDateTime?: ISODateTimeString | null;
-  asOfDate?: ISODateString | null;
-  phase?: AthleticorePhase | WeightClassManagementPhase | null;
-  currentBodyMass?: BodyMassMeasurement | null;
-  targetClassMass?: BodyMassMeasurement | null;
-  desiredScaleWeight?: BodyMassMeasurement | null;
-  bodyMassHistory?: BodyMassLogEntry[];
-  targetClassName?: string | null;
-  athleteAgeYears?: number | null;
-  medicallyComplex?: boolean;
-  eatingDisorderRisk?: boolean;
-  repeatedRapidWeightCycling?: boolean;
-  severeRestrictionPattern?: boolean;
-  underFuelingScreen?: UnderFuelingScreenInput;
-  fightOpportunityStatus?: 'tentative' | 'confirmed' | 'short_notice' | 'canceled' | 'rescheduled' | 'completed' | null;
-  generatedAt?: ISODateTimeString | null;
+  competitionId?: string | null | undefined;
+  competitionDate?: ISODateString | null | undefined;
+  weighInDateTime?: ISODateTimeString | null | undefined;
+  competitionDateTime?: ISODateTimeString | null | undefined;
+  asOfDate?: ISODateString | null | undefined;
+  phase?: AthleticorePhase | WeightClassManagementPhase | null | undefined;
+  currentBodyMass?: BodyMassMeasurement | null | undefined;
+  targetClassMass?: BodyMassMeasurement | null | undefined;
+  desiredScaleWeight?: BodyMassMeasurement | null | undefined;
+  bodyMassHistory?: BodyMassLogEntry[] | undefined;
+  targetClassName?: string | null | undefined;
+  athleteAgeYears?: number | null | undefined;
+  medicallyComplex?: boolean | undefined;
+  eatingDisorderRisk?: boolean | undefined;
+  repeatedRapidWeightCycling?: boolean | undefined;
+  severeRestrictionPattern?: boolean | undefined;
+  underFuelingScreen?: UnderFuelingScreenInput | undefined;
+  fightOpportunityStatus?: 'tentative' | 'confirmed' | 'short_notice' | 'canceled' | 'rescheduled' | 'completed' | null | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }
 
 export interface WeightClassManagementResult {
@@ -142,8 +142,8 @@ function rangeForTrend(value: number | null, unit: BodyMassUnit, confidence: Con
 }
 
 export function deriveRecentBodyMassTrend(input: {
-  history?: BodyMassLogEntry[];
-  unit?: BodyMassUnit;
+  history?: BodyMassLogEntry[] | undefined;
+  unit?: BodyMassUnit | undefined;
 }): BodyMassTrend {
   const unit = input.unit ?? 'lb';
   const history = normalizeHistory(input.history, unit);
@@ -370,7 +370,7 @@ function buildExplanation(input: {
   rate: BodyMassRateOfChange;
   timeframeDays: number | null;
   confidence: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
   const requiredText = input.required.value == null
     ? 'the required change is unknown'
@@ -686,15 +686,15 @@ export function evaluateWeightClassPlan(input: WeightClassManagementInput): Weig
 
 export function evaluateWeightClassPlanFromPerformanceState(input: {
   performanceState: PerformanceState;
-  competitionId?: string | null;
-  competitionDate?: ISODateString | null;
-  weighInDateTime?: ISODateTimeString | null;
-  competitionDateTime?: ISODateTimeString | null;
-  targetClassMass?: BodyMassMeasurement | null;
-  desiredScaleWeight?: BodyMassMeasurement | null;
-  bodyMassHistory?: BodyMassLogEntry[];
-  underFuelingScreen?: UnderFuelingScreenInput;
-  generatedAt?: ISODateTimeString | null;
+  competitionId?: string | null | undefined;
+  competitionDate?: ISODateString | null | undefined;
+  weighInDateTime?: ISODateTimeString | null | undefined;
+  competitionDateTime?: ISODateTimeString | null | undefined;
+  targetClassMass?: BodyMassMeasurement | null | undefined;
+  desiredScaleWeight?: BodyMassMeasurement | null | undefined;
+  bodyMassHistory?: BodyMassLogEntry[] | undefined;
+  underFuelingScreen?: UnderFuelingScreenInput | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): WeightClassManagementResult {
   const athlete = input.performanceState.athlete;
   const sport = athlete.sport === 'boxing' || athlete.sport === 'mma' ? athlete.sport : 'other_combat_sport';

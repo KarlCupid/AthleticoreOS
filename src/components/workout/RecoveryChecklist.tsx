@@ -20,13 +20,13 @@ import type { ExerciseVM } from './types';
 interface RecoveryChecklistProps {
   exercises: ExerciseVM[];
   /** Set of exercise IDs that are completed */
-  completedIds?: Set<string>;
+  completedIds?: Set<string> | undefined;
   /** Called when a movement is toggled */
-  onToggle?: (exerciseId: string) => void;
+  onToggle?: ((exerciseId: string) => void) | undefined;
   /** Interactive (live) or readonly (replay) */
-  interactive?: boolean;
+  interactive?: boolean | undefined;
   /** Optional message from the coach */
-  message?: string;
+  message?: string | undefined;
 }
 
 export function RecoveryChecklist({

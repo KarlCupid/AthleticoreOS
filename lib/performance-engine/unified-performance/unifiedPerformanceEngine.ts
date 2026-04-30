@@ -60,28 +60,28 @@ export interface WeightClassEvaluationInput {
 }
 
 export interface UnifiedPerformanceEngineInput {
-  athlete?: AthleteProfile;
-  journey?: AthleteJourneyState;
-  performanceState?: PerformanceState;
+  athlete?: AthleteProfile | undefined;
+  journey?: AthleteJourneyState | undefined;
+  performanceState?: PerformanceState | undefined;
   asOfDate: ISODateString;
-  weekStartDate?: ISODateString | null;
-  generatedAt?: ISODateTimeString | null;
-  phase?: PhaseState | null;
-  trainingAvailability?: TrainingAvailability | null;
-  fightOpportunity?: FightOpportunity | FightOpportunitySnapshot | null;
-  protectedAnchors?: ProtectedAnchorInput[];
-  trackingEntries?: TrackingEntry[];
-  completedSessions?: ComposedSession[];
-  plannedSessions?: ComposedSession[];
-  foodEntries?: FoodEntry[];
-  bodyMassState?: BodyMassState | null;
-  bodyMassHistory?: Array<{ date: ISODateString; value: unknown; unit?: 'lb' | 'kg'; source?: string | null }>;
-  weightClass?: WeightClassEvaluationInput | null;
-  activeTrainingBlock?: TrainingBlock | null;
-  initialRiskFlags?: RiskFlag[];
-  candidateSessions?: AdaptiveSessionCandidate[];
-  existingSessions?: AdaptiveSessionCandidate[];
-  acuteChronicWorkloadRatio?: number | null;
+  weekStartDate?: ISODateString | null | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
+  phase?: PhaseState | null | undefined;
+  trainingAvailability?: TrainingAvailability | null | undefined;
+  fightOpportunity?: FightOpportunity | FightOpportunitySnapshot | null | undefined;
+  protectedAnchors?: ProtectedAnchorInput[] | undefined;
+  trackingEntries?: TrackingEntry[] | undefined;
+  completedSessions?: ComposedSession[] | undefined;
+  plannedSessions?: ComposedSession[] | undefined;
+  foodEntries?: FoodEntry[] | undefined;
+  bodyMassState?: BodyMassState | null | undefined;
+  bodyMassHistory?: Array<{ date: ISODateString; value: unknown; unit?: 'lb' | 'kg'; source?: string | null }> | undefined;
+  weightClass?: WeightClassEvaluationInput | null | undefined;
+  activeTrainingBlock?: TrainingBlock | null | undefined;
+  initialRiskFlags?: RiskFlag[] | undefined;
+  candidateSessions?: AdaptiveSessionCandidate[] | undefined;
+  existingSessions?: AdaptiveSessionCandidate[] | undefined;
+  acuteChronicWorkloadRatio?: number | null | undefined;
 }
 
 export interface UnifiedCanonicalOutputs {
@@ -255,8 +255,8 @@ function sessionSourceForAnchor(anchor: ProtectedAnchorInput): SessionSource {
 }
 
 function protectedAnchorSessions(input: {
-  anchors?: ProtectedAnchorInput[];
-  generatedAt?: ISODateTimeString | null;
+  anchors?: ProtectedAnchorInput[] | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): ComposedSession[] {
   return (input.anchors ?? []).map((anchor) => createComposedSession({
     id: anchor.id,
@@ -351,7 +351,7 @@ function targetMassFromFight(snapshot: FightOpportunitySnapshot | null): BodyMas
 }
 
 function resolveWeightClassInput(input: {
-  explicit?: WeightClassEvaluationInput | null;
+  explicit?: WeightClassEvaluationInput | null | undefined;
   fight: FightOpportunitySnapshot | null;
 }): WeightClassEvaluationInput | null {
   if (input.explicit) return input.explicit;
@@ -372,7 +372,7 @@ function phaseAdjustedState(input: {
   state: PerformanceState;
   fight: FightOpportunitySnapshot | null;
   asOfDate: ISODateString;
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): { state: PerformanceState; fightRecommendationExplanation: Explanation | null } {
   if (!input.fight) {
     return { state: input.state, fightRecommendationExplanation: null };
@@ -487,7 +487,7 @@ function finalDecisionExplanation(input: {
   status: UnifiedPerformanceEngineResult['finalPlanStatus'];
   phase: AthleticorePhase;
   blockedCount: number;
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
   return explainDecision({
     summary: `Unified Performance Engine produced a ${input.status} plan for ${input.phase.replace(/_/g, ' ')} phase.`,

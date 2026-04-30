@@ -832,14 +832,14 @@ export function prescribeConditioning(input: {
   phase: Phase;
   fitnessLevel: FitnessLevel;
   readinessState: ReadinessState;
-  readinessProfile?: ReadinessProfile | null;
-  constraintSet?: StimulusConstraintSet | null;
+  readinessProfile?: ReadinessProfile | null | undefined;
+  constraintSet?: StimulusConstraintSet | null | undefined;
   acwr: number;
-  sessionIndex?: number;
-  activeWeightClassPlan?: WeightClassPlanRow | null;
-  campConfig?: CampConfig | null;
-  trainingIntensityCap?: number | null;
-  trainingIntensityCapOverride?: number | null;
+  sessionIndex?: number | undefined;
+  activeWeightClassPlan?: WeightClassPlanRow | null | undefined;
+  campConfig?: CampConfig | null | undefined;
+  trainingIntensityCap?: number | null | undefined;
+  trainingIntensityCapOverride?: number | null | undefined;
 }): ConditioningPrescription {
   const {
     phase,

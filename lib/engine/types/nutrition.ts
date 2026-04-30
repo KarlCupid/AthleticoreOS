@@ -127,7 +127,7 @@ export interface ProteinTargetPolicy {
 
 export interface NutritionTargetEstimate {
   engineVersion?: 'nutrition_fueling_engine_v1';
-  canonicalPhase?: string;
+  canonicalPhase?: string | undefined;
   tdee: number;
   adjustedCalories: number;
   protein: number;
@@ -239,7 +239,7 @@ export interface NutritionFuelingTarget extends NutritionTargetEstimate {
   fuelingFloorTriggered: boolean;
   deficitBankDelta: number;
   safetyWarning: NutritionSafetyWarning;
-  safetyEvents?: NutritionSafetyEvent[];
+  safetyEvents?: NutritionSafetyEvent[] | undefined;
   traceLines: string[];
 }
 

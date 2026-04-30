@@ -127,8 +127,8 @@ interface CampMicrocycleTemplateToken {
     phase: CampPhase;
     priority: number;
     bucket: CampTemplateBucket;
-    fallbackFocus?: WorkoutFocus;
-    fallbackBucket?: CampTemplateBucket;
+    fallbackFocus?: WorkoutFocus | undefined;
+    fallbackBucket?: CampTemplateBucket | undefined;
 }
 
 type CampMicrocycleTemplate = CampMicrocycleTemplateToken[];

@@ -11,17 +11,18 @@ import type {
   UnknownField,
 } from '../types/index.ts';
 import { UNKNOWN_CONFIDENCE } from '../types/index.ts';
+import { omitUndefinedProperties } from '../../utils/optionalProperties.ts';
 
 export interface CreateExplanationInput {
-  id?: string;
-  kind?: ExplanationKind;
+  id?: string | undefined;
+  kind?: ExplanationKind | undefined;
   summary: string;
-  reasons?: string[];
-  evidence?: ExplanationEvidence[];
-  audience?: ExplanationAudience;
-  impact?: ExplanationImpact;
-  confidence?: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  reasons?: string[] | undefined;
+  evidence?: ExplanationEvidence[] | undefined;
+  audience?: ExplanationAudience | undefined;
+  impact?: ExplanationImpact | undefined;
+  confidence?: ConfidenceValue | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }
 
 function humanize(value: string): string {
@@ -35,7 +36,7 @@ function compactReasons(reasons: Array<string | null | undefined>): string[] {
 }
 
 export function createExplanation(input: CreateExplanationInput): Explanation {
-  return {
+  return omitUndefinedProperties<Explanation>({
     id: input.id,
     kind: input.kind ?? 'decision',
     audience: input.audience ?? 'athlete',
@@ -45,17 +46,17 @@ export function createExplanation(input: CreateExplanationInput): Explanation {
     impact: input.impact ?? 'unknown',
     confidence: input.confidence ?? UNKNOWN_CONFIDENCE,
     generatedAt: input.generatedAt ?? null,
-  };
+  });
 }
 
 export function explainDecision(input: {
   summary: string;
   reasons: string[];
-  evidence?: ExplanationEvidence[];
-  confidence?: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  evidence?: ExplanationEvidence[] | undefined;
+  confidence?: ConfidenceValue | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
-  return createExplanation({
+  return createExplanation(omitUndefinedProperties<CreateExplanationInput>({
     kind: 'decision',
     summary: input.summary,
     reasons: compactReasons(input.reasons),
@@ -63,14 +64,14 @@ export function explainDecision(input: {
     impact: 'adjusted',
     confidence: input.confidence,
     generatedAt: input.generatedAt,
-  });
+  }));
 }
 
 export function explainRisk(input: {
   flag: Pick<RiskFlag, 'code' | 'severity' | 'message' | 'blocksPlan' | 'evidence' | 'confidence'>;
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
-  return createExplanation({
+  return createExplanation(omitUndefinedProperties<CreateExplanationInput>({
     kind: 'risk',
     summary: input.flag.blocksPlan
       ? `This recommendation is blocked because ${input.flag.message.charAt(0).toLowerCase()}${input.flag.message.slice(1)}`
@@ -87,22 +88,22 @@ export function explainRisk(input: {
     impact: input.flag.blocksPlan ? 'restricted' : 'adjusted',
     confidence: input.flag.confidence,
     generatedAt: input.generatedAt,
-  });
+  }));
 }
 
 export function explainPhaseTransition(input: {
   from: AthleticorePhase;
   to: AthleticorePhase;
   reason: string;
-  preserved?: string[];
-  confidence?: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  preserved?: string[] | undefined;
+  confidence?: ConfidenceValue | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
   const preserved = input.preserved?.length
     ? input.preserved.join(', ')
     : 'training, nutrition, readiness, body-mass, protected workouts, preferences, risk, and history';
 
-  return createExplanation({
+  return createExplanation(omitUndefinedProperties<CreateExplanationInput>({
     kind: 'phase_transition',
     summary: `Phase transitioned from ${humanize(input.from)} to ${humanize(input.to)}.`,
     reasons: [
@@ -112,18 +113,18 @@ export function explainPhaseTransition(input: {
     impact: input.from === input.to ? 'kept' : 'adjusted',
     confidence: input.confidence,
     generatedAt: input.generatedAt,
-  });
+  }));
 }
 
 export function explainMissingData(input: {
   context: string;
   missingFields: Array<UnknownField | string>;
-  confidence?: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  confidence?: ConfidenceValue | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
   const fields = input.missingFields.map((field) => (typeof field === 'string' ? field : field.field));
 
-  return createExplanation({
+  return createExplanation(omitUndefinedProperties<CreateExplanationInput>({
     kind: 'missing_data',
     summary: `${input.context} confidence is lower because required data is missing.`,
     reasons: [
@@ -133,15 +134,15 @@ export function explainMissingData(input: {
     impact: 'restricted',
     confidence: input.confidence,
     generatedAt: input.generatedAt,
-  });
+  }));
 }
 
 export function explainConfidence(input: {
   context: string;
   confidence: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
-  return createExplanation({
+  return createExplanation(omitUndefinedProperties<CreateExplanationInput>({
     kind: 'confidence',
     summary: `${input.context} confidence is ${input.confidence.level}.`,
     reasons: input.confidence.reasons.length
@@ -150,22 +151,22 @@ export function explainConfidence(input: {
     impact: input.confidence.level === 'high' ? 'kept' : 'restricted',
     confidence: input.confidence,
     generatedAt: input.generatedAt,
-  });
+  }));
 }
 
 export function explainPlanAdjustment(input: {
   summary: string;
   reasons: string[];
-  blocked?: boolean;
-  confidence?: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  blocked?: boolean | undefined;
+  confidence?: ConfidenceValue | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): Explanation {
-  return createExplanation({
+  return createExplanation(omitUndefinedProperties<CreateExplanationInput>({
     kind: 'plan_adjustment',
     summary: input.summary,
     reasons: compactReasons(input.reasons),
     impact: input.blocked ? 'restricted' : 'adjusted',
     confidence: input.confidence,
     generatedAt: input.generatedAt,
-  });
+  }));
 }

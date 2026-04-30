@@ -31,8 +31,8 @@ import { createNutritionDataQuality, createUnknownNutritionDataQuality } from '.
 export interface NutritionFuelingInput {
   performanceState: PerformanceState;
   date: ISODateString;
-  foodEntries?: FoodEntry[];
-  generatedAt?: ISODateTimeString | null;
+  foodEntries?: FoodEntry[] | undefined;
+  generatedAt?: ISODateTimeString | null | undefined;
 }
 
 export interface NutritionFuelingResult {
@@ -217,7 +217,7 @@ function fuelingPriority(session: ComposedSession): 'low' | 'medium' | 'high' {
 function createSessionFuelingDirective(input: {
   session: ComposedSession;
   phase: AthleticorePhase;
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): SessionFuelingDirective {
   const { session, phase } = input;
   const carbDemand = carbohydrateDemand(session, phase);
@@ -352,7 +352,7 @@ function recoveryDirectives(input: {
   sessions: ComposedSession[];
   phase: AthleticorePhase;
   confidence: ConfidenceValue;
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): RecoveryNutritionDirective[] {
   const hardSession = input.sessions.some((session) => (session.intensityRpe.target ?? 0) >= 7 || session.family === 'sparring');
   const strength = input.sessions.some((session) => session.family === 'strength');
@@ -439,7 +439,7 @@ function riskFlagsForTarget(input: {
   weightLbs: number | null;
   foodConfidence: ConfidenceValue;
   missingFields: UnknownField[];
-  generatedAt?: ISODateTimeString | null;
+  generatedAt?: ISODateTimeString | null | undefined;
 }): RiskFlag[] {
   const carriedNutritionRisks = input.state.riskFlags.filter((flag) =>
     flag.status === 'active'

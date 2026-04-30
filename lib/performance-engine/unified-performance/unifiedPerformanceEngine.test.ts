@@ -70,9 +70,9 @@ function bodyMass(value = 170, date = DATE): BodyMassState {
 }
 
 function journey(input: {
-  phase?: AthleticorePhase;
-  athlete?: AthleteProfile;
-  bodyMass?: BodyMassState;
+  phase?: AthleticorePhase | undefined;
+  athlete?: AthleteProfile | undefined;
+  bodyMass?: BodyMassState | undefined;
 } = {}): AthleteJourneyState {
   const currentAthlete = input.athlete ?? athlete();
   const phase = createPhaseState({

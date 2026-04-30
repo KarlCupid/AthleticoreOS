@@ -24,8 +24,8 @@ function clearUserScopedKeys<T>(store: Map<string, T>, userId: string) {
 
 export function invalidateEngineDataCache(input: {
   userId: string;
-  date?: string;
-  weekStart?: string;
+  date?: string | undefined;
+  weekStart?: string | undefined;
 }) {
   const { userId, date, weekStart } = input;
 
@@ -52,8 +52,8 @@ export function invalidateEngineDataCache(input: {
 export async function mutateEngineAffectingData<T>(
   input: {
     userId: string;
-    date?: string;
-    weekStart?: string;
+    date?: string | undefined;
+    weekStart?: string | undefined;
     reason: string;
   },
   mutation: () => Promise<T>,
@@ -66,8 +66,8 @@ export async function mutateEngineAffectingData<T>(
 export async function withEngineInvalidation<T>(
   input: {
     userId: string;
-    date?: string;
-    weekStart?: string;
+    date?: string | undefined;
+    weekStart?: string | undefined;
     reason: string;
   },
   mutation: () => Promise<T>,

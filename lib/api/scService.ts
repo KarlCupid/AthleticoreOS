@@ -109,9 +109,9 @@ function summarizeEffortLogs(efforts: WorkoutEffortLogRow[]): Pick<WorkoutLogRow
 export async function findOpenWorkoutLog(
     userId: string,
     params: {
-        date?: string;
-        weeklyPlanEntryId?: string;
-        scheduledActivityId?: string | null;
+        date?: string | undefined;
+        weeklyPlanEntryId?: string | undefined;
+        scheduledActivityId?: string | null | undefined;
     },
 ): Promise<WorkoutLogRow | null> {
     if (typeof params.scheduledActivityId === 'undefined' && !params.weeklyPlanEntryId) {
@@ -769,16 +769,16 @@ export async function startWorkoutV2(
     params: {
         workoutType: WorkoutType;
         focus: WorkoutFocus | null;
-        weeklyPlanEntryId?: string;
-        scheduledActivityId?: string | null;
-        gymProfileId?: string;
-        date?: string;
-        sessionFamily?: WorkoutLogRow['session_family'];
-        primaryModality?: WorkoutLogRow['primary_modality'];
-        energySystem?: WorkoutLogRow['energy_system'];
-        doseSummary?: WorkoutLogRow['dose_summary'];
-        trackingSchemaId?: string | null;
-        safetyFlags?: WorkoutLogRow['safety_flags'];
+        weeklyPlanEntryId?: string | undefined;
+        scheduledActivityId?: string | null | undefined;
+        gymProfileId?: string | undefined;
+        date?: string | undefined;
+        sessionFamily?: WorkoutLogRow['session_family'] | undefined;
+        primaryModality?: WorkoutLogRow['primary_modality'] | undefined;
+        energySystem?: WorkoutLogRow['energy_system'] | undefined;
+        doseSummary?: WorkoutLogRow['dose_summary'] | undefined;
+        trackingSchemaId?: string | null | undefined;
+        safetyFlags?: WorkoutLogRow['safety_flags'] | undefined;
     },
 ): Promise<WorkoutLogRow> {
     return withEngineInvalidation({ userId, date: params.date ?? today(), reason: 'guided_workout_start' }, async () => {
@@ -832,16 +832,16 @@ export async function logWorkoutSetV2(
         set_number: number;
         reps: number;
         weight_lbs: number;
-        rpe?: number;
-        tempo?: string;
-        rest_seconds?: number;
-        is_warmup?: boolean;
-        superset_group?: number;
-        target_weight?: number;
-        target_reps?: number;
-        target_rpe?: number;
-        was_adapted?: boolean;
-        adaptation_reason?: string;
+        rpe?: number | undefined;
+        tempo?: string | undefined;
+        rest_seconds?: number | undefined;
+        is_warmup?: boolean | undefined;
+        superset_group?: number | undefined;
+        target_weight?: number | undefined;
+        target_reps?: number | undefined;
+        target_rpe?: number | undefined;
+        was_adapted?: boolean | undefined;
+        adaptation_reason?: string | undefined;
     },
 ): Promise<WorkoutSetLogRow> {
     const { data, error } = await supabase

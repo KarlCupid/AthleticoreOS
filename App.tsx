@@ -246,7 +246,7 @@ function AppLoadErrorScreen({
 }: {
   loading: boolean;
   onRetry: () => void;
-  onSignOut?: () => void;
+  onSignOut?: (() => void) | undefined;
 }) {
   return (
     <View style={[styles.container, styles.centered, styles.errorScreen]}>

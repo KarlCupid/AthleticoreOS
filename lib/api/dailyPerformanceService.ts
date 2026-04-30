@@ -47,7 +47,7 @@ import { resolveUnifiedDailyPerformance } from './dailyPerformance/unifiedDailyP
 import type { DailyReadinessCheckinRow } from './dailyPerformance/trackingEntries';
 
 interface DailyPerformanceOptions {
-  forceRefresh?: boolean;
+  forceRefresh?: boolean | undefined;
 }
 
 let hasDailyPerformanceCheckColumns: boolean | null = null;

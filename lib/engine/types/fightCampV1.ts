@@ -51,26 +51,26 @@ export interface CampRecommendationPayload {
 
 export interface FightCampSetupInput {
   goalMode: AthleteGoalMode;
-  performanceGoalType?: PerformanceGoalType;
-  fightDate?: string;
-  fightOpportunityStatus?: 'confirmed' | 'short_notice' | 'rescheduled';
-  competitionTime?: string | null;
-  campStartDate?: string;
-  weighInTiming?: WeighInTiming;
-  weighInDate?: string | null;
-  weighInTime?: string | null;
-  targetWeightClassName?: string | null;
-  targetWeight?: number | null;
-  weightClassChanged?: boolean;
-  opponentName?: string | null;
-  opponentStance?: 'orthodox' | 'southpaw' | 'switch' | 'unknown' | null;
-  eventName?: string | null;
-  eventLocation?: string | null;
-  roundCount?: number;
-  roundDurationSec?: number;
-  restDurationSec?: number;
-  travelStartDate?: string | null;
-  travelEndDate?: string | null;
+  performanceGoalType?: PerformanceGoalType | undefined;
+  fightDate?: string | undefined;
+  fightOpportunityStatus?: 'confirmed' | 'short_notice' | 'rescheduled' | undefined;
+  competitionTime?: string | null | undefined;
+  campStartDate?: string | undefined;
+  weighInTiming?: WeighInTiming | undefined;
+  weighInDate?: string | null | undefined;
+  weighInTime?: string | null | undefined;
+  targetWeightClassName?: string | null | undefined;
+  targetWeight?: number | null | undefined;
+  weightClassChanged?: boolean | undefined;
+  opponentName?: string | null | undefined;
+  opponentStance?: 'orthodox' | 'southpaw' | 'switch' | 'unknown' | null | undefined;
+  eventName?: string | null | undefined;
+  eventLocation?: string | null | undefined;
+  roundCount?: number | undefined;
+  roundDurationSec?: number | undefined;
+  restDurationSec?: number | undefined;
+  travelStartDate?: string | null | undefined;
+  travelEndDate?: string | null | undefined;
 }
 
 export interface BuildPhaseSetupInput {

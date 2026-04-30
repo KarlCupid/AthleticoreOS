@@ -19,9 +19,9 @@ import type { SetPrescriptionVM, SetLogVM } from './types';
 interface LoadingPyramidProps {
   setPrescriptions: SetPrescriptionVM[];
   /** Index of the current set (1-based) — highlights the current block */
-  currentSetIndex?: number;
+  currentSetIndex?: number | undefined;
   /** Logged sets so far (for showing completed state) */
-  loggedSets?: SetLogVM[];
+  loggedSets?: SetLogVM[] | undefined;
 }
 
 export function LoadingPyramid({

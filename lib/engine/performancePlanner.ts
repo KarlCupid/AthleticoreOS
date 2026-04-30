@@ -12,23 +12,23 @@ import { deriveStimulusConstraintSet } from './readiness/profile.ts';
 
 interface PerformanceRiskInput {
   readinessState: ReadinessState;
-  readinessProfile?: ReadinessProfile | null;
-  constraintSet?: StimulusConstraintSet | null;
+  readinessProfile?: ReadinessProfile | null | undefined;
+  constraintSet?: StimulusConstraintSet | null | undefined;
   acwr: number;
-  isDeloadWeek?: boolean;
-  trainingIntensityCap?: number | null;
-  isSparringDay?: boolean;
-  campPhase?: CampPhase | null;
-  goalMode?: 'build_phase' | 'fight_camp';
-  daysOut?: number | null;
-  hasTechnicalSession?: boolean;
+  isDeloadWeek?: boolean | undefined;
+  trainingIntensityCap?: number | null | undefined;
+  isSparringDay?: boolean | undefined;
+  campPhase?: CampPhase | null | undefined;
+  goalMode?: 'build_phase' | 'fight_camp' | undefined;
+  daysOut?: number | null | undefined;
+  hasTechnicalSession?: boolean | undefined;
 }
 
 interface TrainingBlockInput {
   performanceGoalType: PerformanceGoalType;
-  campPhase?: CampPhase | null;
-  weeksSinceLastDeload?: number;
-  isDeloadWeek?: boolean;
+  campPhase?: CampPhase | null | undefined;
+  weeksSinceLastDeload?: number | undefined;
+  isDeloadWeek?: boolean | undefined;
 }
 
 const GOAL_ROTATIONS: Record<PerformanceGoalType, Record<number, WorkoutFocus[]>> = {

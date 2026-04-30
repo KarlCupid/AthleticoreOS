@@ -466,10 +466,10 @@ export function fromReplayStats(
 function mapTimedWork(tw: {
   format: string;
   totalDurationSec: number;
-  workIntervalSec?: number;
-  restIntervalSec?: number;
-  roundCount?: number;
-  targetRounds?: number;
+  workIntervalSec?: number | undefined;
+  restIntervalSec?: number | undefined;
+  roundCount?: number | undefined;
+  targetRounds?: number | undefined;
 }): TimedWorkVM {
   return {
     format: tw.format as TimedWorkVM['format'],
@@ -485,7 +485,7 @@ function mapCircuitRound(cr: {
   roundCount: number;
   restBetweenRoundsSec: number;
   movements: Array<{
-    exerciseId?: string;
+    exerciseId?: string | undefined;
     exerciseName: string;
     reps: number | null;
     durationSec: number | null;

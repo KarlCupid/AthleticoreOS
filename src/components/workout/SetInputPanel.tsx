@@ -70,8 +70,8 @@ interface NumberStepperProps {
   onDecrement: () => void;
   onIncrement: () => void;
   label: string;
-  formatValue?: (v: number) => string;
-  mode?: 'plan' | 'focus';
+  formatValue?: ((v: number) => string) | undefined;
+  mode?: 'plan' | 'focus' | undefined;
 }
 
 export function NumberStepper({
