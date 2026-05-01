@@ -11,18 +11,48 @@ export interface WorkoutProgrammingSeedRows {
   programming_exercises: {
     id: string;
     name: string;
+    short_name: string | null;
+    category: string | null;
     summary: string;
     coaching_summary: string;
+    sub_pattern_ids: string[];
+    joints_involved: string[];
+    plane_of_motion: string[];
+    setup_type: string | null;
     min_experience: string;
+    technical_complexity: string | null;
+    loadability: string | null;
+    fatigue_cost: string | null;
     intensity: string;
     impact: string;
+    spine_loading: string | null;
+    knee_demand: string | null;
+    hip_demand: string | null;
+    shoulder_demand: string | null;
+    wrist_demand: string | null;
+    ankle_demand: string | null;
+    balance_demand: string | null;
+    cardio_demand: string | null;
+    space_required: string[];
+    home_friendly: boolean | null;
+    gym_friendly: boolean | null;
+    beginner_friendly: boolean | null;
     contraindication_flags: string[];
+    setup_instructions: string[];
+    execution_instructions: string[];
+    breathing_instructions: string[];
+    safety_notes: string[];
+    default_prescription_ranges: object;
+    media: object;
     default_prescription_template_id: string;
   }[];
   exercise_primary_muscles: { exercise_id: string; muscle_group_id: string; sort_order: number }[];
   exercise_secondary_muscles: { exercise_id: string; muscle_group_id: string; sort_order: number }[];
   exercise_equipment: { exercise_id: string; equipment_type_id: string; requirement_kind: 'compatible' | 'optional'; }[];
   exercise_movement_patterns: { exercise_id: string; movement_pattern_id: string; sort_order: number }[];
+  exercise_progressions: { exercise_id: string; progression_exercise_id: string; rationale: string; sort_order: number }[];
+  exercise_regressions: { exercise_id: string; regression_exercise_id: string; rationale: string; sort_order: number }[];
+  exercise_substitution_links: { exercise_id: string; substitute_exercise_id: string; condition_flags: string[]; rationale: string; sort_order: number }[];
   exercise_workout_types: { exercise_id: string; workout_type_id: string }[];
   exercise_training_goals: { exercise_id: string; training_goal_id: string }[];
   exercise_tracking_metrics: { exercise_id: string; tracking_metric_id: string }[];
@@ -128,12 +158,41 @@ export function buildWorkoutProgrammingSeedRows(
     programming_exercises: catalog.exercises.map((exercise) => ({
       id: exercise.id,
       name: exercise.name,
+      short_name: exercise.shortName ?? null,
+      category: exercise.category ?? null,
       summary: exercise.summary,
       coaching_summary: exercise.coachingSummary,
+      sub_pattern_ids: exercise.subPatternIds ?? [],
+      joints_involved: exercise.jointsInvolved ?? [],
+      plane_of_motion: Array.isArray(exercise.planeOfMotion)
+        ? exercise.planeOfMotion
+        : exercise.planeOfMotion ? [exercise.planeOfMotion] : [],
+      setup_type: exercise.setupType ?? null,
       min_experience: exercise.minExperience,
+      technical_complexity: exercise.technicalComplexity ?? null,
+      loadability: exercise.loadability ?? null,
+      fatigue_cost: exercise.fatigueCost ?? null,
       intensity: exercise.intensity,
       impact: exercise.impact,
+      spine_loading: exercise.spineLoading ?? null,
+      knee_demand: exercise.kneeDemand ?? null,
+      hip_demand: exercise.hipDemand ?? null,
+      shoulder_demand: exercise.shoulderDemand ?? null,
+      wrist_demand: exercise.wristDemand ?? null,
+      ankle_demand: exercise.ankleDemand ?? null,
+      balance_demand: exercise.balanceDemand ?? null,
+      cardio_demand: exercise.cardioDemand ?? null,
+      space_required: exercise.spaceRequired ?? [],
+      home_friendly: exercise.homeFriendly ?? null,
+      gym_friendly: exercise.gymFriendly ?? null,
+      beginner_friendly: exercise.beginnerFriendly ?? null,
       contraindication_flags: exercise.contraindicationFlags,
+      setup_instructions: exercise.setupInstructions ?? [],
+      execution_instructions: exercise.executionInstructions ?? [],
+      breathing_instructions: exercise.breathingInstructions ?? [],
+      safety_notes: exercise.safetyNotes ?? [],
+      default_prescription_ranges: exercise.defaultPrescriptionRanges ?? {},
+      media: exercise.media ?? {},
       default_prescription_template_id: exercise.defaultPrescriptionTemplateId,
     })),
     exercise_primary_muscles: catalog.exercises.flatMap((exercise) => (
@@ -154,13 +213,38 @@ export function buildWorkoutProgrammingSeedRows(
       exercise.equipmentIds.map((equipmentTypeId) => ({
         exercise_id: exercise.id,
         equipment_type_id: equipmentTypeId,
-        requirement_kind: ['bodyweight', 'mat', 'open_space', 'track_or_road'].includes(equipmentTypeId) ? 'optional' : 'compatible',
+        requirement_kind: (exercise.equipmentOptionalIds ?? []).includes(equipmentTypeId) ? 'optional' : 'compatible',
       }))
     )),
     exercise_movement_patterns: catalog.exercises.flatMap((exercise) => (
       exercise.movementPatternIds.map((movementPatternId, index) => ({
         exercise_id: exercise.id,
         movement_pattern_id: movementPatternId,
+        sort_order: index + 1,
+      }))
+    )),
+    exercise_progressions: catalog.exercises.flatMap((exercise) => (
+      (exercise.progressionExerciseIds ?? []).map((progressionExerciseId, index) => ({
+        exercise_id: exercise.id,
+        progression_exercise_id: progressionExerciseId,
+        rationale: `${progressionExerciseId} is a higher-demand progression for ${exercise.id}.`,
+        sort_order: index + 1,
+      }))
+    )),
+    exercise_regressions: catalog.exercises.flatMap((exercise) => (
+      (exercise.regressionExerciseIds ?? []).map((regressionExerciseId, index) => ({
+        exercise_id: exercise.id,
+        regression_exercise_id: regressionExerciseId,
+        rationale: `${regressionExerciseId} lowers complexity, load, range, or impact for ${exercise.id}.`,
+        sort_order: index + 1,
+      }))
+    )),
+    exercise_substitution_links: catalog.exercises.flatMap((exercise) => (
+      (exercise.substitutionExerciseIds ?? []).map((substituteExerciseId, index) => ({
+        exercise_id: exercise.id,
+        substitute_exercise_id: substituteExerciseId,
+        condition_flags: exercise.contraindicationFlags,
+        rationale: `${substituteExerciseId} can preserve the training intent when ${exercise.id} is unavailable or not appropriate.`,
         sort_order: index + 1,
       }))
     )),

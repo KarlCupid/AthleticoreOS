@@ -1,6 +1,7 @@
 import type {
   EquipmentType,
   Exercise,
+  MovementPlane,
   MuscleGroup,
   PrescriptionTemplate,
   SessionTemplate,
@@ -188,8 +189,325 @@ export const assessmentMetrics: WorkoutTaxonomyItem[] = [
   { id: 'completion_tolerance', label: 'Completion Tolerance', summary: 'How well the athlete tolerated the prescription.' },
 ];
 
+const optionalSupportEquipmentIds = new Set(['mat', 'open_space', 'track_or_road', 'bench', 'plyo_box', 'squat_rack']);
+const homeEquipmentIds = new Set(['bodyweight', 'dumbbells', 'kettlebell', 'resistance_band', 'mat', 'open_space', 'jump_rope', 'bench', 'plyo_box', 'trx']);
+const gymEquipmentIds = new Set(['barbell', 'squat_rack', 'bench', 'pull_up_bar', 'cable_machine', 'medicine_ball', 'assault_bike', 'rowing_machine', 'treadmill', 'stationary_bike', 'sled', 'battle_rope', 'foam_roller', 'leg_press', 'lat_pulldown', 'open_space']);
+
+const exerciseRelationships: Record<string, Pick<Exercise, 'regressionExerciseIds' | 'progressionExerciseIds' | 'substitutionExerciseIds'>> = {
+  goblet_squat: { regressionExerciseIds: ['box_squat', 'bodyweight_squat'], progressionExerciseIds: ['trap_bar_deadlift', 'leg_press'], substitutionExerciseIds: ['bodyweight_squat', 'box_squat', 'leg_press'] },
+  bodyweight_squat: { regressionExerciseIds: ['box_squat'], progressionExerciseIds: ['goblet_squat', 'split_squat'], substitutionExerciseIds: ['box_squat', 'reverse_lunge'] },
+  box_squat: { regressionExerciseIds: [], progressionExerciseIds: ['bodyweight_squat', 'goblet_squat'], substitutionExerciseIds: ['bodyweight_squat', 'leg_press'] },
+  split_squat: { regressionExerciseIds: ['bodyweight_squat'], progressionExerciseIds: ['reverse_lunge', 'step_up'], substitutionExerciseIds: ['reverse_lunge', 'step_up'] },
+  reverse_lunge: { regressionExerciseIds: ['split_squat'], progressionExerciseIds: ['step_up'], substitutionExerciseIds: ['split_squat', 'step_up'] },
+  romanian_deadlift: { regressionExerciseIds: ['hip_hinge_dowel', 'glute_bridge'], progressionExerciseIds: ['trap_bar_deadlift', 'kettlebell_swing'], substitutionExerciseIds: ['glute_bridge', 'hip_hinge_dowel'] },
+  hip_hinge_dowel: { regressionExerciseIds: [], progressionExerciseIds: ['glute_bridge', 'romanian_deadlift'], substitutionExerciseIds: ['glute_bridge', 'cat_cow'] },
+  glute_bridge: { regressionExerciseIds: ['hip_hinge_dowel'], progressionExerciseIds: ['romanian_deadlift', 'kettlebell_swing'], substitutionExerciseIds: ['hip_hinge_dowel', 'bodyweight_squat'] },
+  trap_bar_deadlift: { regressionExerciseIds: ['romanian_deadlift', 'goblet_squat'], progressionExerciseIds: [], substitutionExerciseIds: ['romanian_deadlift', 'leg_press'] },
+  push_up: { regressionExerciseIds: ['incline_push_up'], progressionExerciseIds: ['dumbbell_bench_press', 'floor_press'], substitutionExerciseIds: ['incline_push_up', 'floor_press'] },
+  incline_push_up: { regressionExerciseIds: [], progressionExerciseIds: ['push_up', 'floor_press'], substitutionExerciseIds: ['push_up', 'floor_press'] },
+  dumbbell_bench_press: { regressionExerciseIds: ['floor_press', 'push_up'], progressionExerciseIds: [], substitutionExerciseIds: ['floor_press', 'push_up'] },
+  floor_press: { regressionExerciseIds: ['incline_push_up'], progressionExerciseIds: ['dumbbell_bench_press'], substitutionExerciseIds: ['push_up', 'dumbbell_bench_press'] },
+  overhead_press: { regressionExerciseIds: ['landmine_press', 'wall_slide'], progressionExerciseIds: [], substitutionExerciseIds: ['landmine_press', 'dumbbell_lateral_raise'] },
+  landmine_press: { regressionExerciseIds: ['wall_slide'], progressionExerciseIds: ['overhead_press'], substitutionExerciseIds: ['overhead_press', 'pallof_press'] },
+  one_arm_dumbbell_row: { regressionExerciseIds: ['band_row'], progressionExerciseIds: ['seated_cable_row'], substitutionExerciseIds: ['band_row', 'seated_cable_row'] },
+  inverted_row: { regressionExerciseIds: ['band_row'], progressionExerciseIds: ['assisted_pull_up'], substitutionExerciseIds: ['band_row', 'one_arm_dumbbell_row'] },
+  band_row: { regressionExerciseIds: [], progressionExerciseIds: ['one_arm_dumbbell_row', 'inverted_row'], substitutionExerciseIds: ['seated_cable_row', 'one_arm_dumbbell_row'] },
+  lat_pulldown: { regressionExerciseIds: ['band_row'], progressionExerciseIds: ['assisted_pull_up'], substitutionExerciseIds: ['assisted_pull_up', 'seated_cable_row'] },
+  assisted_pull_up: { regressionExerciseIds: ['lat_pulldown', 'band_row'], progressionExerciseIds: [], substitutionExerciseIds: ['lat_pulldown', 'inverted_row'] },
+  dead_bug: { regressionExerciseIds: ['crocodile_breathing'], progressionExerciseIds: ['front_plank', 'bird_dog'], substitutionExerciseIds: ['bird_dog', 'front_plank'] },
+  front_plank: { regressionExerciseIds: ['dead_bug'], progressionExerciseIds: ['bear_crawl'], substitutionExerciseIds: ['dead_bug', 'side_plank'] },
+  side_plank: { regressionExerciseIds: ['dead_bug'], progressionExerciseIds: ['suitcase_carry'], substitutionExerciseIds: ['pallof_press', 'front_plank'] },
+  pallof_press: { regressionExerciseIds: ['dead_bug'], progressionExerciseIds: ['cable_woodchop'], substitutionExerciseIds: ['side_plank', 'cable_woodchop'] },
+  suitcase_carry: { regressionExerciseIds: ['side_plank', 'pallof_press'], progressionExerciseIds: ['farmers_carry'], substitutionExerciseIds: ['farmers_carry', 'pallof_press'] },
+  farmers_carry: { regressionExerciseIds: ['suitcase_carry'], progressionExerciseIds: [], substitutionExerciseIds: ['suitcase_carry', 'sled_push'] },
+  med_ball_rotational_throw: { regressionExerciseIds: ['cable_woodchop'], progressionExerciseIds: [], substitutionExerciseIds: ['medicine_ball_slam', 'cable_woodchop'] },
+  medicine_ball_slam: { regressionExerciseIds: ['battle_rope_wave'], progressionExerciseIds: ['med_ball_rotational_throw'], substitutionExerciseIds: ['battle_rope_wave', 'sled_push'] },
+  kettlebell_swing: { regressionExerciseIds: ['romanian_deadlift', 'glute_bridge'], progressionExerciseIds: [], substitutionExerciseIds: ['romanian_deadlift', 'sled_push'] },
+  step_up: { regressionExerciseIds: ['split_squat'], progressionExerciseIds: ['reverse_lunge'], substitutionExerciseIds: ['split_squat', 'box_squat'] },
+  box_jump: { regressionExerciseIds: ['step_up', 'pogo_hop'], progressionExerciseIds: [], substitutionExerciseIds: ['step_up', 'sled_push'] },
+  pogo_hop: { regressionExerciseIds: ['ankle_rocker'], progressionExerciseIds: ['box_jump'], substitutionExerciseIds: ['ankle_rocker', 'jump_rope_easy'] },
+  assault_bike_zone2: { regressionExerciseIds: ['easy_walk'], progressionExerciseIds: ['stationary_bike_zone2'], substitutionExerciseIds: ['stationary_bike_zone2', 'rower_zone2'] },
+  stationary_bike_zone2: { regressionExerciseIds: ['easy_walk'], progressionExerciseIds: ['assault_bike_zone2', 'rower_zone2'], substitutionExerciseIds: ['assault_bike_zone2', 'incline_walk'] },
+  rower_zone2: { regressionExerciseIds: ['stationary_bike_zone2'], progressionExerciseIds: [], substitutionExerciseIds: ['stationary_bike_zone2', 'incline_walk'] },
+  incline_walk: { regressionExerciseIds: ['easy_walk'], progressionExerciseIds: ['rower_zone2'], substitutionExerciseIds: ['easy_walk', 'stationary_bike_zone2'] },
+  easy_walk: { regressionExerciseIds: [], progressionExerciseIds: ['incline_walk', 'stationary_bike_zone2'], substitutionExerciseIds: ['stationary_bike_zone2', 'incline_walk'] },
+  sled_push: { regressionExerciseIds: ['incline_walk'], progressionExerciseIds: [], substitutionExerciseIds: ['stationary_bike_zone2', 'battle_rope_wave'] },
+  battle_rope_wave: { regressionExerciseIds: ['band_pull_apart'], progressionExerciseIds: ['medicine_ball_slam'], substitutionExerciseIds: ['stationary_bike_zone2', 'sled_push'] },
+  bear_crawl: { regressionExerciseIds: ['front_plank', 'bird_dog'], progressionExerciseIds: [], substitutionExerciseIds: ['bird_dog', 'front_plank'] },
+  bird_dog: { regressionExerciseIds: ['dead_bug'], progressionExerciseIds: ['bear_crawl'], substitutionExerciseIds: ['dead_bug', 'single_leg_balance'] },
+  cat_cow: { regressionExerciseIds: ['childs_pose_breathing'], progressionExerciseIds: ['worlds_greatest_stretch'], substitutionExerciseIds: ['thoracic_open_book', 'childs_pose_breathing'] },
+  worlds_greatest_stretch: { regressionExerciseIds: ['half_kneeling_hip_flexor', 'thoracic_open_book'], progressionExerciseIds: [], substitutionExerciseIds: ['half_kneeling_hip_flexor', 'thoracic_open_book'] },
+  half_kneeling_hip_flexor: { regressionExerciseIds: ['glute_bridge'], progressionExerciseIds: ['worlds_greatest_stretch'], substitutionExerciseIds: ['ankle_rocker', 'worlds_greatest_stretch'] },
+  ankle_rocker: { regressionExerciseIds: [], progressionExerciseIds: ['pogo_hop', 'worlds_greatest_stretch'], substitutionExerciseIds: ['half_kneeling_hip_flexor', 'cat_cow'] },
+  thoracic_open_book: { regressionExerciseIds: ['cat_cow'], progressionExerciseIds: ['worlds_greatest_stretch'], substitutionExerciseIds: ['cat_cow', 'band_pull_apart'] },
+  band_pull_apart: { regressionExerciseIds: ['wall_slide'], progressionExerciseIds: ['band_external_rotation'], substitutionExerciseIds: ['wall_slide', 'band_external_rotation'] },
+  band_external_rotation: { regressionExerciseIds: ['wall_slide'], progressionExerciseIds: ['band_pull_apart'], substitutionExerciseIds: ['wall_slide', 'band_pull_apart'] },
+  wall_slide: { regressionExerciseIds: [], progressionExerciseIds: ['band_pull_apart', 'band_external_rotation'], substitutionExerciseIds: ['band_pull_apart', 'thoracic_open_book'] },
+  childs_pose_breathing: { regressionExerciseIds: [], progressionExerciseIds: ['cat_cow', 'crocodile_breathing'], substitutionExerciseIds: ['crocodile_breathing', 'cat_cow'] },
+  crocodile_breathing: { regressionExerciseIds: ['childs_pose_breathing'], progressionExerciseIds: ['dead_bug'], substitutionExerciseIds: ['childs_pose_breathing', 'cat_cow'] },
+  single_leg_balance: { regressionExerciseIds: ['bird_dog'], progressionExerciseIds: ['step_up'], substitutionExerciseIds: ['bird_dog', 'ankle_rocker'] },
+  leg_press: { regressionExerciseIds: ['box_squat', 'goblet_squat'], progressionExerciseIds: ['trap_bar_deadlift'], substitutionExerciseIds: ['goblet_squat', 'box_squat'] },
+  cable_woodchop: { regressionExerciseIds: ['pallof_press'], progressionExerciseIds: ['med_ball_rotational_throw'], substitutionExerciseIds: ['pallof_press', 'medicine_ball_slam'] },
+  dumbbell_lateral_raise: { regressionExerciseIds: ['wall_slide'], progressionExerciseIds: ['overhead_press'], substitutionExerciseIds: ['band_pull_apart', 'overhead_press'] },
+  dumbbell_curl: { regressionExerciseIds: ['band_row'], progressionExerciseIds: [], substitutionExerciseIds: ['cable_triceps_pressdown', 'band_row'] },
+  cable_triceps_pressdown: { regressionExerciseIds: ['incline_push_up'], progressionExerciseIds: ['push_up'], substitutionExerciseIds: ['floor_press', 'push_up'] },
+  seated_cable_row: { regressionExerciseIds: ['band_row'], progressionExerciseIds: ['one_arm_dumbbell_row'], substitutionExerciseIds: ['one_arm_dumbbell_row', 'lat_pulldown'] },
+  jump_rope_easy: { regressionExerciseIds: ['pogo_hop', 'ankle_rocker'], progressionExerciseIds: ['box_jump'], substitutionExerciseIds: ['incline_walk', 'stationary_bike_zone2'] },
+};
+
+function uniqueValues<T>(items: T[]): T[] {
+  return Array.from(new Set(items));
+}
+
+function primaryPattern(exercise: Exercise): string {
+  return exercise.movementPatternIds[0] ?? 'general';
+}
+
+function includesAny(items: readonly string[], targets: readonly string[]): boolean {
+  return targets.some((target) => items.includes(target));
+}
+
+function categoryFor(exercise: Exercise): NonNullable<Exercise['category']> {
+  if (exercise.defaultPrescriptionTemplateId === 'power_quality' || exercise.workoutTypeIds.includes('power')) return 'power';
+  if (exercise.defaultPrescriptionTemplateId === 'conditioning_interval') return 'conditioning';
+  if (exercise.defaultPrescriptionTemplateId === 'zone2_steady') return 'cardio';
+  if (exercise.defaultPrescriptionTemplateId === 'breathing_reset' || exercise.defaultPrescriptionTemplateId === 'recovery_easy') return 'recovery';
+  if (exercise.defaultPrescriptionTemplateId === 'shoulder_prehab') return 'prehab';
+  if (exercise.defaultPrescriptionTemplateId === 'mobility_hold') return exercise.name.toLowerCase().includes('stretch') ? 'flexibility' : 'mobility';
+  if (exercise.defaultPrescriptionTemplateId === 'hypertrophy_straight' || exercise.defaultPrescriptionTemplateId === 'accessory_volume') return 'hypertrophy';
+  if (exercise.movementPatternIds.includes('balance')) return 'balance';
+  return 'strength';
+}
+
+function subPatternIdsFor(exercise: Exercise): string[] {
+  const ids: string[] = [];
+  for (const patternId of exercise.movementPatternIds) {
+    if (patternId === 'squat') ids.push(exercise.equipmentIds.includes('bodyweight') ? 'bodyweight_squat_pattern' : 'loaded_squat_pattern');
+    if (patternId === 'hinge') ids.push(exercise.id.includes('swing') ? 'ballistic_hip_hinge' : 'controlled_hip_hinge');
+    if (patternId === 'lunge') ids.push('unilateral_knee_dominant');
+    if (patternId === 'horizontal_push') ids.push(exercise.equipmentIds.includes('bodyweight') ? 'bodyweight_press' : 'loaded_horizontal_press');
+    if (patternId === 'vertical_push') ids.push('overhead_pressing');
+    if (patternId === 'horizontal_pull') ids.push(exercise.equipmentIds.includes('bodyweight') ? 'bodyweight_row' : 'loaded_row');
+    if (patternId === 'vertical_pull') ids.push('shoulder_adduction_pull');
+    if (patternId === 'carry') ids.push(exercise.id.includes('suitcase') ? 'unilateral_loaded_carry' : 'bilateral_loaded_carry');
+    if (patternId === 'anti_extension') ids.push('anterior_core_control');
+    if (patternId === 'anti_rotation') ids.push('rotary_stability');
+    if (patternId === 'rotation') ids.push(exercise.defaultPrescriptionTemplateId === 'power_quality' ? 'rotational_power' : 'controlled_rotation');
+    if (patternId === 'locomotion') ids.push(exercise.defaultPrescriptionTemplateId === 'zone2_steady' ? 'steady_aerobic' : 'interval_locomotion');
+    if (patternId === 'jump_land') ids.push('elastic_lower_leg');
+    if (patternId === 'crawl') ids.push('contralateral_crawl');
+    if (patternId === 'shoulder_prehab') ids.push('scapular_rotator_cuff_control');
+    if (patternId === 'hip_mobility') ids.push('hip_extension_rotation_range');
+    if (patternId === 'thoracic_mobility') ids.push('thoracic_rotation_extension');
+    if (patternId === 'ankle_mobility') ids.push('ankle_dorsiflexion_control');
+    if (patternId === 'breathing') ids.push('parasympathetic_breathing');
+    if (patternId === 'balance') ids.push('single_leg_postural_control');
+  }
+  return uniqueValues(ids);
+}
+
+function jointsFor(exercise: Exercise): string[] {
+  const joints: string[] = [];
+  if (includesAny(exercise.movementPatternIds, ['squat', 'hinge', 'lunge', 'hip_mobility', 'locomotion', 'jump_land', 'balance'])) joints.push('hips');
+  if (includesAny(exercise.movementPatternIds, ['squat', 'lunge', 'locomotion', 'jump_land'])) joints.push('knees');
+  if (includesAny(exercise.movementPatternIds, ['squat', 'lunge', 'locomotion', 'jump_land', 'ankle_mobility', 'balance'])) joints.push('ankles');
+  if (includesAny(exercise.movementPatternIds, ['hinge', 'anti_extension', 'anti_rotation', 'rotation', 'crawl', 'breathing', 'thoracic_mobility'])) joints.push('spine');
+  if (includesAny(exercise.movementPatternIds, ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'carry', 'crawl', 'shoulder_prehab', 'rotation'])) joints.push('shoulders');
+  if (includesAny(exercise.movementPatternIds, ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'shoulder_prehab'])) joints.push('elbows');
+  if (includesAny(exercise.movementPatternIds, ['horizontal_push', 'horizontal_pull', 'vertical_pull', 'carry', 'crawl', 'shoulder_prehab'])) joints.push('wrists');
+  return uniqueValues(joints.length ? joints : ['spine']);
+}
+
+function planeFor(exercise: Exercise): NonNullable<Exercise['planeOfMotion']> {
+  const planes: MovementPlane[] = [];
+  if (includesAny(exercise.movementPatternIds, ['squat', 'hinge', 'horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'locomotion', 'jump_land', 'hip_mobility', 'ankle_mobility'])) planes.push('sagittal');
+  if (includesAny(exercise.movementPatternIds, ['lunge', 'carry', 'balance'])) planes.push('frontal');
+  if (includesAny(exercise.movementPatternIds, ['anti_rotation', 'rotation', 'thoracic_mobility'])) planes.push('transverse');
+  if (includesAny(exercise.movementPatternIds, ['breathing', 'anti_extension'])) planes.push('static');
+  const flat = uniqueValues(planes);
+  return flat.length > 1 ? flat : flat[0] ?? 'sagittal';
+}
+
+function setupTypeFor(exercise: Exercise): NonNullable<Exercise['setupType']> {
+  if (exercise.equipmentIds.some((id) => ['leg_press', 'lat_pulldown', 'assault_bike', 'rowing_machine', 'treadmill', 'stationary_bike'].includes(id))) return 'machine';
+  if (exercise.equipmentIds.includes('bench')) return 'bench';
+  if (exercise.equipmentIds.includes('mat') || includesAny(exercise.movementPatternIds, ['anti_extension', 'breathing'])) return 'floor';
+  if (exercise.movementPatternIds.includes('locomotion') || exercise.movementPatternIds.includes('carry')) return 'locomotion';
+  if (exercise.equipmentIds.includes('plyo_box') || exercise.equipmentIds.includes('trx')) return 'supported';
+  return 'standing';
+}
+
+function technicalComplexityFor(exercise: Exercise): NonNullable<Exercise['technicalComplexity']> {
+  if (['box_jump', 'pogo_hop', 'kettlebell_swing', 'med_ball_rotational_throw', 'medicine_ball_slam', 'trap_bar_deadlift'].includes(exercise.id)) return 'high';
+  if (includesAny(exercise.movementPatternIds, ['hinge', 'lunge', 'carry', 'rotation', 'crawl']) || exercise.id === 'rower_zone2') return 'moderate';
+  return 'low';
+}
+
+function loadabilityFor(exercise: Exercise): NonNullable<Exercise['loadability']> {
+  if (exercise.defaultPrescriptionTemplateId === 'strength_heavy' || exercise.equipmentIds.some((id) => ['barbell', 'leg_press', 'sled'].includes(id))) return 'high';
+  if (exercise.equipmentIds.some((id) => ['dumbbells', 'kettlebell', 'cable_machine', 'lat_pulldown', 'battle_rope', 'medicine_ball'].includes(id))) return 'moderate';
+  return 'low';
+}
+
+function fatigueCostFor(exercise: Exercise): NonNullable<Exercise['fatigueCost']> {
+  if (exercise.intensity === 'hard' || exercise.defaultPrescriptionTemplateId === 'conditioning_interval' || exercise.defaultPrescriptionTemplateId === 'power_quality') return 'high';
+  if (exercise.intensity === 'moderate' || exercise.defaultPrescriptionTemplateId === 'hypertrophy_straight' || exercise.defaultPrescriptionTemplateId === 'strength_beginner') return 'moderate';
+  return 'low';
+}
+
+function demandFor(exercise: Exercise, area: 'knee' | 'hip' | 'shoulder' | 'wrist' | 'ankle' | 'balance' | 'cardio'): NonNullable<Exercise['kneeDemand']> {
+  const patterns = exercise.movementPatternIds;
+  if (area === 'knee') return includesAny(patterns, ['squat', 'lunge', 'jump_land']) ? 'high' : patterns.includes('locomotion') ? 'moderate' : 'low';
+  if (area === 'hip') return includesAny(patterns, ['hinge', 'squat', 'lunge', 'hip_mobility', 'carry']) ? 'high' : patterns.includes('locomotion') ? 'moderate' : 'low';
+  if (area === 'shoulder') return includesAny(patterns, ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'crawl', 'shoulder_prehab', 'rotation']) ? 'high' : patterns.includes('carry') ? 'moderate' : 'low';
+  if (area === 'wrist') return includesAny(patterns, ['horizontal_push', 'crawl']) ? 'high' : includesAny(patterns, ['carry', 'horizontal_pull', 'vertical_pull', 'shoulder_prehab']) ? 'moderate' : 'low';
+  if (area === 'ankle') return includesAny(patterns, ['jump_land', 'ankle_mobility']) ? 'high' : includesAny(patterns, ['squat', 'lunge', 'locomotion', 'balance']) ? 'moderate' : 'low';
+  if (area === 'balance') return includesAny(patterns, ['balance', 'lunge', 'carry', 'crawl', 'rotation']) ? 'high' : includesAny(patterns, ['squat', 'hinge', 'locomotion']) ? 'moderate' : 'low';
+  if (exercise.workoutTypeIds.includes('zone2_cardio') || exercise.workoutTypeIds.includes('conditioning') || exercise.workoutTypeIds.includes('low_impact_conditioning')) return 'high';
+  return includesAny(patterns, ['carry', 'crawl', 'jump_land']) ? 'moderate' : 'low';
+}
+
+function spineLoadingFor(exercise: Exercise): NonNullable<Exercise['spineLoading']> {
+  if (exercise.contraindicationFlags.includes('back_caution') || exercise.defaultPrescriptionTemplateId === 'strength_heavy') return 'high';
+  if (includesAny(exercise.movementPatternIds, ['hinge', 'squat', 'carry', 'rotation', 'crawl'])) return 'moderate';
+  if (includesAny(exercise.movementPatternIds, ['anti_extension', 'anti_rotation', 'thoracic_mobility', 'breathing'])) return 'low';
+  return 'none';
+}
+
+function spaceRequiredFor(exercise: Exercise): NonNullable<Exercise['spaceRequired']> {
+  if (exercise.equipmentIds.some((id) => ['assault_bike', 'rowing_machine', 'treadmill', 'stationary_bike', 'leg_press', 'lat_pulldown', 'cable_machine'].includes(id))) return ['machine_station'];
+  if (includesAny(exercise.movementPatternIds, ['carry', 'locomotion']) || exercise.equipmentIds.includes('sled')) return ['lane', 'open_space'];
+  if (includesAny(exercise.movementPatternIds, ['jump_land', 'crawl', 'rotation']) || exercise.equipmentIds.includes('battle_rope')) return ['open_space'];
+  if (exercise.equipmentIds.includes('mat') || exercise.movementPatternIds.includes('breathing')) return ['mat'];
+  return ['small_space'];
+}
+
+function requiredEquipmentFor(exercise: Exercise): string[] {
+  if (exercise.equipmentIds.includes('bodyweight')) return ['bodyweight'];
+  const required = exercise.equipmentIds.filter((id) => !optionalSupportEquipmentIds.has(id));
+  return required.length ? required : [exercise.equipmentIds[0]!];
+}
+
+function optionalEquipmentFor(exercise: Exercise, required: string[]): string[] {
+  return exercise.equipmentIds.filter((id) => !required.includes(id));
+}
+
+function setupInstructionsFor(exercise: Exercise): string[] {
+  const equipment = exercise.equipmentIds.filter((id) => id !== 'bodyweight').join(', ') || 'bodyweight';
+  const pattern = primaryPattern(exercise);
+  if (pattern === 'squat') return [`Set feet in a stable squat stance and position ${equipment} so the torso can stay braced.`, 'Choose a depth target that is pain-free before the first working rep.'];
+  if (pattern === 'hinge') return [`Set ${equipment} close to the body and soften the knees before sending the hips back.`, 'Brace the trunk before each rep so the hinge comes from the hips, not the low back.'];
+  if (pattern === 'lunge') return ['Start in a stance that lets the front foot stay rooted and the pelvis stay square.', 'Use bodyweight first if balance or knee comfort is uncertain.'];
+  if (includesAny(exercise.movementPatternIds, ['horizontal_push', 'vertical_push'])) return [`Set hands and ${equipment} so shoulders start comfortable and ribs stay stacked over the pelvis.`, 'Use a range that avoids pinching at the front of the shoulder.'];
+  if (includesAny(exercise.movementPatternIds, ['horizontal_pull', 'vertical_pull'])) return [`Set the handle, band, or support so the first pull starts with relaxed neck and active shoulder blades.`, 'Pick a load or body angle that allows a controlled pause.'];
+  if (exercise.movementPatternIds.includes('locomotion')) return [`Set up the ${equipment} path or machine and confirm cadence feels smooth before starting the working interval.`, 'Begin below target effort for the first minute so intensity can settle gradually.'];
+  if (includesAny(exercise.movementPatternIds, ['hip_mobility', 'thoracic_mobility', 'ankle_mobility', 'shoulder_prehab'])) return ['Start from a supported position where the target joint can move without compensation.', 'Use a small range first, then expand only if symptoms stay quiet.'];
+  if (exercise.movementPatternIds.includes('breathing')) return ['Choose a comfortable position that lets the neck and jaw relax.', 'Place attention on slow nasal inhales and longer exhales before adding movement.'];
+  if (includesAny(exercise.movementPatternIds, ['anti_extension', 'anti_rotation', 'balance', 'carry', 'crawl'])) return ['Set the trunk before moving and keep a stable base of support.', 'Place any load or support where posture can stay tall and controlled.'];
+  return ['Set up in a stable start position with the target joints pain-free.', 'Confirm the first rep can be performed without rushing or compensation.'];
+}
+
+function executionInstructionsFor(exercise: Exercise): string[] {
+  const pattern = primaryPattern(exercise);
+  if (pattern === 'squat') return ['Descend under control with knees tracking over the middle toes.', 'Stand by driving the floor away while keeping the ribs stacked and feet rooted.'];
+  if (pattern === 'hinge') return ['Push the hips back until hamstrings load while the spine position stays unchanged.', 'Return by squeezing the glutes and bringing the hips through without leaning back.'];
+  if (pattern === 'lunge') return ['Lower with control, keep the front foot planted, and avoid bouncing out of the bottom.', 'Drive through the front foot and finish tall before the next rep.'];
+  if (includesAny(exercise.movementPatternIds, ['horizontal_push', 'vertical_push'])) return ['Press smoothly without shrugging or losing trunk position.', 'Stop the set when shoulder comfort, wrist position, or rep speed changes.'];
+  if (includesAny(exercise.movementPatternIds, ['horizontal_pull', 'vertical_pull'])) return ['Start each rep by setting the shoulder blade, then pull without neck tension.', 'Control the return instead of letting the load pull posture out of position.'];
+  if (exercise.movementPatternIds.includes('locomotion')) return ['Build into the target effort gradually and keep the rhythm repeatable.', 'Reduce pace or resistance if breathing becomes sharp or mechanics deteriorate.'];
+  if (exercise.movementPatternIds.includes('jump_land')) return ['Keep contacts quiet and springy with knees and ankles aligned.', 'Stop when landing quality, rhythm, or lower-leg comfort drops.'];
+  if (includesAny(exercise.movementPatternIds, ['hip_mobility', 'thoracic_mobility', 'ankle_mobility', 'shoulder_prehab'])) return ['Move slowly through the available range and pause where control is weakest.', 'Keep the target joint moving without forcing neighboring joints to compensate.'];
+  if (exercise.movementPatternIds.includes('breathing')) return ['Let each exhale soften the rib cage and slow the system down.', 'Keep the effort easy enough that symptoms do not rise.'];
+  if (includesAny(exercise.movementPatternIds, ['anti_extension', 'anti_rotation', 'balance', 'carry', 'crawl'])) return ['Maintain trunk position while the limbs or load move around it.', 'End the set before posture collapses or balance becomes a scramble.'];
+  return ['Move with controlled tempo and finish each rep in the same position you started.', 'Keep effort repeatable across the full prescription.'];
+}
+
+function breathingInstructionsFor(exercise: Exercise): string[] {
+  if (exercise.movementPatternIds.includes('breathing')) return ['Inhale quietly through the nose when possible.', 'Use a longer exhale to downshift effort and track whether symptoms improve.'];
+  if (exercise.defaultPrescriptionTemplateId === 'zone2_steady') return ['Keep breathing conversational throughout the main block.', 'Lower pace if talking requires broken sentences.'];
+  if (exercise.defaultPrescriptionTemplateId === 'conditioning_interval') return ['Exhale through hard efforts and regain control during rest.', 'Start each round only when breathing has settled enough to repeat quality.'];
+  if (includesAny(exercise.movementPatternIds, ['squat', 'hinge', 'lunge', 'horizontal_push', 'vertical_push', 'carry'])) return ['Inhale and brace before the hard part of each rep.', 'Exhale through the finish without losing trunk position.'];
+  return ['Use steady nasal or quiet mouth breathing.', 'Do not hold the breath during low-intensity mobility or control work.'];
+}
+
+function safetyNotesFor(exercise: Exercise): string[] {
+  const notes: string[] = [];
+  if (exercise.contraindicationFlags.includes('knee_caution')) notes.push('Skip or regress if knee pain increases during the set or after the session.');
+  if (exercise.contraindicationFlags.includes('back_caution')) notes.push('Stop if back position changes, symptoms radiate, or hinge/carry loading feels sharp.');
+  if (exercise.contraindicationFlags.includes('shoulder_caution')) notes.push('Use a smaller range or substitute if shoulder pinching, instability, or pain appears.');
+  if (exercise.contraindicationFlags.includes('wrist_caution')) notes.push('Use a neutral wrist option or substitute if wrist pressure becomes painful.');
+  if (exercise.contraindicationFlags.includes('no_jumping')) notes.push('Do not use when jump or landing restrictions are active.');
+  if (exercise.defaultPrescriptionTemplateId === 'zone2_steady') notes.push('Keep effort conversational; this is not a test of toughness or max output.');
+  if (exercise.defaultPrescriptionTemplateId === 'conditioning_interval') notes.push('Intervals should remain repeatable; stop before form becomes sloppy or symptoms climb.');
+  if (notes.length === 0) notes.push('Stop the exercise if pain, dizziness, or unusual symptoms appear.');
+  return notes;
+}
+
+function prescriptionRangesFor(exercise: Exercise): NonNullable<Exercise['defaultPrescriptionRanges']> {
+  if (exercise.defaultPrescriptionTemplateId === 'strength_heavy') return { sets: { min: 3, max: 5 }, reps: { min: 3, max: 6 }, rpe: { min: 6, max: 8 }, restSeconds: { min: 120, max: 180 }, load: { min: 70, max: 85, unit: 'percent_estimated_max' } };
+  if (exercise.defaultPrescriptionTemplateId === 'strength_beginner') return { sets: { min: 2, max: 4 }, reps: { min: 6, max: 10 }, rpe: { min: 5, max: 7 }, restSeconds: { min: 60, max: 120 } };
+  if (exercise.defaultPrescriptionTemplateId === 'hypertrophy_straight') return { sets: { min: 2, max: 4 }, reps: { min: 8, max: 12 }, rpe: { min: 6, max: 8 }, rir: { min: 2, max: 4 }, restSeconds: { min: 60, max: 90 } };
+  if (exercise.defaultPrescriptionTemplateId === 'accessory_volume') return { sets: { min: 2, max: 3 }, reps: { min: 12, max: 15 }, rpe: { min: 6, max: 8 }, restSeconds: { min: 30, max: 60 } };
+  if (exercise.defaultPrescriptionTemplateId === 'power_quality') return { sets: { min: 3, max: 5 }, reps: { min: 3, max: 5 }, rpe: { min: 5, max: 7 }, restSeconds: { min: 90, max: 150 } };
+  if (exercise.defaultPrescriptionTemplateId === 'conditioning_interval') return { rounds: { min: 4, max: 8 }, workSeconds: { min: 20, max: 45 }, restIntervalSeconds: { min: 30, max: 60 }, rpe: { min: 5, max: 7 } };
+  if (exercise.defaultPrescriptionTemplateId === 'zone2_steady') return { durationMinutes: { min: 20, max: 45 }, rpe: { min: 3, max: 5 }, heartRateZone: { min: 2, max: 2, unit: 'zone' }, pace: { target: 'conversational' }, talkTest: 'Can speak in full sentences without gasping.' };
+  if (exercise.defaultPrescriptionTemplateId === 'recovery_easy') return { durationMinutes: { min: 8, max: 25 }, rpe: { min: 1, max: 3 }, talkTest: 'Easy nasal or conversational breathing.' };
+  if (exercise.defaultPrescriptionTemplateId === 'mobility_hold') return { sets: { min: 1, max: 3 }, reps: { target: '4-8 controlled reps per side' }, holdSeconds: { min: 10, max: 30 }, rpe: { min: 1, max: 3 }, targetJoints: jointsFor(exercise), targetTissues: exercise.primaryMuscleIds, rangeOfMotionIntent: 'Increase usable pain-free range while keeping control at the end position.' };
+  if (exercise.defaultPrescriptionTemplateId === 'breathing_reset') return { durationMinutes: { min: 2, max: 6 }, rpe: { min: 1, max: 2 }, talkTest: 'Breathing should feel calm enough to speak normally.' };
+  if (exercise.defaultPrescriptionTemplateId === 'shoulder_prehab') return { sets: { min: 1, max: 3 }, reps: { min: 10, max: 15 }, rpe: { min: 2, max: 4 }, targetJoints: ['shoulders', 'scapulae'], targetTissues: ['rotator_cuff', 'rear_delts', 'upper_back'], rangeOfMotionIntent: 'Restore shoulder control without pinching or fatigue.' };
+  if (exercise.defaultPrescriptionTemplateId === 'carry_control') return { sets: { min: 2, max: 4 }, durationSeconds: { min: 20, max: 45 }, rpe: { min: 5, max: 7 }, restSeconds: { min: 45, max: 90 } };
+  return { sets: { min: 2, max: 3 }, reps: { min: 6, max: 10 }, rpe: { min: 3, max: 6 }, restSeconds: { min: 30, max: 60 } };
+}
+
+function trackingMetricsFor(exercise: Exercise): string[] {
+  const additions: string[] = [];
+  if (exercise.defaultPrescriptionTemplateId === 'zone2_steady') additions.push('duration_minutes', 'heart_rate_zone', 'heart_rate_avg', 'actual_rpe', 'pace');
+  if (exercise.defaultPrescriptionTemplateId === 'conditioning_interval') additions.push('rounds_completed', 'work_seconds', 'actual_rpe');
+  if (includesAny(exercise.equipmentIds, ['dumbbells', 'kettlebell', 'barbell', 'cable_machine', 'leg_press', 'lat_pulldown', 'sled'])) additions.push('load_used');
+  if (includesAny(exercise.movementPatternIds, ['hip_mobility', 'thoracic_mobility', 'ankle_mobility', 'shoulder_prehab'])) additions.push('range_quality');
+  if (includesAny(exercise.movementPatternIds, ['breathing'])) additions.push('breathing_quality');
+  if (!exercise.trackingMetricIds.includes('actual_rpe') && !includesAny(exercise.movementPatternIds, ['breathing', 'hip_mobility', 'thoracic_mobility', 'ankle_mobility', 'shoulder_prehab'])) additions.push('actual_rpe');
+  return uniqueValues([...exercise.trackingMetricIds, ...additions]);
+}
+
 function ex(input: Exercise): Exercise {
-  return input;
+  const requiredEquipment = input.equipmentRequiredIds ?? requiredEquipmentFor(input);
+  const relationships = exerciseRelationships[input.id] ?? {};
+  return {
+    ...input,
+    shortName: input.shortName ?? input.name.replace(/^Dumbbell /, '').replace(/^Easy /, ''),
+    category: input.category ?? categoryFor(input),
+    subPatternIds: input.subPatternIds ?? subPatternIdsFor(input),
+    jointsInvolved: input.jointsInvolved ?? jointsFor(input),
+    planeOfMotion: input.planeOfMotion ?? planeFor(input),
+    equipmentRequiredIds: requiredEquipment,
+    equipmentOptionalIds: input.equipmentOptionalIds ?? optionalEquipmentFor(input, requiredEquipment),
+    setupType: input.setupType ?? setupTypeFor(input),
+    technicalComplexity: input.technicalComplexity ?? technicalComplexityFor(input),
+    loadability: input.loadability ?? loadabilityFor(input),
+    fatigueCost: input.fatigueCost ?? fatigueCostFor(input),
+    spineLoading: input.spineLoading ?? spineLoadingFor(input),
+    kneeDemand: input.kneeDemand ?? demandFor(input, 'knee'),
+    hipDemand: input.hipDemand ?? demandFor(input, 'hip'),
+    shoulderDemand: input.shoulderDemand ?? demandFor(input, 'shoulder'),
+    wristDemand: input.wristDemand ?? demandFor(input, 'wrist'),
+    ankleDemand: input.ankleDemand ?? demandFor(input, 'ankle'),
+    balanceDemand: input.balanceDemand ?? demandFor(input, 'balance'),
+    cardioDemand: input.cardioDemand ?? demandFor(input, 'cardio'),
+    spaceRequired: input.spaceRequired ?? spaceRequiredFor(input),
+    homeFriendly: input.homeFriendly ?? input.equipmentIds.every((id) => homeEquipmentIds.has(id)),
+    gymFriendly: input.gymFriendly ?? input.equipmentIds.some((id) => gymEquipmentIds.has(id)),
+    beginnerFriendly: input.beginnerFriendly ?? (input.minExperience === 'beginner' && technicalComplexityFor(input) !== 'high'),
+    regressionExerciseIds: input.regressionExerciseIds ?? relationships.regressionExerciseIds ?? [],
+    progressionExerciseIds: input.progressionExerciseIds ?? relationships.progressionExerciseIds ?? [],
+    substitutionExerciseIds: input.substitutionExerciseIds ?? relationships.substitutionExerciseIds ?? [],
+    setupInstructions: input.setupInstructions ?? setupInstructionsFor(input),
+    executionInstructions: input.executionInstructions ?? executionInstructionsFor(input),
+    breathingInstructions: input.breathingInstructions ?? breathingInstructionsFor(input),
+    safetyNotes: input.safetyNotes ?? safetyNotesFor(input),
+    trackingMetricIds: trackingMetricsFor(input),
+    defaultPrescriptionRanges: input.defaultPrescriptionRanges ?? prescriptionRangesFor(input),
+  };
 }
 
 export const exercises: Exercise[] = [

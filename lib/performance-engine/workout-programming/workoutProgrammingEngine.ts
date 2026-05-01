@@ -158,6 +158,7 @@ export function validateWorkoutProgrammingCatalog(
   const prescriptionIds = new Set(catalog.prescriptionTemplates.map((item) => item.id));
   const exerciseIds = new Set(catalog.exercises.map((item) => item.id));
   const trackingMetricIds = new Set(catalog.trackingMetrics.map((item) => item.id));
+  const genericInstructionFragments = ['adjust as needed', 'use good form', 'do what feels right'];
 
   for (const goal of catalog.trainingGoals) {
     const type = resolveWorkoutTypeForGoal(goal.id);
@@ -166,16 +167,50 @@ export function validateWorkoutProgrammingCatalog(
 
   for (const exercise of catalog.exercises) {
     if (!exercise.name.trim()) errors.push(`${exercise.id} is missing name.`);
+    if (!exercise.shortName?.trim()) errors.push(`${exercise.id} is missing short name.`);
+    if (!exercise.category) errors.push(`${exercise.id} is missing category.`);
     if (exercise.movementPatternIds.length === 0) errors.push(`${exercise.id} is missing movement patterns.`);
     if (exercise.primaryMuscleIds.length === 0) errors.push(`${exercise.id} is missing primary muscles.`);
     if (exercise.equipmentIds.length === 0) errors.push(`${exercise.id} is missing equipment.`);
+    if (!exercise.equipmentRequiredIds?.length && !exercise.equipmentOptionalIds?.length) errors.push(`${exercise.id} is missing an equipment compatibility path.`);
+    if (!exercise.subPatternIds?.length) errors.push(`${exercise.id} is missing sub-pattern ontology.`);
+    if (!exercise.jointsInvolved?.length) errors.push(`${exercise.id} is missing joint ontology.`);
+    if (!exercise.planeOfMotion || (Array.isArray(exercise.planeOfMotion) && exercise.planeOfMotion.length === 0)) errors.push(`${exercise.id} is missing plane of motion.`);
+    if (!exercise.setupType) errors.push(`${exercise.id} is missing setup type.`);
+    if (!exercise.technicalComplexity) errors.push(`${exercise.id} is missing technical complexity.`);
+    if (!exercise.loadability) errors.push(`${exercise.id} is missing loadability.`);
+    if (!exercise.fatigueCost) errors.push(`${exercise.id} is missing fatigue cost.`);
+    if (!exercise.spineLoading) errors.push(`${exercise.id} is missing spine loading.`);
+    for (const field of ['kneeDemand', 'hipDemand', 'shoulderDemand', 'wristDemand', 'ankleDemand', 'balanceDemand', 'cardioDemand'] as const) {
+      if (!exercise[field]) errors.push(`${exercise.id} is missing ${field}.`);
+    }
+    if (!exercise.spaceRequired?.length) errors.push(`${exercise.id} is missing space requirement.`);
+    if (exercise.homeFriendly == null) errors.push(`${exercise.id} is missing home-friendly flag.`);
+    if (exercise.gymFriendly == null) errors.push(`${exercise.id} is missing gym-friendly flag.`);
+    if (exercise.beginnerFriendly == null) errors.push(`${exercise.id} is missing beginner-friendly flag.`);
+    if (!exercise.defaultPrescriptionRanges || Object.keys(exercise.defaultPrescriptionRanges).length === 0) errors.push(`${exercise.id} is missing default prescription ranges.`);
+    if (!exercise.setupInstructions?.length) errors.push(`${exercise.id} is missing setup instructions.`);
+    if (!exercise.executionInstructions?.length) errors.push(`${exercise.id} is missing execution instructions.`);
+    if (!exercise.breathingInstructions?.length) errors.push(`${exercise.id} is missing breathing instructions.`);
+    if (!exercise.safetyNotes?.length) errors.push(`${exercise.id} is missing safety notes.`);
+    const instructionText = [
+      ...(exercise.setupInstructions ?? []),
+      ...(exercise.executionInstructions ?? []),
+      ...(exercise.breathingInstructions ?? []),
+      ...(exercise.safetyNotes ?? []),
+    ].join(' ').toLowerCase();
+    if (genericInstructionFragments.some((fragment) => instructionText.includes(fragment))) errors.push(`${exercise.id} contains generic exercise ontology language.`);
     if (!prescriptionIds.has(exercise.defaultPrescriptionTemplateId)) errors.push(`${exercise.id} references missing prescription template.`);
     for (const id of exercise.movementPatternIds) if (!patternIds.has(id)) errors.push(`${exercise.id} references missing pattern ${id}.`);
     for (const id of [...exercise.primaryMuscleIds, ...exercise.secondaryMuscleIds]) if (!muscleIds.has(id)) errors.push(`${exercise.id} references missing muscle ${id}.`);
     for (const id of exercise.equipmentIds) if (!equipmentIds.has(id)) errors.push(`${exercise.id} references missing equipment ${id}.`);
+    for (const id of [...(exercise.equipmentRequiredIds ?? []), ...(exercise.equipmentOptionalIds ?? [])]) if (!equipmentIds.has(id)) errors.push(`${exercise.id} references missing enriched equipment ${id}.`);
     for (const id of exercise.workoutTypeIds) if (!workoutTypeIds.has(id)) errors.push(`${exercise.id} references missing workout type ${id}.`);
     for (const id of exercise.goalIds) if (!goalIds.has(id)) errors.push(`${exercise.id} references missing goal ${id}.`);
     for (const id of exercise.trackingMetricIds) if (!trackingMetricIds.has(id)) errors.push(`${exercise.id} references missing tracking metric ${id}.`);
+    for (const id of exercise.regressionExerciseIds ?? []) if (!exerciseIds.has(id)) errors.push(`${exercise.id} references missing regression ${id}.`);
+    for (const id of exercise.progressionExerciseIds ?? []) if (!exerciseIds.has(id)) errors.push(`${exercise.id} references missing progression ${id}.`);
+    for (const id of exercise.substitutionExerciseIds ?? []) if (!exerciseIds.has(id)) errors.push(`${exercise.id} references missing substitution ${id}.`);
   }
 
   for (const template of catalog.sessionTemplates) {

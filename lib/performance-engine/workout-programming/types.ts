@@ -17,7 +17,7 @@ export type ExerciseCategory =
 export type MovementPlane = 'sagittal' | 'frontal' | 'transverse' | 'multi_planar' | 'static';
 export type ExerciseSetupType = 'floor' | 'standing' | 'seated' | 'bench' | 'machine' | 'rack' | 'supported' | 'locomotion';
 export type ExerciseTechnicalComplexity = 'low' | 'moderate' | 'high' | 'coach_required';
-export type ExerciseLoadability = 'none' | 'light' | 'moderate' | 'heavy' | 'maximal' | 'variable';
+export type ExerciseLoadability = 'none' | 'light' | 'low' | 'moderate' | 'high' | 'heavy' | 'maximal' | 'variable';
 export type ExerciseDemandLevel = 'none' | 'low' | 'moderate' | 'high';
 export type ExerciseSpineLoading = 'none' | 'low' | 'moderate' | 'high' | 'axial' | 'shear';
 export type ExerciseSpaceRequired = 'mat' | 'small_space' | 'lane' | 'open_space' | 'machine_station' | 'outdoor';
@@ -71,10 +71,19 @@ export interface ExercisePrescriptionRanges {
   load?: NumericRange;
   rpe?: NumericRange;
   rir?: NumericRange;
+  heartRateZone?: NumericRange | TextRange;
+  pace?: NumericRange | TextRange;
+  watts?: NumericRange;
+  talkTest?: string;
   restSeconds?: NumericRange;
   holdSeconds?: NumericRange;
   rounds?: NumericRange;
   distance?: NumericRange;
+  workSeconds?: NumericRange;
+  restIntervalSeconds?: NumericRange;
+  targetJoints?: string[];
+  targetTissues?: string[];
+  rangeOfMotionIntent?: string;
 }
 
 export interface ExerciseMedia {
