@@ -61,6 +61,7 @@ export interface WorkoutProgrammingSeedRows {
   prescription_templates: {
     id: string;
     label: string;
+    kind: string;
     applies_to_workout_type_ids: string[];
     default_sets: number | null;
     default_reps: string | null;
@@ -70,6 +71,7 @@ export interface WorkoutProgrammingSeedRows {
     rest_seconds: number;
     tempo: string | null;
     intensity_cue: string;
+    prescription_payload: object;
   }[];
   session_templates: {
     id: string;
@@ -262,6 +264,7 @@ export function buildWorkoutProgrammingSeedRows(
     prescription_templates: catalog.prescriptionTemplates.map((template) => ({
       id: template.id,
       label: template.label,
+      kind: template.kind,
       applies_to_workout_type_ids: template.appliesToWorkoutTypeIds,
       default_sets: template.defaultSets ?? null,
       default_reps: template.defaultReps ?? null,
@@ -271,6 +274,7 @@ export function buildWorkoutProgrammingSeedRows(
       rest_seconds: template.restSeconds,
       tempo: template.tempo ?? null,
       intensity_cue: template.intensityCue,
+      prescription_payload: template.payload,
     })),
     session_templates: catalog.sessionTemplates.map((template) => ({
       id: template.id,

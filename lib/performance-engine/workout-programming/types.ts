@@ -29,7 +29,8 @@ export type PrescriptionKind =
   | 'flexibility'
   | 'balance'
   | 'recovery'
-  | 'power';
+  | 'power'
+  | 'conditioning';
 export type IntensityModel = 'rpe' | 'rir' | 'percent_1rm' | 'heart_rate_zone' | 'pace' | 'watts' | 'talk_test' | 'quality';
 export type VolumeModel = 'sets_reps' | 'duration' | 'distance' | 'rounds' | 'contacts' | 'density' | 'holds';
 export type RestModel = 'fixed' | 'range' | 'as_needed' | 'heart_rate_recovery' | 'quality_recovery' | 'none';
@@ -176,10 +177,135 @@ export interface PrescriptionVolumeTarget {
   rangeOfMotionIntent?: string;
 }
 
+export interface ResistancePrescriptionPayload {
+  kind: 'resistance';
+  sets: NumericRange;
+  reps?: string;
+  repRange: NumericRange | TextRange;
+  loadGuidance: string;
+  intensityModel: Extract<IntensityModel, 'rpe' | 'rir' | 'percent_1rm'>;
+  RPE: NumericRange;
+  RIR?: NumericRange;
+  percent1RM?: NumericRange;
+  restSecondsRange: NumericRange;
+  tempo: string;
+  effortGuidance: string;
+  mainLiftVsAccessory: 'main_lift' | 'accessory' | 'hypertrophy_accessory' | 'core_accessory';
+  weeklyVolumeTarget?: NumericRange;
+  progressionRuleIds: string[];
+}
+
+export interface CardioPrescriptionPayload {
+  kind: 'cardio';
+  durationMinutes: NumericRange;
+  modality: 'bike' | 'rower' | 'walk' | 'run' | 'mixed_low_impact';
+  heartRateZone: NumericRange | TextRange;
+  RPE: NumericRange;
+  talkTest: string;
+  pace?: NumericRange | TextRange;
+  watts?: NumericRange;
+  progression: 'duration' | 'frequency' | 'duration_then_frequency';
+  progressionRuleIds: string[];
+}
+
+export interface IntervalPrescriptionPayload {
+  kind: 'interval';
+  workIntervalSeconds: NumericRange;
+  restIntervalSeconds: NumericRange;
+  rounds: NumericRange;
+  targetIntensity: PrescriptionIntensityTarget;
+  impactLevel: Exercise['impact'];
+  fatigueRisk: ExerciseDemandLevel;
+  scalingOptions: {
+    down: string;
+    up: string;
+  };
+}
+
+export interface MobilityPrescriptionPayload {
+  kind: 'mobility';
+  targetJoints: string[];
+  rangeOfMotionIntent: string;
+  reps: NumericRange | TextRange;
+  holdTimeSeconds?: NumericRange;
+  breathing: string;
+  painFreeRange: boolean;
+  endRangeControl: string;
+}
+
+export interface FlexibilityPrescriptionPayload {
+  kind: 'flexibility';
+  targetTissues: string[];
+  targetJoints: string[];
+  holdTimeSeconds: NumericRange;
+  breathing: string;
+  painFreeRange: boolean;
+  rangeOfMotionIntent: string;
+}
+
+export interface BalancePrescriptionPayload {
+  kind: 'balance';
+  baseOfSupport: 'bilateral' | 'split_stance' | 'single_leg' | 'moving';
+  surface: 'floor' | 'soft_surface' | 'line' | 'unstable';
+  visualInput: 'eyes_open' | 'eyes_closed' | 'head_turns';
+  mode: 'static' | 'dynamic';
+  durationSeconds: NumericRange;
+  complexityProgression: string[];
+  fallRiskRules: string[];
+}
+
+export interface RecoveryPrescriptionPayload {
+  kind: 'recovery';
+  intensityCap: NumericRange;
+  durationMinutes: NumericRange;
+  breathingStrategy: string;
+  circulationGoal: string;
+  readinessAdjustment: string;
+}
+
+export interface PowerPrescriptionPayload {
+  kind: 'power';
+  sets: NumericRange;
+  reps: NumericRange | TextRange;
+  explosiveIntent: string;
+  fullRecoverySeconds: NumericRange;
+  technicalQuality: string;
+  lowFatigue: boolean;
+  movementSpeed: string;
+  eligibilityRestrictions: string[];
+}
+
+export interface ConditioningPrescriptionPayload {
+  kind: 'conditioning';
+  workIntervalSeconds: NumericRange;
+  restIntervalSeconds: NumericRange;
+  rounds: NumericRange;
+  targetIntensity: PrescriptionIntensityTarget;
+  impactLevel: Exercise['impact'];
+  fatigueRisk: ExerciseDemandLevel;
+  densityTarget?: string;
+  scalingOptions: {
+    down: string;
+    up: string;
+  };
+}
+
+export type PrescriptionPayload =
+  | ResistancePrescriptionPayload
+  | CardioPrescriptionPayload
+  | IntervalPrescriptionPayload
+  | MobilityPrescriptionPayload
+  | FlexibilityPrescriptionPayload
+  | BalancePrescriptionPayload
+  | RecoveryPrescriptionPayload
+  | PowerPrescriptionPayload
+  | ConditioningPrescriptionPayload;
+
 export interface PrescriptionTemplate {
   id: string;
   label: string;
-  kind?: PrescriptionKind;
+  kind: PrescriptionKind;
+  payload: PrescriptionPayload;
   appliesToWorkoutTypeIds: string[];
   appliesToGoalIds?: string[];
   appliesToExerciseCategory?: ExerciseCategory[];
@@ -463,6 +589,8 @@ export interface GeneratedExercisePrescription {
     restSeconds: number;
     tempo: string | null;
     intensityCue: string;
+    kind: PrescriptionKind;
+    payload: PrescriptionPayload;
   };
   trackingMetricIds: string[];
   explanation: string;

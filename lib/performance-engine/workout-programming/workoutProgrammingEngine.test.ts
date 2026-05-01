@@ -35,6 +35,10 @@ function allExercises(workout: GeneratedWorkout) {
   return workout.blocks.flatMap((block) => block.exercises);
 }
 
+function mainExercises(workout: GeneratedWorkout) {
+  return workout.blocks.filter((block) => block.kind === 'main').flatMap((block) => block.exercises);
+}
+
 const genericOntologyFragments = ['adjust as needed', 'use good form', 'do what feels right'];
 
 console.log('\n-- workout programming engine --');
@@ -56,6 +60,13 @@ console.log('\n-- workout programming engine --');
   assert('12 session templates seeded', workoutProgrammingCatalog.sessionTemplates.length >= 12);
   assert('25 tracking metrics seeded', workoutProgrammingCatalog.trackingMetrics.length >= 25);
   assert('15 assessment metrics seeded', workoutProgrammingCatalog.assessmentMetrics.length >= 15);
+  assert('every prescription template has a typed payload', workoutProgrammingCatalog.prescriptionTemplates.every((template) => (
+    template.kind === template.payload.kind
+  )));
+  assert('all major prescription payload kinds are seeded', (
+    ['resistance', 'cardio', 'interval', 'mobility', 'flexibility', 'balance', 'recovery', 'power', 'conditioning']
+      .every((kind) => workoutProgrammingCatalog.prescriptionTemplates.some((template) => template.payload.kind === kind))
+  ));
   const seedRows = buildWorkoutProgrammingSeedRows();
   assert('seed loader emits exercise rows', seedRows.programming_exercises.length === workoutProgrammingCatalog.exercises.length);
   assert('seed loader emits enriched exercise ontology columns', seedRows.programming_exercises.every((exercise) => (
@@ -74,6 +85,10 @@ console.log('\n-- workout programming engine --');
     && seedRows.exercise_regressions.length > 0
     && seedRows.exercise_substitution_links.length > 0
   ));
+  assert('seed loader emits typed prescription payloads', seedRows.prescription_templates.every((template) => (
+    Boolean(template.kind)
+    && Boolean(template.prescription_payload)
+  )));
   assert('seed loader emits movement-slot rows', seedRows.session_template_movement_slots.length > 0);
 })();
 
@@ -159,6 +174,76 @@ console.log('\n-- workout programming engine --');
 })();
 
 (() => {
+  const templates = workoutProgrammingCatalog.prescriptionTemplates;
+  const strength = templates.find((template) => template.id === 'strength_beginner');
+  const hypertrophy = templates.find((template) => template.id === 'hypertrophy_straight');
+  const zone2 = templates.find((template) => template.id === 'zone2_steady');
+  const hiit = templates.find((template) => template.id === 'hiit_interval');
+  const mobility = templates.find((template) => template.id === 'mobility_hold');
+  const flexibility = templates.find((template) => template.id === 'flexibility_hold');
+  const balance = templates.find((template) => template.id === 'core_control');
+  const recovery = templates.find((template) => template.id === 'recovery_easy');
+  const power = templates.find((template) => template.id === 'power_quality');
+  const conditioning = templates.find((template) => template.id === 'conditioning_interval');
+
+  assert('strength payload includes rest and load guidance', Boolean(
+    strength?.payload.kind === 'resistance'
+    && strength.payload.restSecondsRange.min
+    && strength.payload.loadGuidance
+    && strength.payload.progressionRuleIds.length,
+  ));
+  assert('hypertrophy payload includes RIR and double progression', Boolean(
+    hypertrophy?.payload.kind === 'resistance'
+    && hypertrophy.payload.RIR
+    && hypertrophy.payload.progressionRuleIds.some((id) => id.includes('double')),
+  ));
+  assert('Zone 2 payload includes duration and intensity target', Boolean(
+    zone2?.payload.kind === 'cardio'
+    && zone2.payload.durationMinutes
+    && zone2.payload.heartRateZone
+    && zone2.payload.talkTest,
+  ));
+  assert('HIIT payload includes work rest rounds and intensity', Boolean(
+    hiit?.payload.kind === 'interval'
+    && hiit.payload.workIntervalSeconds
+    && hiit.payload.restIntervalSeconds
+    && hiit.payload.rounds
+    && hiit.payload.targetIntensity.RPE,
+  ));
+  assert('mobility payload includes target joints and end-range control', Boolean(
+    mobility?.payload.kind === 'mobility'
+    && mobility.payload.targetJoints.length
+    && mobility.payload.endRangeControl,
+  ));
+  assert('flexibility payload includes tissues and hold time', Boolean(
+    flexibility?.payload.kind === 'flexibility'
+    && flexibility.payload.targetTissues.length
+    && flexibility.payload.holdTimeSeconds,
+  ));
+  assert('balance payload includes fall-risk rules', Boolean(
+    balance?.payload.kind === 'balance'
+    && balance.payload.fallRiskRules.length
+    && balance.payload.complexityProgression.length,
+  ));
+  assert('recovery payload caps intensity below hard', Boolean(
+    recovery?.payload.kind === 'recovery'
+    && (recovery.payload.intensityCap.max ?? 10) <= 3,
+  ));
+  assert('power payload requires full recovery and low fatigue', Boolean(
+    power?.payload.kind === 'power'
+    && power.payload.lowFatigue
+    && (power.payload.fullRecoverySeconds.min ?? 0) >= 90,
+  ));
+  assert('conditioning payload includes repeatable interval controls', Boolean(
+    conditioning?.payload.kind === 'conditioning'
+    && conditioning.payload.workIntervalSeconds
+    && conditioning.payload.restIntervalSeconds
+    && conditioning.payload.rounds
+    && conditioning.payload.scalingOptions.down,
+  ));
+})();
+
+(() => {
   const rows = queryWorkoutExercises({
     movementPatternIds: ['squat'],
     equipmentIds: ['bodyweight'],
@@ -196,6 +281,57 @@ console.log('\n-- workout programming engine --');
       )
     )));
   }
+})();
+
+(() => {
+  const strength = generated({ goalId: 'beginner_strength', durationMinutes: 40, equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'], experienceLevel: 'beginner' });
+  const hypertrophy = generated({ goalId: 'hypertrophy', durationMinutes: 45, equipmentIds: ['dumbbells', 'bench', 'resistance_band'], experienceLevel: 'beginner' });
+  const zone2 = generated({ goalId: 'zone2_cardio', durationMinutes: 35, equipmentIds: ['stationary_bike'], experienceLevel: 'beginner' });
+  const mobility = generated({ goalId: 'mobility', durationMinutes: 25, equipmentIds: ['bodyweight'], experienceLevel: 'beginner' });
+  const recovery = generated({ goalId: 'recovery', durationMinutes: 20, equipmentIds: ['bodyweight'], experienceLevel: 'beginner' });
+  const conditioning = generated({ goalId: 'low_impact_conditioning', durationMinutes: 30, equipmentIds: ['stationary_bike', 'battle_rope'], experienceLevel: 'beginner' });
+  const power = generated({ goalId: 'boxing_support', durationMinutes: 40, equipmentIds: ['bodyweight', 'resistance_band', 'dumbbells'], experienceLevel: 'beginner' });
+  const balance = generated({ goalId: 'core_durability', durationMinutes: 30, equipmentIds: ['bodyweight', 'mat', 'resistance_band'], experienceLevel: 'beginner' });
+
+  assert('generated strength exposes resistance payload with rest guidance', mainExercises(strength).every((exercise) => (
+    exercise.prescription.payload.kind === 'resistance'
+    && Boolean(exercise.prescription.payload.restSecondsRange)
+  )));
+  assert('generated hypertrophy exposes RIR and double-progression payload', mainExercises(hypertrophy).every((exercise) => (
+    exercise.prescription.payload.kind === 'resistance'
+    && Boolean(exercise.prescription.payload.RIR)
+    && exercise.prescription.payload.progressionRuleIds.some((id) => id.includes('double'))
+  )));
+  assert('generated Zone 2 exposes cardio duration and talk-test payload', mainExercises(zone2).every((exercise) => (
+    exercise.prescription.payload.kind === 'cardio'
+    && Boolean(exercise.prescription.payload.durationMinutes)
+    && Boolean(exercise.prescription.payload.heartRateZone)
+    && Boolean(exercise.prescription.payload.talkTest)
+  )));
+  assert('generated mobility exposes target joint payload', mainExercises(mobility).every((exercise) => (
+    exercise.prescription.payload.kind === 'mobility'
+    && exercise.prescription.payload.targetJoints.length > 0
+  )));
+  assert('generated recovery stays easy', mainExercises(recovery).every((exercise) => (
+    exercise.prescription.payload.kind === 'recovery'
+    && exercise.prescription.targetRpe <= 3
+  )));
+  assert('generated conditioning exposes work rest rounds and intensity', mainExercises(conditioning).every((exercise) => (
+    exercise.prescription.payload.kind === 'conditioning'
+    && Boolean(exercise.prescription.payload.workIntervalSeconds)
+    && Boolean(exercise.prescription.payload.restIntervalSeconds)
+    && Boolean(exercise.prescription.payload.rounds)
+    && Boolean(exercise.prescription.payload.targetIntensity.RPE)
+  )));
+  assert('generated power exposes low-fatigue quality gate', mainExercises(power).every((exercise) => (
+    exercise.prescription.payload.kind === 'power'
+    && exercise.prescription.payload.lowFatigue
+    && exercise.prescription.restSeconds >= 90
+  )));
+  assert('generated balance exposes fall-risk controls', mainExercises(balance).some((exercise) => (
+    exercise.prescription.payload.kind === 'balance'
+    && exercise.prescription.payload.fallRiskRules.length > 0
+  )));
 })();
 
 (() => {
