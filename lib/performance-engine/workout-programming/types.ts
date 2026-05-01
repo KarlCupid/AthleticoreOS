@@ -1,6 +1,40 @@
 export type WorkoutExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 export type WorkoutIntensity = 'recovery' | 'low' | 'moderate' | 'hard';
 export type WorkoutBlockKind = 'warmup' | 'main' | 'cooldown';
+export type ExerciseCategory =
+  | 'strength'
+  | 'hypertrophy'
+  | 'power'
+  | 'conditioning'
+  | 'cardio'
+  | 'mobility'
+  | 'flexibility'
+  | 'balance'
+  | 'recovery'
+  | 'skill'
+  | 'assessment'
+  | 'prehab';
+export type MovementPlane = 'sagittal' | 'frontal' | 'transverse' | 'multi_planar' | 'static';
+export type ExerciseSetupType = 'floor' | 'standing' | 'seated' | 'bench' | 'machine' | 'rack' | 'supported' | 'locomotion';
+export type ExerciseTechnicalComplexity = 'low' | 'moderate' | 'high' | 'coach_required';
+export type ExerciseLoadability = 'none' | 'light' | 'moderate' | 'heavy' | 'maximal' | 'variable';
+export type ExerciseDemandLevel = 'none' | 'low' | 'moderate' | 'high';
+export type ExerciseSpineLoading = 'none' | 'low' | 'moderate' | 'high' | 'axial' | 'shear';
+export type ExerciseSpaceRequired = 'mat' | 'small_space' | 'lane' | 'open_space' | 'machine_station' | 'outdoor';
+export type PrescriptionKind =
+  | 'resistance'
+  | 'cardio'
+  | 'interval'
+  | 'mobility'
+  | 'flexibility'
+  | 'balance'
+  | 'recovery'
+  | 'power';
+export type IntensityModel = 'rpe' | 'rir' | 'percent_1rm' | 'heart_rate_zone' | 'pace' | 'watts' | 'talk_test' | 'quality';
+export type VolumeModel = 'sets_reps' | 'duration' | 'distance' | 'rounds' | 'contacts' | 'density' | 'holds';
+export type RestModel = 'fixed' | 'range' | 'as_needed' | 'heart_rate_recovery' | 'quality_recovery' | 'none';
+export type RuleType = 'progression' | 'regression' | 'deload';
+export type DescriptionToneVariant = 'plain' | 'coach' | 'encouraging' | 'clinical' | 'concise';
 
 export interface WorkoutTaxonomyItem {
   id: string;
@@ -16,29 +50,130 @@ export interface EquipmentType extends WorkoutTaxonomyItem {
   category: 'bodyweight' | 'free_weight' | 'machine' | 'cardio' | 'accessory' | 'space';
 }
 
+export interface NumericRange {
+  min?: number;
+  max?: number;
+  target?: number;
+  unit?: string;
+}
+
+export interface TextRange {
+  min?: string;
+  max?: string;
+  target?: string;
+}
+
+export interface ExercisePrescriptionRanges {
+  sets?: NumericRange;
+  reps?: NumericRange | TextRange;
+  durationSeconds?: NumericRange;
+  durationMinutes?: NumericRange;
+  load?: NumericRange;
+  rpe?: NumericRange;
+  rir?: NumericRange;
+  restSeconds?: NumericRange;
+  holdSeconds?: NumericRange;
+  rounds?: NumericRange;
+  distance?: NumericRange;
+}
+
+export interface ExerciseMedia {
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  imageUrl?: string;
+  animationUrl?: string;
+  altText?: string;
+  attribution?: string;
+}
+
 export interface Exercise {
   id: string;
   name: string;
+  shortName?: string;
+  category?: ExerciseCategory;
   summary: string;
   coachingSummary: string;
   movementPatternIds: string[];
+  subPatternIds?: string[];
   primaryMuscleIds: string[];
   secondaryMuscleIds: string[];
+  jointsInvolved?: string[];
+  planeOfMotion?: MovementPlane | MovementPlane[];
   equipmentIds: string[];
+  equipmentRequiredIds?: string[];
+  equipmentOptionalIds?: string[];
+  setupType?: ExerciseSetupType;
   workoutTypeIds: string[];
   goalIds: string[];
   minExperience: WorkoutExperienceLevel;
+  technicalComplexity?: ExerciseTechnicalComplexity;
+  loadability?: ExerciseLoadability;
+  fatigueCost?: ExerciseDemandLevel;
   intensity: WorkoutIntensity;
   impact: 'none' | 'low' | 'moderate' | 'high';
+  spineLoading?: ExerciseSpineLoading;
+  kneeDemand?: ExerciseDemandLevel;
+  hipDemand?: ExerciseDemandLevel;
+  shoulderDemand?: ExerciseDemandLevel;
+  wristDemand?: ExerciseDemandLevel;
+  ankleDemand?: ExerciseDemandLevel;
+  balanceDemand?: ExerciseDemandLevel;
+  cardioDemand?: ExerciseDemandLevel;
+  spaceRequired?: ExerciseSpaceRequired[];
+  homeFriendly?: boolean;
+  gymFriendly?: boolean;
+  beginnerFriendly?: boolean;
+  regressionExerciseIds?: string[];
+  progressionExerciseIds?: string[];
+  substitutionExerciseIds?: string[];
   contraindicationFlags: string[];
+  setupInstructions?: string[];
+  executionInstructions?: string[];
+  breathingInstructions?: string[];
+  coachingCueIds?: string[];
+  commonMistakeIds?: string[];
+  safetyNotes?: string[];
   trackingMetricIds: string[];
+  defaultPrescriptionRanges?: ExercisePrescriptionRanges;
+  media?: ExerciseMedia;
   defaultPrescriptionTemplateId: string;
+}
+
+export interface PrescriptionIntensityTarget {
+  RPE?: NumericRange;
+  RIR?: NumericRange;
+  percent1RM?: NumericRange;
+  heartRateZone?: NumericRange | TextRange;
+  pace?: NumericRange | TextRange;
+  watts?: NumericRange;
+  talkTest?: 'nasal_breathing' | 'conversational' | 'broken_sentences' | 'hard_to_speak' | string;
+  quality?: string;
+}
+
+export interface PrescriptionVolumeTarget {
+  sets?: NumericRange;
+  reps?: NumericRange | TextRange;
+  durationSeconds?: NumericRange;
+  durationMinutes?: NumericRange;
+  distance?: NumericRange;
+  rounds?: NumericRange;
+  contacts?: NumericRange;
+  densityTarget?: string;
+  workInterval?: NumericRange;
+  restInterval?: NumericRange;
+  holdDuration?: NumericRange;
+  targetJoints?: string[];
+  targetTissues?: string[];
+  rangeOfMotionIntent?: string;
 }
 
 export interface PrescriptionTemplate {
   id: string;
   label: string;
+  kind?: PrescriptionKind;
   appliesToWorkoutTypeIds: string[];
+  appliesToGoalIds?: string[];
+  appliesToExerciseCategory?: ExerciseCategory[];
   defaultSets?: number;
   defaultReps?: string;
   defaultDurationSeconds?: number;
@@ -47,6 +182,35 @@ export interface PrescriptionTemplate {
   restSeconds: number;
   tempo?: string;
   intensityCue: string;
+  intensityModel?: IntensityModel;
+  targetIntensity?: PrescriptionIntensityTarget;
+  volumeModel?: VolumeModel;
+  targetVolume?: PrescriptionVolumeTarget;
+  restModel?: RestModel;
+  restGuidance?: string;
+  tempoGuidance?: string;
+  effortGuidance?: string;
+  RPE?: NumericRange;
+  RIR?: NumericRange;
+  percent1RM?: NumericRange;
+  heartRateZone?: NumericRange | TextRange;
+  pace?: NumericRange | TextRange;
+  watts?: NumericRange;
+  talkTest?: PrescriptionIntensityTarget['talkTest'];
+  workInterval?: NumericRange;
+  restInterval?: NumericRange;
+  rounds?: NumericRange;
+  densityTarget?: string;
+  targetJoints?: string[];
+  targetTissues?: string[];
+  holdDuration?: NumericRange;
+  rangeOfMotionIntent?: string;
+  progressionRuleIds?: string[];
+  regressionRuleIds?: string[];
+  deloadRuleIds?: string[];
+  successCriteria?: string[];
+  coachNotes?: string[];
+  userFacingSummary?: string;
 }
 
 export interface SessionTemplateMovementSlot {
@@ -126,15 +290,70 @@ export interface WorkoutSafetyFlag {
   summary: string;
   blocksHardTraining: boolean;
   contraindicationTags: string[];
+  appliesToWorkoutTypeIds?: string[];
+  appliesToGoalIds?: string[];
+  appliesToExerciseIds?: string[];
+  affectedJointIds?: string[];
+  affectedMovementPatternIds?: string[];
+  requiresProfessionalReview?: boolean;
+  unknownDataHandling?: 'allow_with_caution' | 'restrict' | 'block';
+  userFacingMessage?: string;
+  coachNotes?: string[];
+}
+
+export interface RuleCondition {
+  metricId?: string;
+  operator?: '<' | '<=' | '=' | '>=' | '>' | 'includes' | 'excludes' | 'missing' | 'present';
+  value?: string | number | boolean | null;
+  windowDays?: number;
+  explanation?: string;
+}
+
+export interface RuleAction {
+  kind?: 'add_volume' | 'reduce_volume' | 'increase_load' | 'decrease_load' | 'swap_exercise' | 'change_intensity' | 'deload' | 'repeat';
+  amount?: number;
+  unit?: string;
+  target?: string;
+  explanation?: string;
 }
 
 export interface WorkoutRule {
   id: string;
   label: string;
+  ruleType?: RuleType;
+  appliesToWorkoutTypeIds?: string[];
   appliesToGoalIds: string[];
+  appliesToExperienceLevels?: WorkoutExperienceLevel[];
   trigger: string;
+  triggerConditions?: RuleCondition[];
+  advanceWhen?: RuleCondition[];
+  regressWhen?: RuleCondition[];
   action: string;
+  progressionAction?: RuleAction;
+  regressionAction?: RuleAction;
+  deloadTrigger?: RuleCondition[];
+  maxProgressionRate?: NumericRange;
+  safetyOverride?: {
+    blockingFlagIds?: string[];
+    restrictionFlagIds?: string[];
+    missingDataBehavior?: 'repeat' | 'regress' | 'recover' | 'block';
+  };
+  requiredTrackingMetricIds?: string[];
+  userMessage?: string;
+  coachNotes?: string[];
   explanation: string;
+}
+
+export interface ProgressionRule extends WorkoutRule {
+  ruleType?: 'progression';
+}
+
+export interface RegressionRule extends WorkoutRule {
+  ruleType?: 'regression';
+}
+
+export interface DeloadRule extends WorkoutRule {
+  ruleType?: 'deload';
 }
 
 export interface SubstitutionRule {
@@ -161,19 +380,47 @@ export interface DescriptionTemplate {
   id: string;
   appliesToGoalIds: string[];
   summaryTemplate: string;
+  toneVariant?: DescriptionToneVariant;
+  sessionIntent?: string;
+  plainLanguageSummary?: string;
+  coachExplanation?: string;
+  effortExplanation?: string;
+  whyThisMatters?: string;
+  howItShouldFeel?: string;
+  successCriteria?: string[];
+  scalingDown?: string;
+  scalingUp?: string;
+  formFocus?: string[];
+  breathingFocus?: string;
+  commonMistakes?: string[];
+  safetyNotes?: string[];
+  recoveryExpectation?: string;
+  completionMessage?: string;
+  nextSessionNote?: string;
 }
 
 export interface ValidationRule {
   id: string;
   label: string;
+  appliesToWorkoutTypeIds?: string[];
+  appliesToGoalIds?: string[];
+  failureCondition?: RuleCondition | RuleCondition[] | string;
   severity: 'warning' | 'error';
   explanation: string;
+  correction?: string;
+  userFacingMessage?: string;
+  testCases?: {
+    name: string;
+    input: Record<string, unknown>;
+    expectedValid: boolean;
+    expectedMessages?: string[];
+  }[];
 }
 
 export interface WorkoutIntelligenceCatalog {
-  progressionRules: WorkoutRule[];
-  regressionRules: WorkoutRule[];
-  deloadRules: WorkoutRule[];
+  progressionRules: ProgressionRule[];
+  regressionRules: RegressionRule[];
+  deloadRules: DeloadRule[];
   substitutionRules: SubstitutionRule[];
   safetyFlags: WorkoutSafetyFlag[];
   coachingCueSets: CoachingCueSet[];
@@ -231,12 +478,32 @@ export interface GeneratedWorkoutBlock {
   exercises: GeneratedExercisePrescription[];
 }
 
+export interface GeneratedWorkoutScalingOptions {
+  down?: string;
+  up?: string;
+  substitutions?: string[];
+  recoveryAlternative?: string;
+}
+
+export interface WorkoutDecisionTraceEntry {
+  id: string;
+  step: string;
+  reason: string;
+  selectedId?: string;
+  rejectedIds?: string[];
+  safetyFlagIds?: string[];
+  confidence?: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface GeneratedWorkout {
   schemaVersion: 'generated-workout-v1';
   workoutTypeId: string;
   goalId: string;
   templateId: string;
   formatId: string;
+  sessionIntent?: string;
+  userFacingSummary?: string;
   requestedDurationMinutes: number;
   estimatedDurationMinutes: number;
   equipmentIds: string[];
@@ -244,9 +511,15 @@ export interface GeneratedWorkout {
   blocks: GeneratedWorkoutBlock[];
   trackingMetricIds: string[];
   successCriteria: string[];
+  coachingNotes?: string[];
+  scalingOptions?: GeneratedWorkoutScalingOptions;
+  safetyNotes?: string[];
   explanations: string[];
   blocked?: boolean;
   validationWarnings?: string[];
+  validationErrors?: string[];
+  progressionRecommendation?: ProgressionDecision;
+  decisionTrace?: WorkoutDecisionTraceEntry[];
 }
 
 export interface WorkoutValidationResult {

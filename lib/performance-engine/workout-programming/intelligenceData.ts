@@ -1,7 +1,11 @@
 import type {
   CoachingCueSet,
   CommonMistakeSet,
+  DeloadRule,
   DescriptionTemplate,
+  ProgressionRule,
+  RegressionRule,
+  RuleType,
   SubstitutionRule,
   ValidationRule,
   WorkoutIntelligenceCatalog,
@@ -27,11 +31,12 @@ const goalIds = [
   'return_to_training',
 ];
 
-function rule(prefix: string, index: number, action: string): WorkoutRule {
+function rule<T extends RuleType>(prefix: string, ruleType: T, index: number, action: string): WorkoutRule & { ruleType: T } {
   const goalId = goalIds[index % goalIds.length]!;
   return {
     id: `${prefix}_${index + 1}`,
     label: `${prefix.replace(/_/g, ' ')} ${index + 1}`,
+    ruleType,
     appliesToGoalIds: [goalId],
     trigger: index % 2 === 0 ? 'successful completion with low pain and target RPE' : 'repeatable completion within prescribed range',
     action,
@@ -39,16 +44,16 @@ function rule(prefix: string, index: number, action: string): WorkoutRule {
   };
 }
 
-export const progressionRules: WorkoutRule[] = Array.from({ length: 20 }, (_, index) => (
-  rule('progression_rule', index, index % 3 === 0 ? 'Add one set or two minutes next time.' : index % 3 === 1 ? 'Add a small load increase.' : 'Repeat with slightly cleaner execution.')
+export const progressionRules: ProgressionRule[] = Array.from({ length: 20 }, (_, index) => (
+  rule('progression_rule', 'progression', index, index % 3 === 0 ? 'Add one set or two minutes next time.' : index % 3 === 1 ? 'Add a small load increase.' : 'Repeat with slightly cleaner execution.')
 ));
 
-export const regressionRules: WorkoutRule[] = Array.from({ length: 20 }, (_, index) => (
-  rule('regression_rule', index, index % 3 === 0 ? 'Reduce volume by 25 percent.' : index % 3 === 1 ? 'Use the first safe substitution.' : 'Lower target RPE by one.')
+export const regressionRules: RegressionRule[] = Array.from({ length: 20 }, (_, index) => (
+  rule('regression_rule', 'regression', index, index % 3 === 0 ? 'Reduce volume by 25 percent.' : index % 3 === 1 ? 'Use the first safe substitution.' : 'Lower target RPE by one.')
 ));
 
-export const deloadRules: WorkoutRule[] = Array.from({ length: 10 }, (_, index) => (
-  rule('deload_rule', index, index % 2 === 0 ? 'Use recovery or mobility template.' : 'Cut hard sets and interval density in half.')
+export const deloadRules: DeloadRule[] = Array.from({ length: 10 }, (_, index) => (
+  rule('deload_rule', 'deload', index, index % 2 === 0 ? 'Use recovery or mobility template.' : 'Cut hard sets and interval density in half.')
 ));
 
 export const safetyFlags: WorkoutSafetyFlag[] = [
