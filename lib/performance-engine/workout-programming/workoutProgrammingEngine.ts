@@ -1,9 +1,9 @@
 import {
   workoutProgrammingCatalog,
 } from './seedData.ts';
+import { createWorkoutValidationResult, validateWorkoutDomain } from './validationEngine.ts';
 import { generateWorkoutDescription } from './workoutDescriptionService.ts';
 import type {
-  EquipmentType,
   Exercise,
   ExerciseQuery,
   GenerateSingleWorkoutInput,
@@ -167,6 +167,13 @@ export function resolveWorkoutTypeForGoal(goalId: string): string | null {
   return GOAL_TO_WORKOUT_TYPE[goalId] ?? null;
 }
 
+function resolveWorkoutTypeForRequest(request: GenerateSingleWorkoutInput): string | null {
+  const mapped = resolveWorkoutTypeForGoal(request.goalId);
+  const bodyweightOnly = request.equipmentIds.every((id) => ['bodyweight', 'mat', 'open_space'].includes(id));
+  if (request.goalId === 'beginner_strength' && bodyweightOnly) return 'bodyweight_strength';
+  return mapped;
+}
+
 export function validateWorkoutProgrammingCatalog(
   catalog: WorkoutProgrammingCatalog = workoutProgrammingCatalog,
 ): WorkoutValidationResult {
@@ -295,7 +302,7 @@ export function validateWorkoutProgrammingCatalog(
     }
   }
 
-  return { valid: errors.length === 0, errors };
+  return createWorkoutValidationResult({ errors, failedRuleIds: errors.length ? ['catalog_integrity'] : [] });
 }
 
 export function queryWorkoutExercises(
@@ -322,6 +329,9 @@ function selectSessionTemplate(input: GenerateSingleWorkoutInput, workoutTypeId:
     .filter((template) => template.experienceLevels.includes(input.experienceLevel))
     .filter((template) => input.durationMinutes >= template.minDurationMinutes)
     .sort((a, b) => {
+      const aType = a.workoutTypeId === workoutTypeId ? 0 : 1;
+      const bType = b.workoutTypeId === workoutTypeId ? 0 : 1;
+      if (aType !== bType) return aType - bType;
       const aGoal = a.goalIds.includes(input.goalId) ? 0 : 1;
       const bGoal = b.goalIds.includes(input.goalId) ? 0 : 1;
       if (aGoal !== bGoal) return aGoal - bGoal;
@@ -466,7 +476,6 @@ function selectExerciseForSlot(input: {
     ? {
       ...exerciseQuery,
       workoutTypeIds: [input.workoutTypeId, input.template.workoutTypeId],
-      goalIds: [input.request.goalId],
     }
     : exerciseQuery, input.catalog)
     .filter((exercise) => !input.usedExerciseIds.has(exercise.id))
@@ -494,7 +503,7 @@ export function generateSingleSessionWorkout(
     throw new Error(`Unsafe workout request blocked by severe safety flag: ${severeFlag}.`);
   }
 
-  const workoutTypeId = resolveWorkoutTypeForGoal(request.goalId);
+  const workoutTypeId = resolveWorkoutTypeForRequest(request);
   if (!workoutTypeId) {
     throw new Error(`Unknown training goal: ${request.goalId}.`);
   }
@@ -564,6 +573,7 @@ export function generateSingleSessionWorkout(
     goalId: request.goalId,
     templateId: template.id,
     formatId: template.formatId,
+    experienceLevel: request.experienceLevel,
     requestedDurationMinutes: request.durationMinutes,
     estimatedDurationMinutes,
     equipmentIds: selectedEquipment,
@@ -575,7 +585,7 @@ export function generateSingleSessionWorkout(
   };
   const description = generateWorkoutDescription(generated);
 
-  return {
+  const workoutWithDescription: GeneratedWorkout = {
     ...generated,
     sessionIntent: description.sessionIntent,
     userFacingSummary: description.plainLanguageSummary,
@@ -583,6 +593,12 @@ export function generateSingleSessionWorkout(
     coachingNotes: [description.coachExplanation, description.effortExplanation],
     safetyNotes: description.safetyNotes,
   };
+  const validation = validateWorkoutDomain(workoutWithDescription, catalog);
+  if (!validation.isValid) {
+    throw new Error(`Generated workout failed domain validation: ${validation.errors.join(' | ')}`);
+  }
+
+  return workoutWithDescription;
 }
 
 export const GENERATED_WORKOUT_SCHEMA = {
@@ -609,79 +625,5 @@ export function validateGeneratedWorkout(
   workout: GeneratedWorkout,
   catalog: WorkoutProgrammingCatalog = workoutProgrammingCatalog,
 ): WorkoutValidationResult {
-  const errors: string[] = [];
-  const exerciseIds = new Set(catalog.exercises.map((exercise) => exercise.id));
-  const trackingMetricIds = new Set(catalog.trackingMetrics.map((metric) => metric.id));
-  const equipmentCatalog = new Map(catalog.equipmentTypes.map((equipment): [string, EquipmentType] => [equipment.id, equipment]));
-
-  if (workout.schemaVersion !== 'generated-workout-v1') errors.push('Invalid generated workout schema version.');
-  if (!findById(catalog.workoutTypes, workout.workoutTypeId)) errors.push(`Unknown workout type ${workout.workoutTypeId}.`);
-  if (!findById(catalog.trainingGoals, workout.goalId)) errors.push(`Unknown goal ${workout.goalId}.`);
-  if (!findById(catalog.sessionTemplates, workout.templateId)) errors.push(`Unknown session template ${workout.templateId}.`);
-  if (workout.estimatedDurationMinutes > workout.requestedDurationMinutes * 1.1) errors.push('Estimated duration exceeds 110 percent of requested time.');
-  if (workout.blocks.length === 0) errors.push('Workout has no blocks.');
-  for (const kind of GENERATED_WORKOUT_SCHEMA.blockKinds) {
-    if (!workout.blocks.some((block) => block.kind === kind)) errors.push(`Workout is missing ${kind} block.`);
-  }
-  if (workout.trackingMetricIds.length === 0) errors.push('Workout is missing tracking metrics.');
-  if (workout.successCriteria.length === 0) errors.push('Workout is missing success criteria.');
-  if (!workout.description) {
-    errors.push('Workout is missing display-ready description.');
-  } else {
-    if (!workout.description.intro.trim()) errors.push('Workout description is missing intro.');
-    if (!workout.description.effortExplanation.trim()) errors.push('Workout description is missing effort explanation.');
-    if (!workout.description.scalingDown.trim()) errors.push('Workout description is missing scaling-down guidance.');
-    if (!workout.description.scalingUp.trim()) errors.push('Workout description is missing scaling-up guidance.');
-    if (!workout.description.completionMessage.trim()) errors.push('Workout description is missing completion message.');
-    if (!workout.description.nextSessionNote.trim()) errors.push('Workout description is missing next-session note.');
-    if (workout.description.safetyNotes.length === 0) errors.push('Workout description is missing safety notes.');
-    if (workout.description.successCriteria.length === 0) errors.push('Workout description is missing success criteria.');
-  }
-
-  for (const id of workout.equipmentIds) {
-    if (!equipmentCatalog.has(id)) errors.push(`Workout references unknown equipment ${id}.`);
-  }
-  for (const metricId of workout.trackingMetricIds) {
-    if (!trackingMetricIds.has(metricId)) errors.push(`Workout references unknown tracking metric ${metricId}.`);
-  }
-
-  for (const block of workout.blocks) {
-    if (block.estimatedDurationMinutes <= 0) errors.push(`${block.id} has invalid duration.`);
-    if (block.exercises.length === 0) errors.push(`${block.id} has no exercises.`);
-    for (const exercise of block.exercises) {
-      if (!exerciseIds.has(exercise.exerciseId)) errors.push(`${exercise.exerciseId} does not exist in exercise catalog.`);
-      if (exercise.prescription.targetRpe < 1 || exercise.prescription.targetRpe > 10) errors.push(`${exercise.exerciseId} has invalid target RPE.`);
-      if (exercise.prescription.restSeconds < 0) errors.push(`${exercise.exerciseId} has invalid rest seconds.`);
-      if (exercise.prescription.kind !== exercise.prescription.payload.kind) errors.push(`${exercise.exerciseId} prescription kind does not match payload.`);
-      if (workout.workoutTypeId === 'zone2_cardio' && exercise.prescription.payload.kind === 'cardio') {
-        const payload = exercise.prescription.payload;
-        if (!payload.durationMinutes || !payload.heartRateZone || !payload.RPE || !payload.talkTest) errors.push(`${exercise.exerciseId} Zone 2 prescription is missing duration or intensity.`);
-      }
-      if (workout.workoutTypeId === 'hypertrophy' && exercise.prescription.payload.kind === 'resistance') {
-        const payload = exercise.prescription.payload;
-        if (!payload.RIR || !payload.effortGuidance || !payload.progressionRuleIds.some((id) => id.includes('double'))) errors.push(`${exercise.exerciseId} hypertrophy prescription is missing proximity-to-failure guidance.`);
-      }
-      if (['strength', 'full_body_strength', 'upper_strength', 'lower_strength', 'bodyweight_strength'].includes(workout.workoutTypeId) && exercise.prescription.payload.kind === 'resistance') {
-        if (!exercise.prescription.payload.restSecondsRange || exercise.prescription.restSeconds <= 0) errors.push(`${exercise.exerciseId} strength prescription is missing rest guidance.`);
-      }
-      if (exercise.prescription.payload.kind === 'mobility' && exercise.prescription.payload.targetJoints.length === 0) errors.push(`${exercise.exerciseId} mobility prescription is missing target joint.`);
-      if (exercise.prescription.payload.kind === 'flexibility' && (exercise.prescription.payload.targetJoints.length === 0 || exercise.prescription.payload.targetTissues.length === 0)) errors.push(`${exercise.exerciseId} flexibility prescription is missing target joint or tissue.`);
-      if (exercise.prescription.payload.kind === 'power' && (!exercise.prescription.payload.lowFatigue || exercise.prescription.restSeconds < 90)) errors.push(`${exercise.exerciseId} power prescription has high fatigue risk or short rest.`);
-      if (exercise.prescription.payload.kind === 'interval') {
-        const payload = exercise.prescription.payload;
-        if (!payload.workIntervalSeconds || !payload.restIntervalSeconds || !payload.rounds || !payload.targetIntensity.RPE) errors.push(`${exercise.exerciseId} HIIT prescription is missing work/rest/rounds/intensity.`);
-      }
-      if (exercise.prescription.payload.kind === 'recovery' && exercise.prescription.targetRpe > 3) errors.push(`${exercise.exerciseId} recovery prescription cannot be hard intensity.`);
-      if (
-        exercise.prescription.sets == null
-        && exercise.prescription.durationSeconds == null
-        && exercise.prescription.durationMinutes == null
-      ) {
-        errors.push(`${exercise.exerciseId} is missing complete prescription fields.`);
-      }
-      if (exercise.trackingMetricIds.length === 0) errors.push(`${exercise.exerciseId} is missing tracking metrics.`);
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
+  return validateWorkoutDomain(workout, catalog);
 }

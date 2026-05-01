@@ -6,6 +6,7 @@ import {
   validateGeneratedWorkout,
 } from './workoutProgrammingEngine.ts';
 import { generateWorkoutDescription } from './workoutDescriptionService.ts';
+import { createWorkoutValidationResult, workoutValidationRuleIds } from './validationEngine.ts';
 import type {
   Exercise,
   GeneratedExercisePrescription,
@@ -70,7 +71,11 @@ export function validateWorkoutIntelligenceCatalog(
   if (catalog.coachingCueSets.length < 25) errors.push('Expected at least 25 coaching cue sets.');
   if (catalog.commonMistakeSets.length < 25) errors.push('Expected at least 25 common mistake sets.');
   if (catalog.descriptionTemplates.length < 20) errors.push('Expected at least 20 description templates.');
-  if (catalog.validationRules.length < 10) errors.push('Expected validation rules from QA spec.');
+  if (catalog.validationRules.length < 25) errors.push('Expected 25 domain validation rules from QA spec.');
+  const validationRuleIds = new Set(catalog.validationRules.map((rule) => rule.id));
+  for (const ruleId of workoutValidationRuleIds()) {
+    if (!validationRuleIds.has(ruleId)) errors.push(`Missing domain validation rule ${ruleId}.`);
+  }
 
   for (const template of catalog.descriptionTemplates) {
     const templateId = template.descriptionTemplateId ?? template.id;
@@ -106,7 +111,7 @@ export function validateWorkoutIntelligenceCatalog(
     if ((template.safetyNotes?.length ?? 0) === 0) errors.push(`${templateId} needs safety notes.`);
     if (genericDescriptionFragments.some((fragment) => joined.includes(fragment))) errors.push(`${templateId} contains generic description language.`);
   }
-  return { valid: errors.length === 0, errors };
+  return createWorkoutValidationResult({ errors, failedRuleIds: errors.length ? ['intelligence_catalog_integrity'] : [] });
 }
 
 function exerciseById(catalog: WorkoutProgrammingCatalog, id: string): Exercise | null {
@@ -228,6 +233,7 @@ export function generatePersonalizedWorkout(
       goalId: input.goalId,
       templateId: 'blocked_by_safety',
       formatId: 'checklist',
+      experienceLevel: input.experienceLevel,
       requestedDurationMinutes: input.durationMinutes,
       estimatedDurationMinutes: 0,
       equipmentIds: [],
@@ -266,9 +272,13 @@ export function generatePersonalizedWorkout(
   }, catalog);
   const enriched = enrichWorkout(base, input, safetyFlagIds, catalog, intelligence);
   const validation = validateGeneratedWorkout(enriched, catalog);
+  if (!validation.isValid) {
+    throw new Error(`Personalized workout failed domain validation: ${validation.errors.join(' | ')}`);
+  }
   return {
     ...enriched,
-    validationWarnings: validation.errors,
+    validationWarnings: validation.warnings,
+    validationErrors: validation.errors,
   };
 }
 
@@ -276,7 +286,7 @@ export function validatePersonalizedWorkoutSafety(
   workout: GeneratedWorkout,
   catalog: WorkoutProgrammingCatalog = workoutProgrammingCatalog,
 ): WorkoutValidationResult {
-  if (workout.blocked) return { valid: true, errors: [] };
+  if (workout.blocked) return createWorkoutValidationResult();
   const errors = validateGeneratedWorkout(workout, catalog).errors;
   const selected = workout.blocks.flatMap((block) => block.exercises);
   for (const exercise of selected) {
@@ -287,5 +297,8 @@ export function validatePersonalizedWorkoutSafety(
       errors.push(`${source.name} violates safety flags: ${contraindicated.join(', ')}.`);
     }
   }
-  return { valid: errors.length === 0, errors };
+  return createWorkoutValidationResult({
+    errors,
+    failedRuleIds: errors.length ? ['personalized_safety_compatibility'] : [],
+  });
 }

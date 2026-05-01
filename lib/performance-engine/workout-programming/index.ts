@@ -4,6 +4,7 @@ export * from './intelligenceData.ts';
 export * from './seedLoader.ts';
 export * from './workoutProgrammingEngine.ts';
 export * from './workoutDescriptionService.ts';
+export * from './validationEngine.ts';
 export * from './intelligenceEngine.ts';
 export * from './personalizationEngine.ts';
 export * from './programBuilder.ts';

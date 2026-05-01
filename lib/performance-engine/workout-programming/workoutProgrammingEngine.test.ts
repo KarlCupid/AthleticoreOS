@@ -2,11 +2,12 @@ import {
   buildWorkoutProgrammingSeedRows,
   generateSingleSessionWorkout,
   queryWorkoutExercises,
+  validateWorkoutDomain,
   validateGeneratedWorkout,
   validateWorkoutProgrammingCatalog,
   workoutProgrammingCatalog,
 } from './index.ts';
-import type { GenerateSingleWorkoutInput, GeneratedWorkout } from './index.ts';
+import type { Exercise, GenerateSingleWorkoutInput, GeneratedExercisePrescription, GeneratedWorkout } from './index.ts';
 
 let passed = 0;
 let failed = 0;
@@ -37,6 +38,44 @@ function allExercises(workout: GeneratedWorkout) {
 
 function mainExercises(workout: GeneratedWorkout) {
   return workout.blocks.filter((block) => block.kind === 'main').flatMap((block) => block.exercises);
+}
+
+function cloneWorkout(workout: GeneratedWorkout): GeneratedWorkout {
+  return structuredClone(workout) as GeneratedWorkout;
+}
+
+function exerciseSource(id: string): Exercise {
+  const source = workoutProgrammingCatalog.exercises.find((exercise) => exercise.id === id);
+  if (!source) throw new Error(`Missing exercise fixture ${id}`);
+  return source;
+}
+
+function replaceFirstMainExercise(workout: GeneratedWorkout, exerciseId: string, patch?: Partial<GeneratedExercisePrescription>): GeneratedWorkout {
+  const copy = cloneWorkout(workout);
+  const target = copy.blocks.find((block) => block.kind === 'main')?.exercises[0];
+  const source = exerciseSource(exerciseId);
+  if (!target) throw new Error('Workout fixture has no main exercise.');
+  Object.assign(target, {
+    exerciseId: source.id,
+    name: source.name,
+    movementPatternIds: source.movementPatternIds,
+    primaryMuscleIds: source.primaryMuscleIds,
+    equipmentIds: source.equipmentIds,
+    trackingMetricIds: source.trackingMetricIds,
+    ...patch,
+  });
+  copy.equipmentIds = Array.from(new Set([...copy.equipmentIds, ...source.equipmentIds]));
+  copy.trackingMetricIds = Array.from(new Set([...copy.trackingMetricIds, ...source.trackingMetricIds]));
+  return copy;
+}
+
+function assertInvalidCase(label: string, workout: GeneratedWorkout, expectedRuleId: string): void {
+  const validation = validateWorkoutDomain(workout);
+  assert(`${label} fails validation`, !validation.isValid && !validation.valid);
+  assert(`${label} fails ${expectedRuleId}`, validation.failedRuleIds.includes(expectedRuleId));
+  assert(`${label} has actionable correction`, validation.suggestedCorrections.some((correction) => correction.length > 20));
+  assert(`${label} has clear user-facing message`, validation.userFacingMessages.some((message) => message.length > 20 && !message.toLowerCase().includes('danger')));
+  assert(`${label} records decision trace`, validation.decisionTrace.some((trace) => trace.ruleId === expectedRuleId && trace.status === 'failed'));
 }
 
 const genericOntologyFragments = ['adjust as needed', 'use good form', 'do what feels right'];
@@ -388,6 +427,120 @@ console.log('\n-- workout programming engine --');
   assert('mobility description includes pain-free range guidance', Boolean(
     mobility.description?.effortExplanation.includes('pain-free range')
     && mobility.description.effortExplanation.includes('not forcing depth'),
+  ));
+})();
+
+(() => {
+  const strength = generated({ goalId: 'beginner_strength', durationMinutes: 40, equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'], experienceLevel: 'beginner' });
+  const hypertrophy = generated({ goalId: 'hypertrophy', durationMinutes: 45, equipmentIds: ['dumbbells', 'bench', 'resistance_band'], experienceLevel: 'beginner' });
+  const zone2 = generated({ goalId: 'zone2_cardio', durationMinutes: 35, equipmentIds: ['stationary_bike'], experienceLevel: 'beginner' });
+  const mobility = generated({ goalId: 'mobility', durationMinutes: 25, equipmentIds: ['bodyweight'], experienceLevel: 'beginner' });
+  const recovery = generated({ goalId: 'recovery', durationMinutes: 20, equipmentIds: ['bodyweight'], experienceLevel: 'beginner' });
+  const conditioning = generated({ goalId: 'low_impact_conditioning', durationMinutes: 30, equipmentIds: ['stationary_bike', 'battle_rope'], experienceLevel: 'beginner' });
+  const power = generated({ goalId: 'boxing_support', durationMinutes: 40, equipmentIds: ['bodyweight', 'resistance_band', 'dumbbells', 'medicine_ball'], experienceLevel: 'beginner' });
+  const balance = generated({ goalId: 'core_durability', durationMinutes: 30, equipmentIds: ['bodyweight', 'mat', 'resistance_band'], experienceLevel: 'beginner' });
+
+  assertInvalidCase(
+    'advanced plyometrics for beginner',
+    replaceFirstMainExercise(power, 'box_jump'),
+    'experience_level_compatibility',
+  );
+
+  const olympicAmrap = replaceFirstMainExercise(strength, 'kettlebell_swing', { name: 'Olympic Clean' });
+  olympicAmrap.formatId = 'amrap';
+  assertInvalidCase('Olympic lift inside fatigue-based AMRAP', olympicAmrap, 'fatigue_management');
+
+  const lowBackCaution = replaceFirstMainExercise(strength, 'trap_bar_deadlift');
+  lowBackCaution.safetyFlags = ['back_caution'];
+  assertInvalidCase('heavy spinal loading with low-back caution', lowBackCaution, 'pain_flag_compatibility');
+
+  const hiitRecovery = cloneWorkout(conditioning);
+  hiitRecovery.workoutTypeId = 'recovery';
+  assertInvalidCase('HIIT labeled as recovery', hiitRecovery, 'recovery_session_constraints');
+
+  const zone2MissingTarget = cloneWorkout(zone2);
+  for (const exercise of mainExercises(zone2MissingTarget)) {
+    const payload = exercise.prescription.payload;
+    if (payload.kind === 'cardio') {
+      delete (payload as Partial<typeof payload>).durationMinutes;
+      delete (payload as Partial<typeof payload>).heartRateZone;
+    }
+  }
+  assertInvalidCase('Zone 2 without duration or intensity target', zone2MissingTarget, 'cardio_constraints');
+
+  const strengthNoRest = cloneWorkout(strength);
+  for (const exercise of mainExercises(strengthNoRest)) {
+    exercise.prescription.restSeconds = 0;
+    if (exercise.prescription.payload.kind === 'resistance') {
+      delete (exercise.prescription.payload as Partial<typeof exercise.prescription.payload>).restSecondsRange;
+    }
+  }
+  assertInvalidCase('strength sets without rest guidance', strengthNoRest, 'rest_guidance_completeness');
+
+  const mobilityNoTarget = cloneWorkout(mobility);
+  for (const exercise of mainExercises(mobilityNoTarget)) {
+    if (exercise.prescription.payload.kind === 'mobility') {
+      exercise.prescription.payload.targetJoints = [];
+    }
+  }
+  assertInvalidCase('mobility without target joint', mobilityNoTarget, 'mobility_constraints');
+
+  const powerShortRest = cloneWorkout(power);
+  for (const exercise of mainExercises(powerShortRest)) {
+    exercise.prescription.restSeconds = 30;
+    if (exercise.prescription.payload.kind === 'power') {
+      exercise.prescription.payload.lowFatigue = false;
+      exercise.prescription.payload.fullRecoverySeconds = { min: 30, max: 60, target: 45 };
+    }
+  }
+  assertInvalidCase('power work with short rest and high fatigue', powerShortRest, 'power_session_constraints');
+
+  const hypertrophyNoEffort = cloneWorkout(hypertrophy);
+  for (const exercise of mainExercises(hypertrophyNoEffort)) {
+    if (exercise.prescription.payload.kind === 'resistance') {
+      delete (exercise.prescription.payload as Partial<typeof exercise.prescription.payload>).RIR;
+      delete (exercise.prescription.payload as Partial<typeof exercise.prescription.payload>).RPE;
+      exercise.prescription.payload.effortGuidance = '';
+    }
+  }
+  assertInvalidCase('hypertrophy without RIR/RPE/proximity guidance', hypertrophyNoEffort, 'strength_training_constraints');
+
+  const fallRiskBalance = cloneWorkout(balance);
+  fallRiskBalance.safetyFlags = ['balance_concern'];
+  for (const exercise of mainExercises(fallRiskBalance)) {
+    if (exercise.prescription.payload.kind === 'balance') {
+      exercise.prescription.payload.surface = 'unstable';
+      exercise.prescription.payload.visualInput = 'eyes_closed';
+    }
+  }
+  assertInvalidCase('balance fall-risk user with unstable surface too early', fallRiskBalance, 'balance_training_constraints');
+
+  const noJumping = replaceFirstMainExercise(power, 'box_jump');
+  noJumping.safetyFlags = ['no_jumping'];
+  assertInvalidCase('no-jumping user receiving jump/land pattern', noJumping, 'safety_flag_compatibility');
+
+  const running = replaceFirstMainExercise(zone2, 'easy_walk', {
+    name: 'Track Run',
+    equipmentIds: ['track_or_road'],
+  });
+  running.safetyFlags = ['no_running'];
+  running.equipmentIds = ['track_or_road'];
+  assertInvalidCase('no-running user receiving running', running, 'safety_flag_compatibility');
+
+  const shoulderCaution = replaceFirstMainExercise(strength, 'overhead_press');
+  shoulderCaution.safetyFlags = ['shoulder_caution'];
+  assertInvalidCase('shoulder-caution user receiving aggressive overhead pressing', shoulderCaution, 'pain_flag_compatibility');
+
+  const wristCaution = replaceFirstMainExercise(strength, 'bear_crawl');
+  wristCaution.safetyFlags = ['wrist_caution'];
+  assertInvalidCase('wrist-caution user receiving loaded wrist floor work without alternative', wristCaution, 'pain_flag_compatibility');
+
+  assert('domain validation returns rich success shape for valid workout', Boolean(
+    validateWorkoutDomain(recovery).isValid
+    && validateWorkoutDomain(recovery).warnings
+    && validateWorkoutDomain(recovery).suggestedCorrections
+    && validateWorkoutDomain(recovery).userFacingMessages
+    && validateWorkoutDomain(recovery).decisionTrace.length >= 25
   ));
 })();
 

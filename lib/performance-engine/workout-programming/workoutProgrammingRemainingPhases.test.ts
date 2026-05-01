@@ -11,6 +11,7 @@ import {
   validatePersonalizedWorkoutSafety,
   validateWorkoutIntelligenceCatalog,
   workoutIntelligenceCatalog,
+  workoutValidationRuleIds,
 } from './index.ts';
 import type { WorkoutCompletionLog } from './index.ts';
 
@@ -179,7 +180,10 @@ console.log('\n-- workout programming remaining phases --');
   assert('all requested tone variants are represented', supportedToneVariants.every((tone) => (
     workoutIntelligenceCatalog.descriptionTemplates.some((template) => template.toneVariant === tone)
   )));
-  assert('validation rules seeded', workoutIntelligenceCatalog.validationRules.length >= 10);
+  assert('25 domain validation rules seeded', workoutIntelligenceCatalog.validationRules.length >= 25);
+  assert('all executable domain validation rules have catalog entries', workoutValidationRuleIds().every((id) => (
+    workoutIntelligenceCatalog.validationRules.some((rule) => rule.id === id)
+  )));
 })();
 
 (() => {

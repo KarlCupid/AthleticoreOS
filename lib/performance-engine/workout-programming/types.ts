@@ -680,6 +680,7 @@ export interface GeneratedWorkout {
   goalId: string;
   templateId: string;
   formatId: string;
+  experienceLevel?: WorkoutExperienceLevel;
   sessionIntent?: string;
   userFacingSummary?: string;
   description?: WorkoutDescription;
@@ -703,7 +704,18 @@ export interface GeneratedWorkout {
 
 export interface WorkoutValidationResult {
   valid: boolean;
+  isValid: boolean;
   errors: string[];
+  warnings: string[];
+  suggestedCorrections: string[];
+  userFacingMessages: string[];
+  failedRuleIds: string[];
+  decisionTrace: {
+    ruleId: string;
+    status: 'passed' | 'failed' | 'warning';
+    message: string;
+    metadata?: Record<string, unknown>;
+  }[];
 }
 
 export interface WorkoutCompletionLog {
