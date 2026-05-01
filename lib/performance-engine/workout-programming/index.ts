@@ -11,3 +11,5 @@ export * from './personalizationEngine.ts';
 export * from './programBuilder.ts';
 export * from './analyticsEngine.ts';
 export * from './persistenceService.ts';
+export * from './workoutProgrammingServiceFixtures.ts';
+export * as workoutProgrammingService from './workoutProgrammingService.ts';
