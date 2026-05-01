@@ -10,3 +10,4 @@ export * from './intelligenceEngine.ts';
 export * from './personalizationEngine.ts';
 export * from './programBuilder.ts';
 export * from './analyticsEngine.ts';
+export * from './persistenceService.ts';
