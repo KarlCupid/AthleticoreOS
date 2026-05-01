@@ -46,8 +46,8 @@ export function validateWorkoutIntelligenceCatalog(
   if (catalog.deloadRules.length < 10) errors.push('Expected at least 10 deload rules.');
   if (catalog.substitutionRules.length < 25) errors.push('Expected at least 25 substitution rules.');
   if (catalog.safetyFlags.length < 25) errors.push('Expected at least 25 safety flags.');
-  if (catalog.coachingCueSets.length < 30) errors.push('Expected at least 30 coaching cue sets.');
-  if (catalog.commonMistakeSets.length < 30) errors.push('Expected at least 30 common mistake sets.');
+  if (catalog.coachingCueSets.length < 25) errors.push('Expected at least 25 coaching cue sets.');
+  if (catalog.commonMistakeSets.length < 25) errors.push('Expected at least 25 common mistake sets.');
   if (catalog.descriptionTemplates.length < 20) errors.push('Expected at least 20 description templates.');
   if (catalog.validationRules.length < 10) errors.push('Expected validation rules from QA spec.');
   return { valid: errors.length === 0, errors };

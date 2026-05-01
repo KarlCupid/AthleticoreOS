@@ -25,19 +25,79 @@ function assert(label: string, condition: boolean): void {
   }
 }
 
+const requiredExerciseIntelligenceIds = [
+  'goblet_squat',
+  'bodyweight_squat',
+  'box_squat',
+  'romanian_deadlift',
+  'glute_bridge',
+  'push_up',
+  'incline_push_up',
+  'dumbbell_bench_press',
+  'overhead_press',
+  'one_arm_dumbbell_row',
+  'lat_pulldown',
+  'dead_bug',
+  'front_plank',
+  'side_plank',
+  'pallof_press',
+  'stationary_bike_zone2',
+  'incline_walk',
+  'rower_zone2',
+  'worlds_greatest_stretch',
+  'thoracic_open_book',
+  'half_kneeling_hip_flexor',
+  'band_pull_apart',
+  'band_external_rotation',
+  'sled_push',
+  'battle_rope_wave',
+];
+
+function hasSpecificText(items: string[]): boolean {
+  const generic = ['Start easier than you think.', 'Stop on sharp pain.', 'Keep reps clean and repeatable.'];
+  return items.length >= 3 && items.every((item) => item.length >= 20 && !generic.includes(item));
+}
+
 console.log('\n-- workout programming remaining phases --');
 
 (() => {
   const validation = validateWorkoutIntelligenceCatalog();
   assert(validation.valid ? 'intelligence catalog validates' : validation.errors.join('\n'), validation.valid);
-  assert('20 progression rules seeded', workoutIntelligenceCatalog.progressionRules.length >= 20);
-  assert('20 regression rules seeded', workoutIntelligenceCatalog.regressionRules.length >= 20);
-  assert('10 deload rules seeded', workoutIntelligenceCatalog.deloadRules.length >= 10);
+  const allRules = [
+    ...workoutIntelligenceCatalog.progressionRules,
+    ...workoutIntelligenceCatalog.regressionRules,
+    ...workoutIntelligenceCatalog.deloadRules,
+  ];
+  assert('20 specific progression rules seeded', workoutIntelligenceCatalog.progressionRules.length >= 20);
+  assert('20 specific regression rules seeded', workoutIntelligenceCatalog.regressionRules.length >= 20);
+  assert('10 specific deload rules seeded', workoutIntelligenceCatalog.deloadRules.length >= 10);
+  assert('rules use hand-authored ids', allRules.every((rule) => !/^(progression_rule|regression_rule|deload_rule)_\d+$/.test(rule.id)));
+  assert('rules include structured trigger conditions', allRules.every((rule) => (rule.triggerConditions?.length ?? 0) > 0));
+  assert('rules include workout type scope', allRules.every((rule) => (rule.appliesToWorkoutTypeIds?.length ?? 0) > 0));
+  assert('rules include experience scope', allRules.every((rule) => (rule.appliesToExperienceLevels?.length ?? 0) > 0));
+  assert('rules include required tracking metrics', allRules.every((rule) => (rule.requiredTrackingMetricIds?.length ?? 0) > 0));
+  assert('rules include user-facing messages', allRules.every((rule) => (rule.userMessage?.length ?? 0) > 20));
+  assert('rules include coach notes', allRules.every((rule) => (rule.coachNotes?.length ?? 0) > 0));
+  assert('progression rules include max progression rates', workoutIntelligenceCatalog.progressionRules.every((rule) => Boolean(rule.maxProgressionRate)));
   assert('25 substitution rules seeded', workoutIntelligenceCatalog.substitutionRules.length >= 25);
   assert('25 safety flags seeded', workoutIntelligenceCatalog.safetyFlags.length >= 25);
-  assert('30 coaching cue sets seeded', workoutIntelligenceCatalog.coachingCueSets.length >= 30);
-  assert('30 common mistake sets seeded', workoutIntelligenceCatalog.commonMistakeSets.length >= 30);
-  assert('20 description templates seeded', workoutIntelligenceCatalog.descriptionTemplates.length >= 20);
+  assert('required exercises have coaching cue sets', requiredExerciseIntelligenceIds.every((id) => workoutIntelligenceCatalog.coachingCueSets.some((set) => set.exerciseId === id)));
+  assert('required exercises have common mistake sets', requiredExerciseIntelligenceIds.every((id) => workoutIntelligenceCatalog.commonMistakeSets.some((set) => set.exerciseId === id)));
+  assert('coaching cue sets are exercise-specific', workoutIntelligenceCatalog.coachingCueSets.every((set) => hasSpecificText(set.cues)));
+  assert('common mistake sets are exercise-specific', workoutIntelligenceCatalog.commonMistakeSets.every((set) => hasSpecificText(set.mistakes)));
+  assert('cue and mistake ids are not generated placeholders', [
+    ...workoutIntelligenceCatalog.coachingCueSets.map((set) => set.id),
+    ...workoutIntelligenceCatalog.commonMistakeSets.map((set) => set.id),
+  ].every((id) => !/^cue_set_\d+$|^mistake_set_\d+$/.test(id)));
+  assert('20 rich description templates seeded', workoutIntelligenceCatalog.descriptionTemplates.length >= 20);
+  assert('description templates include full coaching language', workoutIntelligenceCatalog.descriptionTemplates.every((template) => (
+    Boolean(template.sessionIntent)
+    && Boolean(template.plainLanguageSummary)
+    && Boolean(template.coachExplanation)
+    && Boolean(template.whyThisMatters)
+    && (template.successCriteria?.length ?? 0) >= 3
+    && (template.formFocus?.length ?? 0) > 0
+  )));
   assert('validation rules seeded', workoutIntelligenceCatalog.validationRules.length >= 10);
 })();
 
