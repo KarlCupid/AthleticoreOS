@@ -1,0 +1,222 @@
+import { workoutProgrammingCatalog } from './seedData.ts';
+import { workoutIntelligenceCatalog } from './intelligenceData.ts';
+import {
+  generateSingleSessionWorkout,
+  queryWorkoutExercises,
+  validateGeneratedWorkout,
+} from './workoutProgrammingEngine.ts';
+import type {
+  Exercise,
+  GeneratedExercisePrescription,
+  GeneratedWorkout,
+  PersonalizedWorkoutInput,
+  WorkoutIntelligenceCatalog,
+  WorkoutProgrammingCatalog,
+  WorkoutSafetyFlag,
+  WorkoutValidationResult,
+} from './types.ts';
+
+function unique<T>(items: T[]): T[] {
+  return Array.from(new Set(items));
+}
+
+function flagIds(flags: WorkoutSafetyFlag[]): string[] {
+  return flags.map((flag) => flag.id);
+}
+
+export function resolveSafetyFlags(
+  input: PersonalizedWorkoutInput,
+  intelligence: WorkoutIntelligenceCatalog = workoutIntelligenceCatalog,
+): WorkoutSafetyFlag[] {
+  const explicit = new Set([...(input.safetyFlags ?? []), ...(input.painFlags ?? [])]);
+  if (input.readinessBand === 'red' || input.readinessBand === 'orange') explicit.add('poor_readiness');
+  if (input.readinessBand === 'unknown' || !input.readinessBand) explicit.add('unknown_readiness');
+  if (input.equipmentIds.length <= 1) explicit.add('equipment_limited');
+  if (input.durationMinutes < 25) explicit.add('time_limited');
+
+  return intelligence.safetyFlags.filter((flag) => explicit.has(flag.id));
+}
+
+export function validateWorkoutIntelligenceCatalog(
+  catalog: WorkoutIntelligenceCatalog = workoutIntelligenceCatalog,
+): WorkoutValidationResult {
+  const errors: string[] = [];
+  if (catalog.progressionRules.length < 20) errors.push('Expected at least 20 progression rules.');
+  if (catalog.regressionRules.length < 20) errors.push('Expected at least 20 regression rules.');
+  if (catalog.deloadRules.length < 10) errors.push('Expected at least 10 deload rules.');
+  if (catalog.substitutionRules.length < 25) errors.push('Expected at least 25 substitution rules.');
+  if (catalog.safetyFlags.length < 25) errors.push('Expected at least 25 safety flags.');
+  if (catalog.coachingCueSets.length < 30) errors.push('Expected at least 30 coaching cue sets.');
+  if (catalog.commonMistakeSets.length < 30) errors.push('Expected at least 30 common mistake sets.');
+  if (catalog.descriptionTemplates.length < 20) errors.push('Expected at least 20 description templates.');
+  if (catalog.validationRules.length < 10) errors.push('Expected validation rules from QA spec.');
+  return { valid: errors.length === 0, errors };
+}
+
+function exerciseById(catalog: WorkoutProgrammingCatalog, id: string): Exercise | null {
+  return catalog.exercises.find((exercise) => exercise.id === id) ?? null;
+}
+
+function substitutionsFor(
+  exercise: GeneratedExercisePrescription,
+  safetyFlagIds: string[],
+  equipmentIds: string[],
+  catalog: WorkoutProgrammingCatalog,
+  intelligence: WorkoutIntelligenceCatalog,
+) {
+  const ruleSubstitutions = intelligence.substitutionRules
+    .filter((rule) => rule.sourceExerciseId === exercise.exerciseId)
+    .filter((rule) => rule.conditionFlags.length === 0 || rule.conditionFlags.some((flag) => safetyFlagIds.includes(flag)))
+    .flatMap((rule) => rule.substituteExerciseIds.map((id) => ({ id, rationale: rule.rationale })));
+  const samePattern = queryWorkoutExercises({
+    movementPatternIds: exercise.movementPatternIds,
+    equipmentIds,
+    excludedSafetyFlags: safetyFlagIds,
+    experienceLevel: 'beginner',
+    limit: 8,
+  }, catalog)
+    .filter((candidate) => candidate.id !== exercise.exerciseId)
+    .map((candidate) => ({ id: candidate.id, rationale: 'Same movement pattern with compatible equipment and safety filters.' }));
+
+  const seen = new Set<string>();
+  return [...ruleSubstitutions, ...samePattern]
+    .filter((candidate) => {
+      if (seen.has(candidate.id)) return false;
+      seen.add(candidate.id);
+      return true;
+    })
+    .map((candidate) => {
+      const substitute = exerciseById(catalog, candidate.id);
+      return substitute ? { exerciseId: substitute.id, name: substitute.name, rationale: candidate.rationale } : null;
+    })
+    .filter((candidate): candidate is { exerciseId: string; name: string; rationale: string } => candidate !== null)
+    .slice(0, 3);
+}
+
+function scaleExercise(
+  exercise: GeneratedExercisePrescription,
+  direction: 'down' | 'up',
+): GeneratedExercisePrescription {
+  const sets = exercise.prescription.sets;
+  const durationMinutes = exercise.prescription.durationMinutes;
+  const durationSeconds = exercise.prescription.durationSeconds;
+  return {
+    ...exercise,
+    prescription: {
+      ...exercise.prescription,
+      sets: sets == null ? sets : Math.max(1, sets + (direction === 'down' ? -1 : 1)),
+      durationMinutes: durationMinutes == null ? durationMinutes : Math.max(3, durationMinutes + (direction === 'down' ? -5 : 5)),
+      durationSeconds: durationSeconds == null ? durationSeconds : Math.max(20, durationSeconds + (direction === 'down' ? -10 : 10)),
+      targetRpe: Math.min(8, Math.max(1, exercise.prescription.targetRpe + (direction === 'down' ? -1 : 1))),
+    },
+  };
+}
+
+function enrichWorkout(
+  workout: GeneratedWorkout,
+  input: PersonalizedWorkoutInput,
+  safetyFlagIds: string[],
+  catalog: WorkoutProgrammingCatalog,
+  intelligence: WorkoutIntelligenceCatalog,
+): GeneratedWorkout {
+  const disliked = new Set(input.dislikedExerciseIds ?? []);
+  const blocks = workout.blocks.map((block) => ({
+    ...block,
+    exercises: block.exercises
+      .filter((exercise) => !disliked.has(exercise.exerciseId))
+      .map((exercise) => {
+        const cues = intelligence.coachingCueSets.find((set) => set.exerciseId === exercise.exerciseId)?.cues ?? [];
+        const mistakes = intelligence.commonMistakeSets.find((set) => set.exerciseId === exercise.exerciseId)?.mistakes ?? [];
+        const shouldScaleDown = safetyFlagIds.includes('poor_readiness')
+          || safetyFlagIds.includes('unknown_readiness')
+          || safetyFlagIds.includes('pain_increased_last_session');
+        const scaled = shouldScaleDown ? scaleExercise(exercise, 'down') : exercise;
+        return {
+          ...scaled,
+          substitutions: substitutionsFor(scaled, safetyFlagIds, input.equipmentIds, catalog, intelligence),
+          scalingOptions: {
+            down: 'Reduce one set or five minutes and lower target RPE by one.',
+            up: 'Add one set or five minutes only if pain is stable and RPE was below target.',
+          },
+          coachingCues: cues,
+          commonMistakes: mistakes,
+        };
+      }),
+  }));
+
+  return {
+    ...workout,
+    blocks,
+    safetyFlags: unique([...workout.safetyFlags, ...safetyFlagIds]),
+    explanations: [
+      ...workout.explanations,
+      safetyFlagIds.includes('poor_readiness')
+        ? 'Poor readiness capped intensity and volume before exercise selection was accepted.'
+        : 'Readiness did not require a hard block, but missing data remains treated conservatively.',
+      'Each exercise includes scaling and substitution options for real-world adjustment.',
+    ],
+  };
+}
+
+export function generatePersonalizedWorkout(
+  input: PersonalizedWorkoutInput,
+  catalog: WorkoutProgrammingCatalog = workoutProgrammingCatalog,
+  intelligence: WorkoutIntelligenceCatalog = workoutIntelligenceCatalog,
+): GeneratedWorkout {
+  const resolvedSafety = resolveSafetyFlags(input, intelligence);
+  const blocking = resolvedSafety.find((flag) => flag.severity === 'block');
+  if (blocking) {
+    return {
+      schemaVersion: 'generated-workout-v1',
+      workoutTypeId: 'recovery',
+      goalId: input.goalId,
+      templateId: 'blocked_by_safety',
+      formatId: 'checklist',
+      requestedDurationMinutes: input.durationMinutes,
+      estimatedDurationMinutes: 0,
+      equipmentIds: [],
+      safetyFlags: flagIds(resolvedSafety),
+      blocks: [],
+      trackingMetricIds: ['pain_score_before', 'pain_score_after', 'notes'],
+      successCriteria: ['Do not train hard until the blocking safety flag is resolved.'],
+      explanations: [`Workout generation was blocked by ${blocking.label}. Safety wins over performance goals.`],
+      blocked: true,
+      validationWarnings: [`Blocked by ${blocking.id}.`],
+    };
+  }
+
+  const safetyFlagIds = unique([
+    ...(input.safetyFlags ?? []),
+    ...flagIds(resolvedSafety),
+    ...resolvedSafety.flatMap((flag) => flag.contraindicationTags),
+  ]);
+  const base = generateSingleSessionWorkout({
+    ...input,
+    durationMinutes: input.preferredDurationMinutes ?? input.durationMinutes,
+    safetyFlags: safetyFlagIds,
+  }, catalog);
+  const enriched = enrichWorkout(base, input, safetyFlagIds, catalog, intelligence);
+  const validation = validateGeneratedWorkout(enriched, catalog);
+  return {
+    ...enriched,
+    validationWarnings: validation.errors,
+  };
+}
+
+export function validatePersonalizedWorkoutSafety(
+  workout: GeneratedWorkout,
+  catalog: WorkoutProgrammingCatalog = workoutProgrammingCatalog,
+): WorkoutValidationResult {
+  if (workout.blocked) return { valid: true, errors: [] };
+  const errors = validateGeneratedWorkout(workout, catalog).errors;
+  const selected = workout.blocks.flatMap((block) => block.exercises);
+  for (const exercise of selected) {
+    const source = exerciseById(catalog, exercise.exerciseId);
+    if (!source) continue;
+    const contraindicated = source.contraindicationFlags.filter((flag) => workout.safetyFlags.includes(flag));
+    if (contraindicated.length > 0) {
+      errors.push(`${source.name} violates safety flags: ${contraindicated.join(', ')}.`);
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}

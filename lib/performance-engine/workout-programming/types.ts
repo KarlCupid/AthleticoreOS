@@ -115,6 +115,82 @@ export interface GenerateSingleWorkoutInput {
   safetyFlags?: string[];
 }
 
+export type WorkoutReadinessBand = 'green' | 'yellow' | 'orange' | 'red' | 'unknown';
+export type SafetyFlagSeverity = 'info' | 'caution' | 'restriction' | 'block';
+export type WorkoutScalingDirection = 'down' | 'up';
+
+export interface WorkoutSafetyFlag {
+  id: string;
+  label: string;
+  severity: SafetyFlagSeverity;
+  summary: string;
+  blocksHardTraining: boolean;
+  contraindicationTags: string[];
+}
+
+export interface WorkoutRule {
+  id: string;
+  label: string;
+  appliesToGoalIds: string[];
+  trigger: string;
+  action: string;
+  explanation: string;
+}
+
+export interface SubstitutionRule {
+  id: string;
+  sourceExerciseId: string;
+  substituteExerciseIds: string[];
+  conditionFlags: string[];
+  rationale: string;
+}
+
+export interface CoachingCueSet {
+  id: string;
+  exerciseId: string;
+  cues: string[];
+}
+
+export interface CommonMistakeSet {
+  id: string;
+  exerciseId: string;
+  mistakes: string[];
+}
+
+export interface DescriptionTemplate {
+  id: string;
+  appliesToGoalIds: string[];
+  summaryTemplate: string;
+}
+
+export interface ValidationRule {
+  id: string;
+  label: string;
+  severity: 'warning' | 'error';
+  explanation: string;
+}
+
+export interface WorkoutIntelligenceCatalog {
+  progressionRules: WorkoutRule[];
+  regressionRules: WorkoutRule[];
+  deloadRules: WorkoutRule[];
+  substitutionRules: SubstitutionRule[];
+  safetyFlags: WorkoutSafetyFlag[];
+  coachingCueSets: CoachingCueSet[];
+  commonMistakeSets: CommonMistakeSet[];
+  descriptionTemplates: DescriptionTemplate[];
+  validationRules: ValidationRule[];
+}
+
+export interface PersonalizedWorkoutInput extends GenerateSingleWorkoutInput {
+  readinessBand?: WorkoutReadinessBand;
+  painFlags?: string[];
+  dislikedExerciseIds?: string[];
+  preferredDurationMinutes?: number;
+  recentCompletedWorkoutIds?: string[];
+  priorExerciseOutcomes?: ExerciseCompletionResult[];
+}
+
 export interface GeneratedExercisePrescription {
   exerciseId: string;
   name: string;
@@ -134,6 +210,17 @@ export interface GeneratedExercisePrescription {
   };
   trackingMetricIds: string[];
   explanation: string;
+  substitutions?: {
+    exerciseId: string;
+    name: string;
+    rationale: string;
+  }[];
+  scalingOptions?: {
+    down: string;
+    up: string;
+  };
+  coachingCues?: string[];
+  commonMistakes?: string[];
 }
 
 export interface GeneratedWorkoutBlock {
@@ -158,9 +245,90 @@ export interface GeneratedWorkout {
   trackingMetricIds: string[];
   successCriteria: string[];
   explanations: string[];
+  blocked?: boolean;
+  validationWarnings?: string[];
 }
 
 export interface WorkoutValidationResult {
   valid: boolean;
   errors: string[];
+}
+
+export interface WorkoutCompletionLog {
+  workoutId: string;
+  completedAt: string;
+  plannedDurationMinutes: number;
+  actualDurationMinutes: number;
+  sessionRpe: number;
+  painScoreBefore?: number | null;
+  painScoreAfter?: number | null;
+  notes?: string | null;
+  exerciseResults: ExerciseCompletionResult[];
+}
+
+export interface ExerciseCompletionResult {
+  exerciseId: string;
+  setsCompleted: number;
+  repsCompleted?: number | null;
+  durationSecondsCompleted?: number | null;
+  loadUsed?: number | null;
+  actualRpe?: number | null;
+  painScore?: number | null;
+  completedAsPrescribed: boolean;
+}
+
+export interface ProgressionDecision {
+  direction: 'progress' | 'repeat' | 'regress' | 'recover';
+  reason: string;
+  nextAdjustment: string;
+  safetyFlags: string[];
+}
+
+export interface UserWorkoutProfile {
+  userId: string;
+  equipmentIds: string[];
+  experienceLevel: WorkoutExperienceLevel;
+  safetyFlags: string[];
+  dislikedExerciseIds: string[];
+  preferredDurationMinutes: number;
+  readinessBand: WorkoutReadinessBand;
+  painFlags: string[];
+}
+
+export interface ProtectedWorkoutInput {
+  id: string;
+  label: string;
+  dayIndex: number;
+  durationMinutes: number;
+  intensity: WorkoutIntensity;
+}
+
+export interface GeneratedProgramSession {
+  id: string;
+  dayIndex: number;
+  weekIndex: number;
+  protectedAnchor: boolean;
+  label: string;
+  workout: GeneratedWorkout | null;
+}
+
+export interface GeneratedProgram {
+  id: string;
+  goalId: string;
+  weekCount: number;
+  sessions: GeneratedProgramSession[];
+  explanations: string[];
+  validationWarnings: string[];
+}
+
+export interface WorkoutAnalyticsSummary {
+  workoutsPlanned: number;
+  workoutsCompleted: number;
+  adherenceRate: number;
+  averageSessionRpe: number | null;
+  totalCompletedSets: number;
+  painTrend: 'none' | 'improving' | 'stable' | 'worsening';
+  recommendationQualityScore: number;
+  warnings: string[];
+  summary: string;
 }
