@@ -5,6 +5,7 @@ import {
   queryWorkoutExercises,
   validateGeneratedWorkout,
 } from './workoutProgrammingEngine.ts';
+import { generateWorkoutDescription } from './workoutDescriptionService.ts';
 import type {
   Exercise,
   GeneratedExercisePrescription,
@@ -23,6 +24,26 @@ function unique<T>(items: T[]): T[] {
 function flagIds(flags: WorkoutSafetyFlag[]): string[] {
   return flags.map((flag) => flag.id);
 }
+
+const descriptionToneVariants = new Set([
+  'beginner_friendly',
+  'coach_like',
+  'clinical',
+  'motivational',
+  'minimal',
+  'detailed',
+  'athletic',
+  'rehab_informed',
+  'data_driven',
+]);
+
+const genericDescriptionFragments = [
+  'adjust as needed',
+  'do what feels right',
+  'listen to your body',
+  'workout summary',
+  'summary template',
+];
 
 export function resolveSafetyFlags(
   input: PersonalizedWorkoutInput,
@@ -50,6 +71,41 @@ export function validateWorkoutIntelligenceCatalog(
   if (catalog.commonMistakeSets.length < 25) errors.push('Expected at least 25 common mistake sets.');
   if (catalog.descriptionTemplates.length < 20) errors.push('Expected at least 20 description templates.');
   if (catalog.validationRules.length < 10) errors.push('Expected validation rules from QA spec.');
+
+  for (const template of catalog.descriptionTemplates) {
+    const templateId = template.descriptionTemplateId ?? template.id;
+    const textFields = [
+      template.summaryTemplate,
+      template.sessionIntent,
+      template.plainLanguageSummary,
+      template.coachExplanation,
+      template.effortExplanation,
+      template.whyThisMatters,
+      template.howItShouldFeel,
+      template.scalingDown,
+      template.scalingUp,
+      template.breathingFocus,
+      template.recoveryExpectation,
+      template.completionMessage,
+      template.nextSessionNote,
+    ];
+    const joined = [
+      ...textFields.filter((value): value is string => Boolean(value)),
+      ...(template.successCriteria ?? []),
+      ...(template.formFocus ?? []),
+      ...(template.commonMistakes ?? []),
+      ...(template.safetyNotes ?? []),
+    ].join(' ').toLowerCase();
+
+    if (!template.descriptionTemplateId) errors.push(`${template.id} is missing descriptionTemplateId.`);
+    if (!template.appliesToEntityType || !template.appliesToEntityId) errors.push(`${templateId} is missing entity scope.`);
+    if (!template.toneVariant || !descriptionToneVariants.has(template.toneVariant)) errors.push(`${templateId} has unsupported tone variant.`);
+    if (textFields.some((value) => !value?.trim())) errors.push(`${templateId} is missing full coaching language.`);
+    if ((template.successCriteria?.length ?? 0) < 3) errors.push(`${templateId} needs at least three success criteria.`);
+    if ((template.formFocus?.length ?? 0) < 2) errors.push(`${templateId} needs specific form focus cues.`);
+    if ((template.safetyNotes?.length ?? 0) === 0) errors.push(`${templateId} needs safety notes.`);
+    if (genericDescriptionFragments.some((fragment) => joined.includes(fragment))) errors.push(`${templateId} contains generic description language.`);
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -166,7 +222,7 @@ export function generatePersonalizedWorkout(
   const resolvedSafety = resolveSafetyFlags(input, intelligence);
   const blocking = resolvedSafety.find((flag) => flag.severity === 'block');
   if (blocking) {
-    return {
+    const blockedWorkout: GeneratedWorkout = {
       schemaVersion: 'generated-workout-v1',
       workoutTypeId: 'recovery',
       goalId: input.goalId,
@@ -182,6 +238,19 @@ export function generatePersonalizedWorkout(
       explanations: [`Workout generation was blocked by ${blocking.label}. Safety wins over performance goals.`],
       blocked: true,
       validationWarnings: [`Blocked by ${blocking.id}.`],
+    };
+    const description = generateWorkoutDescription(blockedWorkout, {
+      descriptionTemplateId: 'description_readiness_adjusted',
+      templates: intelligence.descriptionTemplates,
+      toneVariant: 'clinical',
+    });
+    return {
+      ...blockedWorkout,
+      sessionIntent: description.sessionIntent,
+      userFacingSummary: description.plainLanguageSummary,
+      description,
+      coachingNotes: [description.coachExplanation, description.effortExplanation],
+      safetyNotes: description.safetyNotes,
     };
   }
 

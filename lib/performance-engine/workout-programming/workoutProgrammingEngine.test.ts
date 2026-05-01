@@ -40,6 +40,40 @@ function mainExercises(workout: GeneratedWorkout) {
 }
 
 const genericOntologyFragments = ['adjust as needed', 'use good form', 'do what feels right'];
+const genericDescriptionFragments = ['adjust as needed', 'do what feels right', 'listen to your body', 'workout summary'];
+
+function hasCompleteGeneratedDescription(workout: GeneratedWorkout): boolean {
+  const description = workout.description;
+  if (!description) return false;
+  const text = [
+    description.intro,
+    description.effortExplanation,
+    description.scalingDown,
+    description.scalingUp,
+    description.completionMessage,
+    description.nextSessionNote,
+    ...description.safetyNotes,
+    ...description.successCriteria,
+  ].join(' ').toLowerCase();
+
+  return Boolean(
+    description.descriptionTemplateId
+    && description.intro.length > 80
+    && description.sessionIntent
+    && description.plainLanguageSummary
+    && description.coachExplanation
+    && description.effortExplanation
+    && description.whyThisMatters
+    && description.howItShouldFeel
+    && description.safetyNotes.length > 0
+    && description.successCriteria.length >= 3
+    && description.scalingDown
+    && description.scalingUp
+    && description.completionMessage
+    && description.nextSessionNote
+    && !genericDescriptionFragments.some((fragment) => text.includes(fragment))
+  );
+}
 
 console.log('\n-- workout programming engine --');
 
@@ -280,6 +314,7 @@ console.log('\n-- workout programming engine --');
         || exercise.prescription.durationMinutes !== null
       )
     )));
+    assert(`${scenario.goalId} includes generated coaching description`, hasCompleteGeneratedDescription(workout));
   }
 })();
 
@@ -332,6 +367,28 @@ console.log('\n-- workout programming engine --');
     exercise.prescription.payload.kind === 'balance'
     && exercise.prescription.payload.fallRiskRules.length > 0
   )));
+  assert('generated descriptions are complete for eight workout goals', [
+    strength,
+    hypertrophy,
+    zone2,
+    mobility,
+    recovery,
+    conditioning,
+    power,
+    balance,
+  ].every(hasCompleteGeneratedDescription));
+  assert('strength description includes reserve and rest guidance', Boolean(
+    strength.description?.effortExplanation.includes('two good reps in reserve')
+    && strength.description.effortExplanation.includes('Rest long enough'),
+  ));
+  assert('Zone 2 description includes talk-test guidance', Boolean(
+    zone2.description?.effortExplanation.includes('conversational effort')
+    && zone2.description.effortExplanation.includes('without gasping'),
+  ));
+  assert('mobility description includes pain-free range guidance', Boolean(
+    mobility.description?.effortExplanation.includes('pain-free range')
+    && mobility.description.effortExplanation.includes('not forcing depth'),
+  ));
 })();
 
 (() => {

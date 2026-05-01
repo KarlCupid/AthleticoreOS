@@ -35,7 +35,17 @@ export type IntensityModel = 'rpe' | 'rir' | 'percent_1rm' | 'heart_rate_zone' |
 export type VolumeModel = 'sets_reps' | 'duration' | 'distance' | 'rounds' | 'contacts' | 'density' | 'holds';
 export type RestModel = 'fixed' | 'range' | 'as_needed' | 'heart_rate_recovery' | 'quality_recovery' | 'none';
 export type RuleType = 'progression' | 'regression' | 'deload';
-export type DescriptionToneVariant = 'plain' | 'coach' | 'encouraging' | 'clinical' | 'concise';
+export type DescriptionToneVariant =
+  | 'beginner_friendly'
+  | 'coach_like'
+  | 'clinical'
+  | 'motivational'
+  | 'minimal'
+  | 'detailed'
+  | 'athletic'
+  | 'rehab_informed'
+  | 'data_driven';
+export type DescriptionEntityType = 'goal' | 'workout_type' | 'session_template' | 'exercise' | 'program';
 
 export interface WorkoutTaxonomyItem {
   id: string;
@@ -513,7 +523,10 @@ export interface CommonMistakeSet {
 
 export interface DescriptionTemplate {
   id: string;
-  appliesToGoalIds: string[];
+  descriptionTemplateId?: string;
+  appliesToEntityType?: DescriptionEntityType;
+  appliesToEntityId?: string;
+  appliesToGoalIds?: string[];
   summaryTemplate: string;
   toneVariant?: DescriptionToneVariant;
   sessionIntent?: string;
@@ -532,6 +545,34 @@ export interface DescriptionTemplate {
   recoveryExpectation?: string;
   completionMessage?: string;
   nextSessionNote?: string;
+}
+
+export interface WorkoutDescription {
+  descriptionTemplateId: string;
+  toneVariant: DescriptionToneVariant;
+  intro: string;
+  sessionIntent: string;
+  plainLanguageSummary: string;
+  coachExplanation: string;
+  effortExplanation: string;
+  whyThisMatters: string;
+  howItShouldFeel: string;
+  safetyNotes: string[];
+  successCriteria: string[];
+  scalingDown: string;
+  scalingUp: string;
+  formFocus: string[];
+  breathingFocus: string;
+  commonMistakes: string[];
+  recoveryExpectation: string;
+  completionMessage: string;
+  nextSessionNote: string;
+}
+
+export interface GenerateWorkoutDescriptionOptions {
+  toneVariant?: DescriptionToneVariant;
+  descriptionTemplateId?: string;
+  templates?: DescriptionTemplate[];
 }
 
 export interface ValidationRule {
@@ -641,6 +682,7 @@ export interface GeneratedWorkout {
   formatId: string;
   sessionIntent?: string;
   userFacingSummary?: string;
+  description?: WorkoutDescription;
   requestedDurationMinutes: number;
   estimatedDurationMinutes: number;
   equipmentIds: string[];

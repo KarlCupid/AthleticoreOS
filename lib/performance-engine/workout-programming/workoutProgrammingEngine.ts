@@ -1,6 +1,7 @@
 import {
   workoutProgrammingCatalog,
 } from './seedData.ts';
+import { generateWorkoutDescription } from './workoutDescriptionService.ts';
 import type {
   EquipmentType,
   Exercise,
@@ -557,7 +558,7 @@ export function generateSingleSessionWorkout(
       : 'No safety flags were supplied, so the generator still used conservative MVP prescriptions.',
   ];
 
-  return {
+  const generated: GeneratedWorkout = {
     schemaVersion: 'generated-workout-v1',
     workoutTypeId,
     goalId: request.goalId,
@@ -571,6 +572,16 @@ export function generateSingleSessionWorkout(
     trackingMetricIds,
     successCriteria: template.successCriteria,
     explanations,
+  };
+  const description = generateWorkoutDescription(generated);
+
+  return {
+    ...generated,
+    sessionIntent: description.sessionIntent,
+    userFacingSummary: description.plainLanguageSummary,
+    description,
+    coachingNotes: [description.coachExplanation, description.effortExplanation],
+    safetyNotes: description.safetyNotes,
   };
 }
 
@@ -614,6 +625,18 @@ export function validateGeneratedWorkout(
   }
   if (workout.trackingMetricIds.length === 0) errors.push('Workout is missing tracking metrics.');
   if (workout.successCriteria.length === 0) errors.push('Workout is missing success criteria.');
+  if (!workout.description) {
+    errors.push('Workout is missing display-ready description.');
+  } else {
+    if (!workout.description.intro.trim()) errors.push('Workout description is missing intro.');
+    if (!workout.description.effortExplanation.trim()) errors.push('Workout description is missing effort explanation.');
+    if (!workout.description.scalingDown.trim()) errors.push('Workout description is missing scaling-down guidance.');
+    if (!workout.description.scalingUp.trim()) errors.push('Workout description is missing scaling-up guidance.');
+    if (!workout.description.completionMessage.trim()) errors.push('Workout description is missing completion message.');
+    if (!workout.description.nextSessionNote.trim()) errors.push('Workout description is missing next-session note.');
+    if (workout.description.safetyNotes.length === 0) errors.push('Workout description is missing safety notes.');
+    if (workout.description.successCriteria.length === 0) errors.push('Workout description is missing success criteria.');
+  }
 
   for (const id of workout.equipmentIds) {
     if (!equipmentCatalog.has(id)) errors.push(`Workout references unknown equipment ${id}.`);

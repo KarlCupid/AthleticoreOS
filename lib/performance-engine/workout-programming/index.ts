@@ -3,6 +3,7 @@ export * from './seedData.ts';
 export * from './intelligenceData.ts';
 export * from './seedLoader.ts';
 export * from './workoutProgrammingEngine.ts';
+export * from './workoutDescriptionService.ts';
 export * from './intelligenceEngine.ts';
 export * from './personalizationEngine.ts';
 export * from './programBuilder.ts';

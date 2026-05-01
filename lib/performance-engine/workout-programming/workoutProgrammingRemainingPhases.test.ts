@@ -1,7 +1,9 @@
 import {
   createUserWorkoutProfile,
+  generateSingleSessionWorkout,
   generatePersonalizedWorkout,
   generateWeeklyWorkoutProgram,
+  generateWorkoutDescription,
   generateWorkoutForUserProfile,
   recommendNextProgression,
   summarizeWorkoutAnalytics,
@@ -58,6 +60,78 @@ function hasSpecificText(items: string[]): boolean {
   return items.length >= 3 && items.every((item) => item.length >= 20 && !generic.includes(item));
 }
 
+const requiredDescriptionTemplateIds = [
+  'description_beginner_full_body_strength',
+  'description_intermediate_strength',
+  'description_upper_body_hypertrophy',
+  'description_lower_body_hypertrophy',
+  'description_zone2_cardio',
+  'description_threshold_cardio',
+  'description_low_impact_hiit',
+  'description_metabolic_conditioning',
+  'description_hip_tspine_mobility',
+  'description_recovery',
+  'description_balance_older_adult',
+  'description_power_session',
+  'description_boxing_support',
+  'description_return_to_training',
+  'description_no_equipment_strength',
+];
+
+const supportedToneVariants = [
+  'beginner_friendly',
+  'coach_like',
+  'clinical',
+  'motivational',
+  'minimal',
+  'detailed',
+  'athletic',
+  'rehab_informed',
+  'data_driven',
+];
+
+function hasCompleteDescriptionTemplate(template: (typeof workoutIntelligenceCatalog.descriptionTemplates)[number]): boolean {
+  const generic = ['adjust as needed', 'do what feels right', 'listen to your body', 'workout summary'];
+  const text = [
+    template.summaryTemplate,
+    template.sessionIntent,
+    template.plainLanguageSummary,
+    template.coachExplanation,
+    template.effortExplanation,
+    template.whyThisMatters,
+    template.howItShouldFeel,
+    template.scalingDown,
+    template.scalingUp,
+    template.breathingFocus,
+    template.recoveryExpectation,
+    template.completionMessage,
+    template.nextSessionNote,
+    ...(template.successCriteria ?? []),
+    ...(template.formFocus ?? []),
+    ...(template.commonMistakes ?? []),
+    ...(template.safetyNotes ?? []),
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return Boolean(
+    template.descriptionTemplateId
+    && template.appliesToEntityType
+    && template.appliesToEntityId
+    && template.toneVariant
+    && supportedToneVariants.includes(template.toneVariant)
+    && template.sessionIntent
+    && template.plainLanguageSummary
+    && template.coachExplanation
+    && template.effortExplanation
+    && template.whyThisMatters
+    && template.howItShouldFeel
+    && (template.successCriteria?.length ?? 0) >= 3
+    && (template.formFocus?.length ?? 0) >= 2
+    && (template.commonMistakes?.length ?? 0) >= 2
+    && (template.safetyNotes?.length ?? 0) >= 1
+    && !generic.some((fragment) => text.includes(fragment))
+  );
+}
+
 console.log('\n-- workout programming remaining phases --');
 
 (() => {
@@ -98,7 +172,39 @@ console.log('\n-- workout programming remaining phases --');
     && (template.successCriteria?.length ?? 0) >= 3
     && (template.formFocus?.length ?? 0) > 0
   )));
+  assert('required coaching description templates are seeded', requiredDescriptionTemplateIds.every((id) => (
+    workoutIntelligenceCatalog.descriptionTemplates.some((template) => template.descriptionTemplateId === id)
+  )));
+  assert('description templates are scoped and non-generic', workoutIntelligenceCatalog.descriptionTemplates.every(hasCompleteDescriptionTemplate));
+  assert('all requested tone variants are represented', supportedToneVariants.every((tone) => (
+    workoutIntelligenceCatalog.descriptionTemplates.some((template) => template.toneVariant === tone)
+  )));
   assert('validation rules seeded', workoutIntelligenceCatalog.validationRules.length >= 10);
+})();
+
+(() => {
+  const workout = generateSingleSessionWorkout({
+    goalId: 'zone2_cardio',
+    durationMinutes: 35,
+    equipmentIds: ['stationary_bike'],
+    experienceLevel: 'beginner',
+  });
+  const coach = generateWorkoutDescription(workout, { toneVariant: 'coach_like' });
+  const minimal = generateWorkoutDescription(workout, { toneVariant: 'minimal' });
+  const clinical = generateWorkoutDescription(workout, { toneVariant: 'clinical' });
+
+  assert('description service returns display-ready sections', Boolean(
+    coach.intro
+    && coach.effortExplanation
+    && coach.safetyNotes.length
+    && coach.successCriteria.length
+    && coach.scalingDown
+    && coach.scalingUp
+    && coach.completionMessage
+    && coach.nextSessionNote
+  ));
+  assert('description tone variants change copy', coach.intro !== minimal.intro && clinical.intro !== minimal.intro);
+  assert('Zone 2 description uses conversational effort language', coach.effortExplanation.includes('conversational effort'));
 })();
 
 (() => {
