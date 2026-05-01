@@ -9,6 +9,7 @@ export * from './presentation/index.ts';
 export * from './risk-safety/index.ts';
 export * from './tracking-readiness/index.ts';
 export * from './unified-performance/index.ts';
+export * from './workout-programming/index.ts';
 export * from './types/index.ts';
 export * from './utils/index.ts';
 export * from './app-flow/firstRunWalkthroughState.ts';
