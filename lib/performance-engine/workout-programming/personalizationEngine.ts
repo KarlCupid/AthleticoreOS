@@ -14,16 +14,20 @@ function average(values: number[]): number | null {
 }
 
 export function createUserWorkoutProfile(input: Partial<UserWorkoutProfile> & { userId: string }): UserWorkoutProfile {
-  return {
+  const profile: UserWorkoutProfile = {
     userId: input.userId,
     equipmentIds: input.equipmentIds ?? ['bodyweight'],
     experienceLevel: input.experienceLevel ?? 'beginner',
     safetyFlags: input.safetyFlags ?? [],
     dislikedExerciseIds: input.dislikedExerciseIds ?? [],
+    likedExerciseIds: input.likedExerciseIds ?? [],
     preferredDurationMinutes: input.preferredDurationMinutes ?? 35,
     readinessBand: input.readinessBand ?? 'unknown',
     painFlags: input.painFlags ?? [],
+    workoutEnvironment: input.workoutEnvironment ?? 'unknown',
   };
+  if (input.preferredToneVariant) profile.preferredToneVariant = input.preferredToneVariant;
+  return profile;
 }
 
 export function generateWorkoutForUserProfile(
@@ -40,9 +44,21 @@ export function generateWorkoutForUserProfile(
     readinessBand: request.readinessBand ?? profile.readinessBand,
     painFlags: [...profile.painFlags, ...(request.painFlags ?? [])],
     dislikedExerciseIds: [...profile.dislikedExerciseIds, ...(request.dislikedExerciseIds ?? [])],
+    likedExerciseIds: [...(profile.likedExerciseIds ?? []), ...(request.likedExerciseIds ?? [])],
   };
+  const workoutEnvironment = request.workoutEnvironment ?? profile.workoutEnvironment;
+  const preferredToneVariant = request.preferredToneVariant ?? profile.preferredToneVariant;
+  if (workoutEnvironment) input.workoutEnvironment = workoutEnvironment;
+  if (preferredToneVariant) input.preferredToneVariant = preferredToneVariant;
   if (request.priorExerciseOutcomes) input.priorExerciseOutcomes = request.priorExerciseOutcomes;
   if (request.recentCompletedWorkoutIds) input.recentCompletedWorkoutIds = request.recentCompletedWorkoutIds;
+  if (request.recentWorkoutCompletions) input.recentWorkoutCompletions = request.recentWorkoutCompletions;
+  if (request.recentProgressionDecisions) input.recentProgressionDecisions = request.recentProgressionDecisions;
+  if (request.protectedWorkouts) input.protectedWorkouts = request.protectedWorkouts;
+  if (request.sorenessLevel != null) input.sorenessLevel = request.sorenessLevel;
+  if (request.sleepQuality != null) input.sleepQuality = request.sleepQuality;
+  if (request.energyLevel != null) input.energyLevel = request.energyLevel;
+  if (request.availableTimeRange) input.availableTimeRange = request.availableTimeRange;
   return generatePersonalizedWorkout(input);
 }
 

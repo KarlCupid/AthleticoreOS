@@ -98,10 +98,27 @@ const IMPACT_RANK: Record<Exercise['impact'], number> = {
 
 const RECOVERY_REQUIRED_FLAGS = new Set([
   'poor_readiness',
-  'high_fatigue',
   'illness_caution',
   'under_fueled',
   'post_competition_recovery',
+]);
+
+const CONSERVATIVE_VOLUME_FLAGS = new Set([
+  'poor_readiness',
+  'unknown_readiness',
+  'high_fatigue',
+  'high_soreness',
+  'pain_increased_last_session',
+]);
+
+const CONSERVATIVE_INTENSITY_FLAGS = new Set([
+  'poor_readiness',
+  'unknown_readiness',
+  'high_fatigue',
+  'low_energy',
+  'poor_sleep',
+  'high_soreness',
+  'pain_increased_last_session',
 ]);
 
 let traceCounter = 0;
@@ -517,12 +534,13 @@ function buildExercisePrescription(input: {
     : null;
   const durationSeconds = template.defaultDurationSeconds ?? null;
   const safetyFlags = input.request.safetyFlags ?? [];
-  const shouldReduce = input.request.experienceLevel === 'beginner'
-    || safetyFlags.some((flag) => ['poor_readiness', 'unknown_readiness', 'high_fatigue', 'low_energy', 'high_soreness', 'poor_sleep'].includes(flag));
+  const shouldReduceVolume = input.request.experienceLevel === 'beginner'
+    || safetyFlags.some((flag) => CONSERVATIVE_VOLUME_FLAGS.has(flag));
+  const shouldReduceIntensity = safetyFlags.some((flag) => CONSERVATIVE_INTENSITY_FLAGS.has(flag));
   const baseSets = timedBlock && template.defaultSets == null ? null : template.defaultSets ?? 2;
-  const sets = baseSets == null ? null : Math.max(1, baseSets - (shouldReduce && input.block.kind === 'main' && baseSets > 2 ? 1 : 0));
+  const sets = baseSets == null ? null : Math.max(1, baseSets - (shouldReduceVolume && input.block.kind === 'main' && baseSets > 2 ? 1 : 0));
   const payload = payloadForExercise(template, input.exercise, durationMinutes, durationSeconds);
-  const targetRpe = Math.max(1, Math.min(9, template.defaultRpe - (shouldReduce && template.defaultRpe > 4 ? 1 : 0)));
+  const targetRpe = Math.max(1, Math.min(9, template.defaultRpe - (shouldReduceIntensity && template.defaultRpe > 4 ? 1 : 0)));
   const substitutions = rankExerciseSubstitutions({
     sourceExerciseId: input.exercise.id,
     movementPatternIds: input.exercise.movementPatternIds,
@@ -585,8 +603,9 @@ function scoreExerciseForSlot(input: {
   if (input.request.experienceLevel === 'beginner' && exercise.beginnerFriendly) score += 8;
   if (input.request.preferredExerciseIds?.includes(exercise.id)) score += 10;
   if (input.request.dislikedExerciseIds?.includes(exercise.id)) score -= 100;
-  if (exercise.homeFriendly && input.request.equipmentIds.every((id) => ['bodyweight', 'dumbbells', 'kettlebell', 'resistance_band', 'mat', 'bench', 'plyo_box', 'open_space'].includes(id))) score += 5;
-  if (exercise.gymFriendly && input.request.equipmentIds.some((id) => ['barbell', 'squat_rack', 'cable_machine', 'leg_press', 'lat_pulldown', 'stationary_bike', 'treadmill', 'rowing_machine'].includes(id))) score += 5;
+  const environment = input.request.workoutEnvironment ?? 'unknown';
+  if (exercise.homeFriendly && (environment === 'home' || environment === 'travel' || input.request.equipmentIds.every((id) => ['bodyweight', 'dumbbells', 'kettlebell', 'resistance_band', 'mat', 'bench', 'plyo_box', 'open_space'].includes(id)))) score += 5;
+  if (exercise.gymFriendly && (environment === 'gym' || input.request.equipmentIds.some((id) => ['barbell', 'squat_rack', 'cable_machine', 'leg_press', 'lat_pulldown', 'stationary_bike', 'treadmill', 'rowing_machine'].includes(id)))) score += 5;
   score -= Math.max(0, EXPERIENCE_RANK[exercise.minExperience] - EXPERIENCE_RANK[input.request.experienceLevel]) * 30;
   score -= intensityRank(exercise.intensity) * (safetyFlags.some((flag) => RECOVERY_REQUIRED_FLAGS.has(flag)) ? 8 : 2);
   score -= DEMAND_RANK[exercise.fatigueCost ?? 'low'] * (safetyFlags.includes('high_fatigue') || safetyFlags.includes('poor_readiness') ? 8 : 2);
@@ -820,7 +839,10 @@ export function generateSingleSessionWorkout(
     explanations,
     decisionTrace,
   };
-  const description = generateWorkoutDescription(generated);
+  const description = generateWorkoutDescription(
+    generated,
+    effectiveRequest.preferredToneVariant ? { toneVariant: effectiveRequest.preferredToneVariant } : {},
+  );
 
   const workoutWithDescription: GeneratedWorkout = {
     ...generated,

@@ -144,6 +144,24 @@ function rankedSubstitutions(input: Parameters<typeof rankExerciseSubstitutions>
   });
 }
 
+function exerciseIds(workout: ReturnType<typeof generatePersonalizedWorkout>): string[] {
+  return workout.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exerciseId));
+}
+
+function averageMainRpe(workout: ReturnType<typeof generatePersonalizedWorkout>): number {
+  const rpes = workout.blocks
+    .filter((block) => block.kind === 'main')
+    .flatMap((block) => block.exercises.map((exercise) => exercise.prescription.targetRpe));
+  return rpes.reduce((sum, rpe) => sum + rpe, 0) / Math.max(1, rpes.length);
+}
+
+function totalMainSets(workout: ReturnType<typeof generatePersonalizedWorkout>): number {
+  return workout.blocks
+    .filter((block) => block.kind === 'main')
+    .flatMap((block) => block.exercises)
+    .reduce((sum, exercise) => sum + (exercise.prescription.sets ?? 0), 0);
+}
+
 console.log('\n-- workout programming remaining phases --');
 
 (() => {
@@ -365,6 +383,121 @@ console.log('\n-- workout programming remaining phases --');
   assert('profile dislikes affect exercise selection', !aExerciseIds.includes('push_up'));
   assert('two users can receive different workouts for same goal', aExerciseIds.join(',') !== bExerciseIds.join(','));
   assert('preferred duration affects generated duration', b.estimatedDurationMinutes > a.estimatedDurationMinutes);
+})();
+
+(() => {
+  const bodyweightUser = generatePersonalizedWorkout({
+    userId: 'phase11-bodyweight',
+    goalId: 'beginner_strength',
+    durationMinutes: 40,
+    equipmentIds: ['bodyweight', 'mat'],
+    experienceLevel: 'beginner',
+    readinessBand: 'green',
+    workoutEnvironment: 'home',
+  });
+  const gymUser = generatePersonalizedWorkout({
+    userId: 'phase11-gym',
+    goalId: 'beginner_strength',
+    durationMinutes: 40,
+    equipmentIds: ['dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'beginner',
+    readinessBand: 'green',
+    workoutEnvironment: 'gym',
+  });
+  const green = generatePersonalizedWorkout({
+    userId: 'phase11-green',
+    goalId: 'beginner_strength',
+    durationMinutes: 45,
+    equipmentIds: ['bodyweight', 'dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'green',
+  });
+  const orange = generatePersonalizedWorkout({
+    userId: 'phase11-orange',
+    goalId: 'beginner_strength',
+    durationMinutes: 45,
+    equipmentIds: ['bodyweight', 'dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'orange',
+  });
+  const kneePain = generatePersonalizedWorkout({
+    userId: 'phase11-knee',
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    experienceLevel: 'beginner',
+    readinessBand: 'yellow',
+    painFlags: ['knee_caution'],
+  });
+  const disliked = generatePersonalizedWorkout({
+    userId: 'phase11-dislike',
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    experienceLevel: 'beginner',
+    readinessBand: 'green',
+    dislikedExerciseIds: ['goblet_squat', 'push_up'],
+    likedExerciseIds: ['box_squat'],
+  });
+  const poorSleep = generatePersonalizedWorkout({
+    userId: 'phase11-sleep',
+    goalId: 'beginner_strength',
+    durationMinutes: 45,
+    equipmentIds: ['bodyweight', 'dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'green',
+    sleepQuality: 3,
+  });
+  const sore = generatePersonalizedWorkout({
+    userId: 'phase11-sore',
+    goalId: 'beginner_strength',
+    durationMinutes: 45,
+    equipmentIds: ['bodyweight', 'dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'green',
+    sorenessLevel: 8,
+  });
+  const red = generatePersonalizedWorkout({
+    userId: 'phase11-red',
+    goalId: 'full_gym_strength',
+    durationMinutes: 45,
+    equipmentIds: ['dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'red',
+  });
+  const unknown = generatePersonalizedWorkout({
+    userId: 'phase11-unknown',
+    goalId: 'full_gym_strength',
+    durationMinutes: 45,
+    equipmentIds: ['dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'unknown',
+  });
+
+  const bodyweightIds = exerciseIds(bodyweightUser);
+  const gymIds = exerciseIds(gymUser);
+  const kneeExercises = kneePain.blocks.flatMap((block) => block.exercises);
+  const kneeSubstitutionText = kneeExercises
+    .flatMap((exercise) => exercise.substitutions ?? [])
+    .map((option) => option.rationale.toLowerCase())
+    .join(' ');
+  const bodyweightLoadEquipment = new Set(['dumbbells', 'kettlebell', 'barbell', 'cable_machine', 'leg_press', 'lat_pulldown']);
+
+  assert('phase 11 same goal different equipment changes selections', bodyweightIds.join(',') !== gymIds.join(','));
+  assert('phase 11 equipment-specific selections stay compatible', bodyweightUser.blocks.flatMap((block) => block.exercises).every((exercise) => (
+    !exercise.equipmentIds.some((id) => bodyweightLoadEquipment.has(id))
+  )));
+  assert('phase 11 orange readiness preserves primary goal when safe', orange.goalId === 'beginner_strength' && orange.workoutTypeId !== 'recovery');
+  assert('phase 11 orange readiness reduces intensity', averageMainRpe(orange) < averageMainRpe(green));
+  assert('phase 11 pain flag triggers safer substitutions', kneePain.safetyFlags.includes('knee_caution') && kneeSubstitutionText.includes('knee'));
+  assert('phase 11 disliked exercises are excluded', !exerciseIds(disliked).some((id) => ['goblet_squat', 'push_up'].includes(id)));
+  assert('phase 11 poor sleep reduces intensity', averageMainRpe(poorSleep) < averageMainRpe(green));
+  assert('phase 11 high soreness reduces volume', totalMainSets(sore) < totalMainSets(green));
+  assert('phase 11 red readiness routes hard training to recovery', red.workoutTypeId === 'recovery' && red.explanations.some((explanation) => explanation.includes('Red readiness')));
+  assert('phase 11 unknown readiness stays conservative but usable', !unknown.blocked && unknown.blocks.length > 0 && averageMainRpe(unknown) <= averageMainRpe(green));
+  assert('phase 11 readiness changes are explainable', [orange, poorSleep, sore, red, unknown].every((workout) => (
+    workout.decisionTrace?.some((entry) => entry.step === 'personalize_readiness' && entry.reason.length > 40)
+  )));
 })();
 
 const goodCompletion: WorkoutCompletionLog = {

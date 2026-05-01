@@ -425,6 +425,8 @@ export interface GenerateSingleWorkoutInput {
   preferredExerciseIds?: string[];
   dislikedExerciseIds?: string[];
   readinessBand?: WorkoutReadinessBand;
+  workoutEnvironment?: 'home' | 'gym' | 'outdoor' | 'travel' | 'unknown';
+  preferredToneVariant?: DescriptionToneVariant;
 }
 
 export type WorkoutReadinessBand = 'green' | 'yellow' | 'orange' | 'red' | 'unknown';
@@ -644,10 +646,24 @@ export interface WorkoutIntelligenceCatalog {
 }
 
 export interface PersonalizedWorkoutInput extends GenerateSingleWorkoutInput {
+  userId?: string;
   readinessBand?: WorkoutReadinessBand;
   painFlags?: string[];
   dislikedExerciseIds?: string[];
+  likedExerciseIds?: string[];
   preferredDurationMinutes?: number;
+  availableTimeRange?: {
+    minMinutes?: number;
+    maxMinutes?: number;
+  };
+  workoutEnvironment?: 'home' | 'gym' | 'outdoor' | 'travel' | 'unknown';
+  sorenessLevel?: number;
+  sleepQuality?: number;
+  energyLevel?: number;
+  recentWorkoutCompletions?: WorkoutCompletionLog[];
+  recentProgressionDecisions?: ProgressionDecision[];
+  protectedWorkouts?: ProtectedWorkoutInput[];
+  preferredToneVariant?: DescriptionToneVariant;
   recentCompletedWorkoutIds?: string[];
   priorExerciseOutcomes?: ExerciseCompletionResult[];
 }
@@ -794,9 +810,12 @@ export interface UserWorkoutProfile {
   experienceLevel: WorkoutExperienceLevel;
   safetyFlags: string[];
   dislikedExerciseIds: string[];
+  likedExerciseIds?: string[];
   preferredDurationMinutes: number;
   readinessBand: WorkoutReadinessBand;
   painFlags: string[];
+  workoutEnvironment?: 'home' | 'gym' | 'outdoor' | 'travel' | 'unknown';
+  preferredToneVariant?: DescriptionToneVariant;
 }
 
 export interface ProtectedWorkoutInput {

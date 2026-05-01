@@ -9,9 +9,11 @@ import { rankExerciseSubstitutions } from './substitutionEngine.ts';
 import { createWorkoutValidationResult, workoutValidationRuleIds } from './validationEngine.ts';
 import type {
   ExerciseSubstitutionOption,
+  GenerateSingleWorkoutInput,
   GeneratedExercisePrescription,
   GeneratedWorkout,
   PersonalizedWorkoutInput,
+  WorkoutCompletionLog,
   WorkoutIntelligenceCatalog,
   WorkoutProgrammingCatalog,
   WorkoutSafetyFlag,
@@ -24,6 +26,102 @@ function unique<T>(items: T[]): T[] {
 
 function flagIds(flags: WorkoutSafetyFlag[]): string[] {
   return flags.map((flag) => flag.id);
+}
+
+function boundedMetric(value: number | undefined, min: number, max: number): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(min, Math.min(max, value));
+}
+
+function completionRate(log: WorkoutCompletionLog): number {
+  if (log.exerciseResults.length === 0) return 0;
+  const completed = log.exerciseResults.filter((result) => result.completedAsPrescribed).length;
+  return completed / log.exerciseResults.length;
+}
+
+function painIncreased(log: WorkoutCompletionLog): boolean {
+  return typeof log.painScoreBefore === 'number'
+    && typeof log.painScoreAfter === 'number'
+    && log.painScoreAfter > log.painScoreBefore;
+}
+
+function derivePersonalizationSafetyFlagIds(input: PersonalizedWorkoutInput): string[] {
+  const flags = new Set([...(input.safetyFlags ?? []), ...(input.painFlags ?? [])]);
+  const readiness = input.readinessBand ?? 'unknown';
+  const soreness = boundedMetric(input.sorenessLevel, 0, 10);
+  const sleep = boundedMetric(input.sleepQuality, 0, 10);
+  const energy = boundedMetric(input.energyLevel, 0, 10);
+
+  if (readiness === 'red') {
+    flags.add('poor_readiness');
+    flags.add('low_energy');
+  } else if (readiness === 'orange') {
+    flags.add('high_fatigue');
+    flags.add('low_energy');
+  } else if (readiness === 'yellow') {
+    flags.add('low_energy');
+  } else if (readiness === 'unknown') {
+    flags.add('unknown_readiness');
+  }
+
+  if (soreness != null && soreness >= 7) flags.add('high_soreness');
+  if (soreness != null && soreness >= 8) flags.add('high_fatigue');
+  if (sleep != null && sleep <= 4) flags.add('poor_sleep');
+  if (energy != null && energy <= 4) flags.add('low_energy');
+  if (energy != null && energy <= 2) flags.add('high_fatigue');
+
+  for (const log of input.recentWorkoutCompletions ?? []) {
+    if (painIncreased(log) || log.exerciseResults.some((result) => (result.painScore ?? 0) >= 4)) {
+      flags.add('pain_increased_last_session');
+    }
+    if (log.sessionRpe >= 8.5 || completionRate(log) < 0.75) {
+      flags.add('high_fatigue');
+    }
+  }
+
+  for (const decision of input.recentProgressionDecisions ?? []) {
+    if (decision.direction === 'recover') flags.add('poor_readiness');
+    if (decision.direction === 'regress') flags.add('high_fatigue');
+    for (const flag of decision.safetyFlags) flags.add(flag);
+  }
+
+  if ((input.protectedWorkouts ?? []).some((workout) => workout.intensity === 'hard' && workout.durationMinutes >= 60)) {
+    flags.add('high_fatigue');
+  }
+
+  if (input.equipmentIds.length <= 1) flags.add('equipment_limited');
+  if (input.durationMinutes < 25) flags.add('time_limited');
+
+  return unique([...flags]);
+}
+
+function readinessExplanation(input: PersonalizedWorkoutInput, safetyFlagIds: string[]): string {
+  const readiness = input.readinessBand ?? 'unknown';
+  if (readiness === 'red') {
+    return 'Red readiness blocked hard training and routed the request toward recovery or mobility work.';
+  }
+  if (readiness === 'orange') {
+    return 'Orange readiness preserved the goal when safe while reducing intensity, volume, high-impact work, and high-fatigue choices.';
+  }
+  if (readiness === 'yellow') {
+    return 'Yellow readiness kept the session usable with conservative intensity targets.';
+  }
+  if (readiness === 'green') {
+    return 'Green readiness allowed the normal prescription unless pain, soreness, sleep, or recent completion data required changes.';
+  }
+  if (safetyFlagIds.includes('unknown_readiness')) {
+    return 'Unknown readiness was treated as usable but conservative; the session stays below aggressive loading until better signals are logged.';
+  }
+  return 'Readiness did not require a change to the selected session.';
+}
+
+function requestedDuration(input: PersonalizedWorkoutInput): number {
+  const preferred = input.preferredDurationMinutes ?? input.durationMinutes;
+  const range = input.availableTimeRange;
+  if (!range) return preferred;
+  const min = range.minMinutes ?? preferred;
+  const max = range.maxMinutes ?? preferred;
+  return Math.max(min, Math.min(max, preferred));
 }
 
 const descriptionToneVariants = new Set([
@@ -50,11 +148,7 @@ export function resolveSafetyFlags(
   input: PersonalizedWorkoutInput,
   intelligence: WorkoutIntelligenceCatalog = workoutIntelligenceCatalog,
 ): WorkoutSafetyFlag[] {
-  const explicit = new Set([...(input.safetyFlags ?? []), ...(input.painFlags ?? [])]);
-  if (input.readinessBand === 'red' || input.readinessBand === 'orange') explicit.add('poor_readiness');
-  if (input.readinessBand === 'unknown' || !input.readinessBand) explicit.add('unknown_readiness');
-  if (input.equipmentIds.length <= 1) explicit.add('equipment_limited');
-  if (input.durationMinutes < 25) explicit.add('time_limited');
+  const explicit = new Set(derivePersonalizationSafetyFlagIds(input));
 
   return intelligence.safetyFlags.filter((flag) => explicit.has(flag.id));
 }
@@ -178,6 +272,10 @@ function enrichWorkout(
         const mistakes = intelligence.commonMistakeSets.find((set) => set.exerciseId === exercise.exerciseId)?.mistakes ?? [];
         const shouldScaleDown = safetyFlagIds.includes('poor_readiness')
           || safetyFlagIds.includes('unknown_readiness')
+          || safetyFlagIds.includes('high_fatigue')
+          || safetyFlagIds.includes('high_soreness')
+          || safetyFlagIds.includes('low_energy')
+          || safetyFlagIds.includes('poor_sleep')
           || safetyFlagIds.includes('pain_increased_last_session');
         const scaled = shouldScaleDown ? scaleExercise(exercise, 'down') : exercise;
         return {
@@ -199,9 +297,7 @@ function enrichWorkout(
     safetyFlags: unique([...workout.safetyFlags, ...safetyFlagIds]),
     explanations: [
       ...workout.explanations,
-      safetyFlagIds.includes('poor_readiness')
-        ? 'Poor readiness capped intensity and volume before exercise selection was accepted.'
-        : 'Readiness did not require a hard block, but missing data remains treated conservatively.',
+      readinessExplanation(input, safetyFlagIds),
       'Each exercise includes scaling and substitution options for real-world adjustment.',
     ],
   };
@@ -236,7 +332,7 @@ export function generatePersonalizedWorkout(
     const description = generateWorkoutDescription(blockedWorkout, {
       descriptionTemplateId: 'description_readiness_adjusted',
       templates: intelligence.descriptionTemplates,
-      toneVariant: 'clinical',
+      toneVariant: input.preferredToneVariant ?? 'clinical',
     });
     return {
       ...blockedWorkout,
@@ -249,15 +345,24 @@ export function generatePersonalizedWorkout(
   }
 
   const safetyFlagIds = unique([
-    ...(input.safetyFlags ?? []),
+    ...derivePersonalizationSafetyFlagIds(input),
     ...flagIds(resolvedSafety),
     ...resolvedSafety.flatMap((flag) => flag.contraindicationTags),
   ]);
-  const base = generateSingleSessionWorkout({
+  const preferredExerciseIds = unique([
+    ...(input.preferredExerciseIds ?? []),
+    ...(input.likedExerciseIds ?? []),
+  ]);
+  const singleSessionInput: GenerateSingleWorkoutInput = {
     ...input,
-    durationMinutes: input.preferredDurationMinutes ?? input.durationMinutes,
+    durationMinutes: requestedDuration(input),
     safetyFlags: safetyFlagIds,
-  }, catalog);
+    preferredExerciseIds,
+    dislikedExerciseIds: input.dislikedExerciseIds ?? [],
+  };
+  if (input.workoutEnvironment) singleSessionInput.workoutEnvironment = input.workoutEnvironment;
+  if (input.preferredToneVariant) singleSessionInput.preferredToneVariant = input.preferredToneVariant;
+  const base = generateSingleSessionWorkout(singleSessionInput, catalog);
   const enriched = enrichWorkout(base, input, safetyFlagIds, catalog, intelligence);
   const validation = validateGeneratedWorkout(enriched, catalog);
   if (!validation.isValid) {
@@ -265,8 +370,27 @@ export function generatePersonalizedWorkout(
   }
   return {
     ...enriched,
+    validation,
     validationWarnings: validation.warnings,
     validationErrors: validation.errors,
+    decisionTrace: [
+      ...(enriched.decisionTrace ?? []),
+      {
+        id: `personalization_readiness_${input.userId ?? 'anonymous'}`,
+        step: 'personalize_readiness',
+        reason: readinessExplanation(input, safetyFlagIds),
+        selectedId: input.readinessBand ?? 'unknown',
+        safetyFlagIds,
+        confidence: input.readinessBand === 'unknown' || !input.readinessBand ? 0.66 : 0.88,
+        metadata: {
+          sorenessLevel: input.sorenessLevel,
+          sleepQuality: input.sleepQuality,
+          energyLevel: input.energyLevel,
+          recentWorkoutCompletionCount: input.recentWorkoutCompletions?.length ?? 0,
+          recentProgressionDecisionCount: input.recentProgressionDecisions?.length ?? 0,
+        },
+      },
+    ],
   };
 }
 
