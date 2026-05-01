@@ -15,7 +15,7 @@ import {
   workoutIntelligenceCatalog,
   workoutValidationRuleIds,
 } from './index.ts';
-import type { WorkoutCompletionLog } from './index.ts';
+import type { ProgressionDecisionInput, WorkoutCompletionLog } from './index.ts';
 
 let passed = 0;
 let failed = 0;
@@ -534,6 +534,160 @@ const painfulCompletion: WorkoutCompletionLog = {
   assert('successful workout progresses modestly', progress.direction === 'progress');
   assert('painful workout regresses', regress.direction === 'regress');
   assert('painful workout emits safety flag', regress.safetyFlags.includes('pain_increased_last_session'));
+})();
+
+(() => {
+  const hypertrophyProgress: ProgressionDecisionInput = {
+    workoutTypeId: 'hypertrophy',
+    goalId: 'dumbbell_hypertrophy',
+    completionLog: {
+      workoutId: 'hypertrophy-progress',
+      completedAt: '2026-05-03T12:00:00.000Z',
+      plannedDurationMinutes: 45,
+      actualDurationMinutes: 45,
+      sessionRpe: 7,
+      painScoreBefore: 1,
+      painScoreAfter: 1,
+      exerciseResults: [
+        { exerciseId: 'dumbbell_bench_press', setsCompleted: 3, setsPrescribed: 3, repsCompleted: 12, repRangeMax: 12, actualRpe: 8, actualRir: 2, painScore: 1, completedAsPrescribed: true },
+        { exerciseId: 'one_arm_dumbbell_row', setsCompleted: 3, setsPrescribed: 3, repsCompleted: 12, repRangeMax: 12, actualRpe: 7, actualRir: 2, painScore: 1, completedAsPrescribed: true },
+      ],
+    },
+  };
+  const zone2Progress: ProgressionDecisionInput = {
+    workoutTypeId: 'zone2_cardio',
+    goalId: 'zone2_cardio',
+    completionLog: {
+      workoutId: 'zone2-progress',
+      completedAt: '2026-05-04T12:00:00.000Z',
+      plannedDurationMinutes: 30,
+      actualDurationMinutes: 30,
+      sessionRpe: 3,
+      heartRateZoneCompliance: 0.88,
+      painScoreBefore: 0,
+      painScoreAfter: 0,
+      exerciseResults: [
+        { exerciseId: 'stationary_bike_zone2', setsCompleted: 1, durationMinutesCompleted: 30, durationMinutesPrescribed: 30, actualRpe: 3, heartRateZoneCompliance: 0.9, painScore: 0, completedAsPrescribed: true },
+      ],
+    },
+  };
+  const neutralRepeat: ProgressionDecisionInput = {
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    completionLog: {
+      workoutId: 'neutral-repeat',
+      completedAt: '2026-05-05T12:00:00.000Z',
+      plannedDurationMinutes: 40,
+      actualDurationMinutes: 39,
+      sessionRpe: 8,
+      painScoreBefore: 1,
+      painScoreAfter: 1,
+      exerciseResults: [
+        { exerciseId: 'goblet_squat', setsCompleted: 3, setsPrescribed: 3, repsCompleted: 8, repsPrescribed: 8, actualRpe: 8, painScore: 1, completedAsPrescribed: true },
+      ],
+    },
+  };
+  const redRecovery: ProgressionDecisionInput = {
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    readinessAfter: 'red',
+    completionLog: {
+      workoutId: 'red-readiness',
+      completedAt: '2026-05-06T12:00:00.000Z',
+      plannedDurationMinutes: 40,
+      actualDurationMinutes: 40,
+      sessionRpe: 6,
+      painScoreBefore: 1,
+      painScoreAfter: 1,
+      exerciseResults: [
+        { exerciseId: 'goblet_squat', setsCompleted: 3, repsCompleted: 8, actualRpe: 6, painScore: 1, completedAsPrescribed: true },
+      ],
+    },
+  };
+  const deloadFatigue: ProgressionDecisionInput = {
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    completionLog: {
+      workoutId: 'fatigue-current',
+      completedAt: '2026-05-07T12:00:00.000Z',
+      plannedDurationMinutes: 40,
+      actualDurationMinutes: 34,
+      sessionRpe: 9,
+      painScoreBefore: 1,
+      painScoreAfter: 1,
+      exerciseResults: [
+        { exerciseId: 'goblet_squat', setsCompleted: 2, setsPrescribed: 3, repsCompleted: 6, repsPrescribed: 8, actualRpe: 9, painScore: 1, completedAsPrescribed: false },
+      ],
+    },
+    recentWorkoutCompletions: [
+      {
+        workoutId: 'fatigue-1',
+        completedAt: '2026-05-01T12:00:00.000Z',
+        plannedDurationMinutes: 40,
+        actualDurationMinutes: 35,
+        sessionRpe: 9,
+        exerciseResults: [{ exerciseId: 'goblet_squat', setsCompleted: 2, setsPrescribed: 3, actualRpe: 9, completedAsPrescribed: false }],
+      },
+      {
+        workoutId: 'fatigue-2',
+        completedAt: '2026-05-03T12:00:00.000Z',
+        plannedDurationMinutes: 40,
+        actualDurationMinutes: 36,
+        sessionRpe: 8.5,
+        exerciseResults: [{ exerciseId: 'push_up', setsCompleted: 2, setsPrescribed: 3, actualRpe: 9, completedAsPrescribed: false }],
+      },
+    ],
+  };
+  const repeatedFailureSubstitute: ProgressionDecisionInput = {
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    completionLog: {
+      workoutId: 'sub-current',
+      completedAt: '2026-05-08T12:00:00.000Z',
+      plannedDurationMinutes: 35,
+      actualDurationMinutes: 25,
+      sessionRpe: 8,
+      painScoreBefore: 1,
+      painScoreAfter: 3,
+      exerciseResults: [
+        { exerciseId: 'romanian_deadlift', setsCompleted: 1, setsPrescribed: 3, repsCompleted: 4, repsPrescribed: 8, actualRpe: 8, painScore: 5, completedAsPrescribed: false },
+      ],
+    },
+    recentWorkoutCompletions: [
+      {
+        workoutId: 'sub-previous',
+        completedAt: '2026-05-02T12:00:00.000Z',
+        plannedDurationMinutes: 35,
+        actualDurationMinutes: 28,
+        sessionRpe: 8,
+        exerciseResults: [
+          { exerciseId: 'romanian_deadlift', setsCompleted: 1, setsPrescribed: 3, repsCompleted: 5, repsPrescribed: 8, actualRpe: 8, painScore: 4, completedAsPrescribed: false },
+        ],
+      },
+    ],
+  };
+
+  const hypertrophyDecision = recommendNextProgression(hypertrophyProgress);
+  const zone2Decision = recommendNextProgression(zone2Progress);
+  const repeatDecision = recommendNextProgression(neutralRepeat);
+  const recoveryDecision = recommendNextProgression(redRecovery);
+  const deloadDecision = recommendNextProgression(deloadFatigue);
+  const substituteDecision = recommendNextProgression(repeatedFailureSubstitute);
+
+  assert('phase 12 hypertrophy uses double-progression rep and RIR logic', hypertrophyDecision.direction === 'progress' && hypertrophyDecision.nextAdjustment.includes('lower end of the rep range'));
+  assert('phase 12 cardio progression uses duration and intensity compliance', zone2Decision.direction === 'progress' && zone2Decision.suggestedNextInput?.durationMinutes === 35);
+  assert('phase 12 neutral completion repeats instead of progressing', repeatDecision.direction === 'repeat');
+  assert('phase 12 red readiness routes to recovery', recoveryDecision.direction === 'recover' && recoveryDecision.suggestedNextInput?.goalId === 'recovery');
+  assert('phase 12 accumulated fatigue deloads', deloadDecision.direction === 'deload' && deloadDecision.safetyFlags.includes('high_fatigue'));
+  assert('phase 12 repeated exercise failure substitutes', substituteDecision.direction === 'substitute' && (substituteDecision.affectedExerciseIds?.includes('romanian_deadlift') ?? false));
+  assert('phase 12 decisions include user and coach explanations', [
+    hypertrophyDecision,
+    zone2Decision,
+    repeatDecision,
+    recoveryDecision,
+    deloadDecision,
+    substituteDecision,
+  ].every((item) => Boolean(item.userMessage && item.coachNotes?.length && item.suggestedNextInput)));
 })();
 
 (() => {

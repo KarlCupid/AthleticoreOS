@@ -777,9 +777,19 @@ export interface WorkoutValidationResult {
 export interface WorkoutCompletionLog {
   workoutId: string;
   completedAt: string;
+  workoutTypeId?: string;
+  goalId?: string;
+  prescriptionTemplateId?: string;
   plannedDurationMinutes: number;
   actualDurationMinutes: number;
   sessionRpe: number;
+  readinessBefore?: WorkoutReadinessBand | null;
+  readinessAfter?: WorkoutReadinessBand | null;
+  heartRateZoneCompliance?: number | null;
+  densityScore?: number | null;
+  movementQuality?: number | null;
+  rangeControlScore?: number | null;
+  powerQualityScore?: number | null;
   painScoreBefore?: number | null;
   painScoreAfter?: number | null;
   notes?: string | null;
@@ -789,19 +799,62 @@ export interface WorkoutCompletionLog {
 export interface ExerciseCompletionResult {
   exerciseId: string;
   setsCompleted: number;
+  setsPrescribed?: number | null;
   repsCompleted?: number | null;
+  repsPrescribed?: number | null;
+  repRangeMin?: number | null;
+  repRangeMax?: number | null;
   durationSecondsCompleted?: number | null;
+  durationSecondsPrescribed?: number | null;
+  durationMinutesCompleted?: number | null;
+  durationMinutesPrescribed?: number | null;
   loadUsed?: number | null;
+  prescribedLoad?: number | null;
   actualRpe?: number | null;
+  targetRpe?: number | null;
+  actualRir?: number | null;
+  targetRir?: number | null;
+  heartRateZoneCompliance?: number | null;
+  movementQuality?: number | null;
+  rangeControlScore?: number | null;
+  powerQualityScore?: number | null;
   painScore?: number | null;
   completedAsPrescribed: boolean;
 }
 
+export type ProgressionDecisionKind =
+  | 'progress'
+  | 'repeat'
+  | 'regress'
+  | 'deload'
+  | 'recover'
+  | 'substitute'
+  | 'reduceVolume'
+  | 'reduceIntensity'
+  | 'changeWorkoutType';
+
+export interface ProgressionDecisionInput {
+  workoutTypeId?: string;
+  goalId?: string;
+  prescriptionTemplateId?: string;
+  workout?: GeneratedWorkout;
+  completionLog: WorkoutCompletionLog;
+  recentWorkoutCompletions?: WorkoutCompletionLog[];
+  readinessBefore?: WorkoutReadinessBand;
+  readinessAfter?: WorkoutReadinessBand;
+}
+
 export interface ProgressionDecision {
-  direction: 'progress' | 'repeat' | 'regress' | 'recover';
+  direction: ProgressionDecisionKind;
+  decision?: ProgressionDecisionKind;
   reason: string;
   nextAdjustment: string;
+  affectedExerciseIds?: string[];
+  affectedMovementPatterns?: string[];
   safetyFlags: string[];
+  userMessage?: string;
+  coachNotes?: string[];
+  suggestedNextInput?: Partial<PersonalizedWorkoutInput>;
 }
 
 export interface UserWorkoutProfile {
