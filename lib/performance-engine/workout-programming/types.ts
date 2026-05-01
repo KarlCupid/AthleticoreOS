@@ -501,12 +501,47 @@ export interface DeloadRule extends WorkoutRule {
   ruleType?: 'deload';
 }
 
+export type SubstitutionSkillLevelMatch = 'same_or_lower' | 'same' | 'any';
+export type SubstitutionGoalMatch = 'same_goal' | 'same_workout_type' | 'same_pattern' | 'any';
+
+export interface SubstitutionPrescriptionAdjustment {
+  setsDelta?: number;
+  repsDelta?: number;
+  durationMinutesDelta?: number;
+  durationSecondsDelta?: number;
+  targetRpeDelta?: number;
+  restSecondsDelta?: number;
+  note: string;
+}
+
 export interface SubstitutionRule {
   id: string;
   sourceExerciseId: string;
-  substituteExerciseIds: string[];
-  conditionFlags: string[];
+  sourceMovementPatternIds?: string[];
+  acceptableReplacementIds?: string[];
+  replacementPriority?: string[];
+  reason?: string;
+  requiredEquipmentIds?: string[];
+  excludedEquipmentIds?: string[];
+  supportedSafetyFlags?: string[];
+  excludedSafetyFlags?: string[];
+  skillLevelMatch?: SubstitutionSkillLevelMatch;
+  goalMatch?: SubstitutionGoalMatch;
+  prescriptionAdjustment?: SubstitutionPrescriptionAdjustment;
+  coachingNote?: string;
+  substituteExerciseIds?: string[];
+  conditionFlags?: string[];
+  rationale?: string;
+}
+
+export interface ExerciseSubstitutionOption {
+  exerciseId: string;
+  name: string;
   rationale: string;
+  score?: number;
+  matchedRuleId?: string;
+  prescriptionAdjustment?: SubstitutionPrescriptionAdjustment;
+  coachingNote?: string;
 }
 
 export interface CoachingCueSet {
@@ -635,11 +670,7 @@ export interface GeneratedExercisePrescription {
   };
   trackingMetricIds: string[];
   explanation: string;
-  substitutions?: {
-    exerciseId: string;
-    name: string;
-    rationale: string;
-  }[];
+  substitutions?: ExerciseSubstitutionOption[];
   scalingOptions?: {
     down: string;
     up: string;

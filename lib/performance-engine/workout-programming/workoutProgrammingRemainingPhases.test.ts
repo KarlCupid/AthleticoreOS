@@ -6,10 +6,12 @@ import {
   generateWorkoutDescription,
   generateWorkoutForUserProfile,
   recommendNextProgression,
+  rankExerciseSubstitutions,
   summarizeWorkoutAnalytics,
   validateGeneratedProgram,
   validatePersonalizedWorkoutSafety,
   validateWorkoutIntelligenceCatalog,
+  workoutProgrammingCatalog,
   workoutIntelligenceCatalog,
   workoutValidationRuleIds,
 } from './index.ts';
@@ -133,6 +135,15 @@ function hasCompleteDescriptionTemplate(template: (typeof workoutIntelligenceCat
   );
 }
 
+function rankedSubstitutions(input: Parameters<typeof rankExerciseSubstitutions>[0]) {
+  return rankExerciseSubstitutions({
+    catalog: workoutProgrammingCatalog,
+    intelligence: workoutIntelligenceCatalog,
+    limit: 4,
+    ...input,
+  });
+}
+
 console.log('\n-- workout programming remaining phases --');
 
 (() => {
@@ -155,6 +166,15 @@ console.log('\n-- workout programming remaining phases --');
   assert('rules include coach notes', allRules.every((rule) => (rule.coachNotes?.length ?? 0) > 0));
   assert('progression rules include max progression rates', workoutIntelligenceCatalog.progressionRules.every((rule) => Boolean(rule.maxProgressionRate)));
   assert('25 substitution rules seeded', workoutIntelligenceCatalog.substitutionRules.length >= 25);
+  assert('substitution rules use authored replacement fields', workoutIntelligenceCatalog.substitutionRules.every((rule) => (
+    Boolean(rule.sourceExerciseId)
+    && (rule.sourceMovementPatternIds?.length ?? 0) > 0
+    && (rule.acceptableReplacementIds?.length ?? 0) > 0
+    && (rule.replacementPriority?.length ?? 0) > 0
+    && Boolean(rule.reason && rule.reason.length > 30)
+    && Boolean(rule.prescriptionAdjustment?.note)
+    && Boolean(rule.coachingNote && rule.coachingNote.length > 30)
+  )));
   assert('25 safety flags seeded', workoutIntelligenceCatalog.safetyFlags.length >= 25);
   assert('required exercises have coaching cue sets', requiredExerciseIntelligenceIds.every((id) => workoutIntelligenceCatalog.coachingCueSets.some((set) => set.exerciseId === id)));
   assert('required exercises have common mistake sets', requiredExerciseIntelligenceIds.every((id) => workoutIntelligenceCatalog.commonMistakeSets.some((set) => set.exerciseId === id)));
@@ -184,6 +204,86 @@ console.log('\n-- workout programming remaining phases --');
   assert('all executable domain validation rules have catalog entries', workoutValidationRuleIds().every((id) => (
     workoutIntelligenceCatalog.validationRules.some((rule) => rule.id === id)
   )));
+})();
+
+(() => {
+  const dumbbellSquat = rankedSubstitutions({
+    sourceExerciseId: 'barbell_back_squat',
+    workoutTypeId: 'strength',
+    goalId: 'full_gym_strength',
+    equipmentIds: ['dumbbells'],
+    safetyFlagIds: ['equipment_limited'],
+    experienceLevel: 'intermediate',
+  });
+  const kneeSquat = rankedSubstitutions({
+    sourceExerciseId: 'goblet_squat',
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    safetyFlagIds: ['knee_caution'],
+    experienceLevel: 'beginner',
+  });
+  const backHinge = rankedSubstitutions({
+    sourceExerciseId: 'romanian_deadlift',
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    safetyFlagIds: ['back_caution', 'poor_readiness'],
+    experienceLevel: 'beginner',
+  });
+  const noJump = rankedSubstitutions({
+    sourceExerciseId: 'box_jump',
+    workoutTypeId: 'power',
+    goalId: 'boxing_support',
+    equipmentIds: ['bodyweight', 'stationary_bike'],
+    safetyFlagIds: ['no_jumping', 'low_impact_required'],
+    experienceLevel: 'beginner',
+  });
+  const noOverhead = rankedSubstitutions({
+    sourceExerciseId: 'overhead_press',
+    workoutTypeId: 'upper_strength',
+    goalId: 'upper_body_strength',
+    equipmentIds: ['dumbbells', 'resistance_band'],
+    safetyFlagIds: ['no_overhead_pressing', 'shoulder_caution'],
+    experienceLevel: 'beginner',
+  });
+  const noFloor = rankedSubstitutions({
+    sourceExerciseId: 'front_plank',
+    workoutTypeId: 'core_durability',
+    goalId: 'core_durability',
+    equipmentIds: ['bodyweight', 'resistance_band'],
+    safetyFlagIds: ['no_floor_work', 'wrist_caution'],
+    experienceLevel: 'beginner',
+  });
+  const disliked = rankedSubstitutions({
+    sourceExerciseId: 'goblet_squat',
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    safetyFlagIds: ['knee_caution'],
+    experienceLevel: 'beginner',
+    dislikedExerciseIds: ['box_squat'],
+  });
+
+  assert('dumbbell-only back squat substitution picks goblet squat first', dumbbellSquat[0]?.exerciseId === 'goblet_squat');
+  assert('knee-caution goblet squat substitution prioritizes box squat', kneeSquat[0]?.exerciseId === 'box_squat');
+  assert('back-caution hinge substitution reduces spinal demand', ['glute_bridge', 'hip_hinge_dowel'].includes(backHinge[0]?.exerciseId ?? ''));
+  assert('no-jumping power substitution removes jump patterns', noJump.length > 0 && noJump.every((option) => {
+    const exercise = workoutProgrammingCatalog.exercises.find((candidate) => candidate.id === option.exerciseId);
+    return !exercise?.movementPatternIds.includes('jump_land') && exercise?.impact !== 'moderate' && exercise?.impact !== 'high';
+  }));
+  assert('no-overhead pressing substitution avoids vertical push', noOverhead.length > 0 && noOverhead.every((option) => {
+    const exercise = workoutProgrammingCatalog.exercises.find((candidate) => candidate.id === option.exerciseId);
+    return !exercise?.movementPatternIds.includes('vertical_push');
+  }));
+  assert('no-floor core substitution can select standing anti-rotation', noFloor[0]?.exerciseId === 'pallof_press');
+  assert('disliked substitute is removed from ranking', disliked.every((option) => option.exerciseId !== 'box_squat'));
+  assert('substitution options explain and adjust prescriptions', [
+    dumbbellSquat[0],
+    kneeSquat[0],
+    backHinge[0],
+    noJump[0],
+  ].every((option) => Boolean(option?.rationale && option.rationale.length > 30 && option.prescriptionAdjustment?.note && option.coachingNote)));
 })();
 
 (() => {
