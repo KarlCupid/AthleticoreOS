@@ -879,20 +879,60 @@ export interface ProtectedWorkoutInput {
   intensity: WorkoutIntensity;
 }
 
+export type ProgramPhase = 'accumulation' | 'intensification' | 'deload' | 'return_to_training' | 'maintenance';
+export type ProgramDeloadStrategy = 'none' | 'week_four' | 'readiness_based' | 'every_fourth_week';
+
 export interface GeneratedProgramSession {
   id: string;
   dayIndex: number;
   weekIndex: number;
+  phase?: ProgramPhase;
   protectedAnchor: boolean;
   label: string;
   workout: GeneratedWorkout | null;
+  plannedIntensity?: WorkoutIntensity;
+  rationale?: string[];
+}
+
+export interface ProgramMovementPatternBalance {
+  weekly: Record<number, Record<string, number>>;
+  programTotal: Record<string, number>;
+  warnings: string[];
+}
+
+export interface ProgramWeeklyVolumeSummary {
+  weekIndex: number;
+  phase: ProgramPhase;
+  generatedSessionCount: number;
+  protectedSessionCount: number;
+  estimatedMinutes: number;
+  hardDayCount: number;
+  workoutTypeCounts: Record<string, number>;
+}
+
+export interface GeneratedProgramWeek {
+  weekIndex: number;
+  phase: ProgramPhase;
+  sessions: GeneratedProgramSession[];
+  rationale: string[];
+  movementPatternBalance: Record<string, number>;
+  weeklyVolumeSummary: ProgramWeeklyVolumeSummary;
+  hardDayCount: number;
+  validationWarnings: string[];
 }
 
 export interface GeneratedProgram {
   id: string;
   goalId: string;
   weekCount: number;
+  phase: ProgramPhase;
+  weeks: GeneratedProgramWeek[];
   sessions: GeneratedProgramSession[];
+  rationale: string[];
+  movementPatternBalance: ProgramMovementPatternBalance;
+  weeklyVolumeSummary: ProgramWeeklyVolumeSummary[];
+  hardDayCount: number;
+  progressionPlan: string[];
   explanations: string[];
   validationWarnings: string[];
 }

@@ -162,6 +162,25 @@ function totalMainSets(workout: ReturnType<typeof generatePersonalizedWorkout>):
     .reduce((sum, exercise) => sum + (exercise.prescription.sets ?? 0), 0);
 }
 
+function generatedProgramSessions(program: ReturnType<typeof generateWeeklyWorkoutProgram>) {
+  return program.sessions.filter((session) => !session.protectedAnchor);
+}
+
+function generatedProgramWorkouts(program: ReturnType<typeof generateWeeklyWorkoutProgram>) {
+  return generatedProgramSessions(program)
+    .map((session) => session.workout)
+    .filter((workout): workout is NonNullable<typeof workout> => workout !== null);
+}
+
+function hasBackToBackHardProgramDays(program: ReturnType<typeof generateWeeklyWorkoutProgram>): boolean {
+  return program.weeks.some((week) => {
+    const hardDays = week.sessions
+      .filter((session) => session.plannedIntensity === 'hard' || (session.workout && ['strength', 'hypertrophy', 'full_body_strength', 'upper_strength', 'lower_strength', 'conditioning', 'boxing_support'].includes(session.workout.workoutTypeId)))
+      .map((session) => session.dayIndex);
+    return hardDays.some((day) => hardDays.includes(day + 1));
+  });
+}
+
 console.log('\n-- workout programming remaining phases --');
 
 (() => {
@@ -709,6 +728,105 @@ const painfulCompletion: WorkoutCompletionLog = {
   assert('program spans four weeks', program.weekCount === 4);
   assert('protected workout appears every week', program.sessions.filter((session) => session.protectedAnchor).length === 4);
   assert('protected workouts are never replaced with generated workouts', program.sessions.filter((session) => session.protectedAnchor).every((session) => session.workout === null));
+})();
+
+(() => {
+  const beginnerTwoDay = generateWeeklyWorkoutProgram({
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    experienceLevel: 'beginner',
+    readinessBand: 'green',
+    sessionsPerWeek: 2,
+    desiredProgramLengthWeeks: 4,
+    availableDays: [1, 4, 6],
+  });
+  const hypertrophyThreeDay = generateWeeklyWorkoutProgram({
+    goalId: 'hypertrophy',
+    secondaryGoalIds: ['zone2_cardio'],
+    durationMinutes: 45,
+    equipmentIds: ['bodyweight', 'dumbbells', 'bench', 'resistance_band'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'green',
+    sessionsPerWeek: 3,
+    desiredProgramLengthWeeks: 4,
+    availableDays: [1, 3, 5, 7],
+  });
+  const mixedFourDay = generateWeeklyWorkoutProgram({
+    goalId: 'beginner_strength',
+    secondaryGoalIds: ['zone2_cardio', 'mobility'],
+    durationMinutes: 40,
+    equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band', 'stationary_bike'],
+    experienceLevel: 'beginner',
+    readinessBand: 'green',
+    sessionsPerWeek: 4,
+    desiredProgramLengthWeeks: 4,
+    availableDays: [1, 3, 5, 7],
+  });
+  const protectedBoxing = generateWeeklyWorkoutProgram({
+    goalId: 'beginner_strength',
+    secondaryGoalIds: ['zone2_cardio', 'mobility'],
+    durationMinutes: 40,
+    equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'],
+    experienceLevel: 'beginner',
+    readinessBand: 'green',
+    sessionsPerWeek: 3,
+    desiredProgramLengthWeeks: 4,
+    availableDays: [1, 3, 5, 7],
+    protectedWorkouts: [{ id: 'boxing', label: 'Boxing Practice', dayIndex: 2, durationMinutes: 75, intensity: 'hard' }],
+  });
+  const redReadiness = generateWeeklyWorkoutProgram({
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'mat'],
+    experienceLevel: 'beginner',
+    readinessBand: 'red',
+    readinessTrend: ['red', 'yellow'],
+    sessionsPerWeek: 2,
+    desiredProgramLengthWeeks: 2,
+  });
+  const kneeCaution = generateWeeklyWorkoutProgram({
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    experienceLevel: 'beginner',
+    readinessBand: 'yellow',
+    safetyFlags: ['knee_caution'],
+    sessionsPerWeek: 3,
+    desiredProgramLengthWeeks: 4,
+  });
+  const limitedEquipment = generateWeeklyWorkoutProgram({
+    goalId: 'beginner_strength',
+    durationMinutes: 30,
+    equipmentIds: ['bodyweight', 'mat'],
+    experienceLevel: 'beginner',
+    readinessBand: 'unknown',
+    workoutEnvironment: 'home',
+    sessionsPerWeek: 2,
+    desiredProgramLengthWeeks: 4,
+  });
+
+  const beginnerValidation = validateGeneratedProgram(beginnerTwoDay);
+  const hypertrophyValidation = validateGeneratedProgram(hypertrophyThreeDay);
+  const mixedValidation = validateGeneratedProgram(mixedFourDay);
+  const protectedValidation = validateGeneratedProgram(protectedBoxing);
+  const redValidation = validateGeneratedProgram(redReadiness);
+  const kneeValidation = validateGeneratedProgram(kneeCaution);
+  const limitedValidation = validateGeneratedProgram(limitedEquipment);
+  const mixedWorkoutTypes = new Set(generatedProgramWorkouts(mixedFourDay).map((workout) => workout.workoutTypeId));
+  const kneeExercises = generatedProgramWorkouts(kneeCaution).flatMap((workout) => workout.blocks.flatMap((block) => block.exercises));
+  const loadedEquipment = new Set(['dumbbells', 'kettlebell', 'barbell', 'cable_machine', 'leg_press', 'lat_pulldown']);
+
+  assert('phase 13 2 sessions/week beginner strength validates', beginnerValidation.valid && beginnerTwoDay.weeks.every((week) => week.weeklyVolumeSummary.generatedSessionCount === 2));
+  assert('phase 13 3 sessions/week hypertrophy stays goal aligned', hypertrophyValidation.valid && generatedProgramWorkouts(hypertrophyThreeDay).some((workout) => workout.workoutTypeId === 'hypertrophy'));
+  assert('phase 13 4 sessions/week mixed goal balances modalities', mixedValidation.valid && mixedWorkoutTypes.has('strength') && mixedWorkoutTypes.has('zone2_cardio') && [...mixedWorkoutTypes].some((type) => ['mobility', 'recovery'].includes(type)));
+  assert('phase 13 protected boxing practice remains anchored', protectedValidation.valid && protectedBoxing.sessions.filter((session) => session.protectedAnchor && session.label === 'Boxing Practice').length === 4);
+  assert('phase 13 red readiness route uses return-to-training phase', redValidation.valid && redReadiness.weeks[0]?.phase === 'return_to_training' && generatedProgramWorkouts(redReadiness).every((workout) => workout.workoutTypeId === 'recovery'));
+  assert('phase 13 knee caution respects safety flags', kneeValidation.valid && kneeExercises.every((exercise) => !exercise.movementPatternIds.includes('jump_land')));
+  assert('phase 13 limited equipment avoids loaded equipment', limitedValidation.valid && generatedProgramWorkouts(limitedEquipment).every((workout) => workout.blocks.flatMap((block) => block.exercises).every((exercise) => !exercise.equipmentIds.some((id) => loadedEquipment.has(id)))));
+  assert('phase 13 week-four deload is configured', hypertrophyThreeDay.weeks[3]?.phase === 'deload' && hypertrophyThreeDay.weeks[3].hardDayCount < hypertrophyThreeDay.weeks[2]!.hardDayCount);
+  assert('phase 13 no back-to-back hard days', !hasBackToBackHardProgramDays(protectedBoxing));
+  assert('phase 13 movement pattern balance is exposed', Object.keys(mixedFourDay.movementPatternBalance.programTotal).length > 0 && mixedFourDay.weeklyVolumeSummary.length === mixedFourDay.weekCount);
 })();
 
 (() => {
