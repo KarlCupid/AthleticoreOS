@@ -531,7 +531,7 @@ console.log('\n-- workout programming engine --');
   shoulderCaution.safetyFlags = ['shoulder_caution'];
   assertInvalidCase('shoulder-caution user receiving aggressive overhead pressing', shoulderCaution, 'pain_flag_compatibility');
 
-  const wristCaution = replaceFirstMainExercise(strength, 'bear_crawl');
+  const wristCaution = replaceFirstMainExercise(strength, 'bear_crawl', { substitutions: [] });
   wristCaution.safetyFlags = ['wrist_caution'];
   assertInvalidCase('wrist-caution user receiving loaded wrist floor work without alternative', wristCaution, 'pain_flag_compatibility');
 
@@ -572,6 +572,75 @@ console.log('\n-- workout programming engine --');
     'no-jumping safety removes jump/land patterns',
     allExercises(noJumping).every((exercise) => !exercise.movementPatternIds.includes('jump_land')),
   );
+})();
+
+(() => {
+  const scenarios: Array<{ label: string; input: GenerateSingleWorkoutInput; check: (workout: GeneratedWorkout) => boolean }> = [
+    {
+      label: 'no-equipment strength uses bodyweight-compatible scored choices',
+      input: { goalId: 'no_equipment', durationMinutes: 30, equipmentIds: ['bodyweight'], experienceLevel: 'beginner' },
+      check: (workout) => allExercises(workout).every((exercise) => exercise.equipmentIds.includes('bodyweight')),
+    },
+    {
+      label: 'dumbbell hypertrophy keeps typed hypertrophy prescriptions',
+      input: { goalId: 'dumbbell_hypertrophy', durationMinutes: 45, equipmentIds: ['dumbbells', 'bench', 'resistance_band'], experienceLevel: 'beginner' },
+      check: (workout) => mainExercises(workout).every((exercise) => exercise.prescription.payload.kind === 'resistance' && exercise.prescription.payload.RIR),
+    },
+    {
+      label: 'knee caution avoids knee-contraindicated selections',
+      input: { goalId: 'beginner_strength', durationMinutes: 40, equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'], experienceLevel: 'beginner', safetyFlags: ['knee_caution'] },
+      check: (workout) => allExercises(workout).every((exercise) => !exerciseSource(exercise.exerciseId).contraindicationFlags.includes('knee_caution')),
+    },
+    {
+      label: 'low-back caution avoids high spinal-load selections',
+      input: { goalId: 'beginner_strength', durationMinutes: 40, equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'], experienceLevel: 'beginner', safetyFlags: ['back_caution'] },
+      check: (workout) => allExercises(workout).every((exercise) => {
+        const source = exerciseSource(exercise.exerciseId);
+        return !source.contraindicationFlags.includes('back_caution') && source.spineLoading !== 'high';
+      }),
+    },
+    {
+      label: 'no jumping keeps low-impact conditioning grounded',
+      input: { goalId: 'low_impact_conditioning', durationMinutes: 30, equipmentIds: ['bodyweight', 'stationary_bike', 'battle_rope'], experienceLevel: 'beginner', safetyFlags: ['no_jumping', 'low_impact_required'] },
+      check: (workout) => allExercises(workout).every((exercise) => !exercise.movementPatternIds.includes('jump_land') && exerciseSource(exercise.exerciseId).impact !== 'high'),
+    },
+    {
+      label: 'no running keeps Zone 2 non-running or recovery paced',
+      input: { goalId: 'zone2_cardio', durationMinutes: 30, equipmentIds: ['bodyweight', 'stationary_bike'], experienceLevel: 'beginner', safetyFlags: ['no_running'] },
+      check: (workout) => mainExercises(workout).every((exercise) => !exercise.exerciseId.includes('running')),
+    },
+    {
+      label: 'no overhead pressing avoids vertical push',
+      input: { goalId: 'upper_body_strength', durationMinutes: 35, equipmentIds: ['bodyweight', 'dumbbells', 'bench', 'resistance_band'], experienceLevel: 'beginner', safetyFlags: ['no_overhead_pressing', 'shoulder_caution'] },
+      check: (workout) => allExercises(workout).every((exercise) => !exercise.movementPatternIds.includes('vertical_push')),
+    },
+    {
+      label: 'no floor work uses standing or supported core alternatives',
+      input: { goalId: 'core_durability', durationMinutes: 30, equipmentIds: ['bodyweight', 'resistance_band'], experienceLevel: 'beginner', safetyFlags: ['no_floor_work'] },
+      check: (workout) => allExercises(workout).every((exercise) => exerciseSource(exercise.exerciseId).setupType !== 'floor'),
+    },
+    {
+      label: 'poor readiness falls back to recovery instead of throwing',
+      input: { goalId: 'beginner_strength', durationMinutes: 25, equipmentIds: ['bodyweight'], experienceLevel: 'beginner', safetyFlags: ['poor_readiness'] },
+      check: (workout) => workout.workoutTypeId === 'recovery' && workout.goalId === 'recovery',
+    },
+    {
+      label: 'disliked exercise is excluded from scored selections',
+      input: { goalId: 'beginner_strength', durationMinutes: 35, equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'], experienceLevel: 'beginner', dislikedExerciseIds: ['push_up'] },
+      check: (workout) => allExercises(workout).every((exercise) => exercise.exerciseId !== 'push_up'),
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const workout = generated(scenario.input);
+    assert(scenario.label, scenario.check(workout));
+    assert(`${scenario.label} returns decision trace`, (workout.decisionTrace?.length ?? 0) > 0);
+    assert(`${scenario.label} returns validation result`, workout.validation?.isValid === true);
+    assert(`${scenario.label} returns training goal label`, Boolean(workout.trainingGoalLabel));
+    assert(`${scenario.label} returns prescriptions and descriptions`, Boolean(workout.prescriptions?.length && workout.descriptions?.length));
+    assert(`${scenario.label} returns substitutions and scaling`, Boolean((workout.substitutions?.length ?? 0) > 0 && workout.scalingOptions?.down));
+    assert(`${scenario.label} returns tracking metrics`, Boolean(workout.trackingMetrics?.length));
+  }
 })();
 
 (() => {

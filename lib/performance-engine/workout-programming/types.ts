@@ -422,6 +422,9 @@ export interface GenerateSingleWorkoutInput {
   equipmentIds: string[];
   experienceLevel: WorkoutExperienceLevel;
   safetyFlags?: string[];
+  preferredExerciseIds?: string[];
+  dislikedExerciseIds?: string[];
+  readinessBand?: WorkoutReadinessBand;
 }
 
 export type WorkoutReadinessBand = 'green' | 'yellow' | 'orange' | 'red' | 'unknown';
@@ -709,18 +712,23 @@ export interface GeneratedWorkout {
   schemaVersion: 'generated-workout-v1';
   workoutTypeId: string;
   goalId: string;
+  trainingGoalLabel?: string;
   templateId: string;
   formatId: string;
   experienceLevel?: WorkoutExperienceLevel;
   sessionIntent?: string;
   userFacingSummary?: string;
   description?: WorkoutDescription;
+  descriptions?: WorkoutDescription[];
   requestedDurationMinutes: number;
   estimatedDurationMinutes: number;
   equipmentIds: string[];
   safetyFlags: string[];
   blocks: GeneratedWorkoutBlock[];
+  prescriptions?: GeneratedExercisePrescription['prescription'][];
+  substitutions?: ExerciseSubstitutionOption[];
   trackingMetricIds: string[];
+  trackingMetrics?: string[];
   successCriteria: string[];
   coachingNotes?: string[];
   scalingOptions?: GeneratedWorkoutScalingOptions;
@@ -729,6 +737,7 @@ export interface GeneratedWorkout {
   blocked?: boolean;
   validationWarnings?: string[];
   validationErrors?: string[];
+  validation?: WorkoutValidationResult;
   progressionRecommendation?: ProgressionDecision;
   decisionTrace?: WorkoutDecisionTraceEntry[];
 }
