@@ -20,9 +20,15 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
+import { GeneratedWorkoutPreviewCard } from '../components/workout';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
+import {
+  workoutProgrammingService,
+  workoutProgrammingServiceFixtures,
+  type GeneratedWorkout,
+} from '../../lib/performance-engine/workout-programming';
 import {
   buildSleepData,
   buildTrainTodaySummary,
@@ -35,6 +41,9 @@ import {
 } from './workout/utils';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
+
+const WORKOUT_PROGRAMMING_PREVIEW_ENABLED = __DEV__
+  && process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW === '1';
 
 function groupWeekEntries(entries: WeeklyPlanEntryRow[]) {
   const groups = new Map<string, { date: string; dayOfWeek: number; sessions: WeeklyPlanEntryRow[] }>();
@@ -127,6 +136,9 @@ export function WorkoutScreen() {
   const { themeColor, currentLevel } = useReadinessTheme();
   const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
+  const [generatedWorkoutPreview, setGeneratedWorkoutPreview] = useState<GeneratedWorkout | null>(null);
+  const [generatedWorkoutPreviewLoading, setGeneratedWorkoutPreviewLoading] = useState(false);
+  const [generatedWorkoutPreviewError, setGeneratedWorkoutPreviewError] = useState<string | null>(null);
   const {
     loading, refreshing, loadData, onRefresh, prescription, todayActivities, workoutHistory,
     checkins, sessions, userId, dailyAthleteSummary, todayPlanEntry, weeklyEntries,
@@ -139,6 +151,34 @@ export function WorkoutScreen() {
   useEffect(() => { if (activeTab === 'history' && !historyLoaded && !historyLoading) void loadHistoryData(); }, [activeTab, historyLoaded, historyLoading, loadHistoryData]);
   useEffect(() => { if (activeTab === 'analytics' && !analyticsLoaded && !analyticsLoading) void loadAnalyticsData(); }, [activeTab, analyticsLoaded, analyticsLoading, loadAnalyticsData]);
   useEffect(() => { setShowWorkoutDetails(false); }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
+
+  const loadGeneratedWorkoutPreview = useCallback(async () => {
+    if (!WORKOUT_PROGRAMMING_PREVIEW_ENABLED) return;
+    setGeneratedWorkoutPreviewLoading(true);
+    setGeneratedWorkoutPreviewError(null);
+    try {
+      const workout = await workoutProgrammingService.generatePreviewWorkout(
+        workoutProgrammingServiceFixtures.beginnerBodyweightStrength,
+        { persistGeneratedWorkout: false },
+      );
+      setGeneratedWorkoutPreview(workout);
+    } catch (error) {
+      setGeneratedWorkoutPreviewError(error instanceof Error ? error.message : 'Generated workout preview failed.');
+    } finally {
+      setGeneratedWorkoutPreviewLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      WORKOUT_PROGRAMMING_PREVIEW_ENABLED
+      && activeTab === 'today'
+      && !generatedWorkoutPreview
+      && !generatedWorkoutPreviewLoading
+    ) {
+      void loadGeneratedWorkoutPreview();
+    }
+  }, [activeTab, generatedWorkoutPreview, generatedWorkoutPreviewLoading, loadGeneratedWorkoutPreview]);
 
   const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -317,6 +357,27 @@ export function WorkoutScreen() {
             {!initialLoadError && showWorkoutDetails && prescription ? (
               <Animated.View entering={FadeInDown.delay(60).duration(280).springify()}>
                 <WorkoutPrescriptionSection prescription={prescription} themeColor={themeColor} showStartButton={false} />
+              </Animated.View>
+            ) : null}
+            {!initialLoadError && WORKOUT_PROGRAMMING_PREVIEW_ENABLED ? (
+              <Animated.View entering={FadeInDown.delay(70).duration(280).springify()}>
+                {generatedWorkoutPreviewLoading && !generatedWorkoutPreview ? (
+                  <StateCard
+                    title="Generating programming preview"
+                    body="This developer-only section is loading through the workout-programming service layer."
+                    actionLabel="Refresh Preview"
+                    onPress={() => { void loadGeneratedWorkoutPreview(); }}
+                  />
+                ) : generatedWorkoutPreviewError ? (
+                  <StateCard
+                    title="Generated preview unavailable"
+                    body={generatedWorkoutPreviewError}
+                    actionLabel="Try Again"
+                    onPress={() => { void loadGeneratedWorkoutPreview(); }}
+                  />
+                ) : generatedWorkoutPreview ? (
+                  <GeneratedWorkoutPreviewCard workout={generatedWorkoutPreview} />
+                ) : null}
               </Animated.View>
             ) : null}
             {!initialLoadError && contextualTodayActivities.length > 0 && (
