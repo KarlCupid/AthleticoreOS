@@ -10,6 +10,7 @@ import type {
   GeneratedWorkout,
   PersonalizedWorkoutInput,
   ProgressionDecision,
+  ReviewableContentFields,
   UserWorkoutProfile,
   WorkoutCompletionLog,
   WorkoutProgrammingCatalog,
@@ -119,6 +120,29 @@ function rowStringArray(row: Record<string, unknown>, key: string): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function rowReviewFields(row: Record<string, unknown>): ReviewableContentFields {
+  const reviewFields: ReviewableContentFields = {};
+  const reviewStatus = rowString(row, 'review_status');
+  const reviewedBy = rowString(row, 'reviewed_by');
+  const reviewedAt = rowString(row, 'reviewed_at');
+  const safetyReviewStatus = rowString(row, 'safety_review_status');
+  const contentVersion = rowString(row, 'content_version');
+  const lastUpdatedAt = rowString(row, 'last_updated_at');
+  const riskLevel = rowString(row, 'risk_level');
+  const rolloutEligibility = rowString(row, 'rollout_eligibility');
+  const reviewNotes = rowStringArray(row, 'review_notes');
+  if (reviewStatus) reviewFields.reviewStatus = reviewStatus as never;
+  if (reviewedBy) reviewFields.reviewedBy = reviewedBy;
+  if (reviewedAt) reviewFields.reviewedAt = reviewedAt;
+  if (reviewNotes.length > 0) reviewFields.reviewNotes = reviewNotes;
+  if (safetyReviewStatus) reviewFields.safetyReviewStatus = safetyReviewStatus as never;
+  if (contentVersion) reviewFields.contentVersion = contentVersion;
+  if (lastUpdatedAt) reviewFields.lastUpdatedAt = lastUpdatedAt;
+  if (riskLevel) reviewFields.riskLevel = riskLevel as never;
+  if (rolloutEligibility) reviewFields.rolloutEligibility = rolloutEligibility as never;
+  return reviewFields;
+}
+
 function idMap(rows: Record<string, unknown>[], leftKey: string, rightKey: string): Record<string, string[]> {
   const output: Record<string, string[]> = {};
   for (const row of rows) {
@@ -172,6 +196,7 @@ function buildCatalogFromRows(rows: Record<string, Record<string, unknown>[]>): 
       defaultRpe: rowNumber(row, 'default_rpe', 5),
       restSeconds: rowNumber(row, 'rest_seconds', 60),
       intensityCue: rowString(row, 'intensity_cue', 'Stay within the target effort.'),
+      ...rowReviewFields(row),
     };
     const defaultDurationSeconds = rowNumber(row, 'default_duration_seconds', 0);
     const defaultDurationMinutes = rowNumber(row, 'default_duration_minutes', 0);
@@ -213,6 +238,7 @@ function buildCatalogFromRows(rows: Record<string, Record<string, unknown>[]>): 
       contraindicationFlags: rowStringArray(row, 'contraindication_flags'),
       trackingMetricIds: trackingByExercise[id] ?? [],
       defaultPrescriptionTemplateId: rowString(row, 'default_prescription_template_id'),
+      ...rowReviewFields(row),
     };
     const optionalStringFields = [
       ['shortName', 'short_name'],

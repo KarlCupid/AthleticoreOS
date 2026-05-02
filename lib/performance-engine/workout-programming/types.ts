@@ -35,6 +35,10 @@ export type IntensityModel = 'rpe' | 'rir' | 'percent_1rm' | 'heart_rate_zone' |
 export type VolumeModel = 'sets_reps' | 'duration' | 'distance' | 'rounds' | 'contacts' | 'density' | 'holds';
 export type RestModel = 'fixed' | 'range' | 'as_needed' | 'heart_rate_recovery' | 'quality_recovery' | 'none';
 export type RuleType = 'progression' | 'regression' | 'deload';
+export type ContentReviewStatus = 'draft' | 'needs_review' | 'approved' | 'rejected';
+export type SafetyReviewStatus = 'not_required' | 'needs_review' | 'approved' | 'rejected';
+export type ContentRiskLevel = 'low' | 'moderate' | 'high';
+export type ContentRolloutEligibility = 'dev_only' | 'preview' | 'production' | 'blocked';
 export type DescriptionToneVariant =
   | 'beginner_friendly'
   | 'coach_like'
@@ -46,6 +50,18 @@ export type DescriptionToneVariant =
   | 'rehab_informed'
   | 'data_driven';
 export type DescriptionEntityType = 'goal' | 'workout_type' | 'session_template' | 'exercise' | 'program';
+
+export interface ReviewableContentFields {
+  reviewStatus?: ContentReviewStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNotes?: string[];
+  safetyReviewStatus?: SafetyReviewStatus;
+  contentVersion?: string;
+  lastUpdatedAt?: string;
+  riskLevel?: ContentRiskLevel;
+  rolloutEligibility?: ContentRolloutEligibility;
+}
 
 export interface WorkoutTaxonomyItem {
   id: string;
@@ -106,7 +122,7 @@ export interface ExerciseMedia {
   attribution?: string;
 }
 
-export interface Exercise {
+export interface Exercise extends ReviewableContentFields {
   id: string;
   name: string;
   shortName?: string;
@@ -311,7 +327,7 @@ export type PrescriptionPayload =
   | PowerPrescriptionPayload
   | ConditioningPrescriptionPayload;
 
-export interface PrescriptionTemplate {
+export interface PrescriptionTemplate extends ReviewableContentFields {
   id: string;
   label: string;
   kind: PrescriptionKind;
@@ -465,7 +481,7 @@ export type WorkoutReadinessBand = 'green' | 'yellow' | 'orange' | 'red' | 'unkn
 export type SafetyFlagSeverity = 'info' | 'caution' | 'restriction' | 'block';
 export type WorkoutScalingDirection = 'down' | 'up';
 
-export interface WorkoutSafetyFlag {
+export interface WorkoutSafetyFlag extends ReviewableContentFields {
   id: string;
   label: string;
   severity: SafetyFlagSeverity;
@@ -499,7 +515,7 @@ export interface RuleAction {
   explanation?: string;
 }
 
-export interface WorkoutRule {
+export interface WorkoutRule extends ReviewableContentFields {
   id: string;
   label: string;
   ruleType?: RuleType;
@@ -551,7 +567,7 @@ export interface SubstitutionPrescriptionAdjustment {
   note: string;
 }
 
-export interface SubstitutionRule {
+export interface SubstitutionRule extends ReviewableContentFields {
   id: string;
   sourceExerciseId: string;
   sourceMovementPatternIds?: string[];
@@ -593,7 +609,7 @@ export interface CommonMistakeSet {
   mistakes: string[];
 }
 
-export interface DescriptionTemplate {
+export interface DescriptionTemplate extends ReviewableContentFields {
   id: string;
   descriptionTemplateId?: string;
   appliesToEntityType?: DescriptionEntityType;
@@ -647,7 +663,7 @@ export interface GenerateWorkoutDescriptionOptions {
   templates?: DescriptionTemplate[];
 }
 
-export interface ValidationRule {
+export interface ValidationRule extends ReviewableContentFields {
   id: string;
   label: string;
   appliesToWorkoutTypeIds?: string[];

@@ -10,6 +10,7 @@ import type {
   WorkoutIntelligenceCatalog,
   WorkoutSafetyFlag,
 } from './types.ts';
+import { applyDefaultContentReviewMetadataToIntelligence } from './contentReview.ts';
 
 const strengthGoalIds = ['beginner_strength', 'full_gym_strength', 'upper_body_strength', 'lower_body_strength'];
 const hypertrophyGoalIds = ['hypertrophy', 'dumbbell_hypertrophy'];
@@ -1657,7 +1658,7 @@ export const validationRules: ValidationRule[] = [
   { id: 'balance_training_constraints', label: 'Balance Training Constraints', severity: 'error', explanation: 'Balance training needs fall-risk rules and must avoid unstable progressions too early.', correction: 'Use floor surface, eyes open, support, and simple stance before unstable surfaces.', userFacingMessage: 'Balance work should start supported and stable before progressing.' },
 ];
 
-export const workoutIntelligenceCatalog: WorkoutIntelligenceCatalog = {
+const baseWorkoutIntelligenceCatalog: WorkoutIntelligenceCatalog = {
   progressionRules,
   regressionRules,
   deloadRules,
@@ -1668,3 +1669,5 @@ export const workoutIntelligenceCatalog: WorkoutIntelligenceCatalog = {
   descriptionTemplates,
   validationRules,
 };
+
+export const workoutIntelligenceCatalog: WorkoutIntelligenceCatalog = applyDefaultContentReviewMetadataToIntelligence(baseWorkoutIntelligenceCatalog);

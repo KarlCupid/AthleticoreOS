@@ -1,6 +1,12 @@
 import { workoutIntelligenceCatalog } from './intelligenceData.ts';
 import { generatePersonalizedWorkout } from './intelligenceEngine.ts';
 import {
+  filterIntelligenceForContentReview,
+  prepareWorkoutProgrammingContentForMode,
+  type ContentReviewMode,
+  type PreparedWorkoutProgrammingContent,
+} from './contentReview.ts';
+import {
   loadUserWorkoutProfile,
   loadWorkoutProgrammingCatalog,
   logWorkoutCompletion as persistWorkoutCompletion,
@@ -29,6 +35,8 @@ import type {
 
 export interface WorkoutProgrammingServiceOptions extends WorkoutProgrammingPersistenceOptions {
   persistGeneratedWorkout?: boolean;
+  contentReviewMode?: ContentReviewMode;
+  allowDraftContent?: boolean;
 }
 
 export type WorkoutProgrammingPreviewRequest = PersonalizedWorkoutInput;
@@ -96,9 +104,10 @@ function attachValidatedDescription(
   workout: GeneratedWorkout,
   catalog: WorkoutProgrammingCatalog,
   toneVariant?: DescriptionToneVariant,
+  intelligence = workoutIntelligenceCatalog,
 ): GeneratedWorkout {
   const descriptionOptions = {
-    templates: workoutIntelligenceCatalog.descriptionTemplates,
+    templates: intelligence.descriptionTemplates,
   };
   const description = generateWorkoutDescription(workout, toneVariant ? {
     ...descriptionOptions,
@@ -121,6 +130,44 @@ function attachValidatedDescription(
   };
 }
 
+function contentReviewOptions(
+  options: { contentReviewMode?: ContentReviewMode; allowDraftContent?: boolean } | undefined,
+  defaultMode: ContentReviewMode,
+) {
+  return {
+    mode: options?.contentReviewMode ?? defaultMode,
+    allowDraftContent: options?.allowDraftContent ?? defaultMode !== 'production',
+  };
+}
+
+function applyContentReviewDiagnostics(
+  workout: GeneratedWorkout,
+  prepared: PreparedWorkoutProgrammingContent,
+  mode: ContentReviewMode,
+): GeneratedWorkout {
+  const previewWarnings = prepared.warnings.map((warning) => warning.message);
+  const reviewTrace = {
+    id: 'content_review_gate',
+    step: 'content_review',
+    reason: mode === 'production'
+      ? `Production content review gate excluded ${prepared.excluded.length} non-production record(s).`
+      : `Preview content review gate allowed ${prepared.warnings.length} review warning(s) and excluded ${prepared.excluded.length} blocked record(s).`,
+    rejectedIds: prepared.excluded.map((issue) => `${issue.recordType}:${issue.id}`),
+    metadata: {
+      mode,
+      warningCount: prepared.warnings.length,
+      excludedCount: prepared.excluded.length,
+      warnings: prepared.warnings,
+      excluded: prepared.excluded,
+    },
+  };
+  return {
+    ...workout,
+    validationWarnings: [...(workout.validationWarnings ?? []), ...previewWarnings],
+    decisionTrace: [...(workout.decisionTrace ?? []), reviewTrace],
+  };
+}
+
 export async function getWorkoutProgrammingCatalog(
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<WorkoutProgrammingCatalog> {
@@ -137,8 +184,13 @@ export async function generateWorkoutForUser(
     loadUserWorkoutProfile(userId, options),
   ]);
   const input = mergeProfileRequest(userId, profile, request);
-  const workout = generatePersonalizedWorkout(input, catalog, workoutIntelligenceCatalog);
-  const enriched = attachValidatedDescription(workout, catalog, input.preferredToneVariant);
+  const prepared = prepareWorkoutProgrammingContentForMode(catalog, workoutIntelligenceCatalog, contentReviewOptions(options, 'production'));
+  const workout = generatePersonalizedWorkout(input, prepared.catalog, prepared.intelligence);
+  const enriched = applyContentReviewDiagnostics(
+    attachValidatedDescription(workout, prepared.catalog, input.preferredToneVariant, prepared.intelligence),
+    prepared,
+    options?.contentReviewMode ?? 'production',
+  );
   if (options?.persistGeneratedWorkout !== false) {
     await saveGeneratedWorkout(userId, enriched, options);
   }
@@ -150,25 +202,32 @@ export async function generatePreviewWorkout(
   options?: WorkoutProgrammingServiceOptions,
 ): Promise<GeneratedWorkout> {
   const catalog = await loadWorkoutProgrammingCatalog(options);
-  const workout = generatePersonalizedWorkout(request, catalog, workoutIntelligenceCatalog);
-  return attachValidatedDescription(workout, catalog, request.preferredToneVariant);
+  const prepared = prepareWorkoutProgrammingContentForMode(catalog, workoutIntelligenceCatalog, contentReviewOptions(options, 'preview'));
+  const workout = generatePersonalizedWorkout(request, prepared.catalog, prepared.intelligence);
+  return applyContentReviewDiagnostics(
+    attachValidatedDescription(workout, prepared.catalog, request.preferredToneVariant, prepared.intelligence),
+    prepared,
+    options?.contentReviewMode ?? 'preview',
+  );
 }
 
 export async function validateWorkout(
   workout: GeneratedWorkout,
-  options?: WorkoutProgrammingPersistenceOptions,
+  options?: WorkoutProgrammingServiceOptions,
 ): Promise<WorkoutValidationResult> {
   const catalog = await loadWorkoutProgrammingCatalog(options);
-  return validateWorkoutDomain(workout, catalog);
+  const prepared = prepareWorkoutProgrammingContentForMode(catalog, workoutIntelligenceCatalog, contentReviewOptions(options, 'production'));
+  return validateWorkoutDomain(workout, prepared.catalog);
 }
 
 export async function substituteExercise(
   workout: GeneratedWorkout,
   exerciseId: string,
   constraints: WorkoutProgrammingSubstitutionConstraints = {},
-  options?: WorkoutProgrammingPersistenceOptions,
+  options?: WorkoutProgrammingServiceOptions,
 ): Promise<WorkoutProgrammingSubstitutionResult> {
   const catalog = await loadWorkoutProgrammingCatalog(options);
+  const prepared = prepareWorkoutProgrammingContentForMode(catalog, workoutIntelligenceCatalog, contentReviewOptions(options, 'production'));
   const source = workout.blocks.flatMap((block) => block.exercises).find((exercise) => exercise.exerciseId === exerciseId);
   const substitutionInput: Parameters<typeof rankExerciseSubstitutions>[0] = {
     sourceExerciseId: exerciseId,
@@ -177,8 +236,8 @@ export async function substituteExercise(
     equipmentIds: constraints.equipmentIds ?? workout.equipmentIds,
     safetyFlagIds: constraints.safetyFlagIds ?? workout.safetyFlags,
     experienceLevel: constraints.experienceLevel ?? workout.experienceLevel ?? 'beginner',
-    catalog,
-    intelligence: workoutIntelligenceCatalog,
+    catalog: prepared.catalog,
+    intelligence: prepared.intelligence,
     limit: constraints.limit ?? 5,
   };
   if (source?.movementPatternIds) substitutionInput.movementPatternIds = source.movementPatternIds;
@@ -263,11 +322,16 @@ export async function generateWeeklyProgramForUser(
 export function getWorkoutDescription(
   workout: GeneratedWorkout,
   toneVariant?: DescriptionToneVariant,
+  reviewOptions?: Pick<WorkoutProgrammingServiceOptions, 'contentReviewMode' | 'allowDraftContent'>,
 ) {
-  const options = {
-    templates: workoutIntelligenceCatalog.descriptionTemplates,
+  const gate = filterIntelligenceForContentReview(
+    workoutIntelligenceCatalog,
+    contentReviewOptions(reviewOptions, reviewOptions?.contentReviewMode ?? 'production'),
+  );
+  const descriptionOptions = {
+    templates: gate.intelligence.descriptionTemplates,
   };
-  return generateWorkoutDescription(workout, toneVariant ? { ...options, toneVariant } : options);
+  return generateWorkoutDescription(workout, toneVariant ? { ...descriptionOptions, toneVariant } : descriptionOptions);
 }
 
 export const workoutProgrammingService = {

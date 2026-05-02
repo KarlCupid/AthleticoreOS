@@ -8,6 +8,7 @@ import type {
   WorkoutProgrammingCatalog,
   WorkoutTaxonomyItem,
 } from './types.ts';
+import { applyDefaultContentReviewMetadataToCatalog } from './contentReview.ts';
 
 export const workoutTypes: WorkoutTaxonomyItem[] = [
   { id: 'strength', label: 'Strength', summary: 'Force production with controlled rest and technically crisp sets.' },
@@ -1185,7 +1186,7 @@ export const sessionTemplates: SessionTemplate[] = [
   },
 ];
 
-export const workoutProgrammingCatalog: WorkoutProgrammingCatalog = {
+const baseWorkoutProgrammingCatalog: WorkoutProgrammingCatalog = {
   workoutTypes,
   trainingGoals,
   workoutFormats,
@@ -1198,3 +1199,5 @@ export const workoutProgrammingCatalog: WorkoutProgrammingCatalog = {
   trackingMetrics,
   assessmentMetrics,
 };
+
+export const workoutProgrammingCatalog: WorkoutProgrammingCatalog = applyDefaultContentReviewMetadataToCatalog(baseWorkoutProgrammingCatalog);
