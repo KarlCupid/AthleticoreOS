@@ -406,6 +406,38 @@ export interface WorkoutProgrammingCatalog {
   assessmentMetrics: WorkoutTaxonomyItem[];
 }
 
+export type RuntimeValidationRecordType =
+  | 'WorkoutProgrammingCatalog'
+  | 'Exercise'
+  | 'PrescriptionTemplate'
+  | 'SessionTemplate'
+  | 'SessionTemplateBlock'
+  | 'SessionTemplateMovementSlot'
+  | 'DescriptionTemplate'
+  | 'ValidationRule'
+  | 'SubstitutionRule'
+  | 'ProgressionRule'
+  | 'RegressionRule'
+  | 'DeloadRule'
+  | 'GeneratedWorkout'
+  | 'GeneratedWorkoutBlock'
+  | 'GeneratedExercisePrescription';
+
+export interface RuntimeValidationIssue {
+  recordType: RuntimeValidationRecordType;
+  id?: string;
+  field: string;
+  severity: 'error' | 'warning';
+  message: string;
+  suggestedCorrection: string;
+}
+
+export interface RuntimeValidationResult {
+  valid: boolean;
+  errors: RuntimeValidationIssue[];
+  warnings: RuntimeValidationIssue[];
+}
+
 export interface ExerciseQuery {
   movementPatternIds?: string[];
   workoutTypeIds?: string[];

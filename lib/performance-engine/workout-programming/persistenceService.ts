@@ -1,4 +1,10 @@
 import { workoutProgrammingCatalog } from './seedData.ts';
+import {
+  WorkoutProgrammingCatalogValidationError,
+  assertValidGeneratedWorkout,
+  assertValidWorkoutProgrammingCatalog,
+  formatRuntimeValidationIssues,
+} from './catalogValidation.ts';
 import type {
   ExerciseCompletionResult,
   GeneratedWorkout,
@@ -24,6 +30,7 @@ export interface WorkoutProgrammingSupabaseClient {
 export interface WorkoutProgrammingPersistenceOptions {
   client?: WorkoutProgrammingSupabaseClient;
   useSupabase?: boolean;
+  catalogFallback?: 'safe' | 'always' | 'never';
 }
 
 export interface WorkoutReadinessLogInput {
@@ -123,6 +130,16 @@ function idMap(rows: Record<string, unknown>[], leftKey: string, rightKey: strin
   return output;
 }
 
+function groupedRows(rows: Record<string, unknown>[], key: string): Record<string, Record<string, unknown>[]> {
+  const output: Record<string, Record<string, unknown>[]> = {};
+  for (const row of rows) {
+    const id = rowString(row, key);
+    if (!id) continue;
+    output[id] = [...(output[id] ?? []), row];
+  }
+  return output;
+}
+
 function taxonomy(rows: Record<string, unknown>[]) {
   return rows.map((row) => ({
     id: rowString(row, 'id'),
@@ -139,6 +156,9 @@ function buildCatalogFromRows(rows: Record<string, Record<string, unknown>[]>): 
     summary: rowString(row, 'summary'),
     defaultWorkoutTypeId: rowString(row, 'default_workout_type_id'),
   })).filter((item) => item.id);
+  const sessionGoals = idMap(rows.session_template_goals ?? [], 'session_template_id', 'training_goal_id');
+  const blocksBySession = groupedRows(rows.session_template_blocks ?? [], 'session_template_id');
+  const slotsBySession = groupedRows(rows.session_template_movement_slots ?? [], 'session_template_id');
   const prescriptionTemplates = (rows.prescription_templates ?? []).map((row) => {
     const template: WorkoutProgrammingCatalog['prescriptionTemplates'][number] = {
       id: rowString(row, 'id'),
@@ -241,6 +261,41 @@ function buildCatalogFromRows(rows: Record<string, Record<string, unknown>[]>): 
 
   if (exercises.length === 0) return null;
 
+  const sessionTemplates = (rows.session_templates ?? []).map((row) => {
+    const id = rowString(row, 'id');
+    const blocks = (blocksBySession[id] ?? []).map((block) => ({
+      id: rowString(block, 'id'),
+      kind: rowString(block, 'kind', 'main') as never,
+      title: rowString(block, 'title'),
+      durationMinutes: rowNumber(block, 'duration_minutes', 1),
+      prescriptionTemplateId: rowString(block, 'prescription_template_id'),
+    })).filter((block) => block.id);
+    const movementSlots = (slotsBySession[id] ?? []).map((slot) => ({
+      id: rowString(slot, 'id'),
+      blockId: rowString(slot, 'block_id'),
+      movementPatternIds: rowStringArray(slot, 'movement_pattern_ids'),
+      optional: typeof slot.optional === 'boolean' ? slot.optional : false,
+      order: rowNumber(slot, 'sort_order', 0),
+      preferredExerciseIds: rowStringArray(slot, 'preferred_exercise_ids'),
+      avoidExerciseIds: rowStringArray(slot, 'avoid_exercise_ids'),
+    })).filter((slot) => slot.id);
+    return {
+      id,
+      label: rowString(row, 'label'),
+      summary: rowString(row, 'summary'),
+      workoutTypeId: rowString(row, 'workout_type_id'),
+      goalIds: sessionGoals[id] ?? [],
+      formatId: rowString(row, 'format_id'),
+      minDurationMinutes: rowNumber(row, 'min_duration_minutes', 1),
+      defaultDurationMinutes: rowNumber(row, 'default_duration_minutes', 1),
+      maxDurationMinutes: rowNumber(row, 'max_duration_minutes', 1),
+      experienceLevels: rowStringArray(row, 'experience_levels') as never,
+      blocks,
+      movementSlots,
+      successCriteria: rowStringArray(row, 'success_criteria'),
+    };
+  }).filter((item) => item.id);
+
   return {
     workoutTypes,
     trainingGoals,
@@ -260,17 +315,33 @@ function buildCatalogFromRows(rows: Record<string, Record<string, unknown>[]>): 
     })).filter((item) => item.id),
     exercises,
     prescriptionTemplates,
-    sessionTemplates: workoutProgrammingCatalog.sessionTemplates,
+    sessionTemplates,
     trackingMetrics: taxonomy(rows.tracking_metrics ?? []),
     assessmentMetrics: taxonomy(rows.assessment_metrics ?? []),
   };
+}
+
+function hasAnyExternalCatalogRows(rows: Record<string, Record<string, unknown>[]>): boolean {
+  return staticCatalogTables.some((tableName) => (rows[tableName]?.length ?? 0) > 0);
+}
+
+function shouldFallbackToSeed(
+  options: WorkoutProgrammingPersistenceOptions | undefined,
+  reason: 'empty' | 'error' | 'invalid',
+): boolean {
+  if (options?.catalogFallback === 'always') return true;
+  if (options?.catalogFallback === 'never') return false;
+  return reason === 'empty';
 }
 
 export async function loadWorkoutProgrammingCatalog(
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<WorkoutProgrammingCatalog> {
   const client = await resolveClient(options);
-  if (!client) return workoutProgrammingCatalog;
+  if (!client) {
+    assertValidWorkoutProgrammingCatalog(workoutProgrammingCatalog, 'In-code workout programming catalog');
+    return workoutProgrammingCatalog;
+  }
 
   try {
     const rows: Record<string, Record<string, unknown>[]> = {};
@@ -285,12 +356,41 @@ export async function loadWorkoutProgrammingCatalog(
       'exercise_workout_types',
       'exercise_training_goals',
       'exercise_tracking_metrics',
+      'session_template_goals',
+      'session_template_blocks',
+      'session_template_movement_slots',
     ]) {
       rows[tableName] = await selectRows<Record<string, unknown>>(client, tableName);
     }
-    return buildCatalogFromRows(rows) ?? workoutProgrammingCatalog;
-  } catch {
-    return workoutProgrammingCatalog;
+    if (!hasAnyExternalCatalogRows(rows) && shouldFallbackToSeed(options, 'empty')) {
+      assertValidWorkoutProgrammingCatalog(workoutProgrammingCatalog, 'In-code workout programming catalog');
+      return workoutProgrammingCatalog;
+    }
+
+    const catalog = buildCatalogFromRows(rows);
+    if (!catalog) {
+      const error = new WorkoutProgrammingCatalogValidationError('Supabase workout programming catalog is incomplete.', [{
+        recordType: 'WorkoutProgrammingCatalog',
+        field: '$catalog',
+        severity: 'error',
+        message: 'Supabase returned partial workout-programming catalog rows but not enough data to build a catalog.',
+        suggestedCorrection: 'Seed the required static taxonomy, exercises, prescription templates, and session templates or use catalogFallback: "always" for development fallback.',
+      }]);
+      if (shouldFallbackToSeed(options, 'invalid')) return workoutProgrammingCatalog;
+      throw error;
+    }
+
+    assertValidWorkoutProgrammingCatalog(catalog, 'Supabase workout programming catalog');
+    return catalog;
+  } catch (error) {
+    if (shouldFallbackToSeed(options, error instanceof WorkoutProgrammingCatalogValidationError ? 'invalid' : 'error')) {
+      assertValidWorkoutProgrammingCatalog(workoutProgrammingCatalog, 'In-code workout programming catalog');
+      return workoutProgrammingCatalog;
+    }
+    if (error instanceof WorkoutProgrammingCatalogValidationError) {
+      throw new Error(`${error.message}\n${formatRuntimeValidationIssues(error.issues)}`);
+    }
+    throw error;
   }
 }
 
@@ -359,6 +459,7 @@ export async function saveGeneratedWorkout(
 ): Promise<string | null> {
   const client = await resolveClient(options);
   if (!client) return null;
+  assertValidGeneratedWorkout(workout, undefined, 'Generated workout persistence payload');
   const payload = {
     user_id: userId,
     goal_id: workout.goalId,

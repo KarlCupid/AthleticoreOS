@@ -1,4 +1,5 @@
 import { workoutProgrammingCatalog } from './seedData.ts';
+import { validateGeneratedWorkoutRuntime } from './catalogValidation.ts';
 import type {
   BalancePrescriptionPayload,
   Exercise,
@@ -200,6 +201,23 @@ export function validateWorkoutDomain(
   workout: GeneratedWorkout,
   catalog: WorkoutProgrammingCatalog = workoutProgrammingCatalog,
 ): WorkoutValidationResult {
+  const runtimeValidation = validateGeneratedWorkoutRuntime(workout, catalog);
+  if (!runtimeValidation.valid) {
+    return createWorkoutValidationResult({
+      errors: runtimeValidation.errors.map((issue) => `${issue.recordType}${issue.id ? ` ${issue.id}` : ''}.${issue.field}: ${issue.message}`),
+      warnings: runtimeValidation.warnings.map((issue) => `${issue.recordType}${issue.id ? ` ${issue.id}` : ''}.${issue.field}: ${issue.message}`),
+      suggestedCorrections: runtimeValidation.errors.map((issue) => issue.suggestedCorrection),
+      userFacingMessages: ['This workout payload is incomplete or malformed and needs to be regenerated before use.'],
+      failedRuleIds: ['runtime_schema_validation'],
+      decisionTrace: runtimeValidation.errors.map((issue) => ({
+        ruleId: 'runtime_schema_validation',
+        status: 'failed',
+        message: `${issue.recordType}.${issue.field}: ${issue.message}`,
+        metadata: issue as unknown as Record<string, unknown>,
+      })),
+    });
+  }
+
   const errors: string[] = [];
   const warnings: string[] = [];
   const suggestedCorrections: string[] = [];
