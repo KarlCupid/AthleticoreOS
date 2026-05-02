@@ -9,8 +9,8 @@ import {
 import {
   loadUserWorkoutProfile,
   loadWorkoutProgrammingCatalog,
-  logWorkoutCompletion as persistWorkoutCompletion,
-  saveGeneratedWorkout,
+  logWorkoutCompletionWithExerciseResults as persistWorkoutCompletion,
+  saveGeneratedWorkoutWithExercises,
   saveProgressionDecision,
   type WorkoutProgrammingPersistenceOptions,
 } from './persistenceService.ts';
@@ -192,7 +192,7 @@ export async function generateWorkoutForUser(
     options?.contentReviewMode ?? 'production',
   );
   if (options?.persistGeneratedWorkout !== false) {
-    await saveGeneratedWorkout(userId, enriched, options);
+    await saveGeneratedWorkoutWithExercises(userId, enriched, options);
   }
   return enriched;
 }

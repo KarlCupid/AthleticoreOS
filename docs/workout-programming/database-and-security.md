@@ -79,19 +79,46 @@ Supabase service-role/server access continues to bypass RLS. That is useful for 
 - Lazily imports the app Supabase client only when `useSupabase: true`.
 - User reads and writes include `user_id` or parent IDs.
 - Child inserts are written through parent records wherever possible.
+- Runtime-validates generated workout payloads before saving and after loading.
+- Uses bulk upserts for user profile/preferences/equipment/safety surfaces.
+- Treats parent + child writes as transaction-like units in application code: if child persistence fails, the service throws a structured error and attempts to roll back the parent row.
+- Maps Supabase/PostgREST failures into explicit errors such as `NotFoundError`, `UnauthorizedError`, `ValidationError`, `ConflictError`, and `DatabaseUnavailableError`.
 
 Important functions:
 
 - `loadWorkoutProgrammingCatalog`
 - `loadUserWorkoutProfile`
-- `saveGeneratedWorkout`
-- `logWorkoutCompletion`
+- `saveGeneratedWorkoutWithExercises`
+- `loadGeneratedWorkout`
+- `listGeneratedWorkoutsForUser`
+- `logWorkoutCompletionWithExerciseResults`
+- `loadRecentCompletions`
 - `saveProgressionDecision`
-- `updateUserEquipment`
-- `updateUserSafetyFlags`
-- `updateExercisePreference`
+- `loadProgressionDecisionsForCompletion`
+- `upsertUserWorkoutProfile`
+- `upsertUserEquipment`
+- `upsertUserSafetyFlags`
+- `upsertExercisePreferences`
 - `logReadiness`
+- `loadRecentReadiness`
 - `saveRecommendationFeedback`
+- `saveGeneratedProgram`
+- `loadUserProgram`
+
+Compatibility aliases such as `saveGeneratedWorkout`, `logWorkoutCompletion`, `updateUserEquipment`, `updateUserSafetyFlags`, `updateExercisePreference`, and `saveUserWorkoutProfile` remain available, but new app code should prefer the explicit hardened names.
+
+### Persistence Error Semantics
+
+All persistence failures should be actionable:
+
+- `ValidationError`: the payload is malformed, unsafe to persist, or violates a known database constraint.
+- `NotFoundError`: a user-scoped row was requested but does not exist or is not visible under RLS.
+- `UnauthorizedError`: Supabase rejected the operation because the caller is not allowed to access the row.
+- `ConflictError`: a unique/conflict constraint rejected the write.
+- `DatabaseUnavailableError`: the database or network appears unavailable and retry may be appropriate.
+- `WorkoutProgrammingPersistenceError`: fallback for unexpected persistence failures.
+
+Generated workout and completion persistence intentionally do not report success if child rows fail. The service either saves the parent and all child rows, or it throws and attempts parent rollback.
 
 ## Migration Rules
 

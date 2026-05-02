@@ -7,6 +7,7 @@ import {
 } from './catalogValidation.ts';
 import type {
   ExerciseCompletionResult,
+  GeneratedProgram,
   GeneratedWorkout,
   PersonalizedWorkoutInput,
   ProgressionDecision,
@@ -18,14 +19,22 @@ import type {
 } from './types.ts';
 
 type QueryResult<T> = Promise<{ data: T | null; error: unknown | null }>;
+type SupabaseQueryBuilder = {
+  select?: (...args: unknown[]) => unknown;
+  insert?: (...args: unknown[]) => unknown;
+  upsert?: (...args: unknown[]) => unknown;
+  delete?: (...args: unknown[]) => unknown;
+  eq?: (...args: unknown[]) => unknown;
+  in?: (...args: unknown[]) => unknown;
+  order?: (...args: unknown[]) => unknown;
+  limit?: (...args: unknown[]) => unknown;
+  maybeSingle?: () => unknown;
+  single?: () => unknown;
+};
 
 export interface WorkoutProgrammingSupabaseClient {
-  from(table: string): {
-    select?: (...args: unknown[]) => unknown;
-    insert?: (...args: unknown[]) => unknown;
-    upsert?: (...args: unknown[]) => unknown;
-    delete?: (...args: unknown[]) => unknown;
-  };
+  from(table: string): SupabaseQueryBuilder;
+  rpc?: (...args: unknown[]) => unknown;
 }
 
 export interface WorkoutProgrammingPersistenceOptions {
@@ -34,10 +43,85 @@ export interface WorkoutProgrammingPersistenceOptions {
   catalogFallback?: 'safe' | 'always' | 'never';
 }
 
+export type WorkoutProgrammingPersistenceErrorCode =
+  | 'persistence_error'
+  | 'not_found'
+  | 'unauthorized'
+  | 'validation_error'
+  | 'conflict'
+  | 'database_unavailable';
+
+export interface WorkoutProgrammingPersistenceErrorDetails {
+  code?: WorkoutProgrammingPersistenceErrorCode;
+  context?: string;
+  table?: string;
+  cause?: unknown;
+  recoverable?: boolean;
+}
+
+export class WorkoutProgrammingPersistenceError extends Error {
+  code: WorkoutProgrammingPersistenceErrorCode;
+  context: string | undefined;
+  table: string | undefined;
+  cause: unknown;
+  recoverable: boolean;
+
+  constructor(message: string, details: WorkoutProgrammingPersistenceErrorDetails = {}) {
+    super(message);
+    this.name = 'WorkoutProgrammingPersistenceError';
+    this.code = details.code ?? 'persistence_error';
+    this.context = details.context;
+    this.table = details.table;
+    this.cause = details.cause;
+    this.recoverable = details.recoverable ?? false;
+  }
+}
+
+export class NotFoundError extends WorkoutProgrammingPersistenceError {
+  constructor(message: string, details: WorkoutProgrammingPersistenceErrorDetails = {}) {
+    super(message, { ...details, code: 'not_found' });
+    this.name = 'NotFoundError';
+  }
+}
+
+export class UnauthorizedError extends WorkoutProgrammingPersistenceError {
+  constructor(message: string, details: WorkoutProgrammingPersistenceErrorDetails = {}) {
+    super(message, { ...details, code: 'unauthorized' });
+    this.name = 'UnauthorizedError';
+  }
+}
+
+export class ValidationError extends WorkoutProgrammingPersistenceError {
+  constructor(message: string, details: WorkoutProgrammingPersistenceErrorDetails = {}) {
+    super(message, { ...details, code: 'validation_error' });
+    this.name = 'ValidationError';
+  }
+}
+
+export class ConflictError extends WorkoutProgrammingPersistenceError {
+  constructor(message: string, details: WorkoutProgrammingPersistenceErrorDetails = {}) {
+    super(message, { ...details, code: 'conflict' });
+    this.name = 'ConflictError';
+  }
+}
+
+export class DatabaseUnavailableError extends WorkoutProgrammingPersistenceError {
+  constructor(message: string, details: WorkoutProgrammingPersistenceErrorDetails = {}) {
+    super(message, { ...details, code: 'database_unavailable', recoverable: details.recoverable ?? true });
+    this.name = 'DatabaseUnavailableError';
+  }
+}
+
 export interface WorkoutReadinessLogInput {
   readinessBand: WorkoutReadinessBand;
   notes?: string | null;
   createdAt?: string;
+}
+
+export interface WorkoutReadinessLog extends WorkoutReadinessLogInput {
+  id: string;
+  userId: string;
+  createdAt: string;
 }
 
 export interface RecommendationFeedbackInput {
@@ -47,6 +131,23 @@ export interface RecommendationFeedbackInput {
 }
 
 export type ExercisePreference = 'like' | 'neutral' | 'dislike';
+
+export interface ExercisePreferenceInput {
+  exerciseId: string;
+  preference: ExercisePreference;
+}
+
+export interface ListPersistenceOptions extends WorkoutProgrammingPersistenceOptions {
+  limit?: number;
+}
+
+export interface GeneratedWorkoutPersistenceOptions extends WorkoutProgrammingPersistenceOptions {
+  generatedWorkoutId?: string | null;
+}
+
+export interface WorkoutCompletionPersistenceOptions extends WorkoutProgrammingPersistenceOptions {
+  generatedWorkoutId?: string | null;
+}
 
 const staticCatalogTables = [
   'workout_types',
@@ -66,6 +167,56 @@ function asPromise<T>(value: unknown): QueryResult<T> {
   return value as QueryResult<T>;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function errorField(error: unknown, field: string): unknown {
+  return isRecord(error) ? error[field] : undefined;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  const message = errorField(error, 'message');
+  if (typeof message === 'string') return message;
+  return String(error);
+}
+
+function errorCode(error: unknown): string {
+  const code = errorField(error, 'code');
+  return typeof code === 'string' ? code : '';
+}
+
+function errorStatus(error: unknown): number | null {
+  const status = errorField(error, 'status') ?? errorField(error, 'statusCode');
+  return typeof status === 'number' ? status : null;
+}
+
+function toPersistenceError(error: unknown, context: string, tableName?: string): WorkoutProgrammingPersistenceError {
+  if (error instanceof WorkoutProgrammingPersistenceError) return error;
+  const code = errorCode(error);
+  const status = errorStatus(error);
+  const message = errorMessage(error);
+  const details: WorkoutProgrammingPersistenceErrorDetails = { context, cause: error };
+  if (tableName) details.table = tableName;
+  if (status === 401 || status === 403 || code === '42501' || code === 'PGRST301') {
+    return new UnauthorizedError(`${context}: unauthorized access to workout-programming data.`, details);
+  }
+  if (status === 404 || code === 'PGRST116') {
+    return new NotFoundError(`${context}: record not found.`, details);
+  }
+  if (status === 409 || code === '23505') {
+    return new ConflictError(`${context}: conflicting workout-programming row.`, details);
+  }
+  if (code === '23503' || code === '23514' || code === '22P02') {
+    return new ValidationError(`${context}: invalid persistence payload. ${message}`, details);
+  }
+  if ((status != null && status >= 500) || /network|fetch|timeout|unavailable|ECONN|ENOTFOUND/i.test(message)) {
+    return new DatabaseUnavailableError(`${context}: database unavailable. ${message}`, details);
+  }
+  return new WorkoutProgrammingPersistenceError(`${context}: ${message}`, details);
+}
+
 async function getDefaultClient(): Promise<WorkoutProgrammingSupabaseClient> {
   const module = await import('../../supabase');
   return module.supabase as WorkoutProgrammingSupabaseClient;
@@ -77,10 +228,9 @@ async function resolveClient(options?: WorkoutProgrammingPersistenceOptions): Pr
   return null;
 }
 
-function ensureNoError(result: { error: unknown | null }, context: string): void {
+function ensureNoError(result: { error: unknown | null }, context: string, tableName?: string): void {
   if (result.error) {
-    if (result.error instanceof Error) throw result.error;
-    throw new Error(`${context}: ${String(result.error)}`);
+    throw toPersistenceError(result.error, context, tableName);
   }
 }
 
@@ -92,12 +242,101 @@ async function selectRows<T>(client: WorkoutProgrammingSupabaseClient, name: str
   const builder = table(client, name);
   if (!builder.select) return [];
   const result = await asPromise<T[]>(builder.select(columns));
-  ensureNoError(result, `Failed to load ${name}`);
+  ensureNoError(result, `Failed to load ${name}`, name);
   return result.data ?? [];
+}
+
+function chain(value: unknown): SupabaseQueryBuilder {
+  return value as SupabaseQueryBuilder;
+}
+
+function requireBuilder(value: unknown, context: string, tableName: string, operation: string): SupabaseQueryBuilder {
+  if (!value) {
+    throw new DatabaseUnavailableError(`${context}: Supabase ${operation} is unavailable.`, { context, table: tableName });
+  }
+  return chain(value);
+}
+
+async function insertReturningId(
+  client: WorkoutProgrammingSupabaseClient,
+  tableName: string,
+  payload: unknown,
+  context: string,
+): Promise<string> {
+  const insertBuilder = table(client, tableName).insert?.(payload);
+  if (!insertBuilder) throw new DatabaseUnavailableError(`${context}: Supabase insert is unavailable.`, { context, table: tableName });
+  const selectBuilder = chain(insertBuilder).select?.('id');
+  const singleBuilder = selectBuilder ? chain(selectBuilder).single?.() : undefined;
+  const result = await asPromise<Record<string, unknown>>(singleBuilder ?? selectBuilder ?? insertBuilder);
+  ensureNoError(result, context, tableName);
+  const id = rowString(result.data ?? {}, 'id');
+  if (!id) {
+    throw new WorkoutProgrammingPersistenceError(`${context}: Supabase did not return an id.`, { context, table: tableName });
+  }
+  return id;
+}
+
+async function insertRows(
+  client: WorkoutProgrammingSupabaseClient,
+  tableName: string,
+  rows: Record<string, unknown>[],
+  context: string,
+): Promise<void> {
+  if (rows.length === 0) return;
+  const result = await asPromise<null>(table(client, tableName).insert?.(rows));
+  ensureNoError(result, context, tableName);
+}
+
+async function upsertRows(
+  client: WorkoutProgrammingSupabaseClient,
+  tableName: string,
+  rows: Record<string, unknown>[],
+  context: string,
+  onConflict?: string,
+): Promise<void> {
+  if (rows.length === 0) return;
+  const result = await asPromise<null>(table(client, tableName).upsert?.(rows, onConflict ? { onConflict } : undefined));
+  ensureNoError(result, context, tableName);
+}
+
+async function deleteWhereEq(
+  client: WorkoutProgrammingSupabaseClient,
+  tableName: string,
+  column: string,
+  value: string,
+  context: string,
+): Promise<void> {
+  const deleteBuilder = table(client, tableName).delete?.();
+  if (!deleteBuilder) throw new DatabaseUnavailableError(`${context}: Supabase delete is unavailable.`, { context, table: tableName });
+  const result = await asPromise<null>(chain(deleteBuilder).eq?.(column, value));
+  ensureNoError(result, context, tableName);
+}
+
+async function selectMaybeSingleRow(
+  tableName: string,
+  query: SupabaseQueryBuilder,
+  context: string,
+): Promise<Record<string, unknown> | null> {
+  const maybeSingle = query.maybeSingle?.();
+  const result = await asPromise<Record<string, unknown>>(maybeSingle ?? query);
+  ensureNoError(result, context, tableName);
+  return result.data ?? null;
+}
+
+async function bestEffortDeleteById(client: WorkoutProgrammingSupabaseClient, tableName: string, id: string): Promise<void> {
+  try {
+    await deleteWhereEq(client, tableName, 'id', id, `Rollback ${tableName}`);
+  } catch {
+    // The original write error is more actionable than rollback failure here.
+  }
 }
 
 function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items));
+}
+
+function uniqueStrings(items: string[]): string[] {
+  return unique(items.map((item) => item.trim()).filter(Boolean));
 }
 
 function rowString(row: Record<string, unknown>, key: string, fallback = ''): string {
@@ -108,6 +347,11 @@ function rowString(row: Record<string, unknown>, key: string, fallback = ''): st
 function rowNumber(row: Record<string, unknown>, key: string, fallback: number): number {
   const value = row[key];
   return typeof value === 'number' ? value : fallback;
+}
+
+function rowOptionalNumber(row: Record<string, unknown>, key: string): number | null {
+  const value = row[key];
+  return typeof value === 'number' ? value : null;
 }
 
 function rowBoolean(row: Record<string, unknown>, key: string): boolean | undefined {
@@ -445,22 +689,22 @@ export async function loadUserWorkoutProfile(
       .eq('user_id', userId)
       .maybeSingle(),
   );
-  ensureNoError(profileResult, 'Failed to load user workout profile');
+  ensureNoError(profileResult, 'Failed to load user workout profile', 'user_training_profiles');
 
   const equipmentResult = await asPromise<Record<string, unknown>[]>(
     (table(client, 'user_equipment').select?.('equipment_type_id') as { eq: (...args: unknown[]) => unknown }).eq('user_id', userId),
   );
-  ensureNoError(equipmentResult, 'Failed to load user equipment');
+  ensureNoError(equipmentResult, 'Failed to load user equipment', 'user_equipment');
 
   const safetyResult = await asPromise<Record<string, unknown>[]>(
     (table(client, 'user_safety_flags').select?.('safety_flag_id') as { eq: (...args: unknown[]) => unknown }).eq('user_id', userId),
   );
-  ensureNoError(safetyResult, 'Failed to load user safety flags');
+  ensureNoError(safetyResult, 'Failed to load user safety flags', 'user_safety_flags');
 
   const preferenceResult = await asPromise<Record<string, unknown>[]>(
     (table(client, 'user_exercise_preferences').select?.('exercise_id,preference') as { eq: (...args: unknown[]) => unknown }).eq('user_id', userId),
   );
-  ensureNoError(preferenceResult, 'Failed to load user exercise preferences');
+  ensureNoError(preferenceResult, 'Failed to load user exercise preferences', 'user_exercise_preferences');
 
   const row = profileResult.data ?? {};
   const preferences = preferenceResult.data ?? [];
@@ -478,15 +722,64 @@ export async function loadUserWorkoutProfile(
   };
 }
 
-export async function saveGeneratedWorkout(
-  userId: string,
-  workout: GeneratedWorkout,
-  options?: WorkoutProgrammingPersistenceOptions,
-): Promise<string | null> {
-  const client = await resolveClient(options);
-  if (!client) return null;
-  assertValidGeneratedWorkout(workout, undefined, 'Generated workout persistence payload');
-  const payload = {
+function assertUserId(userId: string, context: string): void {
+  if (!userId.trim()) throw new ValidationError(`${context}: userId is required.`, { context });
+}
+
+function validateGeneratedWorkoutForPersistence(workout: GeneratedWorkout, context: string): void {
+  try {
+    assertValidGeneratedWorkout(workout, undefined, context);
+  } catch (error) {
+    if (error instanceof WorkoutProgrammingCatalogValidationError) {
+      throw new ValidationError(`${context}: invalid generated workout.\n${formatRuntimeValidationIssues(error.issues)}`, { context, cause: error });
+    }
+    throw error;
+  }
+}
+
+function validateCompletionLog(completion: WorkoutCompletionLog, context: string): void {
+  if (!completion.workoutId.trim()) throw new ValidationError(`${context}: workoutId is required.`, { context });
+  if (!completion.completedAt.trim()) throw new ValidationError(`${context}: completedAt is required.`, { context });
+  if (completion.plannedDurationMinutes <= 0 || completion.actualDurationMinutes < 0) {
+    throw new ValidationError(`${context}: completion duration values are invalid.`, { context });
+  }
+  if (completion.sessionRpe < 1 || completion.sessionRpe > 10) {
+    throw new ValidationError(`${context}: sessionRpe must be between 1 and 10.`, { context });
+  }
+  if (!Array.isArray(completion.exerciseResults)) {
+    throw new ValidationError(`${context}: exerciseResults must be an array.`, { context });
+  }
+  for (const result of completion.exerciseResults) {
+    if (!result.exerciseId.trim()) throw new ValidationError(`${context}: every exercise result needs exerciseId.`, { context });
+    if (result.setsCompleted < 0) throw new ValidationError(`${context}: setsCompleted cannot be negative.`, { context });
+    if (result.actualRpe != null && (result.actualRpe < 1 || result.actualRpe > 10)) {
+      throw new ValidationError(`${context}: actualRpe must be between 1 and 10 when provided.`, { context });
+    }
+  }
+}
+
+function validateProgressionDecision(decision: ProgressionDecision, context: string): void {
+  if (!decision.direction) throw new ValidationError(`${context}: direction is required.`, { context });
+  if (!decision.reason.trim()) throw new ValidationError(`${context}: reason is required.`, { context });
+  if (!decision.nextAdjustment.trim()) throw new ValidationError(`${context}: nextAdjustment is required.`, { context });
+  if (!Array.isArray(decision.safetyFlags)) throw new ValidationError(`${context}: safetyFlags must be an array.`, { context });
+}
+
+function validateFeedback(feedback: RecommendationFeedbackInput, context: string): void {
+  if (feedback.rating != null && (feedback.rating < 1 || feedback.rating > 5)) {
+    throw new ValidationError(`${context}: rating must be between 1 and 5.`, { context });
+  }
+}
+
+function validateGeneratedProgram(program: GeneratedProgram, context: string): void {
+  if (!program.id.trim()) throw new ValidationError(`${context}: program id is required.`, { context });
+  if (!program.goalId.trim()) throw new ValidationError(`${context}: goalId is required.`, { context });
+  if (!Array.isArray(program.weeks) || program.weeks.length === 0) throw new ValidationError(`${context}: weeks are required.`, { context });
+  if (!Array.isArray(program.sessions)) throw new ValidationError(`${context}: sessions must be an array.`, { context });
+}
+
+function generatedWorkoutPayload(userId: string, workout: GeneratedWorkout) {
+  return {
     user_id: userId,
     goal_id: workout.goalId,
     template_id: workout.templateId,
@@ -496,28 +789,109 @@ export async function saveGeneratedWorkout(
     payload: workout,
     blocked: workout.blocked ?? false,
   };
-  const workoutResult = await asPromise<Record<string, unknown>>(
-    (table(client, 'generated_workouts').insert?.(payload) as { select: (...args: unknown[]) => { single: () => unknown } })
-      .select('id')
-      .single(),
-  );
-  ensureNoError(workoutResult, 'Failed to save generated workout');
-  const generatedWorkoutId = rowString(workoutResult.data ?? {}, 'id') || null;
-  if (!generatedWorkoutId) return null;
+}
 
-  const exercises = workout.blocks.flatMap((block) => block.exercises.map((exercise, index) => ({
-    generated_workout_id: generatedWorkoutId,
-    exercise_id: exercise.exerciseId,
-    block_id: exercise.blockId,
-    prescription: exercise.prescription,
-    substitutions: exercise.substitutions ?? [],
-    sort_order: index,
-  })));
-  if (exercises.length > 0) {
-    const exerciseResult = await asPromise<null>(table(client, 'generated_workout_exercises').insert?.(exercises));
-    ensureNoError(exerciseResult, 'Failed to save generated workout exercises');
+function generatedWorkoutExerciseRows(generatedWorkoutId: string, workout: GeneratedWorkout): Record<string, unknown>[] {
+  const seen = new Set<string>();
+  const rows: Record<string, unknown>[] = [];
+  for (const block of workout.blocks) {
+    block.exercises.forEach((exercise, index) => {
+      const key = `${block.id}:${exercise.exerciseId}:${index}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push({
+        generated_workout_id: generatedWorkoutId,
+        exercise_id: exercise.exerciseId,
+        block_id: exercise.blockId,
+        prescription: exercise.prescription,
+        substitutions: exercise.substitutions ?? [],
+        sort_order: rows.length,
+      });
+    });
   }
-  return generatedWorkoutId;
+  return rows;
+}
+
+export async function saveGeneratedWorkoutWithExercises(
+  userId: string,
+  workout: GeneratedWorkout,
+  options?: GeneratedWorkoutPersistenceOptions,
+): Promise<string | null> {
+  const context = 'Failed to save generated workout';
+  assertUserId(userId, context);
+  validateGeneratedWorkoutForPersistence(workout, 'Generated workout persistence payload');
+  const client = await resolveClient(options);
+  if (!client) return null;
+
+  const existingId = options?.generatedWorkoutId ?? null;
+  let generatedWorkoutId = existingId;
+  let parentCreated = false;
+  try {
+    if (generatedWorkoutId) {
+      await upsertRows(client, 'generated_workouts', [{ id: generatedWorkoutId, ...generatedWorkoutPayload(userId, workout) }], context, 'id');
+      await deleteWhereEq(client, 'generated_workout_exercises', 'generated_workout_id', generatedWorkoutId, 'Replace generated workout exercise rows');
+    } else {
+      generatedWorkoutId = await insertReturningId(client, 'generated_workouts', generatedWorkoutPayload(userId, workout), context);
+      parentCreated = true;
+    }
+    await insertRows(client, 'generated_workout_exercises', generatedWorkoutExerciseRows(generatedWorkoutId, workout), 'Failed to save generated workout exercises');
+    return generatedWorkoutId;
+  } catch (error) {
+    if (generatedWorkoutId && parentCreated) {
+      await bestEffortDeleteById(client, 'generated_workouts', generatedWorkoutId);
+    }
+    throw toPersistenceError(error, parentCreated
+      ? 'Generated workout child persistence failed and parent rollback was attempted'
+      : 'Generated workout persistence failed', parentCreated ? 'generated_workout_exercises' : 'generated_workouts');
+  }
+}
+
+export async function saveGeneratedWorkout(
+  userId: string,
+  workout: GeneratedWorkout,
+  options?: GeneratedWorkoutPersistenceOptions,
+): Promise<string | null> {
+  return saveGeneratedWorkoutWithExercises(userId, workout, options);
+}
+
+export async function loadGeneratedWorkout(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedWorkout | null> {
+  const context = 'Failed to load generated workout';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return null;
+  let query = requireBuilder(table(client, 'generated_workouts').select?.('*'), context, 'generated_workouts', 'select');
+  query = requireBuilder(query.eq?.('id', generatedWorkoutId), context, 'generated_workouts', 'filter');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'generated_workouts', 'filter');
+  const row = await selectMaybeSingleRow('generated_workouts', query, context);
+  if (!row) throw new NotFoundError(`${context}: generated workout ${generatedWorkoutId} was not found for this user.`, { context, table: 'generated_workouts' });
+  const payload = row.payload;
+  validateGeneratedWorkoutForPersistence(payload as GeneratedWorkout, 'Loaded generated workout payload');
+  return payload as GeneratedWorkout;
+}
+
+export async function listGeneratedWorkoutsForUser(
+  userId: string,
+  options?: ListPersistenceOptions,
+): Promise<GeneratedWorkout[]> {
+  const context = 'Failed to list generated workouts';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return [];
+  let query = requireBuilder(table(client, 'generated_workouts').select?.('*'), context, 'generated_workouts', 'select');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'generated_workouts', 'filter');
+  if (query.order) query = requireBuilder(query.order('created_at', { ascending: false }), context, 'generated_workouts', 'order');
+  if (options?.limit != null && query.limit) query = requireBuilder(query.limit(options.limit), context, 'generated_workouts', 'limit');
+  const result = await asPromise<Record<string, unknown>[]>(query);
+  ensureNoError(result, context, 'generated_workouts');
+  return (result.data ?? []).map((row) => {
+    const payload = row.payload;
+    validateGeneratedWorkoutForPersistence(payload as GeneratedWorkout, 'Loaded generated workout payload');
+    return payload as GeneratedWorkout;
+  });
 }
 
 function completionPayload(userId: string, completion: WorkoutCompletionLog, generatedWorkoutId?: string | null) {
@@ -552,25 +926,53 @@ function exerciseCompletionPayload(workoutCompletionId: string, result: Exercise
 export async function logWorkoutCompletion(
   userId: string,
   completion: WorkoutCompletionLog,
-  options?: WorkoutProgrammingPersistenceOptions & { generatedWorkoutId?: string | null },
+  options?: WorkoutCompletionPersistenceOptions,
 ): Promise<string | null> {
+  return logWorkoutCompletionWithExerciseResults(userId, completion, options);
+}
+
+export async function logWorkoutCompletionWithExerciseResults(
+  userId: string,
+  completion: WorkoutCompletionLog,
+  options?: WorkoutCompletionPersistenceOptions,
+): Promise<string | null> {
+  const context = 'Failed to log workout completion';
+  assertUserId(userId, context);
+  validateCompletionLog(completion, 'Workout completion persistence payload');
   const client = await resolveClient(options);
   if (!client) return null;
-  const completionResult = await asPromise<Record<string, unknown>>(
-    (table(client, 'workout_completions').insert?.(completionPayload(userId, completion, options?.generatedWorkoutId)) as { select: (...args: unknown[]) => { single: () => unknown } })
-      .select('id')
-      .single(),
-  );
-  ensureNoError(completionResult, 'Failed to log workout completion');
-  const workoutCompletionId = rowString(completionResult.data ?? {}, 'id') || null;
-  if (!workoutCompletionId) return null;
-
-  const results = completion.exerciseResults.map((result) => exerciseCompletionPayload(workoutCompletionId, result));
-  if (results.length > 0) {
-    const resultInsert = await asPromise<null>(table(client, 'exercise_completion_results').insert?.(results));
-    ensureNoError(resultInsert, 'Failed to log exercise completion results');
+  let workoutCompletionId: string | null = null;
+  try {
+    workoutCompletionId = await insertReturningId(client, 'workout_completions', completionPayload(userId, completion, options?.generatedWorkoutId), context);
+    await insertRows(
+      client,
+      'exercise_completion_results',
+      completion.exerciseResults.map((result) => exerciseCompletionPayload(workoutCompletionId!, result)),
+      'Failed to log exercise completion results',
+    );
+    return workoutCompletionId;
+  } catch (error) {
+    if (workoutCompletionId) await bestEffortDeleteById(client, 'workout_completions', workoutCompletionId);
+    throw toPersistenceError(error, 'Workout completion persistence failed and parent rollback was attempted', workoutCompletionId ? 'exercise_completion_results' : 'workout_completions');
   }
-  return workoutCompletionId;
+}
+
+function dbProgressionDirection(decision: ProgressionDecision): 'progress' | 'repeat' | 'regress' | 'recover' {
+  if (decision.direction === 'progress' || decision.direction === 'repeat' || decision.direction === 'regress' || decision.direction === 'recover') {
+    return decision.direction;
+  }
+  if (decision.direction === 'deload' || decision.direction === 'reduceVolume' || decision.direction === 'reduceIntensity') return 'recover';
+  return 'regress';
+}
+
+function progressionDecisionFromRow(row: Record<string, unknown>): ProgressionDecision {
+  return {
+    direction: rowString(row, 'direction', 'repeat') as ProgressionDecision['direction'],
+    decision: rowString(row, 'direction', 'repeat') as ProgressionDecision['direction'],
+    reason: rowString(row, 'reason'),
+    nextAdjustment: rowString(row, 'next_adjustment'),
+    safetyFlags: rowStringArray(row, 'safety_flags'),
+  };
 }
 
 export async function saveProgressionDecision(
@@ -578,39 +980,57 @@ export async function saveProgressionDecision(
   decision: ProgressionDecision,
   options?: WorkoutProgrammingPersistenceOptions & { workoutCompletionId?: string | null },
 ): Promise<string | null> {
+  const context = 'Failed to save progression decision';
+  assertUserId(userId, context);
+  validateProgressionDecision(decision, 'Progression decision persistence payload');
   const client = await resolveClient(options);
   if (!client) return null;
-  const dbDirection = ['progress', 'repeat', 'regress', 'recover'].includes(decision.direction)
-    ? decision.direction
-    : 'regress';
+  const dbDirection = dbProgressionDirection(decision);
 
   if (options?.workoutCompletionId) {
-    const result = await asPromise<Record<string, unknown>>(
-      (table(client, 'progression_decisions').insert?.({
+    return insertReturningId(client, 'progression_decisions', {
         workout_completion_id: options.workoutCompletionId,
         direction: dbDirection,
         reason: decision.reason,
         next_adjustment: decision.nextAdjustment,
         safety_flags: decision.safetyFlags,
-      }) as { select: (...args: unknown[]) => { single: () => unknown } })
-        .select('id')
-        .single(),
-    );
-    ensureNoError(result, 'Failed to save progression decision');
-    return rowString(result.data ?? {}, 'id') || null;
+      }, context);
   }
 
-  const observation = await asPromise<Record<string, unknown>>(
-    (table(client, 'performance_observations').insert?.({
+  return insertReturningId(client, 'performance_observations', {
       user_id: userId,
       observation_kind: 'progression_decision',
       payload: decision,
-    }) as { select: (...args: unknown[]) => { single: () => unknown } })
-      .select('id')
-      .single(),
-  );
-  ensureNoError(observation, 'Failed to save progression decision observation');
-  return rowString(observation.data ?? {}, 'id') || null;
+    }, 'Failed to save progression decision observation');
+}
+
+export async function loadProgressionDecisionsForCompletion(
+  workoutCompletionId: string,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<ProgressionDecision[]> {
+  const context = 'Failed to load progression decisions';
+  if (!workoutCompletionId.trim()) throw new ValidationError(`${context}: workoutCompletionId is required.`, { context });
+  const client = await resolveClient(options);
+  if (!client) return [];
+  let query = requireBuilder(table(client, 'progression_decisions').select?.('*'), context, 'progression_decisions', 'select');
+  query = requireBuilder(query.eq?.('workout_completion_id', workoutCompletionId), context, 'progression_decisions', 'filter');
+  const result = await asPromise<Record<string, unknown>[]>(query);
+  ensureNoError(result, context, 'progression_decisions');
+  return (result.data ?? []).map(progressionDecisionFromRow);
+}
+
+export async function upsertUserEquipment(
+  userId: string,
+  equipmentIds: string[],
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<void> {
+  const context = 'Failed to update user equipment';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return;
+  await deleteWhereEq(client, 'user_equipment', 'user_id', userId, 'Failed to clear user equipment');
+  const rows = uniqueStrings(equipmentIds).map((equipmentId) => ({ user_id: userId, equipment_type_id: equipmentId }));
+  await upsertRows(client, 'user_equipment', rows, context, 'user_id,equipment_type_id');
 }
 
 export async function updateUserEquipment(
@@ -618,11 +1038,21 @@ export async function updateUserEquipment(
   equipmentIds: string[],
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<void> {
+  return upsertUserEquipment(userId, equipmentIds, options);
+}
+
+export async function upsertUserSafetyFlags(
+  userId: string,
+  flags: string[],
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<void> {
+  const context = 'Failed to update user safety flags';
+  assertUserId(userId, context);
   const client = await resolveClient(options);
   if (!client) return;
-  ensureNoError(await asPromise<null>((table(client, 'user_equipment').delete?.() as { eq: (...args: unknown[]) => unknown }).eq('user_id', userId)), 'Failed to clear user equipment');
-  const rows = unique(equipmentIds).map((equipmentId) => ({ user_id: userId, equipment_type_id: equipmentId }));
-  if (rows.length > 0) ensureNoError(await asPromise<null>(table(client, 'user_equipment').insert?.(rows)), 'Failed to update user equipment');
+  await deleteWhereEq(client, 'user_safety_flags', 'user_id', userId, 'Failed to clear user safety flags');
+  const rows = uniqueStrings(flags).map((flag) => ({ user_id: userId, safety_flag_id: flag, source: 'user' }));
+  await upsertRows(client, 'user_safety_flags', rows, context, 'user_id,safety_flag_id');
 }
 
 export async function updateUserSafetyFlags(
@@ -630,11 +1060,30 @@ export async function updateUserSafetyFlags(
   flags: string[],
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<void> {
+  return upsertUserSafetyFlags(userId, flags, options);
+}
+
+export async function upsertExercisePreferences(
+  userId: string,
+  preferences: ExercisePreferenceInput[],
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<void> {
+  const context = 'Failed to update exercise preferences';
+  assertUserId(userId, context);
   const client = await resolveClient(options);
   if (!client) return;
-  ensureNoError(await asPromise<null>((table(client, 'user_safety_flags').delete?.() as { eq: (...args: unknown[]) => unknown }).eq('user_id', userId)), 'Failed to clear user safety flags');
-  const rows = unique(flags).map((flag) => ({ user_id: userId, safety_flag_id: flag, source: 'user' }));
-  if (rows.length > 0) ensureNoError(await asPromise<null>(table(client, 'user_safety_flags').insert?.(rows)), 'Failed to update user safety flags');
+  const byExercise = new Map<string, ExercisePreference>();
+  for (const item of preferences) {
+    if (!item.exerciseId.trim()) throw new ValidationError(`${context}: exerciseId is required.`, { context });
+    byExercise.set(item.exerciseId, item.preference);
+  }
+  const rows = Array.from(byExercise.entries()).map(([exerciseId, preference]) => ({
+    user_id: userId,
+    exercise_id: exerciseId,
+    preference,
+    updated_at: new Date().toISOString(),
+  }));
+  await upsertRows(client, 'user_exercise_preferences', rows, context, 'user_id,exercise_id');
 }
 
 export async function updateExercisePreference(
@@ -643,15 +1092,7 @@ export async function updateExercisePreference(
   preference: ExercisePreference,
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<void> {
-  const client = await resolveClient(options);
-  if (!client) return;
-  const result = await asPromise<null>(table(client, 'user_exercise_preferences').upsert?.({
-    user_id: userId,
-    exercise_id: exerciseId,
-    preference,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,exercise_id' }));
-  ensureNoError(result, 'Failed to update exercise preference');
+  return upsertExercisePreferences(userId, [{ exerciseId, preference }], options);
 }
 
 export async function logReadiness(
@@ -659,20 +1100,40 @@ export async function logReadiness(
   readinessLog: WorkoutReadinessLogInput,
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<string | null> {
+  const context = 'Failed to log readiness';
+  assertUserId(userId, context);
+  if (!readinessLog.readinessBand) throw new ValidationError(`${context}: readinessBand is required.`, { context });
   const client = await resolveClient(options);
   if (!client) return null;
-  const result = await asPromise<Record<string, unknown>>(
-    (table(client, 'user_readiness_logs').insert?.({
+  return insertReturningId(client, 'user_readiness_logs', {
       user_id: userId,
       readiness_band: readinessLog.readinessBand,
       notes: readinessLog.notes ?? null,
       created_at: readinessLog.createdAt ?? new Date().toISOString(),
-    }) as { select: (...args: unknown[]) => { single: () => unknown } })
-      .select('id')
-      .single(),
-  );
-  ensureNoError(result, 'Failed to log readiness');
-  return rowString(result.data ?? {}, 'id') || null;
+    }, context);
+}
+
+export async function loadRecentReadiness(
+  userId: string,
+  options?: ListPersistenceOptions,
+): Promise<WorkoutReadinessLog[]> {
+  const context = 'Failed to load recent readiness';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return [];
+  let query = requireBuilder(table(client, 'user_readiness_logs').select?.('*'), context, 'user_readiness_logs', 'select');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'user_readiness_logs', 'filter');
+  if (query.order) query = requireBuilder(query.order('created_at', { ascending: false }), context, 'user_readiness_logs', 'order');
+  if (options?.limit != null && query.limit) query = requireBuilder(query.limit(options.limit), context, 'user_readiness_logs', 'limit');
+  const result = await asPromise<Record<string, unknown>[]>(query);
+  ensureNoError(result, context, 'user_readiness_logs');
+  return (result.data ?? []).map((row) => ({
+    id: rowString(row, 'id'),
+    userId,
+    readinessBand: rowString(row, 'readiness_band', 'unknown') as WorkoutReadinessBand,
+    notes: rowString(row, 'notes') || null,
+    createdAt: rowString(row, 'created_at'),
+  }));
 }
 
 export async function saveRecommendationFeedback(
@@ -680,20 +1141,35 @@ export async function saveRecommendationFeedback(
   feedback: RecommendationFeedbackInput,
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<string | null> {
+  const context = 'Failed to save recommendation feedback';
+  assertUserId(userId, context);
+  validateFeedback(feedback, 'Recommendation feedback persistence payload');
   const client = await resolveClient(options);
   if (!client) return null;
-  const result = await asPromise<Record<string, unknown>>(
-    (table(client, 'recommendation_feedback').insert?.({
+  return insertReturningId(client, 'recommendation_feedback', {
       user_id: userId,
       generated_workout_id: feedback.generatedWorkoutId ?? null,
       rating: feedback.rating ?? null,
       notes: feedback.notes ?? null,
-    }) as { select: (...args: unknown[]) => { single: () => unknown } })
-      .select('id')
-      .single(),
-  );
-  ensureNoError(result, 'Failed to save recommendation feedback');
-  return rowString(result.data ?? {}, 'id') || null;
+    }, context);
+}
+
+export async function upsertUserWorkoutProfile(
+  userId: string,
+  input: Pick<PersonalizedWorkoutInput, 'experienceLevel' | 'preferredDurationMinutes' | 'readinessBand'>,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<void> {
+  const context = 'Failed to save user workout profile';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return;
+  await upsertRows(client, 'user_training_profiles', [{
+    user_id: userId,
+    experience_level: input.experienceLevel,
+    preferred_duration_minutes: input.preferredDurationMinutes ?? 35,
+    readiness_band: input.readinessBand ?? 'unknown',
+    updated_at: new Date().toISOString(),
+  }], context, 'user_id');
 }
 
 export async function saveUserWorkoutProfile(
@@ -701,14 +1177,106 @@ export async function saveUserWorkoutProfile(
   input: Pick<PersonalizedWorkoutInput, 'experienceLevel' | 'preferredDurationMinutes' | 'readinessBand'>,
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<void> {
+  return upsertUserWorkoutProfile(userId, input, options);
+}
+
+function completionFromRow(row: Record<string, unknown>, exerciseResults: ExerciseCompletionResult[]): WorkoutCompletionLog {
+  const generatedWorkoutId = rowString(row, 'generated_workout_id');
+  const completion: WorkoutCompletionLog = {
+    workoutId: generatedWorkoutId || rowString(row, 'id'),
+    completedAt: rowString(row, 'completed_at'),
+    plannedDurationMinutes: rowNumber(row, 'planned_duration_minutes', 0),
+    actualDurationMinutes: rowNumber(row, 'actual_duration_minutes', 0),
+    sessionRpe: rowNumber(row, 'session_rpe', 1),
+    notes: rowString(row, 'notes') || null,
+    exerciseResults,
+  };
+  const painScoreBefore = rowOptionalNumber(row, 'pain_score_before');
+  const painScoreAfter = rowOptionalNumber(row, 'pain_score_after');
+  if (painScoreBefore != null) completion.painScoreBefore = painScoreBefore;
+  if (painScoreAfter != null) completion.painScoreAfter = painScoreAfter;
+  return completion;
+}
+
+function exerciseCompletionFromRow(row: Record<string, unknown>): ExerciseCompletionResult {
+  const result: ExerciseCompletionResult = {
+    exerciseId: rowString(row, 'exercise_id'),
+    setsCompleted: rowNumber(row, 'sets_completed', 0),
+    completedAsPrescribed: rowBoolean(row, 'completed_as_prescribed') ?? false,
+  };
+  const repsCompleted = rowOptionalNumber(row, 'reps_completed');
+  const durationSecondsCompleted = rowOptionalNumber(row, 'duration_seconds_completed');
+  const loadUsed = rowOptionalNumber(row, 'load_used');
+  const actualRpe = rowOptionalNumber(row, 'actual_rpe');
+  const painScore = rowOptionalNumber(row, 'pain_score');
+  if (repsCompleted != null) result.repsCompleted = repsCompleted;
+  if (durationSecondsCompleted != null) result.durationSecondsCompleted = durationSecondsCompleted;
+  if (loadUsed != null) result.loadUsed = loadUsed;
+  if (actualRpe != null) result.actualRpe = actualRpe;
+  if (painScore != null) result.painScore = painScore;
+  return result;
+}
+
+export async function loadRecentCompletions(
+  userId: string,
+  options?: ListPersistenceOptions,
+): Promise<WorkoutCompletionLog[]> {
+  const context = 'Failed to load recent completions';
+  assertUserId(userId, context);
   const client = await resolveClient(options);
-  if (!client) return;
-  const result = await asPromise<null>(table(client, 'user_training_profiles').upsert?.({
+  if (!client) return [];
+  let query = requireBuilder(table(client, 'workout_completions').select?.('*'), context, 'workout_completions', 'select');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'workout_completions', 'filter');
+  if (query.order) query = requireBuilder(query.order('completed_at', { ascending: false }), context, 'workout_completions', 'order');
+  if (options?.limit != null && query.limit) query = requireBuilder(query.limit(options.limit), context, 'workout_completions', 'limit');
+  const result = await asPromise<Record<string, unknown>[]>(query);
+  ensureNoError(result, context, 'workout_completions');
+  const completions = result.data ?? [];
+  const output: WorkoutCompletionLog[] = [];
+  for (const row of completions) {
+    const completionId = rowString(row, 'id');
+    let childQuery = requireBuilder(table(client, 'exercise_completion_results').select?.('*'), context, 'exercise_completion_results', 'select');
+    childQuery = requireBuilder(childQuery.eq?.('workout_completion_id', completionId), context, 'exercise_completion_results', 'filter');
+    const childResult = await asPromise<Record<string, unknown>[]>(childQuery);
+    ensureNoError(childResult, context, 'exercise_completion_results');
+    output.push(completionFromRow(row, (childResult.data ?? []).map(exerciseCompletionFromRow)));
+  }
+  return output;
+}
+
+export async function saveGeneratedProgram(
+  userId: string,
+  program: GeneratedProgram,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<string | null> {
+  const context = 'Failed to save generated program';
+  assertUserId(userId, context);
+  validateGeneratedProgram(program, 'Generated program persistence payload');
+  const client = await resolveClient(options);
+  if (!client) return null;
+  return insertReturningId(client, 'user_programs', {
     user_id: userId,
-    experience_level: input.experienceLevel,
-    preferred_duration_minutes: input.preferredDurationMinutes ?? 35,
-    readiness_band: input.readinessBand ?? 'unknown',
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' }));
-  ensureNoError(result, 'Failed to save user workout profile');
+    goal_id: program.goalId,
+    status: 'active',
+    payload: program,
+  }, context);
+}
+
+export async function loadUserProgram(
+  userId: string,
+  userProgramId: string,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedProgram | null> {
+  const context = 'Failed to load generated program';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return null;
+  let query = requireBuilder(table(client, 'user_programs').select?.('*'), context, 'user_programs', 'select');
+  query = requireBuilder(query.eq?.('id', userProgramId), context, 'user_programs', 'filter');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'user_programs', 'filter');
+  const row = await selectMaybeSingleRow('user_programs', query, context);
+  if (!row) throw new NotFoundError(`${context}: program ${userProgramId} was not found for this user.`, { context, table: 'user_programs' });
+  const payload = row.payload as GeneratedProgram;
+  validateGeneratedProgram(payload, 'Loaded generated program payload');
+  return payload;
 }
