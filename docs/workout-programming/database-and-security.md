@@ -116,4 +116,26 @@ Before merging schema or persistence changes:
 
 ## Current Test Coverage
 
-The repo has mock-backed persistence tests proving service calls are user-scoped. It does not yet have a live database RLS harness that signs in as two users and proves cross-user denial. Add that before treating RLS as fully verified in production.
+The repo has mock-backed persistence tests proving service calls are user-scoped and a live/local Supabase RLS harness for workout-programming user data:
+
+```bash
+npm run test:rls
+```
+
+The RLS harness signs in two temporary users, inserts temporary workout-programming rows with the service role, and verifies:
+
+- User A cannot select User B rows.
+- Child tables are protected through owned parent rows.
+- Anonymous/public clients cannot read user-specific rows.
+- Static catalog tables remain publicly readable.
+- Service-role/server context can still read fixture rows for backend work.
+
+Required environment variables:
+
+- `SUPABASE_URL` or `EXPO_PUBLIC_SUPABASE_URL`
+- `SUPABASE_ANON_KEY` or `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+For local Supabase, run `npx supabase start`, then `npx supabase status`, and copy the API URL, anon key, and service-role key into `.env.local`. Prefer local Supabase or a disposable preview project; the harness can run against a live project, but it creates temporary auth users and fixture rows before cleanup. The script also reads `.env`, but service-role credentials should stay server-only and must never be exposed through Expo public app code.
+
+The test creates rows with IDs prefixed by a unique `rls_*` run id and cleans them up at the end. If a run is interrupted, re-running the test with service-role access is safe because fixture IDs are unique per run.
