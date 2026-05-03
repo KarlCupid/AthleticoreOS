@@ -70,12 +70,65 @@ async function run(): Promise<void> {
     })?.includes('WORKOUT_RLS_ALLOW_REMOTE=1'),
   ));
 
-  assert('live DB guards allow remote projects only with an explicit non-production override', liveDbTestBlocker?.({
-    env: { WORKOUT_RLS_TESTS: '1', WORKOUT_RLS_ALLOW_REMOTE: '1' },
+  assert('live DB guards require a non-production marker for remote projects', Boolean(
+    liveDbTestBlocker?.({
+      env: { WORKOUT_RLS_TESTS: '1', WORKOUT_RLS_ALLOW_REMOTE: '1' },
+      label: 'Workout-programming live RLS tests',
+      enableFlag: 'WORKOUT_RLS_TESTS',
+      allowRemoteFlag: 'WORKOUT_RLS_ALLOW_REMOTE',
+      supabaseUrl: 'https://project.supabase.co',
+    })?.includes('WORKOUT_SUPABASE_NON_PRODUCTION=1'),
+  ));
+
+  assert('live DB guards allow remote projects only with explicit non-production confirmation', liveDbTestBlocker?.({
+    env: {
+      WORKOUT_RLS_TESTS: '1',
+      WORKOUT_RLS_ALLOW_REMOTE: '1',
+      WORKOUT_SUPABASE_NON_PRODUCTION: '1',
+      WORKOUT_SUPABASE_TARGET_LABEL: 'workout-programming-live-db-test',
+    },
     label: 'Workout-programming live RLS tests',
     enableFlag: 'WORKOUT_RLS_TESTS',
     allowRemoteFlag: 'WORKOUT_RLS_ALLOW_REMOTE',
     supabaseUrl: 'https://project.supabase.co',
+  }) === null);
+
+  assert('live DB guards refuse configured production Supabase URLs', Boolean(
+    liveDbTestBlocker?.({
+      env: {
+        WORKOUT_RLS_TESTS: '1',
+        WORKOUT_RLS_ALLOW_REMOTE: '1',
+        WORKOUT_SUPABASE_NON_PRODUCTION: '1',
+        WORKOUT_PRODUCTION_SUPABASE_URL: 'https://production-ref.supabase.co',
+      },
+      label: 'Workout-programming live RLS tests',
+      enableFlag: 'WORKOUT_RLS_TESTS',
+      allowRemoteFlag: 'WORKOUT_RLS_ALLOW_REMOTE',
+      supabaseUrl: 'https://production-ref.supabase.co',
+    })?.includes('production URL'),
+  ));
+
+  assert('live DB guards refuse production-labelled remote targets', Boolean(
+    liveDbTestBlocker?.({
+      env: {
+        WORKOUT_RLS_TESTS: '1',
+        WORKOUT_RLS_ALLOW_REMOTE: '1',
+        WORKOUT_SUPABASE_NON_PRODUCTION: '1',
+        WORKOUT_SUPABASE_TARGET_LABEL: 'production',
+      },
+      label: 'Workout-programming live RLS tests',
+      enableFlag: 'WORKOUT_RLS_TESTS',
+      allowRemoteFlag: 'WORKOUT_RLS_ALLOW_REMOTE',
+      supabaseUrl: 'https://project.supabase.co',
+    })?.includes('labelled production'),
+  ));
+
+  assert('live DB guards allow local projects without remote override once explicitly enabled', liveDbTestBlocker?.({
+    env: { WORKOUT_RLS_TESTS: '1' },
+    label: 'Workout-programming live RLS tests',
+    enableFlag: 'WORKOUT_RLS_TESTS',
+    allowRemoteFlag: 'WORKOUT_RLS_ALLOW_REMOTE',
+    supabaseUrl: 'http://127.0.0.1:54321',
   }) === null);
 
   const audit = buildAuditReport?.(process.cwd());

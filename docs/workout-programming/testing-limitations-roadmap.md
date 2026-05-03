@@ -22,6 +22,14 @@ npm run quality
 3. Clean TypeScript config check
 4. Engine/API tests
 
+Workout-programming release gate:
+
+```bash
+npm run workout:release-gate
+```
+
+`workout:release-gate` extends the normal quality gate with content validation, content audit, and the guarded live DB/RLS smoke scripts. It requires a local Supabase instance or a dedicated non-production Supabase test project with the environment variables described in `live-db-smoke-tests.md`.
+
 ## Workout-Programming Test Files
 
 - `workoutProgrammingEngine.test.ts`: catalog, seed loader, generator, prescription, validation, descriptions.
@@ -84,7 +92,7 @@ Tests should fail for:
 ## Known Limitations
 
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
-- Live database RLS isolation and DB smoke scripts exist, but they require a local or dedicated test Supabase instance and are not part of `npm run quality`.
+- Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they now run through the manual GitHub release-gate job or `npm run workout:release-gate`.
 - Generated workout persistence and beta start/log UI are wired behind feature flags, but the beta UI still needs full React Native render or E2E coverage before broad rollout.
 - Program persistence has save/load/update/archive helpers, but it is not yet a polished calendar-driven production workflow.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
@@ -98,7 +106,7 @@ Tests should fail for:
 
 Near term:
 
-- Run live Supabase RLS and DB smoke tests in CI against a dedicated test project.
+- Keep the manual live Supabase RLS and DB release gate green against a dedicated test project before workout-programming rollout.
 - Add React Native render or E2E smoke tests for the generated workout beta flow.
 - Promote preview/dev-only exercises only after coach and safety review.
 - Add a developer fixture selector for generated workout previews.

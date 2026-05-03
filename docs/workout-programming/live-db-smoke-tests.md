@@ -38,9 +38,43 @@ For a hosted test Supabase project, also set:
 ```bash
 WORKOUT_DB_ALLOW_REMOTE=1
 WORKOUT_RLS_ALLOW_REMOTE=1
+WORKOUT_SUPABASE_NON_PRODUCTION=1
 ```
 
-Only use remote overrides with a dedicated non-production project. Both live scripts refuse remote URLs by default.
+Only use remote overrides with a dedicated non-production project. Both live scripts refuse remote URLs by default, and remote runs require the additional `WORKOUT_SUPABASE_NON_PRODUCTION=1` marker so the intent is explicit.
+
+To make accidental production targeting easier to catch, set these values when they are available:
+
+```bash
+WORKOUT_PRODUCTION_SUPABASE_URL=https://<production-ref>.supabase.co
+WORKOUT_PRODUCTION_SUPABASE_PROJECT_REF=<production-ref>
+```
+
+The guards refuse to run when the live-test target matches those production values or is labelled with a production-like target name.
+
+## GitHub Release Gate
+
+The `Quality` workflow includes an optional manual job named `Workout programming live DB/RLS smoke`. It does not run on normal pull requests or pushes. To run it:
+
+1. Open the GitHub Actions `Quality` workflow.
+2. Choose `Run workflow`.
+3. Set `run_live_workout_db_checks` to `true`.
+4. Set `allow_remote_workout_db_test_project` to `true` only when the secrets point at a dedicated non-production Supabase project.
+
+The job first runs the normal quality job, then runs workout-programming content gates, `npm run test:workout-db`, and `npm run test:rls`.
+
+Configure these secrets on the protected `workout-programming-live-db-test` environment:
+
+- `WORKOUT_TEST_SUPABASE_URL`
+- `WORKOUT_TEST_SUPABASE_ANON_KEY`
+- `WORKOUT_TEST_SUPABASE_SERVICE_ROLE_KEY`
+
+Recommended production comparison secrets:
+
+- `PRODUCTION_SUPABASE_URL`
+- `PRODUCTION_SUPABASE_PROJECT_REF`
+
+Do not store production service-role credentials in this environment. The service-role key must belong to the local or dedicated non-production test project because the scripts create temporary auth users and temporary fixture rows before cleaning them up.
 
 ## Test Users
 
@@ -86,4 +120,6 @@ npm run test:rls
 - User-scoped writes go through signed-in anon clients.
 - Service role is used only for auth user creation, static fixture setup, verification, and cleanup.
 - The command is not part of `npm run quality` because it requires a live DB.
+- Remote runs require both the script-specific remote override and `WORKOUT_SUPABASE_NON_PRODUCTION=1`.
+- The CI release gate is manual and should use a protected environment with non-production Supabase secrets.
 - Do not run this against production.

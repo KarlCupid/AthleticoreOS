@@ -7,6 +7,18 @@ on:
       - main
       - master
       - fix/schedule-service-corruption
+  workflow_dispatch:
+    inputs:
+      run_live_workout_db_checks:
+        description: Run workout-programming live DB/RLS smoke tests after quality passes.
+        required: false
+        default: false
+        type: boolean
+      allow_remote_workout_db_test_project:
+        description: Allow a dedicated non-production remote Supabase test project.
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   quality:
@@ -27,3 +39,67 @@ jobs:
 
       - name: Run quality checks
         run: npm run quality
+
+  workout-programming-live-db:
+    name: Workout programming live DB/RLS smoke
+    needs: quality
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_live_workout_db_checks == 'true'
+    runs-on: ubuntu-latest
+    environment: workout-programming-live-db-test
+    env:
+      SUPABASE_URL: ${{ secrets.WORKOUT_TEST_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.WORKOUT_TEST_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.WORKOUT_TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      WORKOUT_DB_TESTS: '1'
+      WORKOUT_RLS_TESTS: '1'
+      WORKOUT_DB_ALLOW_REMOTE: ${{ github.event.inputs.allow_remote_workout_db_test_project == 'true' && '1' || '0' }}
+      WORKOUT_RLS_ALLOW_REMOTE: ${{ github.event.inputs.allow_remote_workout_db_test_project == 'true' && '1' || '0' }}
+      WORKOUT_SUPABASE_NON_PRODUCTION: ${{ github.event.inputs.allow_remote_workout_db_test_project == 'true' && '1' || '0' }}
+      WORKOUT_SUPABASE_TARGET_LABEL: workout-programming-live-db-test
+      WORKOUT_PRODUCTION_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+      WORKOUT_PRODUCTION_SUPABASE_PROJECT_REF: ${{ secrets.PRODUCTION_SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify live DB smoke environment
+        run: |
+          missing=0
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::error::Missing WORKOUT_TEST_SUPABASE_URL secret for workout-programming live DB/RLS checks."
+            missing=1
+          fi
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing WORKOUT_TEST_SUPABASE_ANON_KEY secret for workout-programming live DB/RLS checks."
+            missing=1
+          fi
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Missing WORKOUT_TEST_SUPABASE_SERVICE_ROLE_KEY secret for workout-programming live DB/RLS checks."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Configure secrets on the protected workout-programming-live-db-test environment. Use a local Supabase URL on a self-hosted runner or a dedicated non-production Supabase test project."
+            exit 1
+          fi
+          echo "Live DB smoke environment variables are present. Script guards will reject production and unguarded remote targets."
+
+      - name: Run workout-programming content gates
+        run: |
+          npm run workout:validate-content
+          npm run workout:audit-content
+
+      - name: Run live workout-programming DB smoke test
+        run: npm run test:workout-db
+
+      - name: Run live workout-programming RLS smoke test
+        run: npm run test:rls
