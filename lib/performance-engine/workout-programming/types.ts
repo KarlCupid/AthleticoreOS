@@ -823,6 +823,7 @@ export interface WorkoutValidationResult {
 }
 
 export interface WorkoutCompletionLog {
+  id?: string;
   workoutId: string;
   completedAt: string;
   workoutTypeId?: string;
@@ -888,6 +889,8 @@ export interface ProgressionDecisionInput {
   workout?: GeneratedWorkout;
   completionLog: WorkoutCompletionLog;
   recentWorkoutCompletions?: WorkoutCompletionLog[];
+  recentProgressionDecisions?: ProgressionDecision[];
+  readinessTrend?: WorkoutReadinessBand[];
   readinessBefore?: WorkoutReadinessBand;
   readinessAfter?: WorkoutReadinessBand;
 }

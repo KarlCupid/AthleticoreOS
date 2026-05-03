@@ -7,6 +7,9 @@ import {
   type PreparedWorkoutProgrammingContent,
 } from './contentReview.ts';
 import {
+  loadRecentCompletions,
+  loadRecentProgressionDecisionsForUser,
+  loadRecentReadiness,
   loadUserWorkoutProfile,
   loadWorkoutProgrammingCatalog,
   logWorkoutCompletionWithExerciseResults as persistWorkoutCompletion,
@@ -63,6 +66,7 @@ export interface WorkoutProgrammingCompletionResult {
   workoutCompletionId: string | null;
   progressionDecision: ProgressionDecision;
   progressionDecisionId: string | null;
+  nextSessionRecommendation: string;
 }
 
 export interface GeneratedWorkoutSessionResult {
@@ -346,6 +350,7 @@ export async function logWorkoutCompletion(
     workoutCompletionId,
     progressionDecision,
     progressionDecisionId,
+    nextSessionRecommendation: progressionDecision.userMessage ?? progressionDecision.nextAdjustment,
   };
 }
 
@@ -446,11 +451,21 @@ export async function getNextProgression(
   options?: WorkoutProgrammingServiceOptions & {
     workout?: GeneratedWorkout;
     recentWorkoutCompletions?: WorkoutCompletionLog[];
+    recentProgressionDecisions?: ProgressionDecision[];
+    readinessTrend?: WorkoutReadinessBand[];
     workoutCompletionId?: string | null;
   },
 ): Promise<ProgressionDecision> {
-  void userId;
   const { recommendNextProgression } = await import('./personalizationEngine.ts');
+  const loadedRecentCompletions = options?.recentWorkoutCompletions
+    ?? (await loadRecentCompletions(userId, { ...options, limit: 5 })).filter((recent) => {
+      if (options?.workoutCompletionId && recent.id === options.workoutCompletionId) return false;
+      return recent.completedAt !== completion.completedAt || recent.workoutId !== completion.workoutId;
+    });
+  const loadedProgressionDecisions = options?.recentProgressionDecisions
+    ?? await loadRecentProgressionDecisionsForUser(userId, { ...options, limit: 5 });
+  const loadedReadinessTrend = options?.readinessTrend
+    ?? (await loadRecentReadiness(userId, { ...options, limit: 5 })).map((log) => log.readinessBand);
   const input: Parameters<typeof recommendNextProgression>[0] = {
     completionLog: completion,
   };
@@ -460,7 +475,9 @@ export async function getNextProgression(
   if (workoutTypeId) input.workoutTypeId = workoutTypeId;
   if (goalId) input.goalId = goalId;
   if (completion.prescriptionTemplateId) input.prescriptionTemplateId = completion.prescriptionTemplateId;
-  if (options?.recentWorkoutCompletions) input.recentWorkoutCompletions = options.recentWorkoutCompletions;
+  if (loadedRecentCompletions.length > 0) input.recentWorkoutCompletions = loadedRecentCompletions;
+  if (loadedProgressionDecisions.length > 0) input.recentProgressionDecisions = loadedProgressionDecisions;
+  if (loadedReadinessTrend.length > 0) input.readinessTrend = loadedReadinessTrend;
   if (completion.readinessBefore) input.readinessBefore = completion.readinessBefore;
   if (completion.readinessAfter) input.readinessAfter = completion.readinessAfter;
   return recommendNextProgression(input);

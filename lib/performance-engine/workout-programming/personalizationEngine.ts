@@ -171,8 +171,116 @@ function inferGoal(input: ProgressionDecisionInput): string {
     ?? 'beginner_strength';
 }
 
+function completionTime(log: WorkoutCompletionLog): number {
+  const value = Date.parse(log.completedAt);
+  return Number.isFinite(value) ? value : 0;
+}
+
 function recentTrend(input: ProgressionDecisionInput): WorkoutCompletionLog[] {
-  return (input.recentWorkoutCompletions ?? []).slice(-5);
+  return [...(input.recentWorkoutCompletions ?? [])]
+    .sort((a, b) => completionTime(b) - completionTime(a))
+    .slice(0, 5);
+}
+
+function similarTrend(input: ProgressionDecisionInput, workoutTypeId: string, goalId: string): WorkoutCompletionLog[] {
+  return recentTrend(input)
+    .filter((log) => {
+      const sameWorkoutType = !log.workoutTypeId || log.workoutTypeId === workoutTypeId;
+      const sameGoal = !log.goalId || log.goalId === goalId;
+      return sameWorkoutType && sameGoal;
+    })
+    .slice(0, 3);
+}
+
+function averageCompletionRate(logs: WorkoutCompletionLog[]): number | null {
+  return average(logs.map(completionRate));
+}
+
+function averageSessionRpe(logs: WorkoutCompletionLog[]): number | null {
+  return averageNumber(logs.map((log) => log.sessionRpe));
+}
+
+function averagePainDelta(logs: WorkoutCompletionLog[]): number | null {
+  return averageNumber(logs.map((log) => {
+    if (typeof log.painScoreBefore !== 'number' || typeof log.painScoreAfter !== 'number') return null;
+    return log.painScoreAfter - log.painScoreBefore;
+  }));
+}
+
+function averageLoad(log: WorkoutCompletionLog): number | null {
+  return averageNumber(log.exerciseResults.map((result) => result.loadUsed));
+}
+
+function averageReps(log: WorkoutCompletionLog): number | null {
+  return averageNumber(log.exerciseResults.map((result) => result.repsCompleted));
+}
+
+function trendDirection(current: number | null, previousValues: Array<number | null>): 'up' | 'down' | 'flat' | 'unknown' {
+  const previous = averageNumber(previousValues);
+  if (current == null || previous == null) return 'unknown';
+  if (current > previous * 1.05) return 'up';
+  if (current < previous * 0.95) return 'down';
+  return 'flat';
+}
+
+function missedRepSessionCount(logs: WorkoutCompletionLog[]): number {
+  return logs.filter((log) => missedRepResults(log).length > 0 || completionRate(log) < 0.85).length;
+}
+
+function notesMentionSubstitution(log: WorkoutCompletionLog): boolean {
+  return /substitution|substitutions used|swapped|swap/i.test(log.notes ?? '');
+}
+
+function substitutionFrequency(logs: WorkoutCompletionLog[], decisions: ProgressionDecision[] = []): number {
+  return logs.filter(notesMentionSubstitution).length
+    + decisions.filter((decisionItem) => decisionItem.direction === 'substitute' || decisionItem.decision === 'substitute').length;
+}
+
+function conservativeReadinessTrend(input: ProgressionDecisionInput, logs: WorkoutCompletionLog[]): WorkoutReadinessBand[] {
+  const explicit = input.readinessTrend ?? [];
+  const fromLogs = logs
+    .map((log) => log.readinessAfter ?? log.readinessBefore)
+    .filter((band): band is WorkoutReadinessBand => Boolean(band));
+  return [...explicit, ...fromLogs].slice(0, 5);
+}
+
+function readinessTrendNeedsConservativeNext(input: ProgressionDecisionInput, logs: WorkoutCompletionLog[]): boolean {
+  const trend = conservativeReadinessTrend(input, logs);
+  if (trend.length === 0) return false;
+  const recentThree = trend.slice(0, 3);
+  return recentThree.filter((band) => band === 'red' || band === 'orange').length >= 2;
+}
+
+function historySignals(input: ProgressionDecisionInput, workoutTypeId: string, goalId: string) {
+  const lastFive = recentTrend(input);
+  const lastThreeSimilar = similarTrend(input, workoutTypeId, goalId);
+  const lastOne = lastFive[0] ?? null;
+  const windowWithCurrent = [input.completionLog, ...lastFive].slice(0, 5);
+  const similarWithCurrent = [input.completionLog, ...lastThreeSimilar].slice(0, 3);
+  const currentLoadAverage = averageLoad(input.completionLog);
+  const currentRepAverage = averageReps(input.completionLog);
+  const previousLoads = lastThreeSimilar.map(averageLoad);
+  const previousReps = lastThreeSimilar.map(averageReps);
+  return {
+    lastOne,
+    lastThreeSimilar,
+    lastFive,
+    windowWithCurrent,
+    similarWithCurrent,
+    averageCompletionRate: averageCompletionRate(windowWithCurrent),
+    averageSimilarCompletionRate: averageCompletionRate(similarWithCurrent),
+    averageRpe: averageSessionRpe(windowWithCurrent),
+    averageSimilarRpe: averageSessionRpe(similarWithCurrent),
+    painDelta: averagePainDelta(windowWithCurrent),
+    similarPainDelta: averagePainDelta(similarWithCurrent),
+    missedRepSessions: missedRepSessionCount(similarWithCurrent),
+    loadTrend: trendDirection(currentLoadAverage, previousLoads),
+    repTrend: trendDirection(currentRepAverage, previousReps),
+    durationTrend: trendDirection(input.completionLog.actualDurationMinutes, lastThreeSimilar.map((log) => log.actualDurationMinutes)),
+    heartRateZoneCompliance: averageNumber(windowWithCurrent.map((log) => log.heartRateZoneCompliance)),
+    substitutionCount: substitutionFrequency(windowWithCurrent, input.recentProgressionDecisions),
+    readinessConservative: readinessTrendNeedsConservativeNext(input, windowWithCurrent),
+  };
 }
 
 function hasAccumulatedFatigue(current: WorkoutCompletionLog, recent: WorkoutCompletionLog[]): boolean {
@@ -403,6 +511,7 @@ export function recommendNextProgression(input: WorkoutCompletionLog | Progressi
   const recent = recentTrend(normalized);
   const workoutTypeId = inferWorkoutType(normalized);
   const goalId = inferGoal(normalized);
+  const signals = historySignals(normalized, workoutTypeId, goalId);
   const readinessAfter = normalized.readinessAfter ?? log.readinessAfter;
   const failedRepeatedExerciseIds = repeatedFailedExerciseIds(log, recent);
   const missed = missedRepResults(log);
@@ -431,6 +540,26 @@ export function recommendNextProgression(input: WorkoutCompletionLog | Progressi
     });
   }
 
+  if ((signals.painDelta ?? 0) > 0.75 || (signals.similarPainDelta ?? 0) > 0.5) {
+    return decision({
+      kind: failedRepeatedExerciseIds.length > 0 ? 'substitute' : 'regress',
+      reason: 'Pain is trending upward across recent sessions, so performance signals cannot drive progression yet.',
+      nextAdjustment: failedRepeatedExerciseIds.length > 0
+        ? 'Swap the repeatedly provocative exercise and reduce the next prescription by one effort level.'
+        : 'Reduce load, range, or volume and keep the next session below symptom-provoking effort.',
+      affectedExerciseIds: failedRepeatedExerciseIds.length > 0 ? failedRepeatedExerciseIds : log.exerciseResults.map((result) => result.exerciseId),
+      affectedMovementPatterns: workoutExercisePatterns(normalized.workout, failedRepeatedExerciseIds.length > 0 ? failedRepeatedExerciseIds : log.exerciseResults.map((result) => result.exerciseId)),
+      safetyFlags: ['pain_trend_worsening'],
+      userMessage: 'Pain has been trending up. The next session gets safer before it gets harder.',
+      coachNotes: ['Pain trend overrides good completion and load trends.', 'Review movement choice, range, and recent protected-workout load.'],
+      suggestedNextInput: {
+        goalId,
+        safetyFlags: ['pain_trend_worsening'],
+        dislikedExerciseIds: failedRepeatedExerciseIds,
+      },
+    });
+  }
+
   if (readinessNeedsRecovery(readinessAfter)) {
     return decision({
       kind: 'recover',
@@ -442,6 +571,37 @@ export function recommendNextProgression(input: WorkoutCompletionLog | Progressi
       userMessage: 'Readiness is red. The next session should help you recover, not prove toughness.',
       coachNotes: ['Recovery override sits above all performance progressions.', 'Preserve protected anchors but reduce supporting load.'],
       suggestedNextInput: { goalId: 'recovery', readinessBand: 'red', safetyFlags: ['poor_readiness'] },
+    });
+  }
+
+  if (signals.readinessConservative) {
+    return decision({
+      kind: 'reduceVolume',
+      reason: 'Recent readiness is mostly orange/red, so the next session should preserve the goal with a conservative dose.',
+      nextAdjustment: 'Keep the same goal but reduce hard sets by 20-30 percent and cap effort one RPE point lower.',
+      safetyFlags: ['readiness_trend_low'],
+      affectedExerciseIds: log.exerciseResults.map((result) => result.exerciseId),
+      affectedMovementPatterns: workoutExercisePatterns(normalized.workout, log.exerciseResults.map((result) => result.exerciseId)),
+      userMessage: 'Readiness has been running low. Keep the direction, but take the smaller dose.',
+      coachNotes: ['Use recent readiness trend as a dose modifier before changing the primary goal.', 'Route to recovery if readiness becomes red.'],
+      suggestedNextInput: { goalId, readinessBand: 'yellow', safetyFlags: ['readiness_trend_low'] },
+    });
+  }
+
+  if (signals.substitutionCount >= 2) {
+    const affected = failedRepeatedExerciseIds.length > 0
+      ? failedRepeatedExerciseIds
+      : log.exerciseResults.filter((result) => !result.completedAsPrescribed).map((result) => result.exerciseId);
+    return decision({
+      kind: 'substitute',
+      reason: 'The recent history shows repeated substitutions, so the selected exercise is not fitting the athlete or context.',
+      nextAdjustment: 'Choose a same-pattern substitute that matches equipment, skill, and safety flags before changing volume.',
+      affectedExerciseIds: affected,
+      affectedMovementPatterns: workoutExercisePatterns(normalized.workout, affected),
+      safetyFlags: [],
+      userMessage: 'You keep needing a swap here. Next time we should choose the better-fit exercise from the start.',
+      coachNotes: ['Repeated substitutions are an exercise-selection signal, not an effort signal.', 'Keep training intent and adjust the movement.'],
+      suggestedNextInput: { goalId, dislikedExerciseIds: affected },
     });
   }
 
@@ -459,6 +619,20 @@ export function recommendNextProgression(input: WorkoutCompletionLog | Progressi
     });
   }
 
+  if (signals.similarWithCurrent.length >= 2 && (signals.averageSimilarRpe ?? signals.averageRpe ?? 0) >= 8.5) {
+    return decision({
+      kind: 'deload',
+      reason: 'Actual RPE is trending high across recent similar sessions.',
+      nextAdjustment: 'Repeat the goal with reduced load or volume and keep target effort below RPE 7 for the next exposure.',
+      safetyFlags: ['high_rpe_trend'],
+      affectedExerciseIds: log.exerciseResults.map((result) => result.exerciseId),
+      affectedMovementPatterns: workoutExercisePatterns(normalized.workout, log.exerciseResults.map((result) => result.exerciseId)),
+      userMessage: 'Effort has been too high lately. Back off the dose so the next session is productive.',
+      coachNotes: ['High RPE trend blocks progression even without pain.', 'Check sleep, fueling, and total weekly load.'],
+      suggestedNextInput: { goalId, safetyFlags: ['high_rpe_trend'], readinessBand: 'yellow' },
+    });
+  }
+
   if (hasPerformanceDrop(log, recent)) {
     return decision({
       kind: 'deload',
@@ -470,6 +644,21 @@ export function recommendNextProgression(input: WorkoutCompletionLog | Progressi
       userMessage: 'Performance is sliding. Take a planned back-off instead of forcing it.',
       coachNotes: ['Apply deload_performance_drop.', 'Investigate sleep, fueling, and protected workout load.'],
       suggestedNextInput: { goalId, safetyFlags: ['high_fatigue'] },
+    });
+  }
+
+  if (signals.missedRepSessions >= 2) {
+    const missedExerciseIds = Array.from(new Set(signals.similarWithCurrent.flatMap((item) => missedRepResults(item).map((result) => result.exerciseId))));
+    return decision({
+      kind: 'regress',
+      reason: 'Missed reps are repeating across similar sessions.',
+      nextAdjustment: 'Reduce load or reps by 10-15 percent and rebuild completion before progressing.',
+      affectedExerciseIds: missedExerciseIds,
+      affectedMovementPatterns: workoutExercisePatterns(normalized.workout, missedExerciseIds),
+      safetyFlags: [],
+      userMessage: 'The same kind of work has missed more than once. Make the next dose easier to complete cleanly.',
+      coachNotes: ['Repeated missed reps override single-session completion optimism.', 'Choose repeat/regress before adding load.'],
+      suggestedNextInput: { goalId },
     });
   }
 
@@ -485,6 +674,45 @@ export function recommendNextProgression(input: WorkoutCompletionLog | Progressi
       coachNotes: ['Apply regression_missed_reps where available.', 'Do not progress load after missed prescribed work.'],
       suggestedNextInput: { goalId },
     });
+  }
+
+  if (workoutTypeId === 'zone2_cardio'
+    && signals.similarWithCurrent.length >= 3
+    && (signals.heartRateZoneCompliance ?? 0) >= 0.8
+    && (signals.averageSimilarRpe ?? 10) <= 4
+    && (signals.durationTrend === 'up' || signals.durationTrend === 'flat')) {
+    return decision({
+      kind: 'progress',
+      reason: 'Recent Zone 2 sessions show duration and intensity compliance.',
+      nextAdjustment: 'Add 3-5 minutes next session while staying conversational and in the same heart-rate zone.',
+      affectedExerciseIds: log.exerciseResults.map((result) => result.exerciseId),
+      affectedMovementPatterns: workoutExercisePatterns(normalized.workout, log.exerciseResults.map((result) => result.exerciseId)),
+      safetyFlags: [],
+      userMessage: 'Your easy aerobic work is staying easy. Add a few minutes, not speed.',
+      coachNotes: ['History supports duration progression.', 'Maintain talk-test compliance before progressing pace or watts.'],
+      suggestedNextInput: { goalId, durationMinutes: Math.round(log.plannedDurationMinutes + 5) },
+    });
+  }
+
+  if (signals.similarWithCurrent.length >= 3
+    && (signals.averageSimilarCompletionRate ?? 0) >= 0.95
+    && (signals.averageSimilarRpe ?? 10) <= 7.5
+    && (signals.similarPainDelta ?? 0) <= 0.25
+    && signals.missedRepSessions === 0) {
+    const base = progressDecisionForType({
+      workoutTypeId,
+      goalId,
+      log,
+      ...(normalized.workout ? { workout: normalized.workout } : {}),
+    });
+    return {
+      ...base,
+      direction: 'progress',
+      decision: 'progress',
+      reason: `Three similar sessions support progression. ${base.reason}`,
+      userMessage: base.userMessage ?? 'The recent trend supports a small progression next time.',
+      coachNotes: ['Progression was history-supported across the last three similar sessions.', ...(base.coachNotes ?? [])],
+    };
   }
 
   if (log.sessionRpe >= 9) {

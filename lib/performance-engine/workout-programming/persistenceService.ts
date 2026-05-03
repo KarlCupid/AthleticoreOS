@@ -346,12 +346,22 @@ function rowString(row: Record<string, unknown>, key: string, fallback = ''): st
 
 function rowNumber(row: Record<string, unknown>, key: string, fallback: number): number {
   const value = row[key];
-  return typeof value === 'number' ? value : fallback;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
 }
 
 function rowOptionalNumber(row: Record<string, unknown>, key: string): number | null {
   const value = row[key];
-  return typeof value === 'number' ? value : null;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function rowBoolean(row: Record<string, unknown>, key: string): boolean | undefined {
@@ -898,10 +908,20 @@ function completionPayload(userId: string, completion: WorkoutCompletionLog, gen
   return {
     user_id: userId,
     generated_workout_id: generatedWorkoutId ?? null,
+    workout_type_id: completion.workoutTypeId ?? null,
+    goal_id: completion.goalId ?? null,
+    prescription_template_id: completion.prescriptionTemplateId ?? null,
     completed_at: completion.completedAt,
     planned_duration_minutes: completion.plannedDurationMinutes,
     actual_duration_minutes: completion.actualDurationMinutes,
     session_rpe: completion.sessionRpe,
+    readiness_before: completion.readinessBefore ?? null,
+    readiness_after: completion.readinessAfter ?? null,
+    heart_rate_zone_compliance: completion.heartRateZoneCompliance ?? null,
+    density_score: completion.densityScore ?? null,
+    movement_quality: completion.movementQuality ?? null,
+    range_control_score: completion.rangeControlScore ?? null,
+    power_quality_score: completion.powerQualityScore ?? null,
     pain_score_before: completion.painScoreBefore ?? null,
     pain_score_after: completion.painScoreAfter ?? null,
     notes: completion.notes ?? null,
@@ -913,11 +933,27 @@ function exerciseCompletionPayload(workoutCompletionId: string, result: Exercise
     workout_completion_id: workoutCompletionId,
     exercise_id: result.exerciseId,
     sets_completed: result.setsCompleted,
+    sets_prescribed: result.setsPrescribed ?? null,
     reps_completed: result.repsCompleted ?? null,
+    reps_prescribed: result.repsPrescribed ?? null,
+    rep_range_min: result.repRangeMin ?? null,
+    rep_range_max: result.repRangeMax ?? null,
     duration_seconds_completed: result.durationSecondsCompleted
       ?? (result.durationMinutesCompleted != null ? Math.round(result.durationMinutesCompleted * 60) : null),
+    duration_seconds_prescribed: result.durationSecondsPrescribed
+      ?? (result.durationMinutesPrescribed != null ? Math.round(result.durationMinutesPrescribed * 60) : null),
+    duration_minutes_completed: result.durationMinutesCompleted ?? null,
+    duration_minutes_prescribed: result.durationMinutesPrescribed ?? null,
     load_used: result.loadUsed ?? null,
+    prescribed_load: result.prescribedLoad ?? null,
     actual_rpe: result.actualRpe ?? null,
+    target_rpe: result.targetRpe ?? null,
+    actual_rir: result.actualRir ?? null,
+    target_rir: result.targetRir ?? null,
+    heart_rate_zone_compliance: result.heartRateZoneCompliance ?? null,
+    movement_quality: result.movementQuality ?? null,
+    range_control_score: result.rangeControlScore ?? null,
+    power_quality_score: result.powerQualityScore ?? null,
     pain_score: result.painScore ?? null,
     completed_as_prescribed: result.completedAsPrescribed,
   };
@@ -966,6 +1002,15 @@ function dbProgressionDirection(decision: ProgressionDecision): 'progress' | 're
 }
 
 function progressionDecisionFromRow(row: Record<string, unknown>): ProgressionDecision {
+  const payload = row.payload;
+  if (isRecord(payload)
+    && typeof payload.direction === 'string'
+    && typeof payload.reason === 'string'
+    && typeof payload.nextAdjustment === 'string'
+    && Array.isArray(payload.safetyFlags)
+  ) {
+    return payload as unknown as ProgressionDecision;
+  }
   return {
     direction: rowString(row, 'direction', 'repeat') as ProgressionDecision['direction'],
     decision: rowString(row, 'direction', 'repeat') as ProgressionDecision['direction'],
@@ -994,6 +1039,7 @@ export async function saveProgressionDecision(
         reason: decision.reason,
         next_adjustment: decision.nextAdjustment,
         safety_flags: decision.safetyFlags,
+        payload: decision,
       }, context);
   }
 
@@ -1017,6 +1063,24 @@ export async function loadProgressionDecisionsForCompletion(
   const result = await asPromise<Record<string, unknown>[]>(query);
   ensureNoError(result, context, 'progression_decisions');
   return (result.data ?? []).map(progressionDecisionFromRow);
+}
+
+export async function loadRecentProgressionDecisionsForUser(
+  userId: string,
+  options?: ListPersistenceOptions,
+): Promise<ProgressionDecision[]> {
+  const context = 'Failed to load recent progression decisions';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return [];
+  const completions = await loadRecentCompletions(userId, { ...options, limit: options?.limit ?? 10 });
+  const decisions: ProgressionDecision[] = [];
+  for (const completion of completions) {
+    if (!completion.id) continue;
+    decisions.push(...await loadProgressionDecisionsForCompletion(completion.id, options));
+    if (options?.limit != null && decisions.length >= options.limit) break;
+  }
+  return options?.limit != null ? decisions.slice(0, options.limit) : decisions;
 }
 
 export async function upsertUserEquipment(
@@ -1183,6 +1247,7 @@ export async function saveUserWorkoutProfile(
 function completionFromRow(row: Record<string, unknown>, exerciseResults: ExerciseCompletionResult[]): WorkoutCompletionLog {
   const generatedWorkoutId = rowString(row, 'generated_workout_id');
   const completion: WorkoutCompletionLog = {
+    id: rowString(row, 'id'),
     workoutId: generatedWorkoutId || rowString(row, 'id'),
     completedAt: rowString(row, 'completed_at'),
     plannedDurationMinutes: rowNumber(row, 'planned_duration_minutes', 0),
@@ -1191,8 +1256,28 @@ function completionFromRow(row: Record<string, unknown>, exerciseResults: Exerci
     notes: rowString(row, 'notes') || null,
     exerciseResults,
   };
+  const workoutTypeId = rowString(row, 'workout_type_id');
+  const goalId = rowString(row, 'goal_id');
+  const prescriptionTemplateId = rowString(row, 'prescription_template_id');
+  const readinessBefore = rowString(row, 'readiness_before') as WorkoutReadinessBand;
+  const readinessAfter = rowString(row, 'readiness_after') as WorkoutReadinessBand;
+  const heartRateZoneCompliance = rowOptionalNumber(row, 'heart_rate_zone_compliance');
+  const densityScore = rowOptionalNumber(row, 'density_score');
+  const movementQuality = rowOptionalNumber(row, 'movement_quality');
+  const rangeControlScore = rowOptionalNumber(row, 'range_control_score');
+  const powerQualityScore = rowOptionalNumber(row, 'power_quality_score');
   const painScoreBefore = rowOptionalNumber(row, 'pain_score_before');
   const painScoreAfter = rowOptionalNumber(row, 'pain_score_after');
+  if (workoutTypeId) completion.workoutTypeId = workoutTypeId;
+  if (goalId) completion.goalId = goalId;
+  if (prescriptionTemplateId) completion.prescriptionTemplateId = prescriptionTemplateId;
+  if (readinessBefore) completion.readinessBefore = readinessBefore;
+  if (readinessAfter) completion.readinessAfter = readinessAfter;
+  if (heartRateZoneCompliance != null) completion.heartRateZoneCompliance = heartRateZoneCompliance;
+  if (densityScore != null) completion.densityScore = densityScore;
+  if (movementQuality != null) completion.movementQuality = movementQuality;
+  if (rangeControlScore != null) completion.rangeControlScore = rangeControlScore;
+  if (powerQualityScore != null) completion.powerQualityScore = powerQualityScore;
   if (painScoreBefore != null) completion.painScoreBefore = painScoreBefore;
   if (painScoreAfter != null) completion.painScoreAfter = painScoreAfter;
   return completion;
@@ -1204,15 +1289,45 @@ function exerciseCompletionFromRow(row: Record<string, unknown>): ExerciseComple
     setsCompleted: rowNumber(row, 'sets_completed', 0),
     completedAsPrescribed: rowBoolean(row, 'completed_as_prescribed') ?? false,
   };
+  const setsPrescribed = rowOptionalNumber(row, 'sets_prescribed');
   const repsCompleted = rowOptionalNumber(row, 'reps_completed');
+  const repsPrescribed = rowOptionalNumber(row, 'reps_prescribed');
+  const repRangeMin = rowOptionalNumber(row, 'rep_range_min');
+  const repRangeMax = rowOptionalNumber(row, 'rep_range_max');
   const durationSecondsCompleted = rowOptionalNumber(row, 'duration_seconds_completed');
+  const durationSecondsPrescribed = rowOptionalNumber(row, 'duration_seconds_prescribed');
+  const durationMinutesCompleted = rowOptionalNumber(row, 'duration_minutes_completed');
+  const durationMinutesPrescribed = rowOptionalNumber(row, 'duration_minutes_prescribed');
   const loadUsed = rowOptionalNumber(row, 'load_used');
+  const prescribedLoad = rowOptionalNumber(row, 'prescribed_load');
   const actualRpe = rowOptionalNumber(row, 'actual_rpe');
+  const targetRpe = rowOptionalNumber(row, 'target_rpe');
+  const actualRir = rowOptionalNumber(row, 'actual_rir');
+  const targetRir = rowOptionalNumber(row, 'target_rir');
+  const heartRateZoneCompliance = rowOptionalNumber(row, 'heart_rate_zone_compliance');
+  const movementQuality = rowOptionalNumber(row, 'movement_quality');
+  const rangeControlScore = rowOptionalNumber(row, 'range_control_score');
+  const powerQualityScore = rowOptionalNumber(row, 'power_quality_score');
   const painScore = rowOptionalNumber(row, 'pain_score');
+  if (setsPrescribed != null) result.setsPrescribed = setsPrescribed;
   if (repsCompleted != null) result.repsCompleted = repsCompleted;
+  if (repsPrescribed != null) result.repsPrescribed = repsPrescribed;
+  if (repRangeMin != null) result.repRangeMin = repRangeMin;
+  if (repRangeMax != null) result.repRangeMax = repRangeMax;
   if (durationSecondsCompleted != null) result.durationSecondsCompleted = durationSecondsCompleted;
+  if (durationSecondsPrescribed != null) result.durationSecondsPrescribed = durationSecondsPrescribed;
+  if (durationMinutesCompleted != null) result.durationMinutesCompleted = durationMinutesCompleted;
+  if (durationMinutesPrescribed != null) result.durationMinutesPrescribed = durationMinutesPrescribed;
   if (loadUsed != null) result.loadUsed = loadUsed;
+  if (prescribedLoad != null) result.prescribedLoad = prescribedLoad;
   if (actualRpe != null) result.actualRpe = actualRpe;
+  if (targetRpe != null) result.targetRpe = targetRpe;
+  if (actualRir != null) result.actualRir = actualRir;
+  if (targetRir != null) result.targetRir = targetRir;
+  if (heartRateZoneCompliance != null) result.heartRateZoneCompliance = heartRateZoneCompliance;
+  if (movementQuality != null) result.movementQuality = movementQuality;
+  if (rangeControlScore != null) result.rangeControlScore = rangeControlScore;
+  if (powerQualityScore != null) result.powerQualityScore = powerQualityScore;
   if (painScore != null) result.painScore = painScore;
   return result;
 }
@@ -1242,6 +1357,14 @@ export async function loadRecentCompletions(
     output.push(completionFromRow(row, (childResult.data ?? []).map(exerciseCompletionFromRow)));
   }
   return output;
+}
+
+export async function loadRecentExerciseResults(
+  userId: string,
+  options?: ListPersistenceOptions,
+): Promise<ExerciseCompletionResult[]> {
+  const completions = await loadRecentCompletions(userId, options);
+  return completions.flatMap((completion) => completion.exerciseResults);
 }
 
 export async function saveGeneratedProgram(

@@ -47,7 +47,7 @@ function terminal<T>(value: T) {
   };
 }
 
-function createMockSupabase() {
+function createMockSupabase(extraRows: Record<string, Record<string, unknown>[]> = {}) {
   const calls: CallRecord[] = [];
   const rows: Record<string, Record<string, unknown>[]> = {
     user_training_profiles: [{
@@ -63,11 +63,15 @@ function createMockSupabase() {
     ],
     user_safety_flags: [],
     user_exercise_preferences: [{ user_id: 'user-1', exercise_id: 'push_up', preference: 'dislike' }],
+    ...extraRows,
   };
 
   const client = {
     from(table: string) {
-      const state = { operation: 'select' };
+      const state: { operation: 'select' | 'delete'; filters: Array<[string, unknown]>; limit?: number } = { operation: 'select', filters: [] };
+      const selectRows = () => (rows[table] ?? [])
+        .filter((row) => state.filters.every(([column, value]) => row[column] === value))
+        .slice(0, state.limit ?? undefined);
       const builder = {
         select(...args: unknown[]) {
           calls.push({ table, method: 'select', args });
@@ -89,15 +93,25 @@ function createMockSupabase() {
         },
         eq(...args: unknown[]) {
           calls.push({ table, method: 'eq', args });
+          state.filters.push([args[0] as string, args[1]]);
           if (state.operation === 'delete') return Promise.resolve({ data: null, error: null });
+          return builder;
+        },
+        order(...args: unknown[]) {
+          calls.push({ table, method: 'order', args });
+          return builder;
+        },
+        limit(...args: unknown[]) {
+          calls.push({ table, method: 'limit', args });
+          state.limit = args[0] as number;
           return builder;
         },
         maybeSingle() {
           calls.push({ table, method: 'maybeSingle', args: [] });
-          return Promise.resolve({ data: rows[table]?.[0] ?? null, error: null });
+          return Promise.resolve({ data: selectRows()[0] ?? null, error: null });
         },
         then(resolve: (value: unknown) => void, reject: (reason?: unknown) => void) {
-          return Promise.resolve({ data: rows[table] ?? [], error: null }).then(resolve, reject);
+          return Promise.resolve({ data: selectRows(), error: null }).then(resolve, reject);
         },
       };
       return builder;
@@ -215,6 +229,60 @@ async function run() {
     const result = await logWorkoutCompletion('user-1', completion, { client, generatedWorkoutId: 'generated-1' });
     assert('logWorkoutCompletion persists completion and progression decision', result.workoutCompletionId === 'workout_completions-id' && result.progressionDecisionId === 'progression_decisions-id');
     assert('logWorkoutCompletion writes through scoped parent rows', Boolean(insertedPayload(calls, 'workout_completions')) && Boolean(insertedPayload(calls, 'progression_decisions')));
+  }
+
+  {
+    const { client, calls } = createMockSupabase({
+      workout_completions: [
+        {
+          id: 'recent-1',
+          user_id: 'user-1',
+          workout_type_id: 'strength',
+          goal_id: 'beginner_strength',
+          generated_workout_id: 'generated-recent-1',
+          completed_at: '2026-04-29T12:00:00.000Z',
+          planned_duration_minutes: 30,
+          actual_duration_minutes: 30,
+          session_rpe: 9,
+          pain_score_before: 1,
+          pain_score_after: 1,
+        },
+        {
+          id: 'recent-2',
+          user_id: 'user-1',
+          workout_type_id: 'strength',
+          goal_id: 'beginner_strength',
+          generated_workout_id: 'generated-recent-2',
+          completed_at: '2026-04-27T12:00:00.000Z',
+          planned_duration_minutes: 30,
+          actual_duration_minutes: 30,
+          session_rpe: 9,
+          pain_score_before: 1,
+          pain_score_after: 1,
+        },
+      ],
+      exercise_completion_results: [
+        { workout_completion_id: 'recent-1', exercise_id: 'goblet_squat', sets_completed: 3, sets_prescribed: 3, reps_completed: 10, reps_prescribed: 10, actual_rpe: 9, completed_as_prescribed: true },
+        { workout_completion_id: 'recent-2', exercise_id: 'goblet_squat', sets_completed: 3, sets_prescribed: 3, reps_completed: 10, reps_prescribed: 10, actual_rpe: 9, completed_as_prescribed: true },
+      ],
+    });
+    const completion: WorkoutCompletionLog = {
+      workoutId: 'workout-history-current',
+      completedAt: '2026-05-01T12:00:00.000Z',
+      workoutTypeId: 'strength',
+      goalId: 'beginner_strength',
+      plannedDurationMinutes: 30,
+      actualDurationMinutes: 30,
+      sessionRpe: 8,
+      painScoreBefore: 1,
+      painScoreAfter: 1,
+      exerciseResults: [
+        { exerciseId: 'goblet_squat', setsCompleted: 3, setsPrescribed: 3, repsCompleted: 10, repsPrescribed: 10, actualRpe: 8, completedAsPrescribed: true },
+      ],
+    };
+    const result = await logWorkoutCompletion('user-1', completion, { client, generatedWorkoutId: 'generated-current' });
+    assert('logWorkoutCompletion loads recent history before progression', calls.some((call) => call.table === 'workout_completions' && call.method === 'select') && calls.some((call) => call.table === 'exercise_completion_results' && call.method === 'select'));
+    assert('history-based progression uses high RPE trend', result.progressionDecision.direction === 'deload' && result.nextSessionRecommendation.length > 0);
   }
 
   {

@@ -1,6 +1,9 @@
 import {
   generateSingleSessionWorkout,
   loadGeneratedWorkout,
+  loadRecentCompletions,
+  loadRecentExerciseResults,
+  loadRecentProgressionDecisionsForUser,
   loadProgressionDecisionsForCompletion,
   listGeneratedWorkoutsForUser,
   loadUserWorkoutProfile,
@@ -333,16 +336,26 @@ async function run() {
     const completion: WorkoutCompletionLog = {
       workoutId: 'workout-1',
       completedAt: '2026-05-01T12:00:00.000Z',
+      workoutTypeId: 'strength',
+      goalId: 'beginner_strength',
+      prescriptionTemplateId: 'strength_beginner',
       plannedDurationMinutes: 30,
       actualDurationMinutes: 28,
       sessionRpe: 6,
+      readinessBefore: 'green',
+      readinessAfter: 'green',
+      movementQuality: 4,
       exerciseResults: [
-        { exerciseId: 'goblet_squat', setsCompleted: 3, repsCompleted: 24, actualRpe: 6, completedAsPrescribed: true },
-        { exerciseId: 'push_up', setsCompleted: 2, repsCompleted: 16, actualRpe: 7, completedAsPrescribed: true },
+        { exerciseId: 'goblet_squat', setsCompleted: 3, setsPrescribed: 3, repsCompleted: 24, repsPrescribed: 24, loadUsed: 35, actualRpe: 6, targetRpe: 7, completedAsPrescribed: true },
+        { exerciseId: 'push_up', setsCompleted: 2, setsPrescribed: 2, repsCompleted: 16, repsPrescribed: 16, actualRpe: 7, completedAsPrescribed: true },
       ],
     };
     const id = await logWorkoutCompletion('user-1', completion, { client, generatedWorkoutId: 'generated-1' });
     assert('completion and exercise results save together', id === 'workout_completions-id' && rows.exercise_completion_results.length === 2);
+    const loadedCompletions = await loadRecentCompletions('user-1', { client, limit: 5 });
+    const loadedExerciseResults = await loadRecentExerciseResults('user-1', { client, limit: 5 });
+    assert('recent completions load typed progression history fields', loadedCompletions[0]?.workoutTypeId === 'strength' && loadedCompletions[0]?.goalId === 'beginner_strength' && loadedCompletions[0]?.readinessAfter === 'green');
+    assert('recent exercise-level results load prescribed and actual fields', loadedExerciseResults.some((result) => result.exerciseId === 'goblet_squat' && result.setsPrescribed === 3 && result.repsPrescribed === 24 && result.targetRpe === 7));
   }
 
   {
@@ -375,6 +388,33 @@ async function run() {
     }, { client, workoutCompletionId: 'completion-1' });
     const loaded = await loadProgressionDecisionsForCompletion('completion-1', { client });
     assert('progression decision can be persisted and loaded', id === 'progression_decisions-id' && loaded.length === 1 && loaded[0].direction === 'progress');
+  }
+
+  {
+    const { client } = createMockSupabase();
+    const completion: WorkoutCompletionLog = {
+      workoutId: 'workout-1',
+      completedAt: '2026-05-01T12:00:00.000Z',
+      workoutTypeId: 'strength',
+      goalId: 'beginner_strength',
+      plannedDurationMinutes: 30,
+      actualDurationMinutes: 30,
+      sessionRpe: 6,
+      exerciseResults: [
+        { exerciseId: 'goblet_squat', setsCompleted: 3, setsPrescribed: 3, repsCompleted: 24, repsPrescribed: 24, actualRpe: 6, completedAsPrescribed: true },
+      ],
+    };
+    const completionId = await logWorkoutCompletion('user-1', completion, { client, generatedWorkoutId: 'generated-1' });
+    await saveProgressionDecision('user-1', {
+      direction: 'substitute',
+      decision: 'substitute',
+      reason: 'The same exercise keeps needing swaps.',
+      nextAdjustment: 'Use a better-fit substitute next time.',
+      safetyFlags: [],
+      affectedExerciseIds: ['goblet_squat'],
+    }, { client, workoutCompletionId: completionId });
+    const recentDecisions = await loadRecentProgressionDecisionsForUser('user-1', { client, limit: 5 });
+    assert('recent progression decisions load through user-owned completions', recentDecisions.some((decision) => decision.direction === 'substitute' && decision.affectedExerciseIds?.includes('goblet_squat')));
   }
 
   {
