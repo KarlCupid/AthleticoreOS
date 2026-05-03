@@ -12,6 +12,7 @@
     "typecheck:clean": "tsc --noEmit -p tsconfig.clean.json",
     "test:engine": "node scripts/run-engine-tests.js",
     "test:rls": "node scripts/test-workout-programming-rls.js",
+    "test:workout-db": "node scripts/test-workout-programming-db.js",
     "workout:validate-content": "node scripts/validate-workout-programming-content.js",
     "workout:audit-content": "node scripts/audit-workout-programming-content.js",
     "workout:export-seed": "node scripts/export-workout-programming-seed.js",

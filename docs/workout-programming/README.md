@@ -48,6 +48,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 ## Guide Index
 
 - [Database and Security](./database-and-security.md)
+- [Live DB Smoke Tests](./live-db-smoke-tests.md)
 - [Models and Content](./models-and-content.md)
 - [Engine Behavior](./engine-behavior.md)
 - [How-To Workflows](./how-to.md)
