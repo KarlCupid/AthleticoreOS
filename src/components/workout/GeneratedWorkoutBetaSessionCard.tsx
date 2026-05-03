@@ -75,10 +75,40 @@ const EQUIPMENT_OPTIONS = [
   { id: 'stationary_bike', label: 'Bike' },
 ] as const;
 const READINESS_OPTIONS: WorkoutReadinessBand[] = ['green', 'yellow', 'orange', 'red', 'unknown'];
-const FEEDBACK_TAGS = ['too_easy', 'too_hard', 'pain', 'good_fit', 'time_fit'] as const;
+const FEEDBACK_OPTIONS = [
+  { id: 'too_easy', label: 'Too easy' },
+  { id: 'good_fit', label: 'Right' },
+  { id: 'too_hard', label: 'Too hard' },
+  { id: 'pain', label: 'Pain or discomfort' },
+  { id: 'time_fit', label: 'Time fit' },
+] as const;
+const BETA_STAGES: GeneratedWorkoutBetaStage[] = ['configure', 'inspect', 'started', 'completed'];
+const SAFETY_REMINDER = 'Stop if pain becomes sharp, unusual, or changes how you move. For chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.';
 
 function labelize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function stageLabel(stage: GeneratedWorkoutBetaStage): string {
+  if (stage === 'configure') return 'Generate';
+  if (stage === 'inspect') return 'Inspect';
+  if (stage === 'started') return 'Complete';
+  return 'Next step';
+}
+
+function stageHelp(stage: GeneratedWorkoutBetaStage): string {
+  if (stage === 'configure') return 'Choose the basics. The engine keeps safety and readiness in the request.';
+  if (stage === 'inspect') return 'Review the session before starting. Use substitutions or scaling if needed.';
+  if (stage === 'started') return 'Check off work as you finish it, then log effort, pain, feedback, and notes.';
+  return 'Review the recommendation before the next generated session.';
+}
+
+function workoutSafetyLine(workout: GeneratedWorkout | null): string {
+  if (!workout) return 'No generated workout yet.';
+  if (workout.blocked) return 'Safety block active. Do not start this generated session.';
+  if (workout.validation && !workout.validation.isValid) return 'Review validation messages before starting.';
+  if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) return 'Safety guardrails are active.';
+  return 'No extra safety flag was applied.';
 }
 
 function prescribedLine(exercise: GeneratedWorkout['blocks'][number]['exercises'][number]): string {
@@ -246,9 +276,10 @@ export function GeneratedWorkoutBetaSessionCard({
   const [exerciseLogs, setExerciseLogs] = useState<Record<string, ExerciseLogDraft>>({});
 
   const allExercises = useMemo(() => workout?.blocks.flatMap((block) => block.exercises) ?? [], [workout]);
-  const effectiveCompletedExerciseIds = completedExerciseIds.length > 0
-    ? completedExerciseIds
-    : allExercises.map((exercise) => exercise.exerciseId);
+  const completedExerciseCount = completedExerciseIds.length;
+  const totalExerciseCount = allExercises.length;
+  const allExercisesComplete = totalExerciseCount > 0 && completedExerciseCount === totalExerciseCount;
+  const currentStageIndex = BETA_STAGES.indexOf(stage);
 
   function toggleListValue(value: string, values: string[], setter: (next: string[]) => void) {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
@@ -289,12 +320,22 @@ export function GeneratedWorkoutBetaSessionCard({
     setLikedExerciseIds([]);
     setDislikedExerciseIds([]);
     setExerciseLogs({});
+    setSessionRpe(6);
+    setPainScoreBefore(0);
+    setPainScoreAfter(0);
+    setRating(4);
+    setCompletionStatus('completed');
+    setNotes('');
     onGenerate({ goalId, durationMinutes, equipmentIds, readinessBand });
+  }
+
+  function toggleAllExercisesComplete() {
+    setCompletedExerciseIds(allExercisesComplete ? [] : allExercises.map((exercise) => exercise.exerciseId));
   }
 
   function submitComplete() {
     const exerciseResults = allExercises.map((exercise) => {
-      const completed = effectiveCompletedExerciseIds.includes(exercise.exerciseId);
+      const completed = completedExerciseIds.includes(exercise.exerciseId);
       const log = exerciseLogFor(exercise, completed);
       return {
         exerciseId: exercise.exerciseId,
@@ -314,7 +355,7 @@ export function GeneratedWorkoutBetaSessionCard({
       rating,
       notes,
       completionStatus,
-      completedExerciseIds: effectiveCompletedExerciseIds,
+      completedExerciseIds,
       exerciseResults,
       substitutionsUsed,
       feedbackTags,
@@ -333,6 +374,19 @@ export function GeneratedWorkoutBetaSessionCard({
         backgroundScrimColor="rgba(10, 10, 10, 0.72)"
         style={styles.card}
       >
+        <View testID="generated-workout-beta-stage-row" style={styles.stageRow}>
+          {BETA_STAGES.map((item, index) => {
+            const active = index === currentStageIndex;
+            const complete = index < currentStageIndex;
+            return (
+              <View key={item} style={[styles.stagePill, active && styles.stagePillActive, complete && styles.stagePillComplete]}>
+                <Text style={[styles.stagePillText, active && styles.stagePillTextActive]}>{stageLabel(item)}</Text>
+              </View>
+            );
+          })}
+        </View>
+        <Text style={styles.stageHelp}>{stageHelp(stage)}</Text>
+
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Goal</Text>
           <View style={styles.chipRow}>
@@ -370,6 +424,7 @@ export function GeneratedWorkoutBetaSessionCard({
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Text style={styles.safetyReminder}>{SAFETY_REMINDER}</Text>
 
         <View style={styles.actionRow}>
           <Pressable
@@ -390,6 +445,7 @@ export function GeneratedWorkoutBetaSessionCard({
 
         {workout ? (
           <View testID="generated-workout-beta-status" style={styles.statusPanel}>
+            <Text style={styles.statusHeadline}>{workoutSafetyLine(workout)}</Text>
             <Text style={styles.statusText}>{persisted ? `Saved as ${generatedWorkoutId}` : 'Not persisted; using in-memory beta mode.'}</Text>
             <Text style={styles.statusText}>Validation: {workout.validation?.isValid ? 'passed' : 'review warnings available'}</Text>
           </View>
@@ -414,8 +470,15 @@ export function GeneratedWorkoutBetaSessionCard({
           style={styles.card}
         >
           {stage === 'inspect' ? (
-            <Pressable testID="generated-workout-beta-start" accessibilityRole="button" style={styles.primaryButton} onPress={onStart}>
-              <Text style={styles.primaryButtonText}>Start Workout</Text>
+            <Pressable
+              testID="generated-workout-beta-start"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: workout.blocked === true }}
+              disabled={workout.blocked === true}
+              style={[styles.primaryButton, workout.blocked && styles.disabledButton]}
+              onPress={onStart}
+            >
+              <Text style={styles.primaryButtonText}>{workout.blocked ? 'Blocked by Safety' : 'Start Workout'}</Text>
             </Pressable>
           ) : null}
 
@@ -423,10 +486,20 @@ export function GeneratedWorkoutBetaSessionCard({
 
           {stage === 'started' || stage === 'completed' ? (
             <View testID="generated-workout-beta-checklist" style={styles.section}>
-              <Text style={styles.sectionLabel}>Exercise checklist</Text>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionHeaderCopy}>
+                  <Text style={styles.sectionLabel}>Exercise checklist</Text>
+                  <Text style={styles.sectionHint}>{completedExerciseCount}/{totalExerciseCount} marked complete</Text>
+                </View>
+                {stage === 'started' ? (
+                  <Pressable accessibilityRole="button" style={styles.smallButton} onPress={toggleAllExercisesComplete}>
+                    <Text style={styles.smallButtonText}>{allExercisesComplete ? 'Clear' : 'Mark all'}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={styles.exerciseStack}>
                 {allExercises.map((exercise) => {
-                  const completed = effectiveCompletedExerciseIds.includes(exercise.exerciseId);
+                  const completed = completedExerciseIds.includes(exercise.exerciseId);
                   const exerciseLog = exerciseLogFor(exercise, completed);
                   const firstSubstitution = exercise.substitutions?.[0];
                   const liked = likedExerciseIds.includes(exercise.exerciseId);
@@ -437,7 +510,8 @@ export function GeneratedWorkoutBetaSessionCard({
                         accessibilityRole="checkbox"
                         accessibilityState={{ checked: completed }}
                         style={styles.exerciseHeader}
-                        onPress={() => toggleListValue(exercise.exerciseId, effectiveCompletedExerciseIds, setCompletedExerciseIds)}
+                        disabled={stage === 'completed'}
+                        onPress={() => toggleListValue(exercise.exerciseId, completedExerciseIds, setCompletedExerciseIds)}
                       >
                         <View style={[styles.checkbox, completed && styles.checkboxSelected]} />
                         <View style={styles.exerciseCopy}>
@@ -516,15 +590,20 @@ export function GeneratedWorkoutBetaSessionCard({
                   ))}
                 </View>
               </View>
-              <Stepper label="Session RPE" value={sessionRpe} min={1} max={10} onChange={setSessionRpe} />
-              <Stepper label="Pain before" value={painScoreBefore} min={0} max={10} onChange={setPainScoreBefore} />
-              <Stepper label="Pain after" value={painScoreAfter} min={0} max={10} onChange={setPainScoreAfter} />
-              <Stepper label="Rating" value={rating} min={1} max={5} onChange={setRating} />
+              <View testID="generated-workout-beta-session-log" style={styles.logPanel}>
+                <Text style={styles.sectionLabel}>Session log</Text>
+                <Text style={styles.sectionHint}>Capture effort and pain honestly. This guides the next recommendation.</Text>
+                <Stepper label="Session RPE" value={sessionRpe} min={1} max={10} onChange={setSessionRpe} />
+                <Stepper label="Pain before" value={painScoreBefore} min={0} max={10} onChange={setPainScoreBefore} />
+                <Stepper label="Pain after" value={painScoreAfter} min={0} max={10} onChange={setPainScoreAfter} />
+                <Stepper label="Rating" value={rating} min={1} max={5} onChange={setRating} />
+              </View>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Feedback</Text>
+                <Text style={styles.sectionHint}>Pick what best describes the session. Preferences shape future exercise choices.</Text>
                 <View testID="generated-workout-beta-feedback" style={styles.chipRow}>
-                  {FEEDBACK_TAGS.map((tag) => (
-                    <ToggleChip key={tag} label={labelize(tag)} selected={feedbackTags.includes(tag)} onPress={() => toggleListValue(tag, feedbackTags, setFeedbackTags)} />
+                  {FEEDBACK_OPTIONS.map((option) => (
+                    <ToggleChip key={option.id} label={option.label} selected={feedbackTags.includes(option.id)} onPress={() => toggleListValue(option.id, feedbackTags, setFeedbackTags)} />
                   ))}
                 </View>
               </View>
@@ -552,10 +631,13 @@ export function GeneratedWorkoutBetaSessionCard({
 
           {stage === 'completed' && progressionDecision ? (
             <View testID="generated-workout-beta-next-progression" style={styles.progressionPanel}>
-              <Text style={styles.sectionLabel}>Next progression</Text>
+              <Text style={styles.sectionLabel}>Recommended next step</Text>
               <Text style={styles.progressionTitle}>{labelize(progressionDecision.direction)}</Text>
               <Text style={styles.progressionBody}>{progressionDecision.userMessage ?? progressionDecision.reason}</Text>
               <Text style={styles.progressionBody}>{progressionDecision.nextAdjustment}</Text>
+              {(progressionDecision.safetyFlags?.length ?? 0) > 0 ? (
+                <Text style={styles.progressionBody}>Safety notes considered: {progressionDecision.safetyFlags.map(labelize).join(', ')}</Text>
+              ) : null}
             </View>
           ) : null}
         </Card>
@@ -572,9 +654,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderLight,
   },
+  stageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  stagePill: {
+    minHeight: 32,
+    justifyContent: 'center',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 5,
+  },
+  stagePillActive: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+  stagePillComplete: {
+    borderColor: 'rgba(183, 217, 168, 0.28)',
+  },
+  stagePillText: {
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 11,
+  },
+  stagePillTextActive: {
+    color: COLORS.text.inverse,
+  },
+  stageHelp: {
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: SPACING.sm,
+  },
   section: {
     gap: SPACING.sm,
     marginTop: SPACING.md,
+  },
+  sectionHeaderRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+    gap: 3,
   },
   sectionLabel: {
     color: COLORS.text.tertiary,
@@ -582,6 +712,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0,
     textTransform: 'uppercase',
+  },
+  sectionHint: {
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  safetyReminder: {
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(217, 130, 126, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 130, 126, 0.22)',
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
   },
   chipRow: {
     flexDirection: 'row',
@@ -690,12 +838,33 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 14,
   },
+  smallButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+  },
+  smallButtonText: {
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 12,
+  },
   statusPanel: {
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.surfaceSecondary,
     gap: 4,
     marginTop: SPACING.md,
     padding: SPACING.md,
+  },
+  statusHeadline: {
+    color: COLORS.text.primary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 14,
+    lineHeight: 19,
   },
   statusText: {
     color: COLORS.text.secondary,
@@ -760,6 +929,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.borderLight,
     gap: SPACING.md,
+  },
+  logPanel: {
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
   },
   stepperLabel: {
     flex: 1,

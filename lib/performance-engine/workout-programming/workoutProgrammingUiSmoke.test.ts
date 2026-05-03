@@ -70,9 +70,13 @@ async function run() {
   assert('preview card exposes all display sections requested by generated workouts', hasAll(previewCard, [
     'testID="generated-workout-preview-card"',
     'testID="generated-workout-preview-intent"',
+    'testID="generated-workout-preview-session-header"',
     'testID="generated-workout-preview-blocks"',
     'formatPrescription(exercise)',
     'formatPayloadDetail(exercise.prescription.payload)',
+    'formatTempoGuidance(exercise)',
+    'exercise.coachingCues',
+    'exercise.commonMistakes',
     'testID="generated-workout-preview-safety"',
     'testID="generated-workout-preview-scaling"',
     'testID="generated-workout-preview-substitutions"',
@@ -87,6 +91,8 @@ async function run() {
     'testID="generated-workout-preview-blocked"',
     'This generated session is blocked.',
     'workout.explanations',
+    'Stop if pain becomes sharp',
+    'seek professional guidance',
   ]));
 
   assert('preview and beta error states surface service failures without crashing the screen', hasAll(workoutScreen, [
@@ -100,17 +106,26 @@ async function run() {
 
   assert('beta flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(betaCard, [
     'testID="generated-workout-beta-card"',
+    'testID="generated-workout-beta-stage-row"',
     'testID="generated-workout-beta-generate"',
     'onPress={submitGenerate}',
     'testID="generated-workout-beta-start"',
+    'disabled={workout.blocked === true}',
     'onPress={onStart}',
     'testID="generated-workout-beta-checklist"',
+    'Mark all',
+    'testID="generated-workout-beta-session-log"',
     'testID="generated-workout-beta-feedback"',
+    'Too easy',
+    'Right',
+    'Too hard',
     'testID="generated-workout-beta-notes"',
     'testID="generated-workout-beta-complete"',
     'onPress={submitComplete}',
     'testID="generated-workout-beta-next-progression"',
+    'Recommended next step',
     'progressionDecision.userMessage',
+    'SAFETY_REMINDER',
   ]));
 
   const preview = await generatePreviewWorkout(workoutProgrammingServiceFixtures.beginnerBodyweightStrength, {
@@ -125,6 +140,8 @@ async function run() {
     && preview.blocks.length > 0
     && previewExercises.length > 0
     && previewExercises.every((exercise) => exercise.name && exercise.prescription.payload.kind)
+    && previewExercises.some((exercise) => (exercise.coachingCues?.length ?? 0) > 0)
+    && previewExercises.some((exercise) => (exercise.commonMistakes?.length ?? 0) > 0)
     && (preview.safetyNotes?.length ?? preview.description?.safetyNotes?.length ?? 0) > 0
     && preview.scalingOptions?.down
     && preview.successCriteria.length > 0

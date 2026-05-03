@@ -80,14 +80,78 @@ function formatRestGuidance(exercise: GeneratedExercisePrescription): string {
   return exercise.prescription.intensityCue;
 }
 
+function formatTempoGuidance(exercise: GeneratedExercisePrescription): string | null {
+  if (exercise.prescription.tempo) return exercise.prescription.tempo;
+  const payload = exercise.prescription.payload;
+  return payload.kind === 'resistance' ? payload.tempo : null;
+}
+
+function readinessAdjustmentLine(workout: GeneratedWorkout): string | null {
+  const sources = [
+    ...workout.explanations,
+    ...(workout.decisionTrace?.map((entry) => entry.reason) ?? []),
+    ...(workout.validation?.userFacingMessages ?? []),
+  ];
+  return sources.find((item) => /readiness|sleep|soreness|fatigue|recovery/i.test(item)) ?? null;
+}
+
+function safetyStatus(workout: GeneratedWorkout): { label: string; detail: string; tone: 'ok' | 'caution' | 'blocked' } {
+  if (workout.blocked) {
+    return {
+      label: 'Blocked',
+      detail: 'Hard training is not recommended from this generated session.',
+      tone: 'blocked',
+    };
+  }
+  if (workout.validation && !workout.validation.isValid) {
+    return {
+      label: 'Needs review',
+      detail: 'Review validation messages before starting.',
+      tone: 'caution',
+    };
+  }
+  if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) {
+    return {
+      label: 'Cautions active',
+      detail: 'Use the listed guardrails and keep the session pain-free.',
+      tone: 'caution',
+    };
+  }
+  return {
+    label: 'Ready',
+    detail: 'No extra safety flag was applied to this generated session.',
+    tone: 'ok',
+  };
+}
+
 function labelize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function MetaPill({ label }: { label: string }) {
+function MetaPill({ label, tone = 'default' }: { label: string; tone?: 'default' | 'ok' | 'caution' | 'blocked' }) {
   return (
-    <View style={styles.metaPill}>
-      <Text style={styles.metaPillText}>{label}</Text>
+    <View style={[styles.metaPill, tone === 'ok' && styles.metaPillOk, tone === 'caution' && styles.metaPillCaution, tone === 'blocked' && styles.metaPillBlocked]}>
+      <Text style={[styles.metaPillText, tone !== 'default' && styles.metaPillStrongText]}>{label}</Text>
+    </View>
+  );
+}
+
+function FactTile({
+  label,
+  value,
+  detail,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  detail?: string | null;
+  tone?: 'default' | 'ok' | 'caution' | 'blocked';
+}) {
+  return (
+    <View style={[styles.factTile, tone === 'ok' && styles.factTileOk, tone === 'caution' && styles.factTileCaution, tone === 'blocked' && styles.factTileBlocked]}>
+      <Text style={styles.factLabel}>{label}</Text>
+      <Text style={styles.factValue}>{value}</Text>
+      {detail ? <Text style={styles.factDetail}>{detail}</Text> : null}
     </View>
   );
 }
@@ -105,6 +169,16 @@ function CopySection({
     <View testID={testID} style={styles.copySection}>
       <Text style={styles.sectionLabel}>{title}</Text>
       {children}
+    </View>
+  );
+}
+
+function DetailLine({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <View style={styles.detailLine}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailText}>{value}</Text>
     </View>
   );
 }
@@ -145,6 +219,16 @@ export function GeneratedWorkoutPreviewCard({
     ...(workout.validation?.warnings ?? []),
     ...(workout.validation?.errors ?? []),
   ].filter((item): item is string => Boolean(item))));
+  const readinessAdjustment = readinessAdjustmentLine(workout);
+  const safety = safetyStatus(workout);
+  const primarySafetyNotes = [
+    ...new Set([
+      ...(workout.safetyNotes ?? []),
+      ...(description?.safetyNotes ?? []),
+      'Stop if pain becomes sharp, unusual, or changes how you move.',
+      'For chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.',
+    ]),
+  ];
 
   return (
     <View testID="generated-workout-preview-card">
@@ -159,13 +243,22 @@ export function GeneratedWorkoutPreviewCard({
         <View style={styles.headerCopy}>
           <View style={styles.metaRow}>
             <MetaPill label={labelize(workout.workoutTypeId)} />
+            <MetaPill label={labelize(workout.goalId)} />
             <MetaPill label={`${workout.estimatedDurationMinutes} min`} />
             <MetaPill label={`${workout.blocks.length} blocks`} />
+            <MetaPill label={safety.label} tone={safety.tone} />
           </View>
           <Text testID="generated-workout-preview-intent" style={styles.intent}>
             {workout.sessionIntent ?? description?.sessionIntent ?? 'Train with intent.'}
           </Text>
           <Text style={styles.summary}>{workout.userFacingSummary ?? description?.plainLanguageSummary}</Text>
+          <View testID="generated-workout-preview-session-header" style={styles.factGrid}>
+            <FactTile label="Workout type" value={labelize(workout.workoutTypeId)} />
+            <FactTile label="Goal" value={workout.trainingGoalLabel ?? labelize(workout.goalId)} />
+            <FactTile label="Duration" value={`${workout.estimatedDurationMinutes} min`} detail={`Requested ${workout.requestedDurationMinutes} min`} />
+            <FactTile label="Readiness" value={readinessAdjustment ? 'Adjusted' : 'No change'} detail={readinessAdjustment ?? 'Use normal effort unless your readiness changes.'} tone={readinessAdjustment ? 'caution' : 'default'} />
+            <FactTile label="Safety" value={safety.label} detail={safety.detail} tone={safety.tone} />
+          </View>
         </View>
 
         {workout.blocked ? (
@@ -181,29 +274,56 @@ export function GeneratedWorkoutPreviewCard({
           </CopySection>
         ) : null}
 
+        <CopySection title="Success criteria" testID="generated-workout-preview-success">
+          <BulletList items={workout.successCriteria} />
+        </CopySection>
+
         <CopySection title="Blocks" testID="generated-workout-preview-blocks">
           <View style={styles.blockStack}>
             {workout.blocks.map((block) => (
               <View key={block.id} style={styles.block}>
                 <View style={styles.blockHeader}>
-                  <Text style={styles.blockTitle}>{block.title}</Text>
+                  <View style={styles.blockTitleGroup}>
+                    <MetaPill label={labelize(block.kind)} />
+                    <Text style={styles.blockTitle}>{block.title}</Text>
+                  </View>
                   <Text style={styles.blockDuration}>{block.estimatedDurationMinutes} min</Text>
                 </View>
                 {block.exercises.map((exercise) => (
                   <View key={`${block.id}:${exercise.exerciseId}`} style={styles.exerciseRow}>
                     <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <Text style={styles.exercisePrescription}>{formatPrescription(exercise)}</Text>
-                    <Text style={styles.exerciseDetail}>{formatPayloadDetail(exercise.prescription.payload)}</Text>
-                    <Text style={styles.exerciseDetail}>Rest: {formatRestGuidance(exercise)}</Text>
-                    {exercise.scalingOptions ? (
-                      <Text style={styles.exerciseDetail}>
-                        Scale: {exercise.scalingOptions.down} / {exercise.scalingOptions.up}
-                      </Text>
+                    <Text style={styles.exerciseWhy}>{exercise.explanation}</Text>
+                    <View style={styles.detailPanel}>
+                      <DetailLine label="Dose" value={formatPrescription(exercise)} />
+                      <DetailLine label="Intensity" value={`RPE ${exercise.prescription.targetRpe}. ${exercise.prescription.intensityCue}`} />
+                      <DetailLine label="Rest" value={formatRestGuidance(exercise)} />
+                      <DetailLine label="Tempo" value={formatTempoGuidance(exercise)} />
+                      <DetailLine label="Payload" value={formatPayloadDetail(exercise.prescription.payload)} />
+                    </View>
+                    {exercise.coachingCues && exercise.coachingCues.length > 0 ? (
+                      <View style={styles.exerciseSubsection}>
+                        <Text style={styles.exerciseSubsectionTitle}>Cues</Text>
+                        <BulletList items={exercise.coachingCues.slice(0, 3)} />
+                      </View>
                     ) : null}
-                    {exercise.substitutions?.[0] ? (
-                      <Text style={styles.exerciseDetail}>
-                        Swap: {exercise.substitutions[0].name} - {exercise.substitutions[0].rationale}
-                      </Text>
+                    {exercise.commonMistakes && exercise.commonMistakes.length > 0 ? (
+                      <View style={styles.exerciseSubsection}>
+                        <Text style={styles.exerciseSubsectionTitle}>Watch</Text>
+                        <BulletList items={exercise.commonMistakes.slice(0, 2)} />
+                      </View>
+                    ) : null}
+                    {exercise.scalingOptions ? (
+                      <View style={styles.exerciseSubsection}>
+                        <Text style={styles.exerciseSubsectionTitle}>Scale</Text>
+                        <Text style={styles.exerciseDetail}>Down: {exercise.scalingOptions.down}</Text>
+                        <Text style={styles.exerciseDetail}>Up: {exercise.scalingOptions.up}</Text>
+                      </View>
+                    ) : null}
+                    {exercise.substitutions && exercise.substitutions.length > 0 ? (
+                      <View style={styles.exerciseSubsection}>
+                        <Text style={styles.exerciseSubsectionTitle}>Substitutions</Text>
+                        <BulletList items={exercise.substitutions.slice(0, 2).map((substitution) => `${substitution.name}: ${substitution.rationale}`)} />
+                      </View>
                     ) : null}
                   </View>
                 ))}
@@ -213,7 +333,7 @@ export function GeneratedWorkoutPreviewCard({
         </CopySection>
 
         <CopySection title="Safety" testID="generated-workout-preview-safety">
-          <BulletList items={workout.safetyNotes ?? description?.safetyNotes ?? []} />
+          <BulletList items={primarySafetyNotes} />
         </CopySection>
 
         <CopySection title="Scaling" testID="generated-workout-preview-scaling">
@@ -222,10 +342,6 @@ export function GeneratedWorkoutPreviewCard({
 
         <CopySection title="Substitutions" testID="generated-workout-preview-substitutions">
           <BulletList items={allSubstitutions.map((item) => `${item.name}: ${item.rationale}`)} />
-        </CopySection>
-
-        <CopySection title="Success criteria" testID="generated-workout-preview-success">
-          <BulletList items={workout.successCriteria} />
         </CopySection>
 
         {validationMessages.length > 0 ? (
@@ -273,10 +389,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm + 2,
     paddingVertical: 6,
   },
+  metaPillOk: {
+    backgroundColor: 'rgba(183, 217, 168, 0.16)',
+    borderColor: 'rgba(183, 217, 168, 0.26)',
+    borderWidth: 1,
+  },
+  metaPillCaution: {
+    backgroundColor: COLORS.accentLight,
+    borderColor: 'rgba(212, 175, 55, 0.28)',
+    borderWidth: 1,
+  },
+  metaPillBlocked: {
+    backgroundColor: 'rgba(217, 130, 126, 0.16)',
+    borderColor: 'rgba(217, 130, 126, 0.28)',
+    borderWidth: 1,
+  },
   metaPillText: {
     color: COLORS.text.secondary,
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 11,
+  },
+  metaPillStrongText: {
+    color: COLORS.text.primary,
   },
   intent: {
     color: COLORS.text.primary,
@@ -289,6 +423,50 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 14,
     lineHeight: 20,
+  },
+  factGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  factTile: {
+    minWidth: 132,
+    flex: 1,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    gap: 3,
+    padding: SPACING.sm,
+  },
+  factTileOk: {
+    borderColor: 'rgba(183, 217, 168, 0.28)',
+  },
+  factTileCaution: {
+    borderColor: 'rgba(212, 175, 55, 0.34)',
+  },
+  factTileBlocked: {
+    borderColor: 'rgba(217, 130, 126, 0.36)',
+  },
+  factLabel: {
+    color: COLORS.text.tertiary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 10,
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+  },
+  factValue: {
+    color: COLORS.text.primary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  factDetail: {
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 11,
+    lineHeight: 16,
   },
   copySection: {
     marginTop: SPACING.lg,
@@ -322,8 +500,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: SPACING.md,
   },
-  blockTitle: {
+  blockTitleGroup: {
     flex: 1,
+    gap: SPACING.xs,
+  },
+  blockTitle: {
     color: COLORS.text.primary,
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 16,
@@ -344,6 +525,12 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 15,
   },
+  exerciseWhy: {
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   exercisePrescription: {
     color: COLORS.text.secondary,
     fontFamily: FONT_FAMILY.semiBold,
@@ -355,6 +542,44 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
     lineHeight: 17,
+  },
+  detailPanel: {
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    gap: 6,
+    marginTop: SPACING.xs,
+    padding: SPACING.sm,
+  },
+  detailLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  detailLabel: {
+    width: 70,
+    color: COLORS.text.tertiary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  detailText: {
+    flex: 1,
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  exerciseSubsection: {
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  exerciseSubsectionTitle: {
+    color: COLORS.text.tertiary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 11,
+    letterSpacing: 0,
+    textTransform: 'uppercase',
   },
   bulletList: {
     gap: SPACING.xs,
