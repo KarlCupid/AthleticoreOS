@@ -66,7 +66,7 @@ const program = await workoutProgrammingService.generateWeeklyProgramForUser(use
 
 ## How to Add a New Exercise
 
-1. Add the exercise to `seedData.ts`.
+1. Add the exercise to the right content pack under `lib/performance-engine/workout-programming/content/exercises/`.
 2. Use a stable snake_case `id`.
 3. Fill the full ontology:
    - Movement patterns and sub-patterns
@@ -83,11 +83,11 @@ const program = await workoutProgrammingService.generateWeeklyProgramForUser(use
    - Tracking metrics
    - Default prescription ranges
 4. Add valid regression, progression, and substitution IDs only when they preserve intent.
-5. Add coaching cues and common mistakes in `intelligenceData.ts` if the exercise is important.
+5. Add coaching cues and common mistakes under `content/intelligence/` if the exercise is important.
 6. Run:
 
 ```bash
-npm run typecheck
+npm run workout:validate-content
 npm run test:engine
 ```
 
@@ -101,13 +101,13 @@ Checklist before committing:
 
 ## How to Add a New Workout Type
 
-1. Add a new item to `workoutTypes` in `seedData.ts`.
+1. Add a new item to `content/taxonomy/workoutTypes.ts`.
 2. Add one or more `trainingGoals` that map to it.
 3. Update the goal-to-workout-type mapping in `workoutProgrammingEngine.ts` if needed.
 4. Add compatible `PrescriptionTemplate` entries with typed payloads.
 5. Add one or more `SessionTemplate` entries with blocks and movement slots.
 6. Add or tag exercises with the new workout type.
-7. Add description templates in `intelligenceData.ts`.
+7. Add description templates in `content/intelligence/descriptions.ts`.
 8. Add validation rules if the workout type has unique constraints.
 9. Add QA tests that generate the new workout type under normal and constrained conditions.
 
@@ -115,7 +115,7 @@ Avoid adding a workout type if it can be represented as a goal, format, or presc
 
 ## How to Add a New Validation Rule
 
-1. Define the rule intent in `intelligenceData.ts` as metadata.
+1. Define the rule intent in `content/intelligence/validationRules.ts` as metadata.
 2. Implement executable logic in `validationEngine.ts`.
 3. Return:
    - Clear `failedRuleIds`
@@ -129,7 +129,7 @@ Validation rules should block unsafe or incoherent programming. They should not 
 
 ## How to Add a Prescription Template
 
-1. Pick the correct `PrescriptionKind`.
+1. Pick the correct `PrescriptionKind` and content pack under `content/prescriptions/`.
 2. Fill the typed `payload` completely.
 3. Scope with `appliesToWorkoutTypeIds` and, when useful, `appliesToGoalIds`.
 4. Add success criteria, coach notes, and user-facing summary.
@@ -138,7 +138,7 @@ Validation rules should block unsafe or incoherent programming. They should not 
 
 ## How to Add Coaching Copy
 
-1. Add or update a `DescriptionTemplate` in `intelligenceData.ts`.
+1. Add or update a `DescriptionTemplate` in `content/intelligence/descriptions.ts`.
 2. Scope it to a goal, workout type, session template, exercise, or program.
 3. Choose a tone variant.
 4. Fill every major field:
@@ -152,6 +152,40 @@ Validation rules should block unsafe or incoherent programming. They should not 
    - Safety
    - Completion/next-session copy
 5. Run tests to catch generic copy.
+
+## Content Authoring Tools
+
+Run these commands before handing content to engineering review:
+
+```bash
+npm run workout:validate-content
+npm run workout:audit-content
+npm run workout:export-seed -- --out C:\tmp\workout-programming-seed.json
+```
+
+`workout:validate-content` is CI-ready and fails on validation errors, duplicate IDs,
+or production blockers. Use `--json` when another tool needs machine-readable output,
+and `--strict` when warnings should fail the command too.
+
+`workout:audit-content` prints a production-oriented report with:
+
+- Summary counts
+- Validation errors and warnings
+- Review blockers
+- Production blockers
+- Missing media
+- Exercises without substitutions
+- Prescriptions without progression rules
+- Missing description tone variants
+- Duplicate IDs and orphaned references
+- Unsafe content marked production-eligible
+- Suggestions for the next cleanup pass
+
+`workout:export-seed` reuses `buildWorkoutProgrammingSeedRows()` and emits the Supabase
+static catalog row shape. Without `--out`, it writes JSON to stdout. With `--out`, it
+writes the JSON artifact to the requested path. The export refuses to run when content
+has validation or production blockers unless `--allow-invalid` is passed for local
+debugging.
 
 ## How to Add Persistence
 
