@@ -77,6 +77,19 @@ Production generation uses the content review gate before workout generation. It
 
 Preview generation can include draft or needs-review content when allowed, but it attaches warnings so reviewers can see that the workout is not production-ready.
 
+## Audit Behavior
+
+Content audit tooling mirrors the runtime gate. Records that are explicitly `dev_only` or `preview` are reported as gated review work, not as production-breaking errors, as long as they are not rejected, blocked, or marked production-eligible with unsafe review metadata. This lets the app ship production-approved content while newer exercises or rules remain visible to reviewers in beta.
+
+Run:
+
+```bash
+npm run workout:validate-content
+npm run workout:audit-content
+```
+
+Use `--strict` or `--fail-on-warnings` when a release requires all preview content, missing media, and authoring warnings to be cleared as well.
+
 ## Database Support
 
 Migration `038_workout_programming_content_review_metadata.sql` adds review metadata columns to the static workout-programming content tables and indexes review fields for audit/reporting queries.

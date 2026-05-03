@@ -5,6 +5,7 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const ts = require('typescript');
 const { createClient } = require('@supabase/supabase-js');
+const { assertLiveDbTestAllowed } = require('./workout-programming-db-test-guards.js');
 
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -44,33 +45,19 @@ function loadEnvFile(filePath) {
   }
 }
 
-function isLocalSupabaseUrl(value) {
-  try {
-    const hostname = new URL(value).hostname;
-    return hostname === 'localhost'
-      || hostname === '127.0.0.1'
-      || hostname === '0.0.0.0'
-      || hostname === '::1'
-      || hostname.endsWith('.local');
-  } catch {
-    return false;
-  }
-}
-
 loadEnvFile(path.join(projectRoot, '.env.local'));
 loadEnvFile(path.join(projectRoot, '.env'));
-
-if (process.env.WORKOUT_DB_TESTS !== '1') {
-  console.error([
-    'Workout-programming live DB smoke tests are disabled.',
-    'Set WORKOUT_DB_TESTS=1 to run against a local or dedicated test Supabase instance.',
-  ].join('\n'));
-  process.exit(1);
-}
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+assertLiveDbTestAllowed({
+  label: 'Workout-programming live DB smoke tests',
+  enableFlag: 'WORKOUT_DB_TESTS',
+  allowRemoteFlag: 'WORKOUT_DB_ALLOW_REMOTE',
+  supabaseUrl,
+});
 
 if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
   console.error([
@@ -80,14 +67,6 @@ if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
     '- SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL',
     '- SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_ANON_KEY',
     '- SUPABASE_SERVICE_ROLE_KEY',
-  ].join('\n'));
-  process.exit(1);
-}
-
-if (!isLocalSupabaseUrl(supabaseUrl) && process.env.WORKOUT_DB_ALLOW_REMOTE !== '1') {
-  console.error([
-    `Refusing to run workout DB smoke tests against remote Supabase URL: ${supabaseUrl}`,
-    'Use a local instance, or set WORKOUT_DB_ALLOW_REMOTE=1 only for a dedicated non-production test project.',
   ].join('\n'));
   process.exit(1);
 }

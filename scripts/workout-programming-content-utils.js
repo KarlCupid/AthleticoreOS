@@ -99,7 +99,7 @@ function runtimeIssuesToEntries(issues) {
 function reviewIssuesToEntries(issues) {
   return issues.map((issue) => entry(
     issue.recordType,
-    issue.itemId,
+    issue.id || 'unknown',
     issue.field,
     issue.severity,
     issue.message,
@@ -111,6 +111,25 @@ function reviewIssuesToEntries(issues) {
       rolloutEligibility: issue.rolloutEligibility,
     },
   ));
+}
+
+function isIntentionallyGatedPreviewIssue(item) {
+  const eligibility = item.details && item.details.rolloutEligibility;
+  const reviewStatus = item.details && item.details.reviewStatus;
+  const safetyReviewStatus = item.details && item.details.safetyReviewStatus;
+
+  return (eligibility === 'preview' || eligibility === 'dev_only')
+    && reviewStatus !== 'rejected'
+    && safetyReviewStatus !== 'rejected';
+}
+
+function gatedPreviewWarning(item) {
+  return {
+    ...item,
+    severity: 'warning',
+    message: `${item.message} This record is intentionally gated out of production content selection.`,
+    suggestion: 'Keep this content preview/dev-only until coach and safety review are complete, then approve it and set rolloutEligibility to production.',
+  };
 }
 
 function hasMedia(exercise) {
@@ -253,7 +272,11 @@ function buildAuditReport(projectRoot = process.cwd()) {
   const prescriptionPayloadErrors = runtimeIssuesToEntries(prescriptionValidation.errors);
   const descriptionCompletenessErrors = runtimeIssuesToEntries(descriptionValidation.errors);
   const reviewBlockers = reviewIssuesToEntries(reviewReport.needingReview);
-  const productionBlockers = reviewIssuesToEntries(reviewReport.productionBlocking);
+  const strictProductionBlockers = reviewIssuesToEntries(reviewReport.productionBlocking);
+  const gatedPreviewContent = strictProductionBlockers
+    .filter(isIntentionallyGatedPreviewIssue)
+    .map(gatedPreviewWarning);
+  const productionBlockers = strictProductionBlockers.filter((item) => !isIntentionallyGatedPreviewIssue(item));
   const unsafeProductionEligible = unsafeProductionEntries(catalog, intelligence);
 
   const errors = [
@@ -271,11 +294,13 @@ function buildAuditReport(projectRoot = process.cwd()) {
     ...exercisesWithoutSubstitutions,
     ...prescriptionsWithoutProgressionRules,
     ...missingToneEntries,
+    ...gatedPreviewContent,
     ...reviewBlockers.filter((item) => item.severity === 'warning'),
   ];
 
   const suggestions = [];
   if (errors.length > 0) suggestions.push('Fix validation errors and production blockers before release.');
+  if (gatedPreviewContent.length > 0) suggestions.push('Preview/dev-only content is intentionally gated out of production; review and approve it before making it production-eligible.');
   if (missingMedia.length > 0) suggestions.push('Prioritize media for exercises used by beta or production UI flows.');
   if (exercisesWithoutSubstitutions.length > 0) suggestions.push('Add substitutions for commonly generated strength, cardio, and mobility exercises first.');
   if (prescriptionsWithoutProgressionRules.length > 0) suggestions.push('Attach progression rules to trainable prescriptions or mark repeat-only intent in coach notes.');
@@ -314,6 +339,7 @@ function buildAuditReport(projectRoot = process.cwd()) {
       warnings: warnings.length,
       reviewBlockers: reviewBlockers.length,
       productionBlockers: productionBlockers.length,
+      gatedPreviewContent: gatedPreviewContent.length,
       duplicateIdErrors: duplicateIdErrors.length,
       orphanedReferenceErrors: orphanedReferenceErrors.length,
       missingMedia: missingMedia.length,
@@ -326,6 +352,7 @@ function buildAuditReport(projectRoot = process.cwd()) {
     warnings,
     reviewBlockers,
     productionBlockers,
+    gatedPreviewContent,
     duplicateIdErrors,
     orphanedReferenceErrors,
     missingMedia,
@@ -370,6 +397,7 @@ function formatAuditReport(report, args = {}) {
     `- warnings: ${report.summary.warnings}`,
     `- review blockers: ${report.summary.reviewBlockers}`,
     `- production blockers: ${report.summary.productionBlockers}`,
+    `- gated preview/dev-only content: ${report.summary.gatedPreviewContent}`,
     `- duplicate ID errors: ${report.summary.duplicateIdErrors}`,
     `- orphaned reference errors: ${report.summary.orphanedReferenceErrors}`,
     `- missing media: ${report.summary.missingMedia}`,
@@ -392,6 +420,8 @@ function formatAuditReport(report, args = {}) {
     '',
     formatEntries('Production Blockers', report.productionBlockers, limit),
     '',
+    formatEntries('Gated Preview/Dev-Only Content', report.gatedPreviewContent, limit),
+    '',
     'Suggestions',
     ...report.suggestions.map((suggestion) => `- ${suggestion}`),
     '',
@@ -409,6 +439,7 @@ function formatValidationReport(report, args = {}) {
     `- errors: ${report.summary.errors}`,
     `- warnings: ${report.summary.warnings}`,
     `- production blockers: ${report.summary.productionBlockers}`,
+    `- gated preview/dev-only content: ${report.summary.gatedPreviewContent}`,
     `- duplicate ID errors: ${report.summary.duplicateIdErrors}`,
     `- orphaned reference errors: ${report.summary.orphanedReferenceErrors}`,
     `- unsafe production-eligible content: ${report.summary.unsafeProductionEligible}`,

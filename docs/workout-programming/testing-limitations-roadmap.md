@@ -29,6 +29,8 @@ npm run quality
 - `workoutProgrammingPersistence.test.ts`: persistence service user scoping and insert payloads.
 - `workoutProgrammingService.test.ts`: high-level app-facing service output shape.
 - `workoutProgrammingQA.test.ts`: deep scenario QA and edge cases.
+- `workoutProgrammingUiSmoke.test.ts`: feature-flag and fixture smoke coverage for generated workout preview and beta flow.
+- `workoutProgrammingOperationalGuards.test.ts`: live DB guard behavior and content-audit release gating.
 
 ## What Tests Should Catch
 
@@ -82,22 +84,23 @@ Tests should fail for:
 ## Known Limitations
 
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
-- Live database RLS isolation tests are not implemented yet.
-- Generated workout persistence exists, but generated workout start/log UI is not fully wired.
-- Program persistence is not yet a full user-program save/update flow.
+- Live database RLS isolation and DB smoke scripts exist, but they require a local or dedicated test Supabase instance and are not part of `npm run quality`.
+- Generated workout persistence and beta start/log UI are wired behind feature flags, but the beta UI still needs full React Native render or E2E coverage before broad rollout.
+- Program persistence has save/load/update/archive helpers, but it is not yet a polished calendar-driven production workflow.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
 - Balance and older-adult concepts are represented through current goals/safety flags, not a dedicated older-adult product surface.
 - The generator is deterministic enough for tests but not yet tuned with real-world recommendation quality data.
 - Media fields exist but are not fully populated with production assets.
-- Coach/content editing still happens in TypeScript seed files rather than an admin CMS.
+- Preview/dev-only content is intentionally gated from production generation until review is complete.
+- Coach/content editing still happens in TypeScript content packs rather than an admin CMS.
 
 ## Future Roadmap
 
 Near term:
 
-- Wire generated workout start and completion flows into the app.
-- Add live Supabase RLS tests with two authenticated users.
-- Add program persistence services for full weekly program save/update.
+- Run live Supabase RLS and DB smoke tests in CI against a dedicated test project.
+- Add React Native render or E2E smoke tests for the generated workout beta flow.
+- Promote preview/dev-only exercises only after coach and safety review.
 - Add a developer fixture selector for generated workout previews.
 - Add content QA snapshots for descriptions and prescription payloads.
 

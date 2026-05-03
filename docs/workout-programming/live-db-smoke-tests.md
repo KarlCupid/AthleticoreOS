@@ -1,6 +1,8 @@
-# Live DB Smoke Tests
+# Live DB and RLS Smoke Tests
 
 `npm run test:workout-db` verifies that the workout-programming schema, RLS policies, and persistence service work together against a real Supabase instance.
+
+`npm run test:rls` is the narrower two-user RLS isolation harness. Run it when you only need to verify user-data privacy policies and static catalog readability.
 
 These tests are intentionally guarded. They create two temporary auth users, insert temporary static catalog fixtures, persist generated workouts/completions/programs through the service layer, verify user isolation through RLS, and then clean up the rows and users.
 
@@ -23,6 +25,7 @@ Set these values before running:
 
 ```bash
 WORKOUT_DB_TESTS=1
+WORKOUT_RLS_TESTS=1
 SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
@@ -34,9 +37,10 @@ For a hosted test Supabase project, also set:
 
 ```bash
 WORKOUT_DB_ALLOW_REMOTE=1
+WORKOUT_RLS_ALLOW_REMOTE=1
 ```
 
-Only use `WORKOUT_DB_ALLOW_REMOTE=1` with a dedicated non-production project. The script refuses remote URLs by default.
+Only use remote overrides with a dedicated non-production project. Both live scripts refuse remote URLs by default.
 
 ## Test Users
 
@@ -57,14 +61,22 @@ It signs in each user with the anon key so persistence calls exercise normal aut
 WORKOUT_DB_TESTS=1 npm run test:workout-db
 ```
 
+For the RLS-only harness:
+
+```bash
+WORKOUT_RLS_TESTS=1 npm run test:rls
+```
+
 On Windows PowerShell:
 
 ```powershell
 $env:WORKOUT_DB_TESTS='1'
+$env:WORKOUT_RLS_TESTS='1'
 $env:SUPABASE_URL='http://127.0.0.1:54321'
 $env:SUPABASE_ANON_KEY='<anon-key>'
 $env:SUPABASE_SERVICE_ROLE_KEY='<service-role-key>'
 npm run test:workout-db
+npm run test:rls
 ```
 
 ## Safety Model

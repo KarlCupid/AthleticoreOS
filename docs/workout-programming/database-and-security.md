@@ -146,6 +146,7 @@ Before merging schema or persistence changes:
 The repo has mock-backed persistence tests proving service calls are user-scoped and a live/local Supabase RLS harness for workout-programming user data:
 
 ```bash
+WORKOUT_RLS_TESTS=1
 npm run test:rls
 ```
 
@@ -159,10 +160,17 @@ The RLS harness signs in two temporary users, inserts temporary workout-programm
 
 Required environment variables:
 
+- `WORKOUT_RLS_TESTS=1`
 - `SUPABASE_URL` or `EXPO_PUBLIC_SUPABASE_URL`
 - `SUPABASE_ANON_KEY` or `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
+For a hosted test Supabase project, also set:
+
+- `WORKOUT_RLS_ALLOW_REMOTE=1`
+
 For local Supabase, run `npx supabase start`, then `npx supabase status`, and copy the API URL, anon key, and service-role key into `.env.local`. Prefer local Supabase or a disposable preview project; the harness can run against a live project, but it creates temporary auth users and fixture rows before cleanup. The script also reads `.env`, but service-role credentials should stay server-only and must never be exposed through Expo public app code.
 
 The test creates rows with IDs prefixed by a unique `rls_*` run id and cleans them up at the end. If a run is interrupted, re-running the test with service-role access is safe because fixture IDs are unique per run.
+
+The RLS harness is guarded by default. It refuses to run unless `WORKOUT_RLS_TESTS=1` is set, and it refuses remote Supabase URLs unless `WORKOUT_RLS_ALLOW_REMOTE=1` is set. Only use the remote override with a dedicated non-production project.

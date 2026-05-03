@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
+const { assertLiveDbTestAllowed } = require('./workout-programming-db-test-guards.js');
 
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -39,6 +40,13 @@ loadEnvFile(path.join(projectRoot, '.env'));
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+assertLiveDbTestAllowed({
+  label: 'Workout-programming live RLS tests',
+  enableFlag: 'WORKOUT_RLS_TESTS',
+  allowRemoteFlag: 'WORKOUT_RLS_ALLOW_REMOTE',
+  supabaseUrl,
+});
 
 if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
   console.error([
