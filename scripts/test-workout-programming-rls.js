@@ -295,6 +295,17 @@ async function insertRowsForUser(user, suffix) {
     sort_order: 1,
   }));
 
+  await write('insert generated workout lifecycle', serviceClient.from('generated_workout_session_lifecycle').insert({
+    generated_workout_id: generatedWorkoutId,
+    user_id: user.id,
+    status: 'started',
+    inspected_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    last_active_at: new Date().toISOString(),
+    active_block_id: 'main',
+    active_exercise_id: ids.exercise,
+  }));
+
   await write('insert user training profile', serviceClient.from('user_training_profiles').upsert({
     user_id: user.id,
     experience_level: 'beginner',
@@ -459,6 +470,7 @@ function rowTargets(fixtures) {
   return [
     ['generated_workouts', { id: fixtures.generatedWorkoutId }],
     ['generated_workout_exercises', { id: fixtures.generatedWorkoutExerciseId }],
+    ['generated_workout_session_lifecycle', { generated_workout_id: fixtures.generatedWorkoutId }],
     ['user_training_profiles', { user_id: fixtures.userId }],
     ['user_equipment', { user_id: fixtures.userId, equipment_type_id: ids.equipment }],
     ['user_constraints', { id: fixtures.directIds.user_constraints }],
@@ -521,6 +533,19 @@ async function expectUnauthorizedInsertFails() {
     'User A cannot insert generated_workout_exercises through User B parent',
     Boolean(childAttempt.error),
     'Expected parent-scoped RLS WITH CHECK to reject cross-user child insert',
+  );
+
+  const lifecycleAttempt = await userAClient.from('generated_workout_session_lifecycle').insert({
+    generated_workout_id: context.generatedWorkoutIds[1],
+    user_id: userB.id,
+    status: 'started',
+    started_at: new Date().toISOString(),
+    last_active_at: new Date().toISOString(),
+  });
+  assert(
+    'User A cannot insert generated_workout_session_lifecycle through User B parent',
+    Boolean(lifecycleAttempt.error),
+    'Expected parent-scoped RLS WITH CHECK to reject cross-user lifecycle insert',
   );
 }
 

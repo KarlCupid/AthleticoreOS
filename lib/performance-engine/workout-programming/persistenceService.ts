@@ -11,6 +11,9 @@ import type {
   GeneratedProgram,
   GeneratedProgramSession,
   GeneratedWorkout,
+  GeneratedWorkoutSessionCompletionStatus,
+  GeneratedWorkoutSessionLifecycle,
+  GeneratedWorkoutSessionLifecycleStatus,
   PersonalizedWorkoutInput,
   ProgressionDecision,
   ReviewableContentFields,
@@ -149,6 +152,18 @@ export interface GeneratedWorkoutPersistenceOptions extends WorkoutProgrammingPe
 }
 
 export interface WorkoutCompletionPersistenceOptions extends WorkoutProgrammingPersistenceOptions {
+  generatedWorkoutId?: string | null;
+}
+
+export interface GeneratedWorkoutSessionLifecycleOptions extends WorkoutProgrammingPersistenceOptions {
+  activeBlockId?: string | null;
+  activeExerciseId?: string | null;
+  notes?: string | null;
+  occurredAt?: string;
+  completionStatus?: GeneratedWorkoutSessionCompletionStatus | null;
+}
+
+export interface ActiveGeneratedWorkoutSessionListOptions extends ListPersistenceOptions {
   generatedWorkoutId?: string | null;
 }
 
@@ -1092,6 +1107,234 @@ export async function listGeneratedWorkoutsForUser(
     validateGeneratedWorkoutForPersistence(payload as GeneratedWorkout, 'Loaded generated workout payload');
     return payload as GeneratedWorkout;
   });
+}
+
+const activeGeneratedWorkoutLifecycleStatuses: GeneratedWorkoutSessionLifecycleStatus[] = [
+  'generated',
+  'inspected',
+  'started',
+  'paused',
+  'resumed',
+];
+
+function assertGeneratedWorkoutId(generatedWorkoutId: string, context: string): void {
+  if (!generatedWorkoutId.trim()) throw new ValidationError(`${context}: generatedWorkoutId is required.`, { context });
+}
+
+function lifecycleTimestamp(options?: GeneratedWorkoutSessionLifecycleOptions): string {
+  return options?.occurredAt ?? new Date().toISOString();
+}
+
+function lifecycleFromRow(row: Record<string, unknown>): GeneratedWorkoutSessionLifecycle {
+  const lifecycle: GeneratedWorkoutSessionLifecycle = {
+    generatedWorkoutId: rowString(row, 'generated_workout_id'),
+    userId: rowString(row, 'user_id'),
+    status: rowString(row, 'status', 'generated') as GeneratedWorkoutSessionLifecycleStatus,
+    lastActiveAt: rowString(row, 'last_active_at') || new Date().toISOString(),
+  };
+  const id = rowString(row, 'id');
+  const inspectedAt = rowString(row, 'inspected_at');
+  const startedAt = rowString(row, 'started_at');
+  const pausedAt = rowString(row, 'paused_at');
+  const resumedAt = rowString(row, 'resumed_at');
+  const completedAt = rowString(row, 'completed_at');
+  const abandonedAt = rowString(row, 'abandoned_at');
+  const stoppedAt = rowString(row, 'stopped_at');
+  const completionStatus = rowString(row, 'completion_status');
+  const activeBlockId = rowString(row, 'active_block_id');
+  const activeExerciseId = rowString(row, 'active_exercise_id');
+  const notes = rowString(row, 'notes');
+  if (id) lifecycle.id = id;
+  if (inspectedAt) lifecycle.inspectedAt = inspectedAt;
+  if (startedAt) lifecycle.startedAt = startedAt;
+  if (pausedAt) lifecycle.pausedAt = pausedAt;
+  if (resumedAt) lifecycle.resumedAt = resumedAt;
+  if (completedAt) lifecycle.completedAt = completedAt;
+  if (abandonedAt) lifecycle.abandonedAt = abandonedAt;
+  if (stoppedAt) lifecycle.stoppedAt = stoppedAt;
+  if (completionStatus) lifecycle.completionStatus = completionStatus as GeneratedWorkoutSessionCompletionStatus;
+  if (activeBlockId) lifecycle.activeBlockId = activeBlockId;
+  if (activeExerciseId) lifecycle.activeExerciseId = activeExerciseId;
+  if (notes) lifecycle.notes = notes;
+  return lifecycle;
+}
+
+async function assertGeneratedWorkoutLifecycleParent(
+  userId: string,
+  generatedWorkoutId: string,
+  client: WorkoutProgrammingSupabaseClient,
+  context: string,
+): Promise<void> {
+  let query = requireBuilder(table(client, 'generated_workouts').select?.('id'), context, 'generated_workouts', 'select');
+  query = requireBuilder(query.eq?.('id', generatedWorkoutId), context, 'generated_workouts', 'filter');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'generated_workouts', 'filter');
+  const row = await selectMaybeSingleRow('generated_workouts', query, context);
+  if (!row) {
+    throw new NotFoundError(`${context}: generated workout ${generatedWorkoutId} was not found for this user.`, {
+      context,
+      table: 'generated_workouts',
+    });
+  }
+}
+
+function lifecyclePatchPayload(
+  userId: string,
+  generatedWorkoutId: string,
+  status: GeneratedWorkoutSessionLifecycleStatus,
+  timestampColumn: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Record<string, unknown> {
+  const timestamp = lifecycleTimestamp(options);
+  const payload: Record<string, unknown> = {
+    generated_workout_id: generatedWorkoutId,
+    user_id: userId,
+    status,
+    [timestampColumn]: timestamp,
+    last_active_at: timestamp,
+  };
+  if (options?.activeBlockId !== undefined) payload.active_block_id = options.activeBlockId;
+  if (options?.activeExerciseId !== undefined) payload.active_exercise_id = options.activeExerciseId;
+  if (options?.notes !== undefined) payload.notes = options.notes;
+  if (options?.completionStatus !== undefined) payload.completion_status = options.completionStatus;
+  return payload;
+}
+
+async function upsertGeneratedWorkoutLifecycle(
+  userId: string,
+  generatedWorkoutId: string,
+  status: GeneratedWorkoutSessionLifecycleStatus,
+  timestampColumn: string,
+  context: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  assertUserId(userId, context);
+  assertGeneratedWorkoutId(generatedWorkoutId, context);
+  const client = await resolveClient(options);
+  if (!client) return null;
+  await assertGeneratedWorkoutLifecycleParent(userId, generatedWorkoutId, client, context);
+  await upsertRows(
+    client,
+    'generated_workout_session_lifecycle',
+    [lifecyclePatchPayload(userId, generatedWorkoutId, status, timestampColumn, options)],
+    context,
+    'generated_workout_id',
+  );
+  return loadGeneratedWorkoutSessionLifecycleForWorkout(userId, generatedWorkoutId, { ...options, client });
+}
+
+async function loadGeneratedWorkoutSessionLifecycleForWorkout(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  const context = 'Failed to load generated workout session lifecycle';
+  assertUserId(userId, context);
+  assertGeneratedWorkoutId(generatedWorkoutId, context);
+  const client = await resolveClient(options);
+  if (!client) return null;
+  let query = requireBuilder(table(client, 'generated_workout_session_lifecycle').select?.('*'), context, 'generated_workout_session_lifecycle', 'select');
+  query = requireBuilder(query.eq?.('generated_workout_id', generatedWorkoutId), context, 'generated_workout_session_lifecycle', 'filter');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'generated_workout_session_lifecycle', 'filter');
+  const row = await selectMaybeSingleRow('generated_workout_session_lifecycle', query, context);
+  return row ? lifecycleFromRow(row) : null;
+}
+
+export async function markGeneratedWorkoutInspected(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return upsertGeneratedWorkoutLifecycle(userId, generatedWorkoutId, 'inspected', 'inspected_at', 'Failed to mark generated workout inspected', options);
+}
+
+export async function startGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return upsertGeneratedWorkoutLifecycle(userId, generatedWorkoutId, 'started', 'started_at', 'Failed to start generated workout session', options);
+}
+
+export async function pauseGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return upsertGeneratedWorkoutLifecycle(userId, generatedWorkoutId, 'paused', 'paused_at', 'Failed to pause generated workout session', options);
+}
+
+export async function resumeGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return upsertGeneratedWorkoutLifecycle(userId, generatedWorkoutId, 'resumed', 'resumed_at', 'Failed to resume generated workout session', options);
+}
+
+export async function abandonGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return upsertGeneratedWorkoutLifecycle(userId, generatedWorkoutId, 'abandoned', 'abandoned_at', 'Failed to abandon generated workout session', {
+    ...options,
+    completionStatus: options?.completionStatus ?? 'abandoned',
+  });
+}
+
+export async function stopGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return upsertGeneratedWorkoutLifecycle(userId, generatedWorkoutId, 'stopped', 'stopped_at', 'Failed to stop generated workout session', {
+    ...options,
+    completionStatus: options?.completionStatus ?? 'stopped',
+  });
+}
+
+export async function completeGeneratedWorkoutSessionLifecycle(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return upsertGeneratedWorkoutLifecycle(userId, generatedWorkoutId, 'completed', 'completed_at', 'Failed to complete generated workout session lifecycle', {
+    ...options,
+    activeBlockId: options?.activeBlockId ?? null,
+    activeExerciseId: options?.activeExerciseId ?? null,
+    completionStatus: options?.completionStatus ?? 'completed',
+  });
+}
+
+export async function loadActiveGeneratedWorkoutSession(
+  userId: string,
+  options?: ActiveGeneratedWorkoutSessionListOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  const sessions = await listActiveGeneratedWorkoutSessions(userId, { ...options, limit: 1 });
+  return sessions[0] ?? null;
+}
+
+export async function listActiveGeneratedWorkoutSessions(
+  userId: string,
+  options?: ActiveGeneratedWorkoutSessionListOptions,
+): Promise<GeneratedWorkoutSessionLifecycle[]> {
+  const context = 'Failed to list active generated workout sessions';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return [];
+  let query = requireBuilder(table(client, 'generated_workout_session_lifecycle').select?.('*'), context, 'generated_workout_session_lifecycle', 'select');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'generated_workout_session_lifecycle', 'filter');
+  if (options?.generatedWorkoutId) {
+    query = requireBuilder(query.eq?.('generated_workout_id', options.generatedWorkoutId), context, 'generated_workout_session_lifecycle', 'filter');
+  }
+  if (query.in) query = requireBuilder(query.in('status', activeGeneratedWorkoutLifecycleStatuses), context, 'generated_workout_session_lifecycle', 'filter');
+  if (query.order) query = requireBuilder(query.order('last_active_at', { ascending: false }), context, 'generated_workout_session_lifecycle', 'order');
+  if (options?.limit != null && query.limit) query = requireBuilder(query.limit(options.limit), context, 'generated_workout_session_lifecycle', 'limit');
+  const result = await asPromise<Record<string, unknown>[]>(query);
+  ensureNoError(result, context, 'generated_workout_session_lifecycle');
+  return (result.data ?? [])
+    .map(lifecycleFromRow)
+    .filter((session) => activeGeneratedWorkoutLifecycleStatuses.includes(session.status));
 }
 
 function completionPayload(userId: string, completion: WorkoutCompletionLog, generatedWorkoutId?: string | null) {

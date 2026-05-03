@@ -332,6 +332,9 @@ async function run(): Promise<void> {
     defaultReadinessBand: 'green',
     onGenerate: () => { eventLog.push('generate'); },
     onStart: () => { eventLog.push('start'); },
+    onPause: () => { eventLog.push('pause'); },
+    onResume: () => { eventLog.push('resume'); },
+    onAbandon: () => { eventLog.push('abandon'); },
     onComplete: () => { eventLog.push('complete'); },
     onReset: () => { eventLog.push('reset'); },
   };
@@ -381,9 +384,11 @@ async function run(): Promise<void> {
     stage: 'started',
     workout: validWorkout,
     startedAt: '2026-05-03T12:00:00.000Z',
+    lifecycleStatus: 'started',
     progressionDecision: null,
   }));
   assert('beta session card renders started state', Boolean(started.getByTestId('generated-workout-beta-checklist')));
+  assert('beta session card renders lifecycle controls', Boolean(started.getByTestId('generated-workout-beta-lifecycle-controls') && started.getByLabelText('Pause generated workout')));
   assert('completion controls render checklist', Boolean(started.getByTestId('generated-workout-beta-checklist')));
   assert('completion controls render RPE', Boolean(started.getByLabelText('Decrease Session effort rating') && started.getByLabelText('Increase Session effort rating')));
   assert('completion controls render pain before/after', Boolean(started.getByLabelText('Decrease Pain before') && started.getByLabelText('Increase Pain after')));
@@ -395,6 +400,19 @@ async function run(): Promise<void> {
   act(() => { fireEvent.press(started.getByLabelText('Complete generated workout')); });
   assert('beta started state calls complete handler', eventLog.includes('complete'));
   started.unmount();
+
+  const paused = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
+    ...baseBetaProps,
+    stage: 'started',
+    workout: validWorkout,
+    startedAt: '2026-05-03T12:00:00.000Z',
+    lifecycleStatus: 'paused',
+    progressionDecision: null,
+  }));
+  assert('beta session card can resume a paused persisted session', Boolean(paused.getByLabelText('Resume generated workout') && paused.getByText('Resume to Complete')));
+  act(() => { fireEvent.press(paused.getByLabelText('Resume generated workout')); });
+  assert('beta paused state calls resume handler', eventLog.includes('resume'));
+  paused.unmount();
 
   const completed = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
     ...baseBetaProps,

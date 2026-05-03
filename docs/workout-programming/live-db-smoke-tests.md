@@ -13,6 +13,7 @@ Generated workout, workout completion, generated program, and program-session co
 - Static catalog table read through the anon key.
 - User profile, equipment, and safety flag upserts through signed-in user clients.
 - Generated workout parent and child exercise persistence.
+- Generated workout session lifecycle persistence, pause/resume, and terminal completion state.
 - Generated workout load through the persistence service.
 - Workout completion and exercise result persistence.
 - Progression decision persistence.

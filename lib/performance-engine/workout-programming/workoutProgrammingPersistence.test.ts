@@ -18,9 +18,17 @@ import {
   logWorkoutCompletion,
   logWorkoutCompletionWithExerciseResults,
   markProgramSessionCompleted,
+  pauseGeneratedWorkoutSession,
+  resumeGeneratedWorkoutSession,
   DatabaseUnavailableError,
   NotFoundError,
+  loadActiveGeneratedWorkoutSession,
+  listActiveGeneratedWorkoutSessions,
   rescheduleProgramSession,
+  abandonGeneratedWorkoutSession,
+  completeGeneratedWorkoutSessionLifecycle,
+  startGeneratedWorkoutSession,
+  stopGeneratedWorkoutSession,
   saveGeneratedProgram,
   saveGeneratedWorkout,
   saveGeneratedWorkoutWithExercises,
@@ -89,6 +97,7 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
     generated_workout_exercises: [],
     workout_completions: [],
     exercise_completion_results: [],
+    generated_workout_session_lifecycle: [],
     progression_decisions: [],
     performance_observations: [],
     user_readiness_logs: [],
@@ -110,8 +119,9 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
     }));
   }
 
-  function matches(row: Record<string, unknown>, filters: Array<[string, unknown]>) {
-    return filters.every(([column, value]) => row[column] === value);
+  function matches(row: Record<string, unknown>, filters: Array<[string, unknown]>, inFilters: Array<[string, unknown[]]> = []) {
+    return filters.every(([column, value]) => row[column] === value)
+      && inFilters.every(([column, values]) => values.includes(row[column]));
   }
 
   function applyUpsert(table: string, payload: unknown, args: unknown[]) {
@@ -212,15 +222,16 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
       const state: {
         operation: 'select' | 'insert' | 'upsert' | 'delete';
         filters: Array<[string, unknown]>;
+        inFilters: Array<[string, unknown[]]>;
         payload?: unknown;
         args: unknown[];
         limit?: number;
-      } = { operation: 'select', filters: [], args: [] };
+      } = { operation: 'select', filters: [], inFilters: [], args: [] };
       const execute = () => {
         if (state.operation === 'select') {
           const error = config.selectErrors?.[table] ?? null;
           if (error) return { data: null, error };
-          const data = (rows[table] ?? []).filter((row) => matches(row, state.filters)).slice(0, state.limit ?? undefined);
+          const data = (rows[table] ?? []).filter((row) => matches(row, state.filters, state.inFilters)).slice(0, state.limit ?? undefined);
           return { data, error: null };
         }
         if (state.operation === 'insert') {
@@ -238,7 +249,7 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
         }
         const error = config.deleteErrors?.[table] ?? null;
         if (error) return { data: null, error };
-        rows[table] = (rows[table] ?? []).filter((row) => !matches(row, state.filters));
+        rows[table] = (rows[table] ?? []).filter((row) => !matches(row, state.filters, state.inFilters));
         return { data: null, error: null };
       };
       const builder = {
@@ -269,6 +280,11 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
         eq(...args: unknown[]) {
           calls.push({ table, method: 'eq', args });
           state.filters.push([args[0] as string, args[1]]);
+          return builder;
+        },
+        in(...args: unknown[]) {
+          calls.push({ table, method: 'in', args });
+          state.inFilters.push([args[0] as string, args[1] as unknown[]]);
           return builder;
         },
         order(...args: unknown[]) {
@@ -528,6 +544,100 @@ async function run() {
       missing = error instanceof NotFoundError;
     }
     assert('missing generated workout returns NotFoundError', missing);
+  }
+
+  {
+    const { client, rows } = createMockSupabase();
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    const generatedWorkoutId = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    const started = await startGeneratedWorkoutSession('user-1', generatedWorkoutId!, {
+      client,
+      occurredAt: '2026-05-01T12:00:00.000Z',
+      activeBlockId: workout.blocks[0]?.id,
+      activeExerciseId: workout.blocks[0]?.exercises[0]?.exerciseId,
+    });
+    const paused = await pauseGeneratedWorkoutSession('user-1', generatedWorkoutId!, {
+      client,
+      occurredAt: '2026-05-01T12:10:00.000Z',
+    });
+    const resumed = await resumeGeneratedWorkoutSession('user-1', generatedWorkoutId!, {
+      client,
+      occurredAt: '2026-05-01T12:15:00.000Z',
+    });
+    assert('generated workout session lifecycle start persists started state', started?.status === 'started' && started.startedAt === '2026-05-01T12:00:00.000Z');
+    assert('generated workout session lifecycle pause/resume updates status', paused?.status === 'paused' && resumed?.status === 'resumed' && rows.generated_workout_session_lifecycle.length === 1);
+  }
+
+  {
+    const { client } = createMockSupabase();
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    const generatedWorkoutId = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    await startGeneratedWorkoutSession('user-1', generatedWorkoutId!, { client, occurredAt: '2026-05-01T12:00:00.000Z' });
+    const completed = await completeGeneratedWorkoutSessionLifecycle('user-1', generatedWorkoutId!, {
+      client,
+      occurredAt: '2026-05-01T12:40:00.000Z',
+      completionStatus: 'partial',
+      notes: 'Stopped after accessory work.',
+    });
+    assert('generated workout session lifecycle complete updates completed state', completed?.status === 'completed' && completed.completedAt === '2026-05-01T12:40:00.000Z' && completed.completionStatus === 'partial');
+  }
+
+  {
+    const { client } = createMockSupabase();
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    const abandonedWorkoutId = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    const activeWorkoutId = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    const stoppedWorkoutId = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    const abandoned = await abandonGeneratedWorkoutSession('user-1', abandonedWorkoutId!, {
+      client,
+      occurredAt: '2026-05-01T12:20:00.000Z',
+    });
+    const stopped = await stopGeneratedWorkoutSession('user-1', stoppedWorkoutId!, {
+      client,
+      occurredAt: '2026-05-01T12:25:00.000Z',
+    });
+    await startGeneratedWorkoutSession('user-1', activeWorkoutId!, {
+      client,
+      occurredAt: '2026-05-01T12:30:00.000Z',
+    });
+    const active = await loadActiveGeneratedWorkoutSession('user-1', { client });
+    const activeList = await listActiveGeneratedWorkoutSessions('user-1', { client, limit: 5 });
+    assert('generated workout session lifecycle abandon updates abandoned state', abandoned?.status === 'abandoned' && abandoned.completionStatus === 'abandoned');
+    assert('generated workout session lifecycle stop updates stopped state', stopped?.status === 'stopped' && stopped.completionStatus === 'stopped');
+    assert('active generated workout session can be loaded without terminal sessions', active?.generatedWorkoutId === activeWorkoutId && activeList.every((session) => session.status !== 'abandoned' && session.status !== 'stopped'));
+  }
+
+  {
+    const { client } = createMockSupabase();
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    const generatedWorkoutId = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    let blocked = false;
+    try {
+      await startGeneratedWorkoutSession('user-2', generatedWorkoutId!, { client });
+    } catch (error) {
+      blocked = error instanceof NotFoundError;
+    }
+    assert('cross-user generated workout session lifecycle access is blocked', blocked);
   }
 
   {

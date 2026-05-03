@@ -926,6 +926,43 @@ export interface ExerciseCompletionResult {
   completedAsPrescribed: boolean;
 }
 
+export type GeneratedWorkoutSessionLifecycleStatus =
+  | 'generated'
+  | 'inspected'
+  | 'started'
+  | 'paused'
+  | 'resumed'
+  | 'completed'
+  | 'abandoned'
+  | 'stopped'
+  | 'expired';
+
+export type GeneratedWorkoutSessionCompletionStatus =
+  | 'completed'
+  | 'partial'
+  | 'stopped'
+  | 'abandoned'
+  | 'expired';
+
+export interface GeneratedWorkoutSessionLifecycle {
+  id?: string;
+  generatedWorkoutId: string;
+  userId: string;
+  status: GeneratedWorkoutSessionLifecycleStatus;
+  inspectedAt?: string | null;
+  startedAt?: string | null;
+  pausedAt?: string | null;
+  resumedAt?: string | null;
+  completedAt?: string | null;
+  abandonedAt?: string | null;
+  stoppedAt?: string | null;
+  lastActiveAt: string;
+  completionStatus?: GeneratedWorkoutSessionCompletionStatus | null;
+  activeBlockId?: string | null;
+  activeExerciseId?: string | null;
+  notes?: string | null;
+}
+
 export type ProgressionDecisionKind =
   | 'progress'
   | 'repeat'

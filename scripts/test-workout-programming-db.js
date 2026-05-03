@@ -76,12 +76,18 @@ registerTypeScriptHook();
 const {
   ValidationError,
   loadGeneratedWorkout,
+  loadActiveGeneratedWorkoutSession,
   loadUserProgram,
   loadUserWorkoutProfile,
   logWorkoutCompletionWithExerciseResults,
   markProgramSessionCompleted,
+  markGeneratedWorkoutInspected,
+  pauseGeneratedWorkoutSession,
+  resumeGeneratedWorkoutSession,
   saveGeneratedProgram,
   saveGeneratedWorkoutWithExercises,
+  startGeneratedWorkoutSession,
+  completeGeneratedWorkoutSessionLifecycle,
   saveProgressionDecision,
   saveRecommendationFeedback,
   upsertUserEquipment,
@@ -581,6 +587,21 @@ async function runForUser(user, ownerLabel) {
   });
   assert(`${ownerLabel} generated workout exercises include all blocks`, childRows.length === workout.blocks.length);
 
+  const inspectedLifecycle = await markGeneratedWorkoutInspected(user.id, generatedWorkoutId, {
+    client: user.client,
+    occurredAt: new Date().toISOString(),
+  });
+  const startedLifecycle = await startGeneratedWorkoutSession(user.id, generatedWorkoutId, {
+    client: user.client,
+    activeBlockId: workout.blocks[0].id,
+    activeExerciseId: workout.blocks[0].exercises[0].exerciseId,
+  });
+  const pausedLifecycle = await pauseGeneratedWorkoutSession(user.id, generatedWorkoutId, { client: user.client });
+  const resumedLifecycle = await resumeGeneratedWorkoutSession(user.id, generatedWorkoutId, { client: user.client });
+  const activeLifecycle = await loadActiveGeneratedWorkoutSession(user.id, { client: user.client });
+  assert(`${ownerLabel} generated workout lifecycle persists inspected/start/pause/resume`, inspectedLifecycle && inspectedLifecycle.status === 'inspected' && startedLifecycle && startedLifecycle.status === 'started' && pausedLifecycle && pausedLifecycle.status === 'paused' && resumedLifecycle && resumedLifecycle.status === 'resumed');
+  assert(`${ownerLabel} active generated workout lifecycle can be resumed after reload`, activeLifecycle && activeLifecycle.generatedWorkoutId === generatedWorkoutId && activeLifecycle.status === 'resumed');
+
   const loadedWorkout = await loadGeneratedWorkout(user.id, generatedWorkoutId, { client: user.client });
   assert(`${ownerLabel} generated workout load returns persisted payload`, loadedWorkout && loadedWorkout.sessionIntent === workout.sessionIntent);
 
@@ -594,6 +615,11 @@ async function runForUser(user, ownerLabel) {
   await expectVisible(serviceClient, `${ownerLabel} exercise completion result row exists`, 'exercise_completion_results', {
     workout_completion_id: completionId,
   });
+  const completedLifecycle = await completeGeneratedWorkoutSessionLifecycle(user.id, generatedWorkoutId, {
+    client: user.client,
+    completionStatus: 'completed',
+  });
+  assert(`${ownerLabel} generated workout lifecycle completes after completion`, completedLifecycle && completedLifecycle.status === 'completed' && completedLifecycle.completionStatus === 'completed');
 
   const progressionId = await saveProgressionDecision(user.id, {
     direction: 'repeat',
@@ -660,6 +686,9 @@ async function expectInvalidPayloadRejected(user) {
 async function expectRlsIsolation(userA, userB, userBRows) {
   await expectHidden(userA.client, 'User A cannot select User B generated_workouts', 'generated_workouts', { id: userBRows.generatedWorkoutId });
   await expectHidden(userA.client, 'User A cannot select User B generated_workout_exercises through parent', 'generated_workout_exercises', {
+    generated_workout_id: userBRows.generatedWorkoutId,
+  });
+  await expectHidden(userA.client, 'User A cannot select User B generated workout lifecycle', 'generated_workout_session_lifecycle', {
     generated_workout_id: userBRows.generatedWorkoutId,
   });
   await expectHidden(userA.client, 'User A cannot select User B workout_completions', 'workout_completions', { id: userBRows.completionId });

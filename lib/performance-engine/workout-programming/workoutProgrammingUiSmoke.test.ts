@@ -106,6 +106,7 @@ async function run() {
     'setGeneratedWorkoutBetaError',
     'Generated locally. Persistence unavailable',
     'Completed locally. Persistence unavailable',
+    'Session started locally',
     "errorMessage(error, 'Generated workout failed.')",
   ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
 
@@ -119,6 +120,10 @@ async function run() {
     'onPress={onStart}',
     'testID="generated-workout-beta-checklist"',
     'Mark all',
+    'testID="generated-workout-beta-lifecycle"',
+    'testID="generated-workout-beta-lifecycle-controls"',
+    'testID="generated-workout-beta-pause"',
+    'testID="generated-workout-beta-resume"',
     'testID="generated-workout-beta-session-log"',
     'testID="generated-workout-beta-feedback"',
     'Too easy',

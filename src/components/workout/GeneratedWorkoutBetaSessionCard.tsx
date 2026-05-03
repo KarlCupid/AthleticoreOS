@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type {
   GeneratedWorkout,
   GeneratedWorkoutSessionExerciseCompletionInput,
+  GeneratedWorkoutSessionLifecycleStatus,
   ProgressionDecision,
   WorkoutReadinessBand,
 } from '../../../lib/performance-engine/workout-programming';
@@ -48,6 +49,8 @@ interface GeneratedWorkoutBetaSessionCardProps {
   generatedWorkoutId: string | null;
   persisted: boolean;
   startedAt: string | null;
+  lifecycleStatus?: GeneratedWorkoutSessionLifecycleStatus | null;
+  lifecycleMessage?: string | null;
   loading: boolean;
   completing: boolean;
   error: string | null;
@@ -55,6 +58,9 @@ interface GeneratedWorkoutBetaSessionCardProps {
   defaultReadinessBand: WorkoutReadinessBand;
   onGenerate: (config: GeneratedWorkoutBetaConfig) => void;
   onStart: () => void;
+  onPause?: () => void;
+  onResume?: () => void;
+  onAbandon?: () => void;
   onComplete: (draft: GeneratedWorkoutBetaCompletionDraft) => void;
   onReset: () => void;
 }
@@ -255,6 +261,8 @@ export function GeneratedWorkoutBetaSessionCard({
   generatedWorkoutId,
   persisted,
   startedAt,
+  lifecycleStatus,
+  lifecycleMessage,
   loading,
   completing,
   error,
@@ -262,6 +270,9 @@ export function GeneratedWorkoutBetaSessionCard({
   defaultReadinessBand,
   onGenerate,
   onStart,
+  onPause,
+  onResume,
+  onAbandon,
   onComplete,
   onReset,
 }: GeneratedWorkoutBetaSessionCardProps) {
@@ -287,6 +298,7 @@ export function GeneratedWorkoutBetaSessionCard({
   const totalExerciseCount = allExercises.length;
   const allExercisesComplete = totalExerciseCount > 0 && completedExerciseCount === totalExerciseCount;
   const currentStageIndex = BETA_STAGES.indexOf(stage);
+  const sessionPaused = lifecycleStatus === 'paused';
 
   function toggleListValue(value: string, values: string[], setter: (next: string[]) => void) {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
@@ -467,6 +479,10 @@ export function GeneratedWorkoutBetaSessionCard({
           <View testID="generated-workout-beta-status" style={styles.statusPanel}>
             <Text style={styles.statusHeadline}>{workoutSafetyLine(workout)}</Text>
             <Text style={styles.statusText}>{persisted ? `Saved as ${generatedWorkoutId}` : 'Not persisted; using in-memory beta mode.'}</Text>
+            {lifecycleStatus ? (
+              <Text testID="generated-workout-beta-lifecycle" style={styles.statusText}>Session status: {labelize(lifecycleStatus)}</Text>
+            ) : null}
+            {lifecycleMessage ? <Text style={styles.statusText}>{lifecycleMessage}</Text> : null}
             <Text style={styles.statusText}>Validation: {workout.validation?.isValid ? 'passed' : 'review warnings available'}</Text>
           </View>
         ) : null}
@@ -505,6 +521,44 @@ export function GeneratedWorkoutBetaSessionCard({
 
           {startedAt ? <Text style={styles.statusText}>Started {new Date(startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text> : null}
 
+          {stage === 'started' ? (
+            <View testID="generated-workout-beta-lifecycle-controls" style={styles.lifecycleControls}>
+              {sessionPaused ? (
+                <Pressable
+                  testID="generated-workout-beta-resume"
+                  accessibilityRole="button"
+                  accessibilityLabel="Resume generated workout"
+                  style={styles.secondaryButton}
+                  disabled={completing || !onResume}
+                  onPress={onResume}
+                >
+                  <Text style={styles.secondaryButtonText}>Resume</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  testID="generated-workout-beta-pause"
+                  accessibilityRole="button"
+                  accessibilityLabel="Pause generated workout"
+                  style={styles.secondaryButton}
+                  disabled={completing || !onPause}
+                  onPress={onPause}
+                >
+                  <Text style={styles.secondaryButtonText}>Pause</Text>
+                </Pressable>
+              )}
+              <Pressable
+                testID="generated-workout-beta-abandon"
+                accessibilityRole="button"
+                accessibilityLabel="Abandon generated workout"
+                style={styles.quietButton}
+                disabled={completing || !onAbandon}
+                onPress={onAbandon}
+              >
+                <Text style={styles.quietButtonText}>Abandon</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           {stage === 'started' || stage === 'completed' ? (
             <View testID="generated-workout-beta-checklist" style={styles.section}>
               <View style={styles.sectionHeaderRow}>
@@ -537,7 +591,7 @@ export function GeneratedWorkoutBetaSessionCard({
                         accessibilityLabel={`${completed ? 'Mark incomplete' : 'Mark complete'}: ${exercise.name}`}
                         accessibilityState={{ checked: completed }}
                         style={styles.exerciseHeader}
-                        disabled={stage === 'completed'}
+                        disabled={stage === 'completed' || sessionPaused}
                         onPress={() => toggleListValue(exercise.exerciseId, completedExerciseIds, setCompletedExerciseIds)}
                       >
                         <View style={[styles.checkbox, completed && styles.checkboxSelected]} />
@@ -582,28 +636,28 @@ export function GeneratedWorkoutBetaSessionCard({
                           label="Sets"
                           accessibilityLabel={`Sets completed for ${exercise.name}`}
                           value={exerciseLog.setsCompleted}
-                          editable={stage === 'started'}
+                          editable={stage === 'started' && !sessionPaused}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'setsCompleted', value)}
                         />
                         <NumericLogInput
                           label="Reps"
                           accessibilityLabel={`Reps completed for ${exercise.name}`}
                           value={exerciseLog.repsCompleted}
-                          editable={stage === 'started'}
+                          editable={stage === 'started' && !sessionPaused}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'repsCompleted', value)}
                         />
                         <NumericLogInput
                           label="Min"
                           accessibilityLabel={`Minutes completed for ${exercise.name}`}
                           value={exerciseLog.durationMinutesCompleted}
-                          editable={stage === 'started'}
+                          editable={stage === 'started' && !sessionPaused}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'durationMinutesCompleted', value)}
                         />
                         <NumericLogInput
                           label="Sec"
                           accessibilityLabel={`Seconds completed for ${exercise.name}`}
                           value={exerciseLog.durationSecondsCompleted}
-                          editable={stage === 'started'}
+                          editable={stage === 'started' && !sessionPaused}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'durationSecondsCompleted', value)}
                         />
                       </View>
@@ -654,12 +708,12 @@ export function GeneratedWorkoutBetaSessionCard({
               <Pressable
                 testID="generated-workout-beta-complete"
                 accessibilityRole="button"
-                accessibilityLabel={completing ? 'Completing workout' : 'Complete generated workout'}
-                style={[styles.primaryButton, completing && styles.disabledButton]}
-                disabled={completing}
+                accessibilityLabel={sessionPaused ? 'Resume generated workout before completing' : completing ? 'Completing workout' : 'Complete generated workout'}
+                style={[styles.primaryButton, (completing || sessionPaused) && styles.disabledButton]}
+                disabled={completing || sessionPaused}
                 onPress={submitComplete}
               >
-                <Text style={styles.primaryButtonText}>{completing ? 'Completing...' : 'Complete Workout'}</Text>
+                <Text style={styles.primaryButtonText}>{sessionPaused ? 'Resume to Complete' : completing ? 'Completing...' : 'Complete Workout'}</Text>
               </Pressable>
             </>
           ) : null}
@@ -840,6 +894,12 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginTop: SPACING.md,
   },
+  lifecycleControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
   primaryButton: {
     minHeight: 48,
     flex: 1,
@@ -870,6 +930,19 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 14,
+  },
+  quietButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  quietButtonText: {
+    color: COLORS.text.tertiary,
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 14,
   },

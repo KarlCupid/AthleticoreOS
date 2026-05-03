@@ -6,7 +6,11 @@ import {
   generatePreviewWorkout,
   generateWeeklyProgramForUser,
   generateWorkoutForUser,
+  loadActiveGeneratedWorkoutSession,
   logWorkoutCompletion,
+  pauseGeneratedWorkoutSession,
+  resumeGeneratedWorkoutSession,
+  startGeneratedWorkoutSession,
   substituteExercise,
   validateWorkout,
 } from './workoutProgrammingService.ts';
@@ -63,14 +67,49 @@ function createMockSupabase(extraRows: Record<string, Record<string, unknown>[]>
     ],
     user_safety_flags: [],
     user_exercise_preferences: [{ user_id: 'user-1', exercise_id: 'push_up', preference: 'dislike' }],
+    generated_workouts: [],
+    generated_workout_exercises: [],
+    generated_workout_session_lifecycle: [],
+    workout_completions: [],
+    exercise_completion_results: [],
+    progression_decisions: [],
+    recommendation_feedback: [],
+    user_programs: [],
     ...extraRows,
   };
+  const counters: Record<string, number> = {};
+
+  function nextId(table: string) {
+    counters[table] = (counters[table] ?? 0) + 1;
+    return counters[table] === 1 ? `${table}-id` : `${table}-id-${counters[table]}`;
+  }
+
+  function withIds(table: string, payload: unknown): Record<string, unknown>[] {
+    const inputRows = Array.isArray(payload) ? payload : [payload];
+    return inputRows.map((row) => ({
+      ...(row as Record<string, unknown>),
+      id: (row as Record<string, unknown>).id ?? nextId(table),
+    }));
+  }
+
+  function applyUpsert(table: string, payload: unknown, args: unknown[]) {
+    const nextRows = withIds(table, payload);
+    const options = args[1] as { onConflict?: string } | undefined;
+    const conflictColumns = options?.onConflict?.split(',').map((item) => item.trim()).filter(Boolean) ?? ['id'];
+    for (const nextRow of nextRows) {
+      const index = (rows[table] ?? []).findIndex((row) => conflictColumns.every((column) => row[column] === nextRow[column]));
+      if (index >= 0) rows[table][index] = { ...rows[table][index], ...nextRow };
+      else rows[table] = [...(rows[table] ?? []), nextRow];
+    }
+    return nextRows;
+  }
 
   const client = {
     from(table: string) {
-      const state: { operation: 'select' | 'delete'; filters: Array<[string, unknown]>; limit?: number } = { operation: 'select', filters: [] };
+      const state: { operation: 'select' | 'delete'; filters: Array<[string, unknown]>; inFilters: Array<[string, unknown[]]>; limit?: number } = { operation: 'select', filters: [], inFilters: [] };
       const selectRows = () => (rows[table] ?? [])
         .filter((row) => state.filters.every(([column, value]) => row[column] === value))
+        .filter((row) => state.inFilters.every(([column, values]) => values.includes(row[column])))
         .slice(0, state.limit ?? undefined);
       const builder = {
         select(...args: unknown[]) {
@@ -80,7 +119,9 @@ function createMockSupabase(extraRows: Record<string, Record<string, unknown>[]>
         },
         insert(...args: unknown[]) {
           calls.push({ table, method: 'insert', args });
-          return terminal({ data: { id: `${table}-id` }, error: null });
+          const inserted = withIds(table, args[0]);
+          rows[table] = [...(rows[table] ?? []), ...inserted];
+          return terminal({ data: Array.isArray(args[0]) ? inserted : inserted[0], error: null });
         },
         delete(...args: unknown[]) {
           calls.push({ table, method: 'delete', args });
@@ -89,12 +130,18 @@ function createMockSupabase(extraRows: Record<string, Record<string, unknown>[]>
         },
         upsert(...args: unknown[]) {
           calls.push({ table, method: 'upsert', args });
+          applyUpsert(table, args[0], args);
           return Promise.resolve({ data: null, error: null });
         },
         eq(...args: unknown[]) {
           calls.push({ table, method: 'eq', args });
           state.filters.push([args[0] as string, args[1]]);
           if (state.operation === 'delete') return Promise.resolve({ data: null, error: null });
+          return builder;
+        },
+        in(...args: unknown[]) {
+          calls.push({ table, method: 'in', args });
+          state.inFilters.push([args[0] as string, args[1] as unknown[]]);
           return builder;
         },
         order(...args: unknown[]) {
@@ -176,6 +223,20 @@ async function run() {
       experienceLevel: 'beginner',
       readinessBand: 'green',
     }, { client });
+    const startedLifecycle = await startGeneratedWorkoutSession('user-1', session.generatedWorkoutId, {
+      client,
+      occurredAt: '2026-05-01T12:00:00.000Z',
+      activeBlockId: session.workout.blocks[0]?.id,
+    });
+    const pausedLifecycle = await pauseGeneratedWorkoutSession('user-1', session.generatedWorkoutId, {
+      client,
+      occurredAt: '2026-05-01T12:10:00.000Z',
+    });
+    const resumedLifecycle = await resumeGeneratedWorkoutSession('user-1', session.generatedWorkoutId, {
+      client,
+      occurredAt: '2026-05-01T12:15:00.000Z',
+    });
+    const activeLifecycle = await loadActiveGeneratedWorkoutSession('user-1', { client });
     const result = await completeGeneratedWorkoutSession('user-1', {
       workout: session.workout,
       generatedWorkoutId: session.generatedWorkoutId,
@@ -203,9 +264,19 @@ async function run() {
       ? completionChildPayloadRaw[0] as Record<string, unknown> | undefined
       : completionChildPayloadRaw as Record<string, unknown> | undefined;
     assert('generated workout beta session persists parent and child exercise rows', session.persisted && session.generatedWorkoutId === 'generated_workouts-id' && Boolean(insertedPayload(calls, 'generated_workout_exercises')));
+    assert('generated workout beta lifecycle persists inspected and start states', session.lifecycle?.persisted === true && session.lifecycle.lifecycle.status === 'inspected' && startedLifecycle.lifecycle.status === 'started');
+    assert('generated workout beta lifecycle pause/resume stays durable and loadable', pausedLifecycle.lifecycle.status === 'paused' && resumedLifecycle.lifecycle.status === 'resumed' && activeLifecycle?.generatedWorkoutId === session.generatedWorkoutId);
     assert('generated workout beta completion persists actual exercise work', completionChildPayload?.sets_completed === 2 && completionChildPayload?.reps_completed === 8);
     assert('generated workout beta completion saves completion, feedback, and preferences', result.workoutCompletionId === 'workout_completions-id' && result.feedbackId === 'recommendation_feedback-id' && calls.some((call) => call.table === 'user_exercise_preferences' && call.method === 'upsert'));
+    assert('generated workout beta completion persists completed lifecycle state', result.lifecycle?.persisted === true && result.lifecycle.lifecycle.status === 'completed');
     assert('generated workout beta completion returns next progression', Boolean(result.progressionDecision.reason && result.progressionDecision.nextAdjustment));
+  }
+
+  {
+    const localStarted = await startGeneratedWorkoutSession('local-user', null, {
+      occurredAt: '2026-05-01T12:00:00.000Z',
+    });
+    assert('generated workout beta lifecycle keeps local fallback without persistence', localStarted.persisted === false && localStarted.lifecycle.status === 'started');
   }
 
   {

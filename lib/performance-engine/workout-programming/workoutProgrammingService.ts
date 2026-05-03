@@ -11,9 +11,15 @@ import {
   type PreparedWorkoutProgrammingContent,
 } from './contentReview.ts';
 import {
+  abandonGeneratedWorkoutSession as persistAbandonGeneratedWorkoutSession,
   archiveProgram as persistArchiveProgram,
   attachGeneratedWorkoutToProgramSession as persistAttachGeneratedWorkoutToProgramSession,
+  completeGeneratedWorkoutSessionLifecycle as persistCompleteGeneratedWorkoutSessionLifecycle,
+  DatabaseUnavailableError,
   listUserPrograms as persistListUserPrograms,
+  listActiveGeneratedWorkoutSessions as persistListActiveGeneratedWorkoutSessions,
+  loadActiveGeneratedWorkoutSession as persistLoadActiveGeneratedWorkoutSession,
+  loadGeneratedWorkout as persistLoadGeneratedWorkout,
   loadGeneratedProgram as persistLoadGeneratedProgram,
   loadRecentCompletions,
   loadRecentProgressionDecisionsForUser,
@@ -21,14 +27,21 @@ import {
   loadUserWorkoutProfile,
   loadWorkoutProgrammingCatalog,
   logWorkoutCompletionWithExerciseResults as persistWorkoutCompletion,
+  markGeneratedWorkoutInspected as persistMarkGeneratedWorkoutInspected,
   markProgramSessionCompleted as persistMarkProgramSessionCompleted,
   NotFoundError,
+  pauseGeneratedWorkoutSession as persistPauseGeneratedWorkoutSession,
+  resumeGeneratedWorkoutSession as persistResumeGeneratedWorkoutSession,
   saveGeneratedProgram as persistGeneratedProgram,
   saveGeneratedWorkoutWithExercises,
   saveProgressionDecision,
   saveRecommendationFeedback,
+  startGeneratedWorkoutSession as persistStartGeneratedWorkoutSession,
+  stopGeneratedWorkoutSession as persistStopGeneratedWorkoutSession,
   updateProgramSession as persistUpdateProgramSession,
   upsertExercisePreferences,
+  type ActiveGeneratedWorkoutSessionListOptions,
+  type GeneratedWorkoutSessionLifecycleOptions,
   type ProgramSessionUpdate,
   type WorkoutProgrammingPersistenceOptions,
 } from './persistenceService.ts';
@@ -41,6 +54,8 @@ import type {
   ExerciseSubstitutionOption,
   GeneratedProgram,
   GeneratedWorkout,
+  GeneratedWorkoutSessionLifecycle,
+  GeneratedWorkoutSessionLifecycleStatus,
   ProgramCalendarEvent,
   PersonalizedWorkoutInput,
   ProgressionDecision,
@@ -88,6 +103,14 @@ export interface GeneratedWorkoutSessionResult {
   workout: GeneratedWorkout;
   generatedWorkoutId: string | null;
   persisted: boolean;
+  lifecycle?: GeneratedWorkoutLifecycleResult;
+  lifecycleFallbackMessage?: string;
+}
+
+export interface GeneratedWorkoutLifecycleResult {
+  lifecycle: GeneratedWorkoutSessionLifecycle;
+  persisted: boolean;
+  fallbackMessage?: string;
 }
 
 export interface GeneratedWorkoutSessionExerciseCompletionInput {
@@ -122,6 +145,8 @@ export interface GeneratedWorkoutSessionCompletionInput {
 
 export interface GeneratedWorkoutSessionCompletionResult extends WorkoutProgrammingCompletionResult {
   feedbackId: string | null;
+  lifecycle?: GeneratedWorkoutLifecycleResult;
+  lifecycleFallbackMessage?: string;
 }
 
 export type WorkoutProgrammingProgramRequest = Pick<PersonalizedWorkoutInput, 'goalId'> & Partial<PersonalizedWorkoutInput> & {
@@ -204,6 +229,73 @@ function contentReviewOptions(
     mode: options?.contentReviewMode ?? defaultMode,
     allowDraftContent: options?.allowDraftContent ?? defaultMode !== 'production',
   };
+}
+
+function localGeneratedWorkoutLifecycle(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  status: GeneratedWorkoutSessionLifecycleStatus,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): GeneratedWorkoutSessionLifecycle {
+  const timestamp = options?.occurredAt ?? new Date().toISOString();
+  const lifecycle: GeneratedWorkoutSessionLifecycle = {
+    generatedWorkoutId: generatedWorkoutId || `local-generated-workout-${status}`,
+    userId,
+    status,
+    lastActiveAt: timestamp,
+  };
+  if (status === 'inspected') lifecycle.inspectedAt = timestamp;
+  if (status === 'started') lifecycle.startedAt = timestamp;
+  if (status === 'paused') lifecycle.pausedAt = timestamp;
+  if (status === 'resumed') lifecycle.resumedAt = timestamp;
+  if (status === 'completed') lifecycle.completedAt = timestamp;
+  if (status === 'abandoned') lifecycle.abandonedAt = timestamp;
+  if (status === 'stopped') lifecycle.stoppedAt = timestamp;
+  if (options?.activeBlockId !== undefined) lifecycle.activeBlockId = options.activeBlockId;
+  if (options?.activeExerciseId !== undefined) lifecycle.activeExerciseId = options.activeExerciseId;
+  if (options?.completionStatus !== undefined) lifecycle.completionStatus = options.completionStatus;
+  if (options?.notes !== undefined) lifecycle.notes = options.notes;
+  return lifecycle;
+}
+
+function hasLifecyclePersistenceTarget(generatedWorkoutId: string | null | undefined, options?: WorkoutProgrammingPersistenceOptions): generatedWorkoutId is string {
+  return Boolean(generatedWorkoutId && (options?.client || options?.useSupabase));
+}
+
+async function runLifecycleMutationWithFallback(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  status: GeneratedWorkoutSessionLifecycleStatus,
+  persist: (id: string) => Promise<GeneratedWorkoutSessionLifecycle | null>,
+  options?: GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  if (!hasLifecyclePersistenceTarget(generatedWorkoutId, options)) {
+    return {
+      lifecycle: localGeneratedWorkoutLifecycle(userId, generatedWorkoutId, status, options),
+      persisted: false,
+    };
+  }
+
+  try {
+    const lifecycle = await persist(generatedWorkoutId);
+    if (lifecycle) return { lifecycle, persisted: true };
+    return {
+      lifecycle: localGeneratedWorkoutLifecycle(userId, generatedWorkoutId, status, options),
+      persisted: false,
+    };
+  } catch (error) {
+    if (error instanceof NotFoundError) throw error;
+    const fallbackMessage = error instanceof DatabaseUnavailableError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : 'Generated workout lifecycle persistence failed.';
+    return {
+      lifecycle: localGeneratedWorkoutLifecycle(userId, generatedWorkoutId, status, options),
+      persisted: false,
+      fallbackMessage,
+    };
+  }
 }
 
 function applyContentReviewDiagnostics(
@@ -290,6 +382,118 @@ export async function generateWorkoutForUser(
   return enriched;
 }
 
+export async function markGeneratedWorkoutInspected(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  return runLifecycleMutationWithFallback(
+    userId,
+    generatedWorkoutId,
+    'inspected',
+    (id) => persistMarkGeneratedWorkoutInspected(userId, id, options),
+    options,
+  );
+}
+
+export async function startGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  return runLifecycleMutationWithFallback(
+    userId,
+    generatedWorkoutId,
+    'started',
+    (id) => persistStartGeneratedWorkoutSession(userId, id, options),
+    options,
+  );
+}
+
+export async function pauseGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  return runLifecycleMutationWithFallback(
+    userId,
+    generatedWorkoutId,
+    'paused',
+    (id) => persistPauseGeneratedWorkoutSession(userId, id, options),
+    options,
+  );
+}
+
+export async function resumeGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  return runLifecycleMutationWithFallback(
+    userId,
+    generatedWorkoutId,
+    'resumed',
+    (id) => persistResumeGeneratedWorkoutSession(userId, id, options),
+    options,
+  );
+}
+
+export async function abandonGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  return runLifecycleMutationWithFallback(
+    userId,
+    generatedWorkoutId,
+    'abandoned',
+    (id) => persistAbandonGeneratedWorkoutSession(userId, id, options),
+    { ...options, completionStatus: options?.completionStatus ?? 'abandoned' },
+  );
+}
+
+export async function stopGeneratedWorkoutSession(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  return runLifecycleMutationWithFallback(
+    userId,
+    generatedWorkoutId,
+    'stopped',
+    (id) => persistStopGeneratedWorkoutSession(userId, id, options),
+    { ...options, completionStatus: options?.completionStatus ?? 'stopped' },
+  );
+}
+
+export async function completeGeneratedWorkoutSessionLifecycle(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<GeneratedWorkoutLifecycleResult> {
+  return runLifecycleMutationWithFallback(
+    userId,
+    generatedWorkoutId,
+    'completed',
+    (id) => persistCompleteGeneratedWorkoutSessionLifecycle(userId, id, options),
+    { ...options, completionStatus: options?.completionStatus ?? 'completed' },
+  );
+}
+
+export async function loadActiveGeneratedWorkoutSession(
+  userId: string,
+  options?: WorkoutProgrammingServiceOptions & ActiveGeneratedWorkoutSessionListOptions,
+): Promise<GeneratedWorkoutSessionLifecycle | null> {
+  return persistLoadActiveGeneratedWorkoutSession(userId, options);
+}
+
+export async function listActiveGeneratedWorkoutSessions(
+  userId: string,
+  options?: WorkoutProgrammingServiceOptions & ActiveGeneratedWorkoutSessionListOptions,
+): Promise<GeneratedWorkoutSessionLifecycle[]> {
+  return persistListActiveGeneratedWorkoutSessions(userId, options);
+}
+
 export async function generateGeneratedWorkoutSessionForUser(
   userId: string,
   request: WorkoutProgrammingUserRequest,
@@ -300,11 +504,15 @@ export async function generateGeneratedWorkoutSessionForUser(
   const generatedWorkoutId = shouldPersist
     ? await saveGeneratedWorkoutWithExercises(userId, workout, options)
     : null;
-  return {
+  const result: GeneratedWorkoutSessionResult = {
     workout,
     generatedWorkoutId,
     persisted: Boolean(generatedWorkoutId),
   };
+  const lifecycle = await markGeneratedWorkoutInspected(userId, generatedWorkoutId, options);
+  result.lifecycle = lifecycle;
+  if (lifecycle.fallbackMessage) result.lifecycleFallbackMessage = lifecycle.fallbackMessage;
+  return result;
 }
 
 export async function generatePreviewWorkout(
@@ -502,10 +710,37 @@ export async function completeGeneratedWorkoutSession(
   if (preferenceRows.length > 0) {
     await upsertExercisePreferences(userId, preferenceRows, options);
   }
-  return {
+  let lifecycle: GeneratedWorkoutLifecycleResult | undefined;
+  let lifecycleFallbackMessage: string | undefined;
+  try {
+    lifecycle = await completeGeneratedWorkoutSessionLifecycle(userId, input.generatedWorkoutId, {
+      ...options,
+      occurredAt: completionLog.completedAt,
+      completionStatus: input.completionStatus ?? 'completed',
+      notes: input.notes ?? null,
+    });
+    lifecycleFallbackMessage = lifecycle.fallbackMessage;
+  } catch (error) {
+    lifecycleFallbackMessage = error instanceof Error
+      ? error.message
+      : 'Generated workout completion lifecycle was not persisted.';
+    lifecycle = {
+      lifecycle: localGeneratedWorkoutLifecycle(userId, input.generatedWorkoutId, 'completed', {
+        occurredAt: completionLog.completedAt,
+        completionStatus: input.completionStatus ?? 'completed',
+        notes: input.notes ?? null,
+      }),
+      persisted: false,
+      fallbackMessage: lifecycleFallbackMessage,
+    };
+  }
+  const result: GeneratedWorkoutSessionCompletionResult = {
     ...completion,
     feedbackId,
   };
+  if (lifecycle) result.lifecycle = lifecycle;
+  if (lifecycleFallbackMessage) result.lifecycleFallbackMessage = lifecycleFallbackMessage;
+  return result;
 }
 
 export async function getNextProgression(
@@ -586,6 +821,14 @@ export async function loadGeneratedProgramForUser(
   options?: WorkoutProgrammingServiceOptions,
 ): Promise<GeneratedProgram | null> {
   return persistLoadGeneratedProgram(userId, userProgramId, options);
+}
+
+export async function loadGeneratedWorkoutForUser(
+  userId: string,
+  generatedWorkoutId: string,
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<GeneratedWorkout | null> {
+  return persistLoadGeneratedWorkout(userId, generatedWorkoutId, options);
 }
 
 export async function listGeneratedProgramsForUser(
@@ -675,6 +918,15 @@ export const workoutProgrammingService = {
   getWorkoutProgrammingCatalog,
   generateWorkoutForUser,
   generateGeneratedWorkoutSessionForUser,
+  markGeneratedWorkoutInspected,
+  startGeneratedWorkoutSession,
+  pauseGeneratedWorkoutSession,
+  resumeGeneratedWorkoutSession,
+  abandonGeneratedWorkoutSession,
+  stopGeneratedWorkoutSession,
+  completeGeneratedWorkoutSessionLifecycle,
+  loadActiveGeneratedWorkoutSession,
+  listActiveGeneratedWorkoutSessions,
   generatePreviewWorkout,
   generatePreviewWorkoutFromPerformanceState,
   generateWorkoutForUserFromPerformanceState,
@@ -684,6 +936,7 @@ export const workoutProgrammingService = {
   completeGeneratedWorkoutSession,
   getNextProgression,
   generateWeeklyProgramForUser,
+  loadGeneratedWorkoutForUser,
   saveGeneratedProgramForUser,
   loadGeneratedProgramForUser,
   listGeneratedProgramsForUser,

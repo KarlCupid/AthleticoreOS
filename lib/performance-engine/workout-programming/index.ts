@@ -17,6 +17,7 @@ export * from './analyticsEngine.ts';
 export * from './persistenceService.ts';
 export * from './workoutProgrammingServiceFixtures.ts';
 export type {
+  GeneratedWorkoutLifecycleResult,
   GeneratedWorkoutSessionCompletionInput,
   GeneratedWorkoutSessionCompletionResult,
   GeneratedWorkoutSessionExerciseCompletionInput,
