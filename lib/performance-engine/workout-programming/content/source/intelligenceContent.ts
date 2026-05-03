@@ -1,4 +1,5 @@
-import { applyDefaultContentReviewMetadataToIntelligence } from './contentReview.ts';
+import { applyDefaultContentReviewMetadataToIntelligence } from '../../contentReview.ts';
+import type { WorkoutIntelligenceCatalog } from '../../types.ts';
 import {
   coachingCueSets,
   commonMistakeSets,
@@ -9,8 +10,7 @@ import {
   safetyFlags,
   substitutionRules,
   validationRules,
-} from './content/intelligence/index.ts';
-import type { WorkoutIntelligenceCatalog } from './types.ts';
+} from '../intelligence/index.ts';
 
 export {
   coachingCueSets,
@@ -22,7 +22,7 @@ export {
   safetyFlags,
   substitutionRules,
   validationRules,
-};
+} from '../intelligence/index.ts';
 
 const baseWorkoutIntelligenceCatalog: WorkoutIntelligenceCatalog = {
   progressionRules,

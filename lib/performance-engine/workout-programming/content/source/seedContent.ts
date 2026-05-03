@@ -1,4 +1,5 @@
-import { applyDefaultContentReviewMetadataToCatalog } from './contentReview.ts';
+import { applyDefaultContentReviewMetadataToCatalog } from '../../contentReview.ts';
+import type { WorkoutProgrammingCatalog } from '../../types.ts';
 import {
   assessmentMetrics,
   equipmentTypes,
@@ -11,8 +12,7 @@ import {
   trainingGoals,
   workoutFormats,
   workoutTypes,
-} from './content/index.ts';
-import type { WorkoutProgrammingCatalog } from './types.ts';
+} from '../index.ts';
 
 export {
   assessmentMetrics,
@@ -26,7 +26,7 @@ export {
   trainingGoals,
   workoutFormats,
   workoutTypes,
-};
+} from '../index.ts';
 
 const baseWorkoutProgrammingCatalog: WorkoutProgrammingCatalog = {
   workoutTypes,

@@ -423,7 +423,12 @@ export interface WorkoutProgrammingCatalog {
 }
 
 export type RuntimeValidationRecordType =
+  | 'ContentPack'
   | 'WorkoutProgrammingCatalog'
+  | 'WorkoutIntelligenceCatalog'
+  | 'WorkoutTaxonomyItem'
+  | 'MuscleGroup'
+  | 'EquipmentType'
   | 'Exercise'
   | 'PrescriptionTemplate'
   | 'SessionTemplate'
@@ -432,6 +437,9 @@ export type RuntimeValidationRecordType =
   | 'DescriptionTemplate'
   | 'ValidationRule'
   | 'SubstitutionRule'
+  | 'WorkoutSafetyFlag'
+  | 'CoachingCueSet'
+  | 'CommonMistakeSet'
   | 'ProgressionRule'
   | 'RegressionRule'
   | 'DeloadRule'
