@@ -95,12 +95,14 @@ function MetaPill({ label }: { label: string }) {
 function CopySection({
   title,
   children,
+  testID,
 }: {
   title: string;
   children: React.ReactNode;
+  testID?: string;
 }) {
   return (
-    <View style={styles.copySection}>
+    <View testID={testID} style={styles.copySection}>
       <Text style={styles.sectionLabel}>{title}</Text>
       {children}
     </View>
@@ -137,95 +139,118 @@ export function GeneratedWorkoutPreviewCard({
     ...(workout.scalingOptions?.substitutions ?? []),
     workout.scalingOptions?.recoveryAlternative ?? null,
   ].filter((item): item is string => Boolean(item));
+  const validationMessages = Array.from(new Set([
+    ...(workout.validationWarnings ?? []),
+    ...(workout.validationErrors ?? []),
+    ...(workout.validation?.warnings ?? []),
+    ...(workout.validation?.errors ?? []),
+  ].filter((item): item is string => Boolean(item))));
 
   return (
-    <Card
-      title={title}
-      subtitle={subtitle}
-      subtitleLines={2}
-      backgroundTone="workoutFloor"
-      backgroundScrimColor="rgba(10, 10, 10, 0.74)"
-      style={styles.card}
-    >
-      <View style={styles.headerCopy}>
-        <View style={styles.metaRow}>
-          <MetaPill label={labelize(workout.workoutTypeId)} />
-          <MetaPill label={`${workout.estimatedDurationMinutes} min`} />
-          <MetaPill label={`${workout.blocks.length} blocks`} />
+    <View testID="generated-workout-preview-card">
+      <Card
+        title={title}
+        subtitle={subtitle}
+        subtitleLines={2}
+        backgroundTone="workoutFloor"
+        backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+        style={styles.card}
+      >
+        <View style={styles.headerCopy}>
+          <View style={styles.metaRow}>
+            <MetaPill label={labelize(workout.workoutTypeId)} />
+            <MetaPill label={`${workout.estimatedDurationMinutes} min`} />
+            <MetaPill label={`${workout.blocks.length} blocks`} />
+          </View>
+          <Text testID="generated-workout-preview-intent" style={styles.intent}>
+            {workout.sessionIntent ?? description?.sessionIntent ?? 'Train with intent.'}
+          </Text>
+          <Text style={styles.summary}>{workout.userFacingSummary ?? description?.plainLanguageSummary}</Text>
         </View>
-        <Text style={styles.intent}>{workout.sessionIntent ?? description?.sessionIntent ?? 'Train with intent.'}</Text>
-        <Text style={styles.summary}>{workout.userFacingSummary ?? description?.plainLanguageSummary}</Text>
-      </View>
 
-      {description?.effortExplanation ? (
-        <CopySection title="Effort">
-          <Text style={styles.bodyText}>{description.effortExplanation}</Text>
-        </CopySection>
-      ) : null}
+        {workout.blocked ? (
+          <CopySection title="Safety block" testID="generated-workout-preview-blocked">
+            <Text style={styles.bodyText}>This generated session is blocked. Use the safety notes and choose a safer review, recovery, or mobility path before training.</Text>
+            <BulletList items={workout.explanations} />
+          </CopySection>
+        ) : null}
 
-      <CopySection title="Blocks">
-        <View style={styles.blockStack}>
-          {workout.blocks.map((block) => (
-            <View key={block.id} style={styles.block}>
-              <View style={styles.blockHeader}>
-                <Text style={styles.blockTitle}>{block.title}</Text>
-                <Text style={styles.blockDuration}>{block.estimatedDurationMinutes} min</Text>
-              </View>
-              {block.exercises.map((exercise) => (
-                <View key={`${block.id}:${exercise.exerciseId}`} style={styles.exerciseRow}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  <Text style={styles.exercisePrescription}>{formatPrescription(exercise)}</Text>
-                  <Text style={styles.exerciseDetail}>{formatPayloadDetail(exercise.prescription.payload)}</Text>
-                  <Text style={styles.exerciseDetail}>Rest: {formatRestGuidance(exercise)}</Text>
-                  {exercise.scalingOptions ? (
-                    <Text style={styles.exerciseDetail}>
-                      Scale: {exercise.scalingOptions.down} / {exercise.scalingOptions.up}
-                    </Text>
-                  ) : null}
-                  {exercise.substitutions?.[0] ? (
-                    <Text style={styles.exerciseDetail}>
-                      Swap: {exercise.substitutions[0].name} - {exercise.substitutions[0].rationale}
-                    </Text>
-                  ) : null}
+        {description?.effortExplanation ? (
+          <CopySection title="Effort" testID="generated-workout-preview-effort">
+            <Text style={styles.bodyText}>{description.effortExplanation}</Text>
+          </CopySection>
+        ) : null}
+
+        <CopySection title="Blocks" testID="generated-workout-preview-blocks">
+          <View style={styles.blockStack}>
+            {workout.blocks.map((block) => (
+              <View key={block.id} style={styles.block}>
+                <View style={styles.blockHeader}>
+                  <Text style={styles.blockTitle}>{block.title}</Text>
+                  <Text style={styles.blockDuration}>{block.estimatedDurationMinutes} min</Text>
                 </View>
-              ))}
-            </View>
-          ))}
-        </View>
-      </CopySection>
-
-      <CopySection title="Safety">
-        <BulletList items={workout.safetyNotes ?? description?.safetyNotes ?? []} />
-      </CopySection>
-
-      <CopySection title="Scaling">
-        <BulletList items={scalingNotes} />
-      </CopySection>
-
-      <CopySection title="Substitutions">
-        <BulletList items={allSubstitutions.map((item) => `${item.name}: ${item.rationale}`)} />
-      </CopySection>
-
-      <CopySection title="Success criteria">
-        <BulletList items={workout.successCriteria} />
-      </CopySection>
-
-      <CopySection title="Tracking">
-        <View style={styles.tagRow}>
-          {(workout.trackingMetrics ?? workout.trackingMetricIds).map((metric) => (
-            <View key={metric} style={styles.metricTag}>
-              <Text style={styles.metricTagText}>{labelize(metric)}</Text>
-            </View>
-          ))}
-        </View>
-      </CopySection>
-
-      {description?.completionMessage ? (
-        <CopySection title="Completion">
-          <Text style={styles.bodyText}>{description.completionMessage}</Text>
+                {block.exercises.map((exercise) => (
+                  <View key={`${block.id}:${exercise.exerciseId}`} style={styles.exerciseRow}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <Text style={styles.exercisePrescription}>{formatPrescription(exercise)}</Text>
+                    <Text style={styles.exerciseDetail}>{formatPayloadDetail(exercise.prescription.payload)}</Text>
+                    <Text style={styles.exerciseDetail}>Rest: {formatRestGuidance(exercise)}</Text>
+                    {exercise.scalingOptions ? (
+                      <Text style={styles.exerciseDetail}>
+                        Scale: {exercise.scalingOptions.down} / {exercise.scalingOptions.up}
+                      </Text>
+                    ) : null}
+                    {exercise.substitutions?.[0] ? (
+                      <Text style={styles.exerciseDetail}>
+                        Swap: {exercise.substitutions[0].name} - {exercise.substitutions[0].rationale}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
         </CopySection>
-      ) : null}
-    </Card>
+
+        <CopySection title="Safety" testID="generated-workout-preview-safety">
+          <BulletList items={workout.safetyNotes ?? description?.safetyNotes ?? []} />
+        </CopySection>
+
+        <CopySection title="Scaling" testID="generated-workout-preview-scaling">
+          <BulletList items={scalingNotes} />
+        </CopySection>
+
+        <CopySection title="Substitutions" testID="generated-workout-preview-substitutions">
+          <BulletList items={allSubstitutions.map((item) => `${item.name}: ${item.rationale}`)} />
+        </CopySection>
+
+        <CopySection title="Success criteria" testID="generated-workout-preview-success">
+          <BulletList items={workout.successCriteria} />
+        </CopySection>
+
+        {validationMessages.length > 0 ? (
+          <CopySection title="Validation" testID="generated-workout-preview-validation">
+            <BulletList items={validationMessages} />
+          </CopySection>
+        ) : null}
+
+        <CopySection title="Tracking" testID="generated-workout-preview-tracking">
+          <View style={styles.tagRow}>
+            {(workout.trackingMetrics ?? workout.trackingMetricIds).map((metric) => (
+              <View key={metric} style={styles.metricTag}>
+                <Text style={styles.metricTagText}>{labelize(metric)}</Text>
+              </View>
+            ))}
+          </View>
+        </CopySection>
+
+        {description?.completionMessage ? (
+          <CopySection title="Completion" testID="generated-workout-preview-completion">
+            <Text style={styles.bodyText}>{description.completionMessage}</Text>
+          </CopySection>
+        ) : null}
+      </Card>
+    </View>
   );
 }
 
@@ -274,7 +299,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0,
   },
   bodyText: {
     color: COLORS.text.secondary,

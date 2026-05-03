@@ -51,6 +51,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 - [Models and Content](./models-and-content.md)
 - [Engine Behavior](./engine-behavior.md)
 - [How-To Workflows](./how-to.md)
+- [Generated Workout UI Smoke Checklist](./ui-smoke-checklist.md)
 - [Testing, Limitations, and Roadmap](./testing-limitations-roadmap.md)
 
 ## Quick Start: Generate a Workout

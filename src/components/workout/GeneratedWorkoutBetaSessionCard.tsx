@@ -324,7 +324,7 @@ export function GeneratedWorkoutBetaSessionCard({
   }
 
   return (
-    <View style={styles.stack}>
+    <View testID="generated-workout-beta-card" style={styles.stack}>
       <Card
         title="Generated workout beta"
         subtitle={userAuthenticated ? 'Generate, run, complete, and progress.' : 'Local beta mode; sign in to persist.'}
@@ -372,18 +372,24 @@ export function GeneratedWorkoutBetaSessionCard({
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <View style={styles.actionRow}>
-          <Pressable accessibilityRole="button" style={[styles.primaryButton, loading && styles.disabledButton]} disabled={loading || completing} onPress={submitGenerate}>
+          <Pressable
+            testID="generated-workout-beta-generate"
+            accessibilityRole="button"
+            style={[styles.primaryButton, loading && styles.disabledButton]}
+            disabled={loading || completing}
+            onPress={submitGenerate}
+          >
             <Text style={styles.primaryButtonText}>{loading ? 'Generating...' : workout ? 'Regenerate' : 'Generate Workout'}</Text>
           </Pressable>
           {workout ? (
-            <Pressable accessibilityRole="button" style={styles.secondaryButton} disabled={loading || completing} onPress={onReset}>
+            <Pressable testID="generated-workout-beta-clear" accessibilityRole="button" style={styles.secondaryButton} disabled={loading || completing} onPress={onReset}>
               <Text style={styles.secondaryButtonText}>Clear</Text>
             </Pressable>
           ) : null}
         </View>
 
         {workout ? (
-          <View style={styles.statusPanel}>
+          <View testID="generated-workout-beta-status" style={styles.statusPanel}>
             <Text style={styles.statusText}>{persisted ? `Saved as ${generatedWorkoutId}` : 'Not persisted; using in-memory beta mode.'}</Text>
             <Text style={styles.statusText}>Validation: {workout.validation?.isValid ? 'passed' : 'review warnings available'}</Text>
           </View>
@@ -408,7 +414,7 @@ export function GeneratedWorkoutBetaSessionCard({
           style={styles.card}
         >
           {stage === 'inspect' ? (
-            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={onStart}>
+            <Pressable testID="generated-workout-beta-start" accessibilityRole="button" style={styles.primaryButton} onPress={onStart}>
               <Text style={styles.primaryButtonText}>Start Workout</Text>
             </Pressable>
           ) : null}
@@ -416,7 +422,7 @@ export function GeneratedWorkoutBetaSessionCard({
           {startedAt ? <Text style={styles.statusText}>Started {new Date(startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text> : null}
 
           {stage === 'started' || stage === 'completed' ? (
-            <View style={styles.section}>
+            <View testID="generated-workout-beta-checklist" style={styles.section}>
               <Text style={styles.sectionLabel}>Exercise checklist</Text>
               <View style={styles.exerciseStack}>
                 {allExercises.map((exercise) => {
@@ -516,13 +522,14 @@ export function GeneratedWorkoutBetaSessionCard({
               <Stepper label="Rating" value={rating} min={1} max={5} onChange={setRating} />
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Feedback</Text>
-                <View style={styles.chipRow}>
+                <View testID="generated-workout-beta-feedback" style={styles.chipRow}>
                   {FEEDBACK_TAGS.map((tag) => (
                     <ToggleChip key={tag} label={labelize(tag)} selected={feedbackTags.includes(tag)} onPress={() => toggleListValue(tag, feedbackTags, setFeedbackTags)} />
                   ))}
                 </View>
               </View>
               <TextInput
+                testID="generated-workout-beta-notes"
                 accessibilityLabel="Workout notes"
                 style={styles.notesInput}
                 value={notes}
@@ -531,14 +538,20 @@ export function GeneratedWorkoutBetaSessionCard({
                 placeholderTextColor={COLORS.text.tertiary}
                 multiline
               />
-              <Pressable accessibilityRole="button" style={[styles.primaryButton, completing && styles.disabledButton]} disabled={completing} onPress={submitComplete}>
+              <Pressable
+                testID="generated-workout-beta-complete"
+                accessibilityRole="button"
+                style={[styles.primaryButton, completing && styles.disabledButton]}
+                disabled={completing}
+                onPress={submitComplete}
+              >
                 <Text style={styles.primaryButtonText}>{completing ? 'Completing...' : 'Complete Workout'}</Text>
               </Pressable>
             </>
           ) : null}
 
           {stage === 'completed' && progressionDecision ? (
-            <View style={styles.progressionPanel}>
+            <View testID="generated-workout-beta-next-progression" style={styles.progressionPanel}>
               <Text style={styles.sectionLabel}>Next progression</Text>
               <Text style={styles.progressionTitle}>{labelize(progressionDecision.direction)}</Text>
               <Text style={styles.progressionBody}>{progressionDecision.userMessage ?? progressionDecision.reason}</Text>

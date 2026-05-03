@@ -512,7 +512,7 @@ export function WorkoutScreen() {
               </Animated.View>
             ) : null}
             {!initialLoadError && WORKOUT_PROGRAMMING_BETA_ENABLED ? (
-              <Animated.View entering={FadeInDown.delay(70).duration(280).springify()}>
+              <Animated.View testID="generated-workout-beta-section" entering={FadeInDown.delay(70).duration(280).springify()}>
                 <GeneratedWorkoutBetaSessionCard
                   userAuthenticated={Boolean(userId)}
                   stage={generatedWorkoutBetaStage}
@@ -533,7 +533,7 @@ export function WorkoutScreen() {
               </Animated.View>
             ) : null}
             {!initialLoadError && WORKOUT_PROGRAMMING_PREVIEW_ENABLED ? (
-              <Animated.View entering={FadeInDown.delay(70).duration(280).springify()}>
+              <Animated.View testID="generated-workout-preview-section" entering={FadeInDown.delay(70).duration(280).springify()}>
                 {generatedWorkoutPreviewLoading && !generatedWorkoutPreview ? (
                   <StateCard
                     title="Generating programming preview"
