@@ -43,6 +43,7 @@ export interface WorkoutProgrammingPersistenceOptions {
   client?: WorkoutProgrammingSupabaseClient;
   useSupabase?: boolean;
   catalogFallback?: 'safe' | 'always' | 'never';
+  allowClientWriteFallback?: boolean;
 }
 
 export type WorkoutProgrammingPersistenceErrorCode =
@@ -221,14 +222,17 @@ function toPersistenceError(error: unknown, context: string, tableName?: string)
   if (status === 401 || status === 403 || code === '42501' || code === 'PGRST301') {
     return new UnauthorizedError(`${context}: unauthorized access to workout-programming data.`, details);
   }
-  if (status === 404 || code === 'PGRST116') {
+  if (status === 404 || code === 'PGRST116' || code === 'P0002') {
     return new NotFoundError(`${context}: record not found.`, details);
   }
   if (status === 409 || code === '23505') {
     return new ConflictError(`${context}: conflicting workout-programming row.`, details);
   }
-  if (code === '23503' || code === '23514' || code === '22P02') {
+  if (code === '23502' || code === '23503' || code === '23514' || code === '22007' || code === '22023' || code === '22P02') {
     return new ValidationError(`${context}: invalid persistence payload. ${message}`, details);
+  }
+  if (code === 'PGRST202' || /function.*not found|could not find.*function|schema cache/i.test(message)) {
+    return new DatabaseUnavailableError(`${context}: atomic persistence RPC is unavailable. Apply the latest workout-programming migrations. ${message}`, details);
   }
   if ((status != null && status >= 500) || /network|fetch|timeout|unavailable|ECONN|ENOTFOUND/i.test(message)) {
     return new DatabaseUnavailableError(`${context}: database unavailable. ${message}`, details);
@@ -245,6 +249,45 @@ async function resolveClient(options?: WorkoutProgrammingPersistenceOptions): Pr
   if (options?.client) return options.client;
   if (options?.useSupabase) return getDefaultClient();
   return null;
+}
+
+function hasRpc(client: WorkoutProgrammingSupabaseClient): client is WorkoutProgrammingSupabaseClient & { rpc: (functionName: string, args: Record<string, unknown>) => unknown } {
+  return typeof client.rpc === 'function';
+}
+
+function allowClientWriteFallback(options?: WorkoutProgrammingPersistenceOptions): boolean {
+  if (options?.allowClientWriteFallback) return true;
+  if (process.env.WORKOUT_PROGRAMMING_ALLOW_CLIENT_WRITE_FALLBACK === '1') return true;
+  return process.env.NODE_ENV !== 'production';
+}
+
+function assertClientWriteFallbackAllowed(options: WorkoutProgrammingPersistenceOptions | undefined, context: string): void {
+  if (allowClientWriteFallback(options)) return;
+  throw new DatabaseUnavailableError(
+    `${context}: atomic workout-programming RPC is unavailable and client-orchestrated parent/child writes are disabled in production.`,
+    { context, recoverable: false },
+  );
+}
+
+async function rpcReturningId(
+  client: WorkoutProgrammingSupabaseClient & { rpc: (functionName: string, args: Record<string, unknown>) => unknown },
+  functionName: string,
+  args: Record<string, unknown>,
+  context: string,
+): Promise<string> {
+  const result = await asPromise<unknown>(client.rpc(functionName, args));
+  ensureNoError(result, context, functionName);
+  const data = result.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  if (isRecord(data)) {
+    const id = rowString(data, 'id')
+      || rowString(data, `${functionName}_id`)
+      || rowString(data, 'generated_workout_id')
+      || rowString(data, 'workout_completion_id')
+      || rowString(data, 'user_program_id');
+    if (id) return id;
+  }
+  throw new WorkoutProgrammingPersistenceError(`${context}: atomic persistence RPC did not return an id.`, { context, table: functionName });
 }
 
 function ensureNoError(result: { error: unknown | null }, context: string, tableName?: string): void {
@@ -945,17 +988,13 @@ function generatedWorkoutExerciseRows(generatedWorkoutId: string, workout: Gener
   return rows;
 }
 
-export async function saveGeneratedWorkoutWithExercises(
+async function saveGeneratedWorkoutWithExercisesDirect(
   userId: string,
   workout: GeneratedWorkout,
+  client: WorkoutProgrammingSupabaseClient,
+  context: string,
   options?: GeneratedWorkoutPersistenceOptions,
 ): Promise<string | null> {
-  const context = 'Failed to save generated workout';
-  assertUserId(userId, context);
-  validateGeneratedWorkoutForPersistence(workout, 'Generated workout persistence payload');
-  const client = await resolveClient(options);
-  if (!client) return null;
-
   const existingId = options?.generatedWorkoutId ?? null;
   let generatedWorkoutId = existingId;
   let parentCreated = false;
@@ -977,6 +1016,34 @@ export async function saveGeneratedWorkoutWithExercises(
       ? 'Generated workout child persistence failed and parent rollback was attempted'
       : 'Generated workout persistence failed', parentCreated ? 'generated_workout_exercises' : 'generated_workouts');
   }
+}
+
+export async function saveGeneratedWorkoutWithExercises(
+  userId: string,
+  workout: GeneratedWorkout,
+  options?: GeneratedWorkoutPersistenceOptions,
+): Promise<string | null> {
+  const context = 'Failed to save generated workout';
+  assertUserId(userId, context);
+  validateGeneratedWorkoutForPersistence(workout, 'Generated workout persistence payload');
+  const client = await resolveClient(options);
+  if (!client) return null;
+
+  if (hasRpc(client)) {
+    const generatedWorkoutId = await rpcReturningId(client, 'save_generated_workout_with_exercises', {
+      p_user_id: userId,
+      p_generated_workout_id: options?.generatedWorkoutId ?? null,
+      p_workout: generatedWorkoutPayload(userId, workout),
+      p_exercises: generatedWorkoutExerciseRows(options?.generatedWorkoutId ?? '00000000-0000-0000-0000-000000000000', workout),
+    }, context);
+    const loaded = await loadGeneratedWorkout(userId, generatedWorkoutId, { ...options, client });
+    if (!loaded) throw new NotFoundError(`${context}: generated workout ${generatedWorkoutId} was not readable after RPC persistence.`, { context, table: 'generated_workouts' });
+    validateGeneratedWorkoutForPersistence(loaded, 'Persisted generated workout payload');
+    return generatedWorkoutId;
+  }
+
+  assertClientWriteFallbackAllowed(options, context);
+  return saveGeneratedWorkoutWithExercisesDirect(userId, workout, client, context, options);
 }
 
 export async function saveGeneratedWorkout(
@@ -1082,6 +1149,31 @@ function exerciseCompletionPayload(workoutCompletionId: string, result: Exercise
   };
 }
 
+async function loadWorkoutCompletionById(
+  userId: string,
+  workoutCompletionId: string,
+  client: WorkoutProgrammingSupabaseClient,
+  context: string,
+  fallbackWorkoutId?: string,
+): Promise<WorkoutCompletionLog> {
+  let query = requireBuilder(table(client, 'workout_completions').select?.('*'), context, 'workout_completions', 'select');
+  query = requireBuilder(query.eq?.('id', workoutCompletionId), context, 'workout_completions', 'filter');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'workout_completions', 'filter');
+  const row = await selectMaybeSingleRow('workout_completions', query, context);
+  if (!row) throw new NotFoundError(`${context}: workout completion ${workoutCompletionId} was not readable after persistence.`, { context, table: 'workout_completions' });
+
+  let childQuery = requireBuilder(table(client, 'exercise_completion_results').select?.('*'), context, 'exercise_completion_results', 'select');
+  childQuery = requireBuilder(childQuery.eq?.('workout_completion_id', workoutCompletionId), context, 'exercise_completion_results', 'filter');
+  const childResult = await asPromise<Record<string, unknown>[]>(childQuery);
+  ensureNoError(childResult, context, 'exercise_completion_results');
+  const completion = {
+    ...completionFromRow(row, (childResult.data ?? []).map(exerciseCompletionFromRow)),
+    workoutId: rowString(row, 'generated_workout_id') || fallbackWorkoutId || '',
+  };
+  validateCompletionLog(completion, 'Persisted workout completion payload');
+  return completion;
+}
+
 export async function logWorkoutCompletion(
   userId: string,
   completion: WorkoutCompletionLog,
@@ -1090,16 +1182,13 @@ export async function logWorkoutCompletion(
   return logWorkoutCompletionWithExerciseResults(userId, completion, options);
 }
 
-export async function logWorkoutCompletionWithExerciseResults(
+async function logWorkoutCompletionWithExerciseResultsDirect(
   userId: string,
   completion: WorkoutCompletionLog,
+  client: WorkoutProgrammingSupabaseClient,
+  context: string,
   options?: WorkoutCompletionPersistenceOptions,
 ): Promise<string | null> {
-  const context = 'Failed to log workout completion';
-  assertUserId(userId, context);
-  validateCompletionLog(completion, 'Workout completion persistence payload');
-  const client = await resolveClient(options);
-  if (!client) return null;
   let workoutCompletionId: string | null = null;
   try {
     workoutCompletionId = await insertReturningId(client, 'workout_completions', completionPayload(userId, completion, options?.generatedWorkoutId), context);
@@ -1114,6 +1203,32 @@ export async function logWorkoutCompletionWithExerciseResults(
     if (workoutCompletionId) await bestEffortDeleteById(client, 'workout_completions', workoutCompletionId);
     throw toPersistenceError(error, 'Workout completion persistence failed and parent rollback was attempted', workoutCompletionId ? 'exercise_completion_results' : 'workout_completions');
   }
+}
+
+export async function logWorkoutCompletionWithExerciseResults(
+  userId: string,
+  completion: WorkoutCompletionLog,
+  options?: WorkoutCompletionPersistenceOptions,
+): Promise<string | null> {
+  const context = 'Failed to log workout completion';
+  assertUserId(userId, context);
+  validateCompletionLog(completion, 'Workout completion persistence payload');
+  const client = await resolveClient(options);
+  if (!client) return null;
+
+  if (hasRpc(client)) {
+    const workoutCompletionId = await rpcReturningId(client, 'log_workout_completion_with_results', {
+      p_user_id: userId,
+      p_generated_workout_id: options?.generatedWorkoutId ?? null,
+      p_completion: completionPayload(userId, completion, options?.generatedWorkoutId),
+      p_results: completion.exerciseResults.map((result) => exerciseCompletionPayload('00000000-0000-0000-0000-000000000000', result)),
+    }, context);
+    await loadWorkoutCompletionById(userId, workoutCompletionId, client, context, completion.workoutId);
+    return workoutCompletionId;
+  }
+
+  assertClientWriteFallbackAllowed(options, context);
+  return logWorkoutCompletionWithExerciseResultsDirect(userId, completion, client, context, options);
 }
 
 function dbProgressionDirection(decision: ProgressionDecision): 'progress' | 'repeat' | 'regress' | 'recover' {
@@ -1490,6 +1605,24 @@ export async function loadRecentExerciseResults(
   return completions.flatMap((completion) => completion.exerciseResults);
 }
 
+async function saveGeneratedProgramDirect(
+  userId: string,
+  preparedProgram: GeneratedProgram,
+  existingId: string | null,
+  client: WorkoutProgrammingSupabaseClient,
+  context: string,
+): Promise<string | null> {
+  if (existingId) {
+    await upsertRows(client, 'user_programs', [programRowPayload(userId, preparedProgram, existingId)], context, 'id');
+    return existingId;
+  }
+  const id = await insertReturningId(client, 'user_programs', programRowPayload(userId, preparedProgram), context);
+  const persistedProgram = programPayloadWithPersistence(preparedProgram, id);
+  validateGeneratedProgram(persistedProgram, 'Persisted generated program payload');
+  await upsertRows(client, 'user_programs', [programRowPayload(userId, persistedProgram, id)], `${context}: attach persistence ids`, 'id');
+  return id;
+}
+
 export async function saveGeneratedProgram(
   userId: string,
   program: GeneratedProgram,
@@ -1506,15 +1639,21 @@ export async function saveGeneratedProgram(
   validateGeneratedProgram(preparedProgram, 'Generated program persistence payload');
   const client = await resolveClient(options);
   if (!client) return null;
-  if (existingId) {
-    await upsertRows(client, 'user_programs', [programRowPayload(userId, preparedProgram, existingId)], context, 'id');
-    return existingId;
+
+  if (hasRpc(client)) {
+    const userProgramId = await rpcReturningId(client, 'save_generated_program_with_sessions', {
+      p_user_id: userId,
+      p_user_program_id: existingId,
+      p_program: preparedProgram,
+    }, context);
+    const loaded = await loadGeneratedProgram(userId, userProgramId, { ...options, client });
+    if (!loaded) throw new NotFoundError(`${context}: program ${userProgramId} was not readable after RPC persistence.`, { context, table: 'user_programs' });
+    validateGeneratedProgram(loaded, 'Persisted generated program payload');
+    return userProgramId;
   }
-  const id = await insertReturningId(client, 'user_programs', programRowPayload(userId, preparedProgram), context);
-  const persistedProgram = programPayloadWithPersistence(preparedProgram, id);
-  validateGeneratedProgram(persistedProgram, 'Persisted generated program payload');
-  await upsertRows(client, 'user_programs', [programRowPayload(userId, persistedProgram, id)], `${context}: attach persistence ids`, 'id');
-  return id;
+
+  assertClientWriteFallbackAllowed(options, context);
+  return saveGeneratedProgramDirect(userId, preparedProgram, existingId, client, context);
 }
 
 export async function loadGeneratedProgram(
@@ -1618,11 +1757,35 @@ export async function markProgramSessionCompleted(
   completion: { completedAt?: string; workoutCompletionId?: string | null } = {},
   options?: WorkoutProgrammingPersistenceOptions,
 ): Promise<GeneratedProgram> {
-  return updateProgramSession(userId, userProgramId, sessionId, {
+  const context = 'Failed to complete generated program session';
+  assertUserId(userId, context);
+  const program = await loadGeneratedProgram(userId, userProgramId, options);
+  if (!program) throw new NotFoundError(`${context}: program ${userProgramId} was not found.`, { context, table: 'user_programs' });
+  const updatedProgram = programPayloadWithPersistence(updateProgramSessionInMemory(program, sessionId, {
     status: 'completed',
     completedAt: completion.completedAt ?? new Date().toISOString(),
     workoutCompletionId: completion.workoutCompletionId ?? null,
-  }, options);
+  }), userProgramId);
+  validateGeneratedProgram(updatedProgram, 'Completed generated program payload');
+  const client = await resolveClient(options);
+  if (!client) return updatedProgram;
+
+  if (hasRpc(client)) {
+    const persistedId = await rpcReturningId(client, 'complete_program_session', {
+      p_user_id: userId,
+      p_user_program_id: userProgramId,
+      p_session_id: sessionId,
+      p_program: updatedProgram,
+    }, context);
+    const loaded = await loadGeneratedProgram(userId, persistedId, { ...options, client });
+    if (!loaded) throw new NotFoundError(`${context}: program ${persistedId} was not readable after RPC persistence.`, { context, table: 'user_programs' });
+    validateGeneratedProgram(loaded, 'Persisted completed program payload');
+    return loaded;
+  }
+
+  assertClientWriteFallbackAllowed(options, context);
+  await saveGeneratedProgramDirect(userId, updatedProgram, userProgramId, client, context);
+  return updatedProgram;
 }
 
 export async function archiveProgram(

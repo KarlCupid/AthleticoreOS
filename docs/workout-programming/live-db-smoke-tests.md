@@ -6,6 +6,8 @@
 
 These tests are intentionally guarded. They create two temporary auth users, insert temporary static catalog fixtures, persist generated workouts/completions/programs through the service layer, verify user isolation through RLS, and then clean up the rows and users.
 
+Generated workout, workout completion, generated program, and program-session completion writes use the transactional Postgres RPC path when the target database has the atomic workout-programming functions installed. A missing RPC is treated as a migration/configuration failure for live smoke testing rather than silently falling back to client-orchestrated parent/child writes.
+
 ## What It Covers
 
 - Static catalog table read through the anon key.
@@ -15,7 +17,7 @@ These tests are intentionally guarded. They create two temporary auth users, ins
 - Workout completion and exercise result persistence.
 - Progression decision persistence.
 - Recommendation feedback persistence.
-- Generated program save/load.
+- Generated program save/load and program-session completion lifecycle persistence.
 - Invalid generated workout payload rejection before DB writes.
 - RLS isolation for generated workouts, child exercise rows, completions, child completion rows, progression decisions, feedback, and programs.
 
@@ -118,6 +120,7 @@ npm run test:rls
 - The test creates only test-specific rows with unique IDs.
 - Cleanup runs in a `finally` block.
 - User-scoped writes go through signed-in anon clients.
+- Critical parent/child writes are expected to go through authenticated transactional RPCs.
 - Service role is used only for auth user creation, static fixture setup, verification, and cleanup.
 - The command is not part of `npm run quality` because it requires a live DB.
 - Remote runs require both the script-specific remote override and `WORKOUT_SUPABASE_NON_PRODUCTION=1`.

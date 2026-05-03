@@ -34,7 +34,7 @@ npm run workout:release-gate
 
 - `workoutProgrammingEngine.test.ts`: catalog, seed loader, generator, prescription, validation, descriptions.
 - `workoutProgrammingRemainingPhases.test.ts`: rules, substitutions, personalization, progression, program builder, analytics.
-- `workoutProgrammingPersistence.test.ts`: persistence service user scoping and insert payloads.
+- `workoutProgrammingPersistence.test.ts`: persistence service user scoping, atomic RPC coverage, guarded fallback behavior, and insert payloads.
 - `workoutProgrammingService.test.ts`: high-level app-facing service output shape.
 - `workoutProgrammingQA.test.ts`: deep scenario QA and edge cases.
 - `workoutProgrammingUiSmoke.test.ts`: feature-flag and fixture smoke coverage for generated workout preview and beta flow.
@@ -95,7 +95,7 @@ Tests should fail for:
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
 - Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they now run through the manual GitHub release-gate job or `npm run workout:release-gate`.
 - Generated workout persistence and beta start/log UI are wired behind feature flags, with component-level React Native render coverage now in place; broad rollout still needs device/E2E coverage.
-- Program persistence has save/load/update/archive helpers, but it is not yet a polished calendar-driven production workflow.
+- Program persistence has atomic save/load/update/archive/session-completion helpers, but it is not yet a polished calendar-driven production workflow.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
 - Balance and older-adult concepts are represented through current goals/safety flags, not a dedicated older-adult product surface.
 - The generator is deterministic enough for tests but not yet tuned with real-world recommendation quality data.

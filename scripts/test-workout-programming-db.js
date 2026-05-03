@@ -79,6 +79,7 @@ const {
   loadUserProgram,
   loadUserWorkoutProfile,
   logWorkoutCompletionWithExerciseResults,
+  markProgramSessionCompleted,
   saveGeneratedProgram,
   saveGeneratedWorkoutWithExercises,
   saveProgressionDecision,
@@ -622,6 +623,15 @@ async function runForUser(user, ownerLabel) {
   assert(`${ownerLabel} generated program save returns id`, typeof programId === 'string' && programId.length > 0);
   const loadedProgram = await loadUserProgram(user.id, programId, { client: user.client });
   assert(`${ownerLabel} generated program load returns persisted payload`, loadedProgram && loadedProgram.persistenceId === programId && loadedProgram.sessions.length === 1);
+  const completedProgram = await markProgramSessionCompleted(user.id, programId, program.sessions[0].id, {
+    completedAt: new Date().toISOString(),
+    workoutCompletionId: completionId,
+  }, { client: user.client });
+  assert(`${ownerLabel} program session completion persists lifecycle state`, completedProgram.sessions.some((session) => (
+    session.id === program.sessions[0].id
+    && session.status === 'completed'
+    && session.workoutCompletionId === completionId
+  )));
 
   return {
     workout,

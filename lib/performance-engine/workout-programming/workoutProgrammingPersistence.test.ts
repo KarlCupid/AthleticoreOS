@@ -18,6 +18,7 @@ import {
   logWorkoutCompletion,
   logWorkoutCompletionWithExerciseResults,
   markProgramSessionCompleted,
+  DatabaseUnavailableError,
   NotFoundError,
   rescheduleProgramSession,
   saveGeneratedProgram,
@@ -36,7 +37,7 @@ import {
   WorkoutProgrammingPersistenceError,
   workoutProgrammingCatalog,
 } from './index.ts';
-import type { GeneratedProgram, GeneratedWorkout, WorkoutCompletionLog } from './index.ts';
+import type { GeneratedProgram, GeneratedWorkout, WorkoutCompletionLog, WorkoutProgrammingSupabaseClient } from './index.ts';
 
 let passed = 0;
 let failed = 0;
@@ -62,6 +63,8 @@ interface MockSupabaseConfig {
   selectErrors?: Record<string, unknown>;
   upsertErrors?: Record<string, unknown>;
   deleteErrors?: Record<string, unknown>;
+  enableRpc?: boolean;
+  rpcErrors?: Record<string, unknown>;
 }
 
 function createMockSupabase(config: MockSupabaseConfig = {}) {
@@ -123,7 +126,88 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
     return nextRows;
   }
 
-  const client = {
+  function programPayloadWithIds(program: GeneratedProgram, userProgramId: string): GeneratedProgram {
+    const sessions = program.sessions.map((session) => ({
+      ...session,
+      persistenceId: session.persistenceId ?? `${userProgramId}:${session.id}`,
+      userProgramId,
+    }));
+    const sessionById = new Map(sessions.map((session) => [session.id, session]));
+    return {
+      ...program,
+      persistenceId: userProgramId,
+      sessions,
+      weeks: program.weeks.map((week) => ({
+        ...week,
+        sessions: week.sessions.map((session) => sessionById.get(session.id) ?? session),
+      })),
+    };
+  }
+
+  function applyRpc(functionName: string, args: Record<string, unknown>) {
+    const error = config.rpcErrors?.[functionName] ?? null;
+    if (error) return { data: null, error };
+
+    if (functionName === 'save_generated_workout_with_exercises') {
+      const workoutId = (args.p_generated_workout_id as string | null | undefined) ?? nextId('generated_workouts');
+      const parentRow = { ...(args.p_workout as Record<string, unknown>), id: workoutId };
+      rows.generated_workouts = rows.generated_workouts.filter((row) => row.id !== workoutId);
+      rows.generated_workouts.push(parentRow);
+      rows.generated_workout_exercises = rows.generated_workout_exercises.filter((row) => row.generated_workout_id !== workoutId);
+      const exerciseRows = ((args.p_exercises as Record<string, unknown>[] | undefined) ?? []).map((row) => ({
+        ...row,
+        generated_workout_id: workoutId,
+        id: nextId('generated_workout_exercises'),
+      }));
+      rows.generated_workout_exercises.push(...exerciseRows);
+      return { data: workoutId, error: null };
+    }
+
+    if (functionName === 'log_workout_completion_with_results') {
+      const completionId = nextId('workout_completions');
+      rows.workout_completions.push({ ...(args.p_completion as Record<string, unknown>), id: completionId });
+      const resultRows = ((args.p_results as Record<string, unknown>[] | undefined) ?? []).map((row) => ({
+        ...row,
+        workout_completion_id: completionId,
+        id: nextId('exercise_completion_results'),
+      }));
+      rows.exercise_completion_results.push(...resultRows);
+      return { data: completionId, error: null };
+    }
+
+    if (functionName === 'save_generated_program_with_sessions') {
+      const existingId = args.p_user_program_id as string | null | undefined;
+      const userProgramId = existingId ?? nextId('user_programs');
+      const payload = programPayloadWithIds(args.p_program as GeneratedProgram, userProgramId);
+      applyUpsert('user_programs', {
+        id: userProgramId,
+        user_id: args.p_user_id,
+        goal_id: payload.goalId,
+        status: payload.status ?? 'active',
+        started_at: payload.startedAt ?? payload.scheduleStartDate,
+        payload,
+      }, [{}, { onConflict: 'id' }]);
+      return { data: userProgramId, error: null };
+    }
+
+    if (functionName === 'complete_program_session') {
+      const userProgramId = args.p_user_program_id as string;
+      const payload = programPayloadWithIds(args.p_program as GeneratedProgram, userProgramId);
+      applyUpsert('user_programs', {
+        id: userProgramId,
+        user_id: args.p_user_id,
+        goal_id: payload.goalId,
+        status: payload.status ?? 'active',
+        started_at: payload.startedAt ?? payload.scheduleStartDate,
+        payload,
+      }, [{}, { onConflict: 'id' }]);
+      return { data: userProgramId, error: null };
+    }
+
+    return { data: null, error: { message: `Unknown mock RPC ${functionName}`, code: 'PGRST202' } };
+  }
+
+  const client: WorkoutProgrammingSupabaseClient = {
     from(table: string) {
       const state: {
         operation: 'select' | 'insert' | 'upsert' | 'delete';
@@ -213,6 +297,14 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
       return builder;
     },
   };
+  if (config.enableRpc || config.rpcErrors) {
+    client.rpc = (...rpcArgs: unknown[]) => {
+      const functionName = rpcArgs[0] as string;
+      const args = (rpcArgs[1] ?? {}) as Record<string, unknown>;
+      calls.push({ table: 'rpc', method: functionName, args: [args] });
+      return Promise.resolve(applyRpc(functionName, args));
+    };
+  }
   return { client, calls, rows };
 }
 
@@ -285,6 +377,21 @@ async function run() {
   }
 
   {
+    const { client, calls, rows } = createMockSupabase({ enableRpc: true });
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    const id = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    const rpcCall = calls.find((call) => call.table === 'rpc' && call.method === 'save_generated_workout_with_exercises');
+    assert('generated workout persistence prefers atomic RPC when available', id === 'generated_workouts-id' && Boolean(rpcCall));
+    assert('generated workout RPC stores parent and child rows together', rows.generated_workouts.length === 1 && rows.generated_workout_exercises.length > 0);
+    assert('generated workout RPC path avoids client-orchestrated inserts', !calls.some((call) => call.table === 'generated_workouts' && call.method === 'insert'));
+  }
+
+  {
     const { client } = createMockSupabase();
     const workout = generateSingleSessionWorkout({
       goalId: 'beginner_strength',
@@ -324,6 +431,29 @@ async function run() {
   }
 
   {
+    const { client, calls, rows } = createMockSupabase({
+      enableRpc: true,
+      rpcErrors: {
+        save_generated_workout_with_exercises: { message: 'permission denied for RPC', code: '42501' },
+      },
+    });
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    let rpcError = false;
+    try {
+      await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
+    } catch (error) {
+      rpcError = error instanceof UnauthorizedError && error.table === 'save_generated_workout_with_exercises';
+    }
+    assert('generated workout RPC failure preserves structured error', rpcError);
+    assert('generated workout RPC failure does not fall through to direct parent/child writes', rows.generated_workouts.length === 0 && !calls.some((call) => call.table === 'generated_workouts' && call.method === 'insert'));
+  }
+
+  {
     const { client, calls } = createMockSupabase();
     const workout = generateSingleSessionWorkout({
       goalId: 'beginner_strength',
@@ -339,6 +469,54 @@ async function run() {
       invalidRejected = error instanceof ValidationError;
     }
     assert('invalid generated workout payload cannot be saved', invalidRejected && !calls.some((call) => call.table === 'generated_workouts' && call.method === 'insert'));
+  }
+
+  {
+    const { client, calls } = createMockSupabase({ enableRpc: true });
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    const invalidWorkout: GeneratedWorkout = { ...workout, schemaVersion: 'broken' as never };
+    let invalidRejected = false;
+    try {
+      await saveGeneratedWorkoutWithExercises('user-1', invalidWorkout, { client });
+    } catch (error) {
+      invalidRejected = error instanceof ValidationError;
+    }
+    assert('invalid generated workout payload is rejected before RPC', invalidRejected && !calls.some((call) => call.table === 'rpc'));
+  }
+
+  {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const blocked = createMockSupabase();
+      const workout = generateSingleSessionWorkout({
+        goalId: 'beginner_strength',
+        durationMinutes: 30,
+        equipmentIds: ['bodyweight', 'dumbbells'],
+        experienceLevel: 'beginner',
+      });
+      let fallbackBlocked = false;
+      try {
+        await saveGeneratedWorkoutWithExercises('user-1', workout, { client: blocked.client });
+      } catch (error) {
+        fallbackBlocked = error instanceof DatabaseUnavailableError;
+      }
+      const allowed = createMockSupabase();
+      const id = await saveGeneratedWorkoutWithExercises('user-1', workout, {
+        client: allowed.client,
+        allowClientWriteFallback: true,
+      });
+      assert('client-orchestrated workout fallback is blocked in production without explicit opt-in', fallbackBlocked && blocked.rows.generated_workouts.length === 0);
+      assert('client-orchestrated workout fallback can be explicitly allowed for dev/test harnesses', id === 'generated_workouts-id' && allowed.rows.generated_workout_exercises.length > 0);
+    } finally {
+      if (previousNodeEnv == null) Reflect.deleteProperty(process.env, 'NODE_ENV');
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
   }
 
   {
@@ -371,6 +549,53 @@ async function run() {
     assert('completion logging returns inserted id', id === 'workout_completions-id');
     assert('completion insert is user scoped', payload.user_id === 'user-1' && payload.generated_workout_id === 'generated-1');
     assert('exercise completion results persist through parent completion', Array.isArray(insertedPayload(calls, 'exercise_completion_results')));
+  }
+
+  {
+    const { client, calls, rows } = createMockSupabase({ enableRpc: true });
+    const completion: WorkoutCompletionLog = {
+      workoutId: 'generated-1',
+      completedAt: '2026-05-01T12:00:00.000Z',
+      plannedDurationMinutes: 30,
+      actualDurationMinutes: 28,
+      sessionRpe: 6,
+      painScoreBefore: 1,
+      painScoreAfter: 1,
+      exerciseResults: [
+        { exerciseId: 'goblet_squat', setsCompleted: 3, repsCompleted: 24, actualRpe: 6, painScore: 1, completedAsPrescribed: true },
+      ],
+    };
+    const id = await logWorkoutCompletionWithExerciseResults('user-1', completion, { client, generatedWorkoutId: 'generated-1' });
+    const rpcCall = calls.find((call) => call.table === 'rpc' && call.method === 'log_workout_completion_with_results');
+    assert('workout completion persistence prefers atomic RPC when available', id === 'workout_completions-id' && Boolean(rpcCall));
+    assert('workout completion RPC uses returned id for exercise results', rows.exercise_completion_results.every((row) => row.workout_completion_id === id));
+    assert('workout completion RPC path avoids direct completion insert', !calls.some((call) => call.table === 'workout_completions' && call.method === 'insert'));
+  }
+
+  {
+    const { client, rows } = createMockSupabase({
+      enableRpc: true,
+      rpcErrors: {
+        log_workout_completion_with_results: { message: 'child insert rejected', code: '23503' },
+      },
+    });
+    const completion: WorkoutCompletionLog = {
+      workoutId: 'generated-1',
+      completedAt: '2026-05-01T12:00:00.000Z',
+      plannedDurationMinutes: 30,
+      actualDurationMinutes: 28,
+      sessionRpe: 6,
+      exerciseResults: [
+        { exerciseId: 'goblet_squat', setsCompleted: 3, completedAsPrescribed: true },
+      ],
+    };
+    let atomicFailure = false;
+    try {
+      await logWorkoutCompletionWithExerciseResults('user-1', completion, { client, generatedWorkoutId: 'generated-1' });
+    } catch (error) {
+      atomicFailure = error instanceof ValidationError;
+    }
+    assert('workout completion RPC failure behaves as one failed operation', atomicFailure && rows.workout_completions.length === 0 && rows.exercise_completion_results.length === 0);
   }
 
   {
@@ -486,6 +711,17 @@ async function run() {
   }
 
   {
+    const { client, calls, rows } = createMockSupabase({ enableRpc: true });
+    const program = createCalendarProgram();
+    const id = await saveGeneratedProgram('user-1', program, { client });
+    const loaded = await loadGeneratedProgram('user-1', id!, { client });
+    const rpcCall = calls.find((call) => call.table === 'rpc' && call.method === 'save_generated_program_with_sessions');
+    assert('generated program persistence prefers atomic RPC when available', id === 'user_programs-id' && Boolean(rpcCall));
+    assert('generated program RPC stores sessions with returned program id', loaded?.sessions.every((session) => session.userProgramId === id) === true);
+    assert('generated program RPC path avoids client-orchestrated program insert/upsert sequence', rows.user_programs.length === 1 && !calls.some((call) => call.table === 'user_programs' && call.method === 'insert'));
+  }
+
+  {
     const program = createCalendarProgram();
     const protectedBefore = program.sessions.filter((session) => session.protectedAnchor).map((session) => `${session.id}:${session.scheduledDate}:${session.dayIndex}`);
     const generated = firstGeneratedSession(program);
@@ -547,6 +783,20 @@ async function run() {
     assert('program session updates persist scheduled date and warnings', updated.sessions.some((session) => session.id === generated.id && session.scheduledDate === '2026-05-10' && session.status === 'rescheduled') && updated.validationWarnings.includes('Session was manually moved after a calendar conflict.'));
     assert('generated workout can attach to a program session', attached.sessions.some((session) => session.id === generated.id && session.generatedWorkoutId === 'generated_workouts-id' && session.workout?.templateId === workout.templateId));
     assert('program session completion and archive persist lifecycle state', completed.sessions.some((session) => session.id === generated.id && session.status === 'completed' && session.workoutCompletionId === 'completion-1') && archived.status === 'archived' && Boolean(archived.archivedAt));
+  }
+
+  {
+    const { client, calls } = createMockSupabase({ enableRpc: true });
+    const program = createCalendarProgram();
+    const userProgramId = await saveGeneratedProgram('user-1', program, { client });
+    const generated = firstGeneratedSession(program);
+    const completed = await markProgramSessionCompleted('user-1', userProgramId!, generated.id, {
+      completedAt: '2026-05-06T18:00:00.000Z',
+      workoutCompletionId: 'completion-1',
+    }, { client });
+    const completeRpcCall = calls.find((call) => call.table === 'rpc' && call.method === 'complete_program_session');
+    assert('program session completion uses dedicated atomic RPC when available', Boolean(completeRpcCall) && completed.sessions.some((session) => session.id === generated.id && session.status === 'completed'));
+    assert('program session completion RPC receives the completed session id', (completeRpcCall?.args[0] as Record<string, unknown> | undefined)?.p_session_id === generated.id);
   }
 
   {
