@@ -932,11 +932,34 @@ export interface ProtectedWorkoutInput {
 
 export type ProgramPhase = 'accumulation' | 'intensification' | 'deload' | 'return_to_training' | 'maintenance';
 export type ProgramDeloadStrategy = 'none' | 'week_four' | 'readiness_based' | 'every_fourth_week';
+export type ProgramSessionStatus = 'planned' | 'scheduled' | 'started' | 'completed' | 'missed' | 'rescheduled' | 'archived';
+
+export interface ProgramCalendarEvent {
+  id: string;
+  date: string;
+  label: string;
+  durationMinutes?: number;
+  intensity?: WorkoutIntensity | number;
+  protectedAnchor?: boolean;
+  source?: string;
+}
 
 export interface GeneratedProgramSession {
   id: string;
+  persistenceId?: string;
+  userProgramId?: string;
+  generatedWorkoutId?: string | null;
+  workoutCompletionId?: string | null;
+  calendarEventId?: string | null;
   dayIndex: number;
   weekIndex: number;
+  scheduledDate?: string;
+  originalScheduledDate?: string;
+  rescheduledFromSessionId?: string;
+  rescheduledToSessionId?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  status?: ProgramSessionStatus;
   phase?: ProgramPhase;
   protectedAnchor: boolean;
   label: string;
@@ -972,8 +995,16 @@ export interface GeneratedProgramWeek {
   validationWarnings: string[];
 }
 
+export type GeneratedProgramStatus = 'draft' | 'active' | 'completed' | 'archived';
+
 export interface GeneratedProgram {
   id: string;
+  persistenceId?: string;
+  status?: GeneratedProgramStatus;
+  startedAt?: string;
+  archivedAt?: string | null;
+  scheduleStartDate?: string;
+  scheduleEndDate?: string;
   goalId: string;
   weekCount: number;
   phase: ProgramPhase;
@@ -986,6 +1017,7 @@ export interface GeneratedProgram {
   progressionPlan: string[];
   explanations: string[];
   validationWarnings: string[];
+  calendarWarnings?: string[];
 }
 
 export interface WorkoutAnalyticsSummary {

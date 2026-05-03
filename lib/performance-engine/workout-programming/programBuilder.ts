@@ -5,9 +5,11 @@ import type {
   GeneratedProgramWeek,
   GeneratedWorkout,
   PersonalizedWorkoutInput,
+  ProgramCalendarEvent,
   ProgramDeloadStrategy,
   ProgramMovementPatternBalance,
   ProgramPhase,
+  ProgramSessionStatus,
   ProgramWeeklyVolumeSummary,
   ProtectedWorkoutInput,
   WorkoutIntensity,
@@ -23,6 +25,9 @@ type ProgramBuilderInput = PersonalizedWorkoutInput & {
   protectedWorkouts?: ProtectedWorkoutInput[];
   readinessTrend?: WorkoutReadinessBand[];
   deloadStrategy?: ProgramDeloadStrategy;
+  startDate?: string;
+  calendarEvents?: ProgramCalendarEvent[];
+  existingCalendarEvents?: ProgramCalendarEvent[];
 };
 
 const HARD_WORKOUT_TYPES = new Set([
@@ -44,6 +49,37 @@ function unique<T>(items: T[]): T[] {
 
 function clampDay(day: number): number {
   return Math.max(1, Math.min(7, Math.round(day)));
+}
+
+function isoDate(value: string): string | null {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
+    ? value
+    : null;
+}
+
+function addDays(dateString: string, days: number): string {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function daysBetween(fromDate: string, toDate: string): number {
+  const from = Date.parse(`${fromDate}T00:00:00.000Z`);
+  const to = Date.parse(`${toDate}T00:00:00.000Z`);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
+  return Math.round((to - from) / 86_400_000);
+}
+
+function dateForProgramDay(startDate: string, weekIndex: number, dayIndex: number): string {
+  return addDays(startDate, (weekIndex - 1) * 7 + (clampDay(dayIndex) - 1));
+}
+
+function dayIndexForDate(startDate: string, date: string): { weekIndex: number; dayIndex: number } {
+  const delta = Math.max(0, daysBetween(startDate, date));
+  return {
+    weekIndex: Math.floor(delta / 7) + 1,
+    dayIndex: (delta % 7) + 1,
+  };
 }
 
 function isHardWorkout(workout: GeneratedWorkout | null): boolean {
@@ -178,6 +214,247 @@ function weeklySummary(weekIndex: number, phase: ProgramPhase, sessions: Generat
     hardDayCount: hardDayCount(sessions),
     workoutTypeCounts: workoutTypeCounts(sessions),
   };
+}
+
+function programEndDate(startDate: string, weekCount: number): string {
+  return addDays(startDate, Math.max(0, weekCount * 7 - 1));
+}
+
+function conflictEventsFor(date: string, events: readonly ProgramCalendarEvent[]): ProgramCalendarEvent[] {
+  return events.filter((event) => event.date === date);
+}
+
+function existingSessionDates(
+  sessions: readonly GeneratedProgramSession[],
+  excludedSessionId: string,
+): Set<string> {
+  return new Set(sessions
+    .filter((session) => session.id !== excludedSessionId && Boolean(session.scheduledDate))
+    .map((session) => session.scheduledDate as string));
+}
+
+function openDateForSession(input: {
+  session: GeneratedProgramSession;
+  weekSessions: GeneratedProgramSession[];
+  startDate: string;
+  availableDays: number[];
+  events: readonly ProgramCalendarEvent[];
+  occupiedDates: Set<string>;
+}): { dayIndex: number; scheduledDate: string } | null {
+  const candidateDays = unique([input.session.dayIndex, ...input.availableDays].map(clampDay));
+  for (const dayIndex of candidateDays) {
+    const scheduledDate = dateForProgramDay(input.startDate, input.session.weekIndex, dayIndex);
+    if (input.occupiedDates.has(scheduledDate)) continue;
+    if (conflictEventsFor(scheduledDate, input.events).length > 0) continue;
+    if (sessionIsHard(input.session) && hasAdjacentHardDay(dayIndex, input.weekSessions.filter((session) => session.id !== input.session.id))) continue;
+    return { dayIndex, scheduledDate };
+  }
+  return null;
+}
+
+function rebuildProgram(
+  program: GeneratedProgram,
+  weeks: GeneratedProgramWeek[],
+  warnings: string[],
+): GeneratedProgram {
+  const sessions = weeks.flatMap((week) => week.sessions);
+  const updatedWeeks = weeks.map((week) => {
+    const summary = weeklySummary(week.weekIndex, week.phase, week.sessions);
+    const weekWarnings: string[] = [];
+    for (let day = 1; day <= 6; day += 1) {
+      const todayHard = week.sessions.some((session) => session.dayIndex === day && sessionIsHard(session));
+      const tomorrowHard = week.sessions.some((session) => session.dayIndex === day + 1 && sessionIsHard(session));
+      if (todayHard && tomorrowHard) weekWarnings.push(`Week ${week.weekIndex} has back-to-back hard days on days ${day} and ${day + 1}.`);
+    }
+    return {
+      ...week,
+      movementPatternBalance: movementPatternCounts(week.sessions),
+      weeklyVolumeSummary: summary,
+      hardDayCount: summary.hardDayCount,
+      validationWarnings: unique([...week.validationWarnings, ...weekWarnings]),
+    };
+  });
+  const movementPatternBalance = buildMovementPatternBalance(updatedWeeks);
+  const weeklyVolumeSummary = updatedWeeks.map((week) => week.weeklyVolumeSummary);
+  return {
+    ...program,
+    weeks: updatedWeeks,
+    sessions,
+    movementPatternBalance,
+    weeklyVolumeSummary,
+    hardDayCount: weeklyVolumeSummary.reduce((sum, week) => sum + week.hardDayCount, 0),
+    validationWarnings: unique([...program.validationWarnings, ...warnings, ...updatedWeeks.flatMap((week) => week.validationWarnings), ...movementPatternBalance.warnings]),
+    calendarWarnings: unique([...(program.calendarWarnings ?? []), ...warnings]),
+  };
+}
+
+export function integrateProgramWithCalendar(
+  program: GeneratedProgram,
+  options: {
+    startDate?: string;
+    availableDays?: number[];
+    existingCalendarEvents?: ProgramCalendarEvent[];
+  } = {},
+): GeneratedProgram {
+  const startDate = isoDate(options.startDate ?? program.scheduleStartDate ?? '');
+  if (!startDate) return program;
+
+  const availableDays = unique((options.availableDays?.length ? options.availableDays : DEFAULT_AVAILABLE_DAYS).map(clampDay));
+  const events = options.existingCalendarEvents ?? [];
+  const warnings: string[] = [];
+  const weeks = program.weeks.map((week) => {
+    const occupiedDates = new Set(events.map((event) => event.date));
+    const nextSessions: GeneratedProgramSession[] = [];
+    for (const session of week.sessions) {
+      const defaultDate = session.scheduledDate ?? dateForProgramDay(startDate, session.weekIndex, session.dayIndex);
+      const conflicts = conflictEventsFor(defaultDate, events);
+      if (session.protectedAnchor) {
+        if (conflicts.length > 0) {
+          warnings.push(`${session.label} is protected and remains on ${defaultDate} despite a calendar overlap.`);
+        }
+        const protectedSession: GeneratedProgramSession = {
+          ...session,
+          scheduledDate: defaultDate,
+          status: session.status ?? 'scheduled',
+        };
+        nextSessions.push(protectedSession);
+        occupiedDates.add(defaultDate);
+        continue;
+      }
+
+      if (conflicts.length === 0 && !occupiedDates.has(defaultDate)) {
+        const scheduledSession: GeneratedProgramSession = {
+          ...session,
+          scheduledDate: defaultDate,
+          status: session.status ?? 'scheduled',
+        };
+        nextSessions.push(scheduledSession);
+        occupiedDates.add(defaultDate);
+        continue;
+      }
+
+      const candidate = openDateForSession({
+        session,
+        weekSessions: [...nextSessions, ...week.sessions.filter((item) => item.id !== session.id)],
+        startDate,
+        availableDays,
+        events,
+        occupiedDates,
+      });
+      if (candidate) {
+        warnings.push(`${session.label} moved from ${defaultDate} to ${candidate.scheduledDate} to avoid a calendar conflict.`);
+        const movedSession: GeneratedProgramSession = {
+          ...session,
+          dayIndex: candidate.dayIndex,
+          scheduledDate: candidate.scheduledDate,
+          originalScheduledDate: session.originalScheduledDate ?? defaultDate,
+          status: 'rescheduled',
+          calendarEventId: conflicts[0]?.id ?? null,
+        };
+        nextSessions.push(movedSession);
+        occupiedDates.add(candidate.scheduledDate);
+      } else {
+        warnings.push(`${session.label} could not be moved away from ${defaultDate}; all available days were occupied or unsafe.`);
+        const conflictedSession: GeneratedProgramSession = {
+          ...session,
+          scheduledDate: defaultDate,
+          status: session.status ?? 'scheduled',
+          calendarEventId: conflicts[0]?.id ?? null,
+        };
+        nextSessions.push(conflictedSession);
+        occupiedDates.add(defaultDate);
+      }
+    }
+    return {
+      ...week,
+      sessions: nextSessions.sort((a, b) => a.dayIndex - b.dayIndex),
+    };
+  });
+
+  return rebuildProgram({
+    ...program,
+    scheduleStartDate: startDate,
+    scheduleEndDate: programEndDate(startDate, program.weekCount),
+  }, weeks, warnings);
+}
+
+export function rescheduleProgramSession(
+  program: GeneratedProgram,
+  input: {
+    sessionId: string;
+    targetDate?: string;
+    missedAt?: string;
+    availableDays?: number[];
+    existingCalendarEvents?: ProgramCalendarEvent[];
+  },
+): GeneratedProgram {
+  const startDate = isoDate(program.scheduleStartDate ?? input.missedAt?.slice(0, 10) ?? input.targetDate ?? '');
+  if (!startDate) {
+    return {
+      ...program,
+      validationWarnings: unique([...program.validationWarnings, 'Cannot reschedule program session without a program schedule start date or target date.']),
+    };
+  }
+  const warnings: string[] = [];
+  const events = input.existingCalendarEvents ?? [];
+  const targetSession = program.sessions.find((session) => session.id === input.sessionId);
+  if (!targetSession) {
+    return {
+      ...program,
+      validationWarnings: unique([...program.validationWarnings, `Program session ${input.sessionId} was not found for rescheduling.`]),
+    };
+  }
+  if (targetSession.protectedAnchor) {
+    warnings.push(`${targetSession.label} is protected and was not rescheduled.`);
+    return rebuildProgram(program, program.weeks, warnings);
+  }
+
+  const occupied = existingSessionDates(program.sessions, input.sessionId);
+  for (const event of events) occupied.add(event.date);
+  const preferredDate = isoDate(input.targetDate ?? '') ?? addDays(targetSession.scheduledDate ?? dateForProgramDay(startDate, targetSession.weekIndex, targetSession.dayIndex), 1);
+  const preferredIndex = dayIndexForDate(startDate, preferredDate);
+  const preferredWeekSessions = program.sessions.filter((session) => session.weekIndex === preferredIndex.weekIndex && session.id !== input.sessionId);
+  const preferredAllowed = preferredIndex.weekIndex >= 1
+    && preferredIndex.weekIndex <= program.weekCount
+    && conflictEventsFor(preferredDate, events).length === 0
+    && !occupied.has(preferredDate)
+    && !(sessionIsHard(targetSession) && hasAdjacentHardDay(preferredIndex.dayIndex, preferredWeekSessions));
+  const candidate = preferredAllowed
+    ? { dayIndex: preferredIndex.dayIndex, scheduledDate: preferredDate }
+    : openDateForSession({
+      session: targetSession,
+      weekSessions: program.sessions.filter((session) => session.weekIndex === targetSession.weekIndex),
+      startDate,
+      availableDays: input.availableDays ?? DEFAULT_AVAILABLE_DAYS,
+      events,
+      occupiedDates: occupied,
+    });
+
+  const updatedSessions = program.sessions.map((session) => {
+    if (session.id !== input.sessionId) return session;
+    if (!candidate) {
+      warnings.push(`${session.label} was marked missed but no open reschedule date was found.`);
+      return {
+        ...session,
+        status: 'missed' as ProgramSessionStatus,
+      };
+    }
+    warnings.push(`${session.label} was rescheduled to ${candidate.scheduledDate}.`);
+    const candidateIndex = dayIndexForDate(startDate, candidate.scheduledDate);
+    return {
+      ...session,
+      weekIndex: candidateIndex.weekIndex,
+      dayIndex: candidate.dayIndex,
+      originalScheduledDate: session.originalScheduledDate ?? session.scheduledDate ?? dateForProgramDay(startDate, session.weekIndex, session.dayIndex),
+      scheduledDate: candidate.scheduledDate,
+      status: 'rescheduled' as ProgramSessionStatus,
+    };
+  });
+  const weeks = program.weeks.map((week) => ({
+    ...week,
+    sessions: updatedSessions.filter((session) => session.weekIndex === week.weekIndex).sort((a, b) => a.dayIndex - b.dayIndex),
+  }));
+  return rebuildProgram(program, weeks, warnings);
 }
 
 function movementBalanceWarnings(weeklyCounts: Record<number, Record<string, number>>): string[] {
@@ -342,8 +619,9 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
   const progressionPlan = progressionPlanFor(input, weeks);
   const currentPhase = weeks[0]?.phase ?? 'maintenance';
 
-  return {
+  const program: GeneratedProgram = {
     id: `${input.goalId}:program:${weekCount}w`,
+    status: 'draft',
     goalId: input.goalId,
     weekCount,
     phase: currentPhase,
@@ -365,6 +643,15 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
     ],
     validationWarnings: warnings,
   };
+  const calendarEvents = input.calendarEvents ?? input.existingCalendarEvents ?? [];
+  if (input.startDate || calendarEvents.length > 0) {
+    return integrateProgramWithCalendar(program, {
+      ...(input.startDate ? { startDate: input.startDate } : {}),
+      availableDays,
+      existingCalendarEvents: calendarEvents,
+    });
+  }
+  return program;
 }
 
 export function validateGeneratedProgram(program: GeneratedProgram): { valid: boolean; errors: string[] } {

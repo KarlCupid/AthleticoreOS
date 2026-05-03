@@ -1,31 +1,42 @@
 import {
+  archiveProgram,
+  attachGeneratedWorkoutToProgramSession,
   generateSingleSessionWorkout,
+  generateWeeklyWorkoutProgram,
+  integrateProgramWithCalendar,
   loadGeneratedWorkout,
+  loadGeneratedProgram,
   loadRecentCompletions,
   loadRecentExerciseResults,
   loadRecentProgressionDecisionsForUser,
   loadProgressionDecisionsForCompletion,
   listGeneratedWorkoutsForUser,
+  listUserPrograms,
   loadUserWorkoutProfile,
   loadWorkoutProgrammingCatalog,
   logReadiness,
   logWorkoutCompletion,
   logWorkoutCompletionWithExerciseResults,
+  markProgramSessionCompleted,
   NotFoundError,
+  rescheduleProgramSession,
+  saveGeneratedProgram,
   saveGeneratedWorkout,
   saveGeneratedWorkoutWithExercises,
   saveProgressionDecision,
   saveRecommendationFeedback,
   UnauthorizedError,
+  updateProgramSession,
   updateExercisePreference,
   updateUserEquipment,
   updateUserSafetyFlags,
   upsertExercisePreferences,
+  validateGeneratedProgram,
   ValidationError,
   WorkoutProgrammingPersistenceError,
   workoutProgrammingCatalog,
 } from './index.ts';
-import type { GeneratedWorkout, WorkoutCompletionLog } from './index.ts';
+import type { GeneratedProgram, GeneratedWorkout, WorkoutCompletionLog } from './index.ts';
 
 let passed = 0;
 let failed = 0;
@@ -207,6 +218,37 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
 
 function insertedPayload(calls: CallRecord[], table: string): unknown {
   return calls.find((call) => call.table === table && call.method === 'insert')?.args[0];
+}
+
+function createCalendarProgram(): GeneratedProgram {
+  return generateWeeklyWorkoutProgram({
+    userId: 'user-1',
+    goalId: 'beginner_strength',
+    durationMinutes: 40,
+    preferredDurationMinutes: 40,
+    equipmentIds: ['bodyweight', 'dumbbells'],
+    experienceLevel: 'beginner',
+    safetyFlags: [],
+    readinessBand: 'green',
+    desiredProgramLengthWeeks: 4,
+    sessionsPerWeek: 3,
+    availableDays: [1, 3, 5],
+    startDate: '2026-05-04',
+    protectedWorkouts: [{
+      id: 'boxing-practice',
+      label: 'Boxing practice',
+      dayIndex: 2,
+      durationMinutes: 75,
+      intensity: 'hard',
+    }],
+    deloadStrategy: 'week_four',
+  });
+}
+
+function firstGeneratedSession(program: GeneratedProgram) {
+  const session = program.sessions.find((item) => !item.protectedAnchor && item.workout);
+  if (!session) throw new Error('Expected a generated program session.');
+  return session;
 }
 
 async function run() {
@@ -429,6 +471,120 @@ async function run() {
     }, { client });
     const payload = insertedPayload(calls, 'performance_observations') as Record<string, unknown>;
     assert('progression decision without completion parent persists as user-scoped observation', id === 'performance_observations-id' && payload.user_id === 'user-1');
+  }
+
+  {
+    const { client, rows } = createMockSupabase();
+    const program = createCalendarProgram();
+    const id = await saveGeneratedProgram('user-1', program, { client });
+    const loaded = await loadGeneratedProgram('user-1', id!, { client });
+    const listed = await listUserPrograms('user-1', { client, limit: 5 });
+    const stored = rows.user_programs[0]?.payload as GeneratedProgram | undefined;
+    assert('4-week generated program persists and reloads with persistence ids', id === 'user_programs-id' && loaded?.persistenceId === id && loaded.weeks.length === 4 && loaded.sessions.every((session) => session.userProgramId === id));
+    assert('persisted program keeps week-four deload and movement balance summary', loaded?.weeks[3]?.phase === 'deload' && Boolean(stored?.movementPatternBalance?.programTotal) && listed.length === 1);
+    assert('persisted program validates after reload', Boolean(loaded && validateGeneratedProgram(loaded).valid));
+  }
+
+  {
+    const program = createCalendarProgram();
+    const protectedBefore = program.sessions.filter((session) => session.protectedAnchor).map((session) => `${session.id}:${session.scheduledDate}:${session.dayIndex}`);
+    const generated = firstGeneratedSession(program);
+    const conflicted = integrateProgramWithCalendar(program, {
+      startDate: '2026-05-04',
+      availableDays: [1, 3, 5, 6],
+      existingCalendarEvents: [{
+        id: 'work-conflict',
+        date: generated.scheduledDate ?? '2026-05-04',
+        label: 'Late work meeting',
+        durationMinutes: 90,
+        source: 'calendar',
+      }],
+    });
+    const moved = conflicted.sessions.find((session) => session.id === generated.id);
+    const protectedAfter = conflicted.sessions.filter((session) => session.protectedAnchor).map((session) => `${session.id}:${session.scheduledDate}:${session.dayIndex}`);
+    assert('calendar conflicts move generated sessions but preserve protected workouts', moved?.status === 'rescheduled' && moved.scheduledDate !== generated.scheduledDate && JSON.stringify(protectedAfter) === JSON.stringify(protectedBefore));
+    assert('calendar conflicts produce validation warnings', (conflicted.calendarWarnings ?? []).some((warning) => warning.includes('calendar conflict')));
+  }
+
+  {
+    const program = createCalendarProgram();
+    const generated = firstGeneratedSession(program);
+    const rescheduled = rescheduleProgramSession(program, {
+      sessionId: generated.id,
+      targetDate: '2026-05-10',
+      existingCalendarEvents: [],
+    });
+    const moved = rescheduled.sessions.find((session) => session.id === generated.id);
+    const protectedUntouched = rescheduled.sessions
+      .filter((session) => session.protectedAnchor)
+      .every((session) => program.sessions.some((original) => original.id === session.id && original.scheduledDate === session.scheduledDate && original.dayIndex === session.dayIndex));
+    assert('missed generated session can be rescheduled', moved?.status === 'rescheduled' && moved.scheduledDate === '2026-05-10' && protectedUntouched);
+  }
+
+  {
+    const { client } = createMockSupabase();
+    const program = createCalendarProgram();
+    const userProgramId = await saveGeneratedProgram('user-1', program, { client });
+    const generated = firstGeneratedSession(program);
+    const updated = await updateProgramSession('user-1', userProgramId!, generated.id, {
+      scheduledDate: '2026-05-10',
+      dayIndex: 7,
+      status: 'rescheduled',
+      validationWarning: 'Session was manually moved after a calendar conflict.',
+    }, { client });
+    const workout = generateSingleSessionWorkout({
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+    });
+    const attached = await attachGeneratedWorkoutToProgramSession('user-1', userProgramId!, generated.id, workout, { client });
+    const completed = await markProgramSessionCompleted('user-1', userProgramId!, generated.id, {
+      completedAt: '2026-05-06T18:00:00.000Z',
+      workoutCompletionId: 'completion-1',
+    }, { client });
+    const archived = await archiveProgram('user-1', userProgramId!, { client });
+    assert('program session updates persist scheduled date and warnings', updated.sessions.some((session) => session.id === generated.id && session.scheduledDate === '2026-05-10' && session.status === 'rescheduled') && updated.validationWarnings.includes('Session was manually moved after a calendar conflict.'));
+    assert('generated workout can attach to a program session', attached.sessions.some((session) => session.id === generated.id && session.generatedWorkoutId === 'generated_workouts-id' && session.workout?.templateId === workout.templateId));
+    assert('program session completion and archive persist lifecycle state', completed.sessions.some((session) => session.id === generated.id && session.status === 'completed' && session.workoutCompletionId === 'completion-1') && archived.status === 'archived' && Boolean(archived.archivedAt));
+  }
+
+  {
+    const { client } = createMockSupabase();
+    const program = createCalendarProgram();
+    const id = await saveGeneratedProgram('user-1', program, { client });
+    const protectedSession = program.sessions.find((session) => session.protectedAnchor);
+    let protectedBlocked = false;
+    try {
+      await updateProgramSession('user-1', id!, protectedSession!.id, {
+        scheduledDate: '2026-05-07',
+        status: 'rescheduled',
+      }, { client });
+    } catch (error) {
+      protectedBlocked = error instanceof ValidationError;
+    }
+    assert('protected workouts cannot be moved through program persistence', protectedBlocked);
+  }
+
+  {
+    const program = createCalendarProgram();
+    const week = program.weeks[0]!;
+    const generated = firstGeneratedSession(program);
+    const hardSessions = [1, 2, 3, 4].map((dayIndex) => ({
+      ...generated,
+      id: `${generated.id}:hard:${dayIndex}`,
+      dayIndex,
+      protectedAnchor: true,
+      workout: null,
+      plannedIntensity: 'hard' as const,
+    }));
+    const invalid: GeneratedProgram = {
+      ...program,
+      weeks: [{ ...week, sessions: hardSessions }, ...program.weeks.slice(1)],
+      sessions: [...hardSessions, ...program.sessions.filter((session) => session.weekIndex !== week.weekIndex)],
+    };
+    const validation = validateGeneratedProgram(invalid);
+    assert('program validation catches too many hard days', !validation.valid && validation.errors.some((error) => error.includes('too many hard sessions')));
   }
 
   {

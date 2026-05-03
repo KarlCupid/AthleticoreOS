@@ -295,6 +295,27 @@ async function run() {
     });
     assert('generateWeeklyProgramForUser returns weekly program shape', program.weeks.length === 2 && program.sessions.length > 0 && program.progressionPlan.length === 2);
   }
+
+  {
+    const { client, calls } = createMockSupabase({ user_programs: [] });
+    const program = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'beginner_strength',
+      sessionsPerWeek: 2,
+      desiredProgramLengthWeeks: 2,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+      startDate: '2026-05-04',
+      calendarEvents: [{
+        id: 'busy-day',
+        date: '2026-05-04',
+        label: 'Calendar hold',
+        source: 'calendar',
+      }],
+    }, { client, persistGeneratedProgram: true });
+    const payload = insertedPayload(calls, 'user_programs') as Record<string, unknown>;
+    assert('generateWeeklyProgramForUser can persist calendar-aware programs behind service option', program.persistenceId === 'user_programs-id' && payload.user_id === 'user-1' && calls.some((call) => call.table === 'user_programs' && call.method === 'upsert'));
+    assert('calendar-aware service programs expose schedule warnings', Boolean(program.scheduleStartDate) && (program.calendarWarnings?.length ?? 0) > 0);
+  }
 }
 
 run()

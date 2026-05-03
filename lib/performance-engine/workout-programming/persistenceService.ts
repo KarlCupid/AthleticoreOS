@@ -5,9 +5,11 @@ import {
   assertValidWorkoutProgrammingCatalog,
   formatRuntimeValidationIssues,
 } from './catalogValidation.ts';
+import { validateGeneratedProgram as validateProgramDomain } from './programBuilder.ts';
 import type {
   ExerciseCompletionResult,
   GeneratedProgram,
+  GeneratedProgramSession,
   GeneratedWorkout,
   PersonalizedWorkoutInput,
   ProgressionDecision,
@@ -147,6 +149,23 @@ export interface GeneratedWorkoutPersistenceOptions extends WorkoutProgrammingPe
 
 export interface WorkoutCompletionPersistenceOptions extends WorkoutProgrammingPersistenceOptions {
   generatedWorkoutId?: string | null;
+}
+
+export interface GeneratedProgramPersistenceOptions extends WorkoutProgrammingPersistenceOptions {
+  userProgramId?: string | null;
+}
+
+export interface ProgramSessionUpdate {
+  scheduledDate?: string;
+  dayIndex?: number;
+  status?: GeneratedProgramSession['status'];
+  startedAt?: string | null;
+  completedAt?: string | null;
+  generatedWorkoutId?: string | null;
+  workoutCompletionId?: string | null;
+  calendarEventId?: string | null;
+  workout?: GeneratedWorkout | null;
+  validationWarning?: string;
 }
 
 const staticCatalogTables = [
@@ -342,6 +361,11 @@ function uniqueStrings(items: string[]): string[] {
 function rowString(row: Record<string, unknown>, key: string, fallback = ''): string {
   const value = row[key];
   return typeof value === 'string' ? value : fallback;
+}
+
+function dateOnly(value: string | null | undefined): string | undefined {
+  const candidate = value?.slice(0, 10);
+  return candidate && /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : undefined;
 }
 
 function rowNumber(row: Record<string, unknown>, key: string, fallback: number): number {
@@ -786,6 +810,105 @@ function validateGeneratedProgram(program: GeneratedProgram, context: string): v
   if (!program.goalId.trim()) throw new ValidationError(`${context}: goalId is required.`, { context });
   if (!Array.isArray(program.weeks) || program.weeks.length === 0) throw new ValidationError(`${context}: weeks are required.`, { context });
   if (!Array.isArray(program.sessions)) throw new ValidationError(`${context}: sessions must be an array.`, { context });
+  const validation = validateProgramDomain(program);
+  if (!validation.valid) {
+    throw new ValidationError(`${context}: generated program failed validation. ${validation.errors.join(' | ')}`, { context });
+  }
+  for (const session of program.sessions) {
+    if (!session.id.trim()) throw new ValidationError(`${context}: every program session requires an id.`, { context });
+    if (session.dayIndex < 1 || session.dayIndex > 7) throw new ValidationError(`${context}: session ${session.id} has invalid dayIndex.`, { context });
+    if (session.scheduledDate && !/^\d{4}-\d{2}-\d{2}$/.test(session.scheduledDate)) {
+      throw new ValidationError(`${context}: session ${session.id} has invalid scheduledDate.`, { context });
+    }
+  }
+}
+
+function programPayloadWithPersistence(program: GeneratedProgram, userProgramId: string): GeneratedProgram {
+  const sessions = program.sessions.map((session) => ({
+    ...session,
+    persistenceId: session.persistenceId ?? `${userProgramId}:${session.id}`,
+    userProgramId,
+  }));
+  const sessionById = new Map(sessions.map((session) => [session.id, session]));
+  const weeks = program.weeks.map((week) => ({
+    ...week,
+    sessions: week.sessions.map((session) => sessionById.get(session.id) ?? session),
+  }));
+  return {
+    ...program,
+    persistenceId: userProgramId,
+    weeks,
+    sessions,
+  };
+}
+
+function programRowPayload(userId: string, program: GeneratedProgram, userProgramId?: string | null) {
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    goal_id: program.goalId,
+    status: program.status ?? 'active',
+    payload: program,
+  };
+  if (userProgramId) payload.id = userProgramId;
+  const startedAt = dateOnly(program.startedAt ?? program.scheduleStartDate);
+  if (startedAt) payload.started_at = startedAt;
+  return payload;
+}
+
+function programFromRow(row: Record<string, unknown>): GeneratedProgram {
+  const id = rowString(row, 'id');
+  const payload = row.payload as GeneratedProgram;
+  return programPayloadWithPersistence({
+    ...payload,
+    status: (rowString(row, 'status') as GeneratedProgram['status']) || payload.status || 'active',
+  }, id);
+}
+
+function updateProgramSessionInMemory(
+  program: GeneratedProgram,
+  sessionId: string,
+  update: ProgramSessionUpdate | ((session: GeneratedProgramSession) => GeneratedProgramSession),
+): GeneratedProgram {
+  let found = false;
+  let targetWeekIndex: number | null = null;
+  const warning = typeof update === 'function' ? undefined : update.validationWarning;
+  const applyUpdate = (session: GeneratedProgramSession): GeneratedProgramSession => {
+    if (session.id !== sessionId) return session;
+    found = true;
+    targetWeekIndex = session.weekIndex;
+    if (typeof update === 'function') return update(session);
+    const next: GeneratedProgramSession = { ...session };
+    if (update.scheduledDate) next.scheduledDate = update.scheduledDate;
+    if (update.dayIndex != null) next.dayIndex = update.dayIndex;
+    if (update.status) next.status = update.status;
+    if (update.startedAt !== undefined) next.startedAt = update.startedAt;
+    if (update.completedAt !== undefined) next.completedAt = update.completedAt;
+    if (update.generatedWorkoutId !== undefined) next.generatedWorkoutId = update.generatedWorkoutId;
+    if (update.workoutCompletionId !== undefined) next.workoutCompletionId = update.workoutCompletionId;
+    if (update.calendarEventId !== undefined) next.calendarEventId = update.calendarEventId;
+    if (update.workout !== undefined) next.workout = update.workout;
+    return next;
+  };
+  const weeks = program.weeks.map((week) => {
+    const sessions = week.sessions.map(applyUpdate);
+    return {
+      ...week,
+      sessions,
+      validationWarnings: warning && week.weekIndex === targetWeekIndex
+        ? unique([...week.validationWarnings, warning])
+        : week.validationWarnings,
+    };
+  });
+  const sessions = program.sessions.map(applyUpdate);
+  if (!found) throw new NotFoundError(`Program session ${sessionId} was not found.`, { context: 'Update generated program session' });
+  return {
+    ...program,
+    weeks,
+    sessions,
+    validationWarnings: warning
+      ? unique([...program.validationWarnings, warning])
+      : program.validationWarnings,
+  };
 }
 
 function generatedWorkoutPayload(userId: string, workout: GeneratedWorkout) {
@@ -1370,22 +1493,31 @@ export async function loadRecentExerciseResults(
 export async function saveGeneratedProgram(
   userId: string,
   program: GeneratedProgram,
-  options?: WorkoutProgrammingPersistenceOptions,
+  options?: GeneratedProgramPersistenceOptions,
 ): Promise<string | null> {
   const context = 'Failed to save generated program';
   assertUserId(userId, context);
-  validateGeneratedProgram(program, 'Generated program persistence payload');
+  const existingId = options?.userProgramId ?? program.persistenceId ?? null;
+  const programForSave: GeneratedProgram = {
+    ...program,
+    status: program.status ?? 'active',
+  };
+  const preparedProgram = existingId ? programPayloadWithPersistence(programForSave, existingId) : programForSave;
+  validateGeneratedProgram(preparedProgram, 'Generated program persistence payload');
   const client = await resolveClient(options);
   if (!client) return null;
-  return insertReturningId(client, 'user_programs', {
-    user_id: userId,
-    goal_id: program.goalId,
-    status: 'active',
-    payload: program,
-  }, context);
+  if (existingId) {
+    await upsertRows(client, 'user_programs', [programRowPayload(userId, preparedProgram, existingId)], context, 'id');
+    return existingId;
+  }
+  const id = await insertReturningId(client, 'user_programs', programRowPayload(userId, preparedProgram), context);
+  const persistedProgram = programPayloadWithPersistence(preparedProgram, id);
+  validateGeneratedProgram(persistedProgram, 'Persisted generated program payload');
+  await upsertRows(client, 'user_programs', [programRowPayload(userId, persistedProgram, id)], `${context}: attach persistence ids`, 'id');
+  return id;
 }
 
-export async function loadUserProgram(
+export async function loadGeneratedProgram(
   userId: string,
   userProgramId: string,
   options?: WorkoutProgrammingPersistenceOptions,
@@ -1399,7 +1531,115 @@ export async function loadUserProgram(
   query = requireBuilder(query.eq?.('user_id', userId), context, 'user_programs', 'filter');
   const row = await selectMaybeSingleRow('user_programs', query, context);
   if (!row) throw new NotFoundError(`${context}: program ${userProgramId} was not found for this user.`, { context, table: 'user_programs' });
-  const payload = row.payload as GeneratedProgram;
-  validateGeneratedProgram(payload, 'Loaded generated program payload');
-  return payload;
+  const program = programFromRow(row);
+  validateGeneratedProgram(program, 'Loaded generated program payload');
+  return program;
+}
+
+export async function loadUserProgram(
+  userId: string,
+  userProgramId: string,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedProgram | null> {
+  return loadGeneratedProgram(userId, userProgramId, options);
+}
+
+export async function listUserPrograms(
+  userId: string,
+  options?: ListPersistenceOptions & { status?: GeneratedProgram['status'] },
+): Promise<GeneratedProgram[]> {
+  const context = 'Failed to list generated programs';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return [];
+  let query = requireBuilder(table(client, 'user_programs').select?.('*'), context, 'user_programs', 'select');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'user_programs', 'filter');
+  if (options?.status) query = requireBuilder(query.eq?.('status', options.status), context, 'user_programs', 'filter');
+  if (query.order) query = requireBuilder(query.order('started_at', { ascending: false }), context, 'user_programs', 'order');
+  if (options?.limit != null && query.limit) query = requireBuilder(query.limit(options.limit), context, 'user_programs', 'limit');
+  const result = await asPromise<Record<string, unknown>[]>(query);
+  ensureNoError(result, context, 'user_programs');
+  return (result.data ?? []).map((row) => {
+    const program = programFromRow(row);
+    validateGeneratedProgram(program, 'Listed generated program payload');
+    return program;
+  });
+}
+
+export async function updateProgramSession(
+  userId: string,
+  userProgramId: string,
+  sessionId: string,
+  update: ProgramSessionUpdate,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedProgram> {
+  const context = 'Failed to update generated program session';
+  assertUserId(userId, context);
+  const program = await loadGeneratedProgram(userId, userProgramId, options);
+  if (!program) throw new NotFoundError(`${context}: program ${userProgramId} was not found.`, { context, table: 'user_programs' });
+  const currentSession = program.sessions.find((session) => session.id === sessionId);
+  if (!currentSession) throw new NotFoundError(`${context}: session ${sessionId} was not found.`, { context });
+  const changesProtectedSchedule = update.scheduledDate !== undefined
+    || update.dayIndex !== undefined
+    || update.generatedWorkoutId !== undefined
+    || update.workout !== undefined
+    || update.status === 'rescheduled';
+  if (currentSession.protectedAnchor && changesProtectedSchedule) {
+    throw new ValidationError(`${context}: protected workouts cannot be moved or replaced from program persistence.`, { context });
+  }
+  const updatedProgram = programPayloadWithPersistence(updateProgramSessionInMemory(program, sessionId, update), userProgramId);
+  validateGeneratedProgram(updatedProgram, 'Updated generated program payload');
+  await saveGeneratedProgram(userId, updatedProgram, { ...options, userProgramId });
+  return updatedProgram;
+}
+
+export async function attachGeneratedWorkoutToProgramSession(
+  userId: string,
+  userProgramId: string,
+  sessionId: string,
+  workout: GeneratedWorkout,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedProgram> {
+  const context = 'Failed to attach generated workout to program session';
+  assertUserId(userId, context);
+  validateGeneratedWorkoutForPersistence(workout, `${context}: workout payload`);
+  const generatedWorkoutId = await saveGeneratedWorkoutWithExercises(userId, workout, options);
+  return updateProgramSession(userId, userProgramId, sessionId, {
+    generatedWorkoutId,
+    workout,
+    status: 'scheduled',
+  }, options);
+}
+
+export async function markProgramSessionCompleted(
+  userId: string,
+  userProgramId: string,
+  sessionId: string,
+  completion: { completedAt?: string; workoutCompletionId?: string | null } = {},
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedProgram> {
+  return updateProgramSession(userId, userProgramId, sessionId, {
+    status: 'completed',
+    completedAt: completion.completedAt ?? new Date().toISOString(),
+    workoutCompletionId: completion.workoutCompletionId ?? null,
+  }, options);
+}
+
+export async function archiveProgram(
+  userId: string,
+  userProgramId: string,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<GeneratedProgram> {
+  const context = 'Failed to archive generated program';
+  assertUserId(userId, context);
+  const program = await loadGeneratedProgram(userId, userProgramId, options);
+  if (!program) throw new NotFoundError(`${context}: program ${userProgramId} was not found.`, { context, table: 'user_programs' });
+  const archivedProgram = programPayloadWithPersistence({
+    ...program,
+    status: 'archived',
+    archivedAt: new Date().toISOString(),
+  }, userProgramId);
+  validateGeneratedProgram(archivedProgram, 'Archived generated program payload');
+  await saveGeneratedProgram(userId, archivedProgram, { ...options, userProgramId });
+  return archivedProgram;
 }
