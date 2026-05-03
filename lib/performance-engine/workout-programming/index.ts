@@ -6,6 +6,7 @@ export * from './workoutProgrammingEngine.ts';
 export * from './workoutDescriptionService.ts';
 export * from './catalogValidation.ts';
 export * from './contentReview.ts';
+export * from './appStateAdapter.ts';
 export * from './validationEngine.ts';
 export * from './substitutionEngine.ts';
 export * from './intelligenceEngine.ts';

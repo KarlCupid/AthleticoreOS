@@ -1,4 +1,8 @@
 import { workoutIntelligenceCatalog } from './intelligenceData.ts';
+import {
+  buildPersonalizedWorkoutInputFromPerformanceState,
+  type WorkoutProgrammingAppStateAdapterInput,
+} from './appStateAdapter.ts';
 import { generatePersonalizedWorkout } from './intelligenceEngine.ts';
 import {
   filterIntelligenceForContentReview,
@@ -120,6 +124,8 @@ export type WorkoutProgrammingProgramRequest = Pick<PersonalizedWorkoutInput, 'g
   deloadStrategy?: 'none' | 'week_four' | 'readiness_based' | 'every_fourth_week';
 };
 
+export type WorkoutProgrammingPerformanceStateRequest = WorkoutProgrammingAppStateAdapterInput;
+
 function mergeProfileRequest(
   userId: string,
   profile: Awaited<ReturnType<typeof loadUserWorkoutProfile>>,
@@ -214,6 +220,24 @@ function applyContentReviewDiagnostics(
   };
 }
 
+function attachAppStateDecisionTrace(
+  workout: GeneratedWorkout,
+  decisionTrace: GeneratedWorkout['decisionTrace'],
+): GeneratedWorkout {
+  if (!decisionTrace?.length) return workout;
+  return {
+    ...workout,
+    explanations: [
+      ...workout.explanations,
+      'Workout-programming context was resolved from the app-wide PerformanceState/profile/readiness adapter.',
+    ],
+    decisionTrace: [
+      ...decisionTrace,
+      ...(workout.decisionTrace ?? []),
+    ],
+  };
+}
+
 async function buildWorkoutForUser(
   userId: string,
   request: WorkoutProgrammingUserRequest,
@@ -281,6 +305,31 @@ export async function generatePreviewWorkout(
     prepared,
     options?.contentReviewMode ?? 'preview',
   );
+}
+
+export async function generatePreviewWorkoutFromPerformanceState(
+  request: WorkoutProgrammingPerformanceStateRequest,
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<GeneratedWorkout> {
+  const mapped = buildPersonalizedWorkoutInputFromPerformanceState(request);
+  const workout = await generatePreviewWorkout(mapped.input, options);
+  return attachAppStateDecisionTrace(workout, mapped.decisionTrace);
+}
+
+export async function generateWorkoutForUserFromPerformanceState(
+  userId: string,
+  request: WorkoutProgrammingPerformanceStateRequest,
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<GeneratedWorkout> {
+  const mapped = buildPersonalizedWorkoutInputFromPerformanceState({
+    ...request,
+    request: {
+      ...(request.request ?? {}),
+      userId,
+    },
+  });
+  const workout = await generateWorkoutForUser(userId, mapped.input, options);
+  return attachAppStateDecisionTrace(workout, mapped.decisionTrace);
 }
 
 export async function validateWorkout(
@@ -496,6 +545,29 @@ export async function generateWeeklyProgramForUser(
   });
 }
 
+export async function generateWeeklyProgramFromPerformanceState(
+  request: WorkoutProgrammingPerformanceStateRequest & Partial<WorkoutProgrammingProgramRequest>,
+): Promise<GeneratedProgram> {
+  const mapped = buildPersonalizedWorkoutInputFromPerformanceState(request);
+  const programRequest: Parameters<typeof generateWeeklyWorkoutProgram>[0] = {
+    ...mapped.input,
+    goalId: mapped.input.goalId,
+  };
+  if (request.secondaryGoalIds) programRequest.secondaryGoalIds = request.secondaryGoalIds;
+  if (request.weekCount != null) programRequest.weekCount = request.weekCount;
+  if (request.desiredProgramLengthWeeks != null) programRequest.desiredProgramLengthWeeks = request.desiredProgramLengthWeeks;
+  if (request.sessionsPerWeek != null) programRequest.sessionsPerWeek = request.sessionsPerWeek;
+  if (request.availableDays) programRequest.availableDays = request.availableDays;
+  if (request.deloadStrategy) programRequest.deloadStrategy = request.deloadStrategy;
+  if (mapped.input.protectedWorkouts) {
+    programRequest.protectedWorkouts = mapped.input.protectedWorkouts;
+  } else if (request.protectedWorkouts) {
+    programRequest.protectedWorkouts = request.protectedWorkouts;
+  }
+  if (request.readinessTrend) programRequest.readinessTrend = request.readinessTrend;
+  return generateWeeklyWorkoutProgram(programRequest);
+}
+
 export function getWorkoutDescription(
   workout: GeneratedWorkout,
   toneVariant?: DescriptionToneVariant,
@@ -516,11 +588,14 @@ export const workoutProgrammingService = {
   generateWorkoutForUser,
   generateGeneratedWorkoutSessionForUser,
   generatePreviewWorkout,
+  generatePreviewWorkoutFromPerformanceState,
+  generateWorkoutForUserFromPerformanceState,
   validateWorkout,
   substituteExercise,
   logWorkoutCompletion,
   completeGeneratedWorkoutSession,
   getNextProgression,
   generateWeeklyProgramForUser,
+  generateWeeklyProgramFromPerformanceState,
   getWorkoutDescription,
 };
