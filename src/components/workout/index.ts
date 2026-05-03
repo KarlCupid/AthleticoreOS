@@ -47,6 +47,12 @@ export type { TimerMode, TimerDisplayProps } from './TimerDisplay';
 export { TrainingCard } from './TrainingCard';
 export type { TrainingMetric } from './TrainingCard';
 export { GeneratedWorkoutPreviewCard } from './GeneratedWorkoutPreviewCard';
+export { GeneratedWorkoutBetaSessionCard } from './GeneratedWorkoutBetaSessionCard';
+export type {
+  GeneratedWorkoutBetaCompletionDraft,
+  GeneratedWorkoutBetaConfig,
+  GeneratedWorkoutBetaStage,
+} from './GeneratedWorkoutBetaSessionCard';
 export { LoadingPyramid } from './LoadingPyramid';
 export { CircuitView } from './CircuitView';
 export { ConditioningCard } from './ConditioningCard';

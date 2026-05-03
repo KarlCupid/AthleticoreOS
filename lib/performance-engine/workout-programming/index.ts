@@ -14,4 +14,10 @@ export * from './programBuilder.ts';
 export * from './analyticsEngine.ts';
 export * from './persistenceService.ts';
 export * from './workoutProgrammingServiceFixtures.ts';
+export type {
+  GeneratedWorkoutSessionCompletionInput,
+  GeneratedWorkoutSessionCompletionResult,
+  GeneratedWorkoutSessionExerciseCompletionInput,
+  GeneratedWorkoutSessionResult,
+} from './workoutProgrammingService.ts';
 export * as workoutProgrammingService from './workoutProgrammingService.ts';

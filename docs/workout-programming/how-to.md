@@ -28,6 +28,31 @@ const workout = await workoutProgrammingService.generateWorkoutForUser(userId, {
 });
 ```
 
+For the beta generated-session flow, use the session helpers so generation, persistence,
+completion, feedback, and progression stay in the service layer:
+
+```ts
+const session = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, {
+  goalId: 'beginner_strength',
+  durationMinutes: 30,
+  equipmentIds: ['bodyweight', 'dumbbells'],
+  readinessBand: 'green',
+});
+
+const completion = await workoutProgrammingService.completeGeneratedWorkoutSession(userId, {
+  workout: session.workout,
+  generatedWorkoutId: session.generatedWorkoutId,
+  startedAt: new Date().toISOString(),
+  sessionRpe: 6,
+  painScoreBefore: 0,
+  painScoreAfter: 1,
+  completionStatus: 'completed',
+  rating: 5,
+});
+
+console.log(completion.progressionDecision.nextAdjustment);
+```
+
 For weekly programs:
 
 ```ts
@@ -143,7 +168,14 @@ UI should render a `GeneratedWorkout` and avoid business logic duplication.
 Current non-invasive UI path:
 
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
+- `src/components/workout/GeneratedWorkoutBetaSessionCard.tsx`
 - Feature flag in `WorkoutScreen.tsx`
-- Enabled only when `__DEV__` and `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1`
+- Beta flow enabled when `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=1`
+- Developer-only read-only preview enabled when beta is disabled, `__DEV__` is true, and `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1`
+
+The beta flow supports generate, inspect, start, completion logging, workout feedback,
+exercise preferences, and next progression recommendation. When a Supabase user is
+available it persists generated workouts, completions, feedback, and progression
+decisions. Without an authenticated user, it stays in local in-memory mode.
 
 Future UI work should call `workoutProgrammingService`, not raw seed data or lower-level engines.

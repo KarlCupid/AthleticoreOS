@@ -12,6 +12,8 @@ import {
   logWorkoutCompletionWithExerciseResults as persistWorkoutCompletion,
   saveGeneratedWorkoutWithExercises,
   saveProgressionDecision,
+  saveRecommendationFeedback,
+  upsertExercisePreferences,
   type WorkoutProgrammingPersistenceOptions,
 } from './persistenceService.ts';
 import { generateWeeklyWorkoutProgram } from './programBuilder.ts';
@@ -61,6 +63,46 @@ export interface WorkoutProgrammingCompletionResult {
   workoutCompletionId: string | null;
   progressionDecision: ProgressionDecision;
   progressionDecisionId: string | null;
+}
+
+export interface GeneratedWorkoutSessionResult {
+  workout: GeneratedWorkout;
+  generatedWorkoutId: string | null;
+  persisted: boolean;
+}
+
+export interface GeneratedWorkoutSessionExerciseCompletionInput {
+  exerciseId: string;
+  setsCompleted?: number | null;
+  repsCompleted?: number | null;
+  durationSecondsCompleted?: number | null;
+  durationMinutesCompleted?: number | null;
+  actualRpe?: number | null;
+  painScore?: number | null;
+  completedAsPrescribed?: boolean;
+}
+
+export interface GeneratedWorkoutSessionCompletionInput {
+  workout: GeneratedWorkout;
+  generatedWorkoutId?: string | null;
+  startedAt?: string | null;
+  completedAt?: string;
+  completedExerciseIds?: string[];
+  exerciseResults?: GeneratedWorkoutSessionExerciseCompletionInput[];
+  sessionRpe: number;
+  painScoreBefore?: number | null;
+  painScoreAfter?: number | null;
+  notes?: string | null;
+  completionStatus?: 'completed' | 'partial' | 'stopped';
+  substitutionsUsed?: string[];
+  rating?: number | null;
+  feedbackTags?: string[];
+  likedExerciseIds?: string[];
+  dislikedExerciseIds?: string[];
+}
+
+export interface GeneratedWorkoutSessionCompletionResult extends WorkoutProgrammingCompletionResult {
+  feedbackId: string | null;
 }
 
 export type WorkoutProgrammingProgramRequest = Pick<PersonalizedWorkoutInput, 'goalId'> & Partial<PersonalizedWorkoutInput> & {
@@ -168,17 +210,11 @@ function applyContentReviewDiagnostics(
   };
 }
 
-export async function getWorkoutProgrammingCatalog(
-  options?: WorkoutProgrammingPersistenceOptions,
-): Promise<WorkoutProgrammingCatalog> {
-  return loadWorkoutProgrammingCatalog(options);
-}
-
-export async function generateWorkoutForUser(
+async function buildWorkoutForUser(
   userId: string,
   request: WorkoutProgrammingUserRequest,
   options?: WorkoutProgrammingServiceOptions,
-): Promise<GeneratedWorkout> {
+): Promise<{ workout: GeneratedWorkout; input: PersonalizedWorkoutInput }> {
   const [catalog, profile] = await Promise.all([
     loadWorkoutProgrammingCatalog(options),
     loadUserWorkoutProfile(userId, options),
@@ -191,10 +227,42 @@ export async function generateWorkoutForUser(
     prepared,
     options?.contentReviewMode ?? 'production',
   );
+  return { workout: enriched, input };
+}
+
+export async function getWorkoutProgrammingCatalog(
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<WorkoutProgrammingCatalog> {
+  return loadWorkoutProgrammingCatalog(options);
+}
+
+export async function generateWorkoutForUser(
+  userId: string,
+  request: WorkoutProgrammingUserRequest,
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<GeneratedWorkout> {
+  const { workout: enriched } = await buildWorkoutForUser(userId, request, options);
   if (options?.persistGeneratedWorkout !== false) {
     await saveGeneratedWorkoutWithExercises(userId, enriched, options);
   }
   return enriched;
+}
+
+export async function generateGeneratedWorkoutSessionForUser(
+  userId: string,
+  request: WorkoutProgrammingUserRequest,
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<GeneratedWorkoutSessionResult> {
+  const { workout } = await buildWorkoutForUser(userId, request, options);
+  const shouldPersist = options?.persistGeneratedWorkout !== false;
+  const generatedWorkoutId = shouldPersist
+    ? await saveGeneratedWorkoutWithExercises(userId, workout, options)
+    : null;
+  return {
+    workout,
+    generatedWorkoutId,
+    persisted: Boolean(generatedWorkoutId),
+  };
 }
 
 export async function generatePreviewWorkout(
@@ -257,6 +325,7 @@ export async function logWorkoutCompletion(
   options?: WorkoutProgrammingServiceOptions & {
     generatedWorkoutId?: string | null;
     workoutCompletionId?: string | null;
+    workout?: GeneratedWorkout;
   },
 ): Promise<WorkoutProgrammingCompletionResult> {
   const workoutCompletionId = options?.workoutCompletionId
@@ -277,6 +346,97 @@ export async function logWorkoutCompletion(
     workoutCompletionId,
     progressionDecision,
     progressionDecisionId,
+  };
+}
+
+function plannedRepsValue(reps: string | null): number | null {
+  if (!reps) return null;
+  const matches = reps.match(/\d+/g);
+  if (!matches || matches.length === 0) return null;
+  return Number(matches[matches.length - 1]);
+}
+
+function buildCompletionLogFromGeneratedWorkout(
+  input: GeneratedWorkoutSessionCompletionInput,
+): WorkoutCompletionLog {
+  const completedSet = new Set(input.completedExerciseIds ?? input.workout.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exerciseId)));
+  const exerciseResultById = new Map((input.exerciseResults ?? []).map((result) => [result.exerciseId, result]));
+  const feedbackNotes = [
+    input.notes?.trim() || null,
+    input.completionStatus ? `Status: ${input.completionStatus}` : null,
+    input.startedAt ? `Started at: ${input.startedAt}` : null,
+    input.substitutionsUsed && input.substitutionsUsed.length > 0 ? `Substitutions used: ${input.substitutionsUsed.join(', ')}` : null,
+    input.feedbackTags && input.feedbackTags.length > 0 ? `Feedback: ${input.feedbackTags.join(', ')}` : null,
+  ].filter((item): item is string => Boolean(item));
+  return {
+    workoutId: input.generatedWorkoutId ?? input.workout.templateId,
+    completedAt: input.completedAt ?? new Date().toISOString(),
+    workoutTypeId: input.workout.workoutTypeId,
+    goalId: input.workout.goalId,
+    plannedDurationMinutes: input.workout.estimatedDurationMinutes,
+    actualDurationMinutes: input.workout.estimatedDurationMinutes,
+    sessionRpe: input.sessionRpe,
+    painScoreBefore: input.painScoreBefore ?? null,
+    painScoreAfter: input.painScoreAfter ?? null,
+    notes: feedbackNotes.length > 0 ? feedbackNotes.join('\n') : null,
+    exerciseResults: input.workout.blocks.flatMap((block) => block.exercises.map((exercise) => {
+      const completed = completedSet.has(exercise.exerciseId);
+      const logged = exerciseResultById.get(exercise.exerciseId);
+      const prescribedReps = plannedRepsValue(exercise.prescription.reps);
+      const loggedCompleted = logged?.completedAsPrescribed ?? completed;
+      return {
+        exerciseId: exercise.exerciseId,
+        setsCompleted: logged?.setsCompleted ?? (loggedCompleted ? exercise.prescription.sets ?? 0 : 0),
+        setsPrescribed: exercise.prescription.sets,
+        repsCompleted: logged?.repsCompleted ?? (loggedCompleted ? prescribedReps : null),
+        repsPrescribed: prescribedReps,
+        durationSecondsCompleted: logged?.durationSecondsCompleted ?? (loggedCompleted ? exercise.prescription.durationSeconds : null),
+        durationSecondsPrescribed: exercise.prescription.durationSeconds,
+        durationMinutesCompleted: logged?.durationMinutesCompleted ?? (loggedCompleted ? exercise.prescription.durationMinutes : null),
+        durationMinutesPrescribed: exercise.prescription.durationMinutes,
+        actualRpe: logged?.actualRpe ?? (loggedCompleted ? input.sessionRpe : null),
+        targetRpe: exercise.prescription.targetRpe,
+        painScore: logged?.painScore ?? input.painScoreAfter ?? null,
+        completedAsPrescribed: loggedCompleted,
+      };
+    })),
+  };
+}
+
+export async function completeGeneratedWorkoutSession(
+  userId: string,
+  input: GeneratedWorkoutSessionCompletionInput,
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<GeneratedWorkoutSessionCompletionResult> {
+  const completionLog = buildCompletionLogFromGeneratedWorkout(input);
+  const completion = await logWorkoutCompletion(userId, completionLog, {
+    ...options,
+    generatedWorkoutId: input.generatedWorkoutId ?? null,
+    workout: input.workout,
+  });
+  const feedbackNotes = [
+    input.notes?.trim() || null,
+    input.feedbackTags && input.feedbackTags.length > 0 ? `Tags: ${input.feedbackTags.join(', ')}` : null,
+    input.likedExerciseIds && input.likedExerciseIds.length > 0 ? `Liked: ${input.likedExerciseIds.join(', ')}` : null,
+    input.dislikedExerciseIds && input.dislikedExerciseIds.length > 0 ? `Disliked: ${input.dislikedExerciseIds.join(', ')}` : null,
+  ].filter((item): item is string => Boolean(item));
+  const feedbackId = input.rating != null || feedbackNotes.length > 0
+    ? await saveRecommendationFeedback(userId, {
+      generatedWorkoutId: input.generatedWorkoutId ?? null,
+      rating: input.rating ?? null,
+      notes: feedbackNotes.length > 0 ? feedbackNotes.join('\n') : null,
+    }, options)
+    : null;
+  const preferenceRows = [
+    ...(input.likedExerciseIds ?? []).map((exerciseId) => ({ exerciseId, preference: 'like' as const })),
+    ...(input.dislikedExerciseIds ?? []).map((exerciseId) => ({ exerciseId, preference: 'dislike' as const })),
+  ];
+  if (preferenceRows.length > 0) {
+    await upsertExercisePreferences(userId, preferenceRows, options);
+  }
+  return {
+    ...completion,
+    feedbackId,
   };
 }
 
@@ -337,10 +497,12 @@ export function getWorkoutDescription(
 export const workoutProgrammingService = {
   getWorkoutProgrammingCatalog,
   generateWorkoutForUser,
+  generateGeneratedWorkoutSessionForUser,
   generatePreviewWorkout,
   validateWorkout,
   substituteExercise,
   logWorkoutCompletion,
+  completeGeneratedWorkoutSession,
   getNextProgression,
   generateWeeklyProgramForUser,
   getWorkoutDescription,

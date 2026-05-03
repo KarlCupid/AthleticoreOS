@@ -1,6 +1,8 @@
 import {
   getWorkoutDescription,
   getWorkoutProgrammingCatalog,
+  completeGeneratedWorkoutSession,
+  generateGeneratedWorkoutSessionForUser,
   generatePreviewWorkout,
   generateWeeklyProgramForUser,
   generateWorkoutForUser,
@@ -149,6 +151,47 @@ async function run() {
     assert('generateWorkoutForUser scopes profile reads by user_id', ['user_training_profiles', 'user_equipment', 'user_safety_flags', 'user_exercise_preferences'].every((table) => (
       calls.some((call) => call.table === table && call.method === 'eq' && call.args[0] === 'user_id' && call.args[1] === 'user-1')
     )));
+  }
+
+  {
+    const { client, calls } = createMockSupabase();
+    const session = await generateGeneratedWorkoutSessionForUser('user-1', {
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+      readinessBand: 'green',
+    }, { client });
+    const result = await completeGeneratedWorkoutSession('user-1', {
+      workout: session.workout,
+      generatedWorkoutId: session.generatedWorkoutId,
+      startedAt: '2026-05-01T12:00:00.000Z',
+      completedAt: '2026-05-01T12:40:00.000Z',
+      exerciseResults: [{
+        exerciseId: session.workout.blocks[0]?.exercises[0]?.exerciseId ?? 'bodyweight_squat',
+        setsCompleted: 2,
+        repsCompleted: 8,
+        completedAsPrescribed: true,
+      }],
+      sessionRpe: 6,
+      painScoreBefore: 0,
+      painScoreAfter: 1,
+      completionStatus: 'completed',
+      rating: 5,
+      feedbackTags: ['good_fit'],
+      likedExerciseIds: [session.workout.blocks[0]?.exercises[0]?.exerciseId ?? 'bodyweight_squat'],
+      dislikedExerciseIds: [],
+      substitutionsUsed: [],
+      notes: 'Felt repeatable.',
+    }, { client });
+    const completionChildPayloadRaw = insertedPayload(calls, 'exercise_completion_results');
+    const completionChildPayload = Array.isArray(completionChildPayloadRaw)
+      ? completionChildPayloadRaw[0] as Record<string, unknown> | undefined
+      : completionChildPayloadRaw as Record<string, unknown> | undefined;
+    assert('generated workout beta session persists parent and child exercise rows', session.persisted && session.generatedWorkoutId === 'generated_workouts-id' && Boolean(insertedPayload(calls, 'generated_workout_exercises')));
+    assert('generated workout beta completion persists actual exercise work', completionChildPayload?.sets_completed === 2 && completionChildPayload?.reps_completed === 8);
+    assert('generated workout beta completion saves completion, feedback, and preferences', result.workoutCompletionId === 'workout_completions-id' && result.feedbackId === 'recommendation_feedback-id' && calls.some((call) => call.table === 'user_exercise_preferences' && call.method === 'upsert'));
+    assert('generated workout beta completion returns next progression', Boolean(result.progressionDecision.reason && result.progressionDecision.nextAdjustment));
   }
 
   {

@@ -10,6 +10,8 @@ import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
 
 interface GeneratedWorkoutPreviewCardProps {
   workout: GeneratedWorkout;
+  title?: string;
+  subtitle?: string;
 }
 
 function formatRange(range: { min?: number; max?: number; target?: number; unit?: string } | undefined): string | null {
@@ -119,7 +121,11 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
-export function GeneratedWorkoutPreviewCard({ workout }: GeneratedWorkoutPreviewCardProps) {
+export function GeneratedWorkoutPreviewCard({
+  workout,
+  title = 'Generated workout preview',
+  subtitle = 'Developer-only programming engine output',
+}: GeneratedWorkoutPreviewCardProps) {
   const description = workout.description;
   const allSubstitutions = workout.blocks
     .flatMap((block) => block.exercises)
@@ -134,8 +140,8 @@ export function GeneratedWorkoutPreviewCard({ workout }: GeneratedWorkoutPreview
 
   return (
     <Card
-      title="Generated workout preview"
-      subtitle="Developer-only programming engine output"
+      title={title}
+      subtitle={subtitle}
       subtitleLines={2}
       backgroundTone="workoutFloor"
       backgroundScrimColor="rgba(10, 10, 10, 0.74)"
