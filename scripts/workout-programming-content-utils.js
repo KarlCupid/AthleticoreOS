@@ -44,6 +44,7 @@ function parseArgs(argv) {
   const args = {
     json: false,
     strict: false,
+    release: false,
     failOnWarnings: false,
     allowInvalid: false,
     out: undefined,
@@ -54,6 +55,7 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === '--json') args.json = true;
     else if (arg === '--strict') args.strict = true;
+    else if (arg === '--release') args.release = true;
     else if (arg === '--fail-on-warnings') args.failOnWarnings = true;
     else if (arg === '--allow-invalid') args.allowInvalid = true;
     else if (arg === '--out') {
@@ -172,6 +174,22 @@ function collectReviewableItems(catalog, intelligence) {
   ];
 }
 
+function isProductionEligible(item) {
+  return item.rolloutEligibility === 'production';
+}
+
+function isPreviewGated(item) {
+  return item.rolloutEligibility === 'preview' || item.rolloutEligibility === 'dev_only';
+}
+
+function countByType(items) {
+  const counts = { total: items.length };
+  for (const { type } of items) {
+    counts[type] = (counts[type] || 0) + 1;
+  }
+  return counts;
+}
+
 function unsafeProductionEntries(catalog, intelligence) {
   return collectReviewableItems(catalog, intelligence)
     .filter(({ item }) => item.rolloutEligibility === 'production')
@@ -196,19 +214,243 @@ function unsafeProductionEntries(catalog, intelligence) {
     ));
 }
 
+function rejectedButNotBlockedEntries(catalog, intelligence) {
+  return collectReviewableItems(catalog, intelligence)
+    .filter(({ item }) => item.reviewStatus === 'rejected' && item.rolloutEligibility !== 'blocked')
+    .map(({ type, item }) => entry(
+      type,
+      item.id || item.sourceExerciseId || 'unknown',
+      'rolloutEligibility',
+      'error',
+      `${type} is rejected but not blocked from rollout.`,
+      'Set rolloutEligibility to blocked for rejected content, or move it back to draft only after an intentional revision.',
+      {
+        reviewStatus: item.reviewStatus,
+        safetyReviewStatus: item.safetyReviewStatus,
+        riskLevel: item.riskLevel,
+        rolloutEligibility: item.rolloutEligibility,
+      },
+    ));
+}
+
+function productionExerciseSafetyEntries(catalog) {
+  return catalog.exercises
+    .filter(isProductionEligible)
+    .filter((exercise) => !Array.isArray(exercise.safetyNotes) || exercise.safetyNotes.filter((note) => typeof note === 'string' && note.trim()).length === 0)
+    .map((exercise) => entry(
+      'Exercise',
+      exercise.id,
+      'safetyNotes',
+      'error',
+      `${exercise.id} is production-eligible but has no exercise-level safety notes.`,
+      'Add specific safety notes before the exercise can be used in production generation.',
+      {
+        reviewStatus: exercise.reviewStatus,
+        safetyReviewStatus: exercise.safetyReviewStatus,
+        riskLevel: exercise.riskLevel,
+        rolloutEligibility: exercise.rolloutEligibility,
+      },
+    ));
+}
+
+function productionExerciseSubstitutionEntries(catalog, intelligence) {
+  const substitutionRuleSourceIds = ids(intelligence.substitutionRules.map((rule) => ({ id: rule.sourceExerciseId })));
+  return catalog.exercises
+    .filter(isProductionEligible)
+    .filter((exercise) => (exercise.substitutionExerciseIds || []).length === 0 && !substitutionRuleSourceIds.has(exercise.id))
+    .map((exercise) => entry(
+      'Exercise',
+      exercise.id,
+      'substitutionExerciseIds',
+      'error',
+      `${exercise.id} is production-eligible but has no direct substitution links and no substitution rule.`,
+      'Add substitutionExerciseIds or an authored SubstitutionRule when a safe intent-preserving replacement exists.',
+      {
+        reviewStatus: exercise.reviewStatus,
+        rolloutEligibility: exercise.rolloutEligibility,
+      },
+    ));
+}
+
+function ruleIdsForTemplate(template, field, payloadField) {
+  const topLevel = Array.isArray(template[field]) ? template[field] : [];
+  const payload = template.payload && payloadField && Array.isArray(template.payload[payloadField])
+    ? template.payload[payloadField]
+    : [];
+  return Array.from(new Set([...topLevel, ...payload]));
+}
+
+function productionPrescriptionRuleEntries(catalog) {
+  const ruleRequirements = [
+    ['progressionRuleIds', 'progressionRuleIds', 'progression rules'],
+    ['regressionRuleIds', null, 'regression rules'],
+    ['deloadRuleIds', null, 'deload rules'],
+  ];
+  return catalog.prescriptionTemplates
+    .filter(isProductionEligible)
+    .flatMap((template) => ruleRequirements
+      .filter(([field, payloadField]) => ruleIdsForTemplate(template, field, payloadField).length === 0)
+      .map(([field, , label]) => entry(
+        'PrescriptionTemplate',
+        template.id,
+        field,
+        'error',
+        `${template.id} is production-eligible but has no ${label}.`,
+        `Attach ${field} before this prescription can be used in production generation.`,
+        {
+          kind: template.kind,
+          reviewStatus: template.reviewStatus,
+          rolloutEligibility: template.rolloutEligibility,
+        },
+      )));
+}
+
+function productionMediaEntries(catalog) {
+  return catalog.exercises
+    .filter(isProductionEligible)
+    .filter((exercise) => !hasMedia(exercise) || mediaReviewStatus(exercise) !== 'approved')
+    .map((exercise) => entry(
+      'Exercise',
+      exercise.id,
+      'media',
+      'error',
+      !hasMedia(exercise)
+        ? `${exercise.id} is production-eligible but has no linked media asset.`
+        : `${exercise.id} has production media hooks that are not approved.`,
+      'Add approved thumbnailUrl, videoUrl, imageUrl, or animationUrl before release if media is required.',
+      {
+        mediaReviewStatus: mediaReviewStatus(exercise),
+        hasAltText: Boolean(exercise.media && exercise.media.altText),
+        hasMediaHooks: Boolean(exercise.media),
+        reviewStatus: exercise.reviewStatus,
+        rolloutEligibility: exercise.rolloutEligibility,
+      },
+    ));
+}
+
+function uniqueEntries(entries) {
+  const seen = new Set();
+  const output = [];
+  for (const item of entries) {
+    const key = entryKey(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(item);
+  }
+  return output;
+}
+
+function entryKey(item) {
+  return `${item.type}:${item.id}:${item.field}:${item.message}`;
+}
+
+function reviewableItemsById(catalog, intelligence) {
+  const byId = new Map();
+  for (const { item } of collectReviewableItems(catalog, intelligence)) {
+    const id = item.id || item.sourceExerciseId;
+    if (id) byId.set(id, item);
+  }
+  return byId;
+}
+
+function isPreviewSafetyReviewValidationEntry(item, reviewableById) {
+  const reviewable = reviewableById.get(item.id);
+  return item.field === 'safetyReviewStatus'
+    && typeof item.message === 'string'
+    && item.message.includes('high risk without approved safety review')
+    && reviewable
+    && isPreviewGated(reviewable)
+    && reviewable.reviewStatus !== 'rejected'
+    && reviewable.safetyReviewStatus !== 'rejected';
+}
+
+function buildReleaseReport(input) {
+  const {
+    catalog,
+    intelligence,
+    errors,
+    descriptionCompletenessErrors,
+    productionBlockers,
+    reviewBlockers,
+    unsafeProductionEligible,
+    gatedPreviewContent,
+    suggestions,
+  } = input;
+  const productionItems = collectReviewableItems(catalog, intelligence).filter(({ item }) => isProductionEligible(item));
+  const previewItems = collectReviewableItems(catalog, intelligence).filter(({ item }) => isPreviewGated(item));
+  const productionDescriptionIds = new Set(
+    intelligence.descriptionTemplates
+      .filter(isProductionEligible)
+      .map((template) => template.id),
+  );
+  const missingProductionDescriptions = descriptionCompletenessErrors
+    .filter((item) => productionDescriptionIds.has(item.id))
+    .map((item) => ({
+      ...item,
+      severity: 'error',
+      message: `${item.message} This production-eligible description must be complete for release.`,
+    }));
+  const productionSafetyNotes = productionExerciseSafetyEntries(catalog);
+  const productionSubstitutions = productionExerciseSubstitutionEntries(catalog, intelligence);
+  const productionPrescriptionRules = productionPrescriptionRuleEntries(catalog);
+  const missingProductionMedia = productionMediaEntries(catalog);
+  const rejectedNotBlocked = rejectedButNotBlockedEntries(catalog, intelligence);
+  const descriptionCompletenessKeys = new Set(descriptionCompletenessErrors.map(entryKey));
+  const reviewableById = reviewableItemsById(catalog, intelligence);
+  const releaseValidationErrors = errors.filter((item) => (
+    !descriptionCompletenessKeys.has(entryKey(item))
+    && !isPreviewSafetyReviewValidationEntry(item, reviewableById)
+  ));
+  const releaseReviewBlockers = uniqueEntries([
+    ...reviewBlockers.filter((item) => item.details && item.details.rolloutEligibility === 'production'),
+    ...rejectedNotBlocked,
+  ]);
+  const releaseProductionBlockers = uniqueEntries([
+    ...releaseValidationErrors,
+    ...productionBlockers,
+    ...missingProductionDescriptions,
+    ...productionSafetyNotes,
+    ...productionSubstitutions,
+    ...productionPrescriptionRules,
+  ]);
+  const productionReady = releaseProductionBlockers.length === 0
+    && releaseReviewBlockers.length === 0
+    && unsafeProductionEligible.length === 0
+    && missingProductionMedia.length === 0;
+  const recommendedFixes = uniqueEntries([
+    ...releaseProductionBlockers,
+    ...releaseReviewBlockers,
+    ...unsafeProductionEligible,
+    ...missingProductionMedia,
+  ]).slice(0, 25).map((item) => item.suggestion).filter(Boolean);
+
+  return {
+    productionReady,
+    productionBlockers: releaseProductionBlockers,
+    reviewBlockers: releaseReviewBlockers,
+    unsafeProductionEligible,
+    missingProductionMedia,
+    productionEligibleCounts: countByType(productionItems),
+    previewGatedCounts: countByType(previewItems),
+    previewGatedContent: gatedPreviewContent,
+    recommendedFixes: recommendedFixes.length > 0 ? Array.from(new Set(recommendedFixes)) : suggestions,
+  };
+}
+
 function tableCounts(rows) {
   return Object.fromEntries(Object.entries(rows).map(([table, values]) => [table, Array.isArray(values) ? values.length : 0]));
 }
 
-function buildAuditReport(projectRoot = process.cwd()) {
-  const workout = loadWorkoutProgramming(projectRoot);
-  const catalog = workout.workoutProgrammingCatalog;
-  const intelligence = workout.workoutIntelligenceCatalog;
-  const validation = workout.validateWorkoutProgrammingContentPacks();
-  const duplicateValidation = workout.validateNoDuplicateIds();
-  const referenceValidation = workout.validateReferences();
-  const prescriptionValidation = workout.validatePrescriptionPayloads();
-  const descriptionValidation = workout.validateDescriptionCompleteness();
+function buildAuditReport(projectRoot = process.cwd(), options = {}) {
+  const workout = options.workoutModule || loadWorkoutProgramming(projectRoot);
+  const catalog = options.catalog || workout.workoutProgrammingCatalog;
+  const intelligence = options.intelligence || workout.workoutIntelligenceCatalog;
+  const validationOptions = { catalog, intelligence };
+  const validation = workout.validateWorkoutProgrammingContentPacks(validationOptions);
+  const duplicateValidation = workout.validateNoDuplicateIds(validationOptions);
+  const referenceValidation = workout.validateReferences(validationOptions);
+  const prescriptionValidation = workout.validatePrescriptionPayloads(validationOptions);
+  const descriptionValidation = workout.validateDescriptionCompleteness(validationOptions);
   const reviewReport = workout.getUnsafeOrUnreviewedContentReport(catalog, intelligence);
   const seedRows = workout.buildWorkoutProgrammingSeedRows(catalog);
   const substitutionRuleSourceIds = ids(intelligence.substitutionRules.map((rule) => ({ id: rule.sourceExerciseId })));
@@ -307,6 +549,18 @@ function buildAuditReport(projectRoot = process.cwd()) {
   if (missingToneVariants.length > 0) suggestions.push('Fill missing tone variants so coaching copy can match user preference.');
   if (suggestions.length === 0) suggestions.push('Content packs are ready for production review.');
 
+  const release = buildReleaseReport({
+    catalog,
+    intelligence,
+    errors,
+    descriptionCompletenessErrors,
+    productionBlockers,
+    reviewBlockers,
+    unsafeProductionEligible,
+    gatedPreviewContent,
+    suggestions,
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     summary: {
@@ -347,6 +601,10 @@ function buildAuditReport(projectRoot = process.cwd()) {
       prescriptionsWithoutProgressionRules: prescriptionsWithoutProgressionRules.length,
       missingToneVariants: missingToneVariants.length,
       unsafeProductionEligible: unsafeProductionEligible.length,
+      productionReady: release.productionReady,
+      releaseProductionBlockers: release.productionBlockers.length,
+      releaseReviewBlockers: release.reviewBlockers.length,
+      missingProductionMedia: release.missingProductionMedia.length,
     },
     errors,
     warnings,
@@ -361,6 +619,12 @@ function buildAuditReport(projectRoot = process.cwd()) {
     missingToneVariants,
     unsafeProductionEligible,
     suggestions,
+    release,
+    productionReady: release.productionReady,
+    missingProductionMedia: release.missingProductionMedia,
+    productionEligibleCounts: release.productionEligibleCounts,
+    previewGatedCounts: release.previewGatedCounts,
+    recommendedFixes: release.recommendedFixes,
   };
 }
 
@@ -405,6 +669,10 @@ function formatAuditReport(report, args = {}) {
     `- prescriptions without progression rules: ${report.summary.prescriptionsWithoutProgressionRules}`,
     `- missing tone variants: ${report.summary.missingToneVariants}`,
     `- unsafe production-eligible content: ${report.summary.unsafeProductionEligible}`,
+    `- release production ready: ${report.release.productionReady}`,
+    `- release production blockers: ${report.release.productionBlockers.length}`,
+    `- release review blockers: ${report.release.reviewBlockers.length}`,
+    `- missing production media: ${report.release.missingProductionMedia.length}`,
     '',
     'Catalog Counts',
     ...Object.entries(report.summary.catalog).map(([key, value]) => `- ${key}: ${value}`),
@@ -422,8 +690,19 @@ function formatAuditReport(report, args = {}) {
     '',
     formatEntries('Gated Preview/Dev-Only Content', report.gatedPreviewContent, limit),
     '',
+    'Release Gate',
+    `- productionReady: ${report.release.productionReady}`,
+    `- production-eligible content: ${report.release.productionEligibleCounts.total}`,
+    `- preview/dev-only gated content: ${report.release.previewGatedCounts.total}`,
+    '',
+    formatEntries('Release Production Blockers', report.release.productionBlockers, limit),
+    '',
+    formatEntries('Release Review Blockers', report.release.reviewBlockers, limit),
+    '',
+    formatEntries('Missing Production Media', report.release.missingProductionMedia, limit),
+    '',
     'Suggestions',
-    ...report.suggestions.map((suggestion) => `- ${suggestion}`),
+    ...report.release.recommendedFixes.map((suggestion) => `- ${suggestion}`),
     '',
   ];
   return `${lines.join('\n')}\n`;
@@ -443,13 +722,28 @@ function formatValidationReport(report, args = {}) {
     `- duplicate ID errors: ${report.summary.duplicateIdErrors}`,
     `- orphaned reference errors: ${report.summary.orphanedReferenceErrors}`,
     `- unsafe production-eligible content: ${report.summary.unsafeProductionEligible}`,
+    `- release production ready: ${report.release.productionReady}`,
+    `- release production blockers: ${report.release.productionBlockers.length}`,
+    `- release review blockers: ${report.release.reviewBlockers.length}`,
+    `- missing production media: ${report.release.missingProductionMedia.length}`,
     '',
     formatEntries('Errors', report.errors, limit),
     '',
     formatEntries('Warnings', report.warnings, limit),
     '',
+    'Release Gate',
+    `- productionReady: ${report.release.productionReady}`,
+    `- production-eligible content: ${report.release.productionEligibleCounts.total}`,
+    `- preview/dev-only gated content: ${report.release.previewGatedCounts.total}`,
+    '',
+    formatEntries('Release Production Blockers', report.release.productionBlockers, limit),
+    '',
+    formatEntries('Release Review Blockers', report.release.reviewBlockers, limit),
+    '',
+    formatEntries('Missing Production Media', report.release.missingProductionMedia, limit),
+    '',
     'Suggestions',
-    ...report.suggestions.map((suggestion) => `- ${suggestion}`),
+    ...report.release.recommendedFixes.map((suggestion) => `- ${suggestion}`),
     '',
   ];
   return `${lines.join('\n')}\n`;
@@ -459,10 +753,13 @@ function shouldFail(report, args) {
   if (args.allowInvalid) {
     return false;
   }
+  if (args.strict || args.release) {
+    return !report.release.productionReady;
+  }
   if (report.summary.errors > 0 || report.summary.productionBlockers > 0 || report.summary.unsafeProductionEligible > 0) {
     return true;
   }
-  return Boolean(args.strict || args.failOnWarnings) && report.summary.warnings > 0;
+  return Boolean(args.failOnWarnings) && report.summary.warnings > 0;
 }
 
 module.exports = {

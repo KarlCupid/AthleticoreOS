@@ -88,7 +88,30 @@ npm run workout:validate-content
 npm run workout:audit-content
 ```
 
-Use `--strict` or `--fail-on-warnings` when a release requires all preview content, missing media, and authoring warnings to be cleared as well.
+Release mode is stricter than the normal beta audit:
+
+```bash
+npm run workout:validate-content -- --strict
+npm run workout:audit-content -- --strict
+npm run workout:audit-content -- --release
+```
+
+`--strict` and `--release` fail unless the release report has `productionReady: true`. They block on validation errors, production blockers, unsafe production-eligible content, rejected content that is not blocked, high-risk production content without safety approval, incomplete production descriptions, production exercises without safety notes or substitutions, production prescriptions without progression/regression/deload rules, and production exercises without approved release media.
+
+Preview/dev-only content can remain in the catalog for beta review. It does not block strict release when it is safely gated with `rolloutEligibility = preview` or `dev_only`; it does block if it is rejected without `blocked` rollout, marked production-eligible before approval, or otherwise creates a catalog-wide validation error.
+
+The audit JSON and human report include:
+
+- `productionReady`
+- `productionBlockers`
+- `reviewBlockers`
+- `unsafeProductionEligible`
+- `missingProductionMedia`
+- `productionEligibleCounts`
+- `previewGatedCounts`
+- `recommendedFixes`
+
+Use `--fail-on-warnings` for local cleanup passes where warning-free content is desired, but use `--strict` or `--release` for release gating.
 
 ## Database Support
 

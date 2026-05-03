@@ -28,7 +28,16 @@ Workout-programming release gate:
 npm run workout:release-gate
 ```
 
-`workout:release-gate` extends the normal quality gate with content validation, content audit, and the guarded live DB/RLS smoke scripts. It requires a local Supabase instance or a dedicated non-production Supabase test project with the environment variables described in `live-db-smoke-tests.md`.
+`workout:release-gate` extends the normal quality gate with strict content validation, release-mode content audit, and the guarded live DB/RLS smoke scripts. It requires a local Supabase instance or a dedicated non-production Supabase test project with the environment variables described in `live-db-smoke-tests.md`.
+
+Content release checks can also be run directly:
+
+```bash
+npm run workout:validate-content -- --strict
+npm run workout:audit-content -- --release
+```
+
+These commands fail unless the workout-programming release report is production-ready. Preview/dev-only content can remain gated for beta review, but production-eligible content must have review approval, safety approval where required, complete descriptions, exercise safety notes, relevant substitutions, prescription progression/regression/deload rules, and approved production media.
 
 ## Workout-Programming Test Files
 
@@ -97,6 +106,7 @@ Tests should fail for:
 - Generated workout persistence and beta start/log UI are wired behind feature flags, with component-level React Native render coverage now in place; broad rollout still needs device/E2E coverage.
 - Generated workout beta lifecycle state is now durable for persisted sessions, including active-session restore; broad rollout still needs device/E2E coverage for backgrounding, reload, and resume on real devices.
 - Program persistence has atomic save/load/update/archive/session-completion helpers, but it is not yet a polished calendar-driven production workflow.
+- Strict content release mode is wired into `workout:release-gate`; the current catalog can still fail release until production media and any remaining production-rule/review gaps are intentionally completed.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
 - Balance and older-adult concepts are represented through current goals/safety flags, not a dedicated older-adult product surface.
 - The generator is deterministic enough for tests but not yet tuned with real-world recommendation quality data.

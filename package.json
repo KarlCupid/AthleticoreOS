@@ -16,7 +16,7 @@
     "workout:validate-content": "node scripts/validate-workout-programming-content.js",
     "workout:audit-content": "node scripts/audit-workout-programming-content.js",
     "workout:live-db-smoke": "npm run test:workout-db && npm run test:rls",
-    "workout:release-gate": "npm run quality && npm run workout:validate-content && npm run workout:audit-content && npm run workout:live-db-smoke",
+    "workout:release-gate": "npm run quality && npm run workout:validate-content -- --strict && npm run workout:audit-content -- --release && npm run workout:live-db-smoke",
     "workout:export-seed": "node scripts/export-workout-programming-seed.js",
     "seed:ingredients": "node scripts/generate-ingredient-catalog-seed.js",
     "seed:ingredients:2000": "node scripts/expand-ingredient-catalog.js --target=2000 --migration=020_expand_ingredient_catalog_to_2000.sql",
