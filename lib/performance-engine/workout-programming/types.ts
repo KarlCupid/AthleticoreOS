@@ -114,12 +114,13 @@ export interface ExercisePrescriptionRanges {
 }
 
 export interface ExerciseMedia {
-  thumbnailUrl?: string;
-  videoUrl?: string;
-  imageUrl?: string;
-  animationUrl?: string;
+  thumbnailUrl?: string | null;
+  videoUrl?: string | null;
+  imageUrl?: string | null;
+  animationUrl?: string | null;
   altText?: string;
   attribution?: string;
+  reviewStatus?: ContentReviewStatus;
 }
 
 export interface Exercise extends ReviewableContentFields {

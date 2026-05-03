@@ -92,6 +92,18 @@ export const equipmentTypes = [
     "summary": "Bike ergometer or spin bike."
   },
   {
+    "id": "elliptical",
+    "label": "Elliptical",
+    "category": "cardio",
+    "summary": "Low-impact elliptical trainer for steady aerobic work."
+  },
+  {
+    "id": "pool",
+    "label": "Pool",
+    "category": "cardio",
+    "summary": "Pool access for swimming or water-based aerobic work."
+  },
+  {
     "id": "sled",
     "label": "Sled",
     "category": "accessory",

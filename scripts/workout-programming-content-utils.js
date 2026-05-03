@@ -118,6 +118,13 @@ function hasMedia(exercise) {
   return Boolean(media.videoUrl || media.thumbnailUrl || media.imageUrl || media.animationUrl);
 }
 
+function mediaReviewStatus(exercise) {
+  const status = exercise.media && typeof exercise.media.reviewStatus === 'string'
+    ? exercise.media.reviewStatus
+    : 'needs_review';
+  return status;
+}
+
 function ids(items) {
   return new Set(items.map((item) => item.id));
 }
@@ -196,8 +203,15 @@ function buildAuditReport(projectRoot = process.cwd()) {
       exercise.id,
       'media',
       'warning',
-      `${exercise.id} has no linked media asset.`,
+      exercise.media
+        ? `${exercise.id} has media hooks but no linked media asset.`
+        : `${exercise.id} has no linked media asset.`,
       'Add thumbnailUrl, videoUrl, imageUrl, or animationUrl before media-rich production surfaces rely on it.',
+      {
+        mediaReviewStatus: mediaReviewStatus(exercise),
+        hasAltText: Boolean(exercise.media && exercise.media.altText),
+        hasMediaHooks: Boolean(exercise.media),
+      },
     ));
 
   const exercisesWithoutSubstitutions = catalog.exercises
@@ -411,6 +425,9 @@ function formatValidationReport(report, args = {}) {
 }
 
 function shouldFail(report, args) {
+  if (args.allowInvalid) {
+    return false;
+  }
   if (report.summary.errors > 0 || report.summary.productionBlockers > 0 || report.summary.unsafeProductionEligible > 0) {
     return true;
   }

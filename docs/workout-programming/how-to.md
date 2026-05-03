@@ -82,12 +82,20 @@ const program = await workoutProgrammingService.generateWeeklyProgramForUser(use
    - Setup, execution, breathing, and safety notes
    - Tracking metrics
    - Default prescription ranges
-4. Add valid regression, progression, and substitution IDs only when they preserve intent.
-5. Add coaching cues and common mistakes under `content/intelligence/` if the exercise is important.
-6. Run:
+4. Add `reviewStatus`, `safetyReviewStatus`, `riskLevel`, `rolloutEligibility`, `contentVersion`, and `lastUpdatedAt`.
+5. Add media hooks even when assets are not ready:
+   - `media.videoUrl: null`
+   - `media.imageUrl: null`
+   - `media.thumbnailUrl: null`
+   - Specific `media.altText`
+   - `media.reviewStatus: 'needs_review'`
+6. Add valid regression, progression, and substitution IDs only when they preserve intent.
+7. Add coaching cues and common mistakes under `content/intelligence/` if the exercise is important.
+8. Run:
 
 ```bash
 npm run workout:validate-content
+npm run workout:audit-content
 npm run test:engine
 ```
 
@@ -97,6 +105,7 @@ Checklist before committing:
 - The exercise has at least one equipment compatibility path.
 - Safety notes are specific.
 - Tracking metrics match the prescription.
+- Missing media appears in the audit report instead of pretending an asset exists.
 - Tests do not flag generic filler.
 
 ## How to Add a New Workout Type
