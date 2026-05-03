@@ -39,10 +39,15 @@ async function run() {
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
+  const renderTest = read('lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts');
 
   assert(
-    'repo uses lightweight source/fixture UI smoke tests because no RN render harness is installed',
-    !/(playwright|cypress|detox|@testing-library\/react-native|react-test-renderer)/i.test(packageJson),
+    'repo keeps source/fixture UI smoke guards alongside the React Native render harness',
+    /@testing-library\/react-native/i.test(packageJson)
+      && /react-test-renderer/i.test(packageJson)
+      && renderTest.includes("@testing-library/react-native/pure")
+      && renderTest.includes('GeneratedWorkoutPreviewCard')
+      && renderTest.includes('GeneratedWorkoutBetaSessionCard'),
   );
 
   assert('feature flags gate generated workout preview and beta flow', hasAll(workoutScreen, [

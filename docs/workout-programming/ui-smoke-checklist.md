@@ -1,11 +1,14 @@
 # Generated Workout UI Smoke Checklist
 
-The repo currently uses source-level and service-fixture smoke tests as the lightweight UI regression layer for generated workout programming. Full React Native render tooling is not installed, so generated workout UI coverage lives in:
+Generated workout programming now has both source/fixture smoke guards and a fast React Native render harness. Automated UI coverage lives in:
 
 - `lib/performance-engine/workout-programming/workoutProgrammingUiSmoke.test.ts`
+- `lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts`
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
 - `src/components/workout/GeneratedWorkoutBetaSessionCard.tsx`
 - `src/screens/WorkoutScreen.tsx`
+
+The render test uses `@testing-library/react-native/pure` with a small Node-compatible React Native/Reanimated mock because the repo's engine test runner is not Jest. This keeps the test fast enough for `npm run test:engine` while still mounting the real generated workout components and the Workout screen feature-flag branches.
 
 ## Feature Flags
 
@@ -39,3 +42,5 @@ Run the automated smoke layer with:
 ```bash
 npm run test:engine
 ```
+
+The render test verifies valid preview content, blocked preview content, beta configure/inspect/started/completed states, disabled blocked starts, completion controls, progression recommendations, and Workout screen feature-flag visibility.

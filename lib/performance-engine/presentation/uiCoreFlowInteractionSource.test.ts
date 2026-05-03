@@ -61,9 +61,16 @@ const readinessGate = read('src/components/ReadinessGate.tsx');
 const prCelebration = read('src/components/PRCelebration.tsx');
 const dayDetail = read('src/screens/DayDetailScreen.tsx');
 
+const workoutRenderTest = read('lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts');
+
 console.log('\n-- core UI flow interaction source guards --');
 
-assert('repo uses source/app-flow tests as highest available UI regression layer', !/(playwright|cypress|detox|@testing-library\/react-native)/i.test(packageJson));
+assert('core UI flow source/app-flow guards remain while workout programming owns the RN render harness', Boolean(
+  /@testing-library\/react-native/i.test(packageJson)
+    && workoutRenderTest.includes("@testing-library/react-native/pure")
+    && workoutRenderTest.includes('GeneratedWorkoutPreviewCard')
+    && workoutRenderTest.includes('GeneratedWorkoutBetaSessionCard'),
+));
 
 assert('Today screen renders Today Mission and exposes primary and secondary action selectors', hasAll(todayMissionPanel, [
   'testID="today-mission-primary-cta"',

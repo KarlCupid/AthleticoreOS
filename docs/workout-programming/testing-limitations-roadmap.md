@@ -38,6 +38,7 @@ npm run workout:release-gate
 - `workoutProgrammingService.test.ts`: high-level app-facing service output shape.
 - `workoutProgrammingQA.test.ts`: deep scenario QA and edge cases.
 - `workoutProgrammingUiSmoke.test.ts`: feature-flag and fixture smoke coverage for generated workout preview and beta flow.
+- `workoutProgrammingGeneratedWorkoutRender.test.ts`: React Native render coverage for generated preview, beta flow states, blocked starts, completion controls, progression copy, and Workout screen feature flags.
 - `workoutProgrammingOperationalGuards.test.ts`: live DB guard behavior and content-audit release gating.
 
 ## What Tests Should Catch
@@ -93,7 +94,7 @@ Tests should fail for:
 
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
 - Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they now run through the manual GitHub release-gate job or `npm run workout:release-gate`.
-- Generated workout persistence and beta start/log UI are wired behind feature flags, but the beta UI still needs full React Native render or E2E coverage before broad rollout.
+- Generated workout persistence and beta start/log UI are wired behind feature flags, with component-level React Native render coverage now in place; broad rollout still needs device/E2E coverage.
 - Program persistence has save/load/update/archive helpers, but it is not yet a polished calendar-driven production workflow.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
 - Balance and older-adult concepts are represented through current goals/safety flags, not a dedicated older-adult product surface.
@@ -107,7 +108,7 @@ Tests should fail for:
 Near term:
 
 - Keep the manual live Supabase RLS and DB release gate green against a dedicated test project before workout-programming rollout.
-- Add React Native render or E2E smoke tests for the generated workout beta flow.
+- Add device/E2E smoke tests for the generated workout beta flow.
 - Promote preview/dev-only exercises only after coach and safety review.
 - Add a developer fixture selector for generated workout previews.
 - Add content QA snapshots for descriptions and prescription payloads.

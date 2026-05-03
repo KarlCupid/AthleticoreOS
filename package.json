@@ -56,6 +56,7 @@
     "victory-native": "^41.20.2"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.3.3",
     "@types/react": "~19.1.10",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
@@ -63,6 +64,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "imagemin": "^9.0.1",
     "imagemin-optipng": "^8.0.0",
+    "react-test-renderer": "^19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true
