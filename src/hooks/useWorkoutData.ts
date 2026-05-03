@@ -11,9 +11,16 @@ import {
   buildUnifiedPerformanceViewModel,
   type UnifiedPerformanceViewModel,
 } from '../../lib/performance-engine';
+import {
+  generatedCompletionSurfacesToAnalyticsSessions,
+  generatedCompletionSurfacesToHistoryEntries,
+  mergeWorkoutAnalyticsSessions,
+  mergeWorkoutHistoryEntries,
+  workoutProgrammingService,
+  type UnifiedWorkoutHistoryEntry,
+} from '../../lib/performance-engine/workout-programming';
 import type {
   WorkoutPrescriptionV2,
-  WorkoutLogRow,
   ScheduledActivityRow,
   DailyEngineState,
   DailyAthleteSummary,
@@ -31,6 +38,10 @@ export interface DailyCheckin {
 export interface TrainingSession extends ACWRTrainingSession {
   duration_minutes: number;
   intensity_srpe: number;
+  source?: 'legacy' | 'generated';
+  sourceLabel?: string;
+  workoutCompletionId?: string | null;
+  generatedWorkoutId?: string | null;
 }
 
 interface WorkoutNavigation {
@@ -43,7 +54,7 @@ export function useWorkoutData() {
 
   const [prescription, setPrescription] = useState<WorkoutPrescriptionV2 | null>(null);
   const [todayActivities, setTodayActivities] = useState<ScheduledActivityRow[]>([]);
-  const [workoutHistory, setWorkoutHistory] = useState<WorkoutLogRow[]>([]);
+  const [workoutHistory, setWorkoutHistory] = useState<UnifiedWorkoutHistoryEntry[]>([]);
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [userId, setUserId] = useState<string>('');
@@ -69,8 +80,27 @@ export function useWorkoutData() {
     setHistoryError(null);
     setHistoryLoading(true);
     try {
-      const history = await getWorkoutHistory(currentUserId, 20);
-      setWorkoutHistory(history);
+      const [historyResult, generatedResult] = await Promise.allSettled([
+        getWorkoutHistory(currentUserId, 20),
+        workoutProgrammingService.loadGeneratedWorkoutCompletionSurfacesForUser(currentUserId, {
+          useSupabase: true,
+          limit: 20,
+        }),
+      ]);
+
+      if (historyResult.status === 'rejected') {
+        throw historyResult.reason;
+      }
+
+      const generatedSurfaces = generatedResult.status === 'fulfilled'
+        ? generatedResult.value
+        : [];
+      if (generatedResult.status === 'rejected') {
+        logError('useWorkoutData.loadHistoryData.generatedCompletions', generatedResult.reason);
+      }
+
+      const generatedHistory = generatedCompletionSurfacesToHistoryEntries(generatedSurfaces);
+      setWorkoutHistory(mergeWorkoutHistoryEntries(historyResult.value, generatedHistory, 20));
       setHistoryLoaded(true);
     } catch (error) {
       logError('useWorkoutData.loadHistoryData', error);
@@ -94,7 +124,7 @@ export function useWorkoutData() {
     const sinceStr = formatLocalDate(sinceDate);
 
     try {
-      const [{ data: checkinsRes }, { data: sessionsRes }] = await Promise.all([
+      const [{ data: checkinsRes }, { data: sessionsRes }, generatedSurfaces] = await Promise.all([
         supabase
           .from('daily_checkins')
           .select('date, morning_weight, sleep_quality, readiness')
@@ -107,10 +137,18 @@ export function useWorkoutData() {
           .eq('user_id', currentUserId)
           .gte('date', sinceStr)
           .order('date'),
+        workoutProgrammingService.loadGeneratedWorkoutCompletionSurfacesForUser(currentUserId, {
+          useSupabase: true,
+          limit: 60,
+        }).catch((error) => {
+          logError('useWorkoutData.loadAnalyticsData.generatedCompletions', error);
+          return [];
+        }),
       ]);
 
       if (checkinsRes) setCheckins(checkinsRes as DailyCheckin[]);
-      if (sessionsRes) setSessions(sessionsRes as TrainingSession[]);
+      const generatedSessions = generatedCompletionSurfacesToAnalyticsSessions(generatedSurfaces);
+      setSessions(mergeWorkoutAnalyticsSessions((sessionsRes ?? []) as TrainingSession[], generatedSessions) as TrainingSession[]);
       setAnalyticsLoaded(true);
     } catch (error) {
       logError('useWorkoutData.loadAnalyticsData', error, { todayStr });

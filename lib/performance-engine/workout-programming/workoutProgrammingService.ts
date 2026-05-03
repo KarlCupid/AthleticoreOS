@@ -22,6 +22,7 @@ import {
   loadGeneratedWorkout as persistLoadGeneratedWorkout,
   loadGeneratedProgram as persistLoadGeneratedProgram,
   loadRecentCompletions,
+  loadProgressionDecisionsForCompletion,
   loadRecentProgressionDecisionsForUser,
   loadRecentReadiness,
   loadUserWorkoutProfile,
@@ -45,6 +46,8 @@ import {
   type ProgramSessionUpdate,
   type WorkoutProgrammingPersistenceOptions,
 } from './persistenceService.ts';
+import type { GeneratedWorkoutCompletionSurface } from './historyAnalyticsAdapter.ts';
+import { isGeneratedWorkoutCompletion } from './historyAnalyticsAdapter.ts';
 import { generateWeeklyWorkoutProgram } from './programBuilder.ts';
 import { rankExerciseSubstitutions } from './substitutionEngine.ts';
 import { validateWorkoutDomain } from './validationEngine.ts';
@@ -646,9 +649,13 @@ function buildCompletionLogFromGeneratedWorkout(
   ].filter((item): item is string => Boolean(item));
   return {
     workoutId: input.generatedWorkoutId ?? input.workout.templateId,
+    generatedWorkoutId: input.generatedWorkoutId ?? null,
+    source: 'generated_workout',
     completedAt: input.completedAt ?? new Date().toISOString(),
     workoutTypeId: input.workout.workoutTypeId,
     goalId: input.workout.goalId,
+    completionStatus: input.completionStatus ?? 'completed',
+    substitutionsUsed: input.substitutionsUsed ?? [],
     plannedDurationMinutes: input.workout.estimatedDurationMinutes,
     actualDurationMinutes: input.workout.estimatedDurationMinutes,
     sessionRpe: input.sessionRpe,
@@ -779,6 +786,28 @@ export async function getNextProgression(
   if (completion.readinessBefore) input.readinessBefore = completion.readinessBefore;
   if (completion.readinessAfter) input.readinessAfter = completion.readinessAfter;
   return recommendNextProgression(input);
+}
+
+export async function loadGeneratedWorkoutCompletionSurfacesForUser(
+  userId: string,
+  options?: WorkoutProgrammingServiceOptions & { limit?: number },
+): Promise<GeneratedWorkoutCompletionSurface[]> {
+  const completions = (await loadRecentCompletions(userId, {
+    ...options,
+    limit: options?.limit ?? 20,
+  })).filter(isGeneratedWorkoutCompletion);
+
+  const surfaces: GeneratedWorkoutCompletionSurface[] = [];
+  for (const completion of completions) {
+    const decisions = completion.id
+      ? await loadProgressionDecisionsForCompletion(completion.id, options)
+      : [];
+    surfaces.push({
+      completion,
+      progressionDecision: decisions[0] ?? null,
+    });
+  }
+  return surfaces;
 }
 
 export async function generateWeeklyProgramForUser(
@@ -935,6 +964,7 @@ export const workoutProgrammingService = {
   logWorkoutCompletion,
   completeGeneratedWorkoutSession,
   getNextProgression,
+  loadGeneratedWorkoutCompletionSurfacesForUser,
   generateWeeklyProgramForUser,
   loadGeneratedWorkoutForUser,
   saveGeneratedProgramForUser,

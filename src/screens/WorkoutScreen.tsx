@@ -433,6 +433,8 @@ export function WorkoutScreen() {
       setGeneratedWorkoutBetaStage('completed');
       setGeneratedWorkoutBetaLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
       setGeneratedWorkoutBetaLifecycleMessage(result.lifecycleFallbackMessage ? `Completed locally: ${result.lifecycleFallbackMessage}` : null);
+      if (userId && historyLoaded) void loadHistoryData(userId);
+      if (userId && analyticsLoaded) void loadAnalyticsData(userId);
     } catch (persistError) {
       if (!userId) {
         setGeneratedWorkoutBetaError(errorMessage(persistError, 'Generated workout completion failed.'));
@@ -447,13 +449,15 @@ export function WorkoutScreen() {
         setGeneratedWorkoutBetaLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
         setGeneratedWorkoutBetaLifecycleMessage(result.lifecycleFallbackMessage ? `Completed locally: ${result.lifecycleFallbackMessage}` : null);
         setGeneratedWorkoutBetaError(`Completed locally. Persistence unavailable: ${errorMessage(persistError, 'Unable to save completion.')}`);
+        if (historyLoaded) void loadHistoryData(userId);
+        if (analyticsLoaded) void loadAnalyticsData(userId);
       } catch (localError) {
         setGeneratedWorkoutBetaError(errorMessage(localError, 'Generated workout completion failed.'));
       }
     } finally {
       setGeneratedWorkoutBetaCompleting(false);
     }
-  }, [generatedWorkoutBeta, generatedWorkoutBetaId, generatedWorkoutBetaStartedAt, userId]);
+  }, [analyticsLoaded, generatedWorkoutBeta, generatedWorkoutBetaId, generatedWorkoutBetaStartedAt, historyLoaded, loadAnalyticsData, loadHistoryData, userId]);
 
   const resetGeneratedWorkoutBeta = useCallback(() => {
     setGeneratedWorkoutBeta(null);

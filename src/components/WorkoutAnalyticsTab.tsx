@@ -14,7 +14,13 @@ const WorkoutAnalyticsMetrics = lazy(() =>
 
 interface WorkoutAnalyticsTabProps {
   userId: string | null;
-  trainingLoadData: any[];
+  trainingLoadData: Array<{
+    x: number;
+    y: number;
+    label?: string;
+    source?: 'legacy' | 'generated';
+    sourceLabel?: string;
+  }>;
   acwrData: any[];
   checkinDates: Set<string>;
   weightData: any[];
@@ -63,6 +69,16 @@ export function WorkoutAnalyticsTab({
     }),
     [trainingLoadData, acwrData, sleepData, checkinDates],
   );
+  const sourceSummary = useMemo(() => {
+    const generated = trainingLoadData.filter((point) => point.source === 'generated');
+    const legacy = trainingLoadData.filter((point) => point.source !== 'generated');
+    return {
+      generatedCount: generated.length,
+      generatedLoad: generated.reduce((sum, point) => sum + point.y, 0),
+      legacyCount: legacy.length,
+      legacyLoad: legacy.reduce((sum, point) => sum + point.y, 0),
+    };
+  }, [trainingLoadData]);
 
   if (!progressSummary.hasPrimaryData) {
     return (
@@ -96,6 +112,25 @@ export function WorkoutAnalyticsTab({
           </Card>
         );
       })}
+
+      {sourceSummary.generatedCount > 0 ? (
+        <Card style={styles.sourceCard}>
+          <View style={styles.sourceHeader}>
+            <Text style={styles.sourceTitle}>Session sources</Text>
+            <Text style={styles.sourceBadge}>Generated included</Text>
+          </View>
+          <View style={styles.sourceRows}>
+            <View style={styles.sourceRow}>
+              <Text style={styles.sourceLabel}>Logged sessions</Text>
+              <Text style={styles.sourceValue}>{sourceSummary.legacyCount} | Load {sourceSummary.legacyLoad}</Text>
+            </View>
+            <View style={styles.sourceRow}>
+              <Text style={styles.sourceLabel}>Generated session</Text>
+              <Text style={styles.sourceValue}>{sourceSummary.generatedCount} | Load {sourceSummary.generatedLoad}</Text>
+            </View>
+          </View>
+        </Card>
+      ) : null}
 
       <AnimatedPressable
         style={styles.moreMetricsButton}
@@ -172,6 +207,49 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     lineHeight: 20,
     marginTop: SPACING.xs,
+  },
+  sourceCard: {
+    gap: SPACING.sm,
+  },
+  sourceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  sourceTitle: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  sourceBadge: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
+    backgroundColor: COLORS.accentLight,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 5,
+  },
+  sourceRows: {
+    gap: SPACING.xs,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  sourceLabel: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  sourceValue: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
   },
   moreMetricsButton: {
     alignItems: 'center',

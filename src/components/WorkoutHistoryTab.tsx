@@ -3,9 +3,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Card } from './Card';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, ANIMATION } from '../theme/theme';
+import {
+  generatedHistoryDisplayTitle,
+  type GeneratedWorkoutHistoryEntry,
+  type UnifiedWorkoutHistoryEntry,
+} from '../../lib/performance-engine/workout-programming';
 
 interface WorkoutHistoryTabProps {
-  workoutHistory: any[];
+  workoutHistory: UnifiedWorkoutHistoryEntry[];
 }
 
 function formatDateLabel(date: string) {
@@ -16,13 +21,18 @@ function formatDateLabel(date: string) {
   });
 }
 
-function formatFocusLabel(log: any) {
+function isGeneratedEntry(log: UnifiedWorkoutHistoryEntry): log is GeneratedWorkoutHistoryEntry {
+  return log.source === 'generated';
+}
+
+function formatFocusLabel(log: UnifiedWorkoutHistoryEntry) {
+  if (isGeneratedEntry(log)) return generatedHistoryDisplayTitle(log);
   return String(log.focus ?? log.workout_type ?? 'training')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function formatRecapLine(log: any) {
+function formatRecapLine(log: UnifiedWorkoutHistoryEntry) {
   const parts: string[] = [];
 
   if (log.duration_minutes) {
@@ -35,6 +45,18 @@ function formatRecapLine(log: any) {
     parts.push('Logged workout');
   }
 
+  return parts.join('  |  ');
+}
+
+function formatGeneratedDetailLine(log: GeneratedWorkoutHistoryEntry) {
+  const parts = [
+    `${log.exercisesCompleted}/${log.exercisesPrescribed} exercises`,
+    log.completionStatus !== 'unknown' ? log.completionStatus : null,
+    log.substitutionsUsed.length > 0 ? `${log.substitutionsUsed.length} substitution${log.substitutionsUsed.length === 1 ? '' : 's'}` : null,
+    log.painScoreBefore != null || log.painScoreAfter != null
+      ? `Pain ${log.painScoreBefore ?? '-'} -> ${log.painScoreAfter ?? '-'}`
+      : null,
+  ].filter((item): item is string => Boolean(item));
   return parts.join('  |  ');
 }
 
@@ -65,9 +87,19 @@ export function WorkoutHistoryTab({ workoutHistory }: WorkoutHistoryTabProps) {
                 <Text style={styles.dateLabel}>{formatDateLabel(log.date)}</Text>
                 <Text style={styles.focusLabel}>{formatFocusLabel(log)}</Text>
                 <Text style={styles.recapLine}>{formatRecapLine(log)}</Text>
+                {isGeneratedEntry(log) ? (
+                  <>
+                    <Text style={styles.detailLine}>{formatGeneratedDetailLine(log)}</Text>
+                    {log.progressionDecision ? (
+                      <Text style={styles.progressionLine}>
+                        Next: {log.progressionDecision.nextAdjustment}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : null}
               </View>
               <View style={styles.doneBadge}>
-                <Text style={styles.doneBadgeText}>Logged</Text>
+                <Text style={styles.doneBadgeText}>{isGeneratedEntry(log) ? 'Generated session' : 'Logged'}</Text>
               </View>
             </View>
           </Card>
@@ -111,11 +143,26 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 19,
   },
+  detailLine: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    marginTop: 5,
+    lineHeight: 18,
+  },
+  progressionLine: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+    marginTop: 6,
+    lineHeight: 19,
+  },
   doneBadge: {
     backgroundColor: COLORS.accentLight,
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.sm + 2,
     paddingVertical: 6,
+    maxWidth: 112,
   },
   doneBadgeText: {
     fontSize: 11,
@@ -123,6 +170,7 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',

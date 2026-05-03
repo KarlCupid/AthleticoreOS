@@ -832,6 +832,19 @@ function validateGeneratedWorkoutForPersistence(workout: GeneratedWorkout, conte
 function validateCompletionLog(completion: WorkoutCompletionLog, context: string): void {
   if (!completion.workoutId.trim()) throw new ValidationError(`${context}: workoutId is required.`, { context });
   if (!completion.completedAt.trim()) throw new ValidationError(`${context}: completedAt is required.`, { context });
+  if (completion.source && completion.source !== 'workout_programming' && completion.source !== 'generated_workout') {
+    throw new ValidationError(`${context}: completion source is invalid.`, { context });
+  }
+  if (
+    completion.completionStatus
+    && completion.completionStatus !== 'completed'
+    && completion.completionStatus !== 'partial'
+    && completion.completionStatus !== 'stopped'
+    && completion.completionStatus !== 'abandoned'
+    && completion.completionStatus !== 'expired'
+  ) {
+    throw new ValidationError(`${context}: completionStatus is invalid.`, { context });
+  }
   if (completion.plannedDurationMinutes <= 0 || completion.actualDurationMinutes < 0) {
     throw new ValidationError(`${context}: completion duration values are invalid.`, { context });
   }
@@ -1338,12 +1351,16 @@ export async function listActiveGeneratedWorkoutSessions(
 }
 
 function completionPayload(userId: string, completion: WorkoutCompletionLog, generatedWorkoutId?: string | null) {
+  const resolvedGeneratedWorkoutId = generatedWorkoutId ?? completion.generatedWorkoutId ?? null;
   return {
     user_id: userId,
-    generated_workout_id: generatedWorkoutId ?? null,
+    generated_workout_id: resolvedGeneratedWorkoutId,
+    source: completion.source ?? (resolvedGeneratedWorkoutId ? 'generated_workout' : 'workout_programming'),
     workout_type_id: completion.workoutTypeId ?? null,
     goal_id: completion.goalId ?? null,
     prescription_template_id: completion.prescriptionTemplateId ?? null,
+    completion_status: completion.completionStatus ?? null,
+    substitutions_used: uniqueStrings(completion.substitutionsUsed ?? []),
     completed_at: completion.completedAt,
     planned_duration_minutes: completion.plannedDurationMinutes,
     actual_duration_minutes: completion.actualDurationMinutes,
@@ -1727,9 +1744,14 @@ export async function saveUserWorkoutProfile(
 
 function completionFromRow(row: Record<string, unknown>, exerciseResults: ExerciseCompletionResult[]): WorkoutCompletionLog {
   const generatedWorkoutId = rowString(row, 'generated_workout_id');
+  const completionSource = rowString(row, 'source') === 'generated_workout' || generatedWorkoutId
+    ? 'generated_workout'
+    : 'workout_programming';
   const completion: WorkoutCompletionLog = {
     id: rowString(row, 'id'),
     workoutId: generatedWorkoutId || rowString(row, 'id'),
+    generatedWorkoutId: generatedWorkoutId || null,
+    source: completionSource,
     completedAt: rowString(row, 'completed_at'),
     plannedDurationMinutes: rowNumber(row, 'planned_duration_minutes', 0),
     actualDurationMinutes: rowNumber(row, 'actual_duration_minutes', 0),
@@ -1740,6 +1762,8 @@ function completionFromRow(row: Record<string, unknown>, exerciseResults: Exerci
   const workoutTypeId = rowString(row, 'workout_type_id');
   const goalId = rowString(row, 'goal_id');
   const prescriptionTemplateId = rowString(row, 'prescription_template_id');
+  const completionStatus = rowString(row, 'completion_status') as GeneratedWorkoutSessionCompletionStatus;
+  const substitutionsUsed = rowStringArray(row, 'substitutions_used');
   const readinessBefore = rowString(row, 'readiness_before') as WorkoutReadinessBand;
   const readinessAfter = rowString(row, 'readiness_after') as WorkoutReadinessBand;
   const heartRateZoneCompliance = rowOptionalNumber(row, 'heart_rate_zone_compliance');
@@ -1752,6 +1776,8 @@ function completionFromRow(row: Record<string, unknown>, exerciseResults: Exerci
   if (workoutTypeId) completion.workoutTypeId = workoutTypeId;
   if (goalId) completion.goalId = goalId;
   if (prescriptionTemplateId) completion.prescriptionTemplateId = prescriptionTemplateId;
+  if (completionStatus) completion.completionStatus = completionStatus;
+  if (substitutionsUsed.length > 0) completion.substitutionsUsed = substitutionsUsed;
   if (readinessBefore) completion.readinessBefore = readinessBefore;
   if (readinessAfter) completion.readinessAfter = readinessAfter;
   if (heartRateZoneCompliance != null) completion.heartRateZoneCompliance = heartRateZoneCompliance;

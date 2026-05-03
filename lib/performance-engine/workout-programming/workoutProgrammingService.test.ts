@@ -7,6 +7,7 @@ import {
   generateWeeklyProgramForUser,
   generateWorkoutForUser,
   loadActiveGeneratedWorkoutSession,
+  loadGeneratedWorkoutCompletionSurfacesForUser,
   logWorkoutCompletion,
   pauseGeneratedWorkoutSession,
   resumeGeneratedWorkoutSession,
@@ -263,9 +264,11 @@ async function run() {
     const completionChildPayload = Array.isArray(completionChildPayloadRaw)
       ? completionChildPayloadRaw[0] as Record<string, unknown> | undefined
       : completionChildPayloadRaw as Record<string, unknown> | undefined;
+    const completionParentPayload = insertedPayload(calls, 'workout_completions') as Record<string, unknown> | undefined;
     assert('generated workout beta session persists parent and child exercise rows', session.persisted && session.generatedWorkoutId === 'generated_workouts-id' && Boolean(insertedPayload(calls, 'generated_workout_exercises')));
     assert('generated workout beta lifecycle persists inspected and start states', session.lifecycle?.persisted === true && session.lifecycle.lifecycle.status === 'inspected' && startedLifecycle.lifecycle.status === 'started');
     assert('generated workout beta lifecycle pause/resume stays durable and loadable', pausedLifecycle.lifecycle.status === 'paused' && resumedLifecycle.lifecycle.status === 'resumed' && activeLifecycle?.generatedWorkoutId === session.generatedWorkoutId);
+    assert('generated workout beta completion persists generated source metadata', completionParentPayload?.source === 'generated_workout' && completionParentPayload?.completion_status === 'completed');
     assert('generated workout beta completion persists actual exercise work', completionChildPayload?.sets_completed === 2 && completionChildPayload?.reps_completed === 8);
     assert('generated workout beta completion saves completion, feedback, and preferences', result.workoutCompletionId === 'workout_completions-id' && result.feedbackId === 'recommendation_feedback-id' && calls.some((call) => call.table === 'user_exercise_preferences' && call.method === 'upsert'));
     assert('generated workout beta completion persists completed lifecycle state', result.lifecycle?.persisted === true && result.lifecycle.lifecycle.status === 'completed');
@@ -300,6 +303,46 @@ async function run() {
     const result = await logWorkoutCompletion('user-1', completion, { client, generatedWorkoutId: 'generated-1' });
     assert('logWorkoutCompletion persists completion and progression decision', result.workoutCompletionId === 'workout_completions-id' && result.progressionDecisionId === 'progression_decisions-id');
     assert('logWorkoutCompletion writes through scoped parent rows', Boolean(insertedPayload(calls, 'workout_completions')) && Boolean(insertedPayload(calls, 'progression_decisions')));
+  }
+
+  {
+    const { client } = createMockSupabase({
+      workout_completions: [{
+        id: 'completion-generated-history',
+        generated_workout_id: 'generated-history',
+        user_id: 'user-1',
+        source: 'generated_workout',
+        workout_type_id: 'bodyweight_strength',
+        goal_id: 'strength_foundation',
+        completion_status: 'completed',
+        substitutions_used: ['incline_push_up'],
+        completed_at: '2026-05-01T12:00:00.000Z',
+        planned_duration_minutes: 30,
+        actual_duration_minutes: 28,
+        session_rpe: 6,
+        pain_score_before: 1,
+        pain_score_after: 1,
+        notes: 'Good fit.',
+      }],
+      exercise_completion_results: [
+        { workout_completion_id: 'completion-generated-history', exercise_id: 'push_up', sets_completed: 3, sets_prescribed: 3, reps_completed: 24, reps_prescribed: 24, actual_rpe: 6, completed_as_prescribed: true },
+      ],
+      progression_decisions: [{
+        workout_completion_id: 'completion-generated-history',
+        direction: 'progress',
+        reason: 'Clean completion.',
+        next_adjustment: 'Add one rep.',
+        safety_flags: [],
+        payload: {
+          direction: 'progress',
+          reason: 'Clean completion.',
+          nextAdjustment: 'Add one rep.',
+          safetyFlags: [],
+        },
+      }],
+    });
+    const surfaces = await loadGeneratedWorkoutCompletionSurfacesForUser('user-1', { client });
+    assert('generated workout completion surfaces load completion and progression', surfaces.length === 1 && surfaces[0].completion.generatedWorkoutId === 'generated-history' && surfaces[0].progressionDecision?.nextAdjustment === 'Add one rep.');
   }
 
   {

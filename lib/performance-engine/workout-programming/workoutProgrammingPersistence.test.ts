@@ -648,6 +648,8 @@ async function run() {
       plannedDurationMinutes: 30,
       actualDurationMinutes: 28,
       sessionRpe: 6,
+      completionStatus: 'completed',
+      substitutionsUsed: ['box_squat'],
       painScoreBefore: 1,
       painScoreAfter: 1,
       exerciseResults: [
@@ -658,6 +660,7 @@ async function run() {
     const payload = insertedPayload(calls, 'workout_completions') as Record<string, unknown>;
     assert('completion logging returns inserted id', id === 'workout_completions-id');
     assert('completion insert is user scoped', payload.user_id === 'user-1' && payload.generated_workout_id === 'generated-1');
+    assert('completion insert preserves generated source metadata', payload.source === 'generated_workout' && payload.completion_status === 'completed' && Array.isArray(payload.substitutions_used));
     assert('exercise completion results persist through parent completion', Array.isArray(insertedPayload(calls, 'exercise_completion_results')));
   }
 
@@ -716,6 +719,8 @@ async function run() {
       workoutTypeId: 'strength',
       goalId: 'beginner_strength',
       prescriptionTemplateId: 'strength_beginner',
+      completionStatus: 'partial',
+      substitutionsUsed: ['incline_push_up'],
       plannedDurationMinutes: 30,
       actualDurationMinutes: 28,
       sessionRpe: 6,
@@ -732,6 +737,7 @@ async function run() {
     const loadedCompletions = await loadRecentCompletions('user-1', { client, limit: 5 });
     const loadedExerciseResults = await loadRecentExerciseResults('user-1', { client, limit: 5 });
     assert('recent completions load typed progression history fields', loadedCompletions[0]?.workoutTypeId === 'strength' && loadedCompletions[0]?.goalId === 'beginner_strength' && loadedCompletions[0]?.readinessAfter === 'green');
+    assert('recent completions load surface metadata', loadedCompletions[0]?.source === 'generated_workout' && loadedCompletions[0]?.completionStatus === 'partial' && loadedCompletions[0]?.substitutionsUsed?.includes('incline_push_up') === true);
     assert('recent exercise-level results load prescribed and actual fields', loadedExerciseResults.some((result) => result.exerciseId === 'goblet_squat' && result.setsPrescribed === 3 && result.repsPrescribed === 24 && result.targetRpe === 7));
   }
 

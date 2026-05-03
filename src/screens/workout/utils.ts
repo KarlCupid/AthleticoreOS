@@ -63,6 +63,10 @@ export function buildTrainingLoadData(sessions: TrainingSession[]) {
     x: index,
     y: session.total_load || 0,
     label: session.date.slice(5),
+    source: session.source ?? 'legacy',
+    sourceLabel: session.sourceLabel ?? 'Logged session',
+    workoutCompletionId: session.workoutCompletionId ?? null,
+    generatedWorkoutId: session.generatedWorkoutId ?? null,
   }));
 }
 
@@ -318,7 +322,7 @@ function buildRecoveryCard(sleepData: Array<{ x: number; y: number }>): Progress
 }
 
 export function buildWorkoutProgressSummary(input: {
-  trainingLoadData: Array<{ x: number; y: number; label?: string }>;
+  trainingLoadData: Array<{ x: number; y: number; label?: string; source?: 'legacy' | 'generated' }>;
   acwrData: Array<{ x: number; y: number }>;
   sleepData: Array<{ x: number; y: number; label?: string }>;
   checkinDates: Set<string>;

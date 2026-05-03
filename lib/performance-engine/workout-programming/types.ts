@@ -880,10 +880,14 @@ export interface WorkoutValidationResult {
 export interface WorkoutCompletionLog {
   id?: string;
   workoutId: string;
+  generatedWorkoutId?: string | null;
+  source?: 'workout_programming' | 'generated_workout';
   completedAt: string;
   workoutTypeId?: string;
   goalId?: string;
   prescriptionTemplateId?: string;
+  completionStatus?: GeneratedWorkoutSessionCompletionStatus | null;
+  substitutionsUsed?: string[];
   plannedDurationMinutes: number;
   actualDurationMinutes: number;
   sessionRpe: number;
