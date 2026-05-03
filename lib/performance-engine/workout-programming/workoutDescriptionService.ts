@@ -5,10 +5,69 @@ import type {
   GenerateWorkoutDescriptionOptions,
   GeneratedWorkout,
   PrescriptionPayload,
+  RuntimeValidationIssue,
+  RuntimeValidationResult,
   WorkoutDescription,
 } from './types.ts';
 
 const fallbackTone: DescriptionToneVariant = 'coach_like';
+const supportedToneVariants: DescriptionToneVariant[] = [
+  'beginner_friendly',
+  'coach_like',
+  'clinical',
+  'motivational',
+  'minimal',
+  'detailed',
+  'athletic',
+  'rehab_informed',
+  'data_driven',
+];
+const requiredDescriptionStringFields = [
+  'sessionIntent',
+  'plainLanguageSummary',
+  'coachExplanation',
+  'effortExplanation',
+  'whyThisMatters',
+  'howItShouldFeel',
+  'scalingDown',
+  'scalingUp',
+  'breathingFocus',
+  'recoveryExpectation',
+  'completionMessage',
+  'nextSessionNote',
+] as const;
+const requiredDescriptionArrayFields = ['safetyNotes', 'successCriteria', 'formFocus', 'commonMistakes'] as const;
+const genericFillerFragments = [
+  'adjust as needed',
+  'do what feels right',
+  'listen to your body',
+  'workout summary',
+  'modify as necessary',
+];
+const unsupportedMedicalClaimFragments = [
+  'diagnose',
+  'cure',
+  'treat injury',
+  'prevent injury',
+  'guarantee',
+  'safe to ignore',
+];
+const shameOrFearFragments = [
+  'no excuses',
+  'pain is weakness',
+  'weakness leaving',
+  'crushed',
+  'survival task',
+  'forced shutdown',
+  'redline symptoms',
+];
+const unexplainedTechnicalTerms = [
+  { term: /\bRPE\b/i, explanation: /effort rating|effort.*1-?10|1-?10.*effort/i, label: 'RPE' },
+  { term: /\bRIR\b/i, explanation: /reps in reserve/i, label: 'RIR' },
+  { term: /\bT-spine\b/i, explanation: /upper[- ]back/i, label: 'T-spine' },
+  { term: /\bZone 2\b/i, explanation: /conversational|easy cardio|aerobic/i, label: 'Zone 2' },
+];
+const nextActionPattern = /\b(log|pause|stop|choose|reduce|repeat|progress|review|use|start|return|keep|add|switch|seek)\b/i;
 
 function firstMainPayload(workout: GeneratedWorkout): PrescriptionPayload | null {
   return workout.blocks
@@ -67,7 +126,7 @@ function payloadSpecificEffort(workout: GeneratedWorkout, template: DescriptionT
     return 'Keep reps explosive and low fatigue. Rest fully so every effort is fast, clean, and worth counting.';
   }
   if (payload.kind === 'balance') {
-    return template.effortExplanation ?? 'Keep attention high and fatigue low. Use support before balance becomes a survival task.';
+    return template.effortExplanation ?? 'Keep attention high and fatigue low. Use support before balance turns into scrambling.';
   }
   return template.effortExplanation ?? 'Keep the work easy enough that recovery improves instead of becoming another stressor.';
 }
@@ -90,7 +149,7 @@ function toneIntro(template: DescriptionTemplate, workout: GeneratedWorkout, ton
     case 'rehab_informed':
       return `${template.sessionIntent ?? 'Train within a safe window.'} Symptoms, range, and control set the ceiling today. ${base}`;
     case 'data_driven':
-      return `${template.sessionIntent ?? 'Train and capture useful signals.'} Let duration, RPE, pain response, and completion data guide the next recommendation. ${base}`;
+      return `${template.sessionIntent ?? 'Train and capture useful signals.'} Let duration, effort rating, pain response, and completion data guide the next recommendation. ${base}`;
     case 'coach_like':
     default:
       return `${template.sessionIntent ?? 'Train the session with intent.'} ${base}`;
@@ -99,7 +158,7 @@ function toneIntro(template: DescriptionTemplate, workout: GeneratedWorkout, ton
 
 function toneEffort(base: string, tone: DescriptionToneVariant): string {
   if (tone === 'minimal') return base;
-  if (tone === 'clinical') return `${base} Record actual RPE, pain response, and any symptom change.`;
+  if (tone === 'clinical') return `${base} Record actual effort rating, pain response, and any symptom change.`;
   if (tone === 'motivational') return `${base} Leave the session knowing you could repeat the standard.`;
   if (tone === 'data_driven') return `${base} The next progression depends on the logged result, not on intent.`;
   if (tone === 'rehab_informed') return `${base} Pain-free control matters more than completing an aggressive dose.`;
@@ -112,6 +171,144 @@ function nonEmptyArray(items: string[] | undefined, fallback: string[]): string[
 
 function nonEmptyText(value: string | undefined, fallback: string): string {
   return value?.trim() ? value : fallback;
+}
+
+function validationResult(issues: RuntimeValidationIssue[]): RuntimeValidationResult {
+  return {
+    valid: issues.every((issue) => issue.severity !== 'error'),
+    errors: issues.filter((issue) => issue.severity === 'error'),
+    warnings: issues.filter((issue) => issue.severity === 'warning'),
+  };
+}
+
+function addCopyIssue(
+  issues: RuntimeValidationIssue[],
+  id: string | undefined,
+  field: string,
+  message: string,
+  suggestedCorrection: string,
+  severity: RuntimeValidationIssue['severity'] = 'error',
+): void {
+  const issue: RuntimeValidationIssue = {
+    recordType: 'DescriptionTemplate',
+    field,
+    severity,
+    message,
+    suggestedCorrection,
+  };
+  if (id !== undefined) issue.id = id;
+  issues.push(issue);
+}
+
+function flattenText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(flattenText).join(' ');
+  return typeof value === 'string' ? value : '';
+}
+
+function checkCopyText(
+  issues: RuntimeValidationIssue[],
+  id: string | undefined,
+  field: string,
+  value: unknown,
+): void {
+  const text = flattenText(value).trim();
+  if (!text) {
+    addCopyIssue(issues, id, field, `${field} needs user-facing copy.`, 'Add specific copy that tells the user what to do next.');
+    return;
+  }
+  const lower = text.toLowerCase();
+  for (const fragment of genericFillerFragments) {
+    if (lower.includes(fragment)) {
+      addCopyIssue(issues, id, field, `${field} contains generic filler: "${fragment}".`, 'Replace filler with specific coaching language for this workout type.');
+    }
+  }
+  for (const fragment of unsupportedMedicalClaimFragments) {
+    if (lower.includes(fragment)) {
+      addCopyIssue(issues, id, field, `${field} may imply an unsupported medical claim: "${fragment}".`, 'Use neutral safety guidance without diagnosis, treatment, or guarantees.');
+    }
+  }
+  for (const fragment of shameOrFearFragments) {
+    if (lower.includes(fragment)) {
+      addCopyIssue(issues, id, field, `${field} contains fear or shame language: "${fragment}".`, 'Use calm, direct language that preserves agency.');
+    }
+  }
+  for (const term of unexplainedTechnicalTerms) {
+    if (term.term.test(text) && !term.explanation.test(text)) {
+      addCopyIssue(issues, id, field, `${field} uses ${term.label} without a plain-language explanation.`, `Explain ${term.label} in the same field or replace it with plain language.`);
+    }
+  }
+}
+
+function checkNextAction(
+  issues: RuntimeValidationIssue[],
+  id: string | undefined,
+  field: string,
+  value: unknown,
+): void {
+  const text = flattenText(value);
+  if (text && !nextActionPattern.test(text)) {
+    addCopyIssue(
+      issues,
+      id,
+      field,
+      `${field} does not clearly tell the user what to do next.`,
+      'Include a concrete next action such as log, pause, reduce, repeat, progress, choose, or review.',
+      'warning',
+    );
+  }
+}
+
+export function validateWorkoutDescriptionCopyQuality(description: WorkoutDescription): RuntimeValidationResult {
+  const issues: RuntimeValidationIssue[] = [];
+  const id = description.descriptionTemplateId;
+
+  for (const field of [
+    'intro',
+    ...requiredDescriptionStringFields,
+  ] as const) {
+    checkCopyText(issues, id, field, description[field]);
+  }
+  for (const field of requiredDescriptionArrayFields) {
+    checkCopyText(issues, id, field, description[field]);
+  }
+  checkNextAction(issues, id, 'completionMessage', description.completionMessage);
+  checkNextAction(issues, id, 'nextSessionNote', description.nextSessionNote);
+  return validationResult(issues);
+}
+
+export function validateDescriptionTemplatesCopyQuality(
+  templates: readonly DescriptionTemplate[] = workoutIntelligenceCatalog.descriptionTemplates,
+): RuntimeValidationResult {
+  const issues: RuntimeValidationIssue[] = [];
+  const tones = new Set<DescriptionToneVariant>();
+
+  for (const template of templates) {
+    const id = template.descriptionTemplateId ?? template.id;
+    if (template.toneVariant) tones.add(template.toneVariant);
+    checkCopyText(issues, id, 'summaryTemplate', template.summaryTemplate);
+    for (const field of requiredDescriptionStringFields) {
+      checkCopyText(issues, id, field, template[field]);
+    }
+    for (const field of requiredDescriptionArrayFields) {
+      checkCopyText(issues, id, field, template[field]);
+    }
+    checkNextAction(issues, id, 'completionMessage', template.completionMessage);
+    checkNextAction(issues, id, 'nextSessionNote', template.nextSessionNote);
+  }
+
+  for (const tone of supportedToneVariants) {
+    if (!tones.has(tone)) {
+      addCopyIssue(
+        issues,
+        undefined,
+        'toneVariant',
+        `No description template covers ${tone}.`,
+        'Add at least one complete description template for this tone variant before localization.',
+      );
+    }
+  }
+
+  return validationResult(issues);
 }
 
 export function generateWorkoutDescription(
@@ -131,8 +328,8 @@ export function generateWorkoutDescription(
     coachExplanation: nonEmptyText(template.coachExplanation, 'This session uses the selected pattern, equipment, and safety filters to match the current training goal.'),
     effortExplanation,
     whyThisMatters: nonEmptyText(template.whyThisMatters, 'The session should support the next training decision without ignoring safety signals.'),
-    howItShouldFeel: nonEmptyText(template.howItShouldFeel, 'Controlled, repeatable, and appropriate for today state.'),
-    safetyNotes: nonEmptyArray(template.safetyNotes, ['Stop if pain, dizziness, or symptoms change how you move.']),
+    howItShouldFeel: nonEmptyText(template.howItShouldFeel, "Controlled, repeatable, and appropriate for today's state."),
+    safetyNotes: nonEmptyArray(template.safetyNotes, ['Pause if pain becomes sharp, dizziness appears, or symptoms change how you move.']),
     successCriteria: nonEmptyArray(template.successCriteria, workout.successCriteria),
     scalingDown: nonEmptyText(template.scalingDown, 'Reduce volume, range, or intensity while preserving the safest version of the movement pattern.'),
     scalingUp: nonEmptyText(template.scalingUp, 'Progress one variable only after completion, effort, and symptoms are stable.'),

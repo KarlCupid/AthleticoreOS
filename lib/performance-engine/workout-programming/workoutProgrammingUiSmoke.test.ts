@@ -91,7 +91,7 @@ async function run() {
     'testID="generated-workout-preview-blocked"',
     'This generated session is blocked.',
     'workout.explanations',
-    'Stop if pain becomes sharp',
+    'Pause if pain becomes sharp',
     'seek professional guidance',
   ]));
 
@@ -102,7 +102,7 @@ async function run() {
     'Generated locally. Persistence unavailable',
     'Completed locally. Persistence unavailable',
     "errorMessage(error, 'Generated workout failed.')",
-  ]) && betaCard.includes('{error ? <Text style={styles.errorText}>{error}</Text> : null}'));
+  ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
 
   assert('beta flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(betaCard, [
     'testID="generated-workout-beta-card"',

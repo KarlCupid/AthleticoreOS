@@ -28,7 +28,7 @@ function formatPayloadDetail(payload: PrescriptionPayload): string | null {
   if (payload.kind === 'resistance') {
     const repRange = 'repRange' in payload ? formatRange(payload.repRange as { min?: number; max?: number; target?: number; unit?: string }) : null;
     const rir = payload.RIR ? formatRange(payload.RIR) : null;
-    return [repRange ? `${repRange} reps` : null, rir ? `${rir} RIR` : null, payload.effortGuidance].filter(Boolean).join('  |  ');
+    return [repRange ? `${repRange} reps` : null, rir ? `${rir} reps in reserve` : null, payload.effortGuidance].filter(Boolean).join('  |  ');
   }
   if (payload.kind === 'cardio') {
     return [formatRange(payload.durationMinutes), payload.talkTest, `Zone ${formatRange(payload.heartRateZone as { min?: number; max?: number; target?: number; unit?: string })}`].filter(Boolean).join('  |  ');
@@ -58,7 +58,7 @@ function formatPrescription(exercise: GeneratedExercisePrescription): string {
     prescription.reps ? `${prescription.reps} reps` : null,
     prescription.durationMinutes != null ? `${prescription.durationMinutes} min` : null,
     prescription.durationSeconds != null ? `${prescription.durationSeconds}s` : null,
-    `RPE ${prescription.targetRpe}`,
+    `Effort ${prescription.targetRpe}/10`,
   ];
   return baseParts.filter(Boolean).join('  |  ');
 }
@@ -113,7 +113,7 @@ function safetyStatus(workout: GeneratedWorkout): { label: string; detail: strin
   if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) {
     return {
       label: 'Cautions active',
-      detail: 'Use the listed guardrails and keep the session pain-free.',
+      detail: 'Use the listed guardrails and keep the session comfortable and controlled.',
       tone: 'caution',
     };
   }
@@ -130,7 +130,11 @@ function labelize(value: string): string {
 
 function MetaPill({ label, tone = 'default' }: { label: string; tone?: 'default' | 'ok' | 'caution' | 'blocked' }) {
   return (
-    <View style={[styles.metaPill, tone === 'ok' && styles.metaPillOk, tone === 'caution' && styles.metaPillCaution, tone === 'blocked' && styles.metaPillBlocked]}>
+    <View
+      accessible
+      accessibilityLabel={label}
+      style={[styles.metaPill, tone === 'ok' && styles.metaPillOk, tone === 'caution' && styles.metaPillCaution, tone === 'blocked' && styles.metaPillBlocked]}
+    >
       <Text style={[styles.metaPillText, tone !== 'default' && styles.metaPillStrongText]}>{label}</Text>
     </View>
   );
@@ -148,7 +152,11 @@ function FactTile({
   tone?: 'default' | 'ok' | 'caution' | 'blocked';
 }) {
   return (
-    <View style={[styles.factTile, tone === 'ok' && styles.factTileOk, tone === 'caution' && styles.factTileCaution, tone === 'blocked' && styles.factTileBlocked]}>
+    <View
+      accessible
+      accessibilityLabel={`${label}: ${value}${detail ? `. ${detail}` : ''}`}
+      style={[styles.factTile, tone === 'ok' && styles.factTileOk, tone === 'caution' && styles.factTileCaution, tone === 'blocked' && styles.factTileBlocked]}
+    >
       <Text style={styles.factLabel}>{label}</Text>
       <Text style={styles.factValue}>{value}</Text>
       {detail ? <Text style={styles.factDetail}>{detail}</Text> : null}
@@ -166,8 +174,8 @@ function CopySection({
   testID?: string;
 }) {
   return (
-    <View testID={testID} style={styles.copySection}>
-      <Text style={styles.sectionLabel}>{title}</Text>
+    <View testID={testID} accessibilityLabel={`${title} section`} style={styles.copySection}>
+      <Text accessibilityRole="header" style={styles.sectionLabel}>{title}</Text>
       {children}
     </View>
   );
@@ -176,7 +184,7 @@ function CopySection({
 function DetailLine({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <View style={styles.detailLine}>
+    <View accessible accessibilityLabel={`${label}: ${value}`} style={styles.detailLine}>
       <Text style={styles.detailLabel}>{label}</Text>
       <Text style={styles.detailText}>{value}</Text>
     </View>
@@ -225,8 +233,8 @@ export function GeneratedWorkoutPreviewCard({
     ...new Set([
       ...(workout.safetyNotes ?? []),
       ...(description?.safetyNotes ?? []),
-      'Stop if pain becomes sharp, unusual, or changes how you move.',
-      'For chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.',
+      'Pause if pain becomes sharp, unusual, or changes how you move.',
+      'If you notice chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.',
     ]),
   ];
 
@@ -248,7 +256,7 @@ export function GeneratedWorkoutPreviewCard({
             <MetaPill label={`${workout.blocks.length} blocks`} />
             <MetaPill label={safety.label} tone={safety.tone} />
           </View>
-          <Text testID="generated-workout-preview-intent" style={styles.intent}>
+          <Text testID="generated-workout-preview-intent" accessibilityRole="header" style={styles.intent}>
             {workout.sessionIntent ?? description?.sessionIntent ?? 'Train with intent.'}
           </Text>
           <Text style={styles.summary}>{workout.userFacingSummary ?? description?.plainLanguageSummary}</Text>
@@ -263,7 +271,7 @@ export function GeneratedWorkoutPreviewCard({
 
         {workout.blocked ? (
           <CopySection title="Safety block" testID="generated-workout-preview-blocked">
-            <Text style={styles.bodyText}>This generated session is blocked. Use the safety notes and choose a safer review, recovery, or mobility path before training.</Text>
+            <Text style={styles.bodyText}>This generated session is blocked. Use the safety notes and choose a review, recovery, or mobility path before training.</Text>
             <BulletList items={workout.explanations} />
           </CopySection>
         ) : null}
@@ -285,17 +293,17 @@ export function GeneratedWorkoutPreviewCard({
                 <View style={styles.blockHeader}>
                   <View style={styles.blockTitleGroup}>
                     <MetaPill label={labelize(block.kind)} />
-                    <Text style={styles.blockTitle}>{block.title}</Text>
+                    <Text accessibilityRole="header" style={styles.blockTitle}>{block.title}</Text>
                   </View>
                   <Text style={styles.blockDuration}>{block.estimatedDurationMinutes} min</Text>
                 </View>
                 {block.exercises.map((exercise) => (
                   <View key={`${block.id}:${exercise.exerciseId}`} style={styles.exerciseRow}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <Text accessibilityRole="header" style={styles.exerciseName}>{exercise.name}</Text>
                     <Text style={styles.exerciseWhy}>{exercise.explanation}</Text>
                     <View style={styles.detailPanel}>
                       <DetailLine label="Dose" value={formatPrescription(exercise)} />
-                      <DetailLine label="Intensity" value={`RPE ${exercise.prescription.targetRpe}. ${exercise.prescription.intensityCue}`} />
+                      <DetailLine label="Intensity" value={`Effort ${exercise.prescription.targetRpe}/10. ${exercise.prescription.intensityCue}`} />
                       <DetailLine label="Rest" value={formatRestGuidance(exercise)} />
                       <DetailLine label="Tempo" value={formatTempoGuidance(exercise)} />
                       <DetailLine label="Payload" value={formatPayloadDetail(exercise.prescription.payload)} />

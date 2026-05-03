@@ -49,6 +49,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 
 - [Database and Security](./database-and-security.md)
 - [Live DB Smoke Tests](./live-db-smoke-tests.md)
+- [Copy and Accessibility](./copy-and-accessibility.md)
 - [Models and Content](./models-and-content.md)
 - [Engine Behavior](./engine-behavior.md)
 - [How-To Workflows](./how-to.md)

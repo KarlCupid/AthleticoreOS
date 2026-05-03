@@ -83,7 +83,7 @@ const FEEDBACK_OPTIONS = [
   { id: 'time_fit', label: 'Time fit' },
 ] as const;
 const BETA_STAGES: GeneratedWorkoutBetaStage[] = ['configure', 'inspect', 'started', 'completed'];
-const SAFETY_REMINDER = 'Stop if pain becomes sharp, unusual, or changes how you move. For chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.';
+const SAFETY_REMINDER = 'Pause if pain becomes sharp, unusual, or changes how you move. If you notice chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.';
 
 function labelize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
@@ -155,15 +155,18 @@ function ToggleChip({
   selected,
   onPress,
   disabled,
+  accessibilityLabel,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   disabled?: boolean;
+  accessibilityLabel?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? `${selected ? 'Selected' : 'Select'} ${label}`}
       accessibilityState={{ selected, disabled }}
       disabled={disabled}
       style={[styles.chip, selected && styles.chipSelected, disabled && styles.chipDisabled]}
@@ -194,6 +197,7 @@ function Stepper({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Decrease ${label}`}
+          accessibilityValue={{ min, max, now: value }}
           style={styles.stepperButton}
           onPress={() => onChange(Math.max(min, value - 1))}
         >
@@ -203,6 +207,7 @@ function Stepper({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Increase ${label}`}
+          accessibilityValue={{ min, max, now: value }}
           style={styles.stepperButton}
           onPress={() => onChange(Math.min(max, value + 1))}
         >
@@ -215,11 +220,13 @@ function Stepper({
 
 function NumericLogInput({
   label,
+  accessibilityLabel,
   value,
   onChangeText,
   editable,
 }: {
   label: string;
+  accessibilityLabel?: string;
   value: string;
   onChangeText: (value: string) => void;
   editable: boolean;
@@ -228,7 +235,7 @@ function NumericLogInput({
     <View style={styles.logInputGroup}>
       <Text style={styles.logInputLabel}>{label}</Text>
       <TextInput
-        accessibilityLabel={label}
+        accessibilityLabel={accessibilityLabel ?? label}
         editable={editable}
         keyboardType="numeric"
         style={[styles.logInput, !editable && styles.logInputDisabled]}
@@ -379,7 +386,12 @@ export function GeneratedWorkoutBetaSessionCard({
             const active = index === currentStageIndex;
             const complete = index < currentStageIndex;
             return (
-              <View key={item} style={[styles.stagePill, active && styles.stagePillActive, complete && styles.stagePillComplete]}>
+              <View
+                key={item}
+                accessible
+                accessibilityLabel={`${stageLabel(item)} step, ${active ? 'current' : complete ? 'complete' : 'upcoming'}`}
+                style={[styles.stagePill, active && styles.stagePillActive, complete && styles.stagePillComplete]}
+              >
                 <Text style={[styles.stagePillText, active && styles.stagePillTextActive]}>{stageLabel(item)}</Text>
               </View>
             );
@@ -388,7 +400,7 @@ export function GeneratedWorkoutBetaSessionCard({
         <Text style={styles.stageHelp}>{stageHelp(stage)}</Text>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Goal</Text>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>Goal</Text>
           <View style={styles.chipRow}>
             {GOAL_OPTIONS.map((goal) => (
               <ToggleChip key={goal.id} label={goal.label} selected={goalId === goal.id} onPress={() => setGoalId(goal.id)} disabled={loading || completing} />
@@ -397,7 +409,7 @@ export function GeneratedWorkoutBetaSessionCard({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Duration</Text>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>Duration</Text>
           <View style={styles.chipRow}>
             {DURATION_OPTIONS.map((duration) => (
               <ToggleChip key={duration} label={`${duration} min`} selected={durationMinutes === duration} onPress={() => setDurationMinutes(duration)} disabled={loading || completing} />
@@ -406,7 +418,7 @@ export function GeneratedWorkoutBetaSessionCard({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Equipment</Text>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>Equipment</Text>
           <View style={styles.chipRow}>
             {EQUIPMENT_OPTIONS.map((equipment) => (
               <ToggleChip key={equipment.id} label={equipment.label} selected={equipmentIds.includes(equipment.id)} onPress={() => toggleEquipment(equipment.id)} disabled={loading || completing} />
@@ -415,7 +427,7 @@ export function GeneratedWorkoutBetaSessionCard({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Readiness</Text>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>Readiness</Text>
           <View style={styles.chipRow}>
             {READINESS_OPTIONS.map((readiness) => (
               <ToggleChip key={readiness} label={labelize(readiness)} selected={readinessBand === readiness} onPress={() => setReadinessBand(readiness)} disabled={loading || completing} />
@@ -423,13 +435,14 @@ export function GeneratedWorkoutBetaSessionCard({
           </View>
         </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
         <Text style={styles.safetyReminder}>{SAFETY_REMINDER}</Text>
 
         <View style={styles.actionRow}>
           <Pressable
             testID="generated-workout-beta-generate"
             accessibilityRole="button"
+            accessibilityLabel={loading ? 'Generating workout' : workout ? 'Regenerate workout' : 'Generate workout'}
             style={[styles.primaryButton, loading && styles.disabledButton]}
             disabled={loading || completing}
             onPress={submitGenerate}
@@ -437,7 +450,14 @@ export function GeneratedWorkoutBetaSessionCard({
             <Text style={styles.primaryButtonText}>{loading ? 'Generating...' : workout ? 'Regenerate' : 'Generate Workout'}</Text>
           </Pressable>
           {workout ? (
-            <Pressable testID="generated-workout-beta-clear" accessibilityRole="button" style={styles.secondaryButton} disabled={loading || completing} onPress={onReset}>
+            <Pressable
+              testID="generated-workout-beta-clear"
+              accessibilityRole="button"
+              accessibilityLabel="Clear generated workout"
+              style={styles.secondaryButton}
+              disabled={loading || completing}
+              onPress={onReset}
+            >
               <Text style={styles.secondaryButtonText}>Clear</Text>
             </Pressable>
           ) : null}
@@ -473,12 +493,13 @@ export function GeneratedWorkoutBetaSessionCard({
             <Pressable
               testID="generated-workout-beta-start"
               accessibilityRole="button"
+              accessibilityLabel={workout.blocked ? 'Workout blocked by safety review' : 'Start generated workout'}
               accessibilityState={{ disabled: workout.blocked === true }}
               disabled={workout.blocked === true}
               style={[styles.primaryButton, workout.blocked && styles.disabledButton]}
               onPress={onStart}
             >
-              <Text style={styles.primaryButtonText}>{workout.blocked ? 'Blocked by Safety' : 'Start Workout'}</Text>
+              <Text style={styles.primaryButtonText}>{workout.blocked ? 'Blocked by Safety Review' : 'Start Workout'}</Text>
             </Pressable>
           ) : null}
 
@@ -488,11 +509,16 @@ export function GeneratedWorkoutBetaSessionCard({
             <View testID="generated-workout-beta-checklist" style={styles.section}>
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionHeaderCopy}>
-                  <Text style={styles.sectionLabel}>Exercise checklist</Text>
+                  <Text accessibilityRole="header" style={styles.sectionLabel}>Exercise checklist</Text>
                   <Text style={styles.sectionHint}>{completedExerciseCount}/{totalExerciseCount} marked complete</Text>
                 </View>
                 {stage === 'started' ? (
-                  <Pressable accessibilityRole="button" style={styles.smallButton} onPress={toggleAllExercisesComplete}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={allExercisesComplete ? 'Clear all completed exercises' : 'Mark all exercises complete'}
+                    style={styles.smallButton}
+                    onPress={toggleAllExercisesComplete}
+                  >
                     <Text style={styles.smallButtonText}>{allExercisesComplete ? 'Clear' : 'Mark all'}</Text>
                   </Pressable>
                 ) : null}
@@ -508,6 +534,7 @@ export function GeneratedWorkoutBetaSessionCard({
                     <View key={exercise.exerciseId} style={styles.exerciseItem}>
                       <Pressable
                         accessibilityRole="checkbox"
+                        accessibilityLabel={`${completed ? 'Mark incomplete' : 'Mark complete'}: ${exercise.name}`}
                         accessibilityState={{ checked: completed }}
                         style={styles.exerciseHeader}
                         disabled={stage === 'completed'}
@@ -522,6 +549,7 @@ export function GeneratedWorkoutBetaSessionCard({
                       <View style={styles.miniChipRow}>
                         <ToggleChip
                           label="Like"
+                          accessibilityLabel={`${liked ? 'Remove like for' : 'Like'} ${exercise.name}`}
                           selected={liked}
                           onPress={() => {
                             toggleListValue(exercise.exerciseId, likedExerciseIds, setLikedExerciseIds);
@@ -531,6 +559,7 @@ export function GeneratedWorkoutBetaSessionCard({
                         />
                         <ToggleChip
                           label="Dislike"
+                          accessibilityLabel={`${disliked ? 'Remove dislike for' : 'Dislike'} ${exercise.name}`}
                           selected={disliked}
                           onPress={() => {
                             toggleListValue(exercise.exerciseId, dislikedExerciseIds, setDislikedExerciseIds);
@@ -541,6 +570,7 @@ export function GeneratedWorkoutBetaSessionCard({
                         {firstSubstitution ? (
                           <ToggleChip
                             label={`Used ${firstSubstitution.name}`}
+                            accessibilityLabel={`${substitutionsUsed.includes(firstSubstitution.exerciseId) ? 'Remove substitution' : 'Log substitution'} ${firstSubstitution.name} for ${exercise.name}`}
                             selected={substitutionsUsed.includes(firstSubstitution.exerciseId)}
                             onPress={() => toggleListValue(firstSubstitution.exerciseId, substitutionsUsed, setSubstitutionsUsed)}
                             disabled={stage === 'completed'}
@@ -550,24 +580,28 @@ export function GeneratedWorkoutBetaSessionCard({
                       <View style={styles.exerciseLogRow}>
                         <NumericLogInput
                           label="Sets"
+                          accessibilityLabel={`Sets completed for ${exercise.name}`}
                           value={exerciseLog.setsCompleted}
                           editable={stage === 'started'}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'setsCompleted', value)}
                         />
                         <NumericLogInput
                           label="Reps"
+                          accessibilityLabel={`Reps completed for ${exercise.name}`}
                           value={exerciseLog.repsCompleted}
                           editable={stage === 'started'}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'repsCompleted', value)}
                         />
                         <NumericLogInput
                           label="Min"
+                          accessibilityLabel={`Minutes completed for ${exercise.name}`}
                           value={exerciseLog.durationMinutesCompleted}
                           editable={stage === 'started'}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'durationMinutesCompleted', value)}
                         />
                         <NumericLogInput
                           label="Sec"
+                          accessibilityLabel={`Seconds completed for ${exercise.name}`}
                           value={exerciseLog.durationSecondsCompleted}
                           editable={stage === 'started'}
                           onChangeText={(value) => updateExerciseLog(exercise, completed, 'durationSecondsCompleted', value)}
@@ -583,7 +617,7 @@ export function GeneratedWorkoutBetaSessionCard({
           {stage === 'started' ? (
             <>
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Completion status</Text>
+                <Text accessibilityRole="header" style={styles.sectionLabel}>Completion status</Text>
                 <View style={styles.chipRow}>
                   {(['completed', 'partial', 'stopped'] as const).map((status) => (
                     <ToggleChip key={status} label={labelize(status)} selected={completionStatus === status} onPress={() => setCompletionStatus(status)} />
@@ -591,15 +625,15 @@ export function GeneratedWorkoutBetaSessionCard({
                 </View>
               </View>
               <View testID="generated-workout-beta-session-log" style={styles.logPanel}>
-                <Text style={styles.sectionLabel}>Session log</Text>
+                <Text accessibilityRole="header" style={styles.sectionLabel}>Session log</Text>
                 <Text style={styles.sectionHint}>Capture effort and pain honestly. This guides the next recommendation.</Text>
-                <Stepper label="Session RPE" value={sessionRpe} min={1} max={10} onChange={setSessionRpe} />
+                <Stepper label="Session effort rating" value={sessionRpe} min={1} max={10} onChange={setSessionRpe} />
                 <Stepper label="Pain before" value={painScoreBefore} min={0} max={10} onChange={setPainScoreBefore} />
                 <Stepper label="Pain after" value={painScoreAfter} min={0} max={10} onChange={setPainScoreAfter} />
                 <Stepper label="Rating" value={rating} min={1} max={5} onChange={setRating} />
               </View>
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Feedback</Text>
+                <Text accessibilityRole="header" style={styles.sectionLabel}>Feedback</Text>
                 <Text style={styles.sectionHint}>Pick what best describes the session. Preferences shape future exercise choices.</Text>
                 <View testID="generated-workout-beta-feedback" style={styles.chipRow}>
                   {FEEDBACK_OPTIONS.map((option) => (
@@ -620,6 +654,7 @@ export function GeneratedWorkoutBetaSessionCard({
               <Pressable
                 testID="generated-workout-beta-complete"
                 accessibilityRole="button"
+                accessibilityLabel={completing ? 'Completing workout' : 'Complete generated workout'}
                 style={[styles.primaryButton, completing && styles.disabledButton]}
                 disabled={completing}
                 onPress={submitComplete}
@@ -631,7 +666,7 @@ export function GeneratedWorkoutBetaSessionCard({
 
           {stage === 'completed' && progressionDecision ? (
             <View testID="generated-workout-beta-next-progression" style={styles.progressionPanel}>
-              <Text style={styles.sectionLabel}>Recommended next step</Text>
+              <Text accessibilityRole="header" style={styles.sectionLabel}>Recommended next step</Text>
               <Text style={styles.progressionTitle}>{labelize(progressionDecision.direction)}</Text>
               <Text style={styles.progressionBody}>{progressionDecision.userMessage ?? progressionDecision.reason}</Text>
               <Text style={styles.progressionBody}>{progressionDecision.nextAdjustment}</Text>

@@ -16,11 +16,11 @@ export const descriptionTemplates = [
     "coachExplanation": "The session is built around repeatable positions. A good set today should look like something we can safely build on next time.",
     "effortExplanation": "Use a load that leaves about two good reps in reserve. Rest long enough that the next set is strong, not rushed.",
     "whyThisMatters": "Beginner strength improves fastest when movement quality, confidence, and symptom control stay high.",
-    "howItShouldFeel": "Worked and coordinated, not crushed or shaky.",
+    "howItShouldFeel": "Worked and coordinated, with enough control to repeat the main patterns.",
     "successCriteria": [
       "No pain increase",
       "All main patterns completed",
-      "RPE stays within the target range"
+      "Effort rating stays within the target range"
     ],
     "scalingDown": "Use the easiest safe variation, reduce one set, and keep the same movement pattern.",
     "scalingUp": "Add the smallest load jump or one clean rep only when every set stays controlled.",
@@ -35,10 +35,10 @@ export const descriptionTemplates = [
       "Rushing rest and letting the next set fall apart"
     ],
     "safetyNotes": [
-      "Stop on sharp pain, dizziness, or symptoms that change how you move."
+      "Pause if pain becomes sharp, dizziness appears, or symptoms change how you move."
     ],
     "recoveryExpectation": "Mild muscle soreness is acceptable; joint pain or worsening symptoms are not.",
-    "completionMessage": "Base built. Log reps, load, RPE, and any pain signal so the next step is earned.",
+    "completionMessage": "Base built. Log reps, load, effort rating, and any pain signal so the next step is clear.",
     "nextSessionNote": "Repeat or progress only if soreness, sleep, readiness, and pain signals are stable."
   },
   {
@@ -56,12 +56,12 @@ export const descriptionTemplates = [
     "sessionIntent": "Build strength with heavier exposures that still protect technical quality.",
     "plainLanguageSummary": "Lift heavy enough to train force, but not so heavy that reps turn into a fight.",
     "coachExplanation": "Intermediate strength work needs clear anchors, enough rest, and strict cutoffs for speed or position loss.",
-    "effortExplanation": "Most working sets should land around RPE 7-8 with two good reps still available.",
+    "effortExplanation": "Most working sets should feel like 7-8 out of 10 effort, with two good reps still available.",
     "whyThisMatters": "Strength transfers best when the athlete can repeat high-quality force without burying recovery.",
     "howItShouldFeel": "Strong, focused, and controlled with full recovery between important sets.",
     "successCriteria": [
       "No grinding reps",
-      "Load and RPE logged",
+      "Load and effort rating logged",
       "Main lift position stays consistent"
     ],
     "scalingDown": "Use a machine, dumbbell, or reduced-range option and remove the final heavy set.",
@@ -97,17 +97,17 @@ export const descriptionTemplates = [
     "toneVariant": "detailed",
     "sessionIntent": "Accumulate upper-body volume without turning joints into the limiter.",
     "plainLanguageSummary": "Make the chest, back, shoulders, and arms work hard while keeping reps clean.",
-    "coachExplanation": "Hypertrophy work should bias the target tissue, preserve shoulder position, and use double progression instead of random load jumps.",
-    "effortExplanation": "Stay one to three reps shy of failure. The last reps can burn, but they should not pinch or grind.",
+    "coachExplanation": "Hypertrophy work should bias the target tissue, preserve shoulder position, and use double progression: reach the top of the rep range before adding load.",
+    "effortExplanation": "Stay one to three reps short of your all-out point. The last reps can burn, but they should not pinch or grind.",
     "whyThisMatters": "Upper-body size and strength respond to consistent quality volume more than occasional all-out sets.",
     "howItShouldFeel": "Target muscles working hard, shoulders centered, and breathing controlled between sets.",
     "successCriteria": [
       "Target rep ranges reached",
-      "No failure reps",
+      "No all-out reps",
       "Pressing and pulling both logged"
     ],
     "scalingDown": "Remove one accessory set or choose a more supported press or row.",
-    "scalingUp": "Use double progression: reach the top of the rep range before adding load.",
+    "scalingUp": "Use double progression: earn the top of the rep range before adding load.",
     "formFocus": [
       "Scapular position",
       "Controlled eccentric",
@@ -115,14 +115,14 @@ export const descriptionTemplates = [
     ],
     "breathingFocus": "Exhale through presses and reset the rib cage before pulling work.",
     "commonMistakes": [
-      "Training every set to failure",
+      "Taking every set to the all-out point",
       "Letting the shoulder roll forward to chase reps"
     ],
     "safetyNotes": [
       "Shoulder and wrist flags cap range and change exercise selection."
     ],
     "recoveryExpectation": "Muscle fatigue is expected; shoulder or elbow irritation should not climb.",
-    "completionMessage": "Upper volume banked. Log reps and RIR so the next load choice is clear.",
+    "completionMessage": "Upper volume banked. Log reps and reps in reserve so the next load choice is clear.",
     "nextSessionNote": "Progress the movements that hit the top of the range with stable joints."
   },
   {
@@ -140,7 +140,7 @@ export const descriptionTemplates = [
     "sessionIntent": "Build lower-body muscle through controlled volume and joint-aware ranges.",
     "plainLanguageSummary": "Train legs and hips hard enough to grow, while keeping knee and back signals quiet.",
     "coachExplanation": "Lower hypertrophy succeeds when the target muscles keep doing the work across sets, not when fatigue forces compensation.",
-    "effortExplanation": "Work near RPE 7-8 with one to three reps in reserve and controlled lowering.",
+    "effortExplanation": "Work near 7-8 out of 10 effort with one to three reps in reserve and controlled lowering.",
     "whyThisMatters": "Repeatable lower-body volume builds capacity for strength, conditioning, and sport support.",
     "howItShouldFeel": "Quads, glutes, or hamstrings loaded with a stable trunk and predictable joint feel.",
     "successCriteria": [
@@ -164,7 +164,7 @@ export const descriptionTemplates = [
       "Knee and back caution flags lower load, range, or complexity immediately."
     ],
     "recoveryExpectation": "Local muscle soreness is normal; joint pain or altered walking mechanics are not.",
-    "completionMessage": "Lower volume logged. The next step depends on reps, RIR, and symptom response.",
+    "completionMessage": "Lower volume logged. The next step depends on reps, reps in reserve, and symptom response.",
     "nextSessionNote": "Repeat the dose if soreness or pain trends are not clearly stable."
   },
   {
@@ -175,11 +175,11 @@ export const descriptionTemplates = [
     "appliesToGoalIds": [
       "zone2_cardio"
     ],
-    "summaryTemplate": "A Zone 2 cardio session built around steady duration, low recovery cost, and conversational effort.",
+    "summaryTemplate": "A Zone 2 conversational cardio session built around steady duration, low recovery cost, and easy breathing.",
     "toneVariant": "minimal",
     "sessionIntent": "Build aerobic base without adding heavy recovery cost.",
     "plainLanguageSummary": "Stay easy enough to talk and finish feeling like you could keep going.",
-    "coachExplanation": "Zone 2 expands the base that harder work sits on. The intensity ceiling matters more than the pace.",
+    "coachExplanation": "Zone 2 means easy conversational cardio. It expands the base that harder work sits on, and the intensity ceiling matters more than pace.",
     "effortExplanation": "Stay at a conversational effort. You should be able to speak in short sentences without gasping.",
     "whyThisMatters": "Easy aerobic work supports recovery, workload tolerance, and future conditioning.",
     "howItShouldFeel": "Smooth, sustainable, and almost too easy during the first third.",
@@ -198,7 +198,7 @@ export const descriptionTemplates = [
     "breathingFocus": "Breathing should stay controlled enough to speak without gasping.",
     "commonMistakes": [
       "Chasing pace",
-      "Turning Zone 2 into intervals",
+      "Turning easy conversational cardio into intervals",
       "Ignoring breathing drift"
     ],
     "safetyNotes": [
@@ -217,20 +217,20 @@ export const descriptionTemplates = [
       "low_impact_conditioning",
       "boxing_support"
     ],
-    "summaryTemplate": "A threshold cardio session for controlled hard efforts below an all-out redline.",
+    "summaryTemplate": "A threshold cardio session for controlled hard efforts below an all-out limit.",
     "toneVariant": "clinical",
     "sessionIntent": "Improve sustained hard effort while keeping output repeatable.",
     "plainLanguageSummary": "Work near the edge of comfort, but do not sprint or chase a max.",
     "coachExplanation": "Threshold work should create pressure without breaking pacing, mechanics, or recovery.",
-    "effortExplanation": "Expect RPE 7-8. Breathing is heavy, but you should not be falling apart.",
+    "effortExplanation": "Expect 7-8 out of 10 effort. Breathing is heavy, but you should still control pace and posture.",
     "whyThisMatters": "Threshold capacity helps bridge easy aerobic work and high-intensity intervals.",
     "howItShouldFeel": "Hard, controlled, and repeatable with clear pacing discipline.",
     "successCriteria": [
       "Work intervals completed",
       "Pace or watts stay steady",
-      "No redline symptoms"
+      "No concerning symptoms"
     ],
-    "scalingDown": "Shorten the work interval or switch to Zone 2 if readiness is poor.",
+    "scalingDown": "Shorten the work interval or switch to easy conversational cardio if readiness is poor.",
     "scalingUp": "Add one interval only when every repeat stays within the same output band.",
     "formFocus": [
       "Relaxed shoulders",
@@ -263,7 +263,7 @@ export const descriptionTemplates = [
     "sessionIntent": "Train hard breathing while protecting joints and landing exposure.",
     "plainLanguageSummary": "Push the intervals, but keep the tool low-impact and the output repeatable.",
     "coachExplanation": "The goal is high effort without extra joint contacts. Repeatability is the quality gate.",
-    "effortExplanation": "Work intervals can reach RPE 7-8, but the last round should still look controlled.",
+    "effortExplanation": "Work intervals can reach 7-8 out of 10 effort, but the last round should still look controlled.",
     "whyThisMatters": "Conditioning does not require unnecessary pounding when bike, rower, rope, or sled options fit better.",
     "howItShouldFeel": "Hard breathing, stable joints, and a clear recovery between rounds.",
     "successCriteria": [
@@ -271,7 +271,7 @@ export const descriptionTemplates = [
       "Work/rest/rounds completed",
       "Pain stable"
     ],
-    "scalingDown": "Cut two rounds, lengthen rest, or shift to Zone 2.",
+    "scalingDown": "Cut two rounds, lengthen rest, or shift to easy conversational cardio.",
     "scalingUp": "Add one round only when output and form stay consistent.",
     "formFocus": [
       "Stable trunk",
@@ -305,13 +305,13 @@ export const descriptionTemplates = [
     "sessionIntent": "Build work capacity without letting fatigue erase movement quality.",
     "plainLanguageSummary": "Move through the circuit with purpose, but keep every round technically honest.",
     "coachExplanation": "Metabolic conditioning is not random suffering. Density only counts when the movements still match the intent.",
-    "effortExplanation": "Aim for RPE 6-8 and leave enough control to finish the final round cleanly.",
+    "effortExplanation": "Aim for 6-8 out of 10 effort and leave enough control to finish the final round cleanly.",
     "whyThisMatters": "Well-controlled density improves capacity while still respecting safety and skill.",
     "howItShouldFeel": "Breathing and muscles challenged, but movement patterns recognizable.",
     "successCriteria": [
       "Rounds completed",
       "Movement quality maintained",
-      "RPE and substitutions logged"
+      "Effort rating and substitutions logged"
     ],
     "scalingDown": "Reduce one round or remove the highest-demand movement.",
     "scalingUp": "Add a round or shorten rest only after clean completion.",
@@ -343,7 +343,7 @@ export const descriptionTemplates = [
     ],
     "summaryTemplate": "A hip and thoracic mobility session for usable range, control, and calmer breathing.",
     "toneVariant": "rehab_informed",
-    "sessionIntent": "Improve hip and T-spine range without forcing depth.",
+    "sessionIntent": "Improve hip and upper-back range without forcing depth.",
     "plainLanguageSummary": "Move slowly through pain-free range. The goal is control and usable range, not forcing depth.",
     "coachExplanation": "Hips and thoracic spine often unlock better squat, hinge, breathing, and rotation when the new range is controlled.",
     "effortExplanation": "Keep effort low. A mild stretch is fine; sharp pain, numbness, or pinching is not.",
@@ -386,7 +386,7 @@ export const descriptionTemplates = [
     "sessionIntent": "Support recovery without adding meaningful training load.",
     "plainLanguageSummary": "Move enough to feel better, not enough to create another workout to recover from.",
     "coachExplanation": "Recovery sessions keep the athlete engaged while letting the system absorb training.",
-    "effortExplanation": "RPE stays 1-3. If it feels like training, it is too hard for this session.",
+    "effortExplanation": "Effort stays 1-3 out of 10. If it feels like training, make it easier.",
     "whyThisMatters": "Recovery is part of the continuous athlete journey, not a reset or a skipped day.",
     "howItShouldFeel": "Easy, calming, and restorative.",
     "successCriteria": [
@@ -407,7 +407,7 @@ export const descriptionTemplates = [
       "Chasing sweat or calories"
     ],
     "safetyNotes": [
-      "Red-flag symptoms block hard training and require review."
+      "Concerning symptoms block hard training and require review."
     ],
     "recoveryExpectation": "You should finish feeling at least a little better.",
     "completionMessage": "Recovery work counts. Log how symptoms and readiness changed.",
@@ -426,7 +426,7 @@ export const descriptionTemplates = [
     "summaryTemplate": "A balance session for older adults or cautious return-to-training scenarios using support before complexity.",
     "toneVariant": "rehab_informed",
     "sessionIntent": "Improve balance confidence without creating fall risk.",
-    "plainLanguageSummary": "Stay supported enough to practice good balance, not survival balance.",
+    "plainLanguageSummary": "Stay supported enough to practice calm balance, not a scrambling save.",
     "coachExplanation": "Balance progresses by narrowing support, changing vision, or adding movement one step at a time.",
     "effortExplanation": "This is low fatigue and high attention. Stop before fear, dizziness, or scrambling takes over.",
     "whyThisMatters": "Safe balance practice improves confidence and reduces wasted tension in movement.",
@@ -517,7 +517,7 @@ export const descriptionTemplates = [
       "Shoulders stable",
       "Power or trunk quality maintained"
     ],
-    "scalingDown": "Use shoulder prehab, trunk control, easy Zone 2, or breathing work.",
+    "scalingDown": "Use shoulder preparation, trunk control, easy conversational cardio, or breathing work.",
     "scalingUp": "Add low-volume power only when readiness and shoulder signals are good.",
     "formFocus": [
       "Rotational control",
@@ -549,8 +549,8 @@ export const descriptionTemplates = [
     "sessionIntent": "Transition back into training safely.",
     "plainLanguageSummary": "Do enough to rebuild confidence and tolerance, not enough to test limits.",
     "coachExplanation": "Return-to-training is a transition in the same journey. We use current symptoms, readiness, and completion data to choose the next useful dose.",
-    "effortExplanation": "Stay around RPE 3-6 and stop well before pain, dizziness, or compensation changes the session.",
-    "whyThisMatters": "Conservative re-entry protects consistency and prevents a minor interruption from becoming a forced shutdown.",
+    "effortExplanation": "Stay around 3-6 out of 10 effort and stop well before pain, dizziness, or compensation changes the session.",
+    "whyThisMatters": "Conservative re-entry protects consistency and keeps a minor interruption from becoming a longer pause.",
     "howItShouldFeel": "Controlled, confidence-building, and symptom-aware.",
     "successCriteria": [
       "Symptoms stable",
@@ -594,7 +594,7 @@ export const descriptionTemplates = [
     "howItShouldFeel": "Simple, focused, and repeatable.",
     "successCriteria": [
       "Bodyweight-compatible exercises only",
-      "RPE within target",
+      "Effort rating within target",
       "No pain increase"
     ],
     "scalingDown": "Use higher inclines, shorter holds, fewer rounds, or smaller ranges.",
@@ -629,7 +629,7 @@ export const descriptionTemplates = [
     "sessionIntent": "Build useful training from a small equipment footprint.",
     "plainLanguageSummary": "Use the tools you have without changing the goal.",
     "coachExplanation": "The pattern matters more than the implement when constraints are real.",
-    "effortExplanation": "Keep target RPE and adjust exercise choice instead of forcing unavailable equipment.",
+    "effortExplanation": "Keep the target effort and adjust exercise choice instead of forcing unavailable equipment.",
     "whyThisMatters": "Constraint-aware programming protects adherence and keeps the plan moving.",
     "howItShouldFeel": "Practical and focused, not compromised.",
     "successCriteria": [
@@ -650,7 +650,7 @@ export const descriptionTemplates = [
       "Using equipment that is not actually available"
     ],
     "safetyNotes": [
-      "Substitutions still must respect contraindications."
+      "Substitutions still must respect safety limits."
     ],
     "recoveryExpectation": "Recovery should match the equivalent full-equipment session.",
     "completionMessage": "Limited-equipment session completed. The available setup worked.",
@@ -712,8 +712,8 @@ export const descriptionTemplates = [
     "sessionIntent": "Reduce fatigue and preserve rhythm.",
     "plainLanguageSummary": "Do less on purpose so the next block can move forward.",
     "coachExplanation": "Deloads maintain skill and tissue exposure while recovery catches up.",
-    "effortExplanation": "RPE and total volume both stay lower than normal.",
-    "whyThisMatters": "Planned reductions prevent forced shutdowns and protect future progression.",
+    "effortExplanation": "Effort rating and total volume both stay lower than normal.",
+    "whyThisMatters": "Planned reductions lower fatigue and protect future progression.",
     "howItShouldFeel": "Easy-to-moderate, crisp, and unfinished in a good way.",
     "successCriteria": [
       "Volume reduced",
@@ -798,7 +798,7 @@ export const descriptionTemplates = [
     "sessionIntent": "Increase aerobic touch points safely.",
     "plainLanguageSummary": "Add another easy session, not another hard one.",
     "coachExplanation": "Aerobic frequency helps the base when each exposure remains low cost.",
-    "effortExplanation": "RPE stays 2-4 and conversation stays possible.",
+    "effortExplanation": "Effort stays 2-4 out of 10 and conversation stays possible.",
     "whyThisMatters": "More easy exposures can support recovery and capacity.",
     "howItShouldFeel": "Light, repeatable, and low-stress.",
     "successCriteria": [
