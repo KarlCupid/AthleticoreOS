@@ -2,12 +2,37 @@ import { workoutIntelligenceCatalog } from './intelligenceData.ts';
 import { workoutProgrammingCatalog } from './seedData.ts';
 import type {
   Exercise,
+  ExerciseSelectionScoreTrace,
   ExerciseSubstitutionOption,
   SubstitutionRule,
   WorkoutExperienceLevel,
   WorkoutIntelligenceCatalog,
   WorkoutProgrammingCatalog,
 } from './types.ts';
+
+export const SUBSTITUTION_SCORE_WEIGHTS = {
+  movementPatternIntent: 35,
+  movementPatternOverlap: 4,
+  primaryMuscleIntent: 18,
+  primaryMuscleOverlap: 4,
+  equipmentCompatible: 18,
+  bodyweightSimplicity: 2,
+  authoredRule: 22,
+  authoredPriorityMax: 16,
+  experienceCompatible: 10,
+  beginnerMatch: 6,
+  workoutTypeMatch: 12,
+  goalMatch: 10,
+  loadabilityMatch: 7,
+  lowerLoadabilityWithSafety: 5,
+  jointDemandReduction: 14,
+  jointDemandReductionPerLevel: 3,
+  higherJointDemandPenalty: -10,
+  readinessLowComplexity: 12,
+  readinessLowFatigue: 10,
+  readinessHighFatiguePenalty: -14,
+  lowerImpact: 12,
+} as const;
 
 const experienceRank: Record<WorkoutExperienceLevel, number> = {
   beginner: 1,
@@ -171,70 +196,107 @@ export function rankExerciseSubstitutions(input: {
     if ((activeRule?.skillLevelMatch ?? 'same_or_lower') === 'same_or_lower' && experienceRank[candidate.minExperience] > experienceRank[experienceLevel]) return null;
 
     let score = 0;
+    const scoreBreakdown: Record<string, number> = {};
     const rationaleParts: string[] = [];
+    const includedReasons: string[] = [];
+    const add = (key: string, value: number, reason?: string) => {
+      if (value === 0) return;
+      score += value;
+      scoreBreakdown[key] = (scoreBreakdown[key] ?? 0) + value;
+      if (reason && value > 0) includedReasons.push(reason);
+    };
     const patternOverlap = overlapCount(candidate.movementPatternIds, input.movementPatternIds ?? source.movementPatternIds);
     if (patternOverlap > 0) {
-      score += 35 + patternOverlap * 4;
+      add('movementPatternMatch', SUBSTITUTION_SCORE_WEIGHTS.movementPatternIntent + patternOverlap * SUBSTITUTION_SCORE_WEIGHTS.movementPatternOverlap, `Preserves ${patternOverlap} movement pattern(s).`);
       rationaleParts.push(`Preserves the ${candidate.movementPatternIds.find((id) => source.movementPatternIds.includes(id)) ?? 'same'} movement intent.`);
     }
 
     const muscleOverlap = overlapCount(candidate.primaryMuscleIds, input.primaryMuscleIds ?? source.primaryMuscleIds);
     if (muscleOverlap > 0) {
-      score += 18 + muscleOverlap * 4;
+      add('primaryMuscleMatch', SUBSTITUTION_SCORE_WEIGHTS.primaryMuscleIntent + muscleOverlap * SUBSTITUTION_SCORE_WEIGHTS.primaryMuscleOverlap, 'Keeps the main tissue target similar.');
       rationaleParts.push('Keeps the main tissue target similar.');
     }
 
-    score += 18;
-    if (candidate.equipmentRequiredIds?.includes('bodyweight')) score += 2;
+    add('equipmentMatch', SUBSTITUTION_SCORE_WEIGHTS.equipmentCompatible, 'Compatible with available equipment.');
+    if (candidate.equipmentRequiredIds?.includes('bodyweight')) add('bodyweightSimplicity', SUBSTITUTION_SCORE_WEIGHTS.bodyweightSimplicity, 'Requires only bodyweight setup.');
     if (activeRule) {
-      score += 22;
-      score += Math.max(0, 16 - (ruleMatch?.priority ?? 10) * 4);
+      add('authoredRule', SUBSTITUTION_SCORE_WEIGHTS.authoredRule, 'Matched an authored substitution rule.');
+      add('authoredPriority', Math.max(0, SUBSTITUTION_SCORE_WEIGHTS.authoredPriorityMax - (ruleMatch?.priority ?? 10) * 4), 'Ranked highly by the authored replacement priority.');
       rationaleParts.push(activeRule.reason ?? activeRule.rationale ?? 'Matches an authored substitution rule.');
     }
 
-    if (experienceRank[candidate.minExperience] <= experienceRank[experienceLevel]) score += 10;
-    if (candidate.minExperience === 'beginner' && experienceLevel === 'beginner') score += 6;
+    if (experienceRank[candidate.minExperience] <= experienceRank[experienceLevel]) add('experienceMatch', SUBSTITUTION_SCORE_WEIGHTS.experienceCompatible, 'Compatible with experience level.');
+    if (candidate.minExperience === 'beginner' && experienceLevel === 'beginner') add('beginnerMatch', SUBSTITUTION_SCORE_WEIGHTS.beginnerMatch, 'Beginner-friendly replacement.');
     if (input.workoutTypeId && candidate.workoutTypeIds.includes(input.workoutTypeId)) {
-      score += 12;
+      add('workoutTypeMatch', SUBSTITUTION_SCORE_WEIGHTS.workoutTypeMatch, 'Stays inside the same workout type.');
       rationaleParts.push('Stays inside the same workout type.');
     }
     if (input.goalId && candidate.goalIds.includes(input.goalId)) {
-      score += 10;
+      add('goalMatch', SUBSTITUTION_SCORE_WEIGHTS.goalMatch, 'Supports the same training goal.');
       rationaleParts.push('Supports the same training goal.');
     }
-    if (candidate.loadability === source.loadability) score += 7;
-    if (source.loadability && candidate.loadability && demandRank[candidate.loadability] < demandRank[source.loadability]) score += safetyFlagIds.length ? 5 : 0;
+    if (candidate.loadability === source.loadability) add('loadabilityMatch', SUBSTITUTION_SCORE_WEIGHTS.loadabilityMatch, 'Keeps similar loadability.');
+    if (source.loadability && candidate.loadability && demandRank[candidate.loadability] < demandRank[source.loadability]) add('lowerLoadabilityWithSafety', safetyFlagIds.length ? SUBSTITUTION_SCORE_WEIGHTS.lowerLoadabilityWithSafety : 0, 'Reduces loading when safety flags are active.');
 
+    let jointDemandPenalty = 0;
     for (const flagId of safetyFlagIds) {
       const sourceDemand = jointDemand(source, flagId);
       const candidateDemand = jointDemand(candidate, flagId);
       if (sourceDemand > 0 && candidateDemand < sourceDemand) {
-        score += 14 + (sourceDemand - candidateDemand) * 3;
+        add('jointDemandReduction', SUBSTITUTION_SCORE_WEIGHTS.jointDemandReduction + (sourceDemand - candidateDemand) * SUBSTITUTION_SCORE_WEIGHTS.jointDemandReductionPerLevel, `Reduces ${flagId.replace('_caution', '')} demand.`);
         rationaleParts.push(`Reduces ${flagId.replace('_caution', '')} demand for the active caution.`);
       } else if (candidateDemand > sourceDemand && sourceDemand > 0) {
-        score -= 10;
+        jointDemandPenalty += SUBSTITUTION_SCORE_WEIGHTS.higherJointDemandPenalty;
       }
     }
+    add('jointDemandPenalty', jointDemandPenalty);
 
+    let fatigueCostPenalty = 0;
+    let technicalComplexityPenalty = 0;
     if (readinessSensitive(safetyFlagIds)) {
-      if (candidate.technicalComplexity === 'low') score += 12;
-      if (candidate.fatigueCost === 'low') score += 10;
-      if (candidate.fatigueCost === 'high') score -= 14;
+      if (candidate.technicalComplexity === 'low') add('readinessLowComplexity', SUBSTITUTION_SCORE_WEIGHTS.readinessLowComplexity, 'Simpler option for today readiness.');
+      if (candidate.fatigueCost === 'low') add('readinessLowFatigue', SUBSTITUTION_SCORE_WEIGHTS.readinessLowFatigue, 'Lower fatigue option for today readiness.');
+      if (candidate.fatigueCost === 'high') {
+        fatigueCostPenalty += SUBSTITUTION_SCORE_WEIGHTS.readinessHighFatiguePenalty;
+        add('readinessHighFatiguePenalty', fatigueCostPenalty);
+      }
       rationaleParts.push('Uses a lower-complexity option for today readiness.');
     }
 
     if (safetyFlagIds.includes('no_jumping') || safetyFlagIds.includes('low_impact_required')) {
       if (impactRank[candidate.impact] < impactRank[source.impact]) {
-        score += 12;
+        add('lowerImpact', SUBSTITUTION_SCORE_WEIGHTS.lowerImpact, 'Lowers impact while keeping the session moving.');
         rationaleParts.push('Lowers impact while keeping the session moving.');
       }
     }
+
+    const scoreTrace: ExerciseSelectionScoreTrace = {
+      exerciseId: candidate.id,
+      slotId: `substitution:${source.id}`,
+      totalScore: score,
+      scoreBreakdown,
+      includedReasons: unique([...includedReasons, ...rationaleParts]),
+      excludedReasons: [],
+      safetyFlagsApplied: safetyFlagIds,
+      equipmentMatch: true,
+      movementPatternMatch: patternOverlap > 0,
+      goalMatch: Boolean(input.goalId && candidate.goalIds.includes(input.goalId)),
+      workoutTypeMatch: Boolean(input.workoutTypeId && candidate.workoutTypeIds.includes(input.workoutTypeId)),
+      experienceMatch: experienceRank[candidate.minExperience] <= experienceRank[experienceLevel],
+      fatigueCostPenalty,
+      technicalComplexityPenalty,
+      jointDemandPenalty,
+      preferenceAdjustment: 0,
+      substitutionAdjustment: (scoreBreakdown.authoredRule ?? 0) + (scoreBreakdown.authoredPriority ?? 0),
+      finalDecision: 'substitution_candidate',
+    };
 
     const option: ExerciseSubstitutionOption = {
       exerciseId: candidate.id,
       name: candidate.name,
       rationale: compatibilityRationale(rationaleParts, 'Keeps the training intent with available equipment and safer constraints.'),
       score,
+      scoreTrace,
     };
     if (activeRule?.id) option.matchedRuleId = activeRule.id;
     if (activeRule?.prescriptionAdjustment) option.prescriptionAdjustment = activeRule.prescriptionAdjustment;
@@ -244,5 +306,12 @@ export function rankExerciseSubstitutions(input: {
 
   return scored
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.name.localeCompare(b.name))
-    .slice(0, input.limit ?? 3);
+    .slice(0, input.limit ?? 3)
+    .map((option, index) => ({
+      ...option,
+      scoreTrace: {
+        ...option.scoreTrace!,
+        finalDecision: index === 0 ? 'substitution_selected' : 'substitution_candidate',
+      },
+    }));
 }

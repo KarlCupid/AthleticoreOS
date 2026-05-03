@@ -592,6 +592,7 @@ export interface ExerciseSubstitutionOption {
   name: string;
   rationale: string;
   score?: number;
+  scoreTrace?: ExerciseSelectionScoreTrace;
   matchedRuleId?: string;
   prescriptionAdjustment?: SubstitutionPrescriptionAdjustment;
   coachingNote?: string;
@@ -737,6 +738,8 @@ export interface GeneratedExercisePrescription {
   };
   trackingMetricIds: string[];
   explanation: string;
+  prescriptionTemplateId?: string;
+  scoreTrace?: ExerciseSelectionScoreTrace;
   substitutions?: ExerciseSubstitutionOption[];
   scalingOptions?: {
     down: string;
@@ -772,6 +775,46 @@ export interface WorkoutDecisionTraceEntry {
   metadata?: Record<string, unknown>;
 }
 
+export type ExerciseSelectionFinalDecision =
+  | 'selected'
+  | 'candidate'
+  | 'excluded'
+  | 'rejected'
+  | 'substitution_selected'
+  | 'substitution_candidate'
+  | 'substitution_excluded';
+
+export interface ExerciseSelectionScoreTrace {
+  exerciseId: string;
+  slotId: string;
+  totalScore: number;
+  scoreBreakdown: Record<string, number>;
+  includedReasons: string[];
+  excludedReasons: string[];
+  safetyFlagsApplied: string[];
+  equipmentMatch: boolean;
+  movementPatternMatch: boolean;
+  goalMatch: boolean;
+  workoutTypeMatch: boolean;
+  experienceMatch: boolean;
+  fatigueCostPenalty: number;
+  technicalComplexityPenalty: number;
+  jointDemandPenalty: number;
+  preferenceAdjustment: number;
+  substitutionAdjustment: number;
+  finalDecision: ExerciseSelectionFinalDecision;
+}
+
+export interface GeneratedWorkoutGenerationTrace {
+  selectedTemplateTrace?: WorkoutDecisionTraceEntry;
+  selectedPrescriptionTrace?: WorkoutDecisionTraceEntry[];
+  movementSlotTrace?: WorkoutDecisionTraceEntry[];
+  exerciseSelectionTrace?: ExerciseSelectionScoreTrace[];
+  substitutionTrace?: ExerciseSelectionScoreTrace[];
+  validationTrace?: WorkoutValidationResult['decisionTrace'];
+  fallbackTrace?: WorkoutDecisionTraceEntry[];
+}
+
 export interface GeneratedWorkout {
   schemaVersion: 'generated-workout-v1';
   workoutTypeId: string;
@@ -804,6 +847,9 @@ export interface GeneratedWorkout {
   validation?: WorkoutValidationResult;
   progressionRecommendation?: ProgressionDecision;
   decisionTrace?: WorkoutDecisionTraceEntry[];
+  generationTrace?: GeneratedWorkoutGenerationTrace;
+  exerciseSelectionTrace?: ExerciseSelectionScoreTrace[];
+  substitutionTrace?: ExerciseSelectionScoreTrace[];
 }
 
 export interface WorkoutValidationResult {

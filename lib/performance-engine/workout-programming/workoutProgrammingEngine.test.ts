@@ -1,13 +1,15 @@
 import {
   buildWorkoutProgrammingSeedRows,
+  EXERCISE_SELECTION_SCORE_WEIGHTS,
   generateSingleSessionWorkout,
   queryWorkoutExercises,
+  rankExerciseSubstitutions,
   validateWorkoutDomain,
   validateGeneratedWorkout,
   validateWorkoutProgrammingCatalog,
   workoutProgrammingCatalog,
 } from './index.ts';
-import type { Exercise, GenerateSingleWorkoutInput, GeneratedExercisePrescription, GeneratedWorkout } from './index.ts';
+import type { Exercise, ExerciseSelectionScoreTrace, GenerateSingleWorkoutInput, GeneratedExercisePrescription, GeneratedWorkout } from './index.ts';
 
 let passed = 0;
 let failed = 0;
@@ -48,6 +50,14 @@ function exerciseSource(id: string): Exercise {
   const source = workoutProgrammingCatalog.exercises.find((exercise) => exercise.id === id);
   if (!source) throw new Error(`Missing exercise fixture ${id}`);
   return source;
+}
+
+function scoreTrace(workout: GeneratedWorkout, exerciseId: string, slotId?: string): ExerciseSelectionScoreTrace {
+  const traceItem = (workout.exerciseSelectionTrace ?? []).find((trace) => (
+    trace.exerciseId === exerciseId && (!slotId || trace.slotId === slotId)
+  ));
+  if (!traceItem) throw new Error(`Missing score trace for ${exerciseId}${slotId ? ` in ${slotId}` : ''}.`);
+  return traceItem;
 }
 
 function replaceFirstMainExercise(workout: GeneratedWorkout, exerciseId: string, patch?: Partial<GeneratedExercisePrescription>): GeneratedWorkout {
@@ -641,6 +651,122 @@ console.log('\n-- workout programming engine --');
     assert(`${scenario.label} returns substitutions and scaling`, Boolean((workout.substitutions?.length ?? 0) > 0 && workout.scalingOptions?.down));
     assert(`${scenario.label} returns tracking metrics`, Boolean(workout.trackingMetrics?.length));
   }
+})();
+
+(() => {
+  assert('exercise scoring weights are exported and safety-dominant', (
+    EXERCISE_SELECTION_SCORE_WEIGHTS.dislikedExerciseHardExclude < -500
+    && Math.abs(EXERCISE_SELECTION_SCORE_WEIGHTS.jointDemandPenalty) > EXERCISE_SELECTION_SCORE_WEIGHTS.preferredExercise
+    && EXERCISE_SELECTION_SCORE_WEIGHTS.workoutTypeMatch > EXERCISE_SELECTION_SCORE_WEIGHTS.preferredExercise
+  ));
+
+  const kneeCaution = generated({
+    goalId: 'beginner_strength',
+    durationMinutes: 40,
+    equipmentIds: ['bodyweight', 'dumbbells', 'plyo_box', 'resistance_band'],
+    experienceLevel: 'beginner',
+    safetyFlags: ['knee_caution'],
+    preferredExerciseIds: ['goblet_squat'],
+  });
+  const selectedSquat = mainExercises(kneeCaution).find((exercise) => exercise.movementPatternIds.includes('squat'));
+  const gobletTrace = scoreTrace(kneeCaution, 'goblet_squat');
+  const selectedSquatTrace = scoreTrace(kneeCaution, selectedSquat!.exerciseId, selectedSquat!.scoreTrace?.slotId);
+  assert('safer exercise outranks risky exercise with pain flag', Boolean(selectedSquat && selectedSquat.exerciseId !== 'goblet_squat' && selectedSquatTrace.totalScore > gobletTrace.totalScore));
+  assert('preference cannot override safety exclusion', gobletTrace.finalDecision === 'excluded' && gobletTrace.excludedReasons.some((reason) => reason.toLowerCase().includes('safety hard mismatch')));
+
+  const preferredSafe = generated({
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'],
+    experienceLevel: 'beginner',
+    preferredExerciseIds: ['goblet_squat'],
+  });
+  assert('preferred exercise wins when safe', mainExercises(preferredSafe).some((exercise) => exercise.exerciseId === 'goblet_squat' && exercise.scoreTrace?.preferenceAdjustment === EXERCISE_SELECTION_SCORE_WEIGHTS.preferredExercise));
+
+  const disliked = generated({
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'],
+    experienceLevel: 'beginner',
+    dislikedExerciseIds: ['goblet_squat'],
+  });
+  const dislikedTrace = scoreTrace(disliked, 'goblet_squat');
+  assert('disliked exercise is excluded or heavily penalized', mainExercises(disliked).every((exercise) => exercise.exerciseId !== 'goblet_squat') && dislikedTrace.preferenceAdjustment <= EXERCISE_SELECTION_SCORE_WEIGHTS.dislikedExerciseHardExclude);
+
+  const noEquipment = generated({
+    goalId: 'no_equipment',
+    durationMinutes: 30,
+    equipmentIds: ['bodyweight'],
+    experienceLevel: 'beginner',
+  });
+  const equipmentTrace = scoreTrace(noEquipment, 'goblet_squat');
+  assert('equipment mismatch excludes exercise', !equipmentTrace.equipmentMatch && equipmentTrace.finalDecision === 'excluded' && equipmentTrace.excludedReasons.some((reason) => reason.includes('Equipment hard mismatch')));
+
+  const beginner = generated({
+    goalId: 'no_equipment',
+    durationMinutes: 30,
+    equipmentIds: ['bodyweight'],
+    experienceLevel: 'beginner',
+  });
+  const burpeeTrace = scoreTrace(beginner, 'burpee');
+  assert('beginner does not receive advanced movement', burpeeTrace.finalDecision === 'excluded' && !burpeeTrace.experienceMatch && allExercises(beginner).every((exercise) => exercise.exerciseId !== 'burpee'));
+
+  const green = generated({
+    goalId: 'full_gym_strength',
+    durationMinutes: 45,
+    equipmentIds: ['bodyweight', 'barbell', 'squat_rack', 'dumbbells', 'bench', 'lat_pulldown'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'green',
+  });
+  const orange = generated({
+    goalId: 'full_gym_strength',
+    durationMinutes: 45,
+    equipmentIds: ['bodyweight', 'barbell', 'squat_rack', 'dumbbells', 'bench', 'lat_pulldown'],
+    experienceLevel: 'intermediate',
+    readinessBand: 'orange',
+  });
+  const greenTrapBar = scoreTrace(green, 'trap_bar_deadlift');
+  const orangeTrapBar = scoreTrace(orange, 'trap_bar_deadlift');
+  assert('low readiness reduces high-fatigue selection', orangeTrapBar.fatigueCostPenalty < greenTrapBar.fatigueCostPenalty && orangeTrapBar.totalScore < greenTrapBar.totalScore);
+
+  assert('decision trace explains final choice', mainExercises(preferredSafe).every((exercise) => (
+    exercise.scoreTrace?.finalDecision === 'selected'
+    && (exercise.scoreTrace.includedReasons.length > 0 || exercise.scoreTrace.scoreBreakdown.movementPatternMatch != null)
+    && preferredSafe.decisionTrace?.some((entry) => entry.step === 'score_movement_slot' && entry.selectedId === exercise.exerciseId)
+  )));
+
+  const substitutions = rankExerciseSubstitutions({
+    sourceExerciseId: 'goblet_squat',
+    movementPatternIds: ['squat'],
+    primaryMuscleIds: ['quads', 'glutes'],
+    workoutTypeId: 'strength',
+    goalId: 'beginner_strength',
+    equipmentIds: ['bodyweight', 'dumbbells', 'plyo_box'],
+    safetyFlagIds: ['knee_caution'],
+    experienceLevel: 'beginner',
+    limit: 3,
+  });
+  assert('substitution trace explains replacement', Boolean(
+    substitutions[0]?.scoreTrace?.finalDecision === 'substitution_selected'
+    && substitutions[0].scoreTrace.includedReasons.length > 0
+    && substitutions[0].scoreTrace.safetyFlagsApplied.includes('knee_caution')
+    && substitutions[0].rationale.length > 30,
+  ));
+
+  const tracedWorkout = generated({
+    goalId: 'beginner_strength',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band'],
+    experienceLevel: 'beginner',
+  });
+  assert('generated workout exposes grouped scoring trace', Boolean(
+    tracedWorkout.generationTrace?.selectedTemplateTrace
+    && tracedWorkout.generationTrace.selectedPrescriptionTrace?.length
+    && tracedWorkout.generationTrace.movementSlotTrace?.length
+    && tracedWorkout.generationTrace.exerciseSelectionTrace?.length
+    && tracedWorkout.generationTrace.substitutionTrace?.length
+    && tracedWorkout.generationTrace.validationTrace?.length
+  ));
 })();
 
 (() => {

@@ -6,6 +6,7 @@ import { createWorkoutValidationResult, validateWorkoutDomain } from './validati
 import { generateWorkoutDescription } from './workoutDescriptionService.ts';
 import type {
   Exercise,
+  ExerciseSelectionScoreTrace,
   ExerciseQuery,
   GenerateSingleWorkoutInput,
   GeneratedExercisePrescription,
@@ -121,6 +122,32 @@ const CONSERVATIVE_INTENSITY_FLAGS = new Set([
   'pain_increased_last_session',
 ]);
 
+export const EXERCISE_SELECTION_SCORE_WEIGHTS = {
+  movementPatternPerMatch: 45,
+  fallbackPatternPenalty: -25,
+  slotPreferredExercise: 25,
+  goalMatch: 28,
+  workoutTypeMatch: 30,
+  templateWorkoutTypeMatch: 12,
+  equipmentMatch: 14,
+  experienceMatch: 14,
+  beginnerFriendly: 8,
+  preferredExercise: 10,
+  dislikedExerciseHardExclude: -1000,
+  environmentFit: 5,
+  experienceMismatchHardExclude: -1000,
+  recoveryIntensityPenalty: -8,
+  normalIntensityPenalty: -2,
+  readinessFatiguePenalty: -10,
+  normalFatiguePenalty: -2,
+  beginnerHighComplexityPenalty: -28,
+  highComplexityPenalty: -6,
+  jointDemandPenalty: -14,
+  lowImpactPenalty: -10,
+  strengthLoadability: 4,
+  recoveryFit: 12,
+} as const;
+
 let traceCounter = 0;
 
 function unique<T>(items: T[]): T[] {
@@ -163,6 +190,9 @@ function safetyCompatible(exercise: Exercise, safetyFlags: readonly string[]): b
   if (safetyFlags.includes('no_overhead_pressing') && exercise.movementPatternIds.includes('vertical_push')) {
     return false;
   }
+  if (safetyFlags.includes('shoulder_caution') && exercise.shoulderDemand === 'high') {
+    return false;
+  }
   if (safetyFlags.includes('no_floor_work') && exercise.setupType === 'floor') {
     return false;
   }
@@ -173,6 +203,13 @@ function safetyCompatible(exercise: Exercise, safetyFlags: readonly string[]): b
     return false;
   }
   return !exercise.contraindicationFlags.some((flag) => safetyFlags.includes(flag));
+}
+
+function scoringSafetyFlags(request: GenerateSingleWorkoutInput): string[] {
+  const flags = [...(request.safetyFlags ?? [])];
+  if (request.readinessBand === 'red' || request.readinessBand === 'orange') flags.push('poor_readiness');
+  if (request.readinessBand === 'yellow' || request.readinessBand === 'unknown') flags.push('unknown_readiness');
+  return unique(flags);
 }
 
 function jointDemandForFlag(exercise: Exercise, safetyFlag: string): number {
@@ -526,6 +563,7 @@ function buildExercisePrescription(input: {
   goalId: string;
   request: GenerateSingleWorkoutInput;
   catalog: WorkoutProgrammingCatalog;
+  scoreTrace: ExerciseSelectionScoreTrace;
 }): GeneratedExercisePrescription {
   const template = prescriptionFor(input.exercise, input.block, input.catalog);
   const timedBlock = template.defaultDurationMinutes != null || template.defaultDurationSeconds != null;
@@ -576,6 +614,8 @@ function buildExercisePrescription(input: {
     },
     trackingMetricIds: input.exercise.trackingMetricIds,
     explanation: `${input.exercise.name} scored for ${input.slot.movementPatternIds.join('/')} with compatible equipment, experience, and safety filters.`,
+    prescriptionTemplateId: template.id,
+    scoreTrace: input.scoreTrace,
     substitutions,
   };
 }
@@ -583,38 +623,120 @@ function buildExercisePrescription(input: {
 function scoreExerciseForSlot(input: {
   exercise: Exercise;
   slot: SessionTemplateMovementSlot;
+  block: SessionTemplateBlock;
   template: SessionTemplate;
   workoutTypeId: string;
   request: GenerateSingleWorkoutInput;
+  usedExerciseIds: Set<string>;
   relaxedPattern: boolean;
-}): number {
+}): ExerciseSelectionScoreTrace {
   const exercise = input.exercise;
-  const safetyFlags = input.request.safetyFlags ?? [];
-  let score = 0;
+  const hardSafetyFlags = input.request.safetyFlags ?? [];
+  const safetyFlags = scoringSafetyFlags(input.request);
+  const scoreBreakdown: Record<string, number> = {};
+  const includedReasons: string[] = [];
+  const excludedReasons: string[] = [];
+  const add = (key: string, value: number, reason?: string) => {
+    if (value === 0) return;
+    scoreBreakdown[key] = (scoreBreakdown[key] ?? 0) + value;
+    if (reason && value > 0) includedReasons.push(reason);
+  };
+
   const patternOverlap = overlapCount(exercise.movementPatternIds, input.slot.movementPatternIds);
-  score += patternOverlap * 45;
-  if (input.relaxedPattern && patternOverlap === 0) score -= 25;
-  if (input.slot.preferredExerciseIds?.includes(exercise.id)) score += 25;
-  if (exercise.goalIds.includes(input.request.goalId)) score += 20;
-  if (exercise.workoutTypeIds.includes(input.workoutTypeId)) score += 20;
-  if (exercise.workoutTypeIds.includes(input.template.workoutTypeId)) score += 10;
-  if (equipmentCompatible(exercise, input.request.equipmentIds)) score += 14;
-  if (EXPERIENCE_RANK[exercise.minExperience] <= EXPERIENCE_RANK[input.request.experienceLevel]) score += 14;
-  if (input.request.experienceLevel === 'beginner' && exercise.beginnerFriendly) score += 8;
-  if (input.request.preferredExerciseIds?.includes(exercise.id)) score += 10;
-  if (input.request.dislikedExerciseIds?.includes(exercise.id)) score -= 100;
+  const movementPatternMatch = patternOverlap > 0;
+  add('movementPatternMatch', patternOverlap * EXERCISE_SELECTION_SCORE_WEIGHTS.movementPatternPerMatch, `Matches ${patternOverlap} requested movement pattern(s).`);
+  if (input.relaxedPattern && patternOverlap === 0) add('fallbackPatternPenalty', EXERCISE_SELECTION_SCORE_WEIGHTS.fallbackPatternPenalty);
+  if (input.slot.preferredExerciseIds?.includes(exercise.id)) add('slotPreferredExercise', EXERCISE_SELECTION_SCORE_WEIGHTS.slotPreferredExercise, 'Listed as a preferred exercise for this movement slot.');
+
+  const goalMatch = exercise.goalIds.includes(input.request.goalId);
+  const workoutTypeMatch = exercise.workoutTypeIds.includes(input.workoutTypeId);
+  const templateWorkoutTypeMatch = exercise.workoutTypeIds.includes(input.template.workoutTypeId);
+  if (goalMatch) add('goalMatch', EXERCISE_SELECTION_SCORE_WEIGHTS.goalMatch, 'Matches the requested training goal.');
+  if (workoutTypeMatch) add('workoutTypeMatch', EXERCISE_SELECTION_SCORE_WEIGHTS.workoutTypeMatch, 'Matches the resolved workout type.');
+  if (templateWorkoutTypeMatch) add('templateWorkoutTypeMatch', EXERCISE_SELECTION_SCORE_WEIGHTS.templateWorkoutTypeMatch, 'Matches the selected session template type.');
+
+  const equipmentMatch = equipmentCompatible(exercise, input.request.equipmentIds);
+  if (equipmentMatch) add('equipmentMatch', EXERCISE_SELECTION_SCORE_WEIGHTS.equipmentMatch, 'Compatible with available equipment.');
+  else excludedReasons.push('Equipment hard mismatch: required equipment is not available.');
+
+  const experienceMatch = EXPERIENCE_RANK[exercise.minExperience] <= EXPERIENCE_RANK[input.request.experienceLevel];
+  if (experienceMatch) add('experienceMatch', EXERCISE_SELECTION_SCORE_WEIGHTS.experienceMatch, 'Compatible with the user experience level.');
+  else excludedReasons.push(`Experience hard mismatch: ${exercise.minExperience} exercise for ${input.request.experienceLevel} user.`);
+  if (input.request.experienceLevel === 'beginner' && exercise.beginnerFriendly) add('beginnerFriendly', EXERCISE_SELECTION_SCORE_WEIGHTS.beginnerFriendly, 'Beginner-friendly setup and execution.');
+
+  let preferenceAdjustment = 0;
+  if (input.request.preferredExerciseIds?.includes(exercise.id)) {
+    preferenceAdjustment += EXERCISE_SELECTION_SCORE_WEIGHTS.preferredExercise;
+    includedReasons.push('User preference nudged this exercise upward.');
+  }
+  if (input.request.dislikedExerciseIds?.includes(exercise.id)) {
+    preferenceAdjustment += EXERCISE_SELECTION_SCORE_WEIGHTS.dislikedExerciseHardExclude;
+    excludedReasons.push('User disliked this exercise, so it was excluded from automatic selection.');
+  }
+  if (preferenceAdjustment !== 0) scoreBreakdown.preferenceAdjustment = preferenceAdjustment;
+
   const environment = input.request.workoutEnvironment ?? 'unknown';
-  if (exercise.homeFriendly && (environment === 'home' || environment === 'travel' || input.request.equipmentIds.every((id) => ['bodyweight', 'dumbbells', 'kettlebell', 'resistance_band', 'mat', 'bench', 'plyo_box', 'open_space'].includes(id)))) score += 5;
-  if (exercise.gymFriendly && (environment === 'gym' || input.request.equipmentIds.some((id) => ['barbell', 'squat_rack', 'cable_machine', 'leg_press', 'lat_pulldown', 'stationary_bike', 'treadmill', 'rowing_machine'].includes(id)))) score += 5;
-  score -= Math.max(0, EXPERIENCE_RANK[exercise.minExperience] - EXPERIENCE_RANK[input.request.experienceLevel]) * 30;
-  score -= intensityRank(exercise.intensity) * (safetyFlags.some((flag) => RECOVERY_REQUIRED_FLAGS.has(flag)) ? 8 : 2);
-  score -= DEMAND_RANK[exercise.fatigueCost ?? 'low'] * (safetyFlags.includes('high_fatigue') || safetyFlags.includes('poor_readiness') ? 8 : 2);
-  score -= exercise.technicalComplexity === 'high' || exercise.technicalComplexity === 'coach_required' ? (input.request.experienceLevel === 'beginner' ? 16 : 4) : 0;
-  for (const flag of safetyFlags) score -= jointDemandForFlag(exercise, flag) * 6;
-  if (safetyFlags.includes('low_impact_required')) score -= IMPACT_RANK[exercise.impact] * 10;
-  if (input.workoutTypeId.includes('strength') && exercise.loadability === 'high') score += 4;
-  if (input.workoutTypeId === 'recovery' && exercise.intensity === 'recovery') score += 12;
-  return score;
+  if (exercise.homeFriendly && (environment === 'home' || environment === 'travel' || input.request.equipmentIds.every((id) => ['bodyweight', 'dumbbells', 'kettlebell', 'resistance_band', 'mat', 'bench', 'plyo_box', 'open_space'].includes(id)))) add('environmentFit', EXERCISE_SELECTION_SCORE_WEIGHTS.environmentFit, 'Fits the requested training environment.');
+  if (exercise.gymFriendly && (environment === 'gym' || input.request.equipmentIds.some((id) => ['barbell', 'squat_rack', 'cable_machine', 'leg_press', 'lat_pulldown', 'stationary_bike', 'treadmill', 'rowing_machine'].includes(id)))) add('environmentFit', EXERCISE_SELECTION_SCORE_WEIGHTS.environmentFit, 'Fits the requested training environment.');
+
+  if (input.block.kind === 'main' && input.usedExerciseIds.has(exercise.id)) excludedReasons.push('Already used in a main-work slot.');
+  if ((input.slot.avoidExerciseIds ?? []).includes(exercise.id)) excludedReasons.push('Movement slot explicitly avoids this exercise.');
+  if (!safetyCompatible(exercise, hardSafetyFlags)) excludedReasons.push('Safety hard mismatch: exercise violates an active safety restriction.');
+
+  const mainTypeEligible = input.block.kind !== 'main'
+    || workoutTypeMatch
+    || templateWorkoutTypeMatch
+    || goalMatch;
+  if (!mainTypeEligible) excludedReasons.push('Main slot mismatch: exercise does not support the resolved goal or workout type.');
+
+  const intensityPenalty = intensityRank(exercise.intensity) * (safetyFlags.some((flag) => RECOVERY_REQUIRED_FLAGS.has(flag))
+    ? EXERCISE_SELECTION_SCORE_WEIGHTS.recoveryIntensityPenalty
+    : EXERCISE_SELECTION_SCORE_WEIGHTS.normalIntensityPenalty);
+  add('intensityPenalty', intensityPenalty);
+
+  const fatigueCostPenalty = DEMAND_RANK[exercise.fatigueCost ?? 'low'] * (safetyFlags.includes('high_fatigue') || safetyFlags.includes('poor_readiness')
+    ? EXERCISE_SELECTION_SCORE_WEIGHTS.readinessFatiguePenalty
+    : EXERCISE_SELECTION_SCORE_WEIGHTS.normalFatiguePenalty);
+  add('fatigueCostPenalty', fatigueCostPenalty);
+
+  const highComplexity = exercise.technicalComplexity === 'high' || exercise.technicalComplexity === 'coach_required';
+  const technicalComplexityPenalty = highComplexity
+    ? (input.request.experienceLevel === 'beginner'
+      ? EXERCISE_SELECTION_SCORE_WEIGHTS.beginnerHighComplexityPenalty
+      : EXERCISE_SELECTION_SCORE_WEIGHTS.highComplexityPenalty)
+    : 0;
+  add('technicalComplexityPenalty', technicalComplexityPenalty);
+
+  let jointDemandPenalty = 0;
+  for (const flag of safetyFlags) jointDemandPenalty += jointDemandForFlag(exercise, flag) * EXERCISE_SELECTION_SCORE_WEIGHTS.jointDemandPenalty;
+  add('jointDemandPenalty', jointDemandPenalty);
+
+  const impactPenalty = safetyFlags.includes('low_impact_required') ? IMPACT_RANK[exercise.impact] * EXERCISE_SELECTION_SCORE_WEIGHTS.lowImpactPenalty : 0;
+  add('lowImpactPenalty', impactPenalty);
+  if (input.workoutTypeId.includes('strength') && exercise.loadability === 'high') add('strengthLoadability', EXERCISE_SELECTION_SCORE_WEIGHTS.strengthLoadability, 'Highly loadable for strength progression.');
+  if (input.workoutTypeId === 'recovery' && exercise.intensity === 'recovery') add('recoveryFit', EXERCISE_SELECTION_SCORE_WEIGHTS.recoveryFit, 'Recovery intensity matches the fallback session intent.');
+
+  const totalScore = Object.values(scoreBreakdown).reduce((sum, value) => sum + value, 0);
+  return {
+    exerciseId: exercise.id,
+    slotId: input.slot.id,
+    totalScore,
+    scoreBreakdown,
+    includedReasons: unique(includedReasons),
+    excludedReasons: unique(excludedReasons),
+    safetyFlagsApplied: safetyFlags,
+    equipmentMatch,
+    movementPatternMatch,
+    goalMatch,
+    workoutTypeMatch: workoutTypeMatch || templateWorkoutTypeMatch,
+    experienceMatch,
+    fatigueCostPenalty,
+    technicalComplexityPenalty,
+    jointDemandPenalty,
+    preferenceAdjustment,
+    substitutionAdjustment: 0,
+    finalDecision: excludedReasons.length ? 'excluded' : 'candidate',
+  };
 }
 
 function fallbackPatternsForBlock(blockKind: GeneratedWorkoutBlock['kind'], workoutTypeId: string): string[] {
@@ -634,35 +756,54 @@ function selectExerciseForSlot(input: {
   request: GenerateSingleWorkoutInput;
   usedExerciseIds: Set<string>;
   catalog: WorkoutProgrammingCatalog;
-}): { exercise: Exercise; score: number; relaxedPattern: boolean; rejectedIds: string[] } | null {
-  const safetyFlags = input.request.safetyFlags ?? [];
-  const baseCandidates = input.catalog.exercises
-    .filter((exercise) => input.block.kind !== 'main' || !input.usedExerciseIds.has(exercise.id))
-    .filter((exercise) => !(input.slot.avoidExerciseIds ?? []).includes(exercise.id))
-    .filter((exercise) => !input.request.dislikedExerciseIds?.includes(exercise.id))
-    .filter((exercise) => EXPERIENCE_RANK[exercise.minExperience] <= EXPERIENCE_RANK[input.request.experienceLevel])
-    .filter((exercise) => equipmentCompatible(exercise, input.request.equipmentIds))
-    .filter((exercise) => safetyCompatible(exercise, safetyFlags));
-
-  const matchingPattern = baseCandidates
-    .filter((exercise) => intersects(exercise.movementPatternIds, input.slot.movementPatternIds))
-    .filter((exercise) => input.block.kind !== 'main' || exercise.workoutTypeIds.includes(input.workoutTypeId) || exercise.workoutTypeIds.includes(input.template.workoutTypeId) || exercise.goalIds.includes(input.request.goalId));
+}): { exercise: Exercise; score: number; scoreTrace: ExerciseSelectionScoreTrace; relaxedPattern: boolean; rejectedIds: string[]; traces: ExerciseSelectionScoreTrace[] } | null {
+  const initialTraces = input.catalog.exercises.map((exercise) => scoreExerciseForSlot({
+    exercise,
+    slot: input.slot,
+    block: input.block,
+    template: input.template,
+    workoutTypeId: input.workoutTypeId,
+    request: input.request,
+    usedExerciseIds: input.usedExerciseIds,
+    relaxedPattern: false,
+  }));
+  const exerciseByTraceId = new Map(input.catalog.exercises.map((exercise) => [exercise.id, exercise]));
+  const baseTraces = initialTraces.filter((item) => item.finalDecision !== 'excluded');
+  const matchingPattern = baseTraces
+    .filter((traceItem) => traceItem.movementPatternMatch);
   const fallbackPatterns = fallbackPatternsForBlock(input.block.kind, input.workoutTypeId);
-  const fallbackCandidates = matchingPattern.length > 0 ? [] : baseCandidates
-    .filter((exercise) => fallbackPatterns.length === 0 || intersects(exercise.movementPatternIds, fallbackPatterns))
-    .filter((exercise) => input.block.kind !== 'main' || exercise.workoutTypeIds.includes(input.workoutTypeId) || exercise.goalIds.includes(input.request.goalId) || exercise.workoutTypeIds.includes('recovery') || exercise.workoutTypeIds.includes('mobility'));
-  const candidates = (matchingPattern.length > 0 ? matchingPattern : fallbackCandidates)
-    .map((exercise) => ({
-      exercise,
-      relaxedPattern: matchingPattern.length === 0,
-      score: scoreExerciseForSlot({
-        exercise,
-        slot: input.slot,
-        template: input.template,
-        workoutTypeId: input.workoutTypeId,
-        request: input.request,
-        relaxedPattern: matchingPattern.length === 0,
-      }),
+  const relaxedPattern = matchingPattern.length === 0;
+  const candidateTraces = (relaxedPattern
+    ? baseTraces
+      .map((traceItem) => {
+        const exercise = exerciseByTraceId.get(traceItem.exerciseId)!;
+        const fallbackEligible = fallbackPatterns.length === 0 || intersects(exercise.movementPatternIds, fallbackPatterns);
+        const mainFallbackEligible = input.block.kind !== 'main'
+          || exercise.workoutTypeIds.includes(input.workoutTypeId)
+          || exercise.goalIds.includes(input.request.goalId)
+          || exercise.workoutTypeIds.includes('recovery')
+          || exercise.workoutTypeIds.includes('mobility');
+        if (!fallbackEligible || !mainFallbackEligible) return null;
+        return scoreExerciseForSlot({
+          exercise,
+          slot: input.slot,
+          block: input.block,
+          template: input.template,
+          workoutTypeId: input.workoutTypeId,
+          request: input.request,
+          usedExerciseIds: input.usedExerciseIds,
+          relaxedPattern: true,
+        });
+      })
+      .filter((traceItem): traceItem is ExerciseSelectionScoreTrace => traceItem !== null)
+    : matchingPattern)
+    .filter((traceItem) => traceItem.finalDecision !== 'excluded');
+  const candidates = candidateTraces
+    .map((scoreTrace) => ({
+      exercise: exerciseByTraceId.get(scoreTrace.exerciseId)!,
+      relaxedPattern,
+      scoreTrace,
+      score: scoreTrace.totalScore,
     }))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
@@ -670,10 +811,35 @@ function selectExerciseForSlot(input: {
     });
 
   const selected = candidates[0];
+  const candidateIds = new Set(candidates.map((candidate) => candidate.exercise.id));
+  const traces = initialTraces.map((traceItem) => {
+    const candidate = candidates.find((item) => item.exercise.id === traceItem.exerciseId);
+    if (candidate) return candidate.scoreTrace;
+    if (candidateIds.has(traceItem.exerciseId)) return traceItem;
+    if (traceItem.finalDecision === 'excluded') return traceItem;
+    return {
+      ...traceItem,
+      excludedReasons: unique([...traceItem.excludedReasons, relaxedPattern ? 'Not eligible for fallback movement pattern.' : 'Does not match the movement slot pattern.']),
+      finalDecision: 'excluded' as const,
+    };
+  });
   if (!selected) return null;
+  const selectedTrace: ExerciseSelectionScoreTrace = {
+    ...selected.scoreTrace,
+    finalDecision: 'selected',
+  };
+  const selectedTraceById = new Map<string, ExerciseSelectionScoreTrace>([[selected.exercise.id, selectedTrace]]);
+  for (const candidate of candidates.slice(1, 6)) {
+    selectedTraceById.set(candidate.exercise.id, {
+      ...candidate.scoreTrace,
+      finalDecision: 'rejected',
+    });
+  }
   return {
     ...selected,
+    scoreTrace: selectedTrace,
     rejectedIds: candidates.slice(1, 6).map((candidate) => candidate.exercise.id),
+    traces: traces.map((traceItem) => selectedTraceById.get(traceItem.exerciseId) ?? traceItem),
   };
 }
 
@@ -719,7 +885,7 @@ export function generateSingleSessionWorkout(
   if (!template) {
     throw new Error(`No session template can satisfy ${effectiveRequest.goalId} in ${effectiveRequest.durationMinutes} minutes.`);
   }
-  decisionTrace.push(trace({
+  const selectedTemplateTrace = trace({
     step: 'select_session_template',
     reason: `${template.label} best matches goal, workout type, experience, and requested duration.`,
     selectedId: template.id,
@@ -729,9 +895,13 @@ export function generateSingleSessionWorkout(
       requestedDurationMinutes: effectiveRequest.durationMinutes,
       defaultDurationMinutes: template.defaultDurationMinutes,
     },
-  }));
+  });
+  decisionTrace.push(selectedTemplateTrace);
 
   const usedExerciseIds = new Set<string>();
+  const movementSlotTrace: WorkoutDecisionTraceEntry[] = [];
+  const exerciseSelectionTrace: ExerciseSelectionScoreTrace[] = [];
+  const selectedPrescriptionTrace: WorkoutDecisionTraceEntry[] = [];
   const blocks: GeneratedWorkoutBlock[] = template.blocks.map((blockTemplate) => {
     const slots = template.movementSlots
       .filter((slotItem) => slotItem.blockId === blockTemplate.id)
@@ -761,7 +931,8 @@ export function generateSingleSessionWorkout(
         if (blockTemplate.kind === 'main') {
           usedExerciseIds.add(exercise.exercise.id);
         }
-        decisionTrace.push(trace({
+        exerciseSelectionTrace.push(...exercise.traces);
+        const slotTrace = trace({
           step: 'score_movement_slot',
           reason: `${exercise.exercise.name} scored ${Math.round(exercise.score)} for ${slotItem.id}${exercise.relaxedPattern ? ' after fallback pattern relaxation' : ''}.`,
           selectedId: exercise.exercise.id,
@@ -771,28 +942,50 @@ export function generateSingleSessionWorkout(
           metadata: {
             movementPatternIds: slotItem.movementPatternIds,
             relaxedPattern: exercise.relaxedPattern,
+            scoreBreakdown: exercise.scoreTrace.scoreBreakdown,
+            includedReasons: exercise.scoreTrace.includedReasons,
+            excludedReasons: exercise.scoreTrace.excludedReasons,
           },
-        }));
-        return { slot: slotItem, exercise: exercise.exercise };
+        });
+        movementSlotTrace.push(slotTrace);
+        decisionTrace.push(slotTrace);
+        return { slot: slotItem, exercise: exercise.exercise, scoreTrace: exercise.scoreTrace };
       })
-      .filter((item): item is { slot: SessionTemplateMovementSlot; exercise: Exercise } => item !== null);
+      .filter((item): item is { slot: SessionTemplateMovementSlot; exercise: Exercise; scoreTrace: ExerciseSelectionScoreTrace } => item !== null);
 
     return {
       id: blockTemplate.id,
       kind: blockTemplate.kind,
       title: blockTemplate.title,
       estimatedDurationMinutes: duration,
-      exercises: selectedExercises.map((selected) => buildExercisePrescription({
-        exercise: selected.exercise,
-        slot: selected.slot,
-        block: blockTemplate,
-        blockExerciseCount: selectedExercises.length,
-        blockDurationMinutes: duration,
-        workoutTypeId,
-        goalId: effectiveRequest.goalId,
-        request: effectiveRequest,
-        catalog,
-      })),
+      exercises: selectedExercises.map((selected) => {
+        const generatedExercise = buildExercisePrescription({
+          exercise: selected.exercise,
+          slot: selected.slot,
+          block: blockTemplate,
+          blockExerciseCount: selectedExercises.length,
+          blockDurationMinutes: duration,
+          workoutTypeId,
+          goalId: effectiveRequest.goalId,
+          request: effectiveRequest,
+          catalog,
+          scoreTrace: selected.scoreTrace,
+        });
+        const prescriptionTrace = trace({
+          step: 'select_prescription_template',
+          reason: `${generatedExercise.prescriptionTemplateId ?? 'default'} prescription was selected for ${generatedExercise.name} in ${blockTemplate.kind}.`,
+          ...(generatedExercise.prescriptionTemplateId ? { selectedId: generatedExercise.prescriptionTemplateId } : {}),
+          confidence: 0.9,
+          metadata: {
+            exerciseId: generatedExercise.exerciseId,
+            blockId: blockTemplate.id,
+            prescriptionKind: generatedExercise.prescription.kind,
+          },
+        });
+        selectedPrescriptionTrace.push(prescriptionTrace);
+        decisionTrace.push(prescriptionTrace);
+        return generatedExercise;
+      }),
     };
   });
 
@@ -803,6 +996,7 @@ export function generateSingleSessionWorkout(
   const selectedEquipment = unique(blocks.flatMap((blockItem) => blockItem.exercises.flatMap((exercise) => exercise.equipmentIds)));
   const prescriptions = blocks.flatMap((blockItem) => blockItem.exercises.map((exercise) => exercise.prescription));
   const substitutions = blocks.flatMap((blockItem) => blockItem.exercises.flatMap((exercise) => exercise.substitutions ?? []));
+  const substitutionTrace = substitutions.flatMap((option) => option.scoreTrace ? [option.scoreTrace] : []);
   const explanations = [
     `${template.label} was selected because it maps ${effectiveRequest.goalId} to ${workoutTypeId}.`,
     `Exercise selection scored movement pattern, goal, workout type, equipment, experience, safety, fatigue, technical complexity, joint demand, loadability, and setting fit.`,
@@ -838,6 +1032,16 @@ export function generateSingleSessionWorkout(
     },
     explanations,
     decisionTrace,
+    generationTrace: {
+      selectedTemplateTrace,
+      selectedPrescriptionTrace,
+      movementSlotTrace,
+      exerciseSelectionTrace,
+      substitutionTrace,
+      fallbackTrace: [],
+    },
+    exerciseSelectionTrace,
+    substitutionTrace,
   };
   const description = generateWorkoutDescription(
     generated,
@@ -881,6 +1085,20 @@ export function generateSingleSessionWorkout(
           }),
           ...(fallback.decisionTrace ?? []),
         ],
+        generationTrace: {
+          ...(fallback.generationTrace ?? {}),
+          fallbackTrace: [
+            ...(fallback.generationTrace?.fallbackTrace ?? []),
+            trace({
+              step: 'validation_recovery_fallback',
+              reason: `Validation failed, so the generator switched to recovery instead of returning an unsafe workout.`,
+              selectedId: fallback.templateId,
+              rejectedIds: validation.failedRuleIds,
+              safetyFlagIds: safetyFlags,
+              confidence: 0.86,
+            }),
+          ],
+        },
       };
     }
     throw new Error(`Generated workout failed domain validation: ${validation.errors.join(' | ')}`);
@@ -891,6 +1109,12 @@ export function generateSingleSessionWorkout(
     validation,
     validationWarnings: validation.warnings,
     validationErrors: validation.errors,
+    generationTrace: {
+      ...(workoutWithDescription.generationTrace ?? {}),
+      validationTrace: validation.decisionTrace,
+    },
+    ...(workoutWithDescription.exerciseSelectionTrace ? { exerciseSelectionTrace: workoutWithDescription.exerciseSelectionTrace } : {}),
+    ...(workoutWithDescription.substitutionTrace ? { substitutionTrace: workoutWithDescription.substitutionTrace } : {}),
     decisionTrace: [
       ...(workoutWithDescription.decisionTrace ?? []),
       trace({

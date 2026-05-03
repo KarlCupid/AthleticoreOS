@@ -77,6 +77,32 @@ Substitution rules live in `intelligenceData.ts`. A good rule includes:
 
 Substitutions should preserve training intent. A knee-caution squat substitution should keep a squat pattern when safe, reduce knee stress, and explain the tradeoff.
 
+## Exercise Selection Scoring Trace
+
+`workoutProgrammingEngine.ts` exposes `EXERCISE_SELECTION_SCORE_WEIGHTS` and attaches `ExerciseSelectionScoreTrace` records to generated workouts. The trace is meant for inspection, QA, and UI explanations; React components should display it, not recalculate it.
+
+Scoring is calibrated with this order of authority:
+
+- Safety hard constraints exclude exercises before preference can help them.
+- Equipment hard mismatches exclude exercises.
+- Experience hard mismatches exclude exercises.
+- Movement pattern, workout type, and goal matches carry the strongest positive ranking weights.
+- Preferences nudge ranking only after safety, equipment, and experience compatibility are satisfied.
+- Readiness and fatigue flags increase fatigue and intensity penalties.
+- Pain flags increase joint-demand penalties, while hard contraindications still exclude.
+
+Generated workouts expose:
+
+- `generationTrace.selectedTemplateTrace`
+- `generationTrace.selectedPrescriptionTrace`
+- `generationTrace.movementSlotTrace`
+- `generationTrace.exerciseSelectionTrace`
+- `generationTrace.substitutionTrace`
+- `generationTrace.validationTrace`
+- `generationTrace.fallbackTrace`
+
+Each selected exercise also carries its own `scoreTrace`, including score breakdown, included reasons, excluded reasons, safety flags applied, match booleans, penalties, preference adjustment, and final decision.
+
 ## Progression, Regression, and Deload Guide
 
 `personalizationEngine.ts` includes `recommendNextProgression`.
