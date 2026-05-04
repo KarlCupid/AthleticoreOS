@@ -189,7 +189,7 @@ Generated programs expose:
 
 ## Service Layer
 
-`workoutProgrammingService.ts` is the clean app/API integration layer.
+`workoutProgrammingService.ts` is the clean app/API facade. Generation, completion, progression, program, description, and substitution orchestration live in focused service modules behind that facade.
 
 Use these functions from app code:
 

@@ -24,7 +24,8 @@ The module turns a training request into a safe, explainable workout or weekly p
 - `personalizationEngine.ts`: user profile handling and next progression decisions.
 - `programBuilder.ts`: weekly periodized planning.
 - `persistenceService.ts`: Supabase-compatible persistence surfaces with in-code fallback.
-- `workoutProgrammingService.ts`: high-level app-facing integration layer.
+- `workoutProgrammingService.ts`: high-level app-facing facade.
+- `workoutGenerationService.ts`, `workoutCompletionService.ts`, `workoutProgressionService.ts`, `workoutProgramService.ts`, `workoutDescriptionFacade.ts`, `workoutSubstitutionService.ts`: focused service orchestration behind the facade.
 - `workoutProgrammingFallbacks.ts`: shared beta/dev fallback, error-copy, feature-flag, and content-review-mode rules.
 - `analyticsEngine.ts`: adherence, completion, pain trend, and recommendation quality summary.
 
@@ -37,8 +38,8 @@ The module turns a training request into a safe, explainable workout or weekly p
 
 ## Data Flow
 
-1. App code calls `workoutProgrammingService`.
-2. The service loads the static catalog and user profile through `persistenceService`.
+1. App code calls the `workoutProgrammingService` facade.
+2. Focused service modules load the static catalog and user profile through `persistenceService`.
 3. The generator resolves goal, workout type, session template, prescription template, and exercises.
 4. Personalization applies readiness, pain, equipment, preferences, safety flags, and constraints.
 5. Substitution logic ranks safe alternatives.
