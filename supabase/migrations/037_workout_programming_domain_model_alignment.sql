@@ -1,6 +1,6 @@
 -- Workout programming domain model alignment.
 -- Forward-only schema expansion for the richer TypeScript ontology introduced
--- after the MVP workout-programming catalog.
+-- after the initial workout-programming catalog.
 
 ALTER TABLE public.programming_exercises
   ADD COLUMN IF NOT EXISTS short_name TEXT,

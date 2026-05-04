@@ -95,8 +95,8 @@ jobs:
 
       - name: Run workout-programming content gates
         run: |
-          npm run workout:validate-content
-          npm run workout:audit-content
+          npm run workout:validate-content -- --strict
+          npm run workout:audit-content -- --release
 
       - name: Run live workout-programming DB smoke test
         run: npm run test:workout-db

@@ -30,6 +30,8 @@ npm run workout:release-gate
 
 `workout:release-gate` extends the normal quality gate with strict content validation, release-mode content audit, and the guarded live DB/RLS smoke scripts. It requires a local Supabase instance or a dedicated non-production Supabase test project with the environment variables described in `live-db-smoke-tests.md`.
 
+For the current rollout posture, feature flags, and remaining production blockers, see `current-production-readiness-status.md`.
+
 Content release checks can also be run directly:
 
 ```bash
@@ -102,11 +104,11 @@ Tests should fail for:
 ## Known Limitations
 
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
-- Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they now run through the manual GitHub release-gate job or `npm run workout:release-gate`.
+- Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they run through the manual GitHub release-gate job, `npm run workout:live-db-smoke`, or `npm run workout:release-gate`.
 - Generated workout persistence and beta start/log UI are wired behind feature flags, with component-level React Native render coverage now in place; broad rollout still needs device/E2E coverage.
 - Generated workout beta lifecycle state is now durable for persisted sessions, including active-session restore; broad rollout still needs device/E2E coverage for backgrounding, reload, and resume on real devices.
 - Program persistence has atomic save/load/update/archive/session-completion helpers, but it is not yet a polished calendar-driven production workflow.
-- Strict content release mode is wired into `workout:release-gate`; the current catalog can still fail release until production media and any remaining production-rule/review gaps are intentionally completed.
+- Strict content release mode is wired into `workout:release-gate`; the current catalog fails release until production media and prescription progression/regression/deload rule-link gaps are intentionally completed.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
 - Balance and older-adult concepts are represented through current goals/safety flags, not a dedicated older-adult product surface.
 - The generator is deterministic enough for tests but not yet tuned with real-world recommendation quality data.

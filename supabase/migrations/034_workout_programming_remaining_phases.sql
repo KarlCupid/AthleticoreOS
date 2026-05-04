@@ -1,4 +1,7 @@
--- Workout programming Phases 2-5 persistence surfaces.
+-- Workout-programming user-data and intelligence persistence surfaces.
+-- Historical phase label: this migration introduced the broad generated workout,
+-- completion, profile, feedback, program, and progression tables. Later
+-- forward-only migrations harden RLS and move critical parent/child writes to RPCs.
 
 CREATE TABLE IF NOT EXISTS public.progression_rules (
     id TEXT PRIMARY KEY,

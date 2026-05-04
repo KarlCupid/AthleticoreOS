@@ -24,6 +24,7 @@ User tables contain generated output, preferences, logs, feedback, and progressi
 
 - `generated_workouts`
 - `generated_workout_exercises`
+- `generated_workout_session_lifecycle`
 - `user_training_profiles`
 - `user_equipment`
 - `user_constraints`
@@ -58,9 +59,10 @@ User data:
 - Direct user tables scope policies with `auth.uid() = user_id`.
 - Child tables without `user_id` scope through parent ownership.
 
-Parent-scoped child tables:
+Parent and ownership-scoped child tables:
 
 - `generated_workout_exercises` belongs to `generated_workouts`.
+- `generated_workout_session_lifecycle` is directly user-owned and also validates ownership through `generated_workouts`.
 - `exercise_completion_results` belongs to `workout_completions`.
 - `progression_decisions` belongs to `workout_completions`.
 
@@ -81,7 +83,8 @@ Supabase service-role/server access continues to bypass RLS. That is useful for 
 - Child inserts are written through parent records wherever possible.
 - Runtime-validates generated workout payloads before saving and after loading.
 - Uses bulk upserts for user profile/preferences/equipment/safety surfaces.
-- Treats parent + child writes as transaction-like units in application code: if child persistence fails, the service throws a structured error and attempts to roll back the parent row.
+- Uses authenticated Postgres RPCs for critical parent + child writes when a Supabase client is available.
+- Allows the older client-orchestrated parent + child fallback only in dev/test or explicit fallback modes.
 - Maps Supabase/PostgREST failures into explicit errors such as `NotFoundError`, `UnauthorizedError`, `ValidationError`, `ConflictError`, and `DatabaseUnavailableError`.
 
 Important functions:
@@ -92,6 +95,15 @@ Important functions:
 - `loadGeneratedWorkout`
 - `listGeneratedWorkoutsForUser`
 - `logWorkoutCompletionWithExerciseResults`
+- `markGeneratedWorkoutInspected`
+- `startGeneratedWorkoutSession`
+- `pauseGeneratedWorkoutSession`
+- `resumeGeneratedWorkoutSession`
+- `abandonGeneratedWorkoutSession`
+- `stopGeneratedWorkoutSession`
+- `completeGeneratedWorkoutSessionLifecycle`
+- `loadActiveGeneratedWorkoutSession`
+- `listActiveGeneratedWorkoutSessions`
 - `loadRecentCompletions`
 - `saveProgressionDecision`
 - `loadProgressionDecisionsForCompletion`
@@ -104,8 +116,20 @@ Important functions:
 - `saveRecommendationFeedback`
 - `saveGeneratedProgram`
 - `loadUserProgram`
+- `markProgramSessionCompleted`
 
 Compatibility aliases such as `saveGeneratedWorkout`, `logWorkoutCompletion`, `updateUserEquipment`, `updateUserSafetyFlags`, `updateExercisePreference`, and `saveUserWorkoutProfile` remain available, but new app code should prefer the explicit hardened names.
+
+### Atomic RPC Contract
+
+Migration `040_workout_programming_atomic_rpcs.sql` adds the production persistence contract:
+
+- `save_generated_workout_with_exercises`
+- `log_workout_completion_with_results`
+- `save_generated_program_with_sessions`
+- `complete_program_session`
+
+These functions run as `SECURITY INVOKER`, so normal authenticated RLS remains the ownership boundary. The service validates payloads before calling RPCs and validates loaded/generated payloads after persistence. Live DB smoke tests treat missing RPCs as a migration/configuration failure.
 
 ### Persistence Error Semantics
 
@@ -118,7 +142,7 @@ All persistence failures should be actionable:
 - `DatabaseUnavailableError`: the database or network appears unavailable and retry may be appropriate.
 - `WorkoutProgrammingPersistenceError`: fallback for unexpected persistence failures.
 
-Generated workout and completion persistence intentionally do not report success if child rows fail. The service either saves the parent and all child rows, or it throws and attempts parent rollback.
+Generated workout, completion, generated program, and program-session completion persistence intentionally do not report success if child rows fail. In production Supabase paths, those writes are atomic through RPCs. Dev/test fallback paths still preserve the same all-or-error service semantics where possible.
 
 ## Migration Rules
 
@@ -143,14 +167,17 @@ Before merging schema or persistence changes:
 
 ## Current Test Coverage
 
-The repo has mock-backed persistence tests proving service calls are user-scoped and a live/local Supabase RLS harness for workout-programming user data:
+The repo has mock-backed persistence tests proving service calls are user-scoped, plus guarded live/local Supabase harnesses for DB smoke and RLS isolation:
 
 ```bash
+WORKOUT_DB_TESTS=1
+npm run test:workout-db
+
 WORKOUT_RLS_TESTS=1
 npm run test:rls
 ```
 
-The RLS harness signs in two temporary users, inserts temporary workout-programming rows with the service role, and verifies:
+The live DB smoke harness persists generated workouts, child exercises, lifecycle rows, completions, exercise results, feedback, progression decisions, programs, and program-session lifecycle state through the service layer. The RLS harness signs in two temporary users, inserts temporary workout-programming rows with the service role, and verifies:
 
 - User A cannot select User B rows.
 - Child tables are protected through owned parent rows.
@@ -160,18 +187,20 @@ The RLS harness signs in two temporary users, inserts temporary workout-programm
 
 Required environment variables:
 
-- `WORKOUT_RLS_TESTS=1`
+- `WORKOUT_DB_TESTS=1` for `npm run test:workout-db`
+- `WORKOUT_RLS_TESTS=1` for `npm run test:rls`
 - `SUPABASE_URL` or `EXPO_PUBLIC_SUPABASE_URL`
 - `SUPABASE_ANON_KEY` or `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
 For a hosted test Supabase project, also set:
 
+- `WORKOUT_DB_ALLOW_REMOTE=1` for `npm run test:workout-db`
 - `WORKOUT_RLS_ALLOW_REMOTE=1`
 - `WORKOUT_SUPABASE_NON_PRODUCTION=1`
 
 For local Supabase, run `npx supabase start`, then `npx supabase status`, and copy the API URL, anon key, and service-role key into `.env.local`. Prefer local Supabase or a disposable preview project; the harness can run against a live project, but it creates temporary auth users and fixture rows before cleanup. The script also reads `.env`, but service-role credentials should stay server-only and must never be exposed through Expo public app code.
 
-The test creates rows with IDs prefixed by a unique `rls_*` run id and cleans them up at the end. If a run is interrupted, re-running the test with service-role access is safe because fixture IDs are unique per run.
+Each harness creates rows with unique run-specific IDs and cleans them up at the end. If a run is interrupted, re-running the test with service-role access is safe because fixture IDs are unique per run.
 
-The RLS harness is guarded by default. It refuses to run unless `WORKOUT_RLS_TESTS=1` is set, and it refuses remote Supabase URLs unless `WORKOUT_RLS_ALLOW_REMOTE=1` and `WORKOUT_SUPABASE_NON_PRODUCTION=1` are both set. Only use the remote override with a dedicated non-production project.
+The live DB and RLS harnesses are guarded by default. They refuse to run unless their explicit enable flags are set, and they refuse remote Supabase URLs unless the matching remote allow flag and `WORKOUT_SUPABASE_NON_PRODUCTION=1` are both set. Only use the remote override with a dedicated non-production project.

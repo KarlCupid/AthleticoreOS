@@ -1,5 +1,7 @@
--- Workout programming MVP schema.
--- Static taxonomy/content tables are public read; user-specific completion logging remains separate.
+-- Historical workout-programming foundation schema.
+-- Static taxonomy/content tables are public read; later forward-only migrations add
+-- hardened user-data RLS, atomic RPC persistence, lifecycle, completion surfaces,
+-- and telemetry.
 
 CREATE TABLE IF NOT EXISTS public.workout_types (
     id TEXT PRIMARY KEY,

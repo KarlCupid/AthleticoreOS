@@ -175,6 +175,7 @@ Canonical outputs are persisted through current performance-engine tables and we
 ## Additional repo docs
 
 - `DESIGN_SYSTEM.md`: current theme and design rules.
+- `docs/workout-programming/README.md`: workout-programming architecture, release gates, feature flags, and production-readiness status.
 - `STATE.md`: current direction, priorities, and risks.
 - `CONTEXT.md`: product and architecture overview.
 - `AGENT.md`: concise implementation guidance for coding agents.

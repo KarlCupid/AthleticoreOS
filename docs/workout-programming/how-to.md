@@ -174,7 +174,8 @@ npm run workout:export-seed -- --out C:\tmp\workout-programming-seed.json
 
 `workout:validate-content` is CI-ready and fails on validation errors, duplicate IDs,
 or production blockers. Use `--json` when another tool needs machine-readable output,
-and `--strict` when warnings should fail the command too.
+and `--strict` for release-grade validation, where warnings and unresolved release
+blockers fail the command.
 
 `workout:audit-content` prints a production-oriented report with:
 

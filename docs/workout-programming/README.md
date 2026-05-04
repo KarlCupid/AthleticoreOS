@@ -32,10 +32,16 @@ The module turns a training request into a safe, explainable workout or weekly p
 
 ## Database Migrations
 
-- `033_workout_programming_mvp.sql`: initial static catalog and MVP generated workout schema.
+- `033_workout_programming_mvp.sql`: historical foundation schema for static catalog and initial generated workout tables.
 - `034_workout_programming_remaining_phases.sql`: user-specific programming, completions, profiles, feedback, programs, progression tables.
 - `036_workout_programming_rls_hardening.sql`: RLS enablement and user-scoped policies for user data.
 - `037_workout_programming_domain_model_alignment.sql`: schema support for richer ontology and typed payloads.
+- `038_workout_programming_content_review_metadata.sql`: content review, safety review, rollout eligibility, and media review metadata.
+- `039_workout_programming_progression_history.sql`: progression history and richer completion metadata.
+- `040_workout_programming_atomic_rpcs.sql`: transactional RPCs for generated workouts, completions, generated programs, and program-session completion.
+- `041_workout_programming_session_lifecycle.sql`: durable generated workout session lifecycle state.
+- `042_workout_programming_completion_surfaces.sql`: generated completion fields for history and analytics surfaces.
+- `043_workout_programming_recommendation_telemetry.sql`: recommendation quality telemetry events.
 
 ## Data Flow
 
@@ -46,11 +52,12 @@ The module turns a training request into a safe, explainable workout or weekly p
 5. Substitution logic ranks safe alternatives.
 6. Description service generates display-ready coaching copy.
 7. Validation engine checks domain correctness.
-8. Persistence can save generated workouts, completions, feedback, readiness, and progression decisions.
+8. Persistence saves critical generated workout, completion, program, and program-session parent/child writes through transactional RPCs when Supabase is available; dev/test fallback remains guarded.
 
 ## Guide Index
 
 - [Database and Security](./database-and-security.md)
+- [Current Production Readiness Status](./current-production-readiness-status.md)
 - [Live DB Smoke Tests](./live-db-smoke-tests.md)
 - [Copy and Accessibility](./copy-and-accessibility.md)
 - [Models and Content](./models-and-content.md)

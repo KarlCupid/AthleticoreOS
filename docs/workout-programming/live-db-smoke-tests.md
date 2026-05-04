@@ -64,7 +64,7 @@ The `Quality` workflow includes an optional manual job named `Workout programmin
 3. Set `run_live_workout_db_checks` to `true`.
 4. Set `allow_remote_workout_db_test_project` to `true` only when the secrets point at a dedicated non-production Supabase project.
 
-The job first runs the normal quality job, then runs workout-programming content gates, `npm run test:workout-db`, and `npm run test:rls`.
+The job first runs the normal quality job, then runs strict workout-programming content gates, `npm run test:workout-db`, and `npm run test:rls`.
 
 Configure these secrets on the protected `workout-programming-live-db-test` environment:
 
@@ -102,6 +102,12 @@ For the RLS-only harness:
 
 ```bash
 WORKOUT_RLS_TESTS=1 npm run test:rls
+```
+
+To run both live harnesses through the package script:
+
+```bash
+WORKOUT_DB_TESTS=1 WORKOUT_RLS_TESTS=1 npm run workout:live-db-smoke
 ```
 
 On Windows PowerShell:
