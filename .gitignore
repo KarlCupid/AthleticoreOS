@@ -46,6 +46,7 @@ compile_errors.txt
 tsc_output*.txt
 .codex_runtime_unused.txt
 sim_results/*.csv
+docs/release/preview-quality-gate-output/
 
 # environment files
 .env

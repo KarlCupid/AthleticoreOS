@@ -34,11 +34,19 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Run deterministic preview quality gate
+        env:
+          PREVIEW_QUALITY_ARTIFACT_DIR: ${{ runner.temp }}/preview-quality-gate
+          PREVIEW_READINESS_REPORT: ${{ runner.temp }}/preview-quality-gate/docs/release/preview-readiness.md
+        run: node scripts/run-preview-quality-gate.js
 
-      - name: Run quality checks
-        run: npm run quality
+      - name: Upload preview readiness artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-readiness-${{ github.sha }}
+          path: ${{ runner.temp }}/preview-quality-gate
+          if-no-files-found: error
 
   workout-programming-live-db:
     name: Workout programming live DB/RLS smoke
@@ -69,37 +77,16 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Run deterministic preview quality gate with live DB/RLS
+        env:
+          PREVIEW_QUALITY_ARTIFACT_DIR: ${{ runner.temp }}/preview-quality-gate-live-workout-db
+          PREVIEW_READINESS_REPORT: ${{ runner.temp }}/preview-quality-gate-live-workout-db/docs/release/preview-readiness.md
+        run: node scripts/run-preview-quality-gate.js --include-workout-live
 
-      - name: Verify live DB smoke environment
-        run: |
-          missing=0
-          if [ -z "$SUPABASE_URL" ]; then
-            echo "::error::Missing WORKOUT_TEST_SUPABASE_URL secret for workout-programming live DB/RLS checks."
-            missing=1
-          fi
-          if [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::Missing WORKOUT_TEST_SUPABASE_ANON_KEY secret for workout-programming live DB/RLS checks."
-            missing=1
-          fi
-          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "::error::Missing WORKOUT_TEST_SUPABASE_SERVICE_ROLE_KEY secret for workout-programming live DB/RLS checks."
-            missing=1
-          fi
-          if [ "$missing" -ne 0 ]; then
-            echo "::error::Configure secrets on the protected workout-programming-live-db-test environment. Use a local Supabase URL on a self-hosted runner or a dedicated non-production Supabase test project."
-            exit 1
-          fi
-          echo "Live DB smoke environment variables are present. Script guards will reject production and unguarded remote targets."
-
-      - name: Run workout-programming content gates
-        run: |
-          npm run workout:validate-content -- --strict
-          npm run workout:audit-content -- --release
-
-      - name: Run live workout-programming DB smoke test
-        run: npm run test:workout-db
-
-      - name: Run live workout-programming RLS smoke test
-        run: npm run test:rls
+      - name: Upload live DB/RLS readiness artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-readiness-live-workout-db-${{ github.sha }}
+          path: ${{ runner.temp }}/preview-quality-gate-live-workout-db
+          if-no-files-found: error
