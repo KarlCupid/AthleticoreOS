@@ -76,6 +76,7 @@ async function run() {
     'testID="generated-workout-preview-card"',
     'testID="generated-workout-preview-intent"',
     'testID="generated-workout-preview-session-header"',
+    'testID="generated-workout-preview-why"',
     'testID="generated-workout-preview-blocks"',
     'formatPrescription(exercise)',
     'formatPayloadDetail(exercise.prescription.payload)',

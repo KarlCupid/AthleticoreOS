@@ -36,6 +36,7 @@ import {
   saveGeneratedProgram as persistGeneratedProgram,
   saveGeneratedWorkoutWithExercises,
   saveProgressionDecision,
+  saveRecommendationEvent,
   saveRecommendationFeedback,
   startGeneratedWorkoutSession as persistStartGeneratedWorkoutSession,
   stopGeneratedWorkoutSession as persistStopGeneratedWorkoutSession,
@@ -65,6 +66,8 @@ import type {
   ProtectedWorkoutInput,
   WorkoutCompletionLog,
   WorkoutExperienceLevel,
+  GeneratedWorkoutRecommendationEventKind,
+  RecommendationEventDecisionTrace,
   WorkoutProgrammingCatalog,
   WorkoutReadinessBand,
   WorkoutValidationResult,
@@ -75,13 +78,21 @@ export interface WorkoutProgrammingServiceOptions extends WorkoutProgrammingPers
   persistGeneratedProgram?: boolean;
   contentReviewMode?: ContentReviewMode;
   allowDraftContent?: boolean;
+  telemetryEnabled?: boolean;
+  appContextVersion?: string;
+  engineVersion?: string;
+  contentVersion?: string;
 }
 
 export type WorkoutProgrammingPreviewRequest = PersonalizedWorkoutInput;
 
-export type WorkoutProgrammingUserRequest = Pick<PersonalizedWorkoutInput, 'goalId'> & Partial<PersonalizedWorkoutInput>;
+export type WorkoutProgrammingUserRequest = Pick<PersonalizedWorkoutInput, 'goalId'> & Partial<PersonalizedWorkoutInput> & {
+  regeneratedFromGeneratedWorkoutId?: string | null;
+};
 
 export interface WorkoutProgrammingSubstitutionConstraints {
+  userId?: string;
+  generatedWorkoutId?: string | null;
   equipmentIds?: string[];
   safetyFlagIds?: string[];
   experienceLevel?: WorkoutExperienceLevel;
@@ -234,6 +245,154 @@ function contentReviewOptions(
   };
 }
 
+const workoutProgrammingAppContextVersion = 'workout-programming-service-v1';
+
+function telemetryEnabled(options?: WorkoutProgrammingServiceOptions): boolean {
+  return options?.telemetryEnabled !== false;
+}
+
+function withoutUndefined(payload: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
+}
+
+function workoutDecisionTrace(workout?: GeneratedWorkout): RecommendationEventDecisionTrace {
+  return [
+    ...(workout?.decisionTrace ?? []),
+    ...(workout?.validation?.decisionTrace ?? []),
+  ];
+}
+
+async function emitRecommendationTelemetry(
+  userId: string,
+  eventKind: GeneratedWorkoutRecommendationEventKind,
+  input: {
+    generatedWorkoutId?: string | null | undefined;
+    workout?: GeneratedWorkout | undefined;
+    decisionTrace?: RecommendationEventDecisionTrace | undefined;
+    payload?: Record<string, unknown> | undefined;
+    timestamp?: string | undefined;
+  },
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<void> {
+  if (!telemetryEnabled(options)) return;
+  try {
+    const event = {
+      generatedWorkoutId: input.generatedWorkoutId ?? null,
+      eventKind,
+      decisionTrace: input.decisionTrace ?? workoutDecisionTrace(input.workout),
+      payload: withoutUndefined(input.payload ?? {}),
+      appContextVersion: options?.appContextVersion ?? workoutProgrammingAppContextVersion,
+      engineVersion: options?.engineVersion ?? input.workout?.schemaVersion ?? 'generated-workout-v1',
+      contentVersion: options?.contentVersion ?? null,
+    };
+    if (input.timestamp) {
+      await saveRecommendationEvent(userId, { ...event, timestamp: input.timestamp }, options);
+    } else {
+      await saveRecommendationEvent(userId, event, options);
+    }
+  } catch {
+    // Recommendation telemetry is observability only; never couple it to the user flow.
+  }
+}
+
+async function emitGeneratedWorkoutTelemetry(
+  userId: string,
+  workout: GeneratedWorkout,
+  generatedWorkoutId: string | null,
+  request: WorkoutProgrammingUserRequest,
+  options?: WorkoutProgrammingServiceOptions,
+): Promise<void> {
+  const payload = {
+    workoutTypeId: workout.workoutTypeId,
+    goalId: workout.goalId,
+    templateId: workout.templateId,
+    requestedDurationMinutes: workout.requestedDurationMinutes,
+    estimatedDurationMinutes: workout.estimatedDurationMinutes,
+    blocked: workout.blocked === true,
+    validationWarningCount: workout.validationWarnings?.length ?? 0,
+    validationErrorCount: workout.validationErrors?.length ?? 0,
+    contentReviewMode: options?.contentReviewMode ?? 'production',
+    exerciseCount: workout.blocks.flatMap((block) => block.exercises).length,
+  };
+  await emitRecommendationTelemetry(userId, 'workout_generated', {
+    generatedWorkoutId,
+    workout,
+    payload,
+  }, options);
+  if (request.regeneratedFromGeneratedWorkoutId) {
+    await emitRecommendationTelemetry(userId, 'workout_regenerated', {
+      generatedWorkoutId,
+      workout,
+      payload: {
+        ...payload,
+        regeneratedFromGeneratedWorkoutId: request.regeneratedFromGeneratedWorkoutId,
+      },
+    }, options);
+  }
+  if (workout.blocked) {
+    await emitRecommendationTelemetry(userId, 'workout_blocked_by_safety', {
+      generatedWorkoutId,
+      workout,
+      payload: {
+        ...payload,
+        safetyFlags: workout.safetyFlags,
+        validationWarnings: workout.validationWarnings ?? [],
+      },
+    }, options);
+  }
+  if ((workout.validationWarnings?.length ?? 0) > 0) {
+    await emitRecommendationTelemetry(userId, 'validation_warning_shown', {
+      generatedWorkoutId,
+      workout,
+      payload: {
+        ...payload,
+        validationWarnings: workout.validationWarnings ?? [],
+      },
+    }, options);
+  }
+}
+
+async function emitLifecycleTelemetry(
+  userId: string,
+  generatedWorkoutId: string | null | undefined,
+  eventKind: GeneratedWorkoutRecommendationEventKind,
+  result: GeneratedWorkoutLifecycleResult,
+  options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
+): Promise<void> {
+  await emitRecommendationTelemetry(userId, eventKind, {
+    generatedWorkoutId,
+    timestamp: result.lifecycle.lastActiveAt,
+    payload: {
+      status: result.lifecycle.status,
+      persisted: result.persisted,
+      completionStatus: result.lifecycle.completionStatus ?? null,
+      activeBlockId: result.lifecycle.activeBlockId ?? null,
+      activeExerciseId: result.lifecycle.activeExerciseId ?? null,
+      fallbackMessage: result.fallbackMessage ?? null,
+    },
+  }, options);
+  if (!result.persisted) {
+    await emitRecommendationTelemetry(userId, 'persistence_fallback_used', {
+      generatedWorkoutId,
+      timestamp: result.lifecycle.lastActiveAt,
+      payload: {
+        operation: `lifecycle:${result.lifecycle.status}`,
+        fallbackMessage: result.fallbackMessage ?? 'Generated workout lifecycle used local fallback.',
+      },
+    }, options);
+  }
+}
+
+function sessionDifficultyEventKind(input: GeneratedWorkoutSessionCompletionInput): GeneratedWorkoutRecommendationEventKind {
+  const tags = new Set((input.feedbackTags ?? []).map((tag) => tag.toLowerCase()));
+  if (tags.has('too_easy') || tags.has('easy')) return 'session_too_easy';
+  if (tags.has('too_hard') || tags.has('hard')) return 'session_too_hard';
+  if (tags.has('right') || tags.has('just_right') || tags.has('good_fit')) return 'session_right';
+  if (input.sessionRpe <= 4) return 'session_too_easy';
+  if (input.sessionRpe >= 8) return 'session_too_hard';
+  return 'session_right';
+}
+
 function localGeneratedWorkoutLifecycle(
   userId: string,
   generatedWorkoutId: string | null | undefined,
@@ -379,9 +538,11 @@ export async function generateWorkoutForUser(
   options?: WorkoutProgrammingServiceOptions,
 ): Promise<GeneratedWorkout> {
   const { workout: enriched } = await buildWorkoutForUser(userId, request, options);
-  if (options?.persistGeneratedWorkout !== false) {
-    await saveGeneratedWorkoutWithExercises(userId, enriched, options);
+  let generatedWorkoutId: string | null = null;
+  if (options?.persistGeneratedWorkout !== false && !enriched.blocked) {
+    generatedWorkoutId = await saveGeneratedWorkoutWithExercises(userId, enriched, options);
   }
+  await emitGeneratedWorkoutTelemetry(userId, enriched, generatedWorkoutId, request, options);
   return enriched;
 }
 
@@ -390,13 +551,15 @@ export async function markGeneratedWorkoutInspected(
   generatedWorkoutId: string | null | undefined,
   options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
 ): Promise<GeneratedWorkoutLifecycleResult> {
-  return runLifecycleMutationWithFallback(
+  const result = await runLifecycleMutationWithFallback(
     userId,
     generatedWorkoutId,
     'inspected',
     (id) => persistMarkGeneratedWorkoutInspected(userId, id, options),
     options,
   );
+  await emitLifecycleTelemetry(userId, generatedWorkoutId, 'workout_inspected', result, options);
+  return result;
 }
 
 export async function startGeneratedWorkoutSession(
@@ -404,13 +567,15 @@ export async function startGeneratedWorkoutSession(
   generatedWorkoutId: string | null | undefined,
   options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
 ): Promise<GeneratedWorkoutLifecycleResult> {
-  return runLifecycleMutationWithFallback(
+  const result = await runLifecycleMutationWithFallback(
     userId,
     generatedWorkoutId,
     'started',
     (id) => persistStartGeneratedWorkoutSession(userId, id, options),
     options,
   );
+  await emitLifecycleTelemetry(userId, generatedWorkoutId, 'workout_started', result, options);
+  return result;
 }
 
 export async function pauseGeneratedWorkoutSession(
@@ -446,13 +611,15 @@ export async function abandonGeneratedWorkoutSession(
   generatedWorkoutId: string | null | undefined,
   options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
 ): Promise<GeneratedWorkoutLifecycleResult> {
-  return runLifecycleMutationWithFallback(
+  const result = await runLifecycleMutationWithFallback(
     userId,
     generatedWorkoutId,
     'abandoned',
     (id) => persistAbandonGeneratedWorkoutSession(userId, id, options),
     { ...options, completionStatus: options?.completionStatus ?? 'abandoned' },
   );
+  await emitLifecycleTelemetry(userId, generatedWorkoutId, 'workout_abandoned', result, options);
+  return result;
 }
 
 export async function stopGeneratedWorkoutSession(
@@ -460,13 +627,15 @@ export async function stopGeneratedWorkoutSession(
   generatedWorkoutId: string | null | undefined,
   options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
 ): Promise<GeneratedWorkoutLifecycleResult> {
-  return runLifecycleMutationWithFallback(
+  const result = await runLifecycleMutationWithFallback(
     userId,
     generatedWorkoutId,
     'stopped',
     (id) => persistStopGeneratedWorkoutSession(userId, id, options),
     { ...options, completionStatus: options?.completionStatus ?? 'stopped' },
   );
+  await emitLifecycleTelemetry(userId, generatedWorkoutId, 'workout_stopped', result, options);
+  return result;
 }
 
 export async function completeGeneratedWorkoutSessionLifecycle(
@@ -474,13 +643,15 @@ export async function completeGeneratedWorkoutSessionLifecycle(
   generatedWorkoutId: string | null | undefined,
   options?: WorkoutProgrammingServiceOptions & GeneratedWorkoutSessionLifecycleOptions,
 ): Promise<GeneratedWorkoutLifecycleResult> {
-  return runLifecycleMutationWithFallback(
+  const result = await runLifecycleMutationWithFallback(
     userId,
     generatedWorkoutId,
     'completed',
     (id) => persistCompleteGeneratedWorkoutSessionLifecycle(userId, id, options),
     { ...options, completionStatus: options?.completionStatus ?? 'completed' },
   );
+  await emitLifecycleTelemetry(userId, generatedWorkoutId, 'workout_completed', result, options);
+  return result;
 }
 
 export async function loadActiveGeneratedWorkoutSession(
@@ -503,7 +674,7 @@ export async function generateGeneratedWorkoutSessionForUser(
   options?: WorkoutProgrammingServiceOptions,
 ): Promise<GeneratedWorkoutSessionResult> {
   const { workout } = await buildWorkoutForUser(userId, request, options);
-  const shouldPersist = options?.persistGeneratedWorkout !== false;
+  const shouldPersist = options?.persistGeneratedWorkout !== false && !workout.blocked;
   const generatedWorkoutId = shouldPersist
     ? await saveGeneratedWorkoutWithExercises(userId, workout, options)
     : null;
@@ -512,6 +683,7 @@ export async function generateGeneratedWorkoutSessionForUser(
     generatedWorkoutId,
     persisted: Boolean(generatedWorkoutId),
   };
+  await emitGeneratedWorkoutTelemetry(userId, workout, generatedWorkoutId, request, options);
   const lifecycle = await markGeneratedWorkoutInspected(userId, generatedWorkoutId, options);
   result.lifecycle = lifecycle;
   if (lifecycle.fallbackMessage) result.lifecycleFallbackMessage = lifecycle.fallbackMessage;
@@ -525,11 +697,18 @@ export async function generatePreviewWorkout(
   const catalog = await loadWorkoutProgrammingCatalog(options);
   const prepared = prepareWorkoutProgrammingContentForMode(catalog, workoutIntelligenceCatalog, contentReviewOptions(options, 'preview'));
   const workout = generatePersonalizedWorkout(request, prepared.catalog, prepared.intelligence);
-  return applyContentReviewDiagnostics(
+  const enriched = applyContentReviewDiagnostics(
     attachValidatedDescription(workout, prepared.catalog, request.preferredToneVariant, prepared.intelligence),
     prepared,
     options?.contentReviewMode ?? 'preview',
   );
+  if (request.userId) {
+    await emitGeneratedWorkoutTelemetry(request.userId, enriched, null, request, {
+      ...options,
+      contentReviewMode: options?.contentReviewMode ?? 'preview',
+    });
+  }
+  return enriched;
 }
 
 export async function generatePreviewWorkoutFromPerformanceState(
@@ -590,11 +769,25 @@ export async function substituteExercise(
   if (source?.primaryMuscleIds) substitutionInput.primaryMuscleIds = source.primaryMuscleIds;
   if (constraints.dislikedExerciseIds) substitutionInput.dislikedExerciseIds = constraints.dislikedExerciseIds;
   const optionsList = rankExerciseSubstitutions(substitutionInput);
-  return {
+  const result = {
     sourceExerciseId: exerciseId,
     options: optionsList,
     selected: optionsList[0] ?? null,
   };
+  if (constraints.userId && result.selected) {
+    await emitRecommendationTelemetry(constraints.userId, 'exercise_substituted', {
+      generatedWorkoutId: constraints.generatedWorkoutId ?? null,
+      workout,
+      payload: {
+        sourceExerciseId: exerciseId,
+        selectedExerciseId: result.selected.exerciseId,
+        optionCount: result.options.length,
+        reason: result.selected.rationale,
+        matchedRuleId: result.selected.matchedRuleId ?? null,
+      },
+    }, options);
+  }
+  return result;
 }
 
 export async function logWorkoutCompletion(
@@ -620,6 +813,23 @@ export async function logWorkoutCompletion(
     ...options,
     workoutCompletionId,
   });
+  const generatedWorkoutId = options?.generatedWorkoutId ?? completion.generatedWorkoutId ?? null;
+  if (generatedWorkoutId || completion.source === 'generated_workout') {
+    await emitRecommendationTelemetry(userId, 'progression_decision_created', {
+      generatedWorkoutId,
+      workout: options?.workout,
+      timestamp: completion.completedAt,
+      payload: {
+        workoutCompletionId,
+        progressionDecisionId,
+        direction: progressionDecision.direction,
+        reason: progressionDecision.reason,
+        nextAdjustment: progressionDecision.nextAdjustment,
+        affectedExerciseIds: progressionDecision.affectedExerciseIds ?? [],
+        safetyFlags: progressionDecision.safetyFlags,
+      },
+    }, options);
+  }
   return {
     workoutCompletionId,
     progressionDecision,
@@ -747,6 +957,77 @@ export async function completeGeneratedWorkoutSession(
   };
   if (lifecycle) result.lifecycle = lifecycle;
   if (lifecycleFallbackMessage) result.lifecycleFallbackMessage = lifecycleFallbackMessage;
+  await emitRecommendationTelemetry(userId, 'workout_completed', {
+    generatedWorkoutId: input.generatedWorkoutId ?? null,
+    workout: input.workout,
+    timestamp: completionLog.completedAt,
+    payload: {
+      workoutCompletionId: completion.workoutCompletionId,
+      progressionDecisionId: completion.progressionDecisionId,
+      completionStatus: input.completionStatus ?? 'completed',
+      sessionRpe: input.sessionRpe,
+      painScoreBefore: input.painScoreBefore ?? null,
+      painScoreAfter: input.painScoreAfter ?? null,
+      rating: input.rating ?? null,
+      feedbackTags: input.feedbackTags ?? [],
+      completedExerciseCount: completionLog.exerciseResults.filter((exercise) => exercise.completedAsPrescribed).length,
+      totalExerciseCount: completionLog.exerciseResults.length,
+      substitutionsUsed: input.substitutionsUsed ?? [],
+    },
+  }, options);
+  if ((input.substitutionsUsed?.length ?? 0) > 0) {
+    await emitRecommendationTelemetry(userId, 'exercise_substituted', {
+      generatedWorkoutId: input.generatedWorkoutId ?? null,
+      workout: input.workout,
+      timestamp: completionLog.completedAt,
+      payload: {
+        substitutionsUsed: input.substitutionsUsed ?? [],
+        source: 'completion_log',
+      },
+    }, options);
+  }
+  if ((input.likedExerciseIds?.length ?? 0) > 0) {
+    await emitRecommendationTelemetry(userId, 'exercise_liked', {
+      generatedWorkoutId: input.generatedWorkoutId ?? null,
+      workout: input.workout,
+      timestamp: completionLog.completedAt,
+      payload: {
+        exerciseIds: input.likedExerciseIds ?? [],
+      },
+    }, options);
+  }
+  if ((input.dislikedExerciseIds?.length ?? 0) > 0) {
+    await emitRecommendationTelemetry(userId, 'exercise_disliked', {
+      generatedWorkoutId: input.generatedWorkoutId ?? null,
+      workout: input.workout,
+      timestamp: completionLog.completedAt,
+      payload: {
+        exerciseIds: input.dislikedExerciseIds ?? [],
+      },
+    }, options);
+  }
+  if (typeof input.painScoreBefore === 'number' && typeof input.painScoreAfter === 'number' && input.painScoreAfter > input.painScoreBefore) {
+    await emitRecommendationTelemetry(userId, 'pain_increased', {
+      generatedWorkoutId: input.generatedWorkoutId ?? null,
+      workout: input.workout,
+      timestamp: completionLog.completedAt,
+      payload: {
+        painScoreBefore: input.painScoreBefore,
+        painScoreAfter: input.painScoreAfter,
+        delta: input.painScoreAfter - input.painScoreBefore,
+      },
+    }, options);
+  }
+  await emitRecommendationTelemetry(userId, sessionDifficultyEventKind(input), {
+    generatedWorkoutId: input.generatedWorkoutId ?? null,
+    workout: input.workout,
+    timestamp: completionLog.completedAt,
+    payload: {
+      sessionRpe: input.sessionRpe,
+      feedbackTags: input.feedbackTags ?? [],
+      rating: input.rating ?? null,
+    },
+  }, options);
   return result;
 }
 

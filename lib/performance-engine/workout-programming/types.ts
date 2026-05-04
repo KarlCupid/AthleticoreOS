@@ -877,6 +877,53 @@ export interface WorkoutValidationResult {
   }[];
 }
 
+export type GeneratedWorkoutRecommendationEventKind =
+  | 'workout_generated'
+  | 'workout_inspected'
+  | 'workout_started'
+  | 'workout_completed'
+  | 'workout_abandoned'
+  | 'workout_stopped'
+  | 'exercise_substituted'
+  | 'exercise_liked'
+  | 'exercise_disliked'
+  | 'pain_increased'
+  | 'session_too_easy'
+  | 'session_right'
+  | 'session_too_hard'
+  | 'progression_decision_created'
+  | 'workout_regenerated'
+  | 'workout_blocked_by_safety'
+  | 'validation_warning_shown'
+  | 'persistence_fallback_used';
+
+export type RecommendationEventDecisionTrace = Array<
+  WorkoutDecisionTraceEntry
+  | WorkoutValidationResult['decisionTrace'][number]
+  | Record<string, unknown>
+>;
+
+export interface RecommendationEventInput {
+  generatedWorkoutId?: string | null;
+  eventKind: GeneratedWorkoutRecommendationEventKind;
+  timestamp?: string;
+  decisionTrace?: RecommendationEventDecisionTrace;
+  payload?: Record<string, unknown>;
+  appContextVersion?: string | null;
+  engineVersion?: string | null;
+  contentVersion?: string | null;
+}
+
+export interface RecommendationEvent extends Required<Pick<RecommendationEventInput, 'eventKind' | 'decisionTrace' | 'payload'>> {
+  id?: string;
+  userId: string;
+  generatedWorkoutId: string | null;
+  timestamp: string;
+  appContextVersion: string | null;
+  engineVersion: string | null;
+  contentVersion: string | null;
+}
+
 export interface WorkoutCompletionLog {
   id?: string;
   workoutId: string;
@@ -1126,4 +1173,22 @@ export interface WorkoutAnalyticsSummary {
   recommendationQualityScore: number;
   warnings: string[];
   summary: string;
+}
+
+export interface GeneratedWorkoutRecommendationQualitySummary {
+  generationCount: number;
+  startCount: number;
+  completionCount: number;
+  abandonCount: number;
+  painIncreaseCount: number;
+  substitutionCount: number;
+  validationWarningCount: number;
+  startRate: number;
+  completionRate: number;
+  abandonRate: number;
+  painIncreaseRate: number;
+  substitutionRate: number;
+  userRatingAverage: number | null;
+  progressionDistribution: Record<string, number>;
+  validationWarningRate: number;
 }

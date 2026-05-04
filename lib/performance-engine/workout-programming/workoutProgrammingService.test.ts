@@ -15,8 +15,9 @@ import {
   substituteExercise,
   validateWorkout,
 } from './workoutProgrammingService.ts';
+import { summarizeGeneratedWorkoutRecommendationQuality } from './analyticsEngine.ts';
 import { workoutProgrammingServiceFixtures } from './workoutProgrammingServiceFixtures.ts';
-import type { WorkoutCompletionLog } from './types.ts';
+import type { RecommendationEvent, WorkoutCompletionLog } from './types.ts';
 
 let passed = 0;
 let failed = 0;
@@ -75,6 +76,7 @@ function createMockSupabase(extraRows: Record<string, Record<string, unknown>[]>
     exercise_completion_results: [],
     progression_decisions: [],
     recommendation_feedback: [],
+    recommendation_events: [],
     user_programs: [],
     ...extraRows,
   };
@@ -166,7 +168,7 @@ function createMockSupabase(extraRows: Record<string, Record<string, unknown>[]>
     },
   };
 
-  return { client, calls };
+  return { client, calls, rows };
 }
 
 function insertedPayload(calls: CallRecord[], table: string): unknown {
@@ -202,7 +204,7 @@ async function run() {
   assert('substituteExercise ranks replacement options', substitutions.sourceExerciseId === 'goblet_squat' && substitutions.options.length > 0 && substitutions.selected != null);
 
   {
-    const { client, calls } = createMockSupabase();
+    const { client, calls, rows } = createMockSupabase();
     const workout = await generateWorkoutForUser('user-1', {
       goalId: 'dumbbell_hypertrophy',
       preferredToneVariant: 'coach_like',
@@ -213,10 +215,11 @@ async function run() {
     assert('generateWorkoutForUser scopes profile reads by user_id', ['user_training_profiles', 'user_equipment', 'user_safety_flags', 'user_exercise_preferences'].every((table) => (
       calls.some((call) => call.table === table && call.method === 'eq' && call.args[0] === 'user_id' && call.args[1] === 'user-1')
     )));
+    assert('generation emits recommendation telemetry', rows.recommendation_events.some((event) => event.event_kind === 'workout_generated' && event.user_id === 'user-1' && event.generated_workout_id === 'generated_workouts-id'));
   }
 
   {
-    const { client, calls } = createMockSupabase();
+    const { client, calls, rows } = createMockSupabase();
     const session = await generateGeneratedWorkoutSessionForUser('user-1', {
       goalId: 'beginner_strength',
       durationMinutes: 30,
@@ -257,7 +260,7 @@ async function run() {
       feedbackTags: ['good_fit'],
       likedExerciseIds: [session.workout.blocks[0]?.exercises[0]?.exerciseId ?? 'bodyweight_squat'],
       dislikedExerciseIds: [],
-      substitutionsUsed: [],
+      substitutionsUsed: ['box_squat'],
       notes: 'Felt repeatable.',
     }, { client });
     const completionChildPayloadRaw = insertedPayload(calls, 'exercise_completion_results');
@@ -273,6 +276,7 @@ async function run() {
     assert('generated workout beta completion saves completion, feedback, and preferences', result.workoutCompletionId === 'workout_completions-id' && result.feedbackId === 'recommendation_feedback-id' && calls.some((call) => call.table === 'user_exercise_preferences' && call.method === 'upsert'));
     assert('generated workout beta completion persists completed lifecycle state', result.lifecycle?.persisted === true && result.lifecycle.lifecycle.status === 'completed');
     assert('generated workout beta completion returns next progression', Boolean(result.progressionDecision.reason && result.progressionDecision.nextAdjustment));
+    assert('completion emits recommendation telemetry', ['workout_completed', 'progression_decision_created', 'exercise_substituted', 'exercise_liked', 'pain_increased', 'session_right'].every((kind) => rows.recommendation_events.some((event) => event.event_kind === kind)));
   }
 
   {
@@ -280,6 +284,50 @@ async function run() {
       occurredAt: '2026-05-01T12:00:00.000Z',
     });
     assert('generated workout beta lifecycle keeps local fallback without persistence', localStarted.persisted === false && localStarted.lifecycle.status === 'started');
+  }
+
+  {
+    const { client, rows } = createMockSupabase();
+    await startGeneratedWorkoutSession('user-1', null, {
+      client,
+      occurredAt: '2026-05-01T12:00:00.000Z',
+    });
+    assert('persistence fallback emits recommendation telemetry when a client is available', rows.recommendation_events.some((event) => event.event_kind === 'persistence_fallback_used' && event.user_id === 'user-1'));
+  }
+
+  {
+    const { client, rows } = createMockSupabase();
+    const workout = await generateWorkoutForUser('user-1', {
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight'],
+      experienceLevel: 'beginner',
+      safetyFlags: ['acute_chest_pain'],
+    }, { client, persistGeneratedWorkout: false });
+    assert('safety-blocked generated workout emits recommendation telemetry', workout.blocked === true && rows.recommendation_events.some((event) => event.event_kind === 'workout_blocked_by_safety'));
+  }
+
+  {
+    const { client, rows } = createMockSupabase();
+    await generateWorkoutForUser('user-1', {
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+      regeneratedFromGeneratedWorkoutId: 'previous-generated-workout',
+    }, { client });
+    assert('regenerated workouts emit recommendation telemetry', rows.recommendation_events.some((event) => event.event_kind === 'workout_regenerated' && (event.payload as Record<string, unknown>).regeneratedFromGeneratedWorkoutId === 'previous-generated-workout'));
+  }
+
+  {
+    const workout = await generatePreviewWorkout({
+      userId: 'no-client-user',
+      goalId: 'beginner_strength',
+      durationMinutes: 30,
+      equipmentIds: ['bodyweight'],
+      experienceLevel: 'beginner',
+    });
+    assert('missing telemetry client does not crash service', workout.schemaVersion === 'generated-workout-v1');
   }
 
   {
@@ -397,6 +445,43 @@ async function run() {
     const result = await logWorkoutCompletion('user-1', completion, { client, generatedWorkoutId: 'generated-current' });
     assert('logWorkoutCompletion loads recent history before progression', calls.some((call) => call.table === 'workout_completions' && call.method === 'select') && calls.some((call) => call.table === 'exercise_completion_results' && call.method === 'select'));
     assert('history-based progression uses high RPE trend', result.progressionDecision.direction === 'deload' && result.nextSessionRecommendation.length > 0);
+  }
+
+  {
+    const event = (eventKind: RecommendationEvent['eventKind'], generatedWorkoutId: string | null, payload: Record<string, unknown> = {}): RecommendationEvent => ({
+      userId: 'user-1',
+      generatedWorkoutId,
+      eventKind,
+      timestamp: '2026-05-01T12:00:00.000Z',
+      decisionTrace: [],
+      payload,
+      appContextVersion: 'test',
+      engineVersion: 'generated-workout-v1',
+      contentVersion: null,
+    });
+    const summary = summarizeGeneratedWorkoutRecommendationQuality([
+      event('workout_generated', 'generated-1'),
+      event('workout_generated', 'generated-2'),
+      event('workout_started', 'generated-1'),
+      event('workout_completed', 'generated-1', { rating: 4 }),
+      event('workout_completed', 'generated-1', { rating: 4 }),
+      event('workout_abandoned', 'generated-2'),
+      event('pain_increased', 'generated-1'),
+      event('exercise_substituted', 'generated-1'),
+      event('validation_warning_shown', 'generated-2'),
+      event('progression_decision_created', 'generated-1', { direction: 'progress' }),
+      event('progression_decision_created', 'generated-2', { direction: 'regress' }),
+    ]);
+    assert('analytics summary computes generated workout quality metrics', summary.generationCount === 2
+      && summary.startRate === 0.5
+      && summary.completionRate === 0.5
+      && summary.abandonRate === 0.5
+      && summary.painIncreaseRate === 1
+      && summary.substitutionRate === 0.5
+      && summary.userRatingAverage === 4
+      && summary.progressionDistribution.progress === 1
+      && summary.progressionDistribution.regress === 1
+      && summary.validationWarningRate === 0.5);
   }
 
   {

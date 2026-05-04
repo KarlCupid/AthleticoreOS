@@ -16,6 +16,8 @@ import type {
   GeneratedWorkoutSessionLifecycleStatus,
   PersonalizedWorkoutInput,
   ProgressionDecision,
+  RecommendationEvent,
+  RecommendationEventInput,
   ReviewableContentFields,
   UserWorkoutProfile,
   WorkoutCompletionLog,
@@ -134,6 +136,11 @@ export interface RecommendationFeedbackInput {
   generatedWorkoutId?: string | null;
   rating?: number | null;
   notes?: string | null;
+}
+
+export interface RecommendationEventListOptions extends ListPersistenceOptions {
+  generatedWorkoutId?: string | null;
+  eventKinds?: string[];
 }
 
 export type ExercisePreference = 'like' | 'neutral' | 'dislike';
@@ -873,6 +880,17 @@ function validateProgressionDecision(decision: ProgressionDecision, context: str
 function validateFeedback(feedback: RecommendationFeedbackInput, context: string): void {
   if (feedback.rating != null && (feedback.rating < 1 || feedback.rating > 5)) {
     throw new ValidationError(`${context}: rating must be between 1 and 5.`, { context });
+  }
+}
+
+function validateRecommendationEvent(event: RecommendationEventInput, context: string): void {
+  if (!event.eventKind.trim()) throw new ValidationError(`${context}: eventKind is required.`, { context });
+  if (event.timestamp != null && !event.timestamp.trim()) throw new ValidationError(`${context}: timestamp is invalid.`, { context });
+  if (event.decisionTrace != null && !Array.isArray(event.decisionTrace)) {
+    throw new ValidationError(`${context}: decisionTrace must be an array.`, { context });
+  }
+  if (event.payload != null && !isRecord(event.payload)) {
+    throw new ValidationError(`${context}: payload must be an object.`, { context });
   }
 }
 
@@ -1714,6 +1732,76 @@ export async function saveRecommendationFeedback(
       rating: feedback.rating ?? null,
       notes: feedback.notes ?? null,
     }, context);
+}
+
+function recommendationEventPayload(userId: string, event: RecommendationEventInput): Record<string, unknown> {
+  return {
+    user_id: userId,
+    generated_workout_id: event.generatedWorkoutId ?? null,
+    event_kind: event.eventKind,
+    decision_trace: event.decisionTrace ?? [],
+    payload: event.payload ?? {},
+    app_context_version: event.appContextVersion ?? null,
+    engine_version: event.engineVersion ?? null,
+    content_version: event.contentVersion ?? null,
+    created_at: event.timestamp ?? new Date().toISOString(),
+  };
+}
+
+function recommendationEventFromRow(row: Record<string, unknown>, userId: string): RecommendationEvent {
+  const generatedWorkoutId = rowString(row, 'generated_workout_id');
+  const decisionTrace = Array.isArray(row.decision_trace) ? row.decision_trace : [];
+  const payload = isRecord(row.payload) ? row.payload : {};
+  const event: RecommendationEvent = {
+    userId,
+    generatedWorkoutId: generatedWorkoutId || null,
+    eventKind: rowString(row, 'event_kind') as RecommendationEvent['eventKind'],
+    timestamp: rowString(row, 'created_at'),
+    decisionTrace: decisionTrace as RecommendationEvent['decisionTrace'],
+    payload,
+    appContextVersion: rowString(row, 'app_context_version') || null,
+    engineVersion: rowString(row, 'engine_version') || null,
+    contentVersion: rowString(row, 'content_version') || null,
+  };
+  const id = rowString(row, 'id');
+  if (id) event.id = id;
+  return event;
+}
+
+export async function saveRecommendationEvent(
+  userId: string,
+  event: RecommendationEventInput,
+  options?: WorkoutProgrammingPersistenceOptions,
+): Promise<string | null> {
+  const context = 'Failed to save recommendation event';
+  assertUserId(userId, context);
+  validateRecommendationEvent(event, 'Recommendation event persistence payload');
+  const client = await resolveClient(options);
+  if (!client) return null;
+  return insertReturningId(client, 'recommendation_events', recommendationEventPayload(userId, event), context);
+}
+
+export async function loadRecommendationEvents(
+  userId: string,
+  options?: RecommendationEventListOptions,
+): Promise<RecommendationEvent[]> {
+  const context = 'Failed to load recommendation events';
+  assertUserId(userId, context);
+  const client = await resolveClient(options);
+  if (!client) return [];
+  let query = requireBuilder(table(client, 'recommendation_events').select?.('*'), context, 'recommendation_events', 'select');
+  query = requireBuilder(query.eq?.('user_id', userId), context, 'recommendation_events', 'filter');
+  if (options?.generatedWorkoutId) {
+    query = requireBuilder(query.eq?.('generated_workout_id', options.generatedWorkoutId), context, 'recommendation_events', 'filter');
+  }
+  if (options?.eventKinds && options.eventKinds.length > 0 && query.in) {
+    query = requireBuilder(query.in('event_kind', uniqueStrings(options.eventKinds)), context, 'recommendation_events', 'filter');
+  }
+  if (query.order) query = requireBuilder(query.order('created_at', { ascending: false }), context, 'recommendation_events', 'order');
+  if (options?.limit != null && query.limit) query = requireBuilder(query.limit(options.limit), context, 'recommendation_events', 'limit');
+  const result = await asPromise<Record<string, unknown>[]>(query);
+  ensureNoError(result, context, 'recommendation_events');
+  return (result.data ?? []).map((row) => recommendationEventFromRow(row, userId));
 }
 
 export async function upsertUserWorkoutProfile(

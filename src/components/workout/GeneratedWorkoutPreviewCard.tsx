@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type {
-  GeneratedExercisePrescription,
-  GeneratedWorkout,
-  PrescriptionPayload,
+import {
+  summarizeWorkoutDecisionForUser,
+  type GeneratedExercisePrescription,
+  type GeneratedWorkout,
+  type PrescriptionPayload,
 } from '../../../lib/performance-engine/workout-programming';
 import { Card } from '../Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
@@ -229,6 +230,13 @@ export function GeneratedWorkoutPreviewCard({
   ].filter((item): item is string => Boolean(item))));
   const readinessAdjustment = readinessAdjustmentLine(workout);
   const safety = safetyStatus(workout);
+  const decisionSummary = summarizeWorkoutDecisionForUser(workout);
+  const whySummaryBullets = Array.from(new Set([
+    ...decisionSummary.whyThisWorkout.slice(0, 2),
+    decisionSummary.recoveryFallback,
+    ...decisionSummary.intensityAdjustments.slice(0, 1),
+    ...decisionSummary.safety.slice(0, 1),
+  ].filter((item): item is string => Boolean(item)))).slice(0, 4);
   const primarySafetyNotes = [
     ...new Set([
       ...(workout.safetyNotes ?? []),
@@ -268,6 +276,11 @@ export function GeneratedWorkoutPreviewCard({
             <FactTile label="Safety" value={safety.label} detail={safety.detail} tone={safety.tone} />
           </View>
         </View>
+
+        <CopySection title="Why this workout?" testID="generated-workout-preview-why">
+          <Text style={styles.bodyText}>{decisionSummary.headline}</Text>
+          <BulletList items={whySummaryBullets} />
+        </CopySection>
 
         {workout.blocked ? (
           <CopySection title="Safety block" testID="generated-workout-preview-blocked">

@@ -1,9 +1,71 @@
 import { summarizeWorkoutCompletion } from './personalizationEngine.ts';
-import type { WorkoutAnalyticsSummary, WorkoutCompletionLog } from './types.ts';
+import type {
+  GeneratedWorkoutRecommendationEventKind,
+  GeneratedWorkoutRecommendationQualitySummary,
+  RecommendationEvent,
+  WorkoutAnalyticsSummary,
+  WorkoutCompletionLog,
+} from './types.ts';
 
 function average(values: number[]): number | null {
   if (values.length === 0) return null;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function rate(numerator: number, denominator: number): number {
+  return denominator <= 0 ? 0 : numerator / denominator;
+}
+
+function eventPayloadNumber(event: RecommendationEvent, key: string): number | null {
+  const value = event.payload[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function countEventsByGeneratedWorkout(events: RecommendationEvent[], kind: GeneratedWorkoutRecommendationEventKind): number {
+  const matching = events.filter((event) => event.eventKind === kind);
+  const ids = new Set(matching.map((event) => event.generatedWorkoutId).filter((id): id is string => Boolean(id)));
+  const withoutIds = matching.filter((event) => !event.generatedWorkoutId).length;
+  return ids.size + withoutIds;
+}
+
+export function summarizeGeneratedWorkoutRecommendationQuality(events: RecommendationEvent[]): GeneratedWorkoutRecommendationQualitySummary {
+  const generationCount = countEventsByGeneratedWorkout(events, 'workout_generated');
+  const startCount = countEventsByGeneratedWorkout(events, 'workout_started');
+  const completionCount = countEventsByGeneratedWorkout(events, 'workout_completed');
+  const abandonCount = countEventsByGeneratedWorkout(events, 'workout_abandoned')
+    + countEventsByGeneratedWorkout(events, 'workout_stopped');
+  const painIncreaseCount = countEventsByGeneratedWorkout(events, 'pain_increased');
+  const substitutionCount = countEventsByGeneratedWorkout(events, 'exercise_substituted');
+  const validationWarningCount = countEventsByGeneratedWorkout(events, 'validation_warning_shown');
+  const ratingValues = events
+    .filter((event) => event.eventKind === 'workout_completed')
+    .map((event) => eventPayloadNumber(event, 'rating'))
+    .filter((value): value is number => value != null);
+  const progressionDistribution: Record<string, number> = {};
+  for (const event of events.filter((candidate) => candidate.eventKind === 'progression_decision_created')) {
+    const direction = typeof event.payload.direction === 'string' && event.payload.direction.trim()
+      ? event.payload.direction
+      : 'unknown';
+    progressionDistribution[direction] = (progressionDistribution[direction] ?? 0) + 1;
+  }
+
+  return {
+    generationCount,
+    startCount,
+    completionCount,
+    abandonCount,
+    painIncreaseCount,
+    substitutionCount,
+    validationWarningCount,
+    startRate: rate(startCount, generationCount),
+    completionRate: rate(completionCount, generationCount),
+    abandonRate: rate(abandonCount, generationCount),
+    painIncreaseRate: rate(painIncreaseCount, completionCount),
+    substitutionRate: rate(substitutionCount, generationCount),
+    userRatingAverage: average(ratingValues),
+    progressionDistribution,
+    validationWarningRate: rate(validationWarningCount, generationCount),
+  };
 }
 
 export function summarizeWorkoutAnalytics(input: {

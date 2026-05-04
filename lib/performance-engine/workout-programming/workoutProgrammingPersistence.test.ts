@@ -34,6 +34,7 @@ import {
   saveGeneratedWorkoutWithExercises,
   saveProgressionDecision,
   saveRecommendationFeedback,
+  summarizeWorkoutDecisionForAdmin,
   UnauthorizedError,
   updateProgramSession,
   updateExercisePreference,
@@ -418,7 +419,13 @@ async function run() {
     const id = await saveGeneratedWorkoutWithExercises('user-1', workout, { client });
     const loaded = await loadGeneratedWorkout('user-1', id!, { client });
     const listed = await listGeneratedWorkoutsForUser('user-1', { client, limit: 5 });
+    const loadedTrace = loaded ? summarizeWorkoutDecisionForAdmin(loaded) : null;
     assert('successful generated workout save/load validates payload', loaded?.schemaVersion === 'generated-workout-v1' && loaded.goalId === workout.goalId);
+    assert('trace survives generated workout persistence and load', Boolean(
+      loadedTrace?.selectedTemplateTrace
+        && loadedTrace.scoring.selectedExerciseScores.length > 0
+        && loadedTrace.validation.validationTrace.length > 0,
+    ));
     assert('listGeneratedWorkoutsForUser validates and returns user workouts', listed.length === 1 && listed[0].templateId === workout.templateId);
   }
 

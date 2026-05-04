@@ -297,7 +297,7 @@ async function run(): Promise<void> {
   const preview = render(React.createElement(GeneratedWorkoutPreviewCard, { workout: validWorkout }));
   const exercise = firstExercise(validWorkout);
   assert('GeneratedWorkoutPreviewCard renders a valid generated workout', Boolean(preview.getByTestId('generated-workout-preview-card')));
-  assert('preview card renders session intent', Boolean(preview.getByText(validWorkout.sessionIntent)));
+  assert('preview card renders session intent', preview.getAllByText(validWorkout.sessionIntent).length > 0);
   assert('preview card renders blocks', validWorkout.blocks.every((block) => Boolean(preview.getByText(block.title))));
   assert('preview card renders exercises', Boolean(exercise && preview.getByText(exercise.name)));
   assert('preview card renders prescriptions', hasRenderedText(preview, /Dose/i) && hasRenderedText(preview, /Effort \d+\/10/i));
@@ -308,6 +308,7 @@ async function run(): Promise<void> {
   assert('preview card renders scaling options', Boolean(preview.getByTestId('generated-workout-preview-scaling')) && hasRenderedText(preview, /Down:/i));
   assert('preview card renders tracking metrics', Boolean(preview.getByTestId('generated-workout-preview-tracking')) && hasRenderedText(preview, new RegExp(escapeRegExp((validWorkout.trackingMetrics ?? validWorkout.trackingMetricIds)[0]), 'i')));
   assert('preview card renders completion message', Boolean(preview.getByTestId('generated-workout-preview-completion')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.description?.completionMessage ?? ''), 'i')));
+  assert('preview card renders user-safe decision summary', Boolean(preview.getByTestId('generated-workout-preview-why')) && hasRenderedText(preview, /Why this workout\?/i));
   preview.unmount();
 
   const blocked = render(React.createElement(GeneratedWorkoutPreviewCard, { workout: blockedWorkout }));
