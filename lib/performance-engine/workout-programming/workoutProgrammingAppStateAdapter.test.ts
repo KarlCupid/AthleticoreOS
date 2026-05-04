@@ -1,5 +1,9 @@
 import {
   buildPersonalizedWorkoutInputFromPerformanceState,
+  readinessBandFromLevel,
+  readinessFromNumber,
+  readinessFromString,
+  readinessSafetyFlags,
   resolvePainFlagsFromRecentReports,
   resolveProtectedWorkoutsFromSchedule,
   resolveReadinessBandFromAppState,
@@ -174,6 +178,25 @@ async function run() {
     assert('full app state maps readiness and duration', mapped.input.readinessBand === 'green' && mapped.input.durationMinutes === 45);
     assert('full app state maps pain and protected anchors', mapped.input.safetyFlags?.includes('knee_caution') === true && (mapped.input.protectedWorkouts?.length ?? 0) === 1);
     assert('full app state emits app-signal decision traces', mapped.decisionTrace.some((entry) => entry.step === 'compose_personalized_input'));
+  }
+
+  {
+    assert('Prime readiness level maps to green', readinessBandFromLevel('Prime') === 'green');
+    assert('Steady readiness level maps to yellow', readinessBandFromLevel('Steady') === 'yellow');
+    assert('Caution app readiness string maps to yellow', readinessFromString('Caution') === 'yellow');
+    assert('Caution UI readiness level maps to orange', readinessBandFromLevel('Caution') === 'orange');
+    assert('Depleted readiness level maps to red', readinessBandFromLevel('Depleted') === 'red');
+    assert('unknown readiness level maps to unknown', readinessBandFromLevel('something unexpected') === 'unknown');
+    assert('numeric readiness maps red threshold', readinessFromNumber(24) === 'red');
+    assert('numeric readiness maps orange threshold', readinessFromNumber(45) === 'orange');
+    assert('numeric readiness maps yellow threshold', readinessFromNumber(58) === 'yellow');
+    assert('numeric readiness maps green threshold', readinessFromNumber(82) === 'green');
+    assert('ten-point numeric readiness maps correctly', readinessFromNumber(6.5) === 'yellow');
+    assert('missing numeric readiness stays unresolved', readinessFromNumber(null) === null);
+    assert('app readiness level resolves through shared mapper', resolveReadinessBandFromAppState({ readiness: { level: 'Steady' } }).value === 'yellow');
+    assert('app numeric readiness resolves through shared mapper', resolveReadinessBandFromAppState({ readiness: { score: 45 } }).value === 'orange');
+    assert('missing app readiness resolves to unknown', resolveReadinessBandFromAppState({}).value === 'unknown');
+    assert('unknown readiness safety flag stays conservative', readinessSafetyFlags(null, 'unknown').includes('unknown_readiness'));
   }
 
   {

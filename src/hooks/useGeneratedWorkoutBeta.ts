@@ -13,6 +13,7 @@ import {
   generatedWorkoutCompletionOptionsForUser,
   generatedWorkoutFlowUserId,
   generatedWorkoutLifecycleOptionsForUser,
+  readinessBandFromLevel,
   normalizeGeneratedWorkoutError,
   resolveGeneratedWorkoutContentReviewOptions,
   resolveGeneratedWorkoutFeatureFlags,
@@ -60,15 +61,6 @@ export interface GeneratedWorkoutBetaController {
 export interface UseGeneratedWorkoutBetaResult {
   betaEnabled: boolean;
   beta: GeneratedWorkoutBetaController;
-}
-
-function readinessBandFromLevel(level: string | null | undefined): WorkoutReadinessBand {
-  const normalized = level?.toLowerCase() ?? '';
-  if (normalized.includes('prime') || normalized.includes('green') || normalized.includes('ready')) return 'green';
-  if (normalized.includes('steady') || normalized.includes('yellow')) return 'yellow';
-  if (normalized.includes('caution') || normalized.includes('orange')) return 'orange';
-  if (normalized.includes('red') || normalized.includes('depleted')) return 'red';
-  return 'unknown';
 }
 
 function betaStageFromLifecycleStatus(status: GeneratedWorkoutSessionLifecycleStatus): GeneratedWorkoutBetaStage {

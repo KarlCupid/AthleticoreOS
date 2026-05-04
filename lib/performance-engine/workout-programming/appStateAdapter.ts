@@ -281,7 +281,7 @@ function intensityFromUnknown(value: AppScheduleItemLike['intensity'] | null | u
   return intensityFromRpe(finiteNumber(value));
 }
 
-function readinessFromNumber(value: number | null): WorkoutReadinessBand | null {
+export function readinessFromNumber(value: number | null | undefined): WorkoutReadinessBand | null {
   if (value == null) return null;
   const normalized = value <= 10 ? value * 10 : value;
   if (normalized < 35) return 'red';
@@ -290,14 +290,23 @@ function readinessFromNumber(value: number | null): WorkoutReadinessBand | null 
   return 'green';
 }
 
-function readinessFromString(value: string | null | undefined): WorkoutReadinessBand | null {
+export function readinessFromString(
+  value: string | null | undefined,
+  options: { cautionBand?: Extract<WorkoutReadinessBand, 'yellow' | 'orange'> } = {},
+): WorkoutReadinessBand | null {
   if (!value) return null;
   const key = normalizeKey(value);
   if (key === 'green' || key === 'yellow' || key === 'orange' || key === 'red' || key === 'unknown') return key;
   if (key === 'prime' || key === 'ready' || key === 'high') return 'green';
-  if (key === 'caution' || key === 'moderate') return 'yellow';
+  if (key === 'steady') return 'yellow';
+  if (key === 'caution') return options.cautionBand ?? 'yellow';
+  if (key === 'moderate') return 'yellow';
   if (key === 'depleted' || key === 'low') return 'red';
   return null;
+}
+
+export function readinessBandFromLevel(level: string | null | undefined): WorkoutReadinessBand {
+  return readinessFromString(level, { cautionBand: 'orange' }) ?? 'unknown';
 }
 
 function mapTrainingBackground(value: TrainingBackground | string | null | undefined): WorkoutExperienceLevel {
@@ -416,7 +425,7 @@ function riskFlagsToSafetyFlags(riskFlags: readonly RiskFlag[]): string[] {
   return unique(flags);
 }
 
-function readinessSafetyFlags(readiness: ReadinessState | null | undefined, band: WorkoutReadinessBand): string[] {
+export function readinessSafetyFlags(readiness: ReadinessState | null | undefined, band: WorkoutReadinessBand): string[] {
   const flags: string[] = [];
   if (band === 'unknown') flags.push('unknown_readiness');
   if (band === 'red') flags.push('poor_readiness', 'low_energy');
