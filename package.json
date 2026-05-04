@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "typecheck:clean": "tsc --noEmit -p tsconfig.clean.json",
     "test:engine": "node scripts/run-engine-tests.js",
+    "test:account-deletion": "node scripts/test-account-deletion-coverage.js",
+    "test:account-deletion-live": "node scripts/test-account-deletion-live.js",
     "test:rls": "node scripts/test-workout-programming-rls.js",
     "test:workout-db": "node scripts/test-workout-programming-db.js",
     "workout:validate-content": "node scripts/validate-workout-programming-content.js",
@@ -21,7 +23,7 @@
     "workout:export-seed": "node scripts/export-workout-programming-seed.js",
     "seed:ingredients": "node scripts/generate-ingredient-catalog-seed.js",
     "seed:ingredients:2000": "node scripts/expand-ingredient-catalog.js --target=2000 --migration=020_expand_ingredient_catalog_to_2000.sql",
-    "quality": "npm run lint && npm run typecheck && npm run typecheck:clean && npm run test:engine",
+    "quality": "npm run lint && npm run typecheck && npm run typecheck:clean && npm run test:engine && npm run test:account-deletion",
     "optimize:images": "node scripts/optimize-images.js"
   },
   "dependencies": {

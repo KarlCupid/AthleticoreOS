@@ -1,6 +1,6 @@
 # Project State
 
-**Last Updated:** 2026-04-29
+**Last Updated:** 2026-05-04
 
 ## Current direction
 
@@ -37,6 +37,8 @@
   - scoped readiness accents and semantic feedback palettes
   - interaction-mode aware sizing for gym-floor and focus contexts
 - Supabase migrations are present through `015_engine_v3_foundation.sql`.
+- Account deletion has been hardened through `supabase/migrations/044_account_deletion_full_user_owned_coverage.sql`; `delete_my_account()` now covers every current user-owned public table, including workout-programming rows and indirect child tables, before removing the public user mirror and auth user.
+- `npm run test:account-deletion` statically audits migration-derived deletion coverage and is included in `npm run quality`.
 
 ## Current priorities
 
