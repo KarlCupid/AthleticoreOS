@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { TimePickerField } from '../../components/TimePickerField';
 import { COLORS, SPACING } from '../../theme/theme';
@@ -23,13 +23,29 @@ export function CommitmentsPhase({
   addCommitment,
   setDurationPickerCommitmentId,
 }: CommitmentsPhaseProps) {
+  function confirmRemoveCommitment(id: string, label: string) {
+    Alert.alert(
+      'Remove fixed session?',
+      `${label || 'This fixed session'} will no longer be protected in your weekly planning setup.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => removeCommitment(id) },
+      ],
+    );
+  }
+
   return (
     <Section label="Fixed Sessions" description="Add classes, sparring, or coach-set work that already has a spot in your week.">
       {commitments.map((commitment) => (
         <View key={commitment.id} style={styles.commitmentCard}>
           <View style={styles.commitmentHeader}>
             <Text style={styles.commitmentTitle}>{commitment.label || 'Gym Session'}</Text>
-            <TouchableOpacity onPress={() => removeCommitment(commitment.id)}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${commitment.label || 'fixed session'}`}
+              accessibilityHint="Asks for confirmation before removing this protected session from setup."
+              onPress={() => confirmRemoveCommitment(commitment.id, commitment.label)}
+            >
               <Text style={styles.removeText}>Remove</Text>
             </TouchableOpacity>
           </View>
@@ -51,7 +67,14 @@ export function CommitmentsPhase({
             ))}
           </View>
           <Text style={styles.subLabel}>Label</Text>
-          <TextInput style={styles.input} value={commitment.label} onChangeText={(value) => updateCommitment(commitment.id, { label: value })} placeholder="Team sparring" placeholderTextColor={COLORS.text.tertiary} />
+          <TextInput
+            accessibilityLabel="Fixed session label"
+            style={styles.input}
+            value={commitment.label}
+            onChangeText={(value) => updateCommitment(commitment.id, { label: value })}
+            placeholder="Team sparring"
+            placeholderTextColor={COLORS.text.tertiary}
+          />
           <View style={styles.inputRow}>
             <View style={[styles.inlineField, { marginRight: SPACING.sm }]}>
               <Text style={styles.subLabel}>Time</Text>
@@ -60,6 +83,9 @@ export function CommitmentsPhase({
             <View style={styles.inlineField}>
               <Text style={styles.subLabel}>Duration</Text>
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`Duration ${commitment.durationMin ? `${commitment.durationMin} minutes` : 'not selected'}`}
+                accessibilityHint="Opens duration choices for this fixed session."
                 style={styles.dropdownField}
                 onPress={() => setDurationPickerCommitmentId(commitment.id)}
                 activeOpacity={0.8}
@@ -77,7 +103,13 @@ export function CommitmentsPhase({
           </View>
         </View>
       ))}
-      <TouchableOpacity style={styles.secondaryButton} onPress={addCommitment}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Add fixed session"
+        accessibilityHint="Adds another protected training commitment to this setup."
+        style={styles.secondaryButton}
+        onPress={addCommitment}
+      >
         <Text style={styles.secondaryButtonText}>Add Fixed Session</Text>
       </TouchableOpacity>
     </Section>

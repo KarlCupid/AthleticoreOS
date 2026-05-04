@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { UseGeneratedWorkoutBetaResult } from '../../hooks/useGeneratedWorkoutBeta';
 import { GeneratedWorkoutBetaSessionCard } from './GeneratedWorkoutBetaSessionCard';
@@ -11,6 +12,28 @@ export function GeneratedWorkoutBetaContainer({ controller }: GeneratedWorkoutBe
   const { betaEnabled, beta } = controller;
 
   if (!betaEnabled) return null;
+
+  const confirmReset = () => {
+    Alert.alert(
+      'Clear generated workout?',
+      'This removes the current generated workout draft from this screen.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: beta.reset },
+      ],
+    );
+  };
+
+  const confirmAbandon = () => {
+    Alert.alert(
+      'Abandon generated workout?',
+      'This stops the generated workout session and saves no completion result.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Abandon', style: 'destructive', onPress: () => { void beta.abandon(); } },
+      ],
+    );
+  };
 
   return (
     <Animated.View
@@ -36,9 +59,9 @@ export function GeneratedWorkoutBetaContainer({ controller }: GeneratedWorkoutBe
         onStart={() => { void beta.start(); }}
         onPause={() => { void beta.pause(); }}
         onResume={() => { void beta.resume(); }}
-        onAbandon={() => { void beta.abandon(); }}
+        onAbandon={confirmAbandon}
         onComplete={(draft) => { void beta.complete(draft); }}
-        onReset={beta.reset}
+        onReset={confirmReset}
       />
     </Animated.View>
   );

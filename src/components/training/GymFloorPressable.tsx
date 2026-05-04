@@ -16,6 +16,8 @@ const AnimatedPressableView = Animated.createAnimatedComponent(Pressable);
 
 interface GymFloorPressableProps {
     label: string;
+    accessibilityLabel?: string;
+    accessibilityHint?: string;
     variant?: 'primary' | 'secondary';
     onPress: () => void;
     fullWidth?: boolean;
@@ -26,6 +28,8 @@ interface GymFloorPressableProps {
 
 export function GymFloorPressable({
     label,
+    accessibilityLabel,
+    accessibilityHint,
     variant = 'primary',
     onPress,
     fullWidth = true,
@@ -58,6 +62,10 @@ export function GymFloorPressable({
 
     return (
         <AnimatedPressableView
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel ?? label}
+            accessibilityHint={accessibilityHint}
+            accessibilityState={{ disabled }}
             onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}

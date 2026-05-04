@@ -449,13 +449,16 @@ export function WeightClassPlanSetupScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: 'transparent' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <LinearGradient
         colors={['rgba(10, 10, 10, 0.92)', 'rgba(212, 175, 55, 0.22)']}
         style={[styles.header, { paddingTop: insets.top + SPACING.lg }]}
       >
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={step === 1 ? 'Go back' : 'Previous step'}
+          accessibilityHint={step === 1 ? 'Returns to the previous screen.' : 'Returns to the previous weight-class setup step.'}
           onPress={() => (step === 1 ? nav.goBack() : setStep((current) => (current - 1) as Step))}
           style={styles.backButton}
           testID="weight-class-setup-back"
@@ -475,6 +478,7 @@ export function WeightClassPlanSetupScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: SPACING.lg, paddingBottom: insets.bottom + 156 }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {step === 1 ? renderStep1() : null}
           {step === 2 ? renderStep2() : null}
@@ -494,6 +498,10 @@ export function WeightClassPlanSetupScreen() {
       >
         {step < 5 ? (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={step === 1 ? 'Evaluate weight class' : step === 4 && isNextDisabled ? 'Automatic support blocked' : step === 4 ? 'Continue after safety preview' : 'Continue'}
+            accessibilityHint={step < 4 ? 'Moves to the next weight-class setup step.' : 'Continues only when the safety evaluation allows it.'}
+            accessibilityState={{ disabled: isNextDisabled }}
             style={[styles.nextButton, isNextDisabled && styles.nextButtonDisabled]}
             onPress={handleNext}
             disabled={isNextDisabled}

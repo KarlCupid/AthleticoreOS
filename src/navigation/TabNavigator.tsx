@@ -13,7 +13,7 @@ import { TrainStackNavigator } from './TrainStack';
 import { PlanStackNavigator } from './PlanStack';
 import { FuelStackNavigator } from './FuelStack';
 import { MeStackNavigator } from './MeStack';
-import { ANIMATION, APP_CHROME, COLORS, RADIUS, SHADOWS } from '../theme/theme';
+import { ANIMATION, APP_CHROME, COLORS, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { useInteractionMode } from '../context/InteractionModeContext';
 import type { RootTabParamList } from './types';
 
@@ -44,7 +44,7 @@ function TabIcon(props: {
   }), [focused]);
 
   return (
-    <Animated.View style={[animatedStyle, styles.tabIconWrap]} testID={testID}>
+    <Animated.View accessible={false} style={[animatedStyle, styles.tabIconWrap]} testID={testID}>
       <View style={[styles.iconChip, focused && { backgroundColor: `${APP_CHROME.accent}18` }]}>
         <IconComponent size={20} color={color} focused={focused} />
       </View>
@@ -59,10 +59,10 @@ export function TabNavigator() {
   const { mode } = useInteractionMode();
   const insets = useSafeAreaInsets();
   const bottomInset = mode === 'gym-floor' ? 0 : insets.bottom;
-  const tabBarTopPadding = Platform.OS === 'ios' ? 16 : 12;
-  const tabBarBottomPadding = Platform.OS === 'ios' ? 0 : 2;
-  const tabBarHeight = (Platform.OS === 'ios' ? 50 : 56) + bottomInset;
-  const tabBarInnerHeight = tabBarHeight - tabBarTopPadding - tabBarBottomPadding;
+  const tabBarTopPadding = Platform.OS === 'ios' ? 8 : 6;
+  const tabBarBottomPadding = Math.max(bottomInset, Platform.OS === 'ios' ? 8 : 4);
+  const tabBarInnerHeight = Math.max(TAP_TARGETS.plan.recommended, Platform.OS === 'ios' ? 56 : 52);
+  const tabBarHeight = tabBarInnerHeight + tabBarTopPadding + tabBarBottomPadding;
   const baseTabBarStyle = {
     position: 'absolute' as const,
     bottom: 0,
@@ -92,10 +92,12 @@ export function TabNavigator() {
         sceneStyle: {
           paddingBottom: mode === 'gym-floor' ? 0 : tabBarHeight,
         },
+        tabBarHideOnKeyboard: true,
         tabBarShowLabel: false,
         tabBarStyle: baseTabBarStyle,
         tabBarItemStyle: {
           height: tabBarInnerHeight,
+          minHeight: TAP_TARGETS.plan.min,
           alignItems: 'center',
           justifyContent: 'center',
           paddingVertical: 0,
@@ -112,11 +114,11 @@ export function TabNavigator() {
                   borderTopLeftRadius: RADIUS.xxl,
                   borderTopRightRadius: RADIUS.xxl,
                   borderTopWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.15)', // Light-catching edge
+                  borderColor: COLORS.borderLight,
                 }}
               >
                 <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10, 10, 10, 0.88)' }]} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.surface }]} />
               </View>
             </View>
           ) : (
@@ -128,7 +130,7 @@ export function TabNavigator() {
                 borderTopLeftRadius: RADIUS.xxl,
                 borderTopRightRadius: RADIUS.xxl,
                 borderTopWidth: 1,
-                borderColor: 'rgba(255,255,255,0.1)',
+                borderColor: COLORS.borderLight,
               }}
             />
           )
@@ -142,6 +144,8 @@ export function TabNavigator() {
         component={TodayStackNavigator}
         options={{
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Today" IconComponent={IconBarChart} testID="tab-today" />,
+          tabBarAccessibilityLabel: 'Today tab',
+          tabBarButtonTestID: 'tab-button-today',
         }}
       />
       <Tab.Screen
@@ -149,6 +153,8 @@ export function TabNavigator() {
         component={TrainStackNavigator}
         options={({ route }) => ({
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Train" IconComponent={IconActivity} testID="tab-train" />,
+          tabBarAccessibilityLabel: 'Train tab',
+          tabBarButtonTestID: 'tab-button-train',
           tabBarStyle: shouldHideTabBar(route)
             ? { display: 'none' }
             : baseTabBarStyle,
@@ -159,6 +165,8 @@ export function TabNavigator() {
         component={PlanStackNavigator}
         options={{
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Plan" IconComponent={IconCalendar} testID="tab-plan" />,
+          tabBarAccessibilityLabel: 'Plan tab',
+          tabBarButtonTestID: 'tab-button-plan',
         }}
       />
       <Tab.Screen
@@ -166,6 +174,8 @@ export function TabNavigator() {
         component={FuelStackNavigator}
         options={{
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Fuel" IconComponent={IconRestaurant} testID="tab-fuel" />,
+          tabBarAccessibilityLabel: 'Fuel tab',
+          tabBarButtonTestID: 'tab-button-fuel',
         }}
       />
       <Tab.Screen
@@ -173,6 +183,8 @@ export function TabNavigator() {
         component={MeStackNavigator}
         options={{
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Me" IconComponent={IconPerson} testID="tab-me" />,
+          tabBarAccessibilityLabel: 'Me tab',
+          tabBarButtonTestID: 'tab-button-me',
         }}
       />
     </Tab.Navigator>
@@ -186,10 +198,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    transform: [{ translateY: Platform.OS === 'ios' ? 12 : 6 }],
+    minHeight: TAP_TARGETS.plan.min,
   },
   iconChip: {
-    minWidth: 36,
+    minWidth: TAP_TARGETS.plan.min,
     height: 30,
     paddingHorizontal: 8,
     borderRadius: RADIUS.full,

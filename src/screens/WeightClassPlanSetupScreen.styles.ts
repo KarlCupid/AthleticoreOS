@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 
 export const styles = StyleSheet.create({
     header: {
@@ -7,7 +7,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
         gap: SPACING.sm,
     },
-    backButton: { marginBottom: SPACING.xs },
+    backButton: { minWidth: TAP_TARGETS.plan.min, minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xs },
     headerTitle: { fontSize: 22, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
     stepDots: { flexDirection: 'row', gap: 6, marginTop: SPACING.sm },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.border },
@@ -218,7 +218,7 @@ export const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: COLORS.borderLight,
     },
-    nextButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center', ...SHADOWS.colored.accent },
+    nextButton: { minHeight: 52, backgroundColor: COLORS.accent, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center', justifyContent: 'center', ...SHADOWS.colored.accent },
     nextButtonDisabled: { backgroundColor: COLORS.text.tertiary },
     activateButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, padding: SPACING.md, alignItems: 'center', ...SHADOWS.colored.accent },
     nextButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { Card } from '../components/Card';
 import { IconChevronLeft } from '../components/icons';
@@ -105,10 +105,16 @@ export function CustomExerciseScreen() {
     return (
         <KeyboardAvoidingView
             style={[styles.container, { paddingTop: insets.top }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    accessibilityHint="Returns to the exercise search screen."
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                >
                     <IconChevronLeft size={24} color={COLORS.text.primary} />
                 </TouchableOpacity>
                 <Text style={styles.title}>Custom Exercise</Text>
@@ -122,6 +128,7 @@ export function CustomExerciseScreen() {
                 ]}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
             >
                 <Card>
                     <Field label="Exercise Name" value={name} onChangeText={setName} placeholder="e.g. Band Face Pull" />
@@ -134,10 +141,13 @@ export function CustomExerciseScreen() {
                         {TYPES.map(t => (
                             <TouchableOpacity
                                 key={t.value}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Exercise type ${t.label}`}
+                                accessibilityState={{ selected: type === t.value }}
                                 style={[styles.chip, type === t.value && { backgroundColor: themeColor, borderColor: themeColor }]}
                                 onPress={() => setType(t.value)}
                             >
-                                <Text style={[styles.chipText, type === t.value && { color: '#F5F5F0' }]}>{t.label}</Text>
+                                <Text style={[styles.chipText, type === t.value && { color: COLORS.text.inverse }]}>{t.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -147,10 +157,13 @@ export function CustomExerciseScreen() {
                         {MUSCLE_GROUPS.map(m => (
                             <TouchableOpacity
                                 key={m.value}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Muscle group ${m.label}`}
+                                accessibilityState={{ selected: muscleGroup === m.value }}
                                 style={[styles.chip, muscleGroup === m.value && { backgroundColor: themeColor, borderColor: themeColor }]}
                                 onPress={() => setMuscleGroup(m.value)}
                             >
-                                <Text style={[styles.chipText, muscleGroup === m.value && { color: '#F5F5F0' }]}>{m.label}</Text>
+                                <Text style={[styles.chipText, muscleGroup === m.value && { color: COLORS.text.inverse }]}>{m.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -160,10 +173,13 @@ export function CustomExerciseScreen() {
                         {EQUIPMENT_OPTIONS.map(e => (
                             <TouchableOpacity
                                 key={e.value}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Equipment ${e.label}`}
+                                accessibilityState={{ selected: equipment === e.value }}
                                 style={[styles.chip, equipment === e.value && { backgroundColor: themeColor, borderColor: themeColor }]}
                                 onPress={() => setEquipment(e.value)}
                             >
-                                <Text style={[styles.chipText, equipment === e.value && { color: '#F5F5F0' }]}>{e.label}</Text>
+                                <Text style={[styles.chipText, equipment === e.value && { color: COLORS.text.inverse }]}>{e.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -172,6 +188,10 @@ export function CustomExerciseScreen() {
 
             <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
                 <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={saving ? 'Saving custom exercise' : 'Create custom exercise'}
+                    accessibilityHint="Creates this exercise and returns to the previous screen."
+                    accessibilityState={{ disabled: saving, busy: saving }}
                     style={[styles.saveButton, { backgroundColor: themeColor }, saving && { opacity: 0.6 }]}
                     onPress={handleSave}
                     disabled={saving}
@@ -192,6 +212,7 @@ function Field({ label, value, onChangeText, placeholder, keyboardType }: {
         <View style={fieldStyles.container}>
             <Text style={fieldStyles.label}>{label}</Text>
             <TextInput
+                accessibilityLabel={label}
                 style={fieldStyles.input}
                 value={value}
                 onChangeText={onChangeText}
@@ -219,7 +240,7 @@ const fieldStyles = StyleSheet.create({
         paddingVertical: SPACING.sm + 2,
         fontSize: 15,
         fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.primary,
+        color: COLORS.text.inverse,
     },
 });
 
@@ -232,7 +253,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm,
     },
-    backButton: { padding: SPACING.sm, marginRight: SPACING.sm },
+    backButton: {
+        minWidth: TAP_TARGETS.plan.min,
+        minHeight: TAP_TARGETS.plan.min,
+        marginRight: SPACING.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     title: {
         fontSize: 20,
         fontFamily: FONT_FAMILY.extraBold,
@@ -253,6 +280,7 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.md,
     },
     chip: {
+        minHeight: TAP_TARGETS.plan.min,
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.xs + 2,
         borderRadius: RADIUS.full,
@@ -272,13 +300,15 @@ const styles = StyleSheet.create({
         borderTopColor: COLORS.border,
     },
     saveButton: {
+        minHeight: 52,
         borderRadius: RADIUS.lg,
-        paddingVertical: SPACING.md + 2,
+        paddingVertical: SPACING.md,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     saveButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#F5F5F0',
+        color: COLORS.text.primary,
     },
 });

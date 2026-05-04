@@ -23,7 +23,7 @@ import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSec
 import { GeneratedWorkoutBetaContainer } from '../components/workout/GeneratedWorkoutBetaContainer';
 import { GeneratedWorkoutDevPreviewPanel } from '../components/workout/GeneratedWorkoutDevPreviewPanel';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { useGeneratedWorkoutBeta } from '../hooks/useGeneratedWorkoutBeta';
 import {
@@ -106,7 +106,7 @@ function StateCard({
       <View style={styles.stateCard}>
         <Text style={styles.stateTitle}>{title}</Text>
         <Text style={styles.stateBody}>{body}</Text>
-        <AnimatedPressable style={styles.stateActionButton} onPress={onPress}>
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel={actionLabel} style={styles.stateActionButton} onPress={onPress}>
           <Text style={styles.stateActionButtonText}>{actionLabel}</Text>
         </AnimatedPressable>
       </View>
@@ -261,14 +261,21 @@ export function WorkoutScreen() {
           subtitle="Today, week, progress."
           rightAction={(
             <View style={styles.headerActions}>
-              <Pressable style={styles.headerBtn} onPress={() => parentNavigation?.navigate('Plan' as never)}><Text style={styles.headerBtnText}>Plan</Text></Pressable>
-              <Pressable style={styles.headerBtn} onPress={() => navigation.navigate('GymProfiles')}><Text style={styles.headerBtnText}>Gym</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Open plan tab" style={styles.headerBtn} onPress={() => parentNavigation?.navigate('Plan' as never)}><Text style={styles.headerBtnText}>Plan</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Open gym profiles" style={styles.headerBtn} onPress={() => navigation.navigate('GymProfiles')}><Text style={styles.headerBtnText}>Gym</Text></Pressable>
             </View>
           )}
         >
           <View style={styles.tabBar}>
             {WORKOUT_TABS.map((tab) => (
-              <AnimatedPressable key={tab} style={[styles.tab, activeTab === tab && styles.tabActive]} onPress={() => setActiveTab(tab)}>
+              <AnimatedPressable
+                key={tab}
+                accessibilityRole="button"
+                accessibilityLabel={`${formatWorkoutTabLabel(tab)} training tab`}
+                accessibilityState={{ selected: activeTab === tab }}
+                style={[styles.tab, activeTab === tab && styles.tabActive]}
+                onPress={() => setActiveTab(tab)}
+              >
                 <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{formatWorkoutTabLabel(tab)}</Text>
               </AnimatedPressable>
             ))}
@@ -321,8 +328,8 @@ export function WorkoutScreen() {
                       ))}
                     </View>
                   )}
-                  <AnimatedPressable style={styles.primaryButton} onPress={handlePrimaryAction}><Text style={styles.primaryButtonText}>{primaryActionLabel}</Text></AnimatedPressable>
-                  {prescription ? <AnimatedPressable style={styles.secondaryLink} onPress={() => setShowWorkoutDetails((value) => !value)}><Text style={styles.secondaryLinkText}>{showWorkoutDetails ? 'Hide workout details' : 'View workout details'}</Text></AnimatedPressable> : null}
+                  <AnimatedPressable accessibilityRole="button" accessibilityLabel={primaryActionLabel} style={styles.primaryButton} onPress={handlePrimaryAction}><Text style={styles.primaryButtonText}>{primaryActionLabel}</Text></AnimatedPressable>
+                  {prescription ? <AnimatedPressable accessibilityRole="button" accessibilityLabel={showWorkoutDetails ? 'Hide workout details' : 'View workout details'} style={styles.secondaryLink} onPress={() => setShowWorkoutDetails((value) => !value)}><Text style={styles.secondaryLinkText}>{showWorkoutDetails ? 'Hide workout details' : 'View workout details'}</Text></AnimatedPressable> : null}
                 </Card>
               </Animated.View>
             ) : null}
@@ -378,7 +385,13 @@ export function WorkoutScreen() {
                   };
                   return (
                     <Animated.View key={group.date} entering={FadeInDown.delay(index * 45).duration(260).springify()}>
-                      <AnimatedPressable style={styles.weekCard} onPress={handlePress}>
+                      <AnimatedPressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${sessionLabel}, ${status.label}, ${primaryEntry.estimated_duration_min} minutes`}
+                        accessibilityHint={group.date === todayLocalDate() && primaryEntry.status === 'planned' ? 'Starts this planned workout.' : 'Opens workout details.'}
+                        style={styles.weekCard}
+                        onPress={handlePress}
+                      >
                         <View style={styles.weekCardLeft}>
                           <Text style={styles.weekCardDay}>{new Date(`${group.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' })}</Text>
                           <Text style={styles.weekCardDate}>{new Date(`${group.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
@@ -396,7 +409,7 @@ export function WorkoutScreen() {
                     </Animated.View>
                   );
                 })}
-                <AnimatedPressable style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust Plan</Text></AnimatedPressable>
+                <AnimatedPressable accessibilityRole="button" accessibilityLabel="Adjust plan" style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust Plan</Text></AnimatedPressable>
               </>
             )}
           </View>
@@ -438,10 +451,10 @@ const styles = StyleSheet.create({
   loadingScreen: { flex: 1, backgroundColor: 'transparent' },
   header: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
   headerActions: { flexDirection: 'row', gap: SPACING.sm },
-  headerBtn: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2, borderRadius: RADIUS.full },
+  headerBtn: { minHeight: TAP_TARGETS.plan.min, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
   headerBtnText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   tabBar: { flexDirection: 'row', backgroundColor: 'rgba(10, 10, 10, 0.46)', borderRadius: RADIUS.lg, padding: 4, borderWidth: 1, borderColor: COLORS.borderLight },
-  tab: { flex: 1, paddingVertical: SPACING.sm, borderRadius: RADIUS.md, alignItems: 'center' },
+  tab: { flex: 1, minHeight: TAP_TARGETS.plan.min, paddingVertical: SPACING.sm, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
   tabActive: { backgroundColor: COLORS.accent },
   tabText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   tabTextActive: { color: COLORS.text.inverse },
@@ -464,9 +477,9 @@ const styles = StyleSheet.create({
   guardrailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
   guardrailDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 6 },
   guardrailText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
-  primaryButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.lg, alignItems: 'center', paddingVertical: SPACING.md, marginTop: SPACING.md },
+  primaryButton: { minHeight: 52, backgroundColor: COLORS.accent, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.md, marginTop: SPACING.md },
   primaryButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
-  secondaryLink: { alignItems: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.xs },
+  secondaryLink: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.xs },
   secondaryLinkText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
   alsoTodayList: { marginTop: SPACING.xs },
   alsoTodayRow: { flexDirection: 'row', gap: SPACING.md, paddingVertical: SPACING.sm + 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight },
@@ -488,7 +501,7 @@ const styles = StyleSheet.create({
   weekCardNote: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 4 },
   weekStatusChip: { borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm + 2, paddingVertical: 6 },
   weekStatusChipText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  planSettingsButton: { alignItems: 'center', paddingVertical: SPACING.sm },
+  planSettingsButton: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm },
   planSettingsButtonText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   tabLoadingState: { gap: SPACING.md },
   stateCard: { alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.sm },

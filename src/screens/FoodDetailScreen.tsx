@@ -187,10 +187,17 @@ export function FoodDetailScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.header}>
-        <AnimatedPressable testID="food-detail-back" onPress={() => navigation.goBack()} style={styles.backButton}>
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to the previous food screen."
+          testID="food-detail-back"
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </AnimatedPressable>
         <Text style={styles.title} numberOfLines={1}>
@@ -206,6 +213,7 @@ export function FoodDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>
           <View style={styles.foodInfoRow}>

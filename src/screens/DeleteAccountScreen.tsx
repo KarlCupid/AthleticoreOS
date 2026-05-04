@@ -38,7 +38,7 @@ export function DeleteAccountScreen() {
   };
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper useSafeArea>
       <View style={styles.header}>
         <ScreenHeader
           kicker="Account"
@@ -68,10 +68,13 @@ export function DeleteAccountScreen() {
               <Text style={styles.confirmBody}>Turn this on to enable the deletion button below.</Text>
             </View>
             <Switch
+              accessibilityRole="switch"
+              accessibilityLabel="Confirm permanent account deletion"
+              accessibilityHint="Enables the delete account button."
               value={confirmed}
               onValueChange={setConfirmed}
               trackColor={{ true: COLORS.readiness.depleted, false: COLORS.border }}
-              thumbColor="#F5F5F0"
+              thumbColor={COLORS.text.primary}
             />
           </View>
         </Card>
@@ -79,12 +82,13 @@ export function DeleteAccountScreen() {
         <AnimatedPressable
           accessibilityRole="button"
           accessibilityLabel="Delete my account"
+          accessibilityHint="Shows a final confirmation before permanently deleting your account and app data."
           accessibilityState={{ disabled: !confirmed || deleting, busy: deleting }}
           style={[styles.deleteButton, (!confirmed || deleting) && styles.deleteButtonDisabled]}
           disabled={!confirmed || deleting}
           onPress={handleDelete}
         >
-          {deleting ? <ActivityIndicator size="small" color="#F5F5F0" /> : null}
+          {deleting ? <ActivityIndicator size="small" color={COLORS.text.primary} /> : null}
           <Text style={styles.deleteButtonText}>{deleting ? 'Deleting account...' : 'Delete my account'}</Text>
         </AnimatedPressable>
       </ScrollView>
@@ -147,6 +151,6 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
-    color: '#F5F5F0',
+    color: COLORS.text.primary,
   },
 });

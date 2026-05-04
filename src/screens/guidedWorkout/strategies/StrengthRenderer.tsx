@@ -193,6 +193,8 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         isGymFloor ? (
           <GymFloorPressable
             label={isLoggingSet ? 'Saving...' : 'Set Done'}
+            accessibilityLabel={isLoggingSet ? 'Saving set' : 'Log set'}
+            accessibilityHint="Records the current set in gym-floor mode."
             onPress={onLogSet}
             disabled={!canLogSet}
             variant="primary"
@@ -220,6 +222,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
           onPress={isLastExercise ? onFinishWorkout : onCompleteExercise}
           activeOpacity={0.82}
           accessibilityLabel={isLastExercise ? 'Finish workout' : 'Complete exercise'}
+          accessibilityHint={isLastExercise ? 'Asks for confirmation before finishing this session.' : 'Moves to the next exercise.'}
           accessibilityRole="button"
         >
           <Text style={styles.primaryButtonText}>
@@ -231,13 +234,27 @@ export function StrengthRenderer(props: StrategyRendererProps) {
       {/* Footer links â€” skip / finish early */}
       {!allTargetSetsLogged && (
         <View style={styles.footerLinks}>
-          <TouchableOpacity onPress={onSkipExercise} activeOpacity={0.7} style={styles.footerLink}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Skip this exercise"
+            accessibilityHint="Asks for confirmation before skipping the current exercise."
+            onPress={onSkipExercise}
+            activeOpacity={0.7}
+            style={styles.footerLink}
+          >
             <Text style={styles.linkText}>Skip This</Text>
           </TouchableOpacity>
           {workingSetsLogged > 0 && (
             <>
               <Text style={styles.footerDivider}>Â·</Text>
-              <TouchableOpacity onPress={onFinishWorkout} activeOpacity={0.7} style={styles.footerLink}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="End session early"
+                accessibilityHint="Asks for confirmation before saving and ending this workout."
+                onPress={onFinishWorkout}
+                activeOpacity={0.7}
+                style={styles.footerLink}
+              >
                 <Text style={styles.finishEarlyText}>End Session</Text>
               </TouchableOpacity>
             </>
@@ -280,7 +297,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md + 2,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: TAP_TARGETS.plan.recommended,
+    minHeight: TAP_TARGETS.focusPrimary.min,
     ...SHADOWS.colored.accent,
   },
   primaryButtonDisabled: {
@@ -306,7 +323,7 @@ const styles = StyleSheet.create({
   footerLink: {
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.xs,
-    minHeight: TAP_TARGETS.plan.min,
+    minHeight: TAP_TARGETS.focus.min,
     justifyContent: 'center',
   },
   footerDivider: {

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from 'react
 import { WheelColumn } from './WheelColumn';
 import { IconCalendar } from './icons';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING, SHADOWS } from '../theme/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -16,6 +17,7 @@ export function DatePickerField({ label, value, onChange, testID }: {
     onChange: (v: string) => void;
     testID?: string;
 }) {
+    const insets = useSafeAreaInsets();
     const [open, setOpen] = useState(false);
 
     const parseValue = (s: string) => {
@@ -64,7 +66,15 @@ export function DatePickerField({ label, value, onChange, testID }: {
 
     return (
         <>
-            <TouchableOpacity style={styles.dateField} onPress={onOpen} activeOpacity={0.7} testID={testID}>
+            <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityHint="Opens a date picker."
+                style={styles.dateField}
+                onPress={onOpen}
+                activeOpacity={0.7}
+                testID={testID}
+            >
                 <Text style={[styles.dateFieldText, !value && { color: COLORS.text.tertiary }]}>
                     {displayDate}
                 </Text>
@@ -74,13 +84,13 @@ export function DatePickerField({ label, value, onChange, testID }: {
             <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
                 <View style={styles.pickerOverlay}>
                     <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} testID={testID ? `${testID}-scrim` : undefined} />
-                    <View style={styles.pickerSheet}>
+                    <View style={[styles.pickerSheet, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 34 : SPACING.lg) }]}>
                         <View style={styles.pickerHeader}>
-                            <TouchableOpacity onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-cancel` : undefined}>
+                            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cancel date picker" style={styles.pickerHeaderAction} onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-cancel` : undefined}>
                                 <Text style={styles.pickerCancel}>Cancel</Text>
                             </TouchableOpacity>
                             <Text style={styles.pickerTitle}>{label}</Text>
-                            <TouchableOpacity onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-done` : undefined}>
+                            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Confirm date" style={styles.pickerHeaderAction} onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-done` : undefined}>
                                 <Text style={styles.pickerDone}>Done</Text>
                             </TouchableOpacity>
                         </View>
@@ -121,7 +131,6 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderTopLeftRadius: RADIUS.xl,
         borderTopRightRadius: RADIUS.xl,
-        paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.lg,
         overflow: 'hidden',
     },
     pickerHeader: {
@@ -133,9 +142,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: COLORS.border,
     },
+    pickerHeaderAction: {
+        minHeight: 44,
+        justifyContent: 'center',
+    },
     pickerCancel: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
     pickerTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-    pickerDone: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: '#B7D9A8' },
+    pickerDone: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.success },
     pickerHighlight: {
         position: 'absolute',
         left: 0,
@@ -144,7 +157,7 @@ const styles = StyleSheet.create({
         height: ITEM_H,
         borderTopWidth: 1.5,
         borderBottomWidth: 1.5,
-        borderColor: '#B7D9A8',
+        borderColor: COLORS.success,
     },
 });
 

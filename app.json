@@ -7,11 +7,11 @@
     "scheme": "athleticore",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F0F4F5"
+      "backgroundColor": "#0A0A0A"
     },
     "ios": {
       "supportsTablet": false,
@@ -21,9 +21,14 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
+    "androidStatusBar": {
+      "backgroundColor": "#0A0A0A",
+      "barStyle": "light-content",
+      "translucent": false
+    },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0A0A0A",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

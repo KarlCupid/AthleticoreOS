@@ -16,7 +16,7 @@ import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import type { WeightClassPlanRow } from '../../lib/engine/types';
 import { getBodyMassSupportPhase, type BodyMassSupportPhase } from '../../lib/performance-engine';
 import type { FightWeekDayViewModel } from '../hooks/fuel/types';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { IconChevronLeft, IconDroplets } from '../components/icons';
 import { UrineColorPicker } from '../components/UrineColorPicker';
@@ -157,7 +157,13 @@ export function CompetitionBodyMassScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['rgba(10, 10, 10, 0.94)', `${phaseColors[0]}33`]} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to the weight-class screen."
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Fight Week Support</Text>
@@ -178,6 +184,9 @@ export function CompetitionBodyMassScreen() {
         {fightWeekDays.map((day) => (
           <TouchableOpacity
             key={day.date}
+            accessibilityRole="button"
+            accessibilityLabel={`${day.label}, ${day.phaseLabel}`}
+            accessibilityState={{ selected: selectedDay === day.daysToWeighIn }}
             style={[
               styles.dayTab,
               selectedDay === day.daysToWeighIn && { backgroundColor: `${phaseColors[0]}22`, borderColor: phaseColors[0] },
@@ -346,6 +355,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backBtn: {
+    minWidth: TAP_TARGETS.plan.min,
+    minHeight: TAP_TARGETS.plan.min,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: SPACING.sm,
   },
   headerTitle: {
@@ -367,6 +380,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   dayTab: {
+    minHeight: TAP_TARGETS.plan.recommended,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     backgroundColor: COLORS.surface,

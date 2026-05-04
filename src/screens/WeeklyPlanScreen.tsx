@@ -16,7 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-gifted-charts';
 
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, TAP_TARGETS } from '../theme/theme';
 import { useWeeklyPlan } from '../hooks/useWeeklyPlan';
 import { useWeeklyPlanScreenController } from '../hooks/useWeeklyPlanScreenController';
 import DayPlanCard from '../components/DayPlanCard';
@@ -265,15 +265,15 @@ export function WeeklyPlanScreen() {
                             )}
                             
                             <View style={{ flexDirection: 'row', marginTop: SPACING.xl, gap: SPACING.xl }}>
-                                <TouchableOpacity onPress={goToPrevWeek}>
+                                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Previous week" onPress={goToPrevWeek}>
                                     <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>« Prev Week</Text>
                                 </TouchableOpacity>
                                 {!isCurrentWeek && (
-                                    <TouchableOpacity onPress={handleTodayPress}>
+                                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to current week" onPress={handleTodayPress}>
                                         <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent }}>Today</Text>
                                     </TouchableOpacity>
                                 )}
-                                <TouchableOpacity onPress={goToNextWeek}>
+                                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next week" onPress={goToNextWeek}>
                                     <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>Next Week »</Text>
                                 </TouchableOpacity>
                             </View>
@@ -296,23 +296,29 @@ export function WeeklyPlanScreen() {
                         ? `Week of ${formatShortMonthDay(activeWeekStart)}` 
                         : isDeloadWeek ? 'Recovery week' : 'Training schedule'}
                     rightAction={!loading && entries.length > 0 ? (
-                        <TouchableOpacity onPress={handleOptionsPress} style={styles.headerOptionsBtn}>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Plan options"
+                            accessibilityHint="Opens weekly plan actions."
+                            onPress={handleOptionsPress}
+                            style={styles.headerOptionsBtn}
+                        >
                             <MaterialCommunityIcons name="dots-vertical" size={20} color={COLORS.text.primary} />
                         </TouchableOpacity>
                     ) : null}
                 >
                     <View style={styles.weekNavRow}>
-                        <AnimatedPressable onPress={goToPrevWeek} style={styles.navBtn}>
+                        <AnimatedPressable accessibilityRole="button" accessibilityLabel="Previous week" onPress={goToPrevWeek} style={styles.navBtn}>
                             <Text style={styles.navBtnText}>Prev</Text>
                         </AnimatedPressable>
                         
                         {!isCurrentWeek && (
-                            <AnimatedPressable onPress={handleTodayPress} style={[styles.navBtn, styles.navBtnToday]}>
+                            <AnimatedPressable accessibilityRole="button" accessibilityLabel="Go to current week" onPress={handleTodayPress} style={[styles.navBtn, styles.navBtnToday]}>
                                 <Text style={[styles.navBtnText, { color: COLORS.text.inverse }]}>Today</Text>
                             </AnimatedPressable>
                         )}
 
-                        <AnimatedPressable onPress={goToNextWeek} style={styles.navBtn}>
+                        <AnimatedPressable accessibilityRole="button" accessibilityLabel="Next week" onPress={goToNextWeek} style={styles.navBtn}>
                             <Text style={styles.navBtnText}>Next</Text>
                         </AnimatedPressable>
                     </View>
@@ -352,7 +358,13 @@ export function WeeklyPlanScreen() {
                             backgroundTone="workoutFloor"
                             backgroundScrimColor="rgba(10, 10, 10, 0.60)"
                         >
-                            <AnimatedPressable style={styles.heroCardInner} onPress={() => handleDayPress(nextSession)}>
+                            <AnimatedPressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`Start ${getSessionFamilyLabel({ sessionType: nextSession.session_type, focus: nextSession.focus })}`}
+                                accessibilityHint="Opens the next planned training session."
+                                style={styles.heroCardInner}
+                                onPress={() => handleDayPress(nextSession)}
+                            >
                                 <View style={styles.heroHeader}>
                                     <View style={styles.heroBadge}>
                                         <Text style={styles.heroBadgeText}>UP NEXT</Text>
@@ -445,7 +457,7 @@ export function WeeklyPlanScreen() {
                             >
                                 <View style={styles.cautionBannerInner}>
                                     <View style={styles.cautionIconBox}>
-                                        <MaterialCommunityIcons name="alert" size={14} color="#F5F5F0" />
+                                    <MaterialCommunityIcons name="alert" size={14} color={COLORS.text.primary} />
                                     </View>
                                     <Text style={styles.cautionBannerText}>
                                         {missedEntries.length} missed session{missedEntries.length > 1 ? 's' : ''} — tap to reschedule
@@ -561,7 +573,13 @@ export function WeeklyPlanScreen() {
 
             {/* ─── Feature: Quick Logging FAB ─── */}
             <Animated.View entering={FadeInDown.delay(400).duration(ANIMATION.normal).springify()} style={[styles.fabContainer, { bottom: Math.max(insets.bottom + 65, 75) }]}>
-                <AnimatedPressable style={styles.fab} onPress={handleQuickLogPress}>
+                        <AnimatedPressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Log session"
+                            accessibilityHint="Opens the quick session logging flow."
+                            style={styles.fab}
+                            onPress={handleQuickLogPress}
+                        >
                     <MaterialCommunityIcons name="plus" size={24} color={COLORS.text.inverse} />
                     <Text style={styles.fabText}>Log Session</Text>
                 </AnimatedPressable>
@@ -585,6 +603,7 @@ const styles = StyleSheet.create({
     navBtn: {
         flex: 1,
         backgroundColor: 'rgba(10, 10, 10, 0.46)',
+        minHeight: TAP_TARGETS.plan.min,
         paddingVertical: 8,
         borderRadius: RADIUS.lg,
         alignItems: 'center',
@@ -601,8 +620,8 @@ const styles = StyleSheet.create({
         color: COLORS.text.secondary,
     },
     headerOptionsBtn: {
-        width: 36,
-        height: 36,
+        width: TAP_TARGETS.plan.min,
+        height: TAP_TARGETS.plan.min,
         borderRadius: RADIUS.full,
         backgroundColor: 'rgba(10, 10, 10, 0.46)',
         alignItems: 'center',

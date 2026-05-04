@@ -292,7 +292,14 @@ export function FoodSearchScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton} testID="food-search-back">
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to the previous food screen."
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          testID="food-search-back"
+        >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </AnimatedPressable>
         <Text style={styles.title}>Add to {MEAL_LABELS[mealType]}</Text>
@@ -317,6 +324,9 @@ export function FoodSearchScreen() {
             testID="food-search-input"
           />
           <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="Scan barcode"
+            accessibilityHint="Opens the camera scanner for packaged foods."
             style={styles.barcodeButton}
             onPress={() => navigation.navigate('BarcodeScan', { mealType, date })}
             testID="food-search-scan"
@@ -331,6 +341,9 @@ export function FoodSearchScreen() {
             return (
               <AnimatedPressable
                 key={mode}
+                accessibilityRole="button"
+                accessibilityLabel={`${SEARCH_MODE_LABELS[mode]} food search mode`}
+                accessibilityState={{ selected: active }}
                 style={[styles.modeChip, active && styles.modeChipActive]}
                 onPress={() => handleSelectMode(mode)}
                 testID={`food-search-mode-${mode}`}
@@ -361,8 +374,11 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   backButton: {
-    padding: SPACING.sm,
+    minWidth: 44,
+    minHeight: 44,
     marginRight: SPACING.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,

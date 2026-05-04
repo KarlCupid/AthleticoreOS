@@ -126,11 +126,20 @@ export function ExerciseSearchScreen() {
         <View style={[styles.container, { paddingTop: insets.top }]}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    accessibilityHint="Returns to the previous training screen."
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                >
                     <IconChevronLeft size={24} color={COLORS.text.primary} />
                 </TouchableOpacity>
                 <Text style={styles.title}>Exercise Library</Text>
                 <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Create custom exercise"
+                    accessibilityHint="Opens the custom exercise form."
                     onPress={() => navigation.navigate('CustomExercise')}
                     style={styles.addButton}
                 >
@@ -172,7 +181,7 @@ export function ExerciseSearchScreen() {
                     >
                         <Text style={[
                             styles.filterChipText,
-                            typeFilter === item.value && { color: '#F5F5F0' },
+                            typeFilter === item.value && { color: COLORS.text.primary },
                         ]}>{item.label}</Text>
                     </TouchableOpacity>
                 )}
@@ -195,7 +204,7 @@ export function ExerciseSearchScreen() {
                     >
                         <Text style={[
                             styles.filterChipText,
-                            muscleFilter === item.value && { color: '#F5F5F0' },
+                            muscleFilter === item.value && { color: COLORS.text.primary },
                         ]}>{item.label}</Text>
                     </TouchableOpacity>
                 )}
@@ -242,14 +251,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm,
     },
-    backButton: { padding: SPACING.sm, marginRight: SPACING.sm },
+    backButton: { minWidth: 44, minHeight: 44, marginRight: SPACING.sm, alignItems: 'center', justifyContent: 'center' },
     title: {
         flex: 1,
         fontSize: 20,
         fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
     },
-    addButton: { padding: SPACING.sm },
+    addButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
     searchContainer: {
         paddingHorizontal: SPACING.lg,
         marginBottom: SPACING.sm,

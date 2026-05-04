@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { IconPlus, IconChevronRight } from './icons';
 import { Card } from './Card';
 import { MealType } from '../../lib/engine/types';
@@ -54,6 +54,10 @@ export function MealSection({
         onPress={() => setExpanded(!expanded)}
         activeOpacity={0.7}
         testID={`meal-section-toggle-${mealType}`}
+        accessibilityRole="button"
+        accessibilityLabel={`${MEAL_LABELS[mealType]}, ${hasFoods ? `${foods.length} item${foods.length > 1 ? 's' : ''}` : 'empty'}`}
+        accessibilityHint={expanded ? 'Collapses this meal section.' : 'Expands this meal section.'}
+        accessibilityState={{ expanded }}
       >
         <View style={styles.headerLeft}>
           <Text style={styles.mealIcon}>{MEAL_ICONS[mealType]}</Text>
@@ -77,6 +81,9 @@ export function MealSection({
           {foods.map((food) => (
             <TouchableOpacity
               key={food.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${food.foodName}, ${Math.round(food.loggedCalories)} calories`}
+              accessibilityHint="Opens this food entry. Long press asks to remove it."
               style={styles.foodRow}
               onPress={() => onSelectFood(food.id)}
               onLongPress={() => onRemoveFood(food.id)}
@@ -96,14 +103,28 @@ export function MealSection({
             </TouchableOpacity>
           ))}
 
-          <TouchableOpacity style={styles.addButton} onPress={onAddFood} activeOpacity={0.7} testID={`meal-add-${mealType}`}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Add food to ${MEAL_LABELS[mealType]}`}
+            style={styles.addButton}
+            onPress={onAddFood}
+            activeOpacity={0.7}
+            testID={`meal-add-${mealType}`}
+          >
             <IconPlus size={16} color={COLORS.text.tertiary} strokeWidth={2} />
             <Text style={styles.addText}>Add</Text>
           </TouchableOpacity>
         </View>
       )}
       {!expanded && !hasFoods && (
-        <TouchableOpacity style={styles.addButtonCompact} onPress={onAddFood} activeOpacity={0.7} testID={`meal-add-${mealType}`}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={`Add food to ${MEAL_LABELS[mealType]}`}
+          style={styles.addButtonCompact}
+          onPress={onAddFood}
+          activeOpacity={0.7}
+          testID={`meal-add-${mealType}`}
+        >
           <IconPlus size={16} color={COLORS.text.tertiary} strokeWidth={2} />
           <Text style={styles.addText}>Add</Text>
         </TouchableOpacity>
@@ -120,6 +141,7 @@ const styles = StyleSheet.create({
     ...SHADOWS.card,
   },
   header: {
+    minHeight: TAP_TARGETS.plan.recommended,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -158,6 +180,7 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.md,
   },
   foodRow: {
+    minHeight: TAP_TARGETS.plan.min,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -186,6 +209,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
   },
   addButton: {
+    minHeight: TAP_TARGETS.plan.min,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -199,6 +223,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.tertiary,
   },
   addButtonCompact: {
+    minHeight: TAP_TARGETS.plan.min,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -467,6 +467,7 @@ export function GeneratedWorkoutBetaSessionCard({
               testID="generated-workout-beta-clear"
               accessibilityRole="button"
               accessibilityLabel="Clear generated workout"
+              accessibilityHint="Asks for confirmation before removing the generated workout draft."
               style={styles.secondaryButton}
               disabled={loading || completing}
               onPress={onReset}
@@ -551,6 +552,7 @@ export function GeneratedWorkoutBetaSessionCard({
                 testID="generated-workout-beta-abandon"
                 accessibilityRole="button"
                 accessibilityLabel="Abandon generated workout"
+                accessibilityHint="Asks for confirmation before abandoning this generated workout."
                 style={styles.quietButton}
                 disabled={completing || !onAbandon}
                 onPress={onAbandon}

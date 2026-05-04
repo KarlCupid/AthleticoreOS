@@ -21,6 +21,9 @@ export function OptionPill({
   if (compact) {
     return (
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected }}
         style={[styles.optionPill, selected && styles.optionPillSelected]}
         onPress={onPress}
         activeOpacity={0.75}
@@ -33,6 +36,9 @@ export function OptionPill({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
       style={[styles.optionCard, selected && styles.optionCardSelected]}
       onPress={onPress}
       activeOpacity={0.75}

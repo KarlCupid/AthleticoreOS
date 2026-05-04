@@ -597,7 +597,15 @@ export function DashboardScreen() {
           void dismissFirstRunModal();
         }}
       >
-        <View style={styles.firstRunModalOverlay}>
+        <View
+          style={[
+            styles.firstRunModalOverlay,
+            {
+              paddingTop: insets.top + SPACING.lg,
+              paddingBottom: insets.bottom + SPACING.lg,
+            },
+          ]}
+        >
           <View style={styles.firstRunModalCard}>
             <ScrollView
               showsVerticalScrollIndicator={false}
@@ -612,6 +620,9 @@ export function DashboardScreen() {
               </Text>
 
               <AnimatedPressable
+                accessibilityRole="button"
+                accessibilityLabel="Log first check-in"
+                accessibilityHint="Closes this message and opens today's check-in."
                 style={styles.firstRunModalPrimaryButton}
                 onPress={() => {
                   void dismissFirstRunModal();
@@ -623,6 +634,9 @@ export function DashboardScreen() {
               </AnimatedPressable>
 
               <AnimatedPressable
+                accessibilityRole="button"
+                accessibilityLabel="Not now"
+                accessibilityHint="Closes this introduction and keeps you on Today."
                 style={styles.firstRunModalSecondaryButton}
                 onPress={() => {
                   void dismissFirstRunModal();
@@ -814,7 +828,7 @@ export function DashboardScreen() {
                     trackColor="rgba(245,245,240,0.13)"
                     label={getReadinessCircleValue(readinessScore)}
                     centerSublabel={getReadinessCenterSublabel(readinessScore)}
-                    textColor="#F5F5F0"
+                    textColor={COLORS.text.primary}
                     glowColor={getReadinessGlowColor(currentLevel)}
                     centerFillColor="rgba(10, 10, 10, 0.78)"
                     centerBorderColor={getReadinessBorderColor(currentLevel)}

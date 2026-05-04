@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import Animated, { ZoomIn, FadeIn } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 
 interface PRCelebrationProps {
@@ -37,11 +38,10 @@ const CONFETTI_COLORS = [
   COLORS.accent,
   COLORS.success,
   COLORS.warning,
-  '#F472B6',
-  '#A78BFA',
-  '#34D399',
-  '#FBBF24',
-  '#FB923C',
+  COLORS.error,
+  COLORS.chart.water,
+  COLORS.readiness.caution,
+  COLORS.readiness.depleted,
 ];
 
 interface ConfettiDot {
@@ -102,6 +102,7 @@ export default function PRCelebration({
   previousValue,
   onDismiss,
 }: PRCelebrationProps) {
+  const insets = useSafeAreaInsets();
   const improvement =
     previousValue !== null ? value - previousValue : null;
   const unit = PR_TYPE_UNITS[prType];
@@ -125,7 +126,7 @@ export default function PRCelebration({
       statusBarTranslucent
       onRequestClose={onDismiss}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.lg }]}>
         <ConfettiDots />
 
         <Animated.View
@@ -164,6 +165,8 @@ export default function PRCelebration({
 
           {/* Dismiss */}
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss personal record celebration"
             style={styles.dismissBtn}
             onPress={onDismiss}
             activeOpacity={0.8}
@@ -259,7 +262,7 @@ const styles = StyleSheet.create({
   dismissBtnText: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 16,
-    color: '#F5F5F0',
+    color: COLORS.text.inverse,
   },
   confettiDot: {
     position: 'absolute',

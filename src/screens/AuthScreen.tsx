@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import {
     PASSWORD_RECOVERY_REDIRECT_URL,
@@ -52,6 +52,7 @@ export function AuthScreen({
     notice = null,
     onPasswordRecoveryCompleted,
 }: AuthScreenProps) {
+    const insets = useSafeAreaInsets();
     const [mode, setMode] = useState<AuthMode>('signIn');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -296,13 +297,18 @@ export function AuthScreen({
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <StatusBar style="dark" />
-
             <ScrollView
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingTop: insets.top + SPACING.xxl,
+                        paddingBottom: insets.bottom + SPACING.xxl,
+                    },
+                ]}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 showsVerticalScrollIndicator={false}
             >
                 <Animated.View entering={ZoomIn.duration(ANIMATION.normal).springify()} style={styles.logoContainer}>
@@ -312,7 +318,7 @@ export function AuthScreen({
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
-                        <IconShieldCheck size={32} color="#F5F5F0" strokeWidth={2} />
+                        <IconShieldCheck size={32} color={COLORS.text.primary} strokeWidth={2} />
                     </LinearGradient>
                 </Animated.View>
 
@@ -591,7 +597,6 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         paddingHorizontal: SPACING.xl,
-        paddingVertical: SPACING.xxl,
     },
     logoContainer: {
         alignItems: 'center',

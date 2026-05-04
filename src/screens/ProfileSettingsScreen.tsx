@@ -481,7 +481,7 @@ export function ProfileSettingsScreen() {
     <ScreenWrapper>
       <KeyboardAvoidingView
         style={styles.keyboardRoot}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
           <ScreenHeader
@@ -754,10 +754,13 @@ export function ProfileSettingsScreen() {
                   <Text style={styles.settingLabel}>Cycle Tracking</Text>
                 </View>
                 <Switch
+                  accessibilityRole="switch"
+                  accessibilityLabel="Cycle tracking"
+                  accessibilityHint="Toggles menstrual cycle tracking for recovery and planning context."
                   value={Boolean(profile.cycle_tracking)}
                   onValueChange={(nextValue) => void handleCycleTrackingChange(nextValue)}
                   trackColor={{ true: themeColor, false: COLORS.border }}
-                  thumbColor="#F5F5F0"
+                  thumbColor={COLORS.text.primary}
                 />
               </View>
             </Card>
@@ -891,6 +894,7 @@ function EditableRow(props: {
         </View>
         <View style={styles.editActions}>
           <TextInput
+            accessibilityLabel={label}
             style={styles.editInput}
             value={editValue}
             onChangeText={onChangeText}
@@ -899,10 +903,21 @@ function EditableRow(props: {
             autoFocus
             keyboardType={keyboardType}
           />
-          <TouchableOpacity onPress={onSave} style={styles.saveButton}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Save ${label}`}
+            onPress={onSave}
+            style={styles.saveButton}
+          >
             <Text style={styles.saveButtonText}>Save</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onCancel} hitSlop={10} style={styles.cancelButton}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Cancel editing ${label}`}
+            onPress={onCancel}
+            hitSlop={10}
+            style={styles.cancelButton}
+          >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -911,7 +926,14 @@ function EditableRow(props: {
   }
 
   return (
-    <TouchableOpacity style={styles.detailRow} onPress={onEdit} activeOpacity={0.8}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={`Edit ${label}`}
+      accessibilityHint={`Current value ${value}. Opens an inline editor.`}
+      style={styles.detailRow}
+      onPress={onEdit}
+      activeOpacity={0.8}
+    >
       <View style={styles.detailLabelGroup}>
         {icon}
         <Text style={styles.settingLabel}>{label}</Text>

@@ -1,15 +1,15 @@
 import { StyleSheet } from 'react-native';
 
-import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING, TYPOGRAPHY_V2, BORDERS } from '../../theme/theme';
+import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING, TAP_TARGETS, TYPOGRAPHY_V2, BORDERS } from '../../theme/theme';
 
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
-  backButton: { minWidth: 64, paddingVertical: SPACING.xs },
+  backButton: { minWidth: 64, minHeight: TAP_TARGETS.plan.min, paddingVertical: SPACING.xs, justifyContent: 'center' },
   backButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   headerTitle: { ...TYPOGRAPHY_V2.plan.headline, color: COLORS.text.primary },
-  headerRight: { minWidth: 64, alignItems: 'flex-end' },
+  headerRight: { minWidth: 64, minHeight: TAP_TARGETS.plan.min, alignItems: 'flex-end', justifyContent: 'center' },
   progressShell: { marginHorizontal: SPACING.lg, marginBottom: SPACING.md, backgroundColor: 'rgba(10, 10, 10, 0.68)', borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.22)', ...SHADOWS.card },
   progressHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xs },
   progressEyebrow: { ...TYPOGRAPHY_V2.plan.caption, fontSize: 11, color: COLORS.text.tertiary, textTransform: 'uppercase', letterSpacing: 1.2 },
@@ -32,7 +32,7 @@ export const styles = StyleSheet.create({
   dateTopText: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginBottom: 4 },
   dateBottomText: { fontSize: 16, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary },
   dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
-  dayPill: { minWidth: 58, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface },
+  dayPill: { minWidth: 58, minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface },
   dayPillSelected: { borderColor: COLORS.accent, backgroundColor: 'rgba(212, 175, 55, 0.16)', ...SHADOWS.colored.accent },
   dayPillText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   optionList: { gap: SPACING.sm, marginTop: SPACING.sm },
@@ -45,6 +45,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     backgroundColor: COLORS.surface,
+    minHeight: TAP_TARGETS.plan.recommended,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm + 4,
   },
@@ -75,7 +76,7 @@ export const styles = StyleSheet.create({
     borderColor: COLORS.accent,
     backgroundColor: COLORS.accent,
   },
-  optionPill: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface },
+  optionPill: { minHeight: TAP_TARGETS.plan.min, justifyContent: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface },
   optionPillSelected: { borderColor: COLORS.accent, backgroundColor: 'rgba(212, 175, 55, 0.16)', ...SHADOWS.colored.accent },
   optionPillText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
   optionPillTextSelected: { color: COLORS.accent },
@@ -89,6 +90,7 @@ export const styles = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'flex-start' },
   inlineField: { flex: 1 },
   dropdownField: {
+    minHeight: TAP_TARGETS.plan.min,
     marginTop: SPACING.sm,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
@@ -113,7 +115,7 @@ export const styles = StyleSheet.create({
   previewCard: { marginTop: SPACING.lg, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface, padding: SPACING.md, gap: SPACING.xs },
   previewTitle: { ...TYPOGRAPHY_V2.plan.caption, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.2, color: COLORS.text.tertiary, marginBottom: 4 },
   previewLine: { ...TYPOGRAPHY_V2.plan.body, fontSize: 14, color: COLORS.text.secondary },
-  secondaryButton: { marginTop: SPACING.lg, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.accent, paddingVertical: SPACING.md, alignItems: 'center', backgroundColor: 'rgba(212, 175, 55, 0.06)' },
+  secondaryButton: { minHeight: TAP_TARGETS.plan.recommended, marginTop: SPACING.lg, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.accent, paddingVertical: SPACING.md, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(212, 175, 55, 0.06)' },
   secondaryButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
   
   saveBarContainer: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, backgroundColor: 'transparent' }, 
@@ -145,6 +147,7 @@ export const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   durationPickerOption: {
+    minHeight: TAP_TARGETS.plan.min,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     borderRadius: RADIUS.md,
@@ -166,6 +169,7 @@ export const styles = StyleSheet.create({
     color: COLORS.accent,
   },
   durationPickerCancel: {
+    minHeight: TAP_TARGETS.plan.min,
     marginTop: SPACING.sm,
     alignItems: 'center',
     paddingVertical: SPACING.sm,

@@ -150,12 +150,24 @@ export function TimerDisplay(props: TimerDisplayProps) {
         {(props.onSkip || props.onExtend) && (
           <View style={styles.controls}>
             {props.onSkip && (
-              <TouchableOpacity onPress={props.onSkip} style={styles.controlBtn}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Skip timer"
+                accessibilityHint="Skips the current timer interval."
+                onPress={props.onSkip}
+                style={styles.controlBtn}
+              >
                 <Text style={styles.controlText}>Skip</Text>
               </TouchableOpacity>
             )}
             {props.onExtend && (
-              <TouchableOpacity onPress={() => props.onExtend!(30)} style={styles.controlBtn}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Add 30 seconds"
+                accessibilityHint="Extends the current timer interval."
+                onPress={() => props.onExtend!(30)}
+                style={styles.controlBtn}
+              >
                 <Text style={styles.controlText}>+30s</Text>
               </TouchableOpacity>
             )}

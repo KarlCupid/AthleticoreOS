@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from './Card';
 import { IconWaterDrop } from './icons';
 
@@ -49,6 +49,9 @@ export function HydrationTracker({
         {QUICK_ADD_OPTIONS.map((oz) => (
           <TouchableOpacity
             key={oz}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${oz} ounces of water`}
+            accessibilityHint="Logs this amount of water for today."
             style={styles.quickAddButton}
             onPress={() => onQuickAdd(oz)}
             activeOpacity={0.7}
@@ -113,6 +116,7 @@ const styles = StyleSheet.create({
   },
   quickAddButton: {
     flex: 1,
+    minHeight: TAP_TARGETS.plan.min,
     backgroundColor: COLORS.chart.water + '15',
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.sm,

@@ -368,7 +368,11 @@ export default function App() {
             >
               <View style={styles.container}>
                 <AuroraBackground mood={backgroundMood} />
-                <StatusBar style="dark" />
+                <StatusBar
+                  style="light"
+                  backgroundColor={APP_CHROME.background}
+                  translucent={false}
+                />
                 {content}
               </View>
             </NavigationContainer>
@@ -397,6 +401,8 @@ function AppLoadErrorScreen({
         <View style={styles.errorActions}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Try loading athlete profile again"
+            accessibilityHint="Retries loading your signed-in athlete data."
             disabled={loading}
             onPress={onRetry}
             style={({ pressed }) => [
@@ -410,6 +416,8 @@ function AppLoadErrorScreen({
           {onSignOut ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              accessibilityHint="Signs out and returns to the authentication screen."
               disabled={loading}
               onPress={onSignOut}
               style={({ pressed }) => [

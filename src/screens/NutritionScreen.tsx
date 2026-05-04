@@ -89,6 +89,9 @@ function FuelRail({
         {items.map((item) => (
           <AnimatedPressable
             key={item.key}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${item.name}`}
+            accessibilityHint="Opens this food for logging."
             style={inline.quickFoodCard}
             onPress={() => onSelect(item)}
             testID={`fuel-rail-item-${item.key}`}
@@ -203,7 +206,7 @@ export function NutritionScreen() {
       >
         <Text style={inline.errorTitle}>Fuel is temporarily unavailable</Text>
         <Text style={inline.copyMuted}>{error}</Text>
-        <AnimatedPressable style={inline.secondaryButton} onPress={() => void reload(true)} testID="fuel-error-retry">
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel="Retry fuel refresh" style={inline.secondaryButton} onPress={() => void reload(true)} testID="fuel-error-retry">
           <Text style={inline.secondaryButtonText}>Try again</Text>
         </AnimatedPressable>
       </Card>
@@ -383,7 +386,13 @@ export function NutritionScreen() {
 
   const renderFuelDetailsCard = (delay: number = STAGGER_DELAY * 5) => (
     <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
-      <AnimatedPressable style={inline.detailsToggle} onPress={() => setShowFuelDetails((current) => !current)} testID="fuel-details-toggle">
+      <AnimatedPressable
+        accessibilityRole="button"
+        accessibilityLabel={showFuelDetails ? 'Hide fuel details' : 'Show fuel details'}
+        style={inline.detailsToggle}
+        onPress={() => setShowFuelDetails((current) => !current)}
+        testID="fuel-details-toggle"
+      >
         <Text style={[inline.linkText, { color: themeColor }]}>{showFuelDetails ? 'Hide details' : 'Show details'}</Text>
       </AnimatedPressable>
       {showFuelDetails ? (
@@ -442,6 +451,9 @@ export function NutritionScreen() {
               {quickVM.quickIntentOptions.map((intent) => (
                 <AnimatedPressable
                   key={intent.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Log ${intent.label}`}
+                  accessibilityHint="Opens food search for the current meal."
                   style={inline.intentCard}
                   onPress={() => navigation.navigate('FoodSearch', {
                     mealType: inferMealTypeForNow(),
@@ -478,7 +490,7 @@ export function NutritionScreen() {
         <FuelRail title="Recent" items={viewModel.recent} onSelect={handleQuickFoodSelect} />
 
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.normal)}>
-          <AnimatedPressable onPress={() => setNutritionMode('detailed')} testID="fuel-open-full-tracker">
+          <AnimatedPressable accessibilityRole="button" accessibilityLabel="Open full tracker" onPress={() => setNutritionMode('detailed')} testID="fuel-open-full-tracker">
             <Text style={[inline.linkText, { color: themeColor }]}>Full tracker</Text>
           </AnimatedPressable>
         </Animated.View>
@@ -489,7 +501,7 @@ export function NutritionScreen() {
   const renderDetailedMode = () => (
     <>
       <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.normal)} style={{ alignItems: 'flex-start', marginBottom: SPACING.sm }}>
-        <AnimatedPressable onPress={() => setNutritionMode('quick')} testID="fuel-open-quick-log">
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel="Open quick log" onPress={() => setNutritionMode('quick')} testID="fuel-open-quick-log">
           <Text style={[inline.linkText, { color: themeColor }]}>Quick log</Text>
         </AnimatedPressable>
       </Animated.View>
@@ -509,7 +521,7 @@ export function NutritionScreen() {
             ) : null}
           </View>
           <Text style={styles.bodyMassBannerInstruction}>{viewModel.performanceContext.bodyMass.explanation}</Text>
-          <AnimatedPressable onPress={() => navigation.navigate('WeightClassHome')} testID="fuel-open-weight-class">
+          <AnimatedPressable accessibilityRole="button" accessibilityLabel="Open weight-class context" onPress={() => navigation.navigate('WeightClassHome')} testID="fuel-open-weight-class">
             <Text style={[inline.linkText, { color: COLORS.text.primary }]}>Weight-class context</Text>
           </AnimatedPressable>
         </Animated.View>
@@ -550,6 +562,9 @@ export function NutritionScreen() {
 
       <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 11).duration(ANIMATION.normal)} style={styles.quickActions}>
         <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Scan food barcode"
+          accessibilityHint="Opens the camera scanner to look up a packaged food."
           style={styles.quickActionButton}
           onPress={() => navigation.navigate('BarcodeScan', { mealType: inferMealTypeForNow(), date: viewModel.date })}
           testID="fuel-scan-food"
@@ -560,6 +575,9 @@ export function NutritionScreen() {
           </LinearGradient>
         </AnimatedPressable>
         <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Create custom food"
+          accessibilityHint="Opens the custom food form."
           style={styles.quickActionButton}
           onPress={() => navigation.navigate('CustomFood')}
           testID="fuel-custom-food"
@@ -579,6 +597,9 @@ export function NutritionScreen() {
         <ScreenHeader kicker="Fuel" title="Today's fuel" subtitle={viewModel.formattedDate}>
           <View style={styles.modeSwitch}>
             <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Quick log mode"
+              accessibilityState={{ selected: nutritionMode === 'quick' }}
               style={[styles.modeChip, nutritionMode === 'quick' && { backgroundColor: COLORS.accent }]}
               onPress={() => setNutritionMode('quick')}
               testID="fuel-mode-quick"
@@ -588,6 +609,9 @@ export function NutritionScreen() {
               </Text>
             </AnimatedPressable>
             <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Detailed tracker mode"
+              accessibilityState={{ selected: nutritionMode === 'detailed' }}
               style={[styles.modeChip, nutritionMode === 'detailed' && { backgroundColor: COLORS.accent }]}
               onPress={() => setNutritionMode('detailed')}
               testID="fuel-mode-detailed"

@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInRight } from 'react-native-reanimated';
@@ -23,13 +23,14 @@ import { ObjectivePhase } from './weeklyPlanSetup/ObjectivePhase';
 import { styles } from './weeklyPlanSetup/styles';
 import { useWeeklyPlanSetupController } from './weeklyPlanSetup/useWeeklyPlanSetupController';
 import { getSetupPhaseIndex } from './weeklyPlanSetup/utils';
-import { GRADIENTS, COLORS } from '../theme/theme';
+import { GRADIENTS, COLORS, SPACING } from '../theme/theme';
 
 interface WeeklyPlanSetupScreenProps {
   onComplete?: () => void;
 }
 
 export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps = {}) {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AppRouteParamList, 'WeeklyPlanSetup'>>();
 
@@ -231,17 +232,33 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     <SafeAreaView style={styles.root}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBackPhase} style={styles.backButton} activeOpacity={0.75} testID="weekly-setup-back">
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            accessibilityHint="Moves to the previous planning step or returns to the previous screen."
+            onPress={handleBackPhase}
+            style={styles.backButton}
+            activeOpacity={0.75}
+            testID="weekly-setup-back"
+          >
             <Text style={styles.backButtonText}>{phaseIndex > 0 || navigation.canGoBack() ? 'Back' : ''}</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Journey Planning</Text>
           {navigation.canGoBack() ? (
             <View style={styles.headerRight} />
           ) : (
-            <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.headerRight} activeOpacity={0.75} testID="weekly-setup-sign-out">
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              accessibilityHint="Signs out and returns to the authentication screen."
+              onPress={() => supabase.auth.signOut()}
+              style={styles.headerRight}
+              activeOpacity={0.75}
+              testID="weekly-setup-sign-out"
+            >
               <Text style={styles.backButtonText}>Sign Out</Text>
             </TouchableOpacity>
           )}
@@ -252,6 +269,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           contentContainerStyle={[styles.scrollContent, { flexGrow: 1, paddingBottom: 100 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <View style={styles.progressShell}>
             <View style={styles.progressHeaderRow}>
@@ -272,6 +290,10 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           <View style={styles.saveBarContainer}>
             <TouchableOpacity
               testID="weekly-setup-submit"
+              accessibilityRole="button"
+              accessibilityLabel={saving ? 'Saving journey plan' : isLastPhase ? 'Update journey plan' : 'Continue planning setup'}
+              accessibilityHint={isLastPhase ? 'Saves your journey planning setup.' : 'Moves to the next planning setup step.'}
+              accessibilityState={{ disabled: proceedDisabled, busy: saving }}
               style={[styles.saveButtonWrap, proceedDisabled && styles.saveButtonDisabled]} 
               onPress={isLastPhase ? handleSave : handleNextPhase} 
               activeOpacity={0.8} 
@@ -283,7 +305,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                 end={{ x: 1, y: 0 }}
                 style={styles.saveButtonBg}
               >
-                 {saving ? <ActivityIndicator color="#000000" /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Update Journey' : 'Continue'}</Text>}
+                 {saving ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Update Journey' : 'Continue'}</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -297,7 +319,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
         onRequestClose={() => setDurationPickerCommitmentId(null)}
       >
         <View style={styles.durationPickerOverlay}>
-          <View style={styles.durationPickerSheet}>
+          <View style={[styles.durationPickerSheet, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
             <Text style={styles.durationPickerTitle}>Select Duration</Text>
             {COMMITMENT_DURATION_OPTIONS.map((minutes) => {
               const selectedCommitment = commitments.find((item) => item.id === durationPickerCommitmentId);
@@ -305,6 +327,9 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
               return (
                 <TouchableOpacity
                   key={minutes}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set duration to ${minutes} minutes`}
+                  accessibilityState={{ selected }}
                   style={[styles.durationPickerOption, selected && styles.durationPickerOptionSelected]}
                   onPress={() => {
                     if (!durationPickerCommitmentId) return;
@@ -320,7 +345,13 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.durationPickerCancel} onPress={() => setDurationPickerCommitmentId(null)} testID="weekly-setup-duration-cancel">
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Cancel duration picker"
+              style={styles.durationPickerCancel}
+              onPress={() => setDurationPickerCommitmentId(null)}
+              testID="weekly-setup-duration-cancel"
+            >
               <Text style={styles.durationPickerCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>

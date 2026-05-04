@@ -19,6 +19,7 @@ import {
     SPACING,
     RADIUS,
     SHADOWS,
+    TAP_TARGETS,
 } from '../theme/theme';
 import { useGuidedWorkout } from '../hooks/useGuidedWorkout';
 import { useInteractionMode } from '../context/InteractionModeContext';
@@ -274,7 +275,7 @@ export function GuidedWorkoutScreen() {
 
     const nextExercise = prescription?.exercises[currentExerciseIndex + 1] ?? null;
     const isLastExercise = currentExerciseIndex >= totalExercises - 1;
-    const activeWorkoutBottomPadding = Math.max(insets.bottom, SPACING.md) + 40;
+    const activeWorkoutBottomPadding = Math.max(insets.bottom, SPACING.md) + TAP_TARGETS.focus.recommended;
 
     const overloadSuggestion = currentExercise?.overloadSuggestion ?? null;
     const showWeightBanner = overloadSuggestion !== null && workingSetsLogged === 0;
@@ -528,6 +529,9 @@ export function GuidedWorkoutScreen() {
                         </Text>
                     </Card>
                     <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Activation done"
+                        accessibilityHint="Continues to the workout preview."
                         style={[styles.primaryButton, { marginBottom: SPACING.sm }]}
                         onPress={() => setActivationCheckDone(true)}
                         activeOpacity={0.82}
@@ -536,6 +540,9 @@ export function GuidedWorkoutScreen() {
                         <Text style={styles.primaryButtonText}>Activation done - continue</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Skip activation"
+                        accessibilityHint="Continues without logging the activation check."
                         style={styles.skipLink}
                         onPress={() => setActivationCheckDone(true)}
                         activeOpacity={0.7}
@@ -577,6 +584,9 @@ export function GuidedWorkoutScreen() {
                             We are taking you straight to the active workout screen.
                         </Text>
                         <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Go back"
+                            accessibilityHint="Leaves the auto-start screen."
                             style={styles.autoStartBackButton}
                             onPress={handleLeaveWorkout}
                             activeOpacity={0.8}
@@ -594,6 +604,10 @@ export function GuidedWorkoutScreen() {
                     {/* Header */}
                     <View style={styles.header}>
                         <AnimatedPressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Previous exercise"
+                            accessibilityHint="Moves back to the previous exercise when available."
+                            accessibilityState={{ disabled: currentExerciseIndex === 0 || restSeconds !== null }}
                             style={styles.backButton}
                             onPress={goToPreviousExercise}
                             disabled={currentExerciseIndex === 0 || restSeconds !== null}
@@ -628,6 +642,9 @@ export function GuidedWorkoutScreen() {
                         </View>
 
                         <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Leave workout"
+                            accessibilityHint="Asks for confirmation before leaving this workout."
                             style={styles.leaveButton}
                             onPress={handleLeaveWorkout}
                             activeOpacity={0.7}
@@ -687,6 +704,8 @@ export function GuidedWorkoutScreen() {
                         {emptyStateMessage ?? 'No guided S&C workout is prescribed for this session.'}
                     </Text>
                     <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Retry loading guided workout"
                         style={styles.retryButton}
                         onPress={() =>
                             loadAndGenerate(
@@ -741,8 +760,8 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     backButton: {
-        width: 40,
-        height: 40,
+        width: TAP_TARGETS.focus.min,
+        height: TAP_TARGETS.focus.min,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -792,6 +811,7 @@ const styles = StyleSheet.create({
     },
     leaveButton: {
         minWidth: 64,
+        minHeight: TAP_TARGETS.focus.min,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: SPACING.sm,
@@ -906,6 +926,7 @@ const styles = StyleSheet.create({
 
     // â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     primaryButton: {
+        minHeight: TAP_TARGETS.focusPrimary.min,
         backgroundColor: COLORS.accent,
         borderRadius: RADIUS.xl,
         paddingVertical: SPACING.md + 2,
@@ -921,13 +942,14 @@ const styles = StyleSheet.create({
     primaryButtonText: {
         fontFamily: FONT_FAMILY.extraBold,
         fontSize: 17,
-        color: '#F5F5F0',
+        color: COLORS.text.inverse,
         letterSpacing: 0.2,
     },
     completeButton: {
         backgroundColor: COLORS.success,
     },
     skipLink: {
+        minHeight: TAP_TARGETS.focus.min,
         alignItems: 'center',
         marginTop: SPACING.sm,
         paddingVertical: SPACING.sm,
@@ -964,6 +986,7 @@ const styles = StyleSheet.create({
         paddingVertical: SPACING.lg,
     },
     autoStartBackButton: {
+        minHeight: TAP_TARGETS.focus.min,
         alignSelf: 'flex-start',
         marginTop: SPACING.md,
         paddingHorizontal: SPACING.md,
@@ -985,6 +1008,7 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.lg,
     },
     retryButton: {
+        minHeight: TAP_TARGETS.focus.min,
         backgroundColor: COLORS.accent,
         paddingHorizontal: SPACING.xl,
         paddingVertical: SPACING.sm + 4,
@@ -993,6 +1017,6 @@ const styles = StyleSheet.create({
     retryButtonText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 15,
-        color: '#F5F5F0',
+        color: COLORS.text.inverse,
     },
 });

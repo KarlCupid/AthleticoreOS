@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WheelColumn } from './WheelColumn';
 import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../theme/theme';
 
@@ -59,6 +60,7 @@ export function TimePickerField({ label, value, onChange, testID }: {
   onChange: (nextValue: string) => void;
   testID?: string;
 }) {
+  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const initial = parseTime(value);
   const [tempHour, setTempHour] = useState(initial.hour);
@@ -80,20 +82,28 @@ export function TimePickerField({ label, value, onChange, testID }: {
 
   return (
     <>
-      <TouchableOpacity style={styles.field} onPress={onOpen} activeOpacity={0.7} testID={testID}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint="Opens a time picker."
+        style={styles.field}
+        onPress={onOpen}
+        activeOpacity={0.7}
+        testID={testID}
+      >
         <Text style={styles.fieldText}>{formatDisplay(value)}</Text>
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={styles.overlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} testID={testID ? `${testID}-scrim` : undefined} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 34 : SPACING.lg) }]}>
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-cancel` : undefined}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cancel time picker" style={styles.headerAction} onPress={() => setOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-cancel` : undefined}>
                 <Text style={styles.cancel}>Cancel</Text>
               </TouchableOpacity>
               <Text style={styles.title}>{label}</Text>
-              <TouchableOpacity onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-done` : undefined}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Confirm time" style={styles.headerAction} onPress={onConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} testID={testID ? `${testID}-done` : undefined}>
                 <Text style={styles.done}>Done</Text>
               </TouchableOpacity>
             </View>
@@ -135,7 +145,6 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(212, 175, 55, 0.24)',
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
-    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.lg,
     overflow: 'hidden',
     ...SHADOWS.xl,
   },
@@ -147,6 +156,10 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(245, 245, 240, 0.12)',
+  },
+  headerAction: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   cancel: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },
   title: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },

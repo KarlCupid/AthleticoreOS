@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { AnimatedPressable } from '../AnimatedPressable';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, TYPOGRAPHY_V2 } from '../../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS, TYPOGRAPHY_V2 } from '../../theme/theme';
 
 interface RestTimerActionsProps {
   onSkip: () => void;
@@ -19,6 +19,9 @@ export function RestTimerActions({ onSkip, onExtend, nextExerciseName }: RestTim
       {/* Action buttons */}
       <View style={styles.buttonRow}>
         <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Start next set now"
+          accessibilityHint="Skips the remaining rest timer."
           onPress={onSkip}
           haptic
           activeScale={0.92}
@@ -28,6 +31,9 @@ export function RestTimerActions({ onSkip, onExtend, nextExerciseName }: RestTim
         </AnimatedPressable>
 
         <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Add 30 seconds to rest"
+          accessibilityHint="Extends the current rest timer."
           onPress={() => onExtend(30)}
           haptic
           activeScale={0.92}
@@ -61,22 +67,22 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     flex: 1,
-    height: 52,
+    minHeight: TAP_TARGETS.focus.min,
     borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: COLORS.surfaceElevated,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   skipText: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: TYPOGRAPHY_V2.focus.action.fontSize,
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: COLORS.text.secondary,
   },
   extendButton: {
     flex: 1,
-    height: 52,
+    minHeight: TAP_TARGETS.focus.min,
     borderRadius: RADIUS.full,
     backgroundColor: 'rgba(15, 168, 136, 0.15)',
     borderWidth: 1,
@@ -91,9 +97,9 @@ const styles = StyleSheet.create({
   },
   upNextCard: {
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: COLORS.surfaceSecondary,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: COLORS.borderLight,
     borderRadius: RADIUS.lg,
     paddingVertical: SPACING.sm + 4,
     paddingHorizontal: SPACING.md,
@@ -104,11 +110,11 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 10,
     letterSpacing: 1.2,
-    color: 'rgba(255, 255, 255, 0.45)',
+    color: COLORS.text.tertiary,
   },
   upNextName: {
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.80)',
+    color: COLORS.text.secondary,
   },
 });

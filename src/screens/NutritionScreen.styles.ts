@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS, TYPOGRAPHY } from '../theme/theme';
 
 export const styles = StyleSheet.create({
     container: {
@@ -82,9 +82,11 @@ export const styles = StyleSheet.create({
     },
     modeChip: {
         flex: 1,
+        minHeight: TAP_TARGETS.plan.min,
         paddingVertical: SPACING.sm,
         borderRadius: RADIUS.lg,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     modeChipText: {
         fontSize: 13,
@@ -124,6 +126,7 @@ export const styles = StyleSheet.create({
         ...SHADOWS.colored.accent,
     },
     quickActionGradient: {
+        minHeight: 52,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

@@ -142,10 +142,16 @@ export function CustomFoodScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.header}>
-        <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to the previous food screen."
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </AnimatedPressable>
         <Text style={styles.title}>Create Custom Food</Text>
@@ -159,6 +165,7 @@ export function CustomFoodScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}>
           <Card>
@@ -232,10 +239,13 @@ export function CustomFoodScreen() {
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>This is a supplement</Text>
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Supplement food"
+                accessibilityHint="Marks this custom food as a supplement."
                 value={isSupplement}
                 onValueChange={setIsSupplement}
                 trackColor={{ true: COLORS.chart.protein, false: COLORS.border }}
-                thumbColor="#F5F5F0"
+                thumbColor={COLORS.text.primary}
               />
             </View>
           </Card>
@@ -246,6 +256,10 @@ export function CustomFoodScreen() {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
         <AnimatedPressable
           testID="custom-food-submit"
+          accessibilityRole="button"
+          accessibilityLabel={saving ? 'Saving custom food' : 'Save custom food'}
+          accessibilityHint="Creates this food item and returns it to the current meal flow."
+          accessibilityState={{ disabled: !canSave || saving, busy: saving }}
           style={[styles.saveButtonWrapper, (!canSave || saving) && { opacity: 0.4 }]}
           onPress={handleSave}
           disabled={!canSave || saving}
@@ -285,6 +299,7 @@ function Field({
     <View style={fieldStyles.container}>
       <Text style={fieldStyles.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label.replace(' *', '')}
         style={[
           fieldStyles.input,
           focused && { borderColor: COLORS.accent, ...SHADOWS.sm },
@@ -338,8 +353,11 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   backButton: {
-    padding: SPACING.sm,
+    minWidth: 44,
+    minHeight: 44,
     marginRight: SPACING.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,
@@ -382,6 +400,7 @@ const styles = StyleSheet.create({
     ...SHADOWS.colored.accent,
   },
   saveButtonGradient: {
+    minHeight: 52,
     paddingVertical: SPACING.md + 2,
     alignItems: 'center',
     borderRadius: RADIUS.lg,

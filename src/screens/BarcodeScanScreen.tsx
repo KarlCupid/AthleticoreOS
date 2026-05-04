@@ -10,7 +10,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, ANIMATION, TAP_TARGETS } from '../theme/theme';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { IconChevronLeft, IconFlash, IconFlashOff } from '../components/icons';
 import { lookupBarcode } from '../../lib/api/openFoodFacts';
@@ -85,7 +85,7 @@ export function BarcodeScanScreen() {
     // Permission not yet determined
     if (!permission) {
         return (
-            <View style={styles.permissionContainer}>
+            <View style={[styles.permissionContainer, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.lg }]}>
                 <ActivityIndicator color={COLORS.text.tertiary} />
             </View>
         );
@@ -94,15 +94,24 @@ export function BarcodeScanScreen() {
     // Permission denied
     if (!permission.granted) {
         return (
-            <View style={styles.permissionContainer}>
+            <View style={[styles.permissionContainer, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.lg }]}>
                 <Text style={styles.permissionTitle}>Camera Access Needed</Text>
                 <Text style={styles.permissionText}>
                     Athleticore needs camera access to scan food barcodes and quickly find nutritional info.
                 </Text>
-                <AnimatedPressable style={styles.permissionButton} onPress={requestPermission}>
+                <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Grant camera access"
+                    accessibilityHint="Opens the system permission prompt for barcode scanning."
+                    style={styles.permissionButton}
+                    onPress={requestPermission}
+                >
                     <Text style={styles.permissionButtonText}>Grant Camera Access</Text>
                 </AnimatedPressable>
                 <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    accessibilityHint="Returns to the previous fuel screen."
                     style={[styles.permissionButton, styles.permissionButtonSecondary]}
                     onPress={() => navigation.goBack()}
                 >
@@ -118,6 +127,8 @@ export function BarcodeScanScreen() {
         <View style={styles.container}>
             <Animated.View entering={FadeIn.duration(ANIMATION.normal)} style={StyleSheet.absoluteFillObject}>
                 <CameraView
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
                     style={StyleSheet.absoluteFillObject}
                     facing="back"
                     enableTorch={torchEnabled}
@@ -132,18 +143,28 @@ export function BarcodeScanScreen() {
             <View style={styles.overlay}>
                 {/* Top bar */}
                 <View style={[styles.overlayTop, { paddingTop: insets.top + SPACING.sm }]}>
-                    <AnimatedPressable onPress={() => navigation.goBack()} style={styles.topButton}>
-                        <IconChevronLeft size={28} color="#F5F5F0" />
+                    <AnimatedPressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Go back"
+                        accessibilityHint="Stops scanning and returns to the previous fuel screen."
+                        onPress={() => navigation.goBack()}
+                        style={styles.topButton}
+                    >
+                        <IconChevronLeft size={28} color={COLORS.text.primary} />
                     </AnimatedPressable>
                     <Text style={styles.overlayTitle}>Scan Barcode</Text>
                     <AnimatedPressable
                         onPress={() => setTorchEnabled((v) => !v)}
+                        accessibilityRole="button"
+                        accessibilityLabel={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
+                        accessibilityHint="Toggles the camera flashlight while scanning."
+                        accessibilityState={{ selected: torchEnabled }}
                         style={styles.topButton}
                     >
                         {torchEnabled ? (
-                            <IconFlash size={24} color="#F5F5F0" />
+                            <IconFlash size={24} color={COLORS.text.primary} />
                         ) : (
-                            <IconFlashOff size={24} color="rgba(255,255,255,0.6)" />
+                            <IconFlashOff size={24} color={COLORS.text.secondary} />
                         )}
                     </AnimatedPressable>
                 </View>
@@ -162,7 +183,7 @@ export function BarcodeScanScreen() {
                 </View>
 
                 {/* Bottom section */}
-                <View style={styles.overlayBottom}>
+                <View style={[styles.overlayBottom, { paddingBottom: insets.bottom + SPACING.xxl }]}>
                     {scanState === 'scanning' && (
                         <Text style={styles.instructionText}>
                             Align the barcode within the frame
@@ -171,7 +192,7 @@ export function BarcodeScanScreen() {
 
                     {scanState === 'loading' && (
                         <View style={styles.statusContainer}>
-                            <ActivityIndicator color="#F5F5F0" size="small" />
+                            <ActivityIndicator color={COLORS.text.primary} size="small" />
                             <Text style={styles.statusText}>Looking up product...</Text>
                         </View>
                     )}
@@ -184,22 +205,31 @@ export function BarcodeScanScreen() {
                             </Text>
                             <View style={styles.notFoundActions}>
                                 <AnimatedPressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Search manually"
+                                    accessibilityHint="Opens food search for this meal."
                                     style={styles.notFoundButton}
                                     onPress={handleManualSearch}
                                 >
                                     <Text style={styles.notFoundButtonText}>Search Manually</Text>
                                 </AnimatedPressable>
                                 <AnimatedPressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Create custom food"
+                                    accessibilityHint="Opens the custom food form for this meal."
                                     style={styles.notFoundButton}
                                     onPress={handleTryCustom}
                                 >
                                     <Text style={styles.notFoundButtonText}>Try Custom Food</Text>
                                 </AnimatedPressable>
                                 <AnimatedPressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Try scanning again"
+                                    accessibilityHint="Resets the scanner so you can scan another barcode."
                                     style={[styles.notFoundButton, styles.notFoundButtonOutline]}
                                     onPress={handleTryAgain}
                                 >
-                                    <Text style={[styles.notFoundButtonText, { color: '#F5F5F0' }]}>
+                                    <Text style={[styles.notFoundButtonText, { color: COLORS.text.primary }]}>
                                         Try Again
                                     </Text>
                                 </AnimatedPressable>
@@ -215,7 +245,7 @@ export function BarcodeScanScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000',
+        backgroundColor: COLORS.background,
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,
@@ -226,21 +256,21 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: SPACING.md,
-        backgroundColor: 'rgba(0,0,0,0.55)',
+        backgroundColor: COLORS.overlay,
         paddingBottom: SPACING.md,
     },
     topButton: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: COLORS.surfaceElevated,
         alignItems: 'center',
         justifyContent: 'center',
     },
     overlayTitle: {
         fontSize: 18,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#F5F5F0',
+        color: COLORS.text.primary,
     },
     overlayMiddle: {
         flexDirection: 'row',
@@ -248,7 +278,7 @@ const styles = StyleSheet.create({
     },
     overlaySide: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.55)',
+        backgroundColor: COLORS.overlay,
     },
     scanWindow: {
         width: SCAN_AREA_SIZE,
@@ -259,7 +289,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         width: 28,
         height: 28,
-        borderColor: '#F5F5F0',
+        borderColor: COLORS.text.primary,
     },
     cornerTL: {
         top: 0,
@@ -290,10 +320,9 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 8,
     },
     overlayBottom: {
-        backgroundColor: 'rgba(0,0,0,0.55)',
+        backgroundColor: COLORS.overlay,
         paddingHorizontal: SPACING.lg,
         paddingTop: SPACING.xl,
-        paddingBottom: SPACING.xxl + 20,
         alignItems: 'center',
         flex: 1,
         justifyContent: 'flex-start',
@@ -301,7 +330,7 @@ const styles = StyleSheet.create({
     instructionText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.regular,
-        color: 'rgba(255,255,255,0.8)',
+        color: COLORS.text.secondary,
         textAlign: 'center',
     },
     statusContainer: {
@@ -312,7 +341,7 @@ const styles = StyleSheet.create({
     statusText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#F5F5F0',
+        color: COLORS.text.primary,
     },
     notFoundContainer: {
         alignItems: 'center',
@@ -321,34 +350,39 @@ const styles = StyleSheet.create({
     notFoundTitle: {
         fontSize: 18,
         fontFamily: FONT_FAMILY.extraBold,
-        color: '#F5F5F0',
+        color: COLORS.text.primary,
         marginBottom: SPACING.xs,
     },
     notFoundBarcode: {
         fontSize: 13,
         fontFamily: FONT_FAMILY.regular,
-        color: 'rgba(255,255,255,0.6)',
+        color: COLORS.text.secondary,
         marginBottom: SPACING.lg,
     },
     notFoundActions: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
         gap: SPACING.sm,
     },
     notFoundButton: {
-        backgroundColor: '#F5F5F0',
+        minHeight: TAP_TARGETS.plan.min,
+        backgroundColor: COLORS.text.primary,
         paddingVertical: SPACING.sm + 4,
         paddingHorizontal: SPACING.lg,
         borderRadius: RADIUS.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     notFoundButtonOutline: {
         backgroundColor: 'transparent',
         borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.5)',
+        borderColor: COLORS.border,
     },
     notFoundButtonText: {
         fontSize: 14,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#1A1A2E',
+        color: COLORS.text.inverse,
     },
     permissionContainer: {
         flex: 1,
@@ -373,7 +407,8 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.xl,
     },
     permissionButton: {
-        backgroundColor: COLORS.text.primary,
+        minHeight: 52,
+        backgroundColor: COLORS.accent,
         paddingVertical: SPACING.md,
         paddingHorizontal: SPACING.xl,
         borderRadius: RADIUS.lg,
@@ -389,6 +424,6 @@ const styles = StyleSheet.create({
     permissionButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#F5F5F0',
+        color: COLORS.text.inverse,
     },
 });

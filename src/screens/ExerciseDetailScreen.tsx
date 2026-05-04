@@ -38,7 +38,13 @@ export function ExerciseDetailScreen() {
         <View style={[styles.container, { paddingTop: insets.top }]}>
             {/* Header */}
             <View style={styles.header}>
-                <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
+                <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    accessibilityHint="Returns to the exercise search screen."
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                >
                     <IconChevronLeft size={24} color={COLORS.text.primary} />
                 </AnimatedPressable>
                 <Text style={styles.title} numberOfLines={1}>{exercise.name}</Text>
@@ -115,6 +121,9 @@ export function ExerciseDetailScreen() {
             {/* Bottom Action */}
             <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
                 <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Done"
+                    accessibilityHint="Adds this exercise to the current flow."
                     style={styles.addButtonWrapper}
                     onPress={handleAdd}
                 >
@@ -151,7 +160,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm,
     },
-    backButton: { padding: SPACING.sm, marginRight: SPACING.sm },
+    backButton: { minWidth: 44, minHeight: 44, marginRight: SPACING.sm, alignItems: 'center', justifyContent: 'center' },
     title: {
         flex: 1,
         fontSize: 20,
@@ -240,13 +249,15 @@ const styles = StyleSheet.create({
         ...SHADOWS.colored.accent,
     },
     addButton: {
+        minHeight: 52,
         paddingVertical: SPACING.md + 2,
         alignItems: 'center',
+        justifyContent: 'center',
         borderRadius: RADIUS.lg,
     },
     addButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#F5F5F0',
+        color: COLORS.text.inverse,
     },
 });

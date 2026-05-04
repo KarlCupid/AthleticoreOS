@@ -1102,6 +1102,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         onPress={() => supabase.auth.signOut()}
                         style={styles.signOutButtonIcon}
                         accessibilityRole="button"
+                        accessibilityLabel="Sign out"
+                        accessibilityHint="Signs out and returns to the authentication screen."
                         testID="onboarding-sign-out"
                     >
                         <IconChevronLeft size={24} color={COLORS.text.tertiary} />
@@ -1155,7 +1157,14 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     ]}
                 >
                     {step > 0 ? (
-                        <TouchableOpacity style={styles.backButton} onPress={handleBack} testID="onboarding-back">
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Back"
+                            accessibilityHint="Returns to the previous onboarding step."
+                            style={styles.backButton}
+                            onPress={handleBack}
+                            testID="onboarding-back"
+                        >
                             <IconChevronLeft size={20} color={COLORS.text.secondary} />
                             <Text style={styles.backText}>Back</Text>
                         </TouchableOpacity>
@@ -1164,6 +1173,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     )}
 
                     <AnimatedPressable
+                        accessibilityRole="button"
+                        accessibilityLabel={saving ? 'Building first mission' : step === TOTAL_STEPS - 1 ? 'Build my first mission' : 'Continue'}
+                        accessibilityHint={step === TOTAL_STEPS - 1 ? 'Completes onboarding and creates your first mission.' : 'Moves to the next onboarding step.'}
+                        accessibilityState={{ disabled: !canProceed() || saving, busy: saving }}
                         testID={step === TOTAL_STEPS - 1 ? 'onboarding-submit' : 'onboarding-continue'}
                         style={[styles.nextButton, (!canProceed() || saving) && styles.nextButtonDisabled]}
                         onPress={handleNext}

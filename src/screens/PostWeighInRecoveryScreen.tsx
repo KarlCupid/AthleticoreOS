@@ -16,7 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { buildPostWeighInRecoverySupport } from '../../lib/performance-engine';
 import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import type { FuelStackParamList } from '../navigation/types';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 
@@ -64,7 +64,13 @@ export function PostWeighInRecoveryScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(183, 217, 168, 0.22)']} style={styles.header}>
-        <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to the weight-class screen."
+          onPress={() => nav.goBack()}
+          style={styles.backBtn}
+        >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Post Weigh-In Recovery</Text>
@@ -237,6 +243,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backBtn: {
+    minWidth: TAP_TARGETS.plan.min,
+    minHeight: TAP_TARGETS.plan.min,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: SPACING.sm,
   },
   headerTitle: {
