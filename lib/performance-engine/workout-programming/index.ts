@@ -11,6 +11,7 @@ export * from './workoutDescriptionService.ts';
 export * from './catalogValidation.ts';
 export * from './content/validation.ts';
 export * from './contentReview.ts';
+export * from './contentReviewWorkflow.ts';
 export * from './appStateAdapter.ts';
 export * from './validationEngine.ts';
 export * from './substitutionEngine.ts';

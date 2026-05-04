@@ -89,8 +89,8 @@ const TRUSTED_SEED_REVIEWER = 'athleticore_seed_review';
 const TRUSTED_SEED_REVIEW_TIMESTAMP = '2026-05-02T00:00:00.000Z';
 const TRUSTED_SEED_CONTENT_VERSION = '2026.05.p0-content-review';
 
-function itemId(item: ReviewableContentFields & { id?: string; sourceExerciseId?: string }): string {
-  return item.id ?? item.sourceExerciseId ?? 'unknown';
+function itemId(item: ReviewableContentFields & { id?: string; sourceExerciseId?: string; descriptionTemplateId?: string }): string {
+  return item.id ?? item.descriptionTemplateId ?? item.sourceExerciseId ?? 'unknown';
 }
 
 function inferRiskLevel(recordType: ReviewableContentRecordType, item: ReviewableContentFields & { severity?: string; blocksHardTraining?: boolean; contraindicationTags?: string[] }): ContentRiskLevel {

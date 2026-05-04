@@ -9,7 +9,7 @@ const {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const report = buildAuditReport(process.cwd());
+  const report = buildAuditReport(process.cwd(), { reviewDecisionsPath: args.reviewDecisions });
   writeJsonOrHuman(report, args, formatValidationReport);
   process.exitCode = shouldFail(report, args) ? 1 : 0;
 }

@@ -169,6 +169,7 @@ Run these commands before handing content to engineering review:
 ```bash
 npm run workout:validate-content
 npm run workout:audit-content
+npm run workout:review-content -- export-queue --out review-queue.json
 npm run workout:export-seed -- --out C:\tmp\workout-programming-seed.json
 ```
 
@@ -190,6 +191,17 @@ blockers fail the command.
 - Duplicate IDs and orphaned references
 - Unsafe content marked production-eligible
 - Suggestions for the next cleanup pass
+
+`workout:review-content` supports the coach/admin review handoff:
+
+- `export-queue --out review-queue.json`
+- `validate-decisions --in review-decisions.json`
+- `apply-decisions --in review-decisions.json`
+- `export-sql --in review-decisions.json --out review-updates.sql`
+
+Use `--review-decisions review-decisions.json` with `workout:validate-content` or
+`workout:audit-content` when release checks should consume approved review
+metadata from the JSON workflow.
 
 `workout:export-seed` reuses `buildWorkoutProgrammingSeedRows()` and emits the Supabase
 static catalog row shape. Without `--out`, it writes JSON to stdout. With `--out`, it

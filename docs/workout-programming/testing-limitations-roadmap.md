@@ -114,7 +114,7 @@ Tests should fail for:
 - The generator is deterministic enough for tests but not yet tuned with real-world recommendation quality data.
 - Media fields exist but are not fully populated with production assets.
 - Preview/dev-only content is intentionally gated from production generation until review is complete.
-- Coach/content editing still happens in TypeScript content packs rather than an admin CMS.
+- Content authoring still happens in TypeScript content packs, but review status can now move through the JSON review-decision workflow or Supabase review metadata updates instead of only manual TypeScript edits.
 
 ## Future Roadmap
 
@@ -128,7 +128,7 @@ Near term:
 
 Medium term:
 
-- Add admin/content workflows for exercise and rule editing.
+- Add a full admin/content UI for exercise and rule editing.
 - Add production media assets for exercises.
 - Expand user profile inputs: injury history, sport demands, schedule constraints, environment, goals.
 - Feed real completion trends into exercise scoring and substitutions.

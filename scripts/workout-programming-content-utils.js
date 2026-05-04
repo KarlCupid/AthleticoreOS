@@ -48,6 +48,8 @@ function parseArgs(argv) {
     failOnWarnings: false,
     allowInvalid: false,
     out: undefined,
+    in: undefined,
+    reviewDecisions: undefined,
     limit: 25,
   };
 
@@ -63,6 +65,16 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg.startsWith('--out=')) {
       args.out = arg.slice('--out='.length);
+    } else if (arg === '--in') {
+      args.in = argv[index + 1];
+      index += 1;
+    } else if (arg.startsWith('--in=')) {
+      args.in = arg.slice('--in='.length);
+    } else if (arg === '--review-decisions') {
+      args.reviewDecisions = argv[index + 1];
+      index += 1;
+    } else if (arg.startsWith('--review-decisions=')) {
+      args.reviewDecisions = arg.slice('--review-decisions='.length);
     } else if (arg === '--limit') {
       args.limit = Number(argv[index + 1]);
       index += 1;
@@ -73,6 +85,35 @@ function parseArgs(argv) {
 
   if (!Number.isFinite(args.limit) || args.limit < 1) args.limit = 25;
   return args;
+}
+
+function readJsonFile(filePath) {
+  const target = path.resolve(process.cwd(), filePath);
+  return JSON.parse(fs.readFileSync(target, 'utf8'));
+}
+
+function resolveReviewDecisionFile(projectRoot, options) {
+  if (options.reviewDecisionFile) return options.reviewDecisionFile;
+  const decisionPath = options.reviewDecisionsPath || process.env.WORKOUT_CONTENT_REVIEW_DECISIONS;
+  if (!decisionPath) return null;
+  const target = path.isAbsolute(decisionPath) ? decisionPath : path.resolve(projectRoot, decisionPath);
+  return JSON.parse(fs.readFileSync(target, 'utf8'));
+}
+
+function applyReviewDecisionFile(workout, catalog, intelligence, decisionFile) {
+  if (!decisionFile) return { catalog, intelligence, result: null };
+  const result = workout.applyContentReviewDecisions(catalog, intelligence, decisionFile);
+  if (result.errors && result.errors.length > 0) {
+    throw new Error([
+      'Workout programming review decision file is invalid.',
+      ...result.errors.map((error) => `- ${error}`),
+    ].join('\n'));
+  }
+  return {
+    catalog: result.catalog,
+    intelligence: result.intelligence,
+    result,
+  };
 }
 
 function entry(type, id, field, severity, message, suggestion, details = {}) {
@@ -443,8 +484,12 @@ function tableCounts(rows) {
 
 function buildAuditReport(projectRoot = process.cwd(), options = {}) {
   const workout = options.workoutModule || loadWorkoutProgramming(projectRoot);
-  const catalog = options.catalog || workout.workoutProgrammingCatalog;
-  const intelligence = options.intelligence || workout.workoutIntelligenceCatalog;
+  const baseCatalog = options.catalog || workout.workoutProgrammingCatalog;
+  const baseIntelligence = options.intelligence || workout.workoutIntelligenceCatalog;
+  const reviewDecisionFile = resolveReviewDecisionFile(projectRoot, options);
+  const reviewed = applyReviewDecisionFile(workout, baseCatalog, baseIntelligence, reviewDecisionFile);
+  const catalog = reviewed.catalog;
+  const intelligence = reviewed.intelligence;
   const validationOptions = { catalog, intelligence };
   const validation = workout.validateWorkoutProgrammingContentPacks(validationOptions);
   const duplicateValidation = workout.validateNoDuplicateIds(validationOptions);
@@ -605,6 +650,7 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
       releaseProductionBlockers: release.productionBlockers.length,
       releaseReviewBlockers: release.reviewBlockers.length,
       missingProductionMedia: release.missingProductionMedia.length,
+      reviewDecisionsApplied: reviewed.result ? reviewed.result.applied.length : 0,
     },
     errors,
     warnings,
@@ -625,6 +671,10 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
     productionEligibleCounts: release.productionEligibleCounts,
     previewGatedCounts: release.previewGatedCounts,
     recommendedFixes: release.recommendedFixes,
+    reviewDecisionResult: reviewed.result ? {
+      applied: reviewed.result.applied,
+      warnings: reviewed.result.warnings,
+    } : null,
   };
 }
 
@@ -673,6 +723,7 @@ function formatAuditReport(report, args = {}) {
     `- release production blockers: ${report.release.productionBlockers.length}`,
     `- release review blockers: ${report.release.reviewBlockers.length}`,
     `- missing production media: ${report.release.missingProductionMedia.length}`,
+    `- review decisions applied: ${report.summary.reviewDecisionsApplied}`,
     '',
     'Catalog Counts',
     ...Object.entries(report.summary.catalog).map(([key, value]) => `- ${key}: ${value}`),
@@ -726,6 +777,7 @@ function formatValidationReport(report, args = {}) {
     `- release production blockers: ${report.release.productionBlockers.length}`,
     `- release review blockers: ${report.release.reviewBlockers.length}`,
     `- missing production media: ${report.release.missingProductionMedia.length}`,
+    `- review decisions applied: ${report.summary.reviewDecisionsApplied}`,
     '',
     formatEntries('Errors', report.errors, limit),
     '',
@@ -764,10 +816,13 @@ function shouldFail(report, args) {
 
 module.exports = {
   buildAuditReport,
+  applyReviewDecisionFile,
   formatAuditReport,
   formatValidationReport,
   loadWorkoutProgramming,
   parseArgs,
+  readJsonFile,
+  resolveReviewDecisionFile,
   shouldFail,
   tableCounts,
   writeJsonOrHuman,

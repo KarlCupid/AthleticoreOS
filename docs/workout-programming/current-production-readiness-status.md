@@ -10,6 +10,7 @@ The system currently has:
 
 - Service-layer orchestration behind `workoutProgrammingService`.
 - Strict validation and content-review gates.
+- JSON review queue/decision workflow for coach/admin review handoff.
 - Supabase persistence with transactional RPCs for critical parent/child writes.
 - Durable generated workout session lifecycle state.
 - Generated workout completions mapped into history and analytics surfaces.
@@ -37,6 +38,14 @@ Workout content release gates:
 ```bash
 npm run workout:validate-content -- --strict
 npm run workout:audit-content -- --release
+```
+
+Coach/admin review workflow:
+
+```bash
+npm run workout:review-content -- export-queue --out review-queue.json
+npm run workout:review-content -- validate-decisions --in review-decisions.json
+npm run workout:review-content -- export-sql --in review-decisions.json --out review-updates.sql
 ```
 
 Live DB/RLS smoke checks:
@@ -92,7 +101,7 @@ These are content-release blockers, not missing release-gate tooling.
 - Program persistence is hardened, but program scheduling is not yet a polished calendar-driven production workflow.
 - Recommendation quality telemetry exists, but production tuning needs real outcome volume.
 - Preview/dev-only content remains intentionally gated from production generation.
-- Content editing still happens in TypeScript content packs rather than an admin CMS.
+- Content authoring still happens in TypeScript content packs, but review status can now move through the JSON review-decision workflow or Supabase review metadata updates instead of only manual TypeScript edits.
 
 ## Manual GitHub Release Gate
 

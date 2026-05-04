@@ -71,6 +71,12 @@ Helpers in `lib/performance-engine/workout-programming/contentReview.ts`:
 - `getUnsafeOrUnreviewedContentReport()`
 - `prepareWorkoutProgrammingContentForMode()`
 
+Workflow helpers in `contentReviewWorkflow.ts`:
+
+- `createContentReviewQueue()`
+- `applyContentReviewDecisions()`
+- `generateContentReviewDecisionSql()`
+
 ## Runtime Gates
 
 Production generation uses the content review gate before workout generation. It excludes rejected, blocked, draft, needs-review, preview-only, and high-risk-without-safety-approval records.
@@ -112,6 +118,69 @@ The audit JSON and human report include:
 - `recommendedFixes`
 
 Use `--fail-on-warnings` for local cleanup passes where warning-free content is desired, but use `--strict` or `--release` for release gating.
+
+## Coach Reviewer JSON Workflow
+
+Coaches and reviewers do not need to edit TypeScript files for every review status change. Use the review workflow CLI to export a queue, fill a decisions file, validate it, and feed the decisions into audit/release checks.
+
+Export records needing review:
+
+```bash
+npm run workout:review-content -- export-queue --out review-queue.json
+```
+
+Create a decisions file from the exported `decisionTemplate` objects:
+
+```json
+{
+  "schemaVersion": "workout-content-review-decisions/v1",
+  "decisions": [
+    {
+      "recordType": "Exercise",
+      "id": "hip_thrust",
+      "decision": "approve",
+      "reviewer": "coach-reviewer",
+      "notes": ["Reviewed setup, coaching copy, and rollout eligibility."],
+      "safetyReviewStatus": "not_required"
+    }
+  ]
+}
+```
+
+Validate decisions:
+
+```bash
+npm run workout:review-content -- validate-decisions --in review-decisions.json
+```
+
+Apply decisions to an audit run without editing content packs:
+
+```bash
+npm run workout:review-content -- apply-decisions --in review-decisions.json
+npm run workout:audit-content -- --review-decisions review-decisions.json
+npm run workout:validate-content -- --strict --review-decisions review-decisions.json
+```
+
+CI or release environments can also set:
+
+```bash
+WORKOUT_CONTENT_REVIEW_DECISIONS=review-decisions.json
+```
+
+Generate Supabase admin SQL for review metadata updates:
+
+```bash
+npm run workout:review-content -- export-sql --in review-decisions.json --out review-updates.sql
+```
+
+The SQL updates only review metadata columns on static content tables. It does not insert, delete, or rewrite exercise/prescription content. Review the SQL before applying it in a service-role/admin context.
+
+Safety rules for decisions:
+
+- High-risk production approval requires `safetyReviewStatus = approved`.
+- Rejected content must stay `rolloutEligibility = blocked`.
+- `needs_review` decisions are kept out of production by default.
+- JSON decisions can unblock audit/release gates only when the underlying content is otherwise complete.
 
 ## Database Support
 

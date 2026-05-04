@@ -28,6 +28,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 - `workoutGenerationService.ts`, `workoutCompletionService.ts`, `workoutProgressionService.ts`, `workoutProgramService.ts`, `workoutDescriptionFacade.ts`, `workoutSubstitutionService.ts`: focused service orchestration behind the facade.
 - `workoutProgrammingFallbacks.ts`: shared beta/dev fallback, error-copy, feature-flag, and content-review-mode rules.
 - `workoutSafetyCopy.ts`: shared generated-workout safety, fallback, and local-mode copy.
+- `contentReviewWorkflow.ts`: JSON queue/decision workflow for coach/admin review handoff.
 - `analyticsEngine.ts`: adherence, completion, pain trend, and recommendation quality summary.
 
 ## Database Migrations
