@@ -20,24 +20,11 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
-import {
-  GeneratedWorkoutBetaSessionCard,
-  GeneratedWorkoutPreviewCard,
-  type GeneratedWorkoutBetaCompletionDraft,
-  type GeneratedWorkoutBetaConfig,
-  type GeneratedWorkoutBetaStage,
-} from '../components/workout';
+import { GeneratedWorkoutBetaContainer } from '../components/workout/GeneratedWorkoutBetaContainer';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import {
-  workoutProgrammingService,
-  workoutProgrammingServiceFixtures,
-  type GeneratedWorkout,
-  type GeneratedWorkoutSessionLifecycleStatus,
-  type ProgressionDecision,
-  type WorkoutReadinessBand,
-} from '../../lib/performance-engine/workout-programming';
+import { useGeneratedWorkoutBeta } from '../hooks/useGeneratedWorkoutBeta';
 import {
   buildSleepData,
   buildTrainTodaySummary,
@@ -50,24 +37,6 @@ import {
 } from './workout/utils';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
-
-const WORKOUT_PROGRAMMING_BETA_ENABLED = process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA === '1';
-const WORKOUT_PROGRAMMING_PREVIEW_ENABLED = !WORKOUT_PROGRAMMING_BETA_ENABLED
-  && __DEV__
-  && process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW === '1';
-
-function readinessBandFromLevel(level: string | null | undefined): WorkoutReadinessBand {
-  const normalized = level?.toLowerCase() ?? '';
-  if (normalized.includes('prime') || normalized.includes('green') || normalized.includes('ready')) return 'green';
-  if (normalized.includes('steady') || normalized.includes('yellow')) return 'yellow';
-  if (normalized.includes('caution') || normalized.includes('orange')) return 'orange';
-  if (normalized.includes('red') || normalized.includes('depleted')) return 'red';
-  return 'unknown';
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
 
 function groupWeekEntries(entries: WeeklyPlanEntryRow[]) {
   const groups = new Map<string, { date: string; dayOfWeek: number; sessions: WeeklyPlanEntryRow[] }>();
@@ -116,11 +85,6 @@ function getChipStyles(tone: 'success' | 'warning' | 'accent' | 'neutral') {
   return { backgroundColor: COLORS.surfaceSecondary, color: COLORS.text.secondary };
 }
 
-function betaStageFromLifecycleStatus(status: GeneratedWorkoutSessionLifecycleStatus): GeneratedWorkoutBetaStage {
-  if (status === 'completed') return 'completed';
-  if (status === 'started' || status === 'paused' || status === 'resumed') return 'started';
-  return 'inspect';
-}
 
 function StateCard({
   title,
@@ -166,20 +130,6 @@ export function WorkoutScreen() {
   const { themeColor, currentLevel } = useReadinessTheme();
   const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
-  const [generatedWorkoutPreview, setGeneratedWorkoutPreview] = useState<GeneratedWorkout | null>(null);
-  const [generatedWorkoutPreviewLoading, setGeneratedWorkoutPreviewLoading] = useState(false);
-  const [generatedWorkoutPreviewError, setGeneratedWorkoutPreviewError] = useState<string | null>(null);
-  const [generatedWorkoutBeta, setGeneratedWorkoutBeta] = useState<GeneratedWorkout | null>(null);
-  const [generatedWorkoutBetaId, setGeneratedWorkoutBetaId] = useState<string | null>(null);
-  const [generatedWorkoutBetaPersisted, setGeneratedWorkoutBetaPersisted] = useState(false);
-  const [generatedWorkoutBetaStage, setGeneratedWorkoutBetaStage] = useState<GeneratedWorkoutBetaStage>('configure');
-  const [generatedWorkoutBetaStartedAt, setGeneratedWorkoutBetaStartedAt] = useState<string | null>(null);
-  const [generatedWorkoutBetaLifecycleStatus, setGeneratedWorkoutBetaLifecycleStatus] = useState<GeneratedWorkoutSessionLifecycleStatus | null>(null);
-  const [generatedWorkoutBetaLifecycleMessage, setGeneratedWorkoutBetaLifecycleMessage] = useState<string | null>(null);
-  const [generatedWorkoutBetaLoading, setGeneratedWorkoutBetaLoading] = useState(false);
-  const [generatedWorkoutBetaCompleting, setGeneratedWorkoutBetaCompleting] = useState(false);
-  const [generatedWorkoutBetaError, setGeneratedWorkoutBetaError] = useState<string | null>(null);
-  const [generatedWorkoutBetaProgression, setGeneratedWorkoutBetaProgression] = useState<ProgressionDecision | null>(null);
   const {
     loading, refreshing, loadData, onRefresh, prescription, todayActivities, workoutHistory,
     checkins, sessions, userId, dailyAthleteSummary, todayPlanEntry, weeklyEntries,
@@ -187,289 +137,20 @@ export function WorkoutScreen() {
     historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
     performanceContext,
   } = useWorkoutData();
+  const generatedWorkoutBetaController = useGeneratedWorkoutBeta({
+    userId,
+    currentLevel,
+    previewActive: activeTab === 'today',
+    historyLoaded,
+    analyticsLoaded,
+    loadHistoryData,
+    loadAnalyticsData,
+  });
 
   useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
   useEffect(() => { if (activeTab === 'history' && !historyLoaded && !historyLoading) void loadHistoryData(); }, [activeTab, historyLoaded, historyLoading, loadHistoryData]);
   useEffect(() => { if (activeTab === 'analytics' && !analyticsLoaded && !analyticsLoading) void loadAnalyticsData(); }, [activeTab, analyticsLoaded, analyticsLoading, loadAnalyticsData]);
   useEffect(() => { setShowWorkoutDetails(false); }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
-
-  const loadGeneratedWorkoutPreview = useCallback(async () => {
-    if (!WORKOUT_PROGRAMMING_PREVIEW_ENABLED) return;
-    setGeneratedWorkoutPreviewLoading(true);
-    setGeneratedWorkoutPreviewError(null);
-    try {
-      const workout = await workoutProgrammingService.generatePreviewWorkout(
-        workoutProgrammingServiceFixtures.beginnerBodyweightStrength,
-        { persistGeneratedWorkout: false },
-      );
-      setGeneratedWorkoutPreview(workout);
-    } catch (error) {
-      setGeneratedWorkoutPreviewError(error instanceof Error ? error.message : 'Generated workout preview failed.');
-    } finally {
-      setGeneratedWorkoutPreviewLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (
-      WORKOUT_PROGRAMMING_PREVIEW_ENABLED
-      && activeTab === 'today'
-      && !generatedWorkoutPreview
-      && !generatedWorkoutPreviewLoading
-    ) {
-      void loadGeneratedWorkoutPreview();
-    }
-  }, [activeTab, generatedWorkoutPreview, generatedWorkoutPreviewLoading, loadGeneratedWorkoutPreview]);
-
-  const generatedWorkoutBetaReadiness = useMemo(() => readinessBandFromLevel(currentLevel), [currentLevel]);
-
-  useEffect(() => {
-    if (!WORKOUT_PROGRAMMING_BETA_ENABLED || !userId || generatedWorkoutBeta || generatedWorkoutBetaStage !== 'configure') return;
-    let cancelled = false;
-    async function loadActiveGeneratedSession() {
-      try {
-        const lifecycle = await workoutProgrammingService.loadActiveGeneratedWorkoutSession(userId!, { useSupabase: true });
-        if (!lifecycle || cancelled) return;
-        const workout = await workoutProgrammingService.loadGeneratedWorkoutForUser(userId!, lifecycle.generatedWorkoutId, { useSupabase: true });
-        if (!workout || cancelled) return;
-        setGeneratedWorkoutBeta(workout);
-        setGeneratedWorkoutBetaId(lifecycle.generatedWorkoutId);
-        setGeneratedWorkoutBetaPersisted(true);
-        setGeneratedWorkoutBetaStage(betaStageFromLifecycleStatus(lifecycle.status));
-        setGeneratedWorkoutBetaStartedAt(lifecycle.startedAt ?? lifecycle.resumedAt ?? null);
-        setGeneratedWorkoutBetaLifecycleStatus(lifecycle.status);
-        setGeneratedWorkoutBetaLifecycleMessage('Restored an active generated workout session.');
-      } catch (error) {
-        if (!cancelled) setGeneratedWorkoutBetaLifecycleMessage(errorMessage(error, 'Unable to restore active generated workout session.'));
-      }
-    }
-    void loadActiveGeneratedSession();
-    return () => { cancelled = true; };
-  }, [generatedWorkoutBeta, generatedWorkoutBetaStage, userId]);
-
-  const generateGeneratedWorkoutBeta = useCallback(async (config: GeneratedWorkoutBetaConfig) => {
-    if (!WORKOUT_PROGRAMMING_BETA_ENABLED) return;
-    const experienceLevel = config.goalId === 'dumbbell_hypertrophy' ? 'intermediate' as const : 'beginner' as const;
-    const workoutEnvironment = config.equipmentIds.includes('stationary_bike') ? 'gym' as const : 'home' as const;
-    const request = {
-      goalId: config.goalId,
-      durationMinutes: config.durationMinutes,
-      preferredDurationMinutes: config.durationMinutes,
-      equipmentIds: config.equipmentIds,
-      readinessBand: config.readinessBand,
-      experienceLevel,
-      workoutEnvironment,
-      preferredToneVariant: 'coach_like' as const,
-    };
-
-    setGeneratedWorkoutBetaLoading(true);
-    setGeneratedWorkoutBetaCompleting(false);
-    setGeneratedWorkoutBetaError(null);
-    setGeneratedWorkoutBetaProgression(null);
-    setGeneratedWorkoutBetaStartedAt(null);
-    setGeneratedWorkoutBetaLifecycleStatus(null);
-    setGeneratedWorkoutBetaLifecycleMessage(null);
-    try {
-      if (userId) {
-        try {
-          const result = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, request, {
-            useSupabase: true,
-            contentReviewMode: 'production',
-          });
-          setGeneratedWorkoutBeta(result.workout);
-          setGeneratedWorkoutBetaId(result.generatedWorkoutId);
-          setGeneratedWorkoutBetaPersisted(result.persisted);
-          setGeneratedWorkoutBetaStage('inspect');
-          setGeneratedWorkoutBetaLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'inspected');
-          setGeneratedWorkoutBetaLifecycleMessage(result.lifecycleFallbackMessage ? `Using local lifecycle fallback: ${result.lifecycleFallbackMessage}` : null);
-          return;
-        } catch (persistError) {
-          const workout = await workoutProgrammingService.generatePreviewWorkout(request, {
-            persistGeneratedWorkout: false,
-            contentReviewMode: 'preview',
-          });
-          setGeneratedWorkoutBeta(workout);
-          setGeneratedWorkoutBetaId(null);
-          setGeneratedWorkoutBetaPersisted(false);
-          setGeneratedWorkoutBetaStage('inspect');
-          setGeneratedWorkoutBetaLifecycleStatus('inspected');
-          setGeneratedWorkoutBetaLifecycleMessage('Generated session is local on this device.');
-          setGeneratedWorkoutBetaError(`Generated locally. Persistence unavailable: ${errorMessage(persistError, 'Unable to save generated workout.')}`);
-          return;
-        }
-      }
-
-      const workout = await workoutProgrammingService.generatePreviewWorkout(request, {
-        persistGeneratedWorkout: false,
-        contentReviewMode: 'preview',
-      });
-      setGeneratedWorkoutBeta(workout);
-      setGeneratedWorkoutBetaId(null);
-      setGeneratedWorkoutBetaPersisted(false);
-      setGeneratedWorkoutBetaStage('inspect');
-      setGeneratedWorkoutBetaLifecycleStatus('inspected');
-      setGeneratedWorkoutBetaLifecycleMessage('Generated session is local on this device.');
-    } catch (error) {
-      setGeneratedWorkoutBetaError(errorMessage(error, 'Generated workout failed.'));
-    } finally {
-      setGeneratedWorkoutBetaLoading(false);
-    }
-  }, [userId]);
-
-  const startGeneratedWorkoutBeta = useCallback(async () => {
-    const occurredAt = new Date().toISOString();
-    setGeneratedWorkoutBetaStartedAt(occurredAt);
-    setGeneratedWorkoutBetaStage('started');
-    setGeneratedWorkoutBetaLifecycleStatus('started');
-    setGeneratedWorkoutBetaError(null);
-    try {
-      const lifecycle = await workoutProgrammingService.startGeneratedWorkoutSession(userId ?? 'local-generated-workout-beta-user', generatedWorkoutBetaId, userId ? {
-        useSupabase: true,
-        occurredAt,
-      } : {
-        occurredAt,
-      });
-      setGeneratedWorkoutBetaStartedAt(lifecycle.lifecycle.startedAt ?? occurredAt);
-      setGeneratedWorkoutBetaLifecycleStatus(lifecycle.lifecycle.status);
-      setGeneratedWorkoutBetaLifecycleMessage(lifecycle.persisted ? null : 'Session started locally. Persistence will resume when available.');
-      if (lifecycle.fallbackMessage) setGeneratedWorkoutBetaLifecycleMessage(`Session started locally: ${lifecycle.fallbackMessage}`);
-    } catch (error) {
-      setGeneratedWorkoutBetaLifecycleMessage(`Session started locally. Persistence unavailable: ${errorMessage(error, 'Unable to persist start state.')}`);
-    }
-  }, [generatedWorkoutBetaId, userId]);
-
-  const pauseGeneratedWorkoutBeta = useCallback(async () => {
-    const occurredAt = new Date().toISOString();
-    setGeneratedWorkoutBetaLifecycleStatus('paused');
-    setGeneratedWorkoutBetaLifecycleMessage('Session paused.');
-    try {
-      const lifecycle = await workoutProgrammingService.pauseGeneratedWorkoutSession(userId ?? 'local-generated-workout-beta-user', generatedWorkoutBetaId, userId ? {
-        useSupabase: true,
-        occurredAt,
-      } : {
-        occurredAt,
-      });
-      setGeneratedWorkoutBetaLifecycleStatus(lifecycle.lifecycle.status);
-      setGeneratedWorkoutBetaLifecycleMessage(lifecycle.persisted ? 'Session paused and saved.' : 'Session paused locally.');
-      if (lifecycle.fallbackMessage) setGeneratedWorkoutBetaLifecycleMessage(`Session paused locally: ${lifecycle.fallbackMessage}`);
-    } catch (error) {
-      setGeneratedWorkoutBetaLifecycleMessage(`Session paused locally. Persistence unavailable: ${errorMessage(error, 'Unable to persist pause state.')}`);
-    }
-  }, [generatedWorkoutBetaId, userId]);
-
-  const resumeGeneratedWorkoutBeta = useCallback(async () => {
-    const occurredAt = new Date().toISOString();
-    setGeneratedWorkoutBetaStage('started');
-    setGeneratedWorkoutBetaLifecycleStatus('resumed');
-    setGeneratedWorkoutBetaLifecycleMessage('Session resumed.');
-    try {
-      const lifecycle = await workoutProgrammingService.resumeGeneratedWorkoutSession(userId ?? 'local-generated-workout-beta-user', generatedWorkoutBetaId, userId ? {
-        useSupabase: true,
-        occurredAt,
-      } : {
-        occurredAt,
-      });
-      setGeneratedWorkoutBetaStartedAt((current) => current ?? lifecycle.lifecycle.startedAt ?? occurredAt);
-      setGeneratedWorkoutBetaLifecycleStatus(lifecycle.lifecycle.status);
-      setGeneratedWorkoutBetaLifecycleMessage(lifecycle.persisted ? 'Session resumed and saved.' : 'Session resumed locally.');
-      if (lifecycle.fallbackMessage) setGeneratedWorkoutBetaLifecycleMessage(`Session resumed locally: ${lifecycle.fallbackMessage}`);
-    } catch (error) {
-      setGeneratedWorkoutBetaLifecycleMessage(`Session resumed locally. Persistence unavailable: ${errorMessage(error, 'Unable to persist resume state.')}`);
-    }
-  }, [generatedWorkoutBetaId, userId]);
-
-  const abandonGeneratedWorkoutBeta = useCallback(async () => {
-    const occurredAt = new Date().toISOString();
-    try {
-      const lifecycle = await workoutProgrammingService.abandonGeneratedWorkoutSession(userId ?? 'local-generated-workout-beta-user', generatedWorkoutBetaId, userId ? {
-        useSupabase: true,
-        occurredAt,
-      } : {
-        occurredAt,
-      });
-      setGeneratedWorkoutBeta(null);
-      setGeneratedWorkoutBetaId(null);
-      setGeneratedWorkoutBetaPersisted(false);
-      setGeneratedWorkoutBetaStage('configure');
-      setGeneratedWorkoutBetaStartedAt(null);
-      setGeneratedWorkoutBetaLifecycleStatus(null);
-      setGeneratedWorkoutBetaLifecycleMessage(null);
-      setGeneratedWorkoutBetaProgression(null);
-      setGeneratedWorkoutBetaError(null);
-      if (lifecycle.fallbackMessage) setGeneratedWorkoutBetaError(`Abandoned locally: ${lifecycle.fallbackMessage}`);
-    } catch (error) {
-      setGeneratedWorkoutBeta(null);
-      setGeneratedWorkoutBetaId(null);
-      setGeneratedWorkoutBetaPersisted(false);
-      setGeneratedWorkoutBetaStage('configure');
-      setGeneratedWorkoutBetaStartedAt(null);
-      setGeneratedWorkoutBetaLifecycleStatus(null);
-      setGeneratedWorkoutBetaLifecycleMessage(null);
-      setGeneratedWorkoutBetaProgression(null);
-      setGeneratedWorkoutBetaError(`Abandoned locally. Persistence unavailable: ${errorMessage(error, 'Unable to persist abandon state.')}`);
-    }
-  }, [generatedWorkoutBetaId, userId]);
-
-  const completeGeneratedWorkoutBeta = useCallback(async (draft: GeneratedWorkoutBetaCompletionDraft) => {
-    if (!generatedWorkoutBeta) return;
-    const completionInput = {
-      workout: generatedWorkoutBeta,
-      generatedWorkoutId: generatedWorkoutBetaId,
-      startedAt: generatedWorkoutBetaStartedAt,
-      completedAt: new Date().toISOString(),
-      ...draft,
-    };
-    const fallbackUserId = userId ?? 'local-generated-workout-beta-user';
-
-    setGeneratedWorkoutBetaCompleting(true);
-    setGeneratedWorkoutBetaError(null);
-    try {
-      const result = await workoutProgrammingService.completeGeneratedWorkoutSession(fallbackUserId, completionInput, userId ? {
-        useSupabase: true,
-      } : {
-        persistGeneratedWorkout: false,
-      });
-      setGeneratedWorkoutBetaProgression(result.progressionDecision);
-      setGeneratedWorkoutBetaStage('completed');
-      setGeneratedWorkoutBetaLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
-      setGeneratedWorkoutBetaLifecycleMessage(result.lifecycleFallbackMessage ? `Completed locally: ${result.lifecycleFallbackMessage}` : null);
-      if (userId && historyLoaded) void loadHistoryData(userId);
-      if (userId && analyticsLoaded) void loadAnalyticsData(userId);
-    } catch (persistError) {
-      if (!userId) {
-        setGeneratedWorkoutBetaError(errorMessage(persistError, 'Generated workout completion failed.'));
-        return;
-      }
-      try {
-        const result = await workoutProgrammingService.completeGeneratedWorkoutSession('local-generated-workout-beta-user', completionInput, {
-          persistGeneratedWorkout: false,
-        });
-        setGeneratedWorkoutBetaProgression(result.progressionDecision);
-        setGeneratedWorkoutBetaStage('completed');
-        setGeneratedWorkoutBetaLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
-        setGeneratedWorkoutBetaLifecycleMessage(result.lifecycleFallbackMessage ? `Completed locally: ${result.lifecycleFallbackMessage}` : null);
-        setGeneratedWorkoutBetaError(`Completed locally. Persistence unavailable: ${errorMessage(persistError, 'Unable to save completion.')}`);
-        if (historyLoaded) void loadHistoryData(userId);
-        if (analyticsLoaded) void loadAnalyticsData(userId);
-      } catch (localError) {
-        setGeneratedWorkoutBetaError(errorMessage(localError, 'Generated workout completion failed.'));
-      }
-    } finally {
-      setGeneratedWorkoutBetaCompleting(false);
-    }
-  }, [analyticsLoaded, generatedWorkoutBeta, generatedWorkoutBetaId, generatedWorkoutBetaStartedAt, historyLoaded, loadAnalyticsData, loadHistoryData, userId]);
-
-  const resetGeneratedWorkoutBeta = useCallback(() => {
-    setGeneratedWorkoutBeta(null);
-    setGeneratedWorkoutBetaId(null);
-    setGeneratedWorkoutBetaPersisted(false);
-    setGeneratedWorkoutBetaStage('configure');
-    setGeneratedWorkoutBetaStartedAt(null);
-    setGeneratedWorkoutBetaLifecycleStatus(null);
-    setGeneratedWorkoutBetaLifecycleMessage(null);
-    setGeneratedWorkoutBetaError(null);
-    setGeneratedWorkoutBetaProgression(null);
-  }, []);
 
   const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -650,61 +331,7 @@ export function WorkoutScreen() {
                 <WorkoutPrescriptionSection prescription={prescription} themeColor={themeColor} showStartButton={false} />
               </Animated.View>
             ) : null}
-            {!initialLoadError && WORKOUT_PROGRAMMING_BETA_ENABLED ? (
-              <Animated.View
-                testID="generated-workout-beta-section"
-                accessibilityLabel="Generated workout beta flow"
-                entering={FadeInDown.delay(70).duration(280).springify()}
-              >
-                <GeneratedWorkoutBetaSessionCard
-                  userAuthenticated={Boolean(userId)}
-                  stage={generatedWorkoutBetaStage}
-                  workout={generatedWorkoutBeta}
-                  generatedWorkoutId={generatedWorkoutBetaId}
-                  persisted={generatedWorkoutBetaPersisted}
-                  startedAt={generatedWorkoutBetaStartedAt}
-                  lifecycleStatus={generatedWorkoutBetaLifecycleStatus}
-                  lifecycleMessage={generatedWorkoutBetaLifecycleMessage}
-                  loading={generatedWorkoutBetaLoading}
-                  completing={generatedWorkoutBetaCompleting}
-                  error={generatedWorkoutBetaError}
-                  progressionDecision={generatedWorkoutBetaProgression}
-                  defaultReadinessBand={generatedWorkoutBetaReadiness}
-                  onGenerate={(config) => { void generateGeneratedWorkoutBeta(config); }}
-                  onStart={startGeneratedWorkoutBeta}
-                  onPause={pauseGeneratedWorkoutBeta}
-                  onResume={resumeGeneratedWorkoutBeta}
-                  onAbandon={abandonGeneratedWorkoutBeta}
-                  onComplete={(draft) => { void completeGeneratedWorkoutBeta(draft); }}
-                  onReset={resetGeneratedWorkoutBeta}
-                />
-              </Animated.View>
-            ) : null}
-            {!initialLoadError && WORKOUT_PROGRAMMING_PREVIEW_ENABLED ? (
-              <Animated.View
-                testID="generated-workout-preview-section"
-                accessibilityLabel="Generated workout preview section"
-                entering={FadeInDown.delay(70).duration(280).springify()}
-              >
-                {generatedWorkoutPreviewLoading && !generatedWorkoutPreview ? (
-                  <StateCard
-                    title="Generating programming preview"
-                    body="This developer-only section is loading through the workout-programming service layer."
-                    actionLabel="Refresh Preview"
-                    onPress={() => { void loadGeneratedWorkoutPreview(); }}
-                  />
-                ) : generatedWorkoutPreviewError ? (
-                  <StateCard
-                    title="Generated preview unavailable"
-                    body={generatedWorkoutPreviewError}
-                    actionLabel="Try Again"
-                    onPress={() => { void loadGeneratedWorkoutPreview(); }}
-                  />
-                ) : generatedWorkoutPreview ? (
-                  <GeneratedWorkoutPreviewCard workout={generatedWorkoutPreview} />
-                ) : null}
-              </Animated.View>
-            ) : null}
+            {!initialLoadError ? <GeneratedWorkoutBetaContainer controller={generatedWorkoutBetaController} /> : null}
             {!initialLoadError && contextualTodayActivities.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
                 <Card

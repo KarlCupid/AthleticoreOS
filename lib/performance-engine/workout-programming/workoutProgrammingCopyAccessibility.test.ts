@@ -140,7 +140,7 @@ async function run() {
 
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
-  const workoutScreen = read('src/screens/WorkoutScreen.tsx');
+  const betaContainer = read('src/components/workout/GeneratedWorkoutBetaContainer.tsx');
 
   assert('preview UI exposes screen-reader labels and section headings', [
     'accessibilityLabel={`${label}: ${value}',
@@ -161,7 +161,7 @@ async function run() {
   assert('workout screen generated sections are labeled for assistive tech', [
     'accessibilityLabel="Generated workout beta flow"',
     'accessibilityLabel="Generated workout preview section"',
-  ].every((needle) => workoutScreen.includes(needle)));
+  ].every((needle) => betaContainer.includes(needle)));
 }
 
 run()

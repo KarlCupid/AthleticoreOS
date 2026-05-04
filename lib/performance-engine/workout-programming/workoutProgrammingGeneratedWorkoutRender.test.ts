@@ -189,6 +189,7 @@ function installRenderMocks(): void {
         }),
       };
     }
+    if (request === '../AnimatedPressable') return { AnimatedPressable: View };
     if (request === '../components/AnimatedPressable') return { AnimatedPressable: View };
     if (request === '../components/ScreenHeader') return screenHeaderMock;
     if (request === '../components/ScreenWrapper') return { ScreenWrapper: simpleComponent() };

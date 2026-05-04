@@ -37,6 +37,8 @@ async function run() {
 
   const packageJson = read('package.json');
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
+  const betaHook = read('src/hooks/useGeneratedWorkoutBeta.ts');
+  const betaContainer = read('src/components/workout/GeneratedWorkoutBetaContainer.tsx');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
   const renderTest = read('lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts');
@@ -51,12 +53,17 @@ async function run() {
   );
 
   assert('feature flags gate generated workout preview and beta flow', hasAll(workoutScreen, [
-    "const WORKOUT_PROGRAMMING_BETA_ENABLED = process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA === '1'",
-    'const WORKOUT_PROGRAMMING_PREVIEW_ENABLED = !WORKOUT_PROGRAMMING_BETA_ENABLED',
-    'if (!WORKOUT_PROGRAMMING_PREVIEW_ENABLED) return;',
-    'if (!WORKOUT_PROGRAMMING_BETA_ENABLED) return;',
-    '{!initialLoadError && WORKOUT_PROGRAMMING_BETA_ENABLED ? (',
-    '{!initialLoadError && WORKOUT_PROGRAMMING_PREVIEW_ENABLED ? (',
+    'useGeneratedWorkoutBeta',
+    'GeneratedWorkoutBetaContainer',
+  ]) && hasAll(betaHook, [
+    "process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA === '1'",
+    'const previewEnabled = !betaEnabled',
+    "process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW === '1'",
+    'if (!previewEnabled) return;',
+    'if (!betaEnabled) return;',
+  ]) && hasAll(betaContainer, [
+    'betaEnabled ?',
+    'previewEnabled ?',
     'testID="generated-workout-beta-section"',
     'testID="generated-workout-preview-section"',
   ]));
@@ -102,13 +109,16 @@ async function run() {
   ]));
 
   assert('preview and beta error states surface service failures without crashing the screen', hasAll(workoutScreen, [
-    'generatedWorkoutPreviewError',
-    'Generated preview unavailable',
-    'setGeneratedWorkoutBetaError',
+    'GeneratedWorkoutBetaContainer',
+  ]) && hasAll(betaHook, [
+    'previewError',
+    'setError',
     'Generated locally. Persistence unavailable',
     'Completed locally. Persistence unavailable',
     'Session started locally',
-    "errorMessage(error, 'Generated workout failed.')",
+    "errorMessage(generateError, 'Generated workout failed.')",
+  ]) && hasAll(betaContainer, [
+    'Generated preview unavailable',
   ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
 
   assert('beta flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(betaCard, [
