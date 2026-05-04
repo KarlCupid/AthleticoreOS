@@ -4,9 +4,9 @@ import {
   resolveGeneratedWorkoutContentReviewOptions,
   resolveGeneratedWorkoutFeatureFlags,
   workoutProgrammingService,
-  workoutProgrammingServiceFixtures,
   type GeneratedWorkout,
 } from '../../lib/performance-engine/workout-programming';
+import { workoutProgrammingServiceFixtures } from '../../lib/performance-engine/workout-programming/workoutProgrammingServiceFixtures';
 
 interface UseGeneratedWorkoutDevPreviewOptions {
   active: boolean;

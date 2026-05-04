@@ -1,4 +1,4 @@
-import type { WorkoutProgrammingPreviewRequest } from './workoutProgrammingService.ts';
+import type { WorkoutProgrammingPreviewRequest } from './workoutProgrammingServiceTypes.ts';
 
 export const workoutProgrammingServiceFixtures = {
   beginnerBodyweightStrength: {

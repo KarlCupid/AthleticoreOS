@@ -1,4 +1,8 @@
+// Intentional public workout-programming surface.
+// App code should prefer the workoutProgrammingService facade plus shared display types.
 export * from './types.ts';
+
+// Advanced engine/content exports remain public for content tooling, migrations, and focused engine tests.
 export * from './seedData.ts';
 export * from './intelligenceData.ts';
 export * from './seedLoader.ts';
@@ -18,12 +22,13 @@ export * from './historyAnalyticsAdapter.ts';
 export * from './decisionTraceSummaries.ts';
 export * from './workoutProgrammingFallbacks.ts';
 export * from './persistenceService.ts';
-export * from './workoutProgrammingServiceFixtures.ts';
+
+// Service fixtures are intentionally not exported from this barrel; import the fixture file directly in dev/test code.
 export type {
   GeneratedWorkoutLifecycleResult,
   GeneratedWorkoutSessionCompletionInput,
   GeneratedWorkoutSessionCompletionResult,
   GeneratedWorkoutSessionExerciseCompletionInput,
   GeneratedWorkoutSessionResult,
-} from './workoutProgrammingService.ts';
+} from './workoutProgrammingServiceTypes.ts';
 export * as workoutProgrammingService from './workoutProgrammingService.ts';

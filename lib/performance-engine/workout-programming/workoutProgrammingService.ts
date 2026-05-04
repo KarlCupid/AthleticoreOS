@@ -60,7 +60,6 @@ export {
   loadGeneratedWorkoutCompletionSurfacesForUser,
   logWorkoutCompletion,
 } from './workoutCompletionService.ts';
-export { buildCompletionLogFromGeneratedWorkout } from './workoutCompletionService.ts';
 export { getWorkoutDescription } from './workoutDescriptionFacade.ts';
 export {
   abandonGeneratedWorkoutSession,

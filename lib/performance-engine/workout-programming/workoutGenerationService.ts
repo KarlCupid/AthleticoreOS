@@ -49,7 +49,7 @@ import type {
   WorkoutProgrammingUserRequest,
 } from './workoutProgrammingServiceTypes.ts';
 
-export async function buildWorkoutForUser(
+async function buildWorkoutForUser(
   userId: string,
   request: WorkoutProgrammingUserRequest,
   options?: WorkoutProgrammingServiceOptions,

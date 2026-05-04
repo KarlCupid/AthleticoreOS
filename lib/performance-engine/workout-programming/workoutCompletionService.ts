@@ -78,7 +78,7 @@ function plannedRepsValue(reps: string | null): number | null {
   return Number(matches[matches.length - 1]);
 }
 
-export function buildCompletionLogFromGeneratedWorkout(
+function buildCompletionLogFromGeneratedWorkout(
   input: GeneratedWorkoutSessionCompletionInput,
 ): WorkoutCompletionLog {
   const completedSet = new Set(input.completedExerciseIds ?? input.workout.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exerciseId)));
