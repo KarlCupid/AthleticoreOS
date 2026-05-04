@@ -17,6 +17,8 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { supabase } from '../../lib/supabase';
 import { signOutCurrentUser } from '../../lib/api/accountService';
@@ -42,6 +44,7 @@ import type { FirstRunGuidanceState } from '../../lib/api/firstRunGuidanceServic
 import type { PlanningSetupStatus } from '../../lib/api/planningSetupService';
 import { logError } from '../../lib/utils/logger';
 import { todayLocalDate } from '../../lib/utils/date';
+import type { MeStackParamList, RootTabParamList } from '../navigation/types';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { EngineReplayLab } from '../components/EngineReplayLab';
@@ -66,6 +69,8 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { ANIMATION, COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
 type EditableField = 'base_weight' | 'target_weight' | 'fight_date';
+type ProfileSettingsNavigation = NativeStackNavigationProp<MeStackParamList, 'MeHome'>;
+type ProfileSettingsParentNavigation = BottomTabNavigationProp<RootTabParamList>;
 
 interface MeSnapshot {
   email: string;
@@ -139,7 +144,7 @@ function getManagedSourceLabel(activeWeightClassPlan: WeightClassPlanRow | null,
 }
 
 export function ProfileSettingsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<ProfileSettingsNavigation>();
   const insets = useSafeAreaInsets();
   const { themeColor } = useReadinessTheme();
 
@@ -396,21 +401,21 @@ export function ProfileSettingsScreen() {
   }
 
   function openWeeklySetup() {
-    navigation.getParent()?.navigate('Train', { screen: 'WeeklyPlanSetup' });
+    navigation.getParent<ProfileSettingsParentNavigation>()?.navigate('Train', { screen: 'WeeklyPlanSetup' });
   }
 
   function openGymProfiles() {
-    navigation.getParent()?.navigate('Train', { screen: 'GymProfiles' });
+    navigation.getParent<ProfileSettingsParentNavigation>()?.navigate('Train', { screen: 'GymProfiles' });
   }
 
   function openWeightClassPlan() {
-    navigation.getParent()?.navigate('Fuel', {
+    navigation.getParent<ProfileSettingsParentNavigation>()?.navigate('Fuel', {
       screen: snapshot?.activeWeightClassPlan ? 'WeightClassHome' : 'WeightClassPlanSetup',
     });
   }
 
   function openCheckIn() {
-    navigation.getParent()?.navigate('Today', { screen: 'Log' });
+    navigation.getParent<ProfileSettingsParentNavigation>()?.navigate('Today', { screen: 'Log' });
   }
 
   function openLegalSupport() {

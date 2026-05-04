@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import type {
   ExerciseLibraryRow,
   FitnessLevel,
@@ -117,11 +118,11 @@ export type MeStackParamList = {
 };
 
 export type RootTabParamList = {
-  Today: undefined;
-  Train: undefined;
-  Plan: undefined;
-  Fuel: undefined;
-  Me: undefined;
+  Today: NavigatorScreenParams<TodayStackParamList> | undefined;
+  Train: NavigatorScreenParams<TrainStackParamList> | undefined;
+  Plan: NavigatorScreenParams<PlanStackParamList> | undefined;
+  Fuel: NavigatorScreenParams<FuelStackParamList> | undefined;
+  Me: NavigatorScreenParams<MeStackParamList> | undefined;
 };
 
 export type AppRouteParamList = TodayStackParamList &

@@ -7,6 +7,7 @@ import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconActivity, IconBarChart, IconCalendar, IconPerson, IconRestaurant } from '../components/icons';
+import type { IconProps } from '../components/icons';
 import { TodayStackNavigator } from './TodayStack';
 import { TrainStackNavigator } from './TrainStack';
 import { PlanStackNavigator } from './PlanStack';
@@ -14,15 +15,23 @@ import { FuelStackNavigator } from './FuelStack';
 import { MeStackNavigator } from './MeStack';
 import { ANIMATION, APP_CHROME, COLORS, RADIUS, SHADOWS } from '../theme/theme';
 import { useInteractionMode } from '../context/InteractionModeContext';
+import type { RootTabParamList } from './types';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<RootTabParamList>();
 
 function shouldHideTabBar(route: Parameters<typeof getFocusedRouteNameFromRoute>[0]) {
   const focusedRouteName = getFocusedRouteNameFromRoute(route) ?? 'WorkoutHome';
   return focusedRouteName === 'GuidedWorkout' || focusedRouteName === 'WorkoutSummary';
 }
 
-function TabIcon({ focused, color, label, IconComponent, testID }: { focused: boolean; color: string; label: string; IconComponent: any; testID: string }) {
+function TabIcon(props: {
+  focused: boolean;
+  color: string;
+  label: string;
+  IconComponent: React.ComponentType<IconProps>;
+  testID: string;
+}) {
+  const { focused, color, label, IconComponent, testID } = props;
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(focused ? 1.05 : 1, { damping: 12, stiffness: 200 }) }],
     alignItems: 'center',
@@ -73,10 +82,6 @@ export function TabNavigator() {
 
   return (
     <Tab.Navigator
-      // @ts-expect-error sceneContainerStyle is passed successfully but causes TS issue
-      sceneContainerStyle={{
-        paddingBottom: mode === 'gym-floor' ? 0 : tabBarHeight,
-      }}
       screenListeners={{
         tabPress: () => {
           Haptics.selectionAsync();
@@ -84,6 +89,9 @@ export function TabNavigator() {
       }}
       screenOptions={{
         headerShown: false,
+        sceneStyle: {
+          paddingBottom: mode === 'gym-floor' ? 0 : tabBarHeight,
+        },
         tabBarShowLabel: false,
         tabBarStyle: baseTabBarStyle,
         tabBarItemStyle: {
