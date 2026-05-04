@@ -73,6 +73,8 @@ const MAIN_LIFT_KINDS = ['main_lift', 'accessory', 'hypertrophy_accessory', 'cor
 const SUBSTITUTION_SKILL_MATCHES = ['same_or_lower', 'same', 'any'] as const;
 const SUBSTITUTION_GOAL_MATCHES = ['same_goal', 'same_workout_type', 'same_pattern', 'any'] as const;
 const RULE_OPERATORS = ['<', '<=', '=', '>=', '>', 'includes', 'excludes', 'missing', 'present'] as const;
+const MEDIA_REVIEW_STATUSES = ['draft', 'needs_review', 'approved', 'rejected'] as const;
+const MEDIA_PRIORITIES = ['low', 'medium', 'high'] as const;
 const RULE_ACTION_KINDS = [
   'add_volume',
   'reduce_volume',
@@ -513,6 +515,34 @@ function validatePayload(
   }
 }
 
+function validateExerciseMedia(sink: IssueSink, exerciseId: string | undefined, media: unknown): void {
+  if (media == null) return;
+  if (!isRecord(media)) {
+    addIssue(sink, 'Exercise', exerciseId, 'media', 'media must be an object when provided.', 'Store media as a structured object with URLs, alt text, review status, and priority.');
+    return;
+  }
+
+  const assetFields = ['thumbnailUrl', 'videoUrl', 'imageUrl', 'animationUrl'] as const;
+  for (const field of assetFields) {
+    if (media[field] != null && !hasText(media[field])) {
+      addIssue(sink, 'Exercise', exerciseId, `media.${field}`, `media.${field} must be a non-empty string or null.`, `Remove media.${field}, set it to null, or provide a reviewed asset URL.`);
+    }
+  }
+  optionalText(sink, 'Exercise', exerciseId, 'media.altText', media.altText);
+  optionalText(sink, 'Exercise', exerciseId, 'media.attribution', media.attribution);
+  optionalText(sink, 'Exercise', exerciseId, 'media.missingReason', media.missingReason);
+  optionalOneOf(sink, 'Exercise', exerciseId, 'media.reviewStatus', media.reviewStatus, MEDIA_REVIEW_STATUSES);
+  optionalOneOf(sink, 'Exercise', exerciseId, 'media.priority', media.priority, MEDIA_PRIORITIES);
+
+  const hasAsset = assetFields.some((field) => hasText(media[field]));
+  if (hasAsset && !hasText(media.altText)) {
+    addIssue(sink, 'Exercise', exerciseId, 'media.altText', 'media.altText is required when an exercise media asset is present.', 'Add concise alt text that describes the visible exercise setup and action.');
+  }
+  if (!hasAsset && media.reviewStatus === 'approved') {
+    addIssue(sink, 'Exercise', exerciseId, 'media.reviewStatus', 'media.reviewStatus cannot be approved without a linked media asset.', 'Attach a reviewed media asset before marking exercise media approved.');
+  }
+}
+
 function validateGeneratedPrescriptionPayload(
   sink: IssueSink,
   id: string | undefined,
@@ -610,6 +640,7 @@ function validateExerciseInto(sink: IssueSink, exercise: unknown, refs?: Catalog
   const setupInstructions = optionalStringArray(sink, 'Exercise', id, 'setupInstructions', exercise.setupInstructions);
   const executionInstructions = optionalStringArray(sink, 'Exercise', id, 'executionInstructions', exercise.executionInstructions);
   const safetyNotes = optionalStringArray(sink, 'Exercise', id, 'safetyNotes', exercise.safetyNotes);
+  validateExerciseMedia(sink, id, exercise.media);
   optionalStringArray(sink, 'Exercise', id, 'breathingInstructions', exercise.breathingInstructions);
   optionalStringArray(sink, 'Exercise', id, 'spaceRequired', exercise.spaceRequired)
     .forEach((space) => requireOneOf(sink, 'Exercise', id, 'spaceRequired', space, SPACE_REQUIREMENTS));

@@ -87,8 +87,11 @@ const program = await workoutProgrammingService.generateWeeklyProgramForUser(use
    - `media.videoUrl: null`
    - `media.imageUrl: null`
    - `media.thumbnailUrl: null`
+   - `media.animationUrl: null`
    - Specific `media.altText`
    - `media.reviewStatus: 'needs_review'`
+   - `media.missingReason`
+   - `media.priority: 'low' | 'medium' | 'high'`
 6. Add valid regression, progression, and substitution IDs only when they preserve intent.
 7. Add coaching cues and common mistakes under `content/intelligence/` if the exercise is important.
 8. Run:
@@ -106,6 +109,7 @@ Checklist before committing:
 - Safety notes are specific.
 - Tracking metrics match the prescription.
 - Missing media appears in the audit report instead of pretending an asset exists.
+- Any real media URL has useful alt text and an approved review status before release.
 - Tests do not flag generic filler.
 
 ## How to Add a New Workout Type

@@ -182,6 +182,7 @@ function run() {
   const previewReport = reportFor(previewCatalog, readyIntelligence);
   assert('preview/dev-only content does not block normal audit', shouldFail(previewReport, {}) === false && previewReport.summary.productionBlockers === 0);
   assert('preview/dev-only content does not block strict release when safely gated', shouldFail(previewReport, { strict: true }) === false && previewReport.release.previewGatedCounts.total > 0);
+  assert('missing media is allowed for preview but reported', previewReport.betaExercisesMissingMedia.some((item: any) => item.id === 'goblet_squat'));
 
   const highRiskPreviewReport = reportFor(replaceExercise(readyCatalog, 'goblet_squat', {
     reviewStatus: 'needs_review',
@@ -219,6 +220,24 @@ function run() {
     },
   }), readyIntelligence);
   assert('production-eligible exercises missing media block strict release', shouldFail(missingMediaReport, { strict: true }) === true && missingMediaReport.release.missingProductionMedia.some((item: any) => item.id === 'goblet_squat'));
+
+  const missingAltTextReport = reportFor(replaceExercise(readyCatalog, 'goblet_squat', {
+    media: {
+      thumbnailUrl: 'https://example.test/workout-media/goblet_squat.jpg',
+      reviewStatus: 'approved',
+    },
+  }), readyIntelligence);
+  assert('alt text is required when exercise media is present', shouldFail(missingAltTextReport, {}) === true && missingAltTextReport.missingMediaAltText.some((item: any) => item.id === 'goblet_squat'));
+
+  const highPriorityMediaReport = reportFor(replaceExercise(readyCatalog, 'goblet_squat', {
+    media: {
+      thumbnailUrl: 'https://example.test/workout-media/goblet_squat.jpg',
+      altText: 'Goblet squat demonstration',
+      reviewStatus: 'approved',
+      priority: 'high',
+    },
+  }), readyIntelligence);
+  assert('high-priority production exercises without demo assets block strict release', shouldFail(highPriorityMediaReport, { strict: true }) === true && highPriorityMediaReport.release.missingProductionMedia.some((item: any) => item.field === 'media.priority'));
 
   const missingRuleCatalog: WorkoutProgrammingCatalog = {
     ...readyCatalog,

@@ -96,6 +96,8 @@ async function run() {
     'testID="generated-workout-preview-session-header"',
     'testID="generated-workout-preview-why"',
     'testID="generated-workout-preview-blocks"',
+    'testID={`generated-workout-exercise-media-${exercise.exerciseId}`}',
+    'getPrimaryExerciseMediaAsset(exercise.media)',
     'formatPrescription(exercise)',
     'formatPayloadDetail(exercise.prescription.payload)',
     'formatTempoGuidance(exercise)',

@@ -175,16 +175,16 @@ function gatedPreviewWarning(item) {
   };
 }
 
-function hasMedia(exercise) {
-  const media = exercise.media || {};
-  return Boolean(media.videoUrl || media.thumbnailUrl || media.imageUrl || media.animationUrl);
-}
-
-function mediaReviewStatus(exercise) {
-  const status = exercise.media && typeof exercise.media.reviewStatus === 'string'
-    ? exercise.media.reviewStatus
-    : 'needs_review';
-  return status;
+function mediaIssueToEntry(issue) {
+  return entry(
+    issue.type || 'Exercise',
+    issue.id,
+    issue.field,
+    issue.severity,
+    issue.message,
+    issue.suggestion,
+    issue.details || {},
+  );
 }
 
 function ids(items) {
@@ -346,27 +346,13 @@ function productionPrescriptionRuleEntries(catalog) {
       )));
 }
 
-function productionMediaEntries(catalog) {
-  return catalog.exercises
-    .filter(isProductionEligible)
-    .filter((exercise) => !hasMedia(exercise) || mediaReviewStatus(exercise) !== 'approved')
-    .map((exercise) => entry(
-      'Exercise',
-      exercise.id,
-      'media',
-      'error',
-      !hasMedia(exercise)
-        ? `${exercise.id} is production-eligible but has no linked media asset.`
-        : `${exercise.id} has production media hooks that are not approved.`,
-      'Add approved thumbnailUrl, videoUrl, imageUrl, or animationUrl before release if media is required.',
-      {
-        mediaReviewStatus: mediaReviewStatus(exercise),
-        hasAltText: Boolean(exercise.media && exercise.media.altText),
-        hasMediaHooks: Boolean(exercise.media),
-        reviewStatus: exercise.reviewStatus,
-        rolloutEligibility: exercise.rolloutEligibility,
-      },
-    ));
+function productionMediaEntries(input) {
+  return uniqueEntries([
+    ...input.productionExercisesMissingMedia,
+    ...input.unreviewedMedia.filter((item) => item.details && item.details.rolloutEligibility === 'production'),
+    ...input.missingMediaAltText.filter((item) => item.details && item.details.rolloutEligibility === 'production'),
+    ...input.highPriorityExercisesWithoutDemoAssets.filter((item) => item.details && item.details.rolloutEligibility === 'production'),
+  ]);
 }
 
 function uniqueEntries(entries) {
@@ -415,6 +401,10 @@ function buildReleaseReport(input) {
     reviewBlockers,
     unsafeProductionEligible,
     gatedPreviewContent,
+    productionExercisesMissingMedia,
+    missingMediaAltText,
+    unreviewedMedia,
+    highPriorityExercisesWithoutDemoAssets,
     suggestions,
   } = input;
   const productionItems = collectReviewableItems(catalog, intelligence).filter(({ item }) => isProductionEligible(item));
@@ -434,7 +424,12 @@ function buildReleaseReport(input) {
   const productionSafetyNotes = productionExerciseSafetyEntries(catalog);
   const productionSubstitutions = productionExerciseSubstitutionEntries(catalog, intelligence);
   const productionPrescriptionRules = productionPrescriptionRuleEntries(catalog);
-  const missingProductionMedia = productionMediaEntries(catalog);
+  const missingProductionMedia = productionMediaEntries({
+    productionExercisesMissingMedia,
+    missingMediaAltText,
+    unreviewedMedia,
+    highPriorityExercisesWithoutDemoAssets,
+  });
   const rejectedNotBlocked = rejectedButNotBlockedEntries(catalog, intelligence);
   const descriptionCompletenessKeys = new Set(descriptionCompletenessErrors.map(entryKey));
   const reviewableById = reviewableItemsById(catalog, intelligence);
@@ -498,27 +493,17 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
   const descriptionValidation = workout.validateDescriptionCompleteness(validationOptions);
   const reviewReport = workout.getUnsafeOrUnreviewedContentReport(catalog, intelligence);
   const seedRows = workout.buildWorkoutProgrammingSeedRows(catalog);
+  const mediaAudit = workout.auditWorkoutProgrammingExerciseMedia(catalog);
   const substitutionRuleSourceIds = ids(intelligence.substitutionRules.map((rule) => ({ id: rule.sourceExerciseId })));
   const toneVariants = new Set(intelligence.descriptionTemplates.map((template) => template.toneVariant).filter(Boolean));
   const missingToneVariants = REQUIRED_TONE_VARIANTS.filter((tone) => !toneVariants.has(tone));
 
-  const missingMedia = catalog.exercises
-    .filter((exercise) => !hasMedia(exercise))
-    .map((exercise) => entry(
-      'Exercise',
-      exercise.id,
-      'media',
-      'warning',
-      exercise.media
-        ? `${exercise.id} has media hooks but no linked media asset.`
-        : `${exercise.id} has no linked media asset.`,
-      'Add thumbnailUrl, videoUrl, imageUrl, or animationUrl before media-rich production surfaces rely on it.',
-      {
-        mediaReviewStatus: mediaReviewStatus(exercise),
-        hasAltText: Boolean(exercise.media && exercise.media.altText),
-        hasMediaHooks: Boolean(exercise.media),
-      },
-    ));
+  const missingMedia = mediaAudit.missingMedia.map((issue) => mediaIssueToEntry({ ...issue, severity: 'warning' }));
+  const productionExercisesMissingMedia = mediaAudit.productionExercisesMissingMedia.map(mediaIssueToEntry);
+  const betaExercisesMissingMedia = mediaAudit.betaExercisesMissingMedia.map(mediaIssueToEntry);
+  const missingMediaAltText = mediaAudit.missingAltText.map(mediaIssueToEntry);
+  const unreviewedMedia = mediaAudit.unreviewedMedia.map(mediaIssueToEntry);
+  const highPriorityExercisesWithoutDemoAssets = mediaAudit.highPriorityExercisesWithoutDemoAssets.map(mediaIssueToEntry);
 
   const exercisesWithoutSubstitutions = catalog.exercises
     .filter((exercise) => (exercise.substitutionExerciseIds || []).length === 0 && !substitutionRuleSourceIds.has(exercise.id))
@@ -574,10 +559,13 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
     ...descriptionCompletenessErrors,
     ...productionBlockers,
     ...unsafeProductionEligible,
+    ...missingMediaAltText,
   ];
   const warnings = [
     ...validationWarnings,
     ...missingMedia,
+    ...unreviewedMedia.filter((item) => item.severity === 'warning'),
+    ...highPriorityExercisesWithoutDemoAssets.filter((item) => item.severity === 'warning'),
     ...exercisesWithoutSubstitutions,
     ...prescriptionsWithoutProgressionRules,
     ...missingToneEntries,
@@ -593,6 +581,9 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
   if (prescriptionsWithoutProgressionRules.length > 0) suggestions.push('Attach progression rules to trainable prescriptions or mark repeat-only intent in coach notes.');
   if (missingToneVariants.length > 0) suggestions.push('Fill missing tone variants so coaching copy can match user preference.');
   if (suggestions.length === 0) suggestions.push('Content packs are ready for production review.');
+  if (missingMediaAltText.length > 0) suggestions.push('Add alt text to every exercise media asset before release.');
+  if (unreviewedMedia.length > 0) suggestions.push('Review exercise media assets and set media.reviewStatus to approved only after content and safety review.');
+  if (highPriorityExercisesWithoutDemoAssets.length > 0) suggestions.push('Produce demo videos or animations for high-priority exercises.');
 
   const release = buildReleaseReport({
     catalog,
@@ -603,6 +594,10 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
     reviewBlockers,
     unsafeProductionEligible,
     gatedPreviewContent,
+    productionExercisesMissingMedia,
+    missingMediaAltText,
+    unreviewedMedia,
+    highPriorityExercisesWithoutDemoAssets,
     suggestions,
   });
 
@@ -642,6 +637,11 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
       duplicateIdErrors: duplicateIdErrors.length,
       orphanedReferenceErrors: orphanedReferenceErrors.length,
       missingMedia: missingMedia.length,
+      productionExercisesMissingMedia: productionExercisesMissingMedia.length,
+      betaExercisesMissingMedia: betaExercisesMissingMedia.length,
+      missingMediaAltText: missingMediaAltText.length,
+      unreviewedMedia: unreviewedMedia.length,
+      highPriorityExercisesWithoutDemoAssets: highPriorityExercisesWithoutDemoAssets.length,
       exercisesWithoutSubstitutions: exercisesWithoutSubstitutions.length,
       prescriptionsWithoutProgressionRules: prescriptionsWithoutProgressionRules.length,
       missingToneVariants: missingToneVariants.length,
@@ -660,6 +660,11 @@ function buildAuditReport(projectRoot = process.cwd(), options = {}) {
     duplicateIdErrors,
     orphanedReferenceErrors,
     missingMedia,
+    productionExercisesMissingMedia,
+    betaExercisesMissingMedia,
+    missingMediaAltText,
+    unreviewedMedia,
+    highPriorityExercisesWithoutDemoAssets,
     exercisesWithoutSubstitutions,
     prescriptionsWithoutProgressionRules,
     missingToneVariants,
@@ -715,6 +720,11 @@ function formatAuditReport(report, args = {}) {
     `- duplicate ID errors: ${report.summary.duplicateIdErrors}`,
     `- orphaned reference errors: ${report.summary.orphanedReferenceErrors}`,
     `- missing media: ${report.summary.missingMedia}`,
+    `- production exercises missing media: ${report.summary.productionExercisesMissingMedia}`,
+    `- beta exercises missing media: ${report.summary.betaExercisesMissingMedia}`,
+    `- missing media alt text: ${report.summary.missingMediaAltText}`,
+    `- unreviewed media: ${report.summary.unreviewedMedia}`,
+    `- high-priority exercises without demo assets: ${report.summary.highPriorityExercisesWithoutDemoAssets}`,
     `- exercises without substitutions: ${report.summary.exercisesWithoutSubstitutions}`,
     `- prescriptions without progression rules: ${report.summary.prescriptionsWithoutProgressionRules}`,
     `- missing tone variants: ${report.summary.missingToneVariants}`,
@@ -740,6 +750,16 @@ function formatAuditReport(report, args = {}) {
     formatEntries('Production Blockers', report.productionBlockers, limit),
     '',
     formatEntries('Gated Preview/Dev-Only Content', report.gatedPreviewContent, limit),
+    '',
+    formatEntries('Production Exercises Missing Media', report.productionExercisesMissingMedia, limit),
+    '',
+    formatEntries('Beta Exercises Missing Media', report.betaExercisesMissingMedia, limit),
+    '',
+    formatEntries('Missing Media Alt Text', report.missingMediaAltText, limit),
+    '',
+    formatEntries('Unreviewed Media', report.unreviewedMedia, limit),
+    '',
+    formatEntries('High-Priority Exercises Without Demo Assets', report.highPriorityExercisesWithoutDemoAssets, limit),
     '',
     'Release Gate',
     `- productionReady: ${report.release.productionReady}`,
@@ -773,6 +793,11 @@ function formatValidationReport(report, args = {}) {
     `- duplicate ID errors: ${report.summary.duplicateIdErrors}`,
     `- orphaned reference errors: ${report.summary.orphanedReferenceErrors}`,
     `- unsafe production-eligible content: ${report.summary.unsafeProductionEligible}`,
+    `- production exercises missing media: ${report.summary.productionExercisesMissingMedia}`,
+    `- beta exercises missing media: ${report.summary.betaExercisesMissingMedia}`,
+    `- missing media alt text: ${report.summary.missingMediaAltText}`,
+    `- unreviewed media: ${report.summary.unreviewedMedia}`,
+    `- high-priority exercises without demo assets: ${report.summary.highPriorityExercisesWithoutDemoAssets}`,
     `- release production ready: ${report.release.productionReady}`,
     `- release production blockers: ${report.release.productionBlockers.length}`,
     `- release review blockers: ${report.release.reviewBlockers.length}`,

@@ -4,6 +4,7 @@ import {
 import { rankExerciseSubstitutions } from './substitutionEngine.ts';
 import { createWorkoutValidationResult, validateWorkoutDomain } from './validationEngine.ts';
 import { generateWorkoutDescription } from './workoutDescriptionService.ts';
+import { getPrimaryExerciseMediaAsset } from './workoutMediaAudit.ts';
 import type {
   Exercise,
   ExerciseSelectionScoreTrace,
@@ -592,6 +593,7 @@ function buildExercisePrescription(input: {
     limit: 3,
     ...(input.request.dislikedExerciseIds ? { dislikedExerciseIds: input.request.dislikedExerciseIds } : {}),
   });
+  const approvedMediaAsset = getPrimaryExerciseMediaAsset(input.exercise.media);
 
   return {
     exerciseId: input.exercise.id,
@@ -617,6 +619,7 @@ function buildExercisePrescription(input: {
     prescriptionTemplateId: template.id,
     scoreTrace: input.scoreTrace,
     substitutions,
+    ...(approvedMediaAsset && input.exercise.media ? { media: input.exercise.media } : {}),
   };
 }
 

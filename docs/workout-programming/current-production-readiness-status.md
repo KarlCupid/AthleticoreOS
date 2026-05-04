@@ -89,6 +89,7 @@ The current strict content commands run and fail as intended. At the time of thi
 - `productionReady: false`
 - 35 release production blockers, mainly production-eligible prescriptions missing progression, regression, or deload rule links.
 - 66 production-eligible exercises missing approved production media.
+- Media audit output now separates production missing media, beta missing media, missing alt text, unreviewed media, and high-priority exercises without demo assets.
 - 135 content warnings, mostly missing media hooks/assets.
 
 These are content-release blockers, not missing release-gate tooling.

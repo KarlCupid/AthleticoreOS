@@ -49,11 +49,11 @@ Exercises should support selection, scaling, substitution, safety filtering, and
 - Relationships: regression, progression, substitution IDs
 - Coaching: setup, execution, breathing, cues, mistakes
 - Tracking: tracking metrics and default prescription ranges
-- Media: optional thumbnail/video/image metadata, alt text, and media review status
+- Media: optional thumbnail/video/image/animation metadata, alt text, media review status, missing reason, and production priority
 
 Do not add generic filler like "adjust as needed." If a field is unknown, make that explicit in a structured way rather than pretending.
 
-Media hooks should be honest. When assets are not available, set `videoUrl`, `imageUrl`, and `thumbnailUrl` to `null`, include specific `altText`, and set `media.reviewStatus` to `needs_review`. The content audit reports these records as missing media so production surfaces do not mistake placeholders for real assets.
+Media hooks should be honest. When assets are not available, set `videoUrl`, `imageUrl`, `thumbnailUrl`, and `animationUrl` to `null`, include specific `altText`, set `media.reviewStatus` to `needs_review`, and add `media.missingReason`. The content audit reports these records as missing media so production surfaces do not mistake placeholders for real assets. Any real media URL requires `altText`; high-priority exercises should get reviewed video or animation demos before media-rich release.
 
 ## Seed Data Guide
 

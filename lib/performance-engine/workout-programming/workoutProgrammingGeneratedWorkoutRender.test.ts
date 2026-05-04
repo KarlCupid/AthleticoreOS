@@ -310,7 +310,35 @@ async function run(): Promise<void> {
   assert('preview card renders tracking metrics', Boolean(preview.getByTestId('generated-workout-preview-tracking')) && hasRenderedText(preview, new RegExp(escapeRegExp((validWorkout.trackingMetrics ?? validWorkout.trackingMetricIds)[0]), 'i')));
   assert('preview card renders completion message', Boolean(preview.getByTestId('generated-workout-preview-completion')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.description?.completionMessage ?? ''), 'i')));
   assert('preview card renders user-safe decision summary', Boolean(preview.getByTestId('generated-workout-preview-why')) && hasRenderedText(preview, /Why this workout\?/i));
+  assert('preview card omits media panel when no reviewed media asset exists', preview.queryByTestId(`generated-workout-exercise-media-${exercise.exerciseId}`) === null);
   preview.unmount();
+
+  const workoutWithReviewedMedia: GeneratedWorkout = {
+    ...validWorkout,
+    blocks: validWorkout.blocks.map((block, blockIndex) => ({
+      ...block,
+      exercises: block.exercises.map((item, exerciseIndex) => (
+        blockIndex === 0 && exerciseIndex === 0
+          ? {
+              ...item,
+              media: {
+                thumbnailUrl: 'https://example.test/workout-media/render-demo.jpg',
+                altText: `${item.name} setup and execution demonstration`,
+                reviewStatus: 'approved',
+                priority: 'high',
+              },
+            }
+          : item
+      )),
+    })),
+  };
+  const mediaPreview = render(React.createElement(GeneratedWorkoutPreviewCard, { workout: workoutWithReviewedMedia }));
+  assert('preview card exposes reviewed media safely when present', Boolean(
+    mediaPreview.getByTestId(`generated-workout-exercise-media-${exercise.exerciseId}`)
+      && mediaPreview.getByText('Demo thumbnail')
+      && mediaPreview.getByText(`${exercise.name} setup and execution demonstration`),
+  ));
+  mediaPreview.unmount();
 
   const blocked = render(React.createElement(GeneratedWorkoutPreviewCard, { workout: blockedWorkout }));
   assert('preview card renders blocked workout safely', Boolean(

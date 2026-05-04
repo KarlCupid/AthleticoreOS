@@ -29,6 +29,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 - `workoutProgrammingFallbacks.ts`: shared beta/dev fallback, error-copy, feature-flag, and content-review-mode rules.
 - `workoutSafetyCopy.ts`: shared generated-workout safety, fallback, and local-mode copy.
 - `contentReviewWorkflow.ts`: JSON queue/decision workflow for coach/admin review handoff.
+- `workoutMediaAudit.ts`: exercise media asset audit helpers and approved media selection.
 - `analyticsEngine.ts`: adherence, completion, pain trend, and recommendation quality summary.
 
 ## Database Migrations
@@ -61,6 +62,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 - [Current Production Readiness Status](./current-production-readiness-status.md)
 - [Live DB Smoke Tests](./live-db-smoke-tests.md)
 - [Copy and Accessibility](./copy-and-accessibility.md)
+- [Media Assets](./media-assets.md)
 - [Models and Content](./models-and-content.md)
 - [Engine Behavior](./engine-behavior.md)
 - [How-To Workflows](./how-to.md)

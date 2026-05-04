@@ -89,6 +89,8 @@ function runAuditReport() {
         severity: string;
         details?: {
           mediaReviewStatus?: string;
+          missingReason?: string;
+          mediaPriority?: string;
           hasAltText?: boolean;
           hasMediaHooks?: boolean;
         };
@@ -103,6 +105,8 @@ function runAuditReport() {
       severity: string;
       details?: {
         mediaReviewStatus?: string;
+        missingReason?: string;
+        mediaPriority?: string;
         hasAltText?: boolean;
         hasMediaHooks?: boolean;
       };
@@ -137,6 +141,9 @@ async function run(): Promise<void> {
     && exercise.media.videoUrl === null
     && exercise.media.imageUrl === null
     && exercise.media.thumbnailUrl === null
+    && exercise.media.animationUrl === null
+    && exercise.media.missingReason === 'asset_not_produced'
+    && exercise.media.priority === 'medium'
   )));
   assert('expanded exercises keep substitution paths available', exercises.every((exercise) => (exercise.substitutionExerciseIds?.length ?? 0) > 0));
   assert('content packs still have no duplicate IDs', validateNoDuplicateIds().valid);
@@ -148,7 +155,11 @@ async function run(): Promise<void> {
   assert('media placeholders are reported by content audit', expandedExerciseIds.every((id) => missingMediaIds.has(id)));
   assert('audit report keeps media hook review metadata', audit.missingMedia
     .filter((entry) => expandedExerciseIds.includes(entry.id))
-    .every((entry) => entry.details?.mediaReviewStatus === 'needs_review' && entry.details.hasAltText === true && entry.details.hasMediaHooks === true));
+    .every((entry) => entry.details?.mediaReviewStatus === 'needs_review'
+      && entry.details.missingReason === 'asset_not_produced'
+      && entry.details.mediaPriority === 'medium'
+      && entry.details.hasAltText === true
+      && entry.details.hasMediaHooks === true));
 }
 
 run()

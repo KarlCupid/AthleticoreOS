@@ -113,6 +113,11 @@ The audit JSON and human report include:
 - `reviewBlockers`
 - `unsafeProductionEligible`
 - `missingProductionMedia`
+- `productionExercisesMissingMedia`
+- `betaExercisesMissingMedia`
+- `missingMediaAltText`
+- `unreviewedMedia`
+- `highPriorityExercisesWithoutDemoAssets`
 - `productionEligibleCounts`
 - `previewGatedCounts`
 - `recommendedFixes`

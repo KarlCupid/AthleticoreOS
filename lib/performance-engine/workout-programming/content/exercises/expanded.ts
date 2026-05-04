@@ -8,8 +8,11 @@ function pendingMedia(altText: string): ExerciseMedia {
     videoUrl: null,
     imageUrl: null,
     thumbnailUrl: null,
+    animationUrl: null,
     altText,
     reviewStatus: 'needs_review',
+    missingReason: 'asset_not_produced',
+    priority: 'medium',
   };
 }
 

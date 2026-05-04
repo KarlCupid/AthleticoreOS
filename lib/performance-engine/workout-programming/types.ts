@@ -39,6 +39,7 @@ export type ContentReviewStatus = 'draft' | 'needs_review' | 'approved' | 'rejec
 export type SafetyReviewStatus = 'not_required' | 'needs_review' | 'approved' | 'rejected';
 export type ContentRiskLevel = 'low' | 'moderate' | 'high';
 export type ContentRolloutEligibility = 'dev_only' | 'preview' | 'production' | 'blocked';
+export type ExerciseMediaPriority = 'low' | 'medium' | 'high';
 export type DescriptionToneVariant =
   | 'beginner_friendly'
   | 'coach_like'
@@ -121,6 +122,8 @@ export interface ExerciseMedia {
   altText?: string;
   attribution?: string;
   reviewStatus?: ContentReviewStatus;
+  missingReason?: string;
+  priority?: ExerciseMediaPriority;
 }
 
 export interface Exercise extends ReviewableContentFields {
@@ -756,6 +759,7 @@ export interface GeneratedExercisePrescription {
   };
   coachingCues?: string[];
   commonMistakes?: string[];
+  media?: ExerciseMedia;
 }
 
 export interface GeneratedWorkoutBlock {

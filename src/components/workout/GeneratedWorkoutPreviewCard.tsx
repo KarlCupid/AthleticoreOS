@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import {
   GENERATED_WORKOUT_SAFETY_COPY,
   generatedWorkoutDefaultSafetyNotes,
+  getPrimaryExerciseMediaAsset,
   summarizeWorkoutDecisionForUser,
   type GeneratedExercisePrescription,
   type GeneratedWorkout,
@@ -194,6 +195,40 @@ function DetailLine({ label, value }: { label: string; value: string | null | un
   );
 }
 
+function mediaKindLabel(kind: string): string {
+  if (kind === 'thumbnail') return 'Demo thumbnail';
+  if (kind === 'image') return 'Demo image';
+  if (kind === 'video') return 'Demo video';
+  return 'Demo animation';
+}
+
+function ExerciseMediaPanel({ exercise }: { exercise: GeneratedExercisePrescription }) {
+  const asset = getPrimaryExerciseMediaAsset(exercise.media);
+  if (!asset) return null;
+  const shouldRenderImage = asset.kind === 'thumbnail' || asset.kind === 'image';
+  return (
+    <View
+      testID={`generated-workout-exercise-media-${exercise.exerciseId}`}
+      accessible
+      accessibilityLabel={`${exercise.name} media. ${mediaKindLabel(asset.kind)} available. ${asset.altText}`}
+      style={styles.mediaPanel}
+    >
+      {shouldRenderImage ? (
+        <Image
+          source={{ uri: asset.url }}
+          accessibilityLabel={asset.altText}
+          style={styles.exerciseMediaImage}
+          resizeMode="cover"
+        />
+      ) : null}
+      <View style={styles.mediaCopy}>
+        <Text style={styles.mediaLabel}>{mediaKindLabel(asset.kind)}</Text>
+        <Text style={styles.mediaAltText}>{asset.altText}</Text>
+      </View>
+    </View>
+  );
+}
+
 function BulletList({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (
@@ -315,6 +350,7 @@ export function GeneratedWorkoutPreviewCard({
                   <View key={`${block.id}:${exercise.exerciseId}`} style={styles.exerciseRow}>
                     <Text accessibilityRole="header" style={styles.exerciseName}>{exercise.name}</Text>
                     <Text style={styles.exerciseWhy}>{exercise.explanation}</Text>
+                    <ExerciseMediaPanel exercise={exercise} />
                     <View style={styles.detailPanel}>
                       <DetailLine label="Dose" value={formatPrescription(exercise)} />
                       <DetailLine label="Intensity" value={`Effort ${exercise.prescription.targetRpe}/10. ${exercise.prescription.intensityCue}`} />
@@ -548,6 +584,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   exerciseWhy: {
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  mediaPanel: {
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+    overflow: 'hidden',
+    padding: SPACING.sm,
+  },
+  exerciseMediaImage: {
+    width: 78,
+    height: 58,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.surfaceSecondary,
+  },
+  mediaCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  mediaLabel: {
+    color: COLORS.text.primary,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  mediaAltText: {
     color: COLORS.text.secondary,
     fontFamily: FONT_FAMILY.regular,
     fontSize: 12,
