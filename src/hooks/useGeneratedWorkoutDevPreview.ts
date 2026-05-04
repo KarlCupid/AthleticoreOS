@@ -27,6 +27,7 @@ export function useGeneratedWorkoutDevPreview({
     betaFlag: process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA,
     previewFlag: process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW,
     dev: typeof __DEV__ !== 'undefined' && __DEV__,
+    buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE,
   });
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [loading, setLoading] = useState(false);

@@ -1,4 +1,15 @@
 import type { LinkingOptions } from '@react-navigation/native';
+import {
+  sanitizeFitnessLevelParam,
+  sanitizeMealTypeParam,
+  sanitizeOptionalBooleanParam,
+  sanitizeOptionalDurationMinutesParam,
+  sanitizeOptionalIdParam,
+  sanitizeOptionalLocalDateParam,
+  sanitizeOptionalWorkoutFocusParam,
+  sanitizePhaseParam,
+  sanitizeReadinessStateParam,
+} from './routeValidation';
 
 export const APP_LINK_PREFIXES = ['athleticore://'] as const;
 
@@ -48,16 +59,49 @@ export const appLinking: LinkingOptions<any> = {
         screens: {
           TodayHome: 'today',
           Log: 'today/check-in',
-          DayDetail: 'today/day/:date',
-          ActivityLog: 'today/activity/:activityId/:date',
+          DayDetail: {
+            path: 'today/day/:date',
+            parse: {
+              date: sanitizeOptionalLocalDateParam,
+            },
+          },
+          ActivityLog: {
+            path: 'today/activity/:activityId/:date',
+            parse: {
+              activityId: sanitizeOptionalIdParam,
+              date: sanitizeOptionalLocalDateParam,
+            },
+          },
         },
       },
       Train: {
         screens: {
           WorkoutHome: 'train',
-          GuidedWorkout: 'train/session',
-          WorkoutDetail: 'train/detail/:weeklyPlanEntryId/:date',
-          WorkoutSummary: 'train/summary',
+          GuidedWorkout: {
+            path: 'train/session',
+            parse: {
+              weeklyPlanEntryId: sanitizeOptionalIdParam,
+              scheduledActivityId: sanitizeOptionalIdParam,
+              focus: sanitizeOptionalWorkoutFocusParam,
+              availableMinutes: sanitizeOptionalDurationMinutesParam,
+              readinessState: sanitizeReadinessStateParam,
+              phase: sanitizePhaseParam,
+              fitnessLevel: sanitizeFitnessLevelParam,
+              trainingDate: sanitizeOptionalLocalDateParam,
+              isDeloadWeek: sanitizeOptionalBooleanParam,
+            },
+          },
+          WorkoutDetail: {
+            path: 'train/detail/:weeklyPlanEntryId/:date',
+            parse: {
+              weeklyPlanEntryId: sanitizeOptionalIdParam,
+              date: sanitizeOptionalLocalDateParam,
+              readinessState: sanitizeReadinessStateParam,
+              phase: sanitizePhaseParam,
+              fitnessLevel: sanitizeFitnessLevelParam,
+              isDeloadWeek: sanitizeOptionalBooleanParam,
+            },
+          },
           GymProfiles: 'train/gym-profiles',
         },
       },
@@ -66,20 +110,35 @@ export const appLinking: LinkingOptions<any> = {
           PlanHome: 'plan',
           WeeklyPlanSetup: 'plan/setup',
           CalendarMain: 'plan/calendar',
-          DayDetail: 'plan/day/:date',
+          DayDetail: {
+            path: 'plan/day/:date',
+            parse: {
+              date: sanitizeOptionalLocalDateParam,
+            },
+          },
           WeeklyReview: 'plan/review',
         },
       },
       Fuel: {
         screens: {
           NutritionHome: 'fuel',
-          FoodSearch: 'fuel/search',
-          FoodDetail: 'fuel/food',
-          BarcodeScan: 'fuel/barcode',
+          FoodSearch: {
+            path: 'fuel/search',
+            parse: {
+              mealType: sanitizeMealTypeParam,
+              date: sanitizeOptionalLocalDateParam,
+            },
+          },
+          BarcodeScan: {
+            path: 'fuel/barcode',
+            parse: {
+              mealType: sanitizeMealTypeParam,
+              date: sanitizeOptionalLocalDateParam,
+            },
+          },
           WeightClassHome: 'fuel/body-mass',
           WeightClassPlanSetup: 'fuel/body-mass/weight-class/setup',
           CompetitionBodyMass: 'fuel/body-mass/competition',
-          PostWeighInRecovery: 'fuel/body-mass/post-weigh-in',
           WeightClassHistory: 'fuel/body-mass/history',
         },
       },

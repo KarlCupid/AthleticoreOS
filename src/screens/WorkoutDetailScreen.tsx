@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -25,6 +25,7 @@ import type {
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 import { formatShortWeekday } from '../../lib/utils/date';
 import { formatRestForCoach, formatRpeForCoach } from '../components/workout/trainingCopy';
+import { resolveWorkoutDetailParams } from '../navigation/routeValidation';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteProp = import('@react-navigation/native').RouteProp<TrainStackParamList, 'WorkoutDetail'>;
@@ -68,7 +69,12 @@ export function WorkoutDetailScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RouteProp>();
-    const { weeklyPlanEntryId, date, readinessState, phase, fitnessLevel, isDeloadWeek: _isDeloadWeek } = route.params;
+    const routeParams = useMemo(() => resolveWorkoutDetailParams(route.params), [route.params]);
+    const weeklyPlanEntryId = routeParams?.weeklyPlanEntryId ?? '';
+    const date = routeParams?.date ?? '';
+    const readinessState = routeParams?.readinessState ?? 'Prime';
+    const phase = routeParams?.phase ?? 'off-season';
+    const fitnessLevel = routeParams?.fitnessLevel ?? 'intermediate';
 
     const {
         entry,
@@ -106,8 +112,9 @@ export function WorkoutDetailScreen() {
 
     useFocusEffect(
         useCallback(() => {
+            if (!routeParams) return;
             void load(weeklyPlanEntryId);
-        }, [load, weeklyPlanEntryId]),
+        }, [load, routeParams, weeklyPlanEntryId]),
     );
 
     // ─── Handlers ────────────────────────────────────────────────────────────
@@ -142,6 +149,22 @@ export function WorkoutDetailScreen() {
     const whatToExpect = `${blockCount} block${blockCount === 1 ? '' : 's'}, ${movementCount} movement${movementCount === 1 ? '' : 's'}, about ${durationMin} min. ${effortSummary}.`;
 
     // ─── Render ───────────────────────────────────────────────────────────────
+
+    if (!routeParams) {
+        return (
+            <View style={[styles.container, { paddingTop: insets.top }]}>
+                <View style={styles.loadingHeader}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                        <Text style={styles.backText}>‹</Text>
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.loadingCenter}>
+                    <Text style={styles.emptyTitle}>Workout link unavailable</Text>
+                    <Text style={styles.emptySubtitle}>Open this session from Train or Plan to review it safely.</Text>
+                </View>
+            </View>
+        );
+    }
 
     if (isLoading) {
         return (

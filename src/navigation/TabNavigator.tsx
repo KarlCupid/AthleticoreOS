@@ -16,12 +16,13 @@ import { MeStackNavigator } from './MeStack';
 import { ANIMATION, APP_CHROME, COLORS, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { useInteractionMode } from '../context/InteractionModeContext';
 import type { RootTabParamList } from './types';
+import { shouldHideBottomNavForFocusedRouteName } from './chrome';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 function shouldHideTabBar(route: Parameters<typeof getFocusedRouteNameFromRoute>[0]) {
   const focusedRouteName = getFocusedRouteNameFromRoute(route) ?? 'WorkoutHome';
-  return focusedRouteName === 'GuidedWorkout' || focusedRouteName === 'WorkoutSummary';
+  return shouldHideBottomNavForFocusedRouteName(focusedRouteName);
 }
 
 function TabIcon(props: {

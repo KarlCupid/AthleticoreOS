@@ -44,6 +44,7 @@ import type { FirstRunGuidanceState } from '../../lib/api/firstRunGuidanceServic
 import type { PlanningSetupStatus } from '../../lib/api/planningSetupService';
 import { logError } from '../../lib/utils/logger';
 import { todayLocalDate } from '../../lib/utils/date';
+import { isEngineReplayLabEnabled } from '../config/devSurfaces';
 import type { MeStackParamList, RootTabParamList } from '../navigation/types';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
@@ -160,6 +161,10 @@ export function ProfileSettingsScreen() {
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [lastVersionTapAt, setLastVersionTapAt] = useState(0);
   const hasLoadedRef = useRef(false);
+  const internalDevSurfacesEnabled = isEngineReplayLabEnabled({
+    dev: typeof __DEV__ !== 'undefined' && __DEV__,
+    buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE,
+  });
 
   const loadSnapshot = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     if (mode === 'initial') setLoading(true);
@@ -352,7 +357,7 @@ export function ProfileSettingsScreen() {
   }
 
   function handleResetTrainingProgramming() {
-    if (!__DEV__) return;
+    if (!internalDevSurfacesEnabled) return;
 
     Alert.alert(
       'Reset training programming?',
@@ -384,7 +389,7 @@ export function ProfileSettingsScreen() {
   }
 
   function handleVersionPress() {
-    if (!__DEV__) {
+    if (!internalDevSurfacesEnabled) {
       return;
     }
 
@@ -630,7 +635,7 @@ export function ProfileSettingsScreen() {
               <ActionButton label="Gym Profiles" onPress={openGymProfiles} />
               <ActionButton label="Adjust Journey" onPress={openWeeklySetup} variant="secondary" />
             </View>
-            {__DEV__ ? (
+            {internalDevSurfacesEnabled ? (
               <AnimatedPressable
                 style={styles.resetProgrammingButton}
                 onPress={handleResetTrainingProgramming}
@@ -823,14 +828,18 @@ export function ProfileSettingsScreen() {
           </Card>
         </Animated.View>
 
-        <AnimatedPressable onPress={handleVersionPress}>
+        {internalDevSurfacesEnabled ? (
+          <AnimatedPressable onPress={handleVersionPress}>
+            <Text style={styles.version}>v1.0.0</Text>
+          </AnimatedPressable>
+        ) : (
           <Text style={styles.version}>v1.0.0</Text>
-        </AnimatedPressable>
+        )}
         <View style={{ height: SPACING.xxl }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {__DEV__ ? <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} /> : null}
+      {internalDevSurfacesEnabled ? <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} /> : null}
     </ScreenWrapper>
   );
 }

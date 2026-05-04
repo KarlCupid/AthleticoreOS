@@ -17,6 +17,7 @@ import { lookupBarcode } from '../../lib/api/openFoodFacts';
 import { MealType } from '../../lib/engine/types';
 import { addMonitoringBreadcrumb } from '../../lib/observability/breadcrumbs';
 import { logError } from '../../lib/utils/logger';
+import { resolveBarcodeScanParams } from '../navigation/routeValidation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.72;
@@ -32,7 +33,7 @@ export function BarcodeScanScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const route = useRoute<RouteProp<RouteParams, 'BarcodeScan'>>();
-    const { mealType, date } = route.params;
+    const { mealType, date } = resolveBarcodeScanParams(route.params);
 
     const [permission, requestPermission] = useCameraPermissions();
     const [torchEnabled, setTorchEnabled] = useState(false);

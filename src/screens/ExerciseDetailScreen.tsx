@@ -17,6 +17,7 @@ import { Card } from '../components/Card';
 import { IconChevronLeft } from '../components/icons';
 import { ExerciseLibraryRow } from '../../lib/engine/types';
 import type { TrainStackParamList } from '../navigation/types';
+import { resolveExerciseDetailParams } from '../navigation/routeValidation';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteParams = {
@@ -27,8 +28,33 @@ export function ExerciseDetailScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RouteProp<RouteParams, 'ExerciseDetail'>>();
-    const { exercise } = route.params;
+    const routeParams = resolveExerciseDetailParams(route.params);
     const { themeColor } = useReadinessTheme();
+
+    if (!routeParams) {
+        return (
+            <View style={[styles.container, { paddingTop: insets.top }]}>
+                <View style={styles.header}>
+                    <AnimatedPressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Go back"
+                        accessibilityHint="Returns to the exercise search screen."
+                        onPress={() => navigation.goBack()}
+                        style={styles.backButton}
+                    >
+                        <IconChevronLeft size={24} color={COLORS.text.primary} />
+                    </AnimatedPressable>
+                    <Text style={styles.title} numberOfLines={1}>Exercise unavailable</Text>
+                </View>
+                <View style={styles.invalidState}>
+                    <Text style={styles.invalidTitle}>This exercise link can&apos;t be opened.</Text>
+                    <Text style={styles.invalidBody}>Search again from Train to view exercise details safely.</Text>
+                </View>
+            </View>
+        );
+    }
+
+    const { exercise } = routeParams;
 
     const handleAdd = () => {
         navigation.goBack();
@@ -168,6 +194,26 @@ const styles = StyleSheet.create({
         color: COLORS.text.primary,
     },
     content: { padding: SPACING.lg },
+    invalidState: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: SPACING.xl,
+    },
+    invalidTitle: {
+        fontSize: 18,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+        textAlign: 'center',
+    },
+    invalidBody: {
+        marginTop: SPACING.sm,
+        fontSize: 14,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
+        textAlign: 'center',
+        lineHeight: 20,
+    },
     infoGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',

@@ -24,6 +24,7 @@ import {
   FoodSearchResult,
   MealType,
 } from '../../lib/engine/types';
+import type { FuelStackParamList } from '../navigation/types';
 import {
   logFoodEntry,
   toggleFavorite,
@@ -41,6 +42,7 @@ import {
   ANIMATION,
   GRADIENTS,
 } from '../theme/theme';
+import { resolveFoodDetailParams } from '../navigation/routeValidation';
 
 type RouteParams = {
   FoodDetail: {
@@ -61,6 +63,32 @@ const MEAL_LABELS: Record<MealType, string> = {
   snacks: 'Snacks',
 };
 
+const INVALID_FOOD_ROUTE_FALLBACK: FoodSearchResult = {
+  key: 'invalid-food-route',
+  user_id: null,
+  source: 'custom',
+  sourceType: 'custom',
+  external_id: null,
+  verified: false,
+  searchRank: 0,
+  off_barcode: null,
+  name: 'Food unavailable',
+  brand: null,
+  image_url: null,
+  baseAmount: 100,
+  baseUnit: 'g',
+  gramsPerPortion: 100,
+  portionOptions: [{ id: 'grams', label: '100g', amount: 100, unit: 'g', grams: 100, isDefault: true }],
+  serving_size_g: 100,
+  serving_label: '100g',
+  calories_per_serving: 0,
+  protein_per_serving: 0,
+  carbs_per_serving: 0,
+  fat_per_serving: 0,
+  is_supplement: false,
+  badges: ['Custom'],
+};
+
 function getDefaultPortion(food: FoodSearchResult): FoodPortionOption {
   return food.portionOptions.find((option) => option.isDefault) ?? food.portionOptions[0];
 }
@@ -73,22 +101,27 @@ export function FoodDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'FoodDetail'>>();
-  const { mealType, date } = route.params;
+  const validatedParams = resolveFoodDetailParams(route.params);
+  const safeParams: FuelStackParamList['FoodDetail'] = validatedParams ?? {
+    foodItem: INVALID_FOOD_ROUTE_FALLBACK,
+    mealType: 'snacks' as MealType,
+  };
+  const { mealType, date } = safeParams;
   const today = date ?? todayLocalDate();
-  const isEditingEntry = Boolean(route.params.foodLogId);
+  const isEditingEntry = Boolean(safeParams.foodLogId);
 
-  const [foodItem] = useState(route.params.foodItem);
+  const [foodItem] = useState(safeParams.foodItem);
   const [selectedPortion, setSelectedPortion] = useState<FoodPortionOption>(() =>
-    getDefaultPortion(route.params.foodItem)
+    getDefaultPortion(safeParams.foodItem)
   );
   const [amountValue, setAmountValue] = useState(
-    route.params.initialAmountValue ?? (route.params.foodItem.baseUnit === 'g' ? 100 : 1)
+    safeParams.initialAmountValue ?? (safeParams.foodItem.baseUnit === 'g' ? 100 : 1)
   );
   const [saving, setSaving] = useState(false);
   const [favoriteOnSave, setFavoriteOnSave] = useState(false);
 
   useEffect(() => {
-    const initialAmountUnit = route.params.initialAmountUnit;
+    const initialAmountUnit = safeParams.initialAmountUnit;
     if (!initialAmountUnit) {
       return;
     }
@@ -108,7 +141,7 @@ export function FoodDetailScreen() {
         setSelectedPortion(gramsOption);
       }
     }
-  }, [foodItem.portionOptions, route.params.initialAmountUnit]);
+  }, [foodItem.portionOptions, safeParams.initialAmountUnit]);
 
   const selectedGrams = useMemo(() => {
     if (selectedPortion.unit === 'g') {
@@ -155,10 +188,10 @@ export function FoodDetailScreen() {
         grams: selectedGrams,
       };
 
-      if (route.params.foodLogId) {
+      if (safeParams.foodLogId) {
         await updateFoodEntry(
           session.user.id,
-          route.params.foodLogId,
+          safeParams.foodLogId,
           payload,
           mealType,
           today
@@ -172,7 +205,7 @@ export function FoodDetailScreen() {
         );
       }
 
-      if (favoriteOnSave && !route.params.foodLogId) {
+      if (favoriteOnSave && !safeParams.foodLogId) {
         await toggleFavorite(session.user.id, savedItem.id);
       }
 
@@ -183,6 +216,33 @@ export function FoodDetailScreen() {
       setSaving(false);
     }
   };
+
+  if (!validatedParams) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            accessibilityHint="Returns to the previous food screen."
+            testID="food-detail-back"
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <IconChevronLeft size={24} color={COLORS.text.primary} />
+          </AnimatedPressable>
+          <Text style={styles.title} numberOfLines={1}>Food unavailable</Text>
+        </View>
+        <View style={styles.invalidState}>
+          <Text style={styles.invalidTitle}>This food link can&apos;t be opened.</Text>
+          <Text style={styles.invalidBody}>Search again from Fuel to log a food safely.</Text>
+          <AnimatedPressable style={styles.invalidButton} onPress={() => navigation.navigate('NutritionHome')}>
+            <Text style={styles.invalidButtonText}>Back to Fuel</Text>
+          </AnimatedPressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -361,6 +421,41 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SPACING.lg,
+  },
+  invalidState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  invalidTitle: {
+    fontSize: 18,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    textAlign: 'center',
+  },
+  invalidBody: {
+    marginTop: SPACING.sm,
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  invalidButton: {
+    marginTop: SPACING.lg,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invalidButtonText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.inverse,
   },
   foodInfoRow: {
     flexDirection: 'row',

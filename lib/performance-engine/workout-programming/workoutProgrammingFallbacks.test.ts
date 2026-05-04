@@ -46,10 +46,24 @@ function run() {
     return off.betaEnabled === false && on.betaEnabled === true;
   })());
 
+  assert('beta flag requires development build profile', (() => {
+    const preview = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true, buildProfile: 'preview' });
+    const production = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true, buildProfile: 'production' });
+    const development = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true, buildProfile: 'development' });
+    return preview.betaEnabled === false && production.betaEnabled === false && development.betaEnabled === true;
+  })());
+
   assert('developer preview flag requires dev mode', (() => {
     const off = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: false });
     const on = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true });
     return off.previewEnabled === false && on.previewEnabled === true;
+  })());
+
+  assert('developer preview flag requires development build profile', (() => {
+    const preview = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true, buildProfile: 'preview' });
+    const production = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true, buildProfile: 'production' });
+    const development = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true, buildProfile: 'development' });
+    return preview.previewEnabled === false && production.previewEnabled === false && development.previewEnabled === true;
   })());
 
   assert('beta persisted content review uses production-only approved content', (() => {

@@ -18,6 +18,7 @@ import { styles } from './ActivityLogScreen.styles';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { completeActivity } from '../../lib/api/scheduleService';
 import type { ComponentType } from '../../lib/engine/types';
+import { resolveActivityLogParams } from '../navigation/routeValidation';
 
 const COMPONENT_OPTIONS: { type: ComponentType; label: string; icon: string }[] = [
     { type: 'sparring', label: 'Sparring', icon: '🥊' },
@@ -50,7 +51,8 @@ export function ActivityLogScreen() {
     const insets = useSafeAreaInsets();
     const { themeColor } = useReadinessTheme();
 
-    const activityId = route.params?.activityId;
+    const activityParams = resolveActivityLogParams(route.params);
+    const activityId = activityParams?.activityId ?? null;
     const [components, setComponents] = useState<LoggedComponent[]>([]);
     const [sessionRPE, setSessionRPE] = useState(5);
     const [sessionDuration, setSessionDuration] = useState('60');

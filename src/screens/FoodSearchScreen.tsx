@@ -24,6 +24,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { logError } from '../../lib/utils/logger';
 import { IconChevronLeft, IconBarcode } from '../components/icons';
+import { resolveFoodSearchParams } from '../navigation/routeValidation';
 
 type RouteParams = {
   FoodSearch: { mealType: MealType; date?: string };
@@ -47,7 +48,7 @@ export function FoodSearchScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'FoodSearch'>>();
-  const { mealType, date } = route.params;
+  const { mealType, date } = resolveFoodSearchParams(route.params);
   const activeRequestRef = useRef(0);
   const searchInputRef = useRef<TextInput>(null);
 

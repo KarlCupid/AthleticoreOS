@@ -19,6 +19,7 @@ import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { IconChevronLeft, IconCheckCircle } from '../components/icons';
+import { resolvePostWeighInRecoveryParams } from '../navigation/routeValidation';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList>;
 type RouteProps = RouteProp<FuelStackParamList, 'PostWeighInRecovery'>;
@@ -29,7 +30,9 @@ const HEALTH_GUIDANCE_NOTE =
 export function PostWeighInRecoveryScreen() {
   const nav = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
-  const { weighInWeightLbs, hoursToFight } = route.params;
+  const routeParams = resolvePostWeighInRecoveryParams(route.params);
+  const weighInWeightLbs = routeParams?.weighInWeightLbs ?? 0;
+  const hoursToFight = routeParams?.hoursToFight ?? 1;
 
   const [userId, setUserId] = useState<string | null>(null);
   const [currentRegainLbs, setCurrentRegainLbs] = useState('');
@@ -40,6 +43,26 @@ export function PostWeighInRecoveryScreen() {
   }, []);
 
   const { complete, logSafetyCheck } = useBodyMassPlanData(userId);
+
+  if (!routeParams) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(183, 217, 168, 0.14)']} style={styles.header}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            accessibilityHint="Returns to the weight-class screen."
+            onPress={() => nav.goBack()}
+            style={styles.backBtn}
+          >
+            <IconChevronLeft size={24} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Recovery support unavailable</Text>
+          <Text style={styles.headerSub}>Open post weigh-in recovery from the weight-class flow after a valid weigh-in.</Text>
+        </LinearGradient>
+      </View>
+    );
+  }
 
   const protocol = buildPostWeighInRecoverySupport({
     weighInWeightLbs,
@@ -203,7 +226,7 @@ export function PostWeighInRecoveryScreen() {
             onPress={() => {
               complete({
                 finalWeighInWeight: weighInWeightLbs,
-                madeWeight: weighInWeightLbs <= (route.params.targetWeightLbs ?? weighInWeightLbs),
+                madeWeight: weighInWeightLbs <= (routeParams.targetWeightLbs ?? weighInWeightLbs),
                 rehydrationWeightRegained:
                   currentRegain !== null && Number.isFinite(currentRegain)
                     ? currentRegain - weighInWeightLbs

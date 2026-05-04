@@ -65,15 +65,18 @@ async function run() {
     'resolveGeneratedWorkoutFeatureFlags',
     'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA',
     "dev: typeof __DEV__ !== 'undefined' && __DEV__",
+    'process.env.EXPO_PUBLIC_BUILD_PROFILE',
     'if (!betaEnabled) return;',
   ]) && !betaHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
     'resolveGeneratedWorkoutFeatureFlags',
     'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW',
+    'process.env.EXPO_PUBLIC_BUILD_PROFILE',
     'if (!previewEnabled) return;',
     "resolveGeneratedWorkoutContentReviewOptions('dev-preview')",
   ]) && hasAll(fallbacks, [
-    "const betaEnabled = dev && betaFlag === '1'",
-    "previewEnabled: !betaEnabled && dev && previewFlag === '1'",
+    'developerFlagEnvironment',
+    "const betaEnabled = developerFlagEnvironment && betaFlag === '1'",
+    "previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1'",
   ]) && hasAll(betaContainer, [
     'testID="generated-workout-beta-section"',
   ]) && !betaContainer.includes('generated-workout-preview-section') && hasAll(devPreviewPanel, [

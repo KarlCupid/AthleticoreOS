@@ -24,6 +24,7 @@ import { styles } from './weeklyPlanSetup/styles';
 import { useWeeklyPlanSetupController } from './weeklyPlanSetup/useWeeklyPlanSetupController';
 import { getSetupPhaseIndex } from './weeklyPlanSetup/utils';
 import { GRADIENTS, COLORS, SPACING } from '../theme/theme';
+import { resolveWeeklyPlanSetupParams } from '../navigation/routeValidation';
 
 interface WeeklyPlanSetupScreenProps {
   onComplete?: () => void;
@@ -33,10 +34,11 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AppRouteParamList, 'WeeklyPlanSetup'>>();
+  const routeParams = resolveWeeklyPlanSetupParams(route.params);
 
   const controller = useWeeklyPlanSetupController({
-    initialGoalMode: route.params?.initialGoalMode,
-    initialPhaseIndex: getSetupPhaseIndex(route.params?.initialPhaseKey),
+    initialGoalMode: routeParams?.initialGoalMode,
+    initialPhaseIndex: getSetupPhaseIndex(routeParams?.initialPhaseKey),
     navigation,
     onComplete,
   });

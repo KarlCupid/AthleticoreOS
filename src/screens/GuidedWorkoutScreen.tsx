@@ -92,7 +92,7 @@ export function GuidedWorkoutScreen() {
         skipRest,
         extendRest,
         cancelLoad,
-    } = useGuidedWorkout(params?.weeklyPlanEntryId, params?.scheduledActivityId);
+    } = useGuidedWorkout(resolvedParams.weeklyPlanEntryId, resolvedParams.scheduledActivityId);
 
     const { isGymFloor, setMode } = useInteractionMode();
 
@@ -709,13 +709,13 @@ export function GuidedWorkoutScreen() {
                         style={styles.retryButton}
                         onPress={() =>
                             loadAndGenerate(
-                                params.readinessState,
-                                params.phase,
-                                params.fitnessLevel,
-                                params.focus,
-                                params.availableMinutes,
-                                params.trainingDate,
-                                params.isDeloadWeek,
+                                resolvedParams.readinessState,
+                                resolvedParams.phase,
+                                resolvedParams.fitnessLevel,
+                                resolvedParams.focus,
+                                resolvedParams.availableMinutes,
+                                resolvedParams.trainingDate,
+                                resolvedParams.isDeloadWeek,
                             )
                         }
                         testID="guided-workout-retry"

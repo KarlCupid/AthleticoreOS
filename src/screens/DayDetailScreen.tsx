@@ -28,8 +28,8 @@ import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import type { ActivityType, ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
 import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
-import { todayLocalDate } from '../../lib/utils/date';
 import { logError } from '../../lib/utils/logger';
+import { resolveDayDetailParams } from '../navigation/routeValidation';
 
 const ACTIVITY_OPTIONS: { type: string; label: string; icon: string }[] = [
     { type: 'boxing_practice', label: 'Boxing Practice', icon: '🥊' },
@@ -51,7 +51,7 @@ export function DayDetailScreen() {
     const insets = useSafeAreaInsets();
     const { themeColor } = useReadinessTheme();
 
-    const dateParam = route.params?.date ?? todayLocalDate();
+    const { date: dateParam } = resolveDayDetailParams(route.params);
 
     const [activities, setActivities] = useState<ScheduledActivityRow[]>([]);
     const [readinessState, setReadinessState] = useState<ReadinessState>('Prime');

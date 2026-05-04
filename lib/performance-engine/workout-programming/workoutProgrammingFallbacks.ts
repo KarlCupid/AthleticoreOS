@@ -34,17 +34,21 @@ export interface GeneratedWorkoutFeatureFlagInput {
   betaFlag?: string;
   previewFlag?: string;
   dev?: boolean;
+  buildProfile?: string;
 }
 
 export function resolveGeneratedWorkoutFeatureFlags({
   betaFlag,
   previewFlag,
   dev = false,
+  buildProfile,
 }: GeneratedWorkoutFeatureFlagInput) {
-  const betaEnabled = dev && betaFlag === '1';
+  const normalizedBuildProfile = (buildProfile ?? (dev ? 'development' : 'production')).trim().toLowerCase();
+  const developerFlagEnvironment = dev && normalizedBuildProfile === 'development';
+  const betaEnabled = developerFlagEnvironment && betaFlag === '1';
   return {
     betaEnabled,
-    previewEnabled: !betaEnabled && dev && previewFlag === '1',
+    previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1',
   };
 }
 

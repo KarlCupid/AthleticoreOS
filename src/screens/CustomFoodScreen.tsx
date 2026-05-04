@@ -21,6 +21,7 @@ import { IconChevronLeft } from '../components/icons';
 import { createCustomFood } from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
 import type { FoodItemRow, FoodPortionOption, FoodSearchResult, MealType } from '../../lib/engine/types';
+import { resolveCustomFoodParams } from '../navigation/routeValidation';
 
 const STAGGER_DELAY = 60;
 
@@ -79,8 +80,9 @@ export function CustomFoodScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'CustomFood'>>();
-  const mealType = route.params?.mealType;
-  const date = route.params?.date;
+  const customFoodParams = resolveCustomFoodParams(route.params);
+  const mealType = customFoodParams?.mealType;
+  const date = customFoodParams?.date;
 
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');

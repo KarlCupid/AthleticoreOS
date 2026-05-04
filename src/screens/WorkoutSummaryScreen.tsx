@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import type { TrainStackParamList } from '../navigation/types';
+import { resolveWorkoutSummaryParams } from '../navigation/routeValidation';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RoutePropType = RouteProp<TrainStackParamList, 'WorkoutSummary'>;
@@ -145,6 +146,7 @@ export function WorkoutSummaryScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RoutePropType>();
+    const routeParams = resolveWorkoutSummaryParams(route.params);
 
     const {
         durationMin,
@@ -154,7 +156,7 @@ export function WorkoutSummaryScreen() {
         exercisesCompleted,
         hadPR,
         prExerciseName,
-    } = route.params;
+    } = routeParams;
 
     const rpeColor = getRpeColor(avgRPE);
     const rpeBgColor = getRpeBgColor(avgRPE);

@@ -1,6 +1,6 @@
 import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -239,6 +239,19 @@ export default function App() {
   }, []);
 
   const userId = session?.user.id ?? null;
+  const entryStatus = journeyEntryState?.status ?? null;
+  const navigationScopeKey = useMemo(() => {
+    const authScope = session?.user.id ?? 'signed-out';
+    const entryScope = passwordRecoveryActive
+      ? 'password-recovery'
+      : session
+        ? entryStatus ?? 'checking-entry'
+        : 'auth';
+    return `${authScope}:${entryScope}`;
+  }, [entryStatus, passwordRecoveryActive, session]);
+  const navigationLinking = useMemo(() => (
+    session && entryStatus === 'ready' && !passwordRecoveryActive ? appLinking : undefined
+  ), [entryStatus, passwordRecoveryActive, session]);
 
   const refreshJourneyEntryState = useCallback(async () => {
     if (!userId) {
@@ -317,7 +330,6 @@ export default function App() {
     );
   }
 
-  const entryStatus = journeyEntryState?.status ?? null;
   const appLoadError = passwordRecoveryActive ? null : authLoadError ?? journeyLoadError;
   const content = appLoadError ? (
     <AppLoadErrorScreen
@@ -360,11 +372,12 @@ export default function App() {
         <ReadinessThemeProvider>
           <InteractionModeProvider>
             <NavigationContainer
+              key={navigationScopeKey}
               ref={navigationRef}
               theme={myTheme}
-              linking={appLinking}
               onReady={handleNavigationReady}
               onStateChange={handleNavigationStateChange}
+              {...(navigationLinking ? { linking: navigationLinking } : {})}
             >
               <View style={styles.container}>
                 <AuroraBackground mood={backgroundMood} />

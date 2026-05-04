@@ -1,18 +1,8 @@
 import type { RouteProp } from '@react-navigation/native';
+import type { TrainStackParamList } from '../../navigation/types';
+import { resolveGuidedWorkoutParams as resolveNavigationGuidedWorkoutParams } from '../../navigation/routeValidation';
 
-export type GuidedWorkoutParams = {
-  weeklyPlanEntryId?: string | undefined;
-  scheduledActivityId?: string | undefined;
-  focus?: string | undefined;
-  availableMinutes?: number | undefined;
-  readinessState: 'Prime' | 'Caution' | 'Depleted';
-  phase: string;
-  fitnessLevel: string;
-  trainingDate?: string | undefined;
-  isDeloadWeek?: boolean | undefined;
-  autoStart?: boolean | undefined;
-  entrySource?: 'dashboard' | 'train' | 'day-detail' | 'plan' | undefined;
-};
+export type GuidedWorkoutParams = TrainStackParamList['GuidedWorkout'];
 
 export type GuidedWorkoutStackParamList = {
   GuidedWorkout: GuidedWorkoutParams;
@@ -28,17 +18,7 @@ export type GuidedWorkoutStackParamList = {
 export type GuidedWorkoutRoute = RouteProp<GuidedWorkoutStackParamList, 'GuidedWorkout'>;
 
 export function resolveGuidedWorkoutParams(params: Partial<GuidedWorkoutParams> | undefined) {
-  return {
-    readinessState: params?.readinessState ?? 'Prime',
-    phase: params?.phase ?? 'off-season',
-    fitnessLevel: params?.fitnessLevel ?? 'intermediate',
-    focus: params?.focus,
-    availableMinutes: params?.availableMinutes,
-    trainingDate: params?.trainingDate,
-    isDeloadWeek: params?.isDeloadWeek,
-    autoStart: params?.autoStart ?? false,
-    entrySource: params?.entrySource,
-  };
+  return resolveNavigationGuidedWorkoutParams(params);
 }
 
 export function buildWarmupSetsWithState<T extends { setNumber: number }>(
