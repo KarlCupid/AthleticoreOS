@@ -27,7 +27,9 @@ Each supported tone should remain meaningfully different:
 
 ## Safety Copy
 
-Use language like:
+Recurring generated-workout safety wording lives in `lib/performance-engine/workout-programming/workoutSafetyCopy.ts`. UI components, description fallbacks, decision summaries, and fallback messages should import that module rather than redefining the same sentences.
+
+Use user-safe language like:
 
 - "Pause if pain becomes sharp, unusual, or changes how you move."
 - "If you notice chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance."

@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import {
+  GENERATED_WORKOUT_SAFETY_COPY,
+  generatedWorkoutDefaultSafetyNotes,
   summarizeWorkoutDecisionForUser,
   type GeneratedExercisePrescription,
   type GeneratedWorkout,
@@ -100,27 +102,27 @@ function safetyStatus(workout: GeneratedWorkout): { label: string; detail: strin
   if (workout.blocked) {
     return {
       label: 'Blocked',
-      detail: 'Hard training is not recommended from this generated session.',
+      detail: GENERATED_WORKOUT_SAFETY_COPY.user.blockedWorkoutStatusDetail,
       tone: 'blocked',
     };
   }
   if (workout.validation && !workout.validation.isValid) {
     return {
       label: 'Needs review',
-      detail: 'Review validation messages before starting.',
+      detail: GENERATED_WORKOUT_SAFETY_COPY.user.validationReviewBeforeStart,
       tone: 'caution',
     };
   }
   if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) {
     return {
       label: 'Cautions active',
-      detail: 'Use the listed guardrails and keep the session comfortable and controlled.',
+      detail: GENERATED_WORKOUT_SAFETY_COPY.user.listedGuardrails,
       tone: 'caution',
     };
   }
   return {
     label: 'Ready',
-    detail: 'No extra safety flag was applied to this generated session.',
+    detail: GENERATED_WORKOUT_SAFETY_COPY.user.noExtraSafetyFlagForSession,
     tone: 'ok',
   };
 }
@@ -241,8 +243,7 @@ export function GeneratedWorkoutPreviewCard({
     ...new Set([
       ...(workout.safetyNotes ?? []),
       ...(description?.safetyNotes ?? []),
-      'Pause if pain becomes sharp, unusual, or changes how you move.',
-      'If you notice chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.',
+      ...generatedWorkoutDefaultSafetyNotes(),
     ]),
   ];
 
@@ -284,7 +285,7 @@ export function GeneratedWorkoutPreviewCard({
 
         {workout.blocked ? (
           <CopySection title="Safety block" testID="generated-workout-preview-blocked">
-            <Text style={styles.bodyText}>This generated session is blocked. Use the safety notes and choose a review, recovery, or mobility path before training.</Text>
+            <Text style={styles.bodyText}>{GENERATED_WORKOUT_SAFETY_COPY.user.blockedWorkoutMessage}</Text>
             <BulletList items={workout.explanations} />
           </CopySection>
         ) : null}

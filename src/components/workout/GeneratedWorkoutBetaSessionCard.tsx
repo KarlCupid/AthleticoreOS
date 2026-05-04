@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
-  GENERATED_WORKOUT_FALLBACK_COPY,
+  GENERATED_WORKOUT_SAFETY_COPY,
+  generatedWorkoutSafetyReminder,
   type GeneratedWorkout,
   type GeneratedWorkoutSessionExerciseCompletionInput,
   type GeneratedWorkoutSessionLifecycleStatus,
@@ -90,7 +91,6 @@ const FEEDBACK_OPTIONS = [
   { id: 'time_fit', label: 'Time fit' },
 ] as const;
 const BETA_STAGES: GeneratedWorkoutBetaStage[] = ['configure', 'inspect', 'started', 'completed'];
-const SAFETY_REMINDER = 'Pause if pain becomes sharp, unusual, or changes how you move. If you notice chest pain, fainting, severe dizziness, or neurological symptoms, stop and seek professional guidance.';
 
 function labelize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
@@ -111,11 +111,11 @@ function stageHelp(stage: GeneratedWorkoutBetaStage): string {
 }
 
 function workoutSafetyLine(workout: GeneratedWorkout | null): string {
-  if (!workout) return 'No generated workout yet.';
-  if (workout.blocked) return GENERATED_WORKOUT_FALLBACK_COPY.sessionBlockedBySafetyReview;
-  if (workout.validation && !workout.validation.isValid) return 'Review validation messages before starting.';
-  if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) return 'Safety guardrails are active.';
-  return 'No extra safety flag was applied.';
+  if (!workout) return GENERATED_WORKOUT_SAFETY_COPY.user.noGeneratedWorkoutYet;
+  if (workout.blocked) return GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview;
+  if (workout.validation && !workout.validation.isValid) return GENERATED_WORKOUT_SAFETY_COPY.user.validationReviewBeforeStart;
+  if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) return GENERATED_WORKOUT_SAFETY_COPY.user.safetyGuardrailsActive;
+  return GENERATED_WORKOUT_SAFETY_COPY.user.noExtraSafetyFlag;
 }
 
 function prescribedLine(exercise: GeneratedWorkout['blocks'][number]['exercises'][number]): string {
@@ -449,7 +449,7 @@ export function GeneratedWorkoutBetaSessionCard({
         </View>
 
         {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
-        <Text style={styles.safetyReminder}>{SAFETY_REMINDER}</Text>
+        <Text style={styles.safetyReminder}>{generatedWorkoutSafetyReminder()}</Text>
 
         <View style={styles.actionRow}>
           <Pressable
@@ -510,7 +510,7 @@ export function GeneratedWorkoutBetaSessionCard({
             <Pressable
               testID="generated-workout-beta-start"
               accessibilityRole="button"
-              accessibilityLabel={workout.blocked ? GENERATED_WORKOUT_FALLBACK_COPY.sessionBlockedBySafetyReview : 'Start generated workout'}
+              accessibilityLabel={workout.blocked ? GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview : 'Start generated workout'}
               accessibilityState={{ disabled: workout.blocked === true }}
               disabled={workout.blocked === true}
               style={[styles.primaryButton, workout.blocked && styles.disabledButton]}

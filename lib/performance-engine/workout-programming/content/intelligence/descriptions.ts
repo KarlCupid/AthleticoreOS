@@ -1,4 +1,5 @@
 import type { DescriptionTemplate } from '../../types.ts';
+import { GENERATED_WORKOUT_SAFETY_COPY } from '../../workoutSafetyCopy.ts';
 
 export const descriptionTemplates = [
   {
@@ -35,7 +36,7 @@ export const descriptionTemplates = [
       "Rushing rest and letting the next set fall apart"
     ],
     "safetyNotes": [
-      "Pause if pain becomes sharp, dizziness appears, or symptoms change how you move."
+      GENERATED_WORKOUT_SAFETY_COPY.user.sharpPainReminder
     ],
     "recoveryExpectation": "Mild muscle soreness is acceptable; joint pain or worsening symptoms are not.",
     "completionMessage": "Base built. Log reps, load, effort rating, and any pain signal so the next step is clear.",

@@ -41,6 +41,7 @@ async function run() {
   const devPreviewHook = read('src/hooks/useGeneratedWorkoutDevPreview.ts');
   const betaContainer = read('src/components/workout/GeneratedWorkoutBetaContainer.tsx');
   const devPreviewPanel = read('src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx');
+  const safetyCopy = read('lib/performance-engine/workout-programming/workoutSafetyCopy.ts');
   const fallbacks = read('lib/performance-engine/workout-programming/workoutProgrammingFallbacks.ts');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
@@ -112,10 +113,9 @@ async function run() {
   assert('preview card renders safety-blocked workouts explicitly', hasAll(previewCard, [
     'workout.blocked',
     'testID="generated-workout-preview-blocked"',
-    'This generated session is blocked.',
+    'GENERATED_WORKOUT_SAFETY_COPY.user.blockedWorkoutMessage',
     'workout.explanations',
-    'Pause if pain becomes sharp',
-    'seek professional guidance',
+    'generatedWorkoutDefaultSafetyNotes',
   ]));
 
   assert('preview and beta error states surface service failures without crashing the screen', hasAll(workoutScreen, [
@@ -130,10 +130,15 @@ async function run() {
     'setError',
     'normalizeGeneratedWorkoutError',
   ]) && hasAll(fallbacks, [
-    'Generated locally. Persistence unavailable',
-    'Completed locally. Persistence unavailable',
-    'Session started locally',
-    'No safe generated workout found',
+    'GENERATED_WORKOUT_SAFETY_COPY.persistence.generatedLocallyPersistenceUnavailable',
+    'GENERATED_WORKOUT_SAFETY_COPY.persistence.completedLocallyPersistenceUnavailable',
+    'GENERATED_WORKOUT_SAFETY_COPY.persistence.sessionStartedLocalPersistenceUnavailable',
+    'GENERATED_WORKOUT_SAFETY_COPY.persistence.noSafeGeneratedWorkoutFound',
+  ]) && hasAll(safetyCopy, [
+    'sharpPainReminder',
+    'redFlagSymptomMessage',
+    'blockedWorkoutMessage',
+    'professionalGuidance',
   ]) && hasAll(devPreviewPanel, [
     'Generated preview unavailable',
   ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
@@ -163,7 +168,7 @@ async function run() {
     'testID="generated-workout-beta-next-progression"',
     'Recommended next step',
     'progressionDecision.userMessage',
-    'SAFETY_REMINDER',
+    'generatedWorkoutSafetyReminder',
   ]));
 
   const preview = await generatePreviewWorkout(workoutProgrammingServiceFixtures.beginnerBodyweightStrength, {

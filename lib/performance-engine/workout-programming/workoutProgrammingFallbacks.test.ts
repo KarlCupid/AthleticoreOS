@@ -17,6 +17,7 @@ import {
   resolveGeneratedWorkoutContentReviewOptions,
   resolveGeneratedWorkoutFeatureFlags,
 } from './workoutProgrammingFallbacks.ts';
+import { GENERATED_WORKOUT_SAFETY_COPY } from './workoutSafetyCopy.ts';
 
 let passed = 0;
 let failed = 0;
@@ -61,7 +62,7 @@ function run() {
   })());
 
   assert('unknown errors normalize to display-safe copy', normalizeGeneratedWorkoutError({ internal: true }, 'Generated workout failed.') === 'Generated workout failed.');
-  assert('safety and validation errors are not hidden', normalizeGeneratedWorkoutError(new ValidationError('No safe generated workout found.'), 'Generated workout failed.') === 'No safe generated workout found.');
+  assert('safety and validation errors are not hidden', normalizeGeneratedWorkoutError(new ValidationError(GENERATED_WORKOUT_SAFETY_COPY.persistence.noSafeGeneratedWorkoutFound), 'Generated workout failed.') === GENERATED_WORKOUT_SAFETY_COPY.persistence.noSafeGeneratedWorkoutFound);
   assert('unauthorized errors use user-safe copy', normalizeGeneratedWorkoutError(new UnauthorizedError('rls denied user abc'), 'Generated workout failed.') === 'You do not have access to this generated workout.');
 
   assert('local generated workout fallback is allowed only for unavailable persistence', canUseLocalGeneratedWorkoutFallback(new DatabaseUnavailableError('database unavailable')) === true);
@@ -82,7 +83,7 @@ function run() {
     new DatabaseUnavailableError('rpc unavailable'),
     'Unable to save generated workout.',
   ) === GENERATED_WORKOUT_FALLBACK_COPY.generatedLocallyPersistenceUnavailable);
-  assert('local completion fallback message is centralized', formatGeneratedWorkoutLocalCompletionMessage('stored on device') === 'Completed locally: stored on device');
+  assert('local completion fallback message is centralized', formatGeneratedWorkoutLocalCompletionMessage('stored on device') === `${GENERATED_WORKOUT_SAFETY_COPY.persistence.completedLocallyPrefix} stored on device`);
 
   assert('local lifecycle options never request Supabase for local user ids', (() => {
     const options = generatedWorkoutLifecycleOptionsForUser(null, '2026-05-03T12:00:00.000Z') as Record<string, unknown>;

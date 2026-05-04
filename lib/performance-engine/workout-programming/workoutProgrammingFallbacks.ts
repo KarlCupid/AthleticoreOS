@@ -4,19 +4,20 @@ import {
   UnauthorizedError,
   ValidationError,
 } from './persistenceService.ts';
+import { GENERATED_WORKOUT_SAFETY_COPY } from './workoutSafetyCopy.ts';
 
 export const LOCAL_GENERATED_WORKOUT_BETA_USER_ID = 'local-generated-workout-beta-user';
 
 export const GENERATED_WORKOUT_FALLBACK_COPY = {
-  generatedLocallyPersistenceUnavailable: 'Generated locally. Persistence unavailable.',
-  completedLocallyPersistenceUnavailable: 'Completed locally. Persistence unavailable.',
-  sessionBlockedBySafetyReview: 'This session is blocked by safety review.',
-  noSafeGeneratedWorkoutFound: 'No safe generated workout found.',
-  generatedSessionLocal: 'Generated session is local on this device.',
-  sessionStartedLocalPersistenceUnavailable: 'Session started locally. Persistence unavailable.',
-  sessionPausedLocalPersistenceUnavailable: 'Session paused locally. Persistence unavailable.',
-  sessionResumedLocalPersistenceUnavailable: 'Session resumed locally. Persistence unavailable.',
-  sessionAbandonedLocalPersistenceUnavailable: 'Abandoned locally. Persistence unavailable.',
+  generatedLocallyPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.generatedLocallyPersistenceUnavailable,
+  completedLocallyPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.completedLocallyPersistenceUnavailable,
+  sessionBlockedBySafetyReview: GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview,
+  noSafeGeneratedWorkoutFound: GENERATED_WORKOUT_SAFETY_COPY.persistence.noSafeGeneratedWorkoutFound,
+  generatedSessionLocal: GENERATED_WORKOUT_SAFETY_COPY.persistence.generatedSessionLocal,
+  sessionStartedLocalPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.sessionStartedLocalPersistenceUnavailable,
+  sessionPausedLocalPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.sessionPausedLocalPersistenceUnavailable,
+  sessionResumedLocalPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.sessionResumedLocalPersistenceUnavailable,
+  sessionAbandonedLocalPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.sessionAbandonedLocalPersistenceUnavailable,
 } as const;
 
 export type GeneratedWorkoutContentReviewSurface =
@@ -139,5 +140,5 @@ export function formatGeneratedWorkoutPersistenceFallbackMessage(
 }
 
 export function formatGeneratedWorkoutLocalCompletionMessage(fallbackMessage: string | null | undefined): string | null {
-  return fallbackMessage ? `Completed locally: ${fallbackMessage}` : null;
+  return fallbackMessage ? `${GENERATED_WORKOUT_SAFETY_COPY.persistence.completedLocallyPrefix} ${fallbackMessage}` : null;
 }

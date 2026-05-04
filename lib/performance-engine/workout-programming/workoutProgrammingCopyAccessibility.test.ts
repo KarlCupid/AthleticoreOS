@@ -8,6 +8,11 @@ import {
   validateDescriptionTemplatesCopyQuality,
   validateWorkoutDescriptionCopyQuality,
 } from './workoutDescriptionService.ts';
+import {
+  GENERATED_WORKOUT_SAFETY_COPY,
+  generatedWorkoutDefaultSafetyNotes,
+  generatedWorkoutSafetyReminder,
+} from './workoutSafetyCopy.ts';
 import { workoutIntelligenceCatalog } from './intelligenceData.ts';
 import type {
   DescriptionToneVariant,
@@ -89,6 +94,12 @@ function copyQualityPasses(label: string, description: WorkoutDescription): void
 async function run() {
   console.log('\n-- workout programming copy and accessibility --');
 
+  assert('generated workout safety copy centralizes recurring user-facing reminders', Boolean(
+    generatedWorkoutDefaultSafetyNotes().includes(GENERATED_WORKOUT_SAFETY_COPY.user.sharpPainReminder)
+      && generatedWorkoutSafetyReminder().includes(GENERATED_WORKOUT_SAFETY_COPY.user.redFlagSymptomMessage)
+      && !/diagnose|cure|pain is weakness|no excuses/i.test(Object.values(GENERATED_WORKOUT_SAFETY_COPY.user).join(' ')),
+  ));
+
   const templateQuality = validateDescriptionTemplatesCopyQuality(workoutIntelligenceCatalog.descriptionTemplates);
   assert(
     templateQuality.valid ? 'description template copy quality validates' : issueSummary(templateQuality),
@@ -147,13 +158,15 @@ async function run() {
     'accessibilityLabel={`${label}: ${value}',
     'accessibilityRole="header"',
     'Effort ${exercise.prescription.targetRpe}/10',
-    'This generated session is blocked. Use the safety notes',
+    'GENERATED_WORKOUT_SAFETY_COPY.user.blockedWorkoutMessage',
+    'generatedWorkoutDefaultSafetyNotes',
   ].every((needle) => previewCard.includes(needle)));
 
   assert('beta UI actions have descriptive accessibility labels', [
     'accessibilityLabel={loading ? \'Generating workout\'',
     'accessibilityLabel="Clear generated workout"',
-    'GENERATED_WORKOUT_FALLBACK_COPY.sessionBlockedBySafetyReview',
+    'GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview',
+    'generatedWorkoutSafetyReminder',
     'accessibilityLabel={allExercisesComplete ? \'Clear all completed exercises\'',
     'accessibilityLabel={`${completed ? \'Mark incomplete\' : \'Mark complete\'}: ${exercise.name}`}',
     'Session effort rating',

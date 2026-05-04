@@ -1,4 +1,5 @@
 import { workoutIntelligenceCatalog } from './intelligenceData.ts';
+import { generatedWorkoutDefaultSafetyNotes } from './workoutSafetyCopy.ts';
 import type {
   DescriptionTemplate,
   DescriptionToneVariant,
@@ -329,7 +330,7 @@ export function generateWorkoutDescription(
     effortExplanation,
     whyThisMatters: nonEmptyText(template.whyThisMatters, 'The session should support the next training decision without ignoring safety signals.'),
     howItShouldFeel: nonEmptyText(template.howItShouldFeel, "Controlled, repeatable, and appropriate for today's state."),
-    safetyNotes: nonEmptyArray(template.safetyNotes, ['Pause if pain becomes sharp, dizziness appears, or symptoms change how you move.']),
+    safetyNotes: nonEmptyArray(template.safetyNotes, generatedWorkoutDefaultSafetyNotes()),
     successCriteria: nonEmptyArray(template.successCriteria, workout.successCriteria),
     scalingDown: nonEmptyText(template.scalingDown, 'Reduce volume, range, or intensity while preserving the safest version of the movement pattern.'),
     scalingUp: nonEmptyText(template.scalingUp, 'Progress one variable only after completion, effort, and symptoms are stable.'),

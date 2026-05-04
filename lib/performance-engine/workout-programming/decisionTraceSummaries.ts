@@ -6,6 +6,7 @@ import type {
   WorkoutDecisionTraceEntry,
   WorkoutValidationResult,
 } from './types.ts';
+import { GENERATED_WORKOUT_SAFETY_COPY } from './workoutSafetyCopy.ts';
 
 export interface UserWorkoutDecisionSummary {
   headline: string;
@@ -141,7 +142,7 @@ function safetySummary(workout: GeneratedWorkout): string[] {
     ...(workout.validation?.userFacingMessages ?? []),
   ].map(userSafeText);
   const blocked = workout.blocked
-    ? ['Safety blocked hard training for this generated session. Choose review, recovery, or mobility before training hard.']
+    ? [GENERATED_WORKOUT_SAFETY_COPY.user.blockedWorkoutDecisionSummary]
     : [];
   const activeFlags = safetyFlags.length
     ? [`Active safety flags shaped the session: ${safetyFlags.join(', ')}.`]
