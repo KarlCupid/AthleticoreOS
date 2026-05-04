@@ -1,7 +1,7 @@
 import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import {
   Outfit_900Black,
 } from '@expo-google-fonts/outfit';
 import { supabase } from './lib/supabase';
+import { getSupabaseAuthErrorCopy, parsePasswordRecoveryLink } from './lib/api/authUx';
 import { getAthleteJourneyAppEntryState, type AthleteJourneyAppEntryState } from './lib/api/athleteJourneyService';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
@@ -48,7 +49,10 @@ export default function App() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [checkingJourney, setCheckingJourney] = useState(false);
   const [authLoadAttempt, setAuthLoadAttempt] = useState(0);
+  const [passwordRecoveryActive, setPasswordRecoveryActive] = useState(false);
+  const [passwordRecoveryNotice, setPasswordRecoveryNotice] = useState<string | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
+  const handledRecoveryUrlRef = useRef<string | null>(null);
   const navigationRef = useNavigationContainerRef();
 
   const [fontsLoaded] = useFonts({
@@ -62,6 +66,89 @@ export default function App() {
     addMonitoringBreadcrumb('app', 'root_component_mounted');
     capturePreviewMonitoringTestError();
   }, []);
+
+  const handlePasswordRecoveryLink = useCallback(async (url: string | null) => {
+    if (!url || handledRecoveryUrlRef.current === url) {
+      return;
+    }
+
+    const recoveryLink = parsePasswordRecoveryLink(url);
+    if (!recoveryLink) {
+      return;
+    }
+
+    handledRecoveryUrlRef.current = url;
+
+    if (recoveryLink.error || recoveryLink.errorDescription) {
+      addMonitoringBreadcrumb('auth', 'password_recovery_link_rejected', { hasDescription: Boolean(recoveryLink.errorDescription) });
+      setPasswordRecoveryActive(false);
+      setPasswordRecoveryNotice(recoveryLink.errorDescription ?? 'That reset link could not be opened. Request a new password reset email.');
+      return;
+    }
+
+    setPasswordRecoveryNotice(null);
+    addMonitoringBreadcrumb('auth', 'password_recovery_link_opened', {
+      hasTokenSession: Boolean(recoveryLink.accessToken && recoveryLink.refreshToken),
+      hasCode: Boolean(recoveryLink.code),
+    });
+
+    try {
+      const recoveryResult = recoveryLink.code
+        ? await supabase.auth.exchangeCodeForSession(recoveryLink.code)
+        : recoveryLink.accessToken && recoveryLink.refreshToken
+          ? await supabase.auth.setSession({
+            access_token: recoveryLink.accessToken,
+            refresh_token: recoveryLink.refreshToken,
+          })
+          : null;
+
+      if (!recoveryResult) {
+        setPasswordRecoveryActive(false);
+        setPasswordRecoveryNotice('That reset link is incomplete. Request a new password reset email.');
+        return;
+      }
+
+      if (recoveryResult.error) {
+        logError('App.passwordRecoveryLink', recoveryResult.error, { authOperation: 'passwordRecoveryLink' });
+        setPasswordRecoveryActive(false);
+        setPasswordRecoveryNotice(getSupabaseAuthErrorCopy(recoveryResult.error, 'passwordUpdate'));
+        await supabase.auth.signOut({ scope: 'local' });
+        return;
+      }
+
+      setAuthLoadError(null);
+      setPasswordRecoveryActive(true);
+      addMonitoringBreadcrumb('auth', 'password_recovery_session_ready');
+    } catch (error) {
+      logError('App.passwordRecoveryLink.unhandled', error, { authOperation: 'passwordRecoveryLink' });
+      setPasswordRecoveryActive(false);
+      setPasswordRecoveryNotice(getSupabaseAuthErrorCopy(error, 'passwordUpdate'));
+      await supabase.auth.signOut({ scope: 'local' });
+    }
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (isActive) {
+          void handlePasswordRecoveryLink(url);
+        }
+      })
+      .catch((error) => {
+        logError('App.passwordRecoveryInitialUrl', error, { authOperation: 'getInitialURL' });
+      });
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      void handlePasswordRecoveryLink(url);
+    });
+
+    return () => {
+      isActive = false;
+      subscription.remove();
+    };
+  }, [handlePasswordRecoveryLink]);
 
   useEffect(() => {
     let isActive = true;
@@ -127,12 +214,18 @@ export default function App() {
         setAuthLoadError(null);
       }
 
+      if (event === 'PASSWORD_RECOVERY' && nextSession) {
+        setPasswordRecoveryActive(true);
+        setPasswordRecoveryNotice(null);
+      }
+
       if (nextUserId && previousUserId !== nextUserId) {
         setJourneyLoadError(null);
         setJourneyEntryState(null);
       }
 
       if (!nextSession) {
+        setPasswordRecoveryActive(false);
         setJourneyEntryState(null);
         setJourneyLoadError(null);
         setCheckingJourney(false);
@@ -192,6 +285,8 @@ export default function App() {
     setCheckingJourney(false);
     setJourneyEntryState(null);
     setJourneyLoadError(null);
+    setPasswordRecoveryActive(false);
+    setPasswordRecoveryNotice(null);
 
     addMonitoringBreadcrumb('auth', 'sign_out_started');
     const { error } = await supabase.auth.signOut();
@@ -223,19 +318,29 @@ export default function App() {
   }
 
   const entryStatus = journeyEntryState?.status ?? null;
-  const appLoadError = authLoadError ?? journeyLoadError;
+  const appLoadError = passwordRecoveryActive ? null : authLoadError ?? journeyLoadError;
   const content = appLoadError ? (
     <AppLoadErrorScreen
       loading={checkingAuth || checkingJourney}
       onRetry={retryAppLoad}
       onSignOut={session ? handleSignOut : undefined}
     />
+  ) : passwordRecoveryActive ? (
+    <AuthScreen
+      passwordRecovery
+      notice={passwordRecoveryNotice}
+      onPasswordRecoveryCompleted={() => {
+        setPasswordRecoveryActive(false);
+        setPasswordRecoveryNotice(null);
+        void refreshJourneyEntryState();
+      }}
+    />
   ) : checkingAuth ? (
     <View style={[styles.container, styles.centered]}>
       <OceanLoader color={COLORS.readiness.prime} />
     </View>
   ) : !session ? (
-    <AuthScreen />
+    <AuthScreen notice={passwordRecoveryNotice} />
   ) : checkingJourney || entryStatus === null ? (
     <View style={[styles.container, styles.centered]}>
       <OceanLoader color={COLORS.readiness.prime} />
@@ -247,7 +352,7 @@ export default function App() {
   ) : (
     <TabNavigator />
   );
-  const backgroundMood: AuroraBackgroundMood = !session || entryStatus === 'needs_onboarding' ? 'hero' : 'calm';
+  const backgroundMood: AuroraBackgroundMood = passwordRecoveryActive || !session || entryStatus === 'needs_onboarding' ? 'hero' : 'calm';
 
   return (
     <GestureHandlerRootView style={styles.container}>

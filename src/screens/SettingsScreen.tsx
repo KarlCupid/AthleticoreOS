@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
+import { ActivityIndicator, Alert, View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { IconPerson } from '../components/icons';
 import { supabase } from '../../lib/supabase';
+import { signOutCurrentUser } from '../../lib/api/accountService';
+import { getSupabaseAuthErrorCopy } from '../../lib/api/authUx';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 
 interface AthleteProfile {
@@ -21,6 +23,7 @@ export function SettingsScreen() {
     const { themeColor } = useReadinessTheme();
     const [email, setEmail] = useState('');
     const [profile, setProfile] = useState<AthleteProfile | null>(null);
+    const [signingOut, setSigningOut] = useState(false);
 
     useEffect(() => {
         loadProfile();
@@ -62,6 +65,18 @@ export function SettingsScreen() {
         if (error) {
             setProfile((current) => current ? { ...current, cycle_tracking: previous } : current);
             Alert.alert('Update failed', 'Could not save cycle tracking right now.');
+        }
+    }
+
+    async function handleSignOut() {
+        if (signingOut) return;
+
+        setSigningOut(true);
+        try {
+            await signOutCurrentUser();
+        } catch (signOutError) {
+            Alert.alert('Sign out failed', getSupabaseAuthErrorCopy(signOutError, 'signOut'));
+            setSigningOut(false);
         }
     }
 
@@ -140,10 +155,15 @@ export function SettingsScreen() {
 
                 {/* Sign Out */}
                 <TouchableOpacity
-                    style={styles.signOutButton}
-                    onPress={() => supabase.auth.signOut()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Sign out"
+                    accessibilityState={{ disabled: signingOut, busy: signingOut }}
+                    style={[styles.signOutButton, signingOut && styles.signOutButtonDisabled]}
+                    onPress={() => void handleSignOut()}
+                    disabled={signingOut}
                 >
-                    <Text style={styles.signOutText}>Sign Out</Text>
+                    {signingOut ? <ActivityIndicator size="small" color={COLORS.readiness.depleted} /> : null}
+                    <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign Out'}</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.version}>v1.0.0</Text>
@@ -222,9 +242,16 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderRadius: RADIUS.lg,
         padding: SPACING.md + 2,
+        minHeight: 52,
+        flexDirection: 'row',
+        gap: SPACING.sm,
         alignItems: 'center',
+        justifyContent: 'center',
         borderWidth: 1,
         borderColor: COLORS.border,
+    },
+    signOutButtonDisabled: {
+        opacity: 0.62,
     },
     signOutText: {
         fontSize: 16,

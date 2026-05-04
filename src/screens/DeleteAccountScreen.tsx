@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { deleteMyAccount } from '../../lib/api/accountService';
+import { getSupabaseAuthErrorCopy } from '../../lib/api/authUx';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -25,8 +26,8 @@ export function DeleteAccountScreen() {
             try {
               setDeleting(true);
               await deleteMyAccount();
-            } catch (error: any) {
-              Alert.alert('Delete failed', error?.message ?? 'We could not delete your account right now.');
+            } catch (error) {
+              Alert.alert('Delete failed', getSupabaseAuthErrorCopy(error, 'deleteAccount'));
               setDeleting(false);
             }
           },
@@ -76,10 +77,14 @@ export function DeleteAccountScreen() {
         </Card>
 
         <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete my account"
+          accessibilityState={{ disabled: !confirmed || deleting, busy: deleting }}
           style={[styles.deleteButton, (!confirmed || deleting) && styles.deleteButtonDisabled]}
           disabled={!confirmed || deleting}
           onPress={handleDelete}
         >
+          {deleting ? <ActivityIndicator size="small" color="#F5F5F0" /> : null}
           <Text style={styles.deleteButtonText}>{deleting ? 'Deleting account...' : 'Delete my account'}</Text>
         </AnimatedPressable>
       </ScrollView>
@@ -130,6 +135,8 @@ const styles = StyleSheet.create({
   deleteButton: {
     minHeight: 52,
     borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    gap: SPACING.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.readiness.depleted,

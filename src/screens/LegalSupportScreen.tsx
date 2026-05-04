@@ -16,13 +16,17 @@ import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
 export function LegalSupportScreen() {
   const openUrl = async (url: string, fallbackTitle: string, fallbackBody: string) => {
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) {
-      Alert.alert(fallbackTitle, fallbackBody);
-      return;
-    }
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert(fallbackTitle, fallbackBody);
+        return;
+      }
 
-    await Linking.openURL(url);
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(fallbackTitle, fallbackBody);
+    }
   };
 
   const handleEmailSupport = async () => {
@@ -54,6 +58,8 @@ export function LegalSupportScreen() {
           </View>
           {APP_PRIVACY_POLICY_URL ? (
             <AnimatedPressable
+              accessibilityRole="link"
+              accessibilityLabel="Open full privacy policy"
               style={[styles.primaryButton, styles.secondaryButton]}
               onPress={() => void openUrl(APP_PRIVACY_POLICY_URL, 'Privacy policy', APP_PRIVACY_POLICY_URL)}
             >
@@ -68,11 +74,18 @@ export function LegalSupportScreen() {
           subtitle="Use this for product questions, privacy requests, and App Review follow-up."
         >
           <Text style={styles.supportEmail}>{APP_SUPPORT_EMAIL}</Text>
-          <AnimatedPressable style={styles.primaryButton} onPress={() => void handleEmailSupport()}>
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="Email support"
+            style={styles.primaryButton}
+            onPress={() => void handleEmailSupport()}
+          >
             <Text style={styles.primaryButtonText}>Email support</Text>
           </AnimatedPressable>
           {APP_SUPPORT_URL ? (
             <AnimatedPressable
+              accessibilityRole="link"
+              accessibilityLabel="Open support site"
               style={[styles.primaryButton, styles.secondaryButton]}
               onPress={() => void openUrl(APP_SUPPORT_URL, 'Support site', APP_SUPPORT_URL)}
             >

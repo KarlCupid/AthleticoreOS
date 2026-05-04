@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import { supabase } from '../../lib/supabase';
+import { signOutCurrentUser } from '../../lib/api/accountService';
+import { getSupabaseAuthErrorCopy } from '../../lib/api/authUx';
 import { getActiveBuildPhaseGoal } from '../../lib/api/buildPhaseService';
 import { getAndSyncFirstRunGuidanceState, resetFirstRunGuidance } from '../../lib/api/firstRunGuidanceService';
 import { getFightCampStatus } from '../../lib/api/fightCampService';
@@ -149,6 +151,7 @@ export function ProfileSettingsScreen() {
   const [editValue, setEditValue] = useState('');
   const [engineReplayVisible, setEngineReplayVisible] = useState(false);
   const [resettingProgramming, setResettingProgramming] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [lastVersionTapAt, setLastVersionTapAt] = useState(0);
   const hasLoadedRef = useRef(false);
@@ -416,6 +419,19 @@ export function ProfileSettingsScreen() {
 
   function openDeleteAccount() {
     navigation.navigate('DeleteAccount');
+  }
+
+  async function handleSignOut() {
+    if (signingOut) return;
+
+    setSigningOut(true);
+    try {
+      await signOutCurrentUser();
+    } catch (signOutError) {
+      logError('ProfileSettingsScreen.handleSignOut', signOutError);
+      Alert.alert('Sign out failed', getSupabaseAuthErrorCopy(signOutError, 'signOut'));
+      setSigningOut(false);
+    }
   }
 
   if (loading && !snapshot) {
@@ -785,9 +801,16 @@ export function ProfileSettingsScreen() {
               <AccountLinkButton label="Privacy & support" onPress={openLegalSupport} />
               <AccountLinkButton label="Delete account" onPress={openDeleteAccount} tone="danger" />
             </View>
-            <AnimatedPressable style={styles.signOutButton} onPress={() => void supabase.auth.signOut()}>
-              <IconClose size={18} color={COLORS.readiness.depleted} />
-              <Text style={styles.signOutText}>Sign Out</Text>
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              accessibilityState={{ disabled: signingOut, busy: signingOut }}
+              style={[styles.signOutButton, signingOut && styles.accountButtonDisabled]}
+              onPress={() => void handleSignOut()}
+              disabled={signingOut}
+            >
+              {signingOut ? <ActivityIndicator size="small" color={COLORS.readiness.depleted} /> : <IconClose size={18} color={COLORS.readiness.depleted} />}
+              <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign Out'}</Text>
             </AnimatedPressable>
           </Card>
         </Animated.View>
@@ -942,6 +965,8 @@ function AccountLinkButton(props: {
 
   return (
     <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={[styles.accountLinkButton, danger && styles.accountLinkButtonDanger]}
       onPress={onPress}
     >
@@ -1372,6 +1397,9 @@ const styles = StyleSheet.create({
     backgroundColor: `${COLORS.error}18`,
     borderWidth: 1,
     borderColor: `${COLORS.error}40`,
+  },
+  accountButtonDisabled: {
+    opacity: 0.62,
   },
   signOutText: {
     fontSize: 15,
