@@ -6,6 +6,8 @@ Generated workout programming now has both source/fixture smoke guards and a fas
 - `lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts`
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
 - `src/components/workout/GeneratedWorkoutBetaSessionCard.tsx`
+- `src/components/workout/GeneratedWorkoutBetaContainer.tsx`
+- `src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx`
 - `src/screens/WorkoutScreen.tsx`
 
 The render test uses `@testing-library/react-native/pure` with a small Node-compatible React Native/Reanimated mock because the repo's engine test runner is not Jest. This keeps the test fast enough for `npm run test:engine` while still mounting the real generated workout components and the Workout screen feature-flag branches.
@@ -14,9 +16,13 @@ The render test uses `@testing-library/react-native/pure` with a small Node-comp
 
 - Default/off: leave `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA` unset or not equal to `1`.
 - Beta/on: set `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=1`.
-- Developer preview: set `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1` while beta is off.
+- Developer preview: in a dev build only, set `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1` while beta is off.
 
 When flags are off, the generated workout beta and preview sections should not render and the existing Today, Plan, History, Analytics, guided workout, and prescription flows should still behave normally.
+
+The developer preview is intentionally isolated in `GeneratedWorkoutDevPreviewPanel`.
+It loads a fixed fixture for debug inspection, does not persist, and does not share
+beta fallback state or completion behavior.
 
 ## Manual Smoke Pass
 
@@ -43,4 +49,4 @@ Run the automated smoke layer with:
 npm run test:engine
 ```
 
-The render test verifies valid preview content, blocked preview content, beta configure/inspect/started/completed states, disabled blocked starts, completion controls, progression recommendations, and Workout screen feature-flag visibility.
+The render test verifies valid generated-workout preview card content, blocked preview card content, beta configure/inspect/started/completed states, disabled blocked starts, completion controls, progression recommendations, and Workout screen feature-flag visibility.

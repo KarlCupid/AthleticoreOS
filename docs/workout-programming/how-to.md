@@ -212,7 +212,9 @@ Current non-invasive UI path:
 
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
 - `src/components/workout/GeneratedWorkoutBetaSessionCard.tsx`
-- Feature flag in `WorkoutScreen.tsx`
+- `src/components/workout/GeneratedWorkoutBetaContainer.tsx`
+- `src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx`
+- Feature flags resolved through generated workout flow helpers, not inline screen logic
 - Beta flow enabled when `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=1`
 - Developer-only read-only preview enabled when beta is disabled, `__DEV__` is true, and `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1`
 
@@ -220,5 +222,9 @@ The beta flow supports generate, inspect, start, completion logging, workout fee
 exercise preferences, and next progression recommendation. When a Supabase user is
 available it persists generated workouts, completions, feedback, and progression
 decisions. Without an authenticated user, it stays in local in-memory mode.
+
+The developer preview panel is a fixed-fixture debug surface. It does not own beta
+fallback behavior, does not persist, and should not be treated as a production
+rollout path.
 
 Future UI work should call `workoutProgrammingService`, not raw seed data or lower-level engines.

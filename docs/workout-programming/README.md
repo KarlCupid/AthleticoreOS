@@ -2,7 +2,7 @@
 
 This folder documents the production-grade workout-programming system under `lib/performance-engine/workout-programming/`.
 
-The module turns a training request into a safe, explainable workout or weekly program. It combines static programming taxonomy, typed prescriptions, hand-authored coaching intelligence, user constraints, substitution logic, validation, progression decisions, persistence services, and a small UI preview path.
+The module turns a training request into a safe, explainable workout or weekly program. It combines static programming taxonomy, typed prescriptions, hand-authored coaching intelligence, user constraints, substitution logic, validation, progression decisions, persistence services, a feature-flagged beta UI flow, and an isolated developer-only preview panel.
 
 ## Audience
 
@@ -25,6 +25,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 - `programBuilder.ts`: weekly periodized planning.
 - `persistenceService.ts`: Supabase-compatible persistence surfaces with in-code fallback.
 - `workoutProgrammingService.ts`: high-level app-facing integration layer.
+- `workoutProgrammingFallbacks.ts`: shared beta/dev fallback, error-copy, feature-flag, and content-review-mode rules.
 - `analyticsEngine.ts`: adherence, completion, pain trend, and recommendation quality summary.
 
 ## Database Migrations

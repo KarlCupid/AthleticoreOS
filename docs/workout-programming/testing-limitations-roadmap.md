@@ -121,7 +121,7 @@ Near term:
 - Keep the manual live Supabase RLS and DB release gate green against a dedicated test project before workout-programming rollout.
 - Add device/E2E smoke tests for the generated workout beta flow.
 - Promote preview/dev-only exercises only after coach and safety review.
-- Add a developer fixture selector for generated workout previews.
+- Add a developer fixture selector to the isolated dev preview panel if fixed-fixture debugging becomes too narrow.
 - Add content QA snapshots for descriptions and prescription payloads.
 
 Medium term:

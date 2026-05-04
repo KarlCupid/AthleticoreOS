@@ -21,6 +21,7 @@ import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
 import { GeneratedWorkoutBetaContainer } from '../components/workout/GeneratedWorkoutBetaContainer';
+import { GeneratedWorkoutDevPreviewPanel } from '../components/workout/GeneratedWorkoutDevPreviewPanel';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
@@ -140,7 +141,6 @@ export function WorkoutScreen() {
   const generatedWorkoutBetaController = useGeneratedWorkoutBeta({
     userId,
     currentLevel,
-    previewActive: activeTab === 'today',
     historyLoaded,
     analyticsLoaded,
     loadHistoryData,
@@ -332,6 +332,7 @@ export function WorkoutScreen() {
               </Animated.View>
             ) : null}
             {!initialLoadError ? <GeneratedWorkoutBetaContainer controller={generatedWorkoutBetaController} /> : null}
+            {!initialLoadError ? <GeneratedWorkoutDevPreviewPanel active={activeTab === 'today'} /> : null}
             {!initialLoadError && contextualTodayActivities.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
                 <Card

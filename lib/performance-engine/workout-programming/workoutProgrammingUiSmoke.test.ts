@@ -38,7 +38,9 @@ async function run() {
   const packageJson = read('package.json');
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
   const betaHook = read('src/hooks/useGeneratedWorkoutBeta.ts');
+  const devPreviewHook = read('src/hooks/useGeneratedWorkoutDevPreview.ts');
   const betaContainer = read('src/components/workout/GeneratedWorkoutBetaContainer.tsx');
+  const devPreviewPanel = read('src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx');
   const fallbacks = read('lib/performance-engine/workout-programming/workoutProgrammingFallbacks.ts');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
@@ -56,20 +58,24 @@ async function run() {
   assert('feature flags gate generated workout preview and beta flow', hasAll(workoutScreen, [
     'useGeneratedWorkoutBeta',
     'GeneratedWorkoutBetaContainer',
+    'GeneratedWorkoutDevPreviewPanel',
   ]) && hasAll(betaHook, [
     'resolveGeneratedWorkoutFeatureFlags',
     'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA',
+    'if (!betaEnabled) return;',
+  ]) && !betaHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
+    'resolveGeneratedWorkoutFeatureFlags',
     'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW',
     'if (!previewEnabled) return;',
-    'if (!betaEnabled) return;',
+    "resolveGeneratedWorkoutContentReviewOptions('dev-preview')",
   ]) && hasAll(fallbacks, [
     "const betaEnabled = betaFlag === '1'",
     "previewEnabled: !betaEnabled && dev && previewFlag === '1'",
   ]) && hasAll(betaContainer, [
-    'betaEnabled ?',
-    'previewEnabled ?',
     'testID="generated-workout-beta-section"',
+  ]) && !betaContainer.includes('generated-workout-preview-section') && hasAll(devPreviewPanel, [
     'testID="generated-workout-preview-section"',
+    'developer-only debug section',
   ]));
 
   assert('feature-flagged beta path does not replace existing workout screen flow', hasAll(workoutScreen, [
@@ -115,18 +121,20 @@ async function run() {
   assert('preview and beta error states surface service failures without crashing the screen', hasAll(workoutScreen, [
     'GeneratedWorkoutBetaContainer',
   ]) && hasAll(betaHook, [
-    'previewError',
     'setError',
     'normalizeGeneratedWorkoutError',
     'formatGeneratedWorkoutPersistenceFallbackMessage',
     'canUseLocalGeneratedWorkoutFallback',
     'canUseLocalCompletionFallback',
+  ]) && hasAll(devPreviewHook, [
+    'setError',
+    'normalizeGeneratedWorkoutError',
   ]) && hasAll(fallbacks, [
     'Generated locally. Persistence unavailable',
     'Completed locally. Persistence unavailable',
     'Session started locally',
     'No safe generated workout found',
-  ]) && hasAll(betaContainer, [
+  ]) && hasAll(devPreviewPanel, [
     'Generated preview unavailable',
   ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
 

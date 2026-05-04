@@ -17,7 +17,6 @@ import {
   resolveGeneratedWorkoutContentReviewOptions,
   resolveGeneratedWorkoutFeatureFlags,
   workoutProgrammingService,
-  workoutProgrammingServiceFixtures,
   type GeneratedWorkout,
   type GeneratedWorkoutSessionLifecycleStatus,
   type ProgressionDecision,
@@ -29,18 +28,10 @@ type ReloadWorkoutData = (userId?: string) => void | Promise<void>;
 interface UseGeneratedWorkoutBetaOptions {
   userId: string | null | undefined;
   currentLevel: string | null | undefined;
-  previewActive: boolean;
   historyLoaded: boolean;
   analyticsLoaded: boolean;
   loadHistoryData: ReloadWorkoutData;
   loadAnalyticsData: ReloadWorkoutData;
-}
-
-export interface GeneratedWorkoutPreviewController {
-  workout: GeneratedWorkout | null;
-  loading: boolean;
-  error: string | null;
-  load: () => Promise<void>;
 }
 
 export interface GeneratedWorkoutBetaController {
@@ -68,8 +59,6 @@ export interface GeneratedWorkoutBetaController {
 
 export interface UseGeneratedWorkoutBetaResult {
   betaEnabled: boolean;
-  previewEnabled: boolean;
-  preview: GeneratedWorkoutPreviewController;
   beta: GeneratedWorkoutBetaController;
 }
 
@@ -113,20 +102,14 @@ function resetBetaState(setters: {
 export function useGeneratedWorkoutBeta({
   userId,
   currentLevel,
-  previewActive,
   historyLoaded,
   analyticsLoaded,
   loadHistoryData,
   loadAnalyticsData,
 }: UseGeneratedWorkoutBetaOptions): UseGeneratedWorkoutBetaResult {
-  const { betaEnabled, previewEnabled } = resolveGeneratedWorkoutFeatureFlags({
+  const { betaEnabled } = resolveGeneratedWorkoutFeatureFlags({
     betaFlag: process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA,
-    previewFlag: process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW,
-    dev: typeof __DEV__ !== 'undefined' && __DEV__,
   });
-  const [previewWorkout, setPreviewWorkout] = useState<GeneratedWorkout | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [generatedWorkoutId, setGeneratedWorkoutId] = useState<string | null>(null);
   const [persisted, setPersisted] = useState(false);
@@ -140,32 +123,6 @@ export function useGeneratedWorkoutBeta({
   const [progressionDecision, setProgressionDecision] = useState<ProgressionDecision | null>(null);
 
   const defaultReadinessBand = useMemo(() => readinessBandFromLevel(currentLevel), [currentLevel]);
-
-  const loadPreview = useCallback(async () => {
-    if (!previewEnabled) return;
-    setPreviewLoading(true);
-    setPreviewError(null);
-    try {
-      const generatedPreview = await workoutProgrammingService.generatePreviewWorkout(
-        workoutProgrammingServiceFixtures.beginnerBodyweightStrength,
-        {
-          persistGeneratedWorkout: false,
-          ...resolveGeneratedWorkoutContentReviewOptions('dev-preview'),
-        },
-      );
-      setPreviewWorkout(generatedPreview);
-    } catch (loadError) {
-      setPreviewError(normalizeGeneratedWorkoutError(loadError, 'Generated workout preview failed.'));
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, [previewEnabled]);
-
-  useEffect(() => {
-    if (previewEnabled && previewActive && !previewWorkout && !previewLoading) {
-      void loadPreview();
-    }
-  }, [loadPreview, previewActive, previewEnabled, previewLoading, previewWorkout]);
 
   useEffect(() => {
     if (!betaEnabled || !userId || workout || stage !== 'configure') return;
@@ -404,13 +361,6 @@ export function useGeneratedWorkoutBeta({
 
   return {
     betaEnabled,
-    previewEnabled,
-    preview: {
-      workout: previewWorkout,
-      loading: previewLoading,
-      error: previewError,
-      load: loadPreview,
-    },
     beta: {
       userAuthenticated: Boolean(userId),
       stage,
