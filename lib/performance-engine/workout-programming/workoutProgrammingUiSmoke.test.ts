@@ -39,6 +39,7 @@ async function run() {
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
   const betaHook = read('src/hooks/useGeneratedWorkoutBeta.ts');
   const betaContainer = read('src/components/workout/GeneratedWorkoutBetaContainer.tsx');
+  const fallbacks = read('lib/performance-engine/workout-programming/workoutProgrammingFallbacks.ts');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
   const renderTest = read('lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts');
@@ -56,11 +57,14 @@ async function run() {
     'useGeneratedWorkoutBeta',
     'GeneratedWorkoutBetaContainer',
   ]) && hasAll(betaHook, [
-    "process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA === '1'",
-    'const previewEnabled = !betaEnabled',
-    "process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW === '1'",
+    'resolveGeneratedWorkoutFeatureFlags',
+    'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA',
+    'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW',
     'if (!previewEnabled) return;',
     'if (!betaEnabled) return;',
+  ]) && hasAll(fallbacks, [
+    "const betaEnabled = betaFlag === '1'",
+    "previewEnabled: !betaEnabled && dev && previewFlag === '1'",
   ]) && hasAll(betaContainer, [
     'betaEnabled ?',
     'previewEnabled ?',
@@ -113,10 +117,15 @@ async function run() {
   ]) && hasAll(betaHook, [
     'previewError',
     'setError',
+    'normalizeGeneratedWorkoutError',
+    'formatGeneratedWorkoutPersistenceFallbackMessage',
+    'canUseLocalGeneratedWorkoutFallback',
+    'canUseLocalCompletionFallback',
+  ]) && hasAll(fallbacks, [
     'Generated locally. Persistence unavailable',
     'Completed locally. Persistence unavailable',
     'Session started locally',
-    "errorMessage(generateError, 'Generated workout failed.')",
+    'No safe generated workout found',
   ]) && hasAll(betaContainer, [
     'Generated preview unavailable',
   ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));

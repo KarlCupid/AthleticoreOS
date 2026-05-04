@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import type {
-  GeneratedWorkout,
-  GeneratedWorkoutSessionExerciseCompletionInput,
-  GeneratedWorkoutSessionLifecycleStatus,
-  ProgressionDecision,
-  WorkoutReadinessBand,
+import {
+  GENERATED_WORKOUT_FALLBACK_COPY,
+  type GeneratedWorkout,
+  type GeneratedWorkoutSessionExerciseCompletionInput,
+  type GeneratedWorkoutSessionLifecycleStatus,
+  type ProgressionDecision,
+  type WorkoutReadinessBand,
 } from '../../../lib/performance-engine/workout-programming';
 import { Card } from '../Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
@@ -111,7 +112,7 @@ function stageHelp(stage: GeneratedWorkoutBetaStage): string {
 
 function workoutSafetyLine(workout: GeneratedWorkout | null): string {
   if (!workout) return 'No generated workout yet.';
-  if (workout.blocked) return 'Safety block active. Do not start this generated session.';
+  if (workout.blocked) return GENERATED_WORKOUT_FALLBACK_COPY.sessionBlockedBySafetyReview;
   if (workout.validation && !workout.validation.isValid) return 'Review validation messages before starting.';
   if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) return 'Safety guardrails are active.';
   return 'No extra safety flag was applied.';
@@ -509,7 +510,7 @@ export function GeneratedWorkoutBetaSessionCard({
             <Pressable
               testID="generated-workout-beta-start"
               accessibilityRole="button"
-              accessibilityLabel={workout.blocked ? 'Workout blocked by safety review' : 'Start generated workout'}
+              accessibilityLabel={workout.blocked ? GENERATED_WORKOUT_FALLBACK_COPY.sessionBlockedBySafetyReview : 'Start generated workout'}
               accessibilityState={{ disabled: workout.blocked === true }}
               disabled={workout.blocked === true}
               style={[styles.primaryButton, workout.blocked && styles.disabledButton]}

@@ -16,6 +16,7 @@ export * from './programBuilder.ts';
 export * from './analyticsEngine.ts';
 export * from './historyAnalyticsAdapter.ts';
 export * from './decisionTraceSummaries.ts';
+export * from './workoutProgrammingFallbacks.ts';
 export * from './persistenceService.ts';
 export * from './workoutProgrammingServiceFixtures.ts';
 export type {

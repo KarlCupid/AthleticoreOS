@@ -377,7 +377,7 @@ async function run(): Promise<void> {
   assert('start button is disabled for blocked workouts', Boolean(
     blockedStart.props.disabled === true
       && blockedStart.props.accessibilityState?.disabled === true
-      && blockedInspect.getByLabelText('Workout blocked by safety review'),
+      && blockedInspect.getByLabelText('This session is blocked by safety review.'),
   ));
   blockedInspect.unmount();
 

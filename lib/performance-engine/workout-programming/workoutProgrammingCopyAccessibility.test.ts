@@ -152,7 +152,7 @@ async function run() {
   assert('beta UI actions have descriptive accessibility labels', [
     'accessibilityLabel={loading ? \'Generating workout\'',
     'accessibilityLabel="Clear generated workout"',
-    'accessibilityLabel={workout.blocked ? \'Workout blocked by safety review\'',
+    'GENERATED_WORKOUT_FALLBACK_COPY.sessionBlockedBySafetyReview',
     'accessibilityLabel={allExercisesComplete ? \'Clear all completed exercises\'',
     'accessibilityLabel={`${completed ? \'Mark incomplete\' : \'Mark complete\'}: ${exercise.name}`}',
     'Session effort rating',
