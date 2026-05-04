@@ -11,6 +11,7 @@ import { getActiveBuildPhaseGoal, setupBuildPhaseGoal } from '../../../lib/api/b
 import { getRecurringActivities, replaceRecurringActivities } from '../../../lib/api/scheduleService';
 import { isGuidedEngineActivityType } from '../../../lib/engine/sessionOwnership';
 import { logError } from '../../../lib/utils/logger';
+import { addMonitoringBreadcrumb } from '../../../lib/observability/breadcrumbs';
 import { todayLocalDate } from '../../../lib/utils/date';
 import {
   buildGuidedFightOpportunityViewModel,
@@ -515,8 +516,7 @@ export function useWeeklyPlanSetupController({
       };
 
       const savedConfig = await saveWeeklyPlanConfig(userId, configPayload as never);
-      console.info('[WeeklyPlanSetupScreen.saveSetup] config saved', {
-        userId,
+      addMonitoringBreadcrumb('planning_setup', 'config_saved', {
         availableDays: savedConfig.available_days.length,
       });
 
@@ -583,8 +583,7 @@ export function useWeeklyPlanSetupController({
           targetHorizonWeeks: showAdvancedOverride ? parsedTargetHorizonWeeks : buildRecommendation.targetHorizonWeeks,
         });
       }
-      console.info('[WeeklyPlanSetupScreen.saveSetup] goal/camp saved', {
-        userId,
+      addMonitoringBreadcrumb('planning_setup', 'goal_saved', {
         goalMode,
       });
 
@@ -606,8 +605,7 @@ export function useWeeklyPlanSetupController({
         throw new Error('Weekly plan generation completed without entries.');
       }
 
-      console.info('[WeeklyPlanSetupScreen.saveSetup] week generated', {
-        userId,
+      addMonitoringBreadcrumb('planning_setup', 'week_generated', {
         weekStart: generatedWeek.entries[0]?.week_start_date ?? startDate,
         entryCount: generatedWeek.entries.length,
       });

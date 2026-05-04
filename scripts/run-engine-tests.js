@@ -6,6 +6,7 @@ const projectRoot = process.cwd();
 const testRoots = [
   path.join(projectRoot, 'lib', 'engine'),
   path.join(projectRoot, 'lib', 'api'),
+  path.join(projectRoot, 'lib', 'observability'),
   path.join(projectRoot, 'lib', 'performance-engine'),
 ];
 const singleTestRunner = path.join(projectRoot, 'scripts', 'run-single-engine-test.js');

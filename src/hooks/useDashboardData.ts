@@ -12,6 +12,7 @@ import {
 } from '../../lib/api/athleteContextService';
 import { getWeightHistory } from '../../lib/api/weightService';
 import { logError } from '../../lib/utils/logger';
+import { addMonitoringBreadcrumb } from '../../lib/observability/breadcrumbs';
 import type {
   ACWRResult,
   BiologyResult,
@@ -236,6 +237,11 @@ export function useDashboardData() {
     }
 
     const todayStr = todayLocalDate();
+    addMonitoringBreadcrumb('dashboard', 'load_started', {
+      forceRefresh,
+      hasUserId: Boolean(userId),
+      date: todayStr,
+    });
 
     try {
       if (forceRefresh || firstDashboardLoadRef.current) {
@@ -266,6 +272,11 @@ export function useDashboardData() {
         logError('useDashboardData.getFightCampStatus', error, { userId });
       }
 
+      addMonitoringBreadcrumb('daily_engine', 'dashboard_engine_load_started', {
+        date: todayStr,
+        forceRefresh,
+      });
+
       const [
         checkinResult,
         trainingSessionsResult,
@@ -292,10 +303,20 @@ export function useDashboardData() {
           .eq('user_id', userId)
           .eq('date', todayStr)
           .maybeSingle(),
-        getDailyEngineState(userId, todayStr, { forceRefresh }).catch((error) => {
-          logError('useDashboardData.getDailyEngineState', error, { userId, todayStr });
-          failDashboardLoad('engine_state', error);
-        }),
+        getDailyEngineState(userId, todayStr, { forceRefresh })
+          .then((state) => {
+            addMonitoringBreadcrumb('daily_engine', 'dashboard_engine_load_succeeded', {
+              date: todayStr,
+              forceRefresh,
+              hasMission: Boolean(state.mission),
+              hasUnifiedPerformance: Boolean(state.unifiedPerformance),
+            });
+            return state;
+          })
+          .catch((error) => {
+            logError('useDashboardData.getDailyEngineState', error, { hasUserId: Boolean(userId), todayStr });
+            failDashboardLoad('engine_state', error);
+          }),
         getWeightHistory(userId, 30),
         getWeeklyReview(userId, getWeekStart(todayStr)).catch((error) => {
           logError('useDashboardData.getWeeklyReview', error, { userId });
@@ -433,6 +454,11 @@ export function useDashboardData() {
         todayMission,
         phaseTransition,
       });
+      addMonitoringBreadcrumb('dashboard', 'load_succeeded', {
+        date: todayStr,
+        hasNutritionWarning: Boolean(nutritionWarning),
+        activityCount: engineState.scheduledActivities?.length ?? 0,
+      });
       firstDashboardLoadRef.current = false;
       setLoading(false);
       setRefreshing(false);
@@ -490,7 +516,11 @@ export function useDashboardData() {
         return;
       }
 
-      logError('useDashboardData.loadDashboardData', error, { userId });
+      logError('useDashboardData.loadDashboardData', error, { hasUserId: Boolean(userId) });
+      addMonitoringBreadcrumb('dashboard', 'load_failed', {
+        forceRefresh,
+        errorKind: createDashboardLoadError(error).kind,
+      }, 'error');
       setState((currentState) => ({
         ...currentState,
         error: createDashboardLoadError(error),

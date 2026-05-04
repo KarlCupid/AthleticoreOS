@@ -41,6 +41,7 @@ import type {
     WeeklyPlanEntryRow,
 } from '../../lib/engine/types';
 import { logError } from '../../lib/utils/logger';
+import { addMonitoringBreadcrumb } from '../../lib/observability/breadcrumbs';
 
 function normalizeWorkoutFocus(focus: WorkoutPrescriptionV2['focus']): WorkoutLogRow['focus'] {
     return focus === 'strength' ? 'full_body' : focus;
@@ -322,6 +323,11 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         const requestId = ++loadRequestRef.current;
         const isCurrentRequest = () => requestId === loadRequestRef.current;
         setLoading(true);
+        addMonitoringBreadcrumb('guided_workout', 'load_and_generate_started', {
+            weeklyPlanEntryPresent: Boolean(weeklyPlanEntryId),
+            scheduledActivityPresent: Boolean(scheduledActivityId),
+            trainingDate: trainingDate ?? null,
+        });
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session?.user || !isCurrentRequest()) return;
@@ -329,10 +335,18 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             const sessionDate = trainingDate ?? todayLocalDate();
             sessionDateRef.current = sessionDate;
 
+            addMonitoringBreadcrumb('daily_engine', 'guided_workout_engine_load_started', {
+                sessionDate,
+                forceRefresh: false,
+            });
             const [gym, engineState] = await Promise.all([
                 getDefaultGymProfile(userId),
                 getDailyEngineState(userId, sessionDate),
             ]);
+            addMonitoringBreadcrumb('daily_engine', 'guided_workout_engine_load_succeeded', {
+                sessionDate,
+                hasPrescription: Boolean(engineState.workoutPrescription?.exercises?.length),
+            });
 
             if (!isCurrentRequest()) {
                 return;
@@ -419,7 +433,10 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
             );
         } catch (error) {
-            logError('useGuidedWorkout.loadAndGenerate', error, { weeklyPlanEntryId });
+            logError('useGuidedWorkout.loadAndGenerate', error, {
+                weeklyPlanEntryPresent: Boolean(weeklyPlanEntryId),
+                scheduledActivityPresent: Boolean(scheduledActivityId),
+            });
         } finally {
             if (isCurrentRequest()) {
                 setLoading(false);
@@ -439,6 +456,10 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
+        addMonitoringBreadcrumb('guided_workout', 'start_started', {
+            weeklyPlanEntryPresent: Boolean(weeklyPlanEntryId),
+            scheduledActivityPresent: Boolean(scheduledActivityId),
+        });
         try {
             const gym = gymProfile;
             const log = await startWorkoutV2(session.user.id, {
@@ -472,8 +493,15 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 hydrateWorkoutProgress(log, prescription),
                 preloadPRHistory(session.user.id, prescription),
             ]);
+            addMonitoringBreadcrumb('guided_workout', 'start_succeeded', {
+                workoutType: prescription.workoutType,
+                focus: prescription.focus,
+            });
         } catch (error) {
-            logError('useGuidedWorkout.startWorkout', error, { weeklyPlanEntryId, scheduledActivityId });
+            logError('useGuidedWorkout.startWorkout', error, {
+                weeklyPlanEntryPresent: Boolean(weeklyPlanEntryId),
+                scheduledActivityPresent: Boolean(scheduledActivityId),
+            });
         }
     }, [gymProfile, hydrateWorkoutProgress, preloadPRHistory, prescription, scheduledActivityId, weeklyPlanEntryId]);
 

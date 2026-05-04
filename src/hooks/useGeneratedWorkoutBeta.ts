@@ -4,6 +4,8 @@ import type {
   GeneratedWorkoutBetaConfig,
   GeneratedWorkoutBetaStage,
 } from '../components/workout/GeneratedWorkoutBetaSessionCard';
+import { addMonitoringBreadcrumb } from '../../lib/observability/breadcrumbs';
+import { logError } from '../../lib/utils/logger';
 import {
   GENERATED_WORKOUT_FALLBACK_COPY,
   canUseLocalCompletionFallback,
@@ -121,6 +123,7 @@ export function useGeneratedWorkoutBeta({
     if (!betaEnabled || !userId || workout || stage !== 'configure') return;
     let cancelled = false;
     async function loadActiveGeneratedSession() {
+      addMonitoringBreadcrumb('generated_workout', 'restore_active_session_started', { hasUserId: Boolean(userId) });
       try {
         const lifecycle = await workoutProgrammingService.loadActiveGeneratedWorkoutSession(userId!, { useSupabase: true });
         if (!lifecycle || cancelled) return;
@@ -133,8 +136,15 @@ export function useGeneratedWorkoutBeta({
         setStartedAt(lifecycle.startedAt ?? lifecycle.resumedAt ?? null);
         setLifecycleStatus(lifecycle.status);
         setLifecycleMessage('Restored an active generated workout session.');
+        addMonitoringBreadcrumb('generated_workout', 'restore_active_session_succeeded', {
+          status: lifecycle.status,
+          generatedWorkoutIdPresent: Boolean(lifecycle.generatedWorkoutId),
+        });
       } catch (loadError) {
-        if (!cancelled) setLifecycleMessage(normalizeGeneratedWorkoutError(loadError, 'Unable to restore active generated workout session.'));
+        if (!cancelled) {
+          logError('useGeneratedWorkoutBeta.restoreActiveSession', loadError, { hasUserId: Boolean(userId) });
+          setLifecycleMessage(normalizeGeneratedWorkoutError(loadError, 'Unable to restore active generated workout session.'));
+        }
       }
     }
     void loadActiveGeneratedSession();
@@ -163,6 +173,12 @@ export function useGeneratedWorkoutBeta({
     setStartedAt(null);
     setLifecycleStatus(null);
     setLifecycleMessage(null);
+    addMonitoringBreadcrumb('generated_workout', 'generate_started', {
+      goalId: config.goalId,
+      equipmentCount: config.equipmentIds.length,
+      durationMinutes: config.durationMinutes,
+      hasUserId: Boolean(userId),
+    });
     try {
       if (userId) {
         try {
@@ -176,12 +192,25 @@ export function useGeneratedWorkoutBeta({
           setStage('inspect');
           setLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'inspected');
           setLifecycleMessage(result.lifecycleFallbackMessage ? `Using local lifecycle fallback: ${result.lifecycleFallbackMessage}` : null);
+          addMonitoringBreadcrumb('generated_workout', 'generate_persisted_succeeded', {
+            persisted: result.persisted,
+            lifecycleStatus: result.lifecycle?.lifecycle.status ?? 'inspected',
+          });
           return;
         } catch (persistError) {
           if (!canUseLocalGeneratedWorkoutFallback(persistError)) {
+            logError('useGeneratedWorkoutBeta.generatePersisted', persistError, {
+              goalId: config.goalId,
+              equipmentCount: config.equipmentIds.length,
+              durationMinutes: config.durationMinutes,
+            });
             setError(normalizeGeneratedWorkoutError(persistError, GENERATED_WORKOUT_FALLBACK_COPY.noSafeGeneratedWorkoutFound));
             return;
           }
+          logError('useGeneratedWorkoutBeta.generatePersistedFallback', persistError, {
+            goalId: config.goalId,
+            fallbackAllowed: true,
+          });
           const localWorkout = await workoutProgrammingService.generatePreviewWorkout(request, {
             persistGeneratedWorkout: false,
             ...resolveGeneratedWorkoutContentReviewOptions('beta-local-fallback'),
@@ -193,6 +222,9 @@ export function useGeneratedWorkoutBeta({
           setLifecycleStatus('inspected');
           setLifecycleMessage(GENERATED_WORKOUT_FALLBACK_COPY.generatedSessionLocal);
           setError(formatGeneratedWorkoutPersistenceFallbackMessage('generatedLocallyPersistenceUnavailable', persistError, 'Unable to save generated workout.'));
+          addMonitoringBreadcrumb('generated_workout', 'generate_local_fallback_succeeded', {
+            goalId: config.goalId,
+          });
           return;
         }
       }
@@ -207,7 +239,15 @@ export function useGeneratedWorkoutBeta({
       setStage('inspect');
       setLifecycleStatus('inspected');
       setLifecycleMessage(GENERATED_WORKOUT_FALLBACK_COPY.generatedSessionLocal);
+      addMonitoringBreadcrumb('generated_workout', 'generate_local_succeeded', {
+        goalId: config.goalId,
+      });
     } catch (generateError) {
+      logError('useGeneratedWorkoutBeta.generate', generateError, {
+        goalId: config.goalId,
+        equipmentCount: config.equipmentIds.length,
+        durationMinutes: config.durationMinutes,
+      });
       setError(normalizeGeneratedWorkoutError(generateError, GENERATED_WORKOUT_FALLBACK_COPY.noSafeGeneratedWorkoutFound));
     } finally {
       setLoading(false);
@@ -220,13 +260,22 @@ export function useGeneratedWorkoutBeta({
     setStage('started');
     setLifecycleStatus('started');
     setError(null);
+    addMonitoringBreadcrumb('generated_workout', 'start_started', {
+      generatedWorkoutIdPresent: Boolean(generatedWorkoutId),
+      hasUserId: Boolean(userId),
+    });
     try {
       const lifecycle = await workoutProgrammingService.startGeneratedWorkoutSession(generatedWorkoutFlowUserId(userId), generatedWorkoutId, generatedWorkoutLifecycleOptionsForUser(userId, occurredAt));
       setStartedAt(lifecycle.lifecycle.startedAt ?? occurredAt);
       setLifecycleStatus(lifecycle.lifecycle.status);
       setLifecycleMessage(lifecycle.persisted ? null : 'Session started locally. Persistence will resume when available.');
       if (lifecycle.fallbackMessage) setLifecycleMessage(`Session started locally: ${lifecycle.fallbackMessage}`);
+      addMonitoringBreadcrumb('generated_workout', 'start_succeeded', {
+        persisted: lifecycle.persisted,
+        lifecycleStatus: lifecycle.lifecycle.status,
+      });
     } catch (startError) {
+      logError('useGeneratedWorkoutBeta.start', startError, { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
       setLifecycleMessage(formatGeneratedWorkoutPersistenceFallbackMessage('sessionStartedLocalPersistenceUnavailable', startError, 'Unable to persist start state.'));
     }
   }, [generatedWorkoutId, userId]);
@@ -235,12 +284,18 @@ export function useGeneratedWorkoutBeta({
     const occurredAt = new Date().toISOString();
     setLifecycleStatus('paused');
     setLifecycleMessage('Session paused.');
+    addMonitoringBreadcrumb('generated_workout', 'pause_started', { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
     try {
       const lifecycle = await workoutProgrammingService.pauseGeneratedWorkoutSession(generatedWorkoutFlowUserId(userId), generatedWorkoutId, generatedWorkoutLifecycleOptionsForUser(userId, occurredAt));
       setLifecycleStatus(lifecycle.lifecycle.status);
       setLifecycleMessage(lifecycle.persisted ? 'Session paused and saved.' : 'Session paused locally.');
       if (lifecycle.fallbackMessage) setLifecycleMessage(`Session paused locally: ${lifecycle.fallbackMessage}`);
+      addMonitoringBreadcrumb('generated_workout', 'pause_succeeded', {
+        persisted: lifecycle.persisted,
+        lifecycleStatus: lifecycle.lifecycle.status,
+      });
     } catch (pauseError) {
+      logError('useGeneratedWorkoutBeta.pause', pauseError, { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
       setLifecycleMessage(formatGeneratedWorkoutPersistenceFallbackMessage('sessionPausedLocalPersistenceUnavailable', pauseError, 'Unable to persist pause state.'));
     }
   }, [generatedWorkoutId, userId]);
@@ -250,19 +305,26 @@ export function useGeneratedWorkoutBeta({
     setStage('started');
     setLifecycleStatus('resumed');
     setLifecycleMessage('Session resumed.');
+    addMonitoringBreadcrumb('generated_workout', 'resume_started', { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
     try {
       const lifecycle = await workoutProgrammingService.resumeGeneratedWorkoutSession(generatedWorkoutFlowUserId(userId), generatedWorkoutId, generatedWorkoutLifecycleOptionsForUser(userId, occurredAt));
       setStartedAt((current) => current ?? lifecycle.lifecycle.startedAt ?? occurredAt);
       setLifecycleStatus(lifecycle.lifecycle.status);
       setLifecycleMessage(lifecycle.persisted ? 'Session resumed and saved.' : 'Session resumed locally.');
       if (lifecycle.fallbackMessage) setLifecycleMessage(`Session resumed locally: ${lifecycle.fallbackMessage}`);
+      addMonitoringBreadcrumb('generated_workout', 'resume_succeeded', {
+        persisted: lifecycle.persisted,
+        lifecycleStatus: lifecycle.lifecycle.status,
+      });
     } catch (resumeError) {
+      logError('useGeneratedWorkoutBeta.resume', resumeError, { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
       setLifecycleMessage(formatGeneratedWorkoutPersistenceFallbackMessage('sessionResumedLocalPersistenceUnavailable', resumeError, 'Unable to persist resume state.'));
     }
   }, [generatedWorkoutId, userId]);
 
   const abandon = useCallback(async () => {
     const occurredAt = new Date().toISOString();
+    addMonitoringBreadcrumb('generated_workout', 'abandon_started', { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
     try {
       const lifecycle = await workoutProgrammingService.abandonGeneratedWorkoutSession(generatedWorkoutFlowUserId(userId), generatedWorkoutId, generatedWorkoutLifecycleOptionsForUser(userId, occurredAt));
       resetBetaState({
@@ -277,7 +339,12 @@ export function useGeneratedWorkoutBeta({
         setError,
       });
       if (lifecycle.fallbackMessage) setError(`Abandoned locally: ${lifecycle.fallbackMessage}`);
+      addMonitoringBreadcrumb('generated_workout', 'abandon_succeeded', {
+        persisted: lifecycle.persisted,
+        lifecycleStatus: lifecycle.lifecycle.status,
+      });
     } catch (abandonError) {
+      logError('useGeneratedWorkoutBeta.abandon', abandonError, { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
       resetBetaState({
         setWorkout,
         setGeneratedWorkoutId,
@@ -306,6 +373,10 @@ export function useGeneratedWorkoutBeta({
 
     setCompleting(true);
     setError(null);
+    addMonitoringBreadcrumb('generated_workout', 'complete_started', {
+      generatedWorkoutIdPresent: Boolean(generatedWorkoutId),
+      persisted,
+    });
     try {
       const result = await workoutProgrammingService.completeGeneratedWorkoutSession(fallbackUserId, completionInput, generatedWorkoutCompletionOptionsForUser(userId));
       setProgressionDecision(result.progressionDecision);
@@ -314,11 +385,21 @@ export function useGeneratedWorkoutBeta({
       setLifecycleMessage(formatGeneratedWorkoutLocalCompletionMessage(result.lifecycleFallbackMessage));
       if (userId && historyLoaded) void loadHistoryData(userId);
       if (userId && analyticsLoaded) void loadAnalyticsData(userId);
+      addMonitoringBreadcrumb('generated_workout', 'complete_succeeded', {
+        lifecycleStatus: result.lifecycle?.lifecycle.status ?? 'completed',
+      });
     } catch (persistError) {
       if (!userId || !canUseLocalCompletionFallback({ userId, error: persistError })) {
+        logError('useGeneratedWorkoutBeta.completePersisted', persistError, {
+          generatedWorkoutIdPresent: Boolean(generatedWorkoutId),
+        });
         setError(normalizeGeneratedWorkoutError(persistError, 'Generated workout completion failed.'));
         return;
       }
+      logError('useGeneratedWorkoutBeta.completePersistedFallback', persistError, {
+        generatedWorkoutIdPresent: Boolean(generatedWorkoutId),
+        fallbackAllowed: true,
+      });
       try {
         const result = await workoutProgrammingService.completeGeneratedWorkoutSession(generatedWorkoutFlowUserId(null), completionInput, {
           persistGeneratedWorkout: false,
@@ -330,13 +411,19 @@ export function useGeneratedWorkoutBeta({
         setError(formatGeneratedWorkoutPersistenceFallbackMessage('completedLocallyPersistenceUnavailable', persistError, 'Unable to save completion.'));
         if (historyLoaded) void loadHistoryData(userId);
         if (analyticsLoaded) void loadAnalyticsData(userId);
+        addMonitoringBreadcrumb('generated_workout', 'complete_local_fallback_succeeded', {
+          lifecycleStatus: result.lifecycle?.lifecycle.status ?? 'completed',
+        });
       } catch (localError) {
+        logError('useGeneratedWorkoutBeta.completeLocalFallback', localError, {
+          generatedWorkoutIdPresent: Boolean(generatedWorkoutId),
+        });
         setError(normalizeGeneratedWorkoutError(localError, 'Generated workout completion failed.'));
       }
     } finally {
       setCompleting(false);
     }
-  }, [analyticsLoaded, generatedWorkoutId, historyLoaded, loadAnalyticsData, loadHistoryData, startedAt, userId, workout]);
+  }, [analyticsLoaded, generatedWorkoutId, historyLoaded, loadAnalyticsData, loadHistoryData, persisted, startedAt, userId, workout]);
 
   const reset = useCallback(() => {
     resetBetaState({

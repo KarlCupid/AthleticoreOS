@@ -5,11 +5,21 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_BUILD_PROFILE": "development",
+        "EXPO_PUBLIC_MONITORING_ENABLED": "0",
+        "EXPO_PUBLIC_MONITORING_DISABLED": "0",
+        "EXPO_PUBLIC_MONITORING_TEST_ERROR": "0"
+      }
     },
     "preview": {
       "distribution": "internal",
       "env": {
+        "EXPO_PUBLIC_BUILD_PROFILE": "preview",
+        "EXPO_PUBLIC_MONITORING_ENABLED": "1",
+        "EXPO_PUBLIC_MONITORING_DISABLED": "0",
+        "EXPO_PUBLIC_MONITORING_TEST_ERROR": "0",
         "EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA": "0",
         "EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"
       }
@@ -17,6 +27,10 @@
     "production": {
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_BUILD_PROFILE": "production",
+        "EXPO_PUBLIC_MONITORING_ENABLED": "1",
+        "EXPO_PUBLIC_MONITORING_DISABLED": "0",
+        "EXPO_PUBLIC_MONITORING_TEST_ERROR": "0",
         "EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA": "0",
         "EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"
       }

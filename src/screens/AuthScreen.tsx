@@ -4,6 +4,8 @@ import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../lib/supabase';
+import { addMonitoringBreadcrumb } from '../../lib/observability/breadcrumbs';
+import { logError } from '../../lib/utils/logger';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
 import { IconShieldCheck } from '../components/icons';
 import { AnimatedPressable } from '../components/AnimatedPressable';
@@ -18,17 +20,41 @@ export function AuthScreen() {
 
     async function signInWithEmail() {
         setLoading(true);
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) Alert.alert('Error', error.message);
-        setLoading(false);
+        addMonitoringBreadcrumb('auth', 'sign_in_started');
+        try {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) {
+                logError('AuthScreen.signIn', error, { authOperation: 'signInWithPassword' });
+                Alert.alert('Error', error.message);
+            } else {
+                addMonitoringBreadcrumb('auth', 'sign_in_succeeded');
+            }
+        } catch (error) {
+            logError('AuthScreen.signIn.unhandled', error, { authOperation: 'signInWithPassword' });
+            Alert.alert('Error', 'We could not sign you in right now.');
+        } finally {
+            setLoading(false);
+        }
     }
 
     async function signUpWithEmail() {
         setLoading(true);
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) Alert.alert('Error', error.message);
-        else Alert.alert('Success', 'Check your email for confirmation.');
-        setLoading(false);
+        addMonitoringBreadcrumb('auth', 'sign_up_started');
+        try {
+            const { error } = await supabase.auth.signUp({ email, password });
+            if (error) {
+                logError('AuthScreen.signUp', error, { authOperation: 'signUp' });
+                Alert.alert('Error', error.message);
+            } else {
+                addMonitoringBreadcrumb('auth', 'sign_up_succeeded');
+                Alert.alert('Success', 'Check your email for confirmation.');
+            }
+        } catch (error) {
+            logError('AuthScreen.signUp.unhandled', error, { authOperation: 'signUp' });
+            Alert.alert('Error', 'We could not create your account right now.');
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (

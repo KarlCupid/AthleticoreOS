@@ -15,6 +15,8 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { IconChevronLeft, IconFlash, IconFlashOff } from '../components/icons';
 import { lookupBarcode } from '../../lib/api/openFoodFacts';
 import { MealType } from '../../lib/engine/types';
+import { addMonitoringBreadcrumb } from '../../lib/observability/breadcrumbs';
+import { logError } from '../../lib/utils/logger';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.72;
@@ -44,17 +46,22 @@ export function BarcodeScanScreen() {
             scanLockRef.current = true;
 
             const barcode = result.data;
+            const safeScanContext = { scanType: result.type, scanLength: barcode.length };
             setScannedBarcode(barcode);
             setScanState('loading');
+            addMonitoringBreadcrumb('barcode', 'lookup_started', safeScanContext);
 
             try {
                 const foodItem = await lookupBarcode(barcode);
                 if (foodItem) {
+                    addMonitoringBreadcrumb('barcode', 'lookup_succeeded', safeScanContext);
                     navigation.replace('FoodDetail', { foodItem, mealType, date });
                 } else {
+                    addMonitoringBreadcrumb('barcode', 'lookup_not_found', safeScanContext, 'warning');
                     setScanState('not_found');
                 }
-            } catch {
+            } catch (error) {
+                logError('BarcodeScanScreen.lookupBarcode', error, safeScanContext);
                 setScanState('not_found');
             }
         },

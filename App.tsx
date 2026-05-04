@@ -1,4 +1,4 @@
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -23,6 +23,8 @@ import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
 import { APP_CHROME, COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from './src/theme/theme';
 import { logError } from './lib/utils/logger';
+import { addMonitoringBreadcrumb, setCurrentMonitoringRoute } from './lib/observability/breadcrumbs';
+import { capturePreviewMonitoringTestError } from './lib/observability/monitoring';
 import { AuroraBackground, type AuroraBackgroundMood } from './src/components/AuroraBackground';
 import { OceanLoader } from './src/components/OceanLoader';
 
@@ -47,6 +49,7 @@ export default function App() {
   const [checkingJourney, setCheckingJourney] = useState(false);
   const [authLoadAttempt, setAuthLoadAttempt] = useState(0);
   const sessionUserIdRef = useRef<string | null>(null);
+  const navigationRef = useNavigationContainerRef();
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -56,10 +59,16 @@ export default function App() {
   });
 
   useEffect(() => {
+    addMonitoringBreadcrumb('app', 'root_component_mounted');
+    capturePreviewMonitoringTestError();
+  }, []);
+
+  useEffect(() => {
     let isActive = true;
 
     setCheckingAuth(true);
     setAuthLoadError(null);
+    addMonitoringBreadcrumb('auth', 'session_lookup_started', { attempt: authLoadAttempt });
 
     supabase.auth.getSession()
       .then(({ data: { session: currentSession }, error }) => {
@@ -73,13 +82,16 @@ export default function App() {
 
         sessionUserIdRef.current = currentSession?.user.id ?? null;
         setSession(currentSession);
+        addMonitoringBreadcrumb('auth', 'session_lookup_succeeded', {
+          sessionPresent: Boolean(currentSession),
+        });
       })
       .catch((error) => {
         if (!isActive) {
           return;
         }
 
-        logError('App.authSessionLookup', error);
+        logError('App.authSessionLookup', error, { authOperation: 'getSession' });
         setAuthLoadError(toError(error));
       })
       .finally(() => {
@@ -96,7 +108,7 @@ export default function App() {
   useEffect(() => {
     let isActive = true;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!isActive) {
         return;
       }
@@ -106,6 +118,11 @@ export default function App() {
 
       sessionUserIdRef.current = nextUserId;
       setSession(nextSession);
+      addMonitoringBreadcrumb('auth', 'auth_state_changed', {
+        authEvent: event,
+        sessionPresent: Boolean(nextSession),
+        userChanged: previousUserId !== nextUserId,
+      });
       if (nextSession) {
         setAuthLoadError(null);
       }
@@ -139,11 +156,13 @@ export default function App() {
 
     setCheckingJourney(true);
     setJourneyLoadError(null);
+    addMonitoringBreadcrumb('journey', 'entry_lookup_started', { hasUserId: Boolean(userId) });
     try {
       const entryState = await getAthleteJourneyAppEntryState(userId);
       setJourneyEntryState(entryState);
+      addMonitoringBreadcrumb('journey', 'entry_lookup_succeeded', { status: entryState.status });
     } catch (error) {
-      logError('App.journeyEntryLookup', error);
+      logError('App.journeyEntryLookup', error, { journeyOperation: 'getAppEntryState' });
       setJourneyLoadError(toError(error));
     } finally {
       setCheckingJourney(false);
@@ -174,16 +193,26 @@ export default function App() {
     setJourneyEntryState(null);
     setJourneyLoadError(null);
 
+    addMonitoringBreadcrumb('auth', 'sign_out_started');
     const { error } = await supabase.auth.signOut();
     if (error) {
-      logError('App.signOut', error);
+      logError('App.signOut', error, { authOperation: 'signOut' });
       setJourneyLoadError(error);
       return;
     }
 
     setSession(null);
     sessionUserIdRef.current = null;
+    addMonitoringBreadcrumb('auth', 'sign_out_succeeded');
   }, []);
+
+  const handleNavigationReady = useCallback(() => {
+    setCurrentMonitoringRoute(navigationRef.getCurrentRoute()?.name ?? 'unknown');
+  }, [navigationRef]);
+
+  const handleNavigationStateChange = useCallback(() => {
+    setCurrentMonitoringRoute(navigationRef.getCurrentRoute()?.name ?? 'unknown');
+  }, [navigationRef]);
 
   if (!fontsLoaded) {
     return (
@@ -225,7 +254,13 @@ export default function App() {
       <SafeAreaProvider>
         <ReadinessThemeProvider>
           <InteractionModeProvider>
-            <NavigationContainer theme={myTheme} linking={appLinking}>
+            <NavigationContainer
+              ref={navigationRef}
+              theme={myTheme}
+              linking={appLinking}
+              onReady={handleNavigationReady}
+              onStateChange={handleNavigationStateChange}
+            >
               <View style={styles.container}>
                 <AuroraBackground mood={backgroundMood} />
                 <StatusBar style="dark" />

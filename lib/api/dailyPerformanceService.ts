@@ -45,6 +45,8 @@ import { addDays, daysBetween, getWeekWindow } from './dailyPerformance/dateWind
 import { buildDailyAthleteSummaryFromUnified } from './dailyPerformance/summaryMapping';
 import { resolveUnifiedDailyPerformance } from './dailyPerformance/unifiedDailyPerformance';
 import type { DailyReadinessCheckinRow } from './dailyPerformance/trackingEntries';
+import { addMonitoringBreadcrumb } from '../observability/breadcrumbs';
+import { logError } from '../utils/logger';
 
 interface DailyPerformanceOptions {
   forceRefresh?: boolean | undefined;
@@ -342,7 +344,7 @@ async function resolveReadinessProfile(input: {
     if (isMissingDailyPerformanceCheckColumnError(error)) {
       hasDailyPerformanceCheckColumns = false;
     } else {
-      console.error('Error resolving readiness data:', error);
+      logError('dailyPerformanceService.resolveReadinessProfile', error, { date });
     }
     // Fallback: If queries fail (e.g. missing columns), try a minimal checkin fetch
     try {
@@ -354,7 +356,7 @@ async function resolveReadinessProfile(input: {
         .lte('date', date);
       checkinsResult = fallbackCheckins;
     } catch (fallbackError) {
-      console.error('Readiness fallback failed:', fallbackError);
+      logError('dailyPerformanceService.resolveReadinessProfile.fallback', fallbackError, { date });
     }
   }
 
@@ -678,14 +680,11 @@ async function computeDailyEngineState(
   });
 
   for (const event of nutritionTargets.safetyEvents ?? []) {
-    console.info('[dailyPerformanceService] nutrition-safety-event', {
-      userId,
+    addMonitoringBreadcrumb('daily_engine', 'nutrition_safety_event', {
       date,
       code: event.code,
       source: event.source,
-      priorValue: event.priorValue,
-      adjustedValue: event.adjustedValue,
-      reason: event.reason,
+      hasAdjustment: event.adjustedValue != null,
     });
   }
 

@@ -80,8 +80,11 @@ Create `.env` from `.env.example` and set:
 
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `EXPO_PUBLIC_SENTRY_DSN` for preview/production crash monitoring
 
 The app throws during startup if either variable is missing because `lib/supabase.ts` requires both.
+
+Monitoring is disabled unless a DSN is present and `EXPO_PUBLIC_MONITORING_ENABLED=1` or the build is non-dev. Use `EXPO_PUBLIC_MONITORING_DISABLED=1` as the preview kill switch.
 
 ### Install and run
 
@@ -113,6 +116,14 @@ Notes:
 - `npm run test:engine` runs the custom TypeScript test harness in `scripts/run-engine-tests.js`.
 - `npm run quality` is the main repo health check.
 - `typecheck`, `typecheck:clean`, and `test:engine` should pass before handoff.
+
+## Preview Release Checklist
+
+- Set `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and server-side `SENTRY_AUTH_TOKEN` in the EAS/GitHub build environment.
+- Confirm `EXPO_PUBLIC_BUILD_PROFILE=preview`, `EXPO_PUBLIC_MONITORING_ENABLED=1`, and `EXPO_PUBLIC_MONITORING_DISABLED=0`.
+- Temporarily set `EXPO_PUBLIC_MONITORING_TEST_ERROR=1` for one preview build and confirm "Athleticore preview monitoring test error" appears in Sentry with app version, build profile, and route tags.
+- Inspect the test event payload and breadcrumbs for redacted emails, body-mass values, nutrition logs, barcode data, and health notes before shipping the preview.
+- Reset `EXPO_PUBLIC_MONITORING_TEST_ERROR=0` after verification.
 
 ## Simulation tooling
 

@@ -24,6 +24,7 @@ import {
 } from './foodSearchSupport';
 import { searchPackagedFoods } from './openFoodFacts';
 import { logWarn } from '../utils/logger';
+import { addMonitoringBreadcrumb } from '../observability/breadcrumbs';
 import {
   createNutritionDataQuality,
   type NutritionDataSourceType,
@@ -1231,8 +1232,8 @@ export async function searchFoodCatalog(input: {
   });
 
   const finalVisibleCount = sections.reduce((sum, section) => sum + section.items.length, 0);
-  console.info('[searchFoodCatalog.coverage]', {
-    query: trimmed,
+  addMonitoringBreadcrumb('food_search', 'catalog_coverage', {
+    queryLength: trimmed.length,
     mode,
     classifier,
     localCount: localItems.length,
