@@ -41,7 +41,7 @@ export function resolveGeneratedWorkoutFeatureFlags({
   previewFlag,
   dev = false,
 }: GeneratedWorkoutFeatureFlagInput) {
-  const betaEnabled = betaFlag === '1';
+  const betaEnabled = dev && betaFlag === '1';
   return {
     betaEnabled,
     previewEnabled: !betaEnabled && dev && previewFlag === '1',

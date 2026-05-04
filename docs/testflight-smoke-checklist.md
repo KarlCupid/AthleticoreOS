@@ -18,6 +18,13 @@ Run this checklist against the exact production/TestFlight build intended for re
 - Barcode scan requests camera permission only when entering the scan flow.
 - Barcode denial still leaves the user able to back out and use manual food logging.
 
+## Feature Flags
+
+- Confirm the EAS `preview` or `production` profile has `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=0`.
+- Confirm the EAS `preview` or `production` profile has `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=0`.
+- Confirm `Train` does not show Generated workout beta, Generated workout preview, generate/start/complete generated workout controls, or developer-only generated workout content.
+- Generated workouts are intentionally unavailable in friend preview and production builds until `docs/workout-programming/current-production-readiness-status.md` records `productionReady: true`.
+
 ## Release-Critical Account Flows
 
 - `Me` > `Privacy & support` opens and shows support information clearly.

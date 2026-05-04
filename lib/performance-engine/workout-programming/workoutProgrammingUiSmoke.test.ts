@@ -36,6 +36,7 @@ async function run() {
   console.log('\n-- workout programming UI smoke guards --');
 
   const packageJson = read('package.json');
+  const easJson = read('eas.json');
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
   const betaHook = read('src/hooks/useGeneratedWorkoutBeta.ts');
   const devPreviewHook = read('src/hooks/useGeneratedWorkoutDevPreview.ts');
@@ -63,6 +64,7 @@ async function run() {
   ]) && hasAll(betaHook, [
     'resolveGeneratedWorkoutFeatureFlags',
     'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA',
+    "dev: typeof __DEV__ !== 'undefined' && __DEV__",
     'if (!betaEnabled) return;',
   ]) && !betaHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
     'resolveGeneratedWorkoutFeatureFlags',
@@ -70,13 +72,20 @@ async function run() {
     'if (!previewEnabled) return;',
     "resolveGeneratedWorkoutContentReviewOptions('dev-preview')",
   ]) && hasAll(fallbacks, [
-    "const betaEnabled = betaFlag === '1'",
+    "const betaEnabled = dev && betaFlag === '1'",
     "previewEnabled: !betaEnabled && dev && previewFlag === '1'",
   ]) && hasAll(betaContainer, [
     'testID="generated-workout-beta-section"',
   ]) && !betaContainer.includes('generated-workout-preview-section') && hasAll(devPreviewPanel, [
     'testID="generated-workout-preview-section"',
     'developer-only debug section',
+  ]));
+
+  assert('friend preview and production EAS profiles explicitly keep generated workout flags off', hasAll(easJson, [
+    '"preview"',
+    '"production"',
+    '"EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA": "0"',
+    '"EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"',
   ]));
 
   assert('feature-flagged beta path does not replace existing workout screen flow', hasAll(workoutScreen, [

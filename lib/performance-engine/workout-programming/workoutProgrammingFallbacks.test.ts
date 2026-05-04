@@ -40,6 +40,12 @@ function run() {
     return flags.betaEnabled === true && flags.previewEnabled === false;
   })());
 
+  assert('beta flag requires dev mode', (() => {
+    const off = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: false });
+    const on = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true });
+    return off.betaEnabled === false && on.betaEnabled === true;
+  })());
+
   assert('developer preview flag requires dev mode', (() => {
     const off = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: false });
     const on = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true });

@@ -101,6 +101,7 @@ export function useGeneratedWorkoutBeta({
 }: UseGeneratedWorkoutBetaOptions): UseGeneratedWorkoutBetaResult {
   const { betaEnabled } = resolveGeneratedWorkoutFeatureFlags({
     betaFlag: process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA,
+    dev: typeof __DEV__ !== 'undefined' && __DEV__,
   });
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [generatedWorkoutId, setGeneratedWorkoutId] = useState<string | null>(null);

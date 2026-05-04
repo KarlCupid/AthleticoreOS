@@ -105,7 +105,7 @@ Tests should fail for:
 
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
 - Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they run through the manual GitHub release-gate job, `npm run workout:live-db-smoke`, or `npm run workout:release-gate`.
-- Generated workout persistence and beta start/log UI are wired behind feature flags, with component-level React Native render coverage now in place; broad rollout still needs device/E2E coverage.
+- Generated workout persistence and beta start/log UI are wired behind dev-only feature flags, with component-level React Native render coverage now in place; broad rollout still needs production-ready content, device/E2E coverage, and an intentional flag posture change.
 - Generated workout beta lifecycle state is now durable for persisted sessions, including active-session restore; broad rollout still needs device/E2E coverage for backgrounding, reload, and resume on real devices.
 - Program persistence has atomic save/load/update/archive/session-completion helpers, but it is not yet a polished calendar-driven production workflow.
 - Strict content release mode is wired into `workout:release-gate`; the current catalog fails release until production exercise media is produced, reviewed, and linked. Production prescription progression/regression/deload rule-link gaps are covered by content tests.

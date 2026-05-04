@@ -8,10 +8,18 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA": "0",
+        "EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA": "0",
+        "EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"
+      }
     }
   },
   "submit": {

@@ -477,6 +477,15 @@ async function run(): Promise<void> {
   ));
   betaOn.unmount();
 
+  setWorkoutScreenFlags({ beta: true, preview: true, dev: false });
+  const WorkoutScreenNonDevFlagsOn = loadWorkoutScreen();
+  const nonDevFlagsOn = render(React.createElement(WorkoutScreenNonDevFlagsOn));
+  assert('non-dev builds do not render generated workout beta or preview even if flags are set', Boolean(
+    nonDevFlagsOn.queryByTestId('generated-workout-beta-section') === null
+      && nonDevFlagsOn.queryByTestId('generated-workout-preview-section') === null,
+  ));
+  nonDevFlagsOn.unmount();
+
   setWorkoutScreenFlags({ beta: false, preview: true, dev: true });
   const WorkoutScreenPreviewOn = loadWorkoutScreen();
   const previewOn = render(React.createElement(WorkoutScreenPreviewOn));

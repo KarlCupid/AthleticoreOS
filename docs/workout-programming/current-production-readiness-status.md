@@ -4,7 +4,9 @@ This is the current workout-programming rollout posture. It is intentionally ope
 
 ## Status
 
-Workout-programming infrastructure is production-hardened behind release gates and feature flags, but the current catalog is not production-release-ready. Broad rollout should remain gated until the strict content report has `productionReady: true`, the live DB/RLS checks pass against a local or dedicated non-production Supabase project, and the remaining device/E2E risks are accepted.
+Workout-programming infrastructure is production-hardened behind release gates and feature flags, but the current catalog is not production-release-ready. The launch posture is **fully gated preview**: generated workouts are intentionally unavailable in friend preview and production builds until the strict content report has `productionReady: true`, the live DB/RLS checks pass against a local or dedicated non-production Supabase project, and the remaining device/E2E risks are accepted.
+
+Friend preview builds must present the existing Today, Plan, Train, guided workout, history, and analytics experiences only. They must not show a generated workout beta, developer preview, or half-production generated workout entry point.
 
 The system currently has:
 
@@ -21,9 +23,17 @@ The system currently has:
 
 ## Runtime Flags
 
-- `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=1` enables the generated workout beta flow.
-- `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1` enables the isolated developer preview only in dev builds when beta is off.
+- `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=1` enables the generated workout beta flow only when `__DEV__` is true.
+- `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1` enables the isolated developer preview only when `__DEV__` is true and beta is off.
+- EAS `preview` and `production` profiles explicitly set both flags to `0`.
 - With both flags off, generated workout beta and preview UI should not render.
+- In non-dev builds, generated workout beta and preview UI should not render even if a flag is accidentally set.
+
+Current rollout decision:
+
+- `productionReady: false`
+- Rollout posture: gated preview, dev-only generated workout surfaces.
+- Friend preview posture: generated workouts unavailable by design.
 
 ## Release Commands
 
@@ -88,16 +98,19 @@ The current strict content commands run and fail as intended. At the time of thi
 
 - `productionReady: false`
 - 0 release production blockers.
+- 16 review blockers, all intentionally gated preview content.
+- 0 release review blockers.
 - 66 production-eligible exercises missing approved production media.
 - Media audit output now separates production missing media, beta missing media, missing alt text, unreviewed media, and high-priority exercises without demo assets.
 - 130 content warnings, mostly missing media hooks/assets.
 
-The remaining strict-release blocker is missing reviewed production exercise media. The previous production prescription progression/regression/deload rule-link blockers have been closed.
+The remaining strict-release blocker is missing reviewed production exercise media. The preview-only review blockers are gated out of production selection and are not a friend-preview launch surface. The previous production prescription progression/regression/deload rule-link blockers have been closed.
 
 ## Current Limitations
 
 - Live DB/RLS tests are intentionally outside `npm run quality`; they require a real Supabase target.
 - Generated workout UI has render coverage, but broad rollout still needs device/E2E smoke coverage for backgrounding, reload, and resume.
+- Generated workout beta and developer preview surfaces are dev-only while the catalog is not production-ready.
 - The catalog currently fails strict release until production exercise media is produced, reviewed, and linked.
 - Program persistence is hardened, but program scheduling is not yet a polished calendar-driven production workflow.
 - Recommendation quality telemetry exists, but production tuning needs real outcome volume.
