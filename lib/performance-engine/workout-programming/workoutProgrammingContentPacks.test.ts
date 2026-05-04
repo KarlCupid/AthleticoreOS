@@ -43,7 +43,7 @@ import {
   substitutionRules as sourceSubstitutionRules,
   validationRules as sourceValidationRules,
 } from './content/source/intelligenceContent.ts';
-import type { WorkoutIntelligenceCatalog, WorkoutProgrammingCatalog } from './index.ts';
+import type { PrescriptionTemplate, WorkoutIntelligenceCatalog, WorkoutProgrammingCatalog } from './index.ts';
 
 let passed = 0;
 let failed = 0;
@@ -70,6 +70,20 @@ function sameIds(left: { id: string }[], right: { id: string }[]): boolean {
   return JSON.stringify(ids(left)) === JSON.stringify(ids(right));
 }
 
+function prescriptionRuleIds(
+  template: PrescriptionTemplate,
+  field: 'progressionRuleIds' | 'regressionRuleIds' | 'deloadRuleIds',
+): string[] {
+  const topLevel = Array.isArray(template[field])
+    ? template[field] as string[]
+    : [];
+  const payloadFields = template.payload as unknown as Partial<Record<typeof field, string[]>>;
+  const payload = Array.isArray(payloadFields[field])
+    ? payloadFields[field] as string[]
+    : [];
+  return Array.from(new Set([...topLevel, ...payload]));
+}
+
 function allPackItems(packs: Record<string, { id: string }[]>): { id: string }[] {
   return Object.values(packs).flat();
 }
@@ -82,6 +96,13 @@ async function run(): Promise<void> {
   assert('content pack prescription payloads validate', validatePrescriptionPayloads().valid);
   assert('content pack descriptions are complete', validateDescriptionCompleteness().valid);
   assert('full workout programming content pack validation passes', validateWorkoutProgrammingContentPacks().valid);
+  assert('production prescription templates link progression, regression, and deload rules', workoutProgrammingContentCatalog.prescriptionTemplates
+    .filter((template) => template.rolloutEligibility === 'production')
+    .every((template) => (
+      prescriptionRuleIds(template, 'progressionRuleIds').length > 0
+      && prescriptionRuleIds(template, 'regressionRuleIds').length > 0
+      && prescriptionRuleIds(template, 'deloadRuleIds').length > 0
+    )));
 
   assert('exercise content packs cover source exercises', sameIds(workoutProgrammingContentCatalog.exercises, sourceExercises));
   assert('prescription content packs cover source prescriptions', sameIds(workoutProgrammingContentCatalog.prescriptionTemplates, sourcePrescriptionTemplates));

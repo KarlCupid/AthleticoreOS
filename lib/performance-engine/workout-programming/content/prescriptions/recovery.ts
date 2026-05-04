@@ -13,6 +13,20 @@ export const recoveryPrescriptionTemplates = [
     "restSeconds": 0,
     "intensityCue": "Finish feeling better or stop early.",
     "effortGuidance": "Stay clearly below training effort.",
+    "progressionRuleIds": [
+      "progression_aerobic_frequency",
+      "progression_mobility_range_of_motion"
+    ],
+    "regressionRuleIds": [
+      "regression_post_illness_return",
+      "regression_poor_readiness",
+      "regression_pain_increase"
+    ],
+    "deloadRuleIds": [
+      "deload_illness_caution",
+      "deload_return_to_training",
+      "deload_low_adherence"
+    ],
     "payload": {
       "kind": "recovery",
       "intensityCap": {
@@ -42,6 +56,20 @@ export const recoveryPrescriptionTemplates = [
     "restSeconds": 0,
     "intensityCue": "Long exhales and low effort.",
     "effortGuidance": "This should downshift the athlete, not become a training stress.",
+    "progressionRuleIds": [
+      "progression_aerobic_frequency",
+      "progression_mobility_range_of_motion"
+    ],
+    "regressionRuleIds": [
+      "regression_post_illness_return",
+      "regression_poor_readiness",
+      "regression_pain_increase"
+    ],
+    "deloadRuleIds": [
+      "deload_illness_caution",
+      "deload_return_to_training",
+      "deload_low_adherence"
+    ],
     "payload": {
       "kind": "recovery",
       "intensityCap": {

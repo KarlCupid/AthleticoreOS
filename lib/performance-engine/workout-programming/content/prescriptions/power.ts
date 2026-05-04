@@ -21,6 +21,17 @@ export const powerPrescriptionTemplates = [
       "progression_power_quality_gate",
       "progression_skill"
     ],
+    "regressionRuleIds": [
+      "regression_poor_readiness",
+      "regression_high_fatigue",
+      "regression_no_jumping",
+      "regression_poor_sleep"
+    ],
+    "deloadRuleIds": [
+      "deload_performance_drop",
+      "deload_accumulated_fatigue",
+      "deload_post_competition_recovery"
+    ],
     "payload": {
       "kind": "power",
       "sets": {

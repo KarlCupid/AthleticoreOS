@@ -108,7 +108,7 @@ Tests should fail for:
 - Generated workout persistence and beta start/log UI are wired behind feature flags, with component-level React Native render coverage now in place; broad rollout still needs device/E2E coverage.
 - Generated workout beta lifecycle state is now durable for persisted sessions, including active-session restore; broad rollout still needs device/E2E coverage for backgrounding, reload, and resume on real devices.
 - Program persistence has atomic save/load/update/archive/session-completion helpers, but it is not yet a polished calendar-driven production workflow.
-- Strict content release mode is wired into `workout:release-gate`; the current catalog fails release until production media and prescription progression/regression/deload rule-link gaps are intentionally completed.
+- Strict content release mode is wired into `workout:release-gate`; the current catalog fails release until production exercise media is produced, reviewed, and linked. Production prescription progression/regression/deload rule-link gaps are covered by content tests.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
 - Balance and older-adult concepts are represented through current goals/safety flags, not a dedicated older-adult product surface.
 - The generator is deterministic enough for tests but not yet tuned with real-world recommendation quality data.

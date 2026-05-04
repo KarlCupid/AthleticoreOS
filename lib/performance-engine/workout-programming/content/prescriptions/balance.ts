@@ -21,6 +21,17 @@ export const balancePrescriptionTemplates = [
       "progression_core_endurance",
       "progression_balance_complexity"
     ],
+    "regressionRuleIds": [
+      "regression_balance_fall_risk",
+      "regression_pain_increase",
+      "regression_low_back_caution",
+      "regression_poor_readiness"
+    ],
+    "deloadRuleIds": [
+      "deload_week_four_reduction",
+      "deload_pain_trend",
+      "deload_low_adherence"
+    ],
     "payload": {
       "kind": "balance",
       "baseOfSupport": "bilateral",

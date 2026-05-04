@@ -87,18 +87,18 @@ Do not run the live DB/RLS scripts against production. Do not store production s
 The current strict content commands run and fail as intended. At the time of this audit, the release report shows:
 
 - `productionReady: false`
-- 35 release production blockers, mainly production-eligible prescriptions missing progression, regression, or deload rule links.
+- 0 release production blockers.
 - 66 production-eligible exercises missing approved production media.
 - Media audit output now separates production missing media, beta missing media, missing alt text, unreviewed media, and high-priority exercises without demo assets.
-- 135 content warnings, mostly missing media hooks/assets.
+- 130 content warnings, mostly missing media hooks/assets.
 
-These are content-release blockers, not missing release-gate tooling.
+The remaining strict-release blocker is missing reviewed production exercise media. The previous production prescription progression/regression/deload rule-link blockers have been closed.
 
 ## Current Limitations
 
 - Live DB/RLS tests are intentionally outside `npm run quality`; they require a real Supabase target.
 - Generated workout UI has render coverage, but broad rollout still needs device/E2E smoke coverage for backgrounding, reload, and resume.
-- The catalog currently fails strict release until production media and prescription rule-link gaps are completed.
+- The catalog currently fails strict release until production exercise media is produced, reviewed, and linked.
 - Program persistence is hardened, but program scheduling is not yet a polished calendar-driven production workflow.
 - Recommendation quality telemetry exists, but production tuning needs real outcome volume.
 - Preview/dev-only content remains intentionally gated from production generation.

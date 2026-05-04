@@ -17,6 +17,16 @@ export const cardioPrescriptionTemplates = [
       "progression_zone2_duration",
       "progression_aerobic_frequency"
     ],
+    "regressionRuleIds": [
+      "regression_no_running",
+      "regression_post_illness_return",
+      "regression_poor_readiness"
+    ],
+    "deloadRuleIds": [
+      "deload_illness_caution",
+      "deload_return_to_training",
+      "deload_low_adherence"
+    ],
     "payload": {
       "kind": "cardio",
       "durationMinutes": {

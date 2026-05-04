@@ -21,6 +21,17 @@ export const hypertrophyPrescriptionTemplates = [
       "progression_double_8_12",
       "progression_hypertrophy_volume"
     ],
+    "regressionRuleIds": [
+      "regression_missed_reps",
+      "regression_high_rpe",
+      "regression_pain_increase",
+      "regression_high_soreness"
+    ],
+    "deloadRuleIds": [
+      "deload_accumulated_fatigue",
+      "deload_high_soreness",
+      "deload_pain_trend"
+    ],
     "payload": {
       "kind": "resistance",
       "sets": {
@@ -84,6 +95,17 @@ export const hypertrophyPrescriptionTemplates = [
     "progressionRuleIds": [
       "progression_double_8_12",
       "progression_hypertrophy_volume"
+    ],
+    "regressionRuleIds": [
+      "regression_high_rpe",
+      "regression_shoulder_caution",
+      "regression_pain_increase",
+      "regression_user_disliked_exercise"
+    ],
+    "deloadRuleIds": [
+      "deload_high_soreness",
+      "deload_accumulated_fatigue",
+      "deload_low_adherence"
     ],
     "payload": {
       "kind": "resistance",

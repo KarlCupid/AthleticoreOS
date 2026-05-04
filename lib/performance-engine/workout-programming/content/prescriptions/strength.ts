@@ -1,5 +1,18 @@
 import type { PrescriptionTemplate } from '../../types.ts';
 
+const foundationalStrengthRegressionRuleIds = [
+  'regression_missed_reps',
+  'regression_high_rpe',
+  'regression_pain_increase',
+  'regression_poor_readiness',
+] as const;
+
+const foundationalStrengthDeloadRuleIds = [
+  'deload_accumulated_fatigue',
+  'deload_pain_trend',
+  'deload_high_session_rpe_trend',
+] as const;
+
 export const strengthPrescriptionTemplates = [
   {
     "id": "strength_beginner",
@@ -21,6 +34,12 @@ export const strengthPrescriptionTemplates = [
     "progressionRuleIds": [
       "progression_beginner_linear_load",
       "progression_autoregulated_rpe_rir"
+    ],
+    "regressionRuleIds": [
+      ...foundationalStrengthRegressionRuleIds
+    ],
+    "deloadRuleIds": [
+      ...foundationalStrengthDeloadRuleIds
     ],
     "payload": {
       "kind": "resistance",
@@ -86,6 +105,17 @@ export const strengthPrescriptionTemplates = [
       "progression_double_6_10",
       "progression_power_quality_gate"
     ],
+    "regressionRuleIds": [
+      "regression_missed_reps",
+      "regression_high_rpe",
+      "regression_low_back_caution",
+      "regression_poor_readiness"
+    ],
+    "deloadRuleIds": [
+      "deload_performance_drop",
+      "deload_accumulated_fatigue",
+      "deload_pain_trend"
+    ],
     "payload": {
       "kind": "resistance",
       "sets": {
@@ -150,6 +180,15 @@ export const strengthPrescriptionTemplates = [
     "progressionRuleIds": [
       "progression_core_endurance",
       "progression_unilateral_stability"
+    ],
+    "regressionRuleIds": [
+      "regression_pain_increase",
+      "regression_balance_fall_risk",
+      "regression_limited_time"
+    ],
+    "deloadRuleIds": [
+      "deload_pain_trend",
+      "deload_week_four_reduction"
     ],
     "payload": {
       "kind": "resistance",

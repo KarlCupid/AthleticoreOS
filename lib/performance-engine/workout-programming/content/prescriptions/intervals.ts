@@ -20,6 +20,17 @@ export const intervalPrescriptionTemplates = [
       "progression_hiit_interval",
       "progression_circuit_density"
     ],
+    "regressionRuleIds": [
+      "regression_high_rpe",
+      "regression_poor_readiness",
+      "regression_no_jumping",
+      "regression_no_running"
+    ],
+    "deloadRuleIds": [
+      "deload_accumulated_fatigue",
+      "deload_high_session_rpe_trend",
+      "deload_pain_trend"
+    ],
     "payload": {
       "kind": "conditioning",
       "workIntervalSeconds": {
@@ -71,6 +82,17 @@ export const intervalPrescriptionTemplates = [
     "effortGuidance": "Target a hard effort that can be repeated across all rounds.",
     "progressionRuleIds": [
       "progression_hiit_interval"
+    ],
+    "regressionRuleIds": [
+      "regression_high_rpe",
+      "regression_poor_readiness",
+      "regression_high_fatigue",
+      "regression_no_jumping"
+    ],
+    "deloadRuleIds": [
+      "deload_accumulated_fatigue",
+      "deload_performance_drop",
+      "deload_high_session_rpe_trend"
     ],
     "payload": {
       "kind": "interval",

@@ -16,6 +16,19 @@ export const flexibilityPrescriptionTemplates = [
     "tempo": "relaxed hold",
     "intensityCue": "Hold a mild stretch in a pain-free range and breathe slowly.",
     "effortGuidance": "Never force end range; the hold should soften, not provoke symptoms.",
+    "progressionRuleIds": [
+      "progression_mobility_range_of_motion",
+      "progression_tempo_control"
+    ],
+    "regressionRuleIds": [
+      "regression_pain_increase",
+      "regression_limited_time",
+      "regression_balance_fall_risk"
+    ],
+    "deloadRuleIds": [
+      "deload_pain_trend",
+      "deload_low_adherence"
+    ],
     "payload": {
       "kind": "flexibility",
       "targetTissues": [
