@@ -173,7 +173,23 @@ Supported phases:
 - `return_to_training`
 - `maintenance`
 
-Protected workouts are anchors. The builder can work around them, reduce hard work nearby, or change supporting sessions, but should not silently remove or replace them.
+### Combat-First Weekly Dose
+
+Athleticore's workout program builder is combat-sport-first. Unless a caller explicitly requests `general_fitness_legacy`, missing context falls toward an aspiring fighter model instead of generic wellness.
+
+The builder resolves a weekly dose before scheduling. `combatTrainingModel.ts` produces:
+
+- Total exposure and generated support-session targets
+- Strength/power, aerobic, conditioning, mobility/prehab, and recovery targets
+- Protected hard-day count and protected load score
+- Dynamic hard-day cap
+- Planned session intents with role, intensity, stacking rules, rationale, and warnings
+
+Protected workouts are anchors and training load. They affect load score, hard-day exposure, spacing, readiness decisions, and rationale, but they do not automatically replace Athleticore-generated S&C. Do not convert "3 generated sessions requested plus 2 protected workouts" into "1 generated session." Ask what strength/power, aerobic, conditioning, mobility/prehab, and recovery support the athlete still needs this week.
+
+Readiness and load can reduce intensity or hard-session count. They should not accidentally erase useful low-load frequency. Red readiness permits no hard generated work and usually leaves at most one recovery/mobility reset. Yellow/orange readiness trims hard support while preserving low-load aerobic, mobility/prehab, recovery, or accessory work when useful. Deload weeks keep exposure where safe while lowering volume and intensity.
+
+Same-day support is allowed only when the day-load model says it is safe. Mobility, prehab, recovery, easy aerobic work, and short accessory support may stack with protected practice when capacity allows, especially if `allowSameDaySupportSessions` is true. Hard lifting, hard conditioning, hard sparring, and competition should not be stacked casually, and back-to-back hard days need explicit justification.
 
 Generated programs expose:
 
@@ -183,6 +199,7 @@ Generated programs expose:
 - `rationale`
 - `movementPatternBalance`
 - `weeklyVolumeSummary`
+- `weeklyDosePlan`
 - `hardDayCount`
 - `validationWarnings`
 - `progressionPlan`

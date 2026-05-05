@@ -1,10 +1,18 @@
 import { generatePersonalizedWorkout } from './intelligenceEngine.ts';
+import {
+  inferProtectedWorkoutModality,
+  planWeeklyTrainingDose,
+  protectedWorkoutCountsAsHardDay,
+  protectedWorkoutLoadScore,
+} from './combatTrainingModel.ts';
 import type {
+  CombatSportContext,
   GeneratedProgram,
   GeneratedProgramSession,
   GeneratedProgramWeek,
   GeneratedWorkout,
   PersonalizedWorkoutInput,
+  PlannedSessionIntent,
   ProgramCalendarEvent,
   ProgramDeloadStrategy,
   ProgramMovementPatternBalance,
@@ -12,6 +20,8 @@ import type {
   ProgramSessionStatus,
   ProgramWeeklyVolumeSummary,
   ProtectedWorkoutInput,
+  ProtectedWorkoutModality,
+  WeeklyTrainingDosePrescription,
   WorkoutIntensity,
   WorkoutReadinessBand,
 } from './types.ts';
@@ -21,8 +31,11 @@ type ProgramBuilderInput = PersonalizedWorkoutInput & {
   weekCount?: number;
   desiredProgramLengthWeeks?: number;
   sessionsPerWeek?: number;
+  generatedSessionsPerWeek?: number;
+  totalExposureTarget?: number;
   availableDays?: number[];
   protectedWorkouts?: ProtectedWorkoutInput[];
+  combatSportContext?: CombatSportContext;
   readinessTrend?: WorkoutReadinessBand[];
   deloadStrategy?: ProgramDeloadStrategy;
   startDate?: string;
@@ -42,6 +55,13 @@ const HARD_WORKOUT_TYPES = new Set([
 ]);
 
 const DEFAULT_AVAILABLE_DAYS = [1, 3, 5, 7];
+const LOW_LOAD_STACKING_ROLES = new Set([
+  'aerobic_base',
+  'mobility_prehab',
+  'recovery',
+  'accessory',
+  'maintenance',
+]);
 
 function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items));
@@ -92,11 +112,122 @@ function isHardWorkout(workout: GeneratedWorkout | null): boolean {
 
 function sessionIsHard(session: GeneratedProgramSession): boolean {
   if (session.protectedAnchor) return session.plannedIntensity === 'hard';
+  if (session.plannedIntensity) return session.plannedIntensity === 'hard';
   return isHardWorkout(session.workout);
 }
 
 function hasAdjacentHardDay(dayIndex: number, weekSessions: GeneratedProgramSession[]): boolean {
   return weekSessions.some((session) => sessionIsHard(session) && Math.abs(session.dayIndex - dayIndex) <= 1);
+}
+
+interface DayLoadState {
+  dayIndex: number;
+  sessions: GeneratedProgramSession[];
+  totalMinutes: number;
+  hardCount: number;
+  estimatedLoadScore: number;
+  modalities: ProtectedWorkoutModality[];
+}
+
+function dayLoadsFromSessions(sessions: readonly GeneratedProgramSession[]): Map<number, DayLoadState> {
+  const loads = new Map<number, DayLoadState>();
+  for (let dayIndex = 1; dayIndex <= 7; dayIndex += 1) {
+    loads.set(dayIndex, {
+      dayIndex,
+      sessions: [],
+      totalMinutes: 0,
+      hardCount: 0,
+      estimatedLoadScore: 0,
+      modalities: [],
+    });
+  }
+  for (const session of sessions) {
+    const dayIndex = clampDay(session.dayIndex);
+    const day = loads.get(dayIndex);
+    if (!day) continue;
+    day.sessions.push(session);
+    day.totalMinutes += session.workout?.estimatedDurationMinutes ?? session.workout?.requestedDurationMinutes ?? 0;
+    if (sessionIsHard(session)) day.hardCount += 1;
+    day.estimatedLoadScore += session.estimatedLoadScore ?? 0;
+    if (session.protectedWorkoutModality) day.modalities.push(session.protectedWorkoutModality);
+  }
+  return loads;
+}
+
+function estimateGeneratedLoad(minutes: number, intensity: WorkoutIntensity): number {
+  const rpe = intensity === 'hard' ? 8 : intensity === 'moderate' ? 6 : intensity === 'low' ? 3 : 2;
+  return Math.round(minutes * rpe);
+}
+
+function intentCountsAsHard(intent: PlannedSessionIntent): boolean {
+  return intent.plannedIntensity === 'hard' || (intent.plannedIntensity === 'moderate' && intent.role === 'conditioning_support');
+}
+
+function canStackOnProtectedDay(input: {
+  day: DayLoadState;
+  intent: PlannedSessionIntent;
+  durationMinutes: number;
+  allowSameDaySupportSessions: boolean;
+}): boolean {
+  if (input.day.sessions.length === 0) return false;
+  const hasProtected = input.day.sessions.some((session) => session.protectedAnchor);
+  if (!hasProtected) return false;
+  if (intentCountsAsHard(input.intent)) return false;
+  if (!input.allowSameDaySupportSessions && !input.intent.canStackWithProtected) return false;
+  if (!LOW_LOAD_STACKING_ROLES.has(input.intent.role)) return false;
+  if (input.day.hardCount > 0 && !['mobility_prehab', 'recovery', 'accessory'].includes(input.intent.role)) return false;
+  if (input.day.totalMinutes + input.durationMinutes > 140) return false;
+  return input.day.sessions.every((session) => session.protectedAnchor ? session.protectedAnchor && sessionIsHard(session) ? input.intent.plannedIntensity !== 'moderate' : true : false);
+}
+
+function chooseDayForIntent(input: {
+  availableDays: number[];
+  weekSessions: GeneratedProgramSession[];
+  intent: PlannedSessionIntent;
+  hardDayCap: number;
+  allowSameDaySupportSessions: boolean;
+  durationMinutes: number;
+}): { dayIndex: number; stacked: boolean } | null {
+  const dayLoads = dayLoadsFromSessions(input.weekSessions);
+  const candidateDays = input.availableDays.map((day) => dayLoads.get(day)).filter((day): day is DayLoadState => Boolean(day));
+  const hardIntent = intentCountsAsHard(input.intent);
+  const currentHardDays = hardDayCount(input.weekSessions);
+
+  const sorted = candidateDays
+    .map((day) => {
+      const stacked = day.sessions.length > 0;
+      let score = day.sessions.length * 30 + day.totalMinutes + day.estimatedLoadScore / 25;
+      if (hasAdjacentHardDay(day.dayIndex, input.weekSessions)) score += hardIntent ? 250 : 20;
+      if (day.hardCount > 0) score += hardIntent ? 500 : 80;
+      if (stacked && !hardIntent && LOW_LOAD_STACKING_ROLES.has(input.intent.role)) score -= 12;
+      return { day, score, stacked };
+    })
+    .sort((a, b) => a.score - b.score || a.day.dayIndex - b.day.dayIndex);
+
+  for (const candidate of sorted) {
+    const day = candidate.day;
+    if (hardIntent) {
+      if (currentHardDays >= input.hardDayCap) continue;
+      if (day.sessions.length > 0) continue;
+      if (hasAdjacentHardDay(day.dayIndex, input.weekSessions)) continue;
+      return { dayIndex: day.dayIndex, stacked: false };
+    }
+    if (day.sessions.length === 0) return { dayIndex: day.dayIndex, stacked: false };
+  }
+
+  for (const candidate of sorted) {
+    const day = candidate.day;
+    if (canStackOnProtectedDay({
+      day,
+      intent: input.intent,
+      durationMinutes: input.durationMinutes,
+      allowSameDaySupportSessions: input.allowSameDaySupportSessions,
+    })) {
+      return { dayIndex: day.dayIndex, stacked: true };
+    }
+  }
+
+  return null;
 }
 
 function phaseForWeek(input: ProgramBuilderInput, weekIndex: number, weekCount: number): ProgramPhase {
@@ -118,40 +249,6 @@ function phaseForWeek(input: ProgramBuilderInput, weekIndex: number, weekCount: 
   return 'maintenance';
 }
 
-function primaryGoalCount(goalId: string, sessionsPerWeek: number, phase: ProgramPhase): number {
-  if (phase === 'deload' || phase === 'return_to_training') return 0;
-  if (sessionsPerWeek < 3) return 1;
-  if (['hypertrophy', 'dumbbell_hypertrophy', 'beginner_strength', 'full_gym_strength'].includes(goalId)) return 2;
-  return 1;
-}
-
-function supportGoal(goalId: string, used: string[]): string {
-  if (goalId === 'zone2_cardio') return used.includes('beginner_strength') ? 'mobility' : 'beginner_strength';
-  if (goalId === 'mobility' || goalId === 'recovery') return used.includes('zone2_cardio') ? 'core_durability' : 'zone2_cardio';
-  return used.includes('zone2_cardio') ? 'mobility' : 'zone2_cardio';
-}
-
-function goalQueue(input: ProgramBuilderInput, phase: ProgramPhase, sessionsPerWeek: number): string[] {
-  if (phase === 'return_to_training') return ['recovery', 'mobility', 'zone2_cardio', 'core_durability'].slice(0, sessionsPerWeek);
-  if (phase === 'deload') return ['recovery', 'mobility', 'zone2_cardio', input.goalId].slice(0, sessionsPerWeek);
-
-  const goals: string[] = [];
-  const primaryCount = primaryGoalCount(input.goalId, sessionsPerWeek, phase);
-  for (let index = 0; index < primaryCount; index += 1) goals.push(input.goalId);
-  for (const secondaryGoalId of input.secondaryGoalIds ?? []) {
-    if (goals.length < sessionsPerWeek) goals.push(secondaryGoalId);
-  }
-  while (goals.length < sessionsPerWeek) goals.push(supportGoal(input.goalId, goals));
-  return goals.slice(0, sessionsPerWeek);
-}
-
-function plannedIntensityForGoal(goalId: string, phase: ProgramPhase): WorkoutIntensity {
-  if (phase === 'deload' || phase === 'return_to_training') return goalId === 'recovery' ? 'recovery' : 'low';
-  if (['zone2_cardio', 'mobility', 'recovery'].includes(goalId)) return goalId === 'recovery' ? 'recovery' : 'low';
-  if (['beginner_strength', 'hypertrophy', 'dumbbell_hypertrophy', 'full_gym_strength', 'upper_body_strength', 'lower_body_strength', 'boxing_support'].includes(goalId)) return 'hard';
-  return 'moderate';
-}
-
 function requestedDuration(input: ProgramBuilderInput, phase: ProgramPhase, plannedIntensity: WorkoutIntensity): number {
   const range = input.availableTimeRange;
   const base = input.preferredDurationMinutes ?? input.durationMinutes;
@@ -162,21 +259,18 @@ function requestedDuration(input: ProgramBuilderInput, phase: ProgramPhase, plan
   return Math.max(min, Math.min(max, Math.round(intensityAdjusted)));
 }
 
+function requestedDurationForIntent(input: ProgramBuilderInput, phase: ProgramPhase, intent: PlannedSessionIntent): number {
+  const base = requestedDuration(input, phase, intent.plannedIntensity);
+  if (intent.role === 'mobility_prehab' || intent.role === 'recovery' || intent.role === 'accessory') {
+    return Math.min(base, Math.max(20, Math.round(base * 0.75)));
+  }
+  if (phase === 'deload' && intent.plannedIntensity !== 'recovery') return Math.min(base, 35);
+  return base;
+}
+
 function preferredDays(input: ProgramBuilderInput): number[] {
   return unique((input.availableDays?.length ? input.availableDays : DEFAULT_AVAILABLE_DAYS).map(clampDay))
     .sort((a, b) => a - b);
-}
-
-function chooseDay(input: {
-  availableDays: number[];
-  occupiedDays: Set<number>;
-  weekSessions: GeneratedProgramSession[];
-  plannedIntensity: WorkoutIntensity;
-}): number | null {
-  const openDays = input.availableDays.filter((day) => !input.occupiedDays.has(day));
-  if (openDays.length === 0) return null;
-  if (input.plannedIntensity !== 'hard') return openDays[0] ?? null;
-  return openDays.find((day) => !hasAdjacentHardDay(day, input.weekSessions)) ?? openDays[0] ?? null;
 }
 
 function movementPatternCounts(sessions: GeneratedProgramSession[]): Record<string, number> {
@@ -212,7 +306,28 @@ function weeklySummary(weekIndex: number, phase: ProgramPhase, sessions: Generat
     protectedSessionCount: sessions.filter((session) => session.protectedAnchor).length,
     estimatedMinutes: sessions.reduce((sum, session) => sum + (session.workout?.estimatedDurationMinutes ?? 0), 0),
     hardDayCount: hardDayCount(sessions),
+    totalExposureCount: sessions.length,
+    protectedLoadScore: sessions
+      .filter((session) => session.protectedAnchor)
+      .reduce((sum, session) => sum + (session.estimatedLoadScore ?? 0), 0),
+    generatedHardSessionCount: sessions.filter((session) => !session.protectedAnchor && sessionIsHard(session)).length,
     workoutTypeCounts: workoutTypeCounts(sessions),
+  };
+}
+
+function weeklySummaryWithDose(
+  weekIndex: number,
+  phase: ProgramPhase,
+  sessions: GeneratedProgramSession[],
+  weeklyDose?: WeeklyTrainingDosePrescription,
+): ProgramWeeklyVolumeSummary {
+  const summary = weeklySummary(weekIndex, phase, sessions);
+  if (!weeklyDose) return summary;
+  return {
+    ...summary,
+    hardDayCap: weeklyDose.hardDayCap,
+    totalExposureCount: sessions.length,
+    protectedLoadScore: weeklyDose.protectedLoadScore,
   };
 }
 
@@ -259,7 +374,7 @@ function rebuildProgram(
 ): GeneratedProgram {
   const sessions = weeks.flatMap((week) => week.sessions);
   const updatedWeeks = weeks.map((week) => {
-    const summary = weeklySummary(week.weekIndex, week.phase, week.sessions);
+    const summary = weeklySummaryWithDose(week.weekIndex, week.phase, week.sessions, week.weeklyDose);
     const weekWarnings: string[] = [];
     for (let day = 1; day <= 6; day += 1) {
       const todayHard = week.sessions.some((session) => session.dayIndex === day && sessionIsHard(session));
@@ -285,6 +400,7 @@ function rebuildProgram(
     hardDayCount: weeklyVolumeSummary.reduce((sum, week) => sum + week.hardDayCount, 0),
     validationWarnings: unique([...program.validationWarnings, ...warnings, ...updatedWeeks.flatMap((week) => week.validationWarnings), ...movementPatternBalance.warnings]),
     calendarWarnings: unique([...(program.calendarWarnings ?? []), ...warnings]),
+    weeklyDosePlan: updatedWeeks.map((week) => week.weeklyDose).filter((dose): dose is WeeklyTrainingDosePrescription => Boolean(dose)),
   };
 }
 
@@ -500,20 +616,34 @@ function progressionPlanFor(input: ProgramBuilderInput, weeks: GeneratedProgramW
 
 export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): GeneratedProgram {
   const weekCount = input.desiredProgramLengthWeeks ?? input.weekCount ?? 4;
-  const sessionsPerWeek = input.sessionsPerWeek ?? 3;
   const protectedWorkouts = input.protectedWorkouts ?? [];
   const availableDays = preferredDays(input);
   const sessions: GeneratedProgramSession[] = [];
   const weeks: GeneratedProgramWeek[] = [];
   const warnings: string[] = [];
   const safetyFlags = input.safetyFlags ?? [];
+  const weeklyDosePlan: WeeklyTrainingDosePrescription[] = [];
 
   for (let weekIndex = 1; weekIndex <= weekCount; weekIndex += 1) {
     const phase = phaseForWeek(input, weekIndex, weekCount);
+    const readinessBand = input.readinessTrend?.[weekIndex - 1] ?? input.readinessBand ?? 'unknown';
+    const weeklyDose = planWeeklyTrainingDose({
+      goalId: input.goalId,
+      phase,
+      readinessBand,
+      protectedWorkouts,
+      combatSportContext: input.combatSportContext,
+      sessionsPerWeek: input.sessionsPerWeek,
+      generatedSessionsPerWeek: input.generatedSessionsPerWeek,
+      totalExposureTarget: input.totalExposureTarget,
+      safetyFlags,
+    });
+    weeklyDosePlan.push(weeklyDose);
     const weekSessions: GeneratedProgramSession[] = [];
-    const occupiedDays = new Set<number>();
 
     for (const protectedWorkout of protectedWorkouts) {
+      const modality = inferProtectedWorkoutModality(protectedWorkout);
+      const isHard = protectedWorkoutCountsAsHardDay(protectedWorkout);
       const protectedSession: GeneratedProgramSession = {
         id: `week_${weekIndex}:protected:${protectedWorkout.id}`,
         dayIndex: protectedWorkout.dayIndex,
@@ -522,26 +652,63 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         protectedAnchor: true,
         label: protectedWorkout.label,
         workout: null,
-        plannedIntensity: protectedWorkout.intensity,
-        rationale: ['Protected workouts are schedule anchors and are preserved untouched.'],
+        plannedIntensity: isHard ? 'hard' : protectedWorkout.intensity,
+        protectedWorkoutModality: modality,
+        estimatedLoadScore: protectedWorkoutLoadScore(protectedWorkout),
+        rationale: [
+          'Protected workouts are schedule anchors and are preserved untouched.',
+          `${modality} counts toward weekly load${isHard ? ' and hard-day exposure' : ''}, but does not automatically replace generated S&C support.`,
+        ],
       };
       weekSessions.push(protectedSession);
-      occupiedDays.add(protectedWorkout.dayIndex);
     }
 
-    const goals = goalQueue(input, phase, sessionsPerWeek);
     let generatedCount = 0;
-    for (const originalGoalId of goals) {
-      const plannedIntensity = plannedIntensityForGoal(originalGoalId, phase);
-      const dayIndex = chooseDay({ availableDays, occupiedDays, weekSessions, plannedIntensity });
-      if (dayIndex == null) {
-        warnings.push(`Week ${weekIndex} could not place ${originalGoalId}; available days were occupied.`);
+    let generatedHardCount = 0;
+    for (const sessionIntent of weeklyDose.intents) {
+      const durationMinutes = requestedDurationForIntent(input, phase, sessionIntent);
+      let placementIntent = sessionIntent;
+      let candidate = chooseDayForIntent({
+        availableDays,
+        weekSessions,
+        intent: placementIntent,
+        hardDayCap: weeklyDose.hardDayCap,
+        allowSameDaySupportSessions: input.combatSportContext?.allowSameDaySupportSessions === true,
+        durationMinutes,
+      });
+      if (candidate == null && intentCountsAsHard(sessionIntent)) {
+        placementIntent = {
+          ...sessionIntent,
+          goalId: 'zone2_cardio',
+          plannedIntensity: 'low',
+          role: 'accessory',
+          canStackWithProtected: true,
+          rationale: [
+            ...sessionIntent.rationale,
+            'Hard support was converted to low aerobic accessory work because no safe hard day was available.',
+          ],
+        };
+        candidate = chooseDayForIntent({
+          availableDays,
+          weekSessions,
+          intent: placementIntent,
+          hardDayCap: weeklyDose.hardDayCap,
+          allowSameDaySupportSessions: input.combatSportContext?.allowSameDaySupportSessions === true,
+          durationMinutes,
+        });
+      }
+      if (candidate == null) {
+        warnings.push(`Week ${weekIndex} could not place ${sessionIntent.goalId}; day load and hard-day capacity were full.`);
         continue;
       }
 
-      const adjacentHard = plannedIntensity === 'hard' && hasAdjacentHardDay(dayIndex, weekSessions);
-      const goalId = adjacentHard ? 'zone2_cardio' : originalGoalId;
-      const effectiveIntensity = adjacentHard ? 'low' : plannedIntensity;
+      const intentHard = intentCountsAsHard(placementIntent);
+      const overHardBudget = intentHard && generatedHardCount >= weeklyDose.generatedHardSessionCap;
+      const adjacentHard = intentHard && hasAdjacentHardDay(candidate.dayIndex, weekSessions);
+      const lowConditioningIntent = placementIntent.role === 'conditioning_support'
+        && placementIntent.plannedIntensity !== 'hard';
+      const goalId = (overHardBudget || adjacentHard || lowConditioningIntent) ? 'zone2_cardio' : placementIntent.goalId;
+      const effectiveIntensity = (overHardBudget || adjacentHard) ? 'low' : placementIntent.plannedIntensity;
       const phaseSafetyFlags = phase === 'deload'
         ? unique([...safetyFlags, 'time_limited'])
         : phase === 'return_to_training'
@@ -550,40 +717,55 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       const workoutRequest: PersonalizedWorkoutInput = {
         ...input,
         goalId,
-        durationMinutes: requestedDuration(input, phase, effectiveIntensity),
-        preferredDurationMinutes: requestedDuration(input, phase, effectiveIntensity),
+        durationMinutes,
+        preferredDurationMinutes: durationMinutes,
         safetyFlags: phaseSafetyFlags,
       };
       if (phase === 'return_to_training') {
         workoutRequest.readinessBand = 'red';
-      } else if (input.readinessBand) {
-        workoutRequest.readinessBand = input.readinessBand;
+      } else {
+        workoutRequest.readinessBand = readinessBand;
       }
       if (input.workoutEnvironment) workoutRequest.workoutEnvironment = input.workoutEnvironment;
       const workout = generatePersonalizedWorkout(workoutRequest);
 
       const generatedSession: GeneratedProgramSession = {
-        id: `week_${weekIndex}:day_${dayIndex}:${goalId}:${generatedCount + 1}`,
-        dayIndex,
+        id: `week_${weekIndex}:day_${candidate.dayIndex}:${goalId}:${generatedCount + 1}`,
+        dayIndex: candidate.dayIndex,
         weekIndex,
         phase,
         protectedAnchor: false,
         label: workout.blocked ? `Blocked ${goalId}` : workout.templateId,
         workout,
         plannedIntensity: effectiveIntensity,
+        sessionRole: placementIntent.role,
+        estimatedLoadScore: estimateGeneratedLoad(workout.estimatedDurationMinutes, effectiveIntensity),
         rationale: [
-          `${goalId} was selected for ${phase} phase support.`,
-          adjacentHard ? 'A hard session was downgraded to avoid back-to-back high-fatigue days.' : 'Placement respects hard/easy distribution.',
-        ],
+          ...placementIntent.rationale,
+          `${goalId} was selected as ${placementIntent.role} support in the ${phase} phase.`,
+          candidate.stacked ? 'This low-load support session safely stacks with a protected anchor instead of treating that day as closed.' : 'Placement respects weekly day load and hard/easy distribution.',
+          overHardBudget ? 'A hard support intent was downgraded because protected work already consumed the hard-session budget.' : '',
+          adjacentHard ? 'A hard support intent was downgraded to avoid back-to-back high-fatigue days.' : '',
+        ].filter(Boolean),
       };
+      if (!generatedSession.workout?.blocked && sessionIsHard(generatedSession)) {
+        generatedHardCount += 1;
+      }
+      if (candidate.stacked) {
+        generatedSession.rationale?.push('Protected combat sessions count as load, not as automatic generated-session substitutions.');
+      }
+      if (workout.blocked && effectiveIntensity === 'hard') {
+        generatedSession.plannedIntensity = 'low';
+        generatedSession.sessionRole = 'recovery';
+      }
       weekSessions.push(generatedSession);
-      occupiedDays.add(dayIndex);
       generatedCount += 1;
     }
 
-    if (generatedCount < sessionsPerWeek) {
-      warnings.push(`Week ${weekIndex} has fewer generated sessions because protected anchors or availability occupied slots.`);
+    if (generatedCount < weeklyDose.generatedSessionTarget) {
+      warnings.push(`Week ${weekIndex} placed ${generatedCount}/${weeklyDose.generatedSessionTarget} generated support sessions because day load or safety capacity was full.`);
     }
+    warnings.push(...weeklyDose.warnings.map((warning) => `Week ${weekIndex}: ${warning}`));
 
     weekSessions.sort((a, b) => a.dayIndex - b.dayIndex);
     const weekPatternBalance = movementPatternCounts(weekSessions);
@@ -593,18 +775,23 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       const tomorrowHard = weekSessions.some((session) => session.dayIndex === day + 1 && sessionIsHard(session));
       if (todayHard && tomorrowHard) weekWarnings.push(`Week ${weekIndex} has back-to-back hard days on days ${day} and ${day + 1}.`);
     }
-    const summary = weeklySummary(weekIndex, phase, weekSessions);
+    if (hardDayCount(weekSessions) > weeklyDose.hardDayCap) {
+      weekWarnings.push(`Week ${weekIndex} exceeds resolved hard-day cap (${hardDayCount(weekSessions)}/${weeklyDose.hardDayCap}).`);
+    }
+    const summary = weeklySummaryWithDose(weekIndex, phase, weekSessions, weeklyDose);
     const week: GeneratedProgramWeek = {
       weekIndex,
       phase,
       sessions: weekSessions,
       rationale: [
         `Week ${weekIndex} uses ${phase} phase logic.`,
-        'Protected anchors are placed before generated sessions.',
-        'Generated sessions are placed to balance hard and easy exposures.',
+        ...weeklyDose.rationale,
+        'Protected anchors are placed before generated sessions and credited to load without subtracting from generated support frequency.',
+        'Generated sessions are placed with day-load capacity, safe same-day support rules, and hard/easy distribution.',
       ],
       movementPatternBalance: weekPatternBalance,
       weeklyVolumeSummary: summary,
+      weeklyDose,
       hardDayCount: summary.hardDayCount,
       validationWarnings: weekWarnings,
     };
@@ -628,7 +815,9 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
     weeks,
     sessions,
     rationale: [
-      'Program sessions are planned by phase, weekly availability, protected anchors, safety flags, and hard/easy distribution.',
+      'Program sessions are planned from a combat-first weekly dose before scheduling.',
+      'Protected workouts count toward training load and hard-day exposure without automatically replacing generated S&C support.',
+      'Generated sessions are placed by day load, weekly availability, safety flags, same-day support rules, and hard/easy distribution.',
       'Movement pattern exposure is tracked to reduce repeated joint and muscle stress.',
       'Deload and return-to-training weeks reduce dose before adding progression.',
     ],
@@ -638,10 +827,12 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
     progressionPlan,
     explanations: [
       'Protected workouts were preserved as anchors.',
-      'Generated sessions balance primary work with aerobic, mobility, and recovery support.',
+      'Generated sessions are labeled as strength/power, aerobic, conditioning support, mobility/prehab, recovery, accessory, or maintenance.',
+      'Readiness and protected hard days can reduce intensity or hard-session count while preserving useful low-load frequency.',
       'Phase logic controls accumulation, intensification, deload, return-to-training, and maintenance weeks.',
     ],
     validationWarnings: warnings,
+    weeklyDosePlan,
   };
   const calendarEvents = input.calendarEvents ?? input.existingCalendarEvents ?? [];
   if (input.startDate || calendarEvents.length > 0) {
@@ -664,9 +855,10 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
   for (let weekIndex = 1; weekIndex <= program.weekCount; weekIndex += 1) {
     const week = program.weeks.find((item) => item.weekIndex === weekIndex);
     const weekSessions = program.sessions.filter((session) => session.weekIndex === weekIndex);
+    const hardDayCap = week?.weeklyDose?.hardDayCap ?? week?.weeklyVolumeSummary.hardDayCap ?? 3;
     if (!week) errors.push(`Week ${weekIndex} is missing structured week output.`);
     if (weekSessions.length === 0) errors.push(`Week ${weekIndex} has no sessions.`);
-    if (hardDayCount(weekSessions) > 3) errors.push(`Week ${weekIndex} has too many hard sessions.`);
+    if (hardDayCount(weekSessions) > hardDayCap) errors.push(`Week ${weekIndex} has too many hard sessions for the resolved hard-day cap (${hardDayCount(weekSessions)}/${hardDayCap}).`);
     for (let day = 1; day <= 6; day += 1) {
       const todayHard = weekSessions.some((session) => session.dayIndex === day && sessionIsHard(session));
       const tomorrowHard = weekSessions.some((session) => session.dayIndex === day + 1 && sessionIsHard(session));

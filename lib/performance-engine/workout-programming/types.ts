@@ -492,6 +492,72 @@ export interface GenerateSingleWorkoutInput {
 export type WorkoutReadinessBand = 'green' | 'yellow' | 'orange' | 'red' | 'unknown';
 export type SafetyFlagSeverity = 'info' | 'caution' | 'restriction' | 'block';
 export type WorkoutScalingDirection = 'down' | 'up';
+export type AthleteTrainingArchetype =
+  | 'combat_beginner'
+  | 'combat_recreational'
+  | 'combat_competitive'
+  | 'combat_fight_camp'
+  | 'general_fitness_legacy';
+export type ProtectedWorkoutModality =
+  | 'sport_skill'
+  | 'sparring'
+  | 'conditioning'
+  | 'strength'
+  | 'power'
+  | 'zone2'
+  | 'mobility'
+  | 'competition'
+  | 'recovery'
+  | 'unknown';
+export type PlannedSessionRole =
+  | 'strength_power'
+  | 'max_strength'
+  | 'power'
+  | 'aerobic_base'
+  | 'conditioning_support'
+  | 'mobility_prehab'
+  | 'recovery'
+  | 'accessory'
+  | 'maintenance';
+
+export interface CombatSportContext {
+  archetype?: AthleteTrainingArchetype;
+  combatSessionsPerWeek?: number;
+  sparringSessionsPerWeek?: number;
+  technicalSessionsPerWeek?: number;
+  conditioningSessionsPerWeek?: number;
+  fightCampWeeksOut?: number;
+  allowSameDaySupportSessions?: boolean;
+  totalExposureTarget?: number;
+  generatedSessionsPerWeek?: number;
+}
+
+export interface PlannedSessionIntent {
+  goalId: string;
+  plannedIntensity: WorkoutIntensity;
+  role: PlannedSessionRole;
+  canStackWithProtected: boolean;
+  rationale: string[];
+}
+
+export interface WeeklyTrainingDosePrescription {
+  archetype: AthleteTrainingArchetype;
+  totalExposureTarget: number;
+  generatedSessionTarget: number;
+  strengthPowerTarget: number;
+  aerobicSupportTarget: number;
+  conditioningSupportTarget: number;
+  mobilityPrehabTarget: number;
+  recoveryTarget: number;
+  hardDayTarget: number;
+  hardDayCap: number;
+  protectedHardDayCount: number;
+  protectedLoadScore: number;
+  generatedHardSessionCap: number;
+  intents: PlannedSessionIntent[];
+  rationale: string[];
+  warnings: string[];
+}
 
 export interface WorkoutSafetyFlag extends ReviewableContentFields {
   id: string;
@@ -724,6 +790,9 @@ export interface PersonalizedWorkoutInput extends GenerateSingleWorkoutInput {
   recentWorkoutCompletions?: WorkoutCompletionLog[];
   recentProgressionDecisions?: ProgressionDecision[];
   protectedWorkouts?: ProtectedWorkoutInput[];
+  combatSportContext?: CombatSportContext;
+  generatedSessionsPerWeek?: number;
+  totalExposureTarget?: number;
   preferredToneVariant?: DescriptionToneVariant;
   recentCompletedWorkoutIds?: string[];
   priorExerciseOutcomes?: ExerciseCompletionResult[];
@@ -1075,6 +1144,11 @@ export interface ProtectedWorkoutInput {
   dayIndex: number;
   durationMinutes: number;
   intensity: WorkoutIntensity;
+  modality?: ProtectedWorkoutModality;
+  countsAsHardDay?: boolean;
+  canStackGeneratedSession?: boolean;
+  estimatedRpe?: number;
+  loadScore?: number;
 }
 
 export type ProgramPhase = 'accumulation' | 'intensification' | 'deload' | 'return_to_training' | 'maintenance';
@@ -1112,6 +1186,9 @@ export interface GeneratedProgramSession {
   label: string;
   workout: GeneratedWorkout | null;
   plannedIntensity?: WorkoutIntensity;
+  sessionRole?: PlannedSessionRole;
+  protectedWorkoutModality?: ProtectedWorkoutModality;
+  estimatedLoadScore?: number;
   rationale?: string[];
 }
 
@@ -1128,6 +1205,10 @@ export interface ProgramWeeklyVolumeSummary {
   protectedSessionCount: number;
   estimatedMinutes: number;
   hardDayCount: number;
+  hardDayCap?: number;
+  totalExposureCount?: number;
+  protectedLoadScore?: number;
+  generatedHardSessionCount?: number;
   workoutTypeCounts: Record<string, number>;
 }
 
@@ -1138,6 +1219,7 @@ export interface GeneratedProgramWeek {
   rationale: string[];
   movementPatternBalance: Record<string, number>;
   weeklyVolumeSummary: ProgramWeeklyVolumeSummary;
+  weeklyDose?: WeeklyTrainingDosePrescription;
   hardDayCount: number;
   validationWarnings: string[];
 }
@@ -1165,6 +1247,7 @@ export interface GeneratedProgram {
   explanations: string[];
   validationWarnings: string[];
   calendarWarnings?: string[];
+  weeklyDosePlan?: WeeklyTrainingDosePrescription[];
 }
 
 export interface WorkoutAnalyticsSummary {
