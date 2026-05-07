@@ -492,13 +492,85 @@ export interface GenerateSingleWorkoutInput {
 export type WorkoutReadinessBand = 'green' | 'yellow' | 'orange' | 'red' | 'unknown';
 export type SafetyFlagSeverity = 'info' | 'caution' | 'restriction' | 'block';
 export type WorkoutScalingDirection = 'down' | 'up';
-export type AthleteTrainingArchetype =
+export type BoxingTrainingTrack =
+  | 'aspiring_boxer'
+  | 'amateur_novice'
+  | 'amateur_open'
+  | 'amateur_elite'
+  | 'pro_development'
+  | 'pro_4_6_round'
+  | 'pro_8_10_round'
+  | 'pro_12_round'
+  | 'general_fitness_legacy';
+export type DeprecatedCombatTrainingArchetype =
   | 'combat_beginner'
   | 'combat_recreational'
   | 'combat_competitive'
   | 'combat_fight_camp'
   | 'general_fitness_legacy';
-export type ProtectedWorkoutModality =
+export type AthleteTrainingArchetype = BoxingTrainingTrack | DeprecatedCombatTrainingArchetype;
+
+export interface BoxingRulesetProfile {
+  track: BoxingTrainingTrack;
+  roundCount?: number | undefined;
+  roundMinutes?: number | undefined;
+  restSeconds?: number | undefined;
+  fightCampWeeksOut?: number | undefined;
+  scoringBias?: 'amateur_activity_accuracy' | 'pro_damage_pacing' | 'development' | undefined;
+  primaryDemandBias:
+    | 'high_pace_short_bout'
+    | 'balanced_competitive'
+    | 'longer_pacing_durability'
+    | 'taper_maintenance'
+    | 'fundamentals';
+}
+
+export interface BoxingTrainingContext {
+  track?: BoxingTrainingTrack | undefined;
+  roundCount?: number | undefined;
+  roundMinutes?: number | undefined;
+  restSeconds?: number | undefined;
+  boxingSessionsPerWeek?: number | undefined;
+  technicalSessionsPerWeek?: number | undefined;
+  bagOrPadSessionsPerWeek?: number | undefined;
+  sparringSessionsPerWeek?: number | undefined;
+  roadworkSessionsPerWeek?: number | undefined;
+  conditioningSessionsPerWeek?: number | undefined;
+  strengthSessionsPerWeek?: number | undefined;
+  fightCampWeeksOut?: number | undefined;
+  allowSameDaySupportSessions?: boolean | undefined;
+  totalExposureTarget?: number | undefined;
+  generatedSessionsPerWeek?: number | undefined;
+  boxingProgressionPhase?:
+    | 'fundamentals'
+    | 'base_building'
+    | 'skill_development'
+    | 'amateur_pace_build'
+    | 'pro_pacing_build'
+    | 'fight_camp'
+    | 'taper'
+    | 'recovery_return'
+    | undefined;
+}
+
+export type ProtectedBoxingWorkoutModality =
+  | 'boxing_skill'
+  | 'shadowboxing'
+  | 'footwork'
+  | 'bag_work'
+  | 'pad_work'
+  | 'sparring'
+  | 'boxing_conditioning'
+  | 'roadwork_zone2'
+  | 'roadwork_tempo'
+  | 'roadwork_intervals'
+  | 'strength_power'
+  | 'mobility_prehab'
+  | 'competition'
+  | 'recovery'
+  | 'external_non_boxing_load'
+  | 'unknown';
+export type DeprecatedProtectedWorkoutModality =
   | 'sport_skill'
   | 'sparring'
   | 'conditioning'
@@ -509,7 +581,119 @@ export type ProtectedWorkoutModality =
   | 'competition'
   | 'recovery'
   | 'unknown';
-export type PlannedSessionRole =
+export type ProtectedWorkoutModality = ProtectedBoxingWorkoutModality | DeprecatedProtectedWorkoutModality;
+
+export interface BoxingPerformanceVector {
+  boxingSkillFrequency: number;
+  footworkAgility: number;
+  reactionRhythm: number;
+  lowerBodyMaxStrength: number;
+  lowerBodyExplosiveStrength: number;
+  upperBodyExplosiveStrength: number;
+  rotationalPowerTransfer: number;
+  antiRotationDurability: number;
+  shoulderScapDurability: number;
+  neckTrapDurability: number;
+  wristHandDurability: number;
+  hipAnkleMobility: number;
+  thoracicMobility: number;
+  aerobicBase: number;
+  aerobicPower: number;
+  alacticPower: number;
+  repeatAlacticCapacity: number;
+  glycolyticRoundTolerance: number;
+  recoveryCapacity: number;
+}
+
+export interface BoxingQualityGap {
+  quality: keyof BoxingPerformanceVector;
+  currentDose: number;
+  targetDose: number;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  rationale: string;
+}
+
+export interface BoxingWeeklyLoadLedger {
+  protectedBoxingMinutes: number;
+  protectedBoxingRounds: number;
+  protectedSparringRounds: number;
+  protectedBagPadRounds: number;
+  protectedRoadworkMinutes: number;
+  protectedExternalLoadMinutes: number;
+  generatedFullSessionCount: number;
+  generatedSupportSessionCount: number;
+  generatedMicrodoseCount: number;
+  strengthMainSets: number;
+  powerContacts: number;
+  trunkDurabilitySets: number;
+  shoulderPrehabMinutes: number;
+  mobilityMinutes: number;
+  roadworkMinutes: number;
+  highIntensityIntervals: number;
+  alacticBursts: number;
+  glycolyticRounds: number;
+  sessionRpeLoad: number;
+  protectedLoadScore: number;
+  generatedLoadScore: number;
+  hardDayCount: number;
+  hardDayCap: number;
+  consecutiveHardDayCount: number;
+}
+
+export type BoxingSessionDoseCategory =
+  | 'full_session'
+  | 'support_session'
+  | 'microdose'
+  | 'recovery_reset';
+
+export type BoxingSessionFamily =
+  | 'boxing_skill_microdose'
+  | 'footwork_agility'
+  | 'reaction_rhythm'
+  | 'shadowboxing_quality'
+  | 'bag_pad_support'
+  | 'max_strength_lower'
+  | 'strength_power'
+  | 'explosive_power'
+  | 'rotational_power'
+  | 'trunk_durability'
+  | 'shoulder_scap_durability'
+  | 'neck_trap_durability'
+  | 'hip_ankle_mobility'
+  | 'roadwork_zone2'
+  | 'roadwork_tempo'
+  | 'roadwork_intervals'
+  | 'alactic_repeat_power'
+  | 'glycolytic_round_tolerance'
+  | 'boxing_conditioning_support'
+  | 'mobility_prehab'
+  | 'recovery_reset';
+
+export type BoxingPlannedSessionRole =
+  | 'boxing_skill_microdose'
+  | 'boxing_technical_practice'
+  | 'footwork_agility'
+  | 'reaction_rhythm'
+  | 'bag_or_pad_support'
+  | 'strength_power'
+  | 'max_strength_lower'
+  | 'explosive_power'
+  | 'rotational_power'
+  | 'trunk_rotation_durability'
+  | 'shoulder_scap_durability'
+  | 'neck_trap_durability'
+  | 'hip_footwork_durability'
+  | 'roadwork_aerobic_base'
+  | 'roadwork_tempo'
+  | 'roadwork_intervals'
+  | 'alactic_repeat_power'
+  | 'glycolytic_round_tolerance'
+  | 'boxing_conditioning_support'
+  | 'mobility_prehab'
+  | 'recovery_reset'
+  | 'maintenance';
+
+export type LegacyPlannedSessionRole =
   | 'strength_power'
   | 'max_strength'
   | 'power'
@@ -519,44 +703,93 @@ export type PlannedSessionRole =
   | 'recovery'
   | 'accessory'
   | 'maintenance';
+export type PlannedSessionRole = BoxingPlannedSessionRole | LegacyPlannedSessionRole;
+
+export interface BoxingVariancePlan {
+  varianceLevel: 'low' | 'moderate' | 'high';
+  reason: string;
+  maxNewExercisesPerSession: number;
+  maxChangedSessionFamiliesPerWeek: number;
+  anchorFamiliesToRepeat: BoxingSessionFamily[];
+  familiesToRotate: BoxingSessionFamily[];
+  recentlyUsedFamilies: BoxingSessionFamily[];
+  avoidedFamilies: BoxingSessionFamily[];
+}
 
 export interface CombatSportContext {
   archetype?: AthleteTrainingArchetype;
+  track?: BoxingTrainingTrack;
   combatSessionsPerWeek?: number;
   sparringSessionsPerWeek?: number;
   technicalSessionsPerWeek?: number;
+  bagOrPadSessionsPerWeek?: number;
+  roadworkSessionsPerWeek?: number;
   conditioningSessionsPerWeek?: number;
+  strengthSessionsPerWeek?: number;
+  roundCount?: number;
+  roundMinutes?: number;
+  restSeconds?: number;
   fightCampWeeksOut?: number;
   allowSameDaySupportSessions?: boolean;
   totalExposureTarget?: number;
   generatedSessionsPerWeek?: number;
 }
 
-export interface PlannedSessionIntent {
+export interface BoxingPlannedSessionIntent {
   goalId: string;
   plannedIntensity: WorkoutIntensity;
   role: PlannedSessionRole;
+  boxingRole?: BoxingPlannedSessionRole | undefined;
+  family: BoxingSessionFamily;
+  doseCategory: BoxingSessionDoseCategory;
   canStackWithProtected: boolean;
   rationale: string[];
+  qualityTargets?: Array<keyof BoxingPerformanceVector> | undefined;
+  estimatedMinutes?: number | undefined;
+  loadScore?: number | undefined;
+  countsAsHard?: boolean | undefined;
 }
 
-export interface WeeklyTrainingDosePrescription {
-  archetype: AthleteTrainingArchetype;
+export type PlannedSessionIntent = BoxingPlannedSessionIntent;
+
+export interface BoxingWeeklyDosePlan {
+  track: BoxingTrainingTrack;
+  rulesetProfile: BoxingRulesetProfile;
+  boxingProgressionPhase: BoxingTrainingContext['boxingProgressionPhase'];
   totalExposureTarget: number;
   generatedSessionTarget: number;
+  generatedFullSessionTarget: number;
+  supportMicrodoseTarget: number;
+  boxingSkillTarget: number;
+  footworkAgilityTarget: number;
   strengthPowerTarget: number;
-  aerobicSupportTarget: number;
-  conditioningSupportTarget: number;
+  roadworkAerobicTarget: number;
+  roadworkTempoTarget: number;
+  conditioningTarget: number;
   mobilityPrehabTarget: number;
   recoveryTarget: number;
   hardDayTarget: number;
   hardDayCap: number;
   protectedHardDayCount: number;
+  protectedSparringCount: number;
+  protectedRoadworkCount: number;
   protectedLoadScore: number;
   generatedHardSessionCap: number;
-  intents: PlannedSessionIntent[];
+  performanceVector: BoxingPerformanceVector;
+  qualityGaps: BoxingQualityGap[];
+  loadLedger: BoxingWeeklyLoadLedger;
+  intents: BoxingPlannedSessionIntent[];
+  variancePlan: BoxingVariancePlan;
   rationale: string[];
   warnings: string[];
+}
+
+export interface WeeklyTrainingDosePrescription extends BoxingWeeklyDosePlan {
+  archetype: AthleteTrainingArchetype;
+  aerobicSupportTarget: number;
+  conditioningSupportTarget: number;
+  mobilityPrehabTarget: number;
+  boxingWeeklyDosePlan?: BoxingWeeklyDosePlan | undefined;
 }
 
 export interface WorkoutSafetyFlag extends ReviewableContentFields {
@@ -790,6 +1023,7 @@ export interface PersonalizedWorkoutInput extends GenerateSingleWorkoutInput {
   recentWorkoutCompletions?: WorkoutCompletionLog[];
   recentProgressionDecisions?: ProgressionDecision[];
   protectedWorkouts?: ProtectedWorkoutInput[];
+  boxingTrainingContext?: BoxingTrainingContext;
   combatSportContext?: CombatSportContext;
   generatedSessionsPerWeek?: number;
   totalExposureTarget?: number;
@@ -1149,6 +1383,9 @@ export interface ProtectedWorkoutInput {
   canStackGeneratedSession?: boolean;
   estimatedRpe?: number;
   loadScore?: number;
+  protectedDurationMinutes?: number;
+  roundCount?: number;
+  roundMinutes?: number;
 }
 
 export type ProgramPhase = 'accumulation' | 'intensification' | 'deload' | 'return_to_training' | 'maintenance';
@@ -1187,7 +1424,11 @@ export interface GeneratedProgramSession {
   workout: GeneratedWorkout | null;
   plannedIntensity?: WorkoutIntensity;
   sessionRole?: PlannedSessionRole;
+  boxingSessionRole?: BoxingPlannedSessionRole | undefined;
+  boxingSessionFamily?: BoxingSessionFamily | undefined;
+  sessionDoseCategory?: BoxingSessionDoseCategory | undefined;
   protectedWorkoutModality?: ProtectedWorkoutModality;
+  protectedDurationMinutes?: number;
   estimatedLoadScore?: number;
   rationale?: string[];
 }
@@ -1208,7 +1449,21 @@ export interface ProgramWeeklyVolumeSummary {
   hardDayCap?: number;
   totalExposureCount?: number;
   protectedLoadScore?: number;
+  generatedLoadScore?: number;
   generatedHardSessionCount?: number;
+  generatedFullSessionCount?: number;
+  generatedSupportSessionCount?: number;
+  generatedMicrodoseCount?: number;
+  protectedBoxingSessionCount?: number;
+  protectedSparringCount?: number;
+  protectedRoadworkCount?: number;
+  boxingLoadLedger?: BoxingWeeklyLoadLedger | undefined;
+  rulesetTrack?: BoxingTrainingTrack | undefined;
+  boxingProgressionPhase?: BoxingTrainingContext['boxingProgressionPhase'];
+  qualityGaps?: BoxingQualityGap[] | undefined;
+  variancePlan?: BoxingVariancePlan | undefined;
+  coachRationale?: string[] | undefined;
+  userFacingWarnings?: string[] | undefined;
   workoutTypeCounts: Record<string, number>;
 }
 
@@ -1220,6 +1475,14 @@ export interface GeneratedProgramWeek {
   movementPatternBalance: Record<string, number>;
   weeklyVolumeSummary: ProgramWeeklyVolumeSummary;
   weeklyDose?: WeeklyTrainingDosePrescription;
+  boxingWeeklyDosePlan?: BoxingWeeklyDosePlan | undefined;
+  boxingLoadLedger?: BoxingWeeklyLoadLedger | undefined;
+  rulesetTrack?: BoxingTrainingTrack | undefined;
+  boxingProgressionPhase?: BoxingTrainingContext['boxingProgressionPhase'];
+  qualityGaps?: BoxingQualityGap[] | undefined;
+  variancePlan?: BoxingVariancePlan | undefined;
+  coachRationale?: string[] | undefined;
+  userFacingWarnings?: string[] | undefined;
   hardDayCount: number;
   validationWarnings: string[];
 }
@@ -1248,6 +1511,14 @@ export interface GeneratedProgram {
   validationWarnings: string[];
   calendarWarnings?: string[];
   weeklyDosePlan?: WeeklyTrainingDosePrescription[];
+  boxingWeeklyDosePlan?: BoxingWeeklyDosePlan[] | undefined;
+  boxingLoadLedger?: BoxingWeeklyLoadLedger[] | undefined;
+  rulesetTrack?: BoxingTrainingTrack | undefined;
+  boxingProgressionPhase?: BoxingTrainingContext['boxingProgressionPhase'];
+  qualityGaps?: BoxingQualityGap[] | undefined;
+  variancePlan?: BoxingVariancePlan[] | undefined;
+  coachRationale?: string[] | undefined;
+  userFacingWarnings?: string[] | undefined;
 }
 
 export interface WorkoutAnalyticsSummary {

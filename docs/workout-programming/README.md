@@ -31,6 +31,8 @@ The module turns a training request into a safe, explainable workout or weekly p
 - `contentReviewWorkflow.ts`: JSON queue/decision workflow for coach/admin review handoff.
 - `workoutMediaAudit.ts`: exercise media asset audit helpers and approved media selection.
 - `analyticsEngine.ts`: adherence, completion, pain trend, and recommendation quality summary.
+- `boxingTrainingModel.ts`: boxing-first track, ruleset, dose, variance, quality-gap, and weekly load-ledger planner.
+- `combatTrainingModel.ts`: deprecated compatibility facade that maps old combat inputs into boxing concepts.
 
 ## Database Migrations
 
@@ -65,6 +67,7 @@ The module turns a training request into a safe, explainable workout or weekly p
 - [Media Assets](./media-assets.md)
 - [Models and Content](./models-and-content.md)
 - [Engine Behavior](./engine-behavior.md)
+- [Boxing Athlete Development Engine](./boxing-athlete-development-engine.md)
 - [How-To Workflows](./how-to.md)
 - [Generated Workout UI Smoke Checklist](./ui-smoke-checklist.md)
 - [Testing, Limitations, and Roadmap](./testing-limitations-roadmap.md)

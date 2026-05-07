@@ -72,6 +72,76 @@ export const trainingGoals = [
     "summary": "Support boxing with trunk, shoulder, and conditioning work."
   },
   {
+    "id": "boxing_progression",
+    "label": "Boxing Progression",
+    "summary": "Low-contact boxing fundamentals, rhythm, positioning, and movement quality."
+  },
+  {
+    "id": "roadwork_aerobic_base",
+    "label": "Roadwork Aerobic Base",
+    "summary": "Easy roadwork that supports repeat-round recovery."
+  },
+  {
+    "id": "roadwork_tempo",
+    "label": "Roadwork Tempo",
+    "summary": "Controlled tempo work for pacing durability."
+  },
+  {
+    "id": "roadwork_intervals",
+    "label": "Roadwork Intervals",
+    "summary": "Structured running intervals used only when readiness and load allow."
+  },
+  {
+    "id": "alactic_repeat_power",
+    "label": "Alactic Repeat Power",
+    "summary": "Short repeat-output work for boxing bursts without reckless fatigue."
+  },
+  {
+    "id": "glycolytic_round_tolerance",
+    "label": "Glycolytic Round Tolerance",
+    "summary": "Controlled round-tolerance conditioning for prepared athletes."
+  },
+  {
+    "id": "explosive_power",
+    "label": "Explosive Power",
+    "summary": "Low-volume explosive qualities that support boxing without speed loss."
+  },
+  {
+    "id": "rotational_power",
+    "label": "Rotational Power",
+    "summary": "Hip-to-trunk power transfer for boxing support."
+  },
+  {
+    "id": "trunk_rotation_durability",
+    "label": "Trunk Rotation Durability",
+    "summary": "Rotation and anti-rotation capacity for boxing posture and force transfer."
+  },
+  {
+    "id": "shoulder_scap_durability",
+    "label": "Shoulder/Scap Durability",
+    "summary": "Shoulder blade and rotator-cuff support for frequent boxing exposure."
+  },
+  {
+    "id": "neck_trap_durability",
+    "label": "Neck/Trap Durability",
+    "summary": "Conservative neck and trap-adjacent durability where safe content exists."
+  },
+  {
+    "id": "hip_footwork_durability",
+    "label": "Hip Footwork Durability",
+    "summary": "Hip, ankle, calf, and foot support for boxing movement frequency."
+  },
+  {
+    "id": "mobility_prehab",
+    "label": "Mobility/Prehab",
+    "summary": "Low-load mobility and prehab support for the boxing athletic chain."
+  },
+  {
+    "id": "recovery_reset",
+    "label": "Recovery Reset",
+    "summary": "Readiness-preserving recovery work for boxing training weeks."
+  },
+  {
     "id": "return_to_training",
     "label": "Return to Training",
     "summary": "Re-enter training with conservative stress."

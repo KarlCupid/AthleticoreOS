@@ -72,6 +72,31 @@ export const workoutTypes = [
     "summary": "S&C support for punch mechanics, footwork, and trunk resilience."
   },
   {
+    "id": "boxing_progression",
+    "label": "Boxing Progression",
+    "summary": "Low-risk technical movement, shadowboxing, footwork, and rhythm support."
+  },
+  {
+    "id": "roadwork_tempo",
+    "label": "Roadwork Tempo",
+    "summary": "Controlled aerobic power and pacing work."
+  },
+  {
+    "id": "roadwork_intervals",
+    "label": "Roadwork Intervals",
+    "summary": "High-control running intervals for athletes ready for the dose."
+  },
+  {
+    "id": "boxing_conditioning_support",
+    "label": "Boxing Conditioning Support",
+    "summary": "Conditioning that supports boxing rounds without generating sparring."
+  },
+  {
+    "id": "boxing_durability",
+    "label": "Boxing Durability",
+    "summary": "Trunk, shoulder, hip, ankle, neck/trap-adjacent, and hand/wrist durability support."
+  },
+  {
     "id": "assessment",
     "label": "Assessment",
     "summary": "Repeatable measures of strength, conditioning, mobility, and symptoms."

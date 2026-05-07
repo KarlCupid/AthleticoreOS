@@ -13,6 +13,8 @@ import type {
 import type {
   DescriptionToneVariant,
   AthleteTrainingArchetype,
+  BoxingTrainingContext,
+  BoxingTrainingTrack,
   CombatSportContext,
   PersonalizedWorkoutInput,
   ProgressionDecision,
@@ -24,6 +26,7 @@ import type {
   WorkoutIntensity,
   WorkoutReadinessBand,
 } from './types.ts';
+import { inferProtectedWorkoutModality } from './boxingTrainingModel.ts';
 
 export interface AppEquipmentProfileLike {
   equipment?: readonly string[] | null;
@@ -287,40 +290,65 @@ function intensityFromUnknown(value: AppScheduleItemLike['intensity'] | null | u
 
 function protectedModalityFromText(value: string | null | undefined): ProtectedWorkoutModality {
   if (!value) return 'unknown';
-  const key = normalizeKey(value);
-  if (key.includes('sparring')) return 'sparring';
-  if (key.includes('competition') || key.includes('fight') || key.includes('bout')) return 'competition';
-  if (key.includes('boxing') || key.includes('skill') || key.includes('technical') || key.includes('pads') || key.includes('bag')) return 'sport_skill';
-  if (key.includes('conditioning') || key.includes('hiit') || key.includes('interval')) return 'conditioning';
-  if (key.includes('strength') || key.includes('lift')) return 'strength';
-  if (key.includes('power') || key.includes('plyo') || key.includes('sprint')) return 'power';
-  if (key.includes('roadwork') || key.includes('zone2') || key.includes('aerobic') || key.includes('run')) return 'zone2';
-  if (key.includes('mobility') || key.includes('prehab')) return 'mobility';
-  if (key.includes('recovery')) return 'recovery';
-  return 'unknown';
+  return inferProtectedWorkoutModality({ label: value });
 }
 
 function protectedModalityFromFamily(value: string | null | undefined): ProtectedWorkoutModality {
   switch (value) {
     case 'boxing_skill':
-      return 'sport_skill';
+      return 'boxing_skill';
+    case 'shadowboxing':
+      return 'shadowboxing';
+    case 'footwork':
+      return 'footwork';
+    case 'bag_work':
+      return 'bag_work';
+    case 'pad_work':
+      return 'pad_work';
     case 'sparring':
       return 'sparring';
     case 'strength':
-      return 'strength';
+    case 'strength_power':
+      return 'strength_power';
     case 'conditioning':
-      return 'conditioning';
+    case 'boxing_conditioning':
+      return 'boxing_conditioning';
     case 'roadwork':
-      return 'zone2';
+    case 'roadwork_zone2':
+      return 'roadwork_zone2';
+    case 'roadwork_tempo':
+      return 'roadwork_tempo';
+    case 'roadwork_intervals':
+      return 'roadwork_intervals';
+    case 'mobility':
+    case 'mobility_prehab':
+      return 'mobility_prehab';
     case 'recovery':
       return 'recovery';
+    case 'external_non_boxing_load':
+      return 'external_non_boxing_load';
     default:
       return protectedModalityFromText(value);
   }
 }
 
+function resolveProtectedModality(input: {
+  explicit?: ProtectedWorkoutModality | null | undefined;
+  family?: string | null | undefined;
+  label?: string | null | undefined;
+}): ProtectedWorkoutModality {
+  const explicit = input.explicit ? inferProtectedWorkoutModality({ label: input.label ?? input.explicit, modality: input.explicit }) : 'unknown';
+  if (explicit !== 'unknown') return explicit;
+  const family = protectedModalityFromFamily(input.family);
+  if (family !== 'unknown') return family;
+  return protectedModalityFromText(input.label);
+}
+
 function protectedHardFromModality(modality: ProtectedWorkoutModality, intensity: WorkoutIntensity): boolean {
-  return modality === 'sparring' || modality === 'competition' || intensity === 'hard';
+  return modality === 'sparring'
+    || modality === 'competition'
+    || modality === 'roadwork_intervals'
+    || intensity === 'hard';
 }
 
 export function readinessFromNumber(value: number | null | undefined): WorkoutReadinessBand | null {
@@ -759,7 +787,7 @@ function protectedWorkoutFromAnchor(anchor: ProtectedWorkoutAnchor): ProtectedWo
   const dayIndex = normalizeProgramDay(anchor.dayOfWeek) ?? programDayFromDate(anchor.date) ?? 1;
   const durationMinutes = Math.round(rangeTarget(anchor.expectedDurationMinutes) ?? 60);
   const intensity = intensityFromRpe(rangeTarget(anchor.expectedIntensityRpe));
-  const modality = protectedModalityFromFamily(anchor.sessionFamily);
+  const modality = resolveProtectedModality({ family: anchor.sessionFamily, label: anchor.label });
   const workout: ProtectedWorkoutInput = {
     id: anchor.id,
     label: anchor.label,
@@ -780,7 +808,7 @@ function protectedWorkoutFromComposedSession(session: ComposedSession): Protecte
   const dayIndex = programDayFromDate(session.date) ?? 1;
   const durationMinutes = Math.round(rangeTarget(session.durationMinutes) ?? 60);
   const intensity = intensityFromRpe(rangeTarget(session.intensityRpe));
-  const modality = protectedModalityFromFamily(session.family);
+  const modality = resolveProtectedModality({ family: session.family, label: session.title });
   const workout: ProtectedWorkoutInput = {
     id: session.anchorId ?? session.id,
     label: session.title,
@@ -809,7 +837,7 @@ function protectedWorkoutFromScheduleItem(item: AppScheduleItemLike): ProtectedW
   const dayIndex = normalizeProgramDay(item.dayIndex ?? item.dayOfWeek ?? item.day_of_week) ?? 1;
   const durationMinutes = Math.round(item.durationMinutes ?? item.estimated_duration_min ?? 60);
   const intensity = intensityFromUnknown(item.intensity ?? item.intendedIntensityRpe ?? item.expectedIntensity);
-  const modality = item.modality ?? protectedModalityFromFamily(item.family) ?? protectedModalityFromText(label);
+  const modality = resolveProtectedModality({ explicit: item.modality, family: item.family, label });
   const workout: ProtectedWorkoutInput = {
     id: item.id ?? `protected:${normalizeKey(label)}:${dayIndex}`,
     label,
@@ -853,13 +881,28 @@ export function resolveProtectedWorkoutsFromSchedule(input: {
   };
 }
 
-function archetypeFromAppState(input: {
+function trackFromAppState(input: {
   performanceState?: PerformanceState | null | undefined;
   goalId: string;
   protectedWorkouts: readonly ProtectedWorkoutInput[];
   requested?: CombatSportContext | undefined;
-}): AthleteTrainingArchetype {
-  if (input.requested?.archetype) return input.requested.archetype;
+  requestBoxingContext?: BoxingTrainingContext | undefined;
+}): BoxingTrainingTrack {
+  if (input.requestBoxingContext?.track) return input.requestBoxingContext.track;
+  if (input.requested?.track) return input.requested.track;
+  if (input.requested?.archetype) {
+    if (input.requested.archetype === 'combat_beginner') return 'aspiring_boxer';
+    if (input.requested.archetype === 'combat_recreational') return (input.requested.sparringSessionsPerWeek ?? 0) > 0 ? 'amateur_open' : 'amateur_novice';
+    if (input.requested.archetype === 'combat_competitive') return 'amateur_open';
+    if (input.requested.archetype === 'combat_fight_camp') {
+      const rounds = input.requested.roundCount;
+      if ((rounds ?? 0) >= 12) return 'pro_12_round';
+      if ((rounds ?? 0) >= 8) return 'pro_8_10_round';
+      if ((rounds ?? 0) >= 4) return 'pro_4_6_round';
+      return 'amateur_open';
+    }
+    return input.requested.archetype;
+  }
   const phase = input.performanceState?.phase.current;
   const blockGoal = input.performanceState?.activeTrainingBlock?.goal;
   const sport = input.performanceState?.athlete.sport;
@@ -869,14 +912,114 @@ function archetypeFromAppState(input: {
     || phase === 'competition_week'
     || phase === 'taper'
     || blockGoal === 'fight_camp';
-  if (hasFightCampSignal) return 'combat_fight_camp';
-  if (competitionLevel === 'professional' || competitionLevel === 'amateur') return 'combat_competitive';
-  if (competitionLevel === 'recreational') return 'combat_recreational';
-  if (sport === 'boxing' || sport === 'mma' || sport === 'general_combat') return 'combat_beginner';
-  if (input.goalId === 'boxing_support' || input.protectedWorkouts.some((workout) => workout.modality === 'sport_skill' || workout.modality === 'sparring')) {
-    return 'combat_beginner';
+  const hasBoxingProtected = input.protectedWorkouts.some((workout) => {
+    const modality = inferProtectedWorkoutModality(workout);
+    return modality === 'boxing_skill'
+      || modality === 'shadowboxing'
+      || modality === 'footwork'
+      || modality === 'bag_work'
+      || modality === 'pad_work'
+      || modality === 'sparring'
+      || modality === 'competition';
+  });
+  const hasBoxingSignal = sport === 'boxing' || input.goalId === 'boxing_support' || /boxing|boxer|fight/.test(input.goalId) || hasBoxingProtected;
+  if (!hasBoxingSignal) return input.requested?.archetype === 'general_fitness_legacy' ? 'general_fitness_legacy' : 'aspiring_boxer';
+  if (hasFightCampSignal && competitionLevel === 'professional') return 'pro_8_10_round';
+  if (hasFightCampSignal) return 'amateur_open';
+  if (competitionLevel === 'professional') return 'pro_development';
+  if (competitionLevel === 'amateur') return 'amateur_open';
+  if (competitionLevel === 'recreational') return 'amateur_novice';
+  if (sport === 'boxing' || hasBoxingSignal) {
+    return input.performanceState?.athlete.trainingBackground === 'competitive' ? 'amateur_open' : 'aspiring_boxer';
   }
-  return 'combat_beginner';
+  return 'aspiring_boxer';
+}
+
+function archetypeFromAppState(input: {
+  performanceState?: PerformanceState | null | undefined;
+  goalId: string;
+  protectedWorkouts: readonly ProtectedWorkoutInput[];
+  requested?: CombatSportContext | undefined;
+  requestBoxingContext?: BoxingTrainingContext | undefined;
+}): AthleteTrainingArchetype {
+  return trackFromAppState(input);
+}
+
+export function resolveBoxingTrainingContextFromAppState(input: {
+  performanceState?: PerformanceState | null | undefined;
+  goalId: string;
+  protectedWorkouts: readonly ProtectedWorkoutInput[];
+  requestContext?: BoxingTrainingContext | undefined;
+  compatibilityContext?: CombatSportContext | undefined;
+}): ResolvedAppStateSignal<BoxingTrainingContext> {
+  const track = trackFromAppState({
+    performanceState: input.performanceState,
+    goalId: input.goalId,
+    protectedWorkouts: input.protectedWorkouts,
+    requested: input.compatibilityContext,
+    requestBoxingContext: input.requestContext,
+  });
+  const boxingSessions = input.protectedWorkouts.filter((workout) => {
+    const modality = inferProtectedWorkoutModality(workout);
+    return modality === 'boxing_skill'
+      || modality === 'shadowboxing'
+      || modality === 'footwork'
+      || modality === 'bag_work'
+      || modality === 'pad_work'
+      || modality === 'sparring'
+      || modality === 'competition';
+  });
+  const technicalSessions = input.protectedWorkouts.filter((workout) => {
+    const modality = inferProtectedWorkoutModality(workout);
+    return modality === 'boxing_skill' || modality === 'shadowboxing' || modality === 'footwork';
+  });
+  const bagOrPadSessions = input.protectedWorkouts.filter((workout) => {
+    const modality = inferProtectedWorkoutModality(workout);
+    return modality === 'bag_work' || modality === 'pad_work';
+  });
+  const sparringSessions = input.protectedWorkouts.filter((workout) => inferProtectedWorkoutModality(workout) === 'sparring');
+  const roadworkSessions = input.protectedWorkouts.filter((workout) => {
+    const modality = inferProtectedWorkoutModality(workout);
+    return modality === 'roadwork_zone2' || modality === 'roadwork_tempo' || modality === 'roadwork_intervals';
+  });
+  const conditioningSessions = input.protectedWorkouts.filter((workout) => inferProtectedWorkoutModality(workout) === 'boxing_conditioning');
+  const value: BoxingTrainingContext = {
+    ...input.requestContext,
+    track,
+    boxingSessionsPerWeek: input.requestContext?.boxingSessionsPerWeek ?? input.compatibilityContext?.combatSessionsPerWeek ?? boxingSessions.length,
+    technicalSessionsPerWeek: input.requestContext?.technicalSessionsPerWeek ?? input.compatibilityContext?.technicalSessionsPerWeek ?? technicalSessions.length,
+    bagOrPadSessionsPerWeek: input.requestContext?.bagOrPadSessionsPerWeek ?? input.compatibilityContext?.bagOrPadSessionsPerWeek ?? bagOrPadSessions.length,
+    sparringSessionsPerWeek: input.requestContext?.sparringSessionsPerWeek ?? input.compatibilityContext?.sparringSessionsPerWeek ?? sparringSessions.length,
+    roadworkSessionsPerWeek: input.requestContext?.roadworkSessionsPerWeek ?? input.compatibilityContext?.roadworkSessionsPerWeek ?? roadworkSessions.length,
+    conditioningSessionsPerWeek: input.requestContext?.conditioningSessionsPerWeek ?? input.compatibilityContext?.conditioningSessionsPerWeek ?? conditioningSessions.length,
+    strengthSessionsPerWeek: input.requestContext?.strengthSessionsPerWeek ?? input.compatibilityContext?.strengthSessionsPerWeek,
+    fightCampWeeksOut: input.requestContext?.fightCampWeeksOut ?? input.compatibilityContext?.fightCampWeeksOut,
+    roundCount: input.requestContext?.roundCount ?? input.compatibilityContext?.roundCount,
+    roundMinutes: input.requestContext?.roundMinutes ?? input.compatibilityContext?.roundMinutes,
+    restSeconds: input.requestContext?.restSeconds ?? input.compatibilityContext?.restSeconds,
+    allowSameDaySupportSessions: input.requestContext?.allowSameDaySupportSessions
+      ?? input.compatibilityContext?.allowSameDaySupportSessions
+      ?? input.performanceState?.trainingAvailability?.allowTwoADays
+      ?? false,
+    totalExposureTarget: input.requestContext?.totalExposureTarget ?? input.compatibilityContext?.totalExposureTarget,
+    generatedSessionsPerWeek: input.requestContext?.generatedSessionsPerWeek ?? input.compatibilityContext?.generatedSessionsPerWeek,
+  };
+  return {
+    value,
+    trace: trace({
+      step: 'resolve_boxing_context',
+      reason: `Workout programming resolved ${track} boxing context so protected boxing load shapes generated support without replacing it.`,
+      selectedId: track,
+      confidence: input.performanceState || input.requestContext || input.compatibilityContext ? 0.88 : 0.62,
+      metadata: {
+        boxingSessionsPerWeek: value.boxingSessionsPerWeek,
+        sparringSessionsPerWeek: value.sparringSessionsPerWeek,
+        technicalSessionsPerWeek: value.technicalSessionsPerWeek,
+        roadworkSessionsPerWeek: value.roadworkSessionsPerWeek,
+        allowSameDaySupportSessions: value.allowSameDaySupportSessions,
+      },
+    }),
+  };
 }
 
 export function resolveCombatSportContextFromAppState(input: {
@@ -884,27 +1027,38 @@ export function resolveCombatSportContextFromAppState(input: {
   goalId: string;
   protectedWorkouts: readonly ProtectedWorkoutInput[];
   requestContext?: CombatSportContext | undefined;
+  requestBoxingContext?: BoxingTrainingContext | undefined;
 }): ResolvedAppStateSignal<CombatSportContext> {
   const archetype = archetypeFromAppState({
     performanceState: input.performanceState,
     goalId: input.goalId,
     protectedWorkouts: input.protectedWorkouts,
     requested: input.requestContext,
+    requestBoxingContext: input.requestBoxingContext,
   });
   const combatSessions = input.protectedWorkouts.filter((workout) => (
-    workout.modality === 'sport_skill'
+    workout.modality === 'boxing_skill'
+    || workout.modality === 'shadowboxing'
+    || workout.modality === 'footwork'
+    || workout.modality === 'bag_work'
+    || workout.modality === 'pad_work'
     || workout.modality === 'sparring'
     || workout.modality === 'competition'
   ));
   const sparringSessions = input.protectedWorkouts.filter((workout) => workout.modality === 'sparring');
-  const technicalSessions = input.protectedWorkouts.filter((workout) => workout.modality === 'sport_skill');
-  const conditioningSessions = input.protectedWorkouts.filter((workout) => workout.modality === 'conditioning');
+  const technicalSessions = input.protectedWorkouts.filter((workout) => workout.modality === 'boxing_skill' || workout.modality === 'shadowboxing' || workout.modality === 'footwork');
+  const bagOrPadSessions = input.protectedWorkouts.filter((workout) => workout.modality === 'bag_work' || workout.modality === 'pad_work');
+  const roadworkSessions = input.protectedWorkouts.filter((workout) => workout.modality === 'roadwork_zone2' || workout.modality === 'roadwork_tempo' || workout.modality === 'roadwork_intervals');
+  const conditioningSessions = input.protectedWorkouts.filter((workout) => workout.modality === 'boxing_conditioning');
   const value: CombatSportContext = {
     ...input.requestContext,
     archetype,
+    track: archetype as BoxingTrainingTrack,
     combatSessionsPerWeek: input.requestContext?.combatSessionsPerWeek ?? combatSessions.length,
     sparringSessionsPerWeek: input.requestContext?.sparringSessionsPerWeek ?? sparringSessions.length,
     technicalSessionsPerWeek: input.requestContext?.technicalSessionsPerWeek ?? technicalSessions.length,
+    bagOrPadSessionsPerWeek: input.requestContext?.bagOrPadSessionsPerWeek ?? bagOrPadSessions.length,
+    roadworkSessionsPerWeek: input.requestContext?.roadworkSessionsPerWeek ?? roadworkSessions.length,
     conditioningSessionsPerWeek: input.requestContext?.conditioningSessionsPerWeek ?? conditioningSessions.length,
     allowSameDaySupportSessions: input.requestContext?.allowSameDaySupportSessions
       ?? input.performanceState?.trainingAvailability?.allowTwoADays
@@ -914,7 +1068,7 @@ export function resolveCombatSportContextFromAppState(input: {
     value,
     trace: trace({
       step: 'resolve_combat_context',
-      reason: `Workout programming resolved ${archetype} context so protected sport sessions count as load without replacing generated support work.`,
+      reason: `Deprecated combat context was mapped to ${archetype} boxing context for compatibility.`,
       selectedId: archetype,
       confidence: input.performanceState || input.requestContext ? 0.86 : 0.62,
       metadata: {
@@ -994,11 +1148,19 @@ export function buildPersonalizedWorkoutInputFromPerformanceState(
     performanceState: input.performanceState,
     scheduleItems: input.scheduleItems,
   });
+  const boxingContext = resolveBoxingTrainingContextFromAppState({
+    performanceState: input.performanceState,
+    goalId: goal.value,
+    protectedWorkouts: protectedWorkouts.value,
+    requestContext: request.boxingTrainingContext,
+    compatibilityContext: request.combatSportContext,
+  });
   const combatContext = resolveCombatSportContextFromAppState({
     performanceState: input.performanceState,
     goalId: goal.value,
     protectedWorkouts: protectedWorkouts.value,
     requestContext: request.combatSportContext,
+    requestBoxingContext: boxingContext.value,
   });
   const experience = resolveExperienceLevelFromProfile({
     performanceState: input.performanceState,
@@ -1031,6 +1193,7 @@ export function buildPersonalizedWorkoutInputFromPerformanceState(
       equipmentIds: equipment.value,
       painFlags: painFlags.value,
       protectedWorkoutCount: protectedWorkouts.value.length,
+      boxingTrack: boxingContext.value.track,
       combatArchetype: combatContext.value.archetype,
     },
   });
@@ -1064,6 +1227,7 @@ export function buildPersonalizedWorkoutInputFromPerformanceState(
   const progressionDecisions = input.recentProgressionDecisions ?? request.recentProgressionDecisions;
   if (progressionDecisions && progressionDecisions.length > 0) personalizedInput.recentProgressionDecisions = [...progressionDecisions];
   if (protectedWorkouts.value.length > 0) personalizedInput.protectedWorkouts = protectedWorkouts.value;
+  personalizedInput.boxingTrainingContext = boxingContext.value;
   personalizedInput.combatSportContext = combatContext.value;
   if (request.generatedSessionsPerWeek != null) personalizedInput.generatedSessionsPerWeek = request.generatedSessionsPerWeek;
   if (request.totalExposureTarget != null) personalizedInput.totalExposureTarget = request.totalExposureTarget;
@@ -1079,6 +1243,7 @@ export function buildPersonalizedWorkoutInputFromPerformanceState(
       preferences.trace,
       goal.trace,
       protectedWorkouts.trace,
+      boxingContext.trace,
       combatContext.trace,
       experience.trace,
       appSignalTrace,

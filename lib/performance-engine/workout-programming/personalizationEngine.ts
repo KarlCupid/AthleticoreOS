@@ -58,6 +58,10 @@ export function generateWorkoutForUserProfile(
   if (request.recentWorkoutCompletions) input.recentWorkoutCompletions = request.recentWorkoutCompletions;
   if (request.recentProgressionDecisions) input.recentProgressionDecisions = request.recentProgressionDecisions;
   if (request.protectedWorkouts) input.protectedWorkouts = request.protectedWorkouts;
+  if (request.boxingTrainingContext) input.boxingTrainingContext = request.boxingTrainingContext;
+  if (request.combatSportContext) input.combatSportContext = request.combatSportContext;
+  if (request.generatedSessionsPerWeek != null) input.generatedSessionsPerWeek = request.generatedSessionsPerWeek;
+  if (request.totalExposureTarget != null) input.totalExposureTarget = request.totalExposureTarget;
   if (request.sorenessLevel != null) input.sorenessLevel = request.sorenessLevel;
   if (request.sleepQuality != null) input.sleepQuality = request.sleepQuality;
   if (request.energyLevel != null) input.energyLevel = request.energyLevel;

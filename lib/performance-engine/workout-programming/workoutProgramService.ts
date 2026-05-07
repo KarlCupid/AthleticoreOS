@@ -126,6 +126,7 @@ export async function generateWeeklyProgramFromPerformanceState(
   if (request.sessionsPerWeek != null) programRequest.sessionsPerWeek = request.sessionsPerWeek;
   if (request.generatedSessionsPerWeek != null) programRequest.generatedSessionsPerWeek = request.generatedSessionsPerWeek;
   if (request.totalExposureTarget != null) programRequest.totalExposureTarget = request.totalExposureTarget;
+  if (request.boxingTrainingContext) programRequest.boxingTrainingContext = request.boxingTrainingContext;
   if (request.combatSportContext) programRequest.combatSportContext = request.combatSportContext;
   if (request.availableDays) programRequest.availableDays = request.availableDays;
   if (request.deloadStrategy) programRequest.deloadStrategy = request.deloadStrategy;
