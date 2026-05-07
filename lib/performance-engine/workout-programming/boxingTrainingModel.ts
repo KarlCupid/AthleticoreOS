@@ -136,7 +136,7 @@ function compatibilityModality(value: ProtectedWorkoutModality): ProtectedBoxing
   if (isCanonicalBoxingModality(value)) return value;
   switch (value) {
     case 'sport_skill':
-      return 'boxing_skill';
+      return 'unknown';
     case 'conditioning':
       return 'boxing_conditioning';
     case 'strength':
@@ -154,12 +154,7 @@ function compatibilityModality(value: ProtectedWorkoutModality): ProtectedBoxing
 export function inferProtectedWorkoutModality(
   workout: Pick<ProtectedWorkoutInput, 'label' | 'modality'>,
 ): ProtectedWorkoutModality {
-  const explicit = workout.modality ? compatibilityModality(workout.modality) : 'unknown';
-  if (explicit !== 'unknown') return explicit;
-
   const label = normalizeText(workout.label);
-  if (!label) return 'unknown';
-
   if (/\b(mma|grappling|wrestling|bjj|jiu jitsu|jiu-jitsu|muay thai|kickboxing)\b/.test(label)) {
     return 'external_non_boxing_load';
   }
@@ -180,6 +175,10 @@ export function inferProtectedWorkoutModality(
   if (/\b(strength|lift|weights|power)\b/.test(label)) return 'strength_power';
   if (/\b(mobility|prehab|durability)\b/.test(label)) return 'mobility_prehab';
   if (/\b(recovery|breath|walk|reset)\b/.test(label)) return 'recovery';
+
+  const explicit = workout.modality ? compatibilityModality(workout.modality) : 'unknown';
+  if (explicit !== 'unknown') return explicit;
+  if (workout.modality === 'sport_skill') return 'unknown';
   return 'unknown';
 }
 
@@ -859,7 +858,7 @@ function intent(input: {
       : input.plannedIntensity;
   const doseCategory = plannedIntensity === 'low' && wantsHard ? 'support_session' : input.doseCategory;
   return {
-    goalId: plannedIntensity === 'low' && wantsHard ? 'mobility' : input.goalId,
+    goalId: plannedIntensity === 'low' && wantsHard ? 'mobility_prehab' : input.goalId,
     plannedIntensity,
     role: input.role,
     boxingRole: input.role,
@@ -932,7 +931,7 @@ function buildIntents(input: {
 
   if (redDose) {
     intents.push(intent({
-      goalId: 'recovery',
+      goalId: 'recovery_reset',
       plannedIntensity: 'recovery',
       role: 'recovery_reset',
       family: 'recovery_reset',
@@ -943,7 +942,7 @@ function buildIntents(input: {
       hardUsed,
     }));
     intents.push(intent({
-      goalId: 'mobility',
+      goalId: 'mobility_prehab',
       plannedIntensity: 'low',
       role: 'mobility_prehab',
       family: 'mobility_prehab',
@@ -958,7 +957,7 @@ function buildIntents(input: {
 
   if (taper) {
     intents.push(intent({
-      goalId: 'recovery',
+      goalId: 'recovery_reset',
       plannedIntensity: 'recovery',
       role: 'recovery_reset',
       family: 'recovery_reset',
@@ -969,7 +968,7 @@ function buildIntents(input: {
       hardUsed,
     }));
     intents.push(intent({
-      goalId: 'mobility',
+      goalId: 'shoulder_scap_durability',
       plannedIntensity: 'low',
       role: 'shoulder_scap_durability',
       family: 'shoulder_scap_durability',
@@ -980,7 +979,7 @@ function buildIntents(input: {
       hardUsed,
     }));
     intents.push(intent({
-      goalId: 'boxing_support',
+      goalId: 'shadowboxing_quality',
       plannedIntensity: 'low',
       role: 'boxing_skill_microdose',
       family: 'shadowboxing_quality',
@@ -995,10 +994,10 @@ function buildIntents(input: {
 
   if (!protectedSkillCovered || input.track === 'aspiring_boxer' || input.track.startsWith('amateur')) {
     intents.push(intent({
-      goalId: 'boxing_support',
+      goalId: input.track === 'aspiring_boxer' ? 'boxing_skill_microdose' : 'footwork_agility',
       plannedIntensity: 'low',
       role: input.track === 'aspiring_boxer' ? 'boxing_skill_microdose' : 'footwork_agility',
-      family: input.track === 'aspiring_boxer' ? 'shadowboxing_quality' : 'footwork_agility',
+      family: input.track === 'aspiring_boxer' ? 'boxing_skill_microdose' : 'footwork_agility',
       doseCategory: 'microdose',
       rationale: [
         input.track === 'aspiring_boxer'
@@ -1032,7 +1031,7 @@ function buildIntents(input: {
 
   if (!protectedRoadworkCovered && input.dose.roadworkAerobicTarget > 0) {
     intents.push(intent({
-      goalId: 'zone2_cardio',
+      goalId: 'roadwork_aerobic_base',
       plannedIntensity: 'low',
       role: 'roadwork_aerobic_base',
       family: 'roadwork_zone2',
@@ -1050,7 +1049,7 @@ function buildIntents(input: {
 
   if (input.track.startsWith('amateur') && input.dose.conditioningTarget > 0) {
     hardUsed = pushIntent(intents, {
-      goalId: 'boxing_support',
+      goalId: 'alactic_repeat_power',
       plannedIntensity: input.track === 'amateur_novice' ? 'moderate' : 'hard',
       role: 'alactic_repeat_power',
       family: 'alactic_repeat_power',
@@ -1066,7 +1065,7 @@ function buildIntents(input: {
     });
   } else if (input.track.startsWith('pro') && input.dose.roadworkTempoTarget > 0 && !protectedRoadworkCovered) {
     hardUsed = pushIntent(intents, {
-      goalId: 'zone2_cardio',
+      goalId: 'roadwork_tempo',
       plannedIntensity: 'moderate',
       role: 'roadwork_tempo',
       family: 'roadwork_tempo',
@@ -1080,7 +1079,7 @@ function buildIntents(input: {
 
   if (input.track.startsWith('pro')) {
     intents.push(intent({
-      goalId: 'core_durability',
+      goalId: 'trunk_rotation_durability',
       plannedIntensity: 'low',
       role: 'trunk_rotation_durability',
       family: 'trunk_durability',
@@ -1093,7 +1092,7 @@ function buildIntents(input: {
   }
 
   intents.push(intent({
-    goalId: 'mobility',
+    goalId: input.track.startsWith('pro') ? 'shoulder_scap_durability' : 'hip_ankle_mobility',
     plannedIntensity: 'low',
     role: input.track.startsWith('pro') ? 'shoulder_scap_durability' : 'hip_footwork_durability',
     family: input.track.startsWith('pro') ? 'shoulder_scap_durability' : 'hip_ankle_mobility',
@@ -1112,7 +1111,7 @@ function buildIntents(input: {
 
   if (input.protectedCounts.protectedSparringCount >= 2 || input.dose.recoveryTarget > 0) {
     intents.push(intent({
-      goalId: 'recovery',
+      goalId: 'recovery_reset',
       plannedIntensity: 'recovery',
       role: 'recovery_reset',
       family: 'recovery_reset',
@@ -1141,8 +1140,13 @@ function buildIntents(input: {
     if (!family || intents.some((item) => item.family === family)) continue;
     const recovery = family === 'recovery_reset';
     const roadwork = family === 'roadwork_zone2';
+    const supportGoal = family === 'shoulder_scap_durability'
+      ? 'shoulder_scap_durability'
+      : family === 'hip_ankle_mobility'
+        ? 'hip_ankle_mobility'
+        : 'mobility_prehab';
     intents.push(intent({
-      goalId: recovery ? 'recovery' : roadwork ? 'zone2_cardio' : 'mobility',
+      goalId: recovery ? 'recovery_reset' : roadwork ? 'roadwork_aerobic_base' : supportGoal,
       plannedIntensity: recovery ? 'recovery' : 'low',
       role: recovery ? 'recovery_reset' : roadwork ? 'roadwork_aerobic_base' : 'mobility_prehab',
       family,
@@ -1157,7 +1161,7 @@ function buildIntents(input: {
   while (intents.length < input.dose.generatedSessionTarget) {
     const useMobility = intents.some((item) => item.family === 'roadwork_zone2');
     intents.push(intent({
-      goalId: useMobility ? 'mobility' : 'zone2_cardio',
+      goalId: useMobility ? 'mobility_prehab' : 'roadwork_aerobic_base',
       plannedIntensity: 'low',
       role: useMobility ? 'mobility_prehab' : 'roadwork_aerobic_base',
       family: useMobility ? 'mobility_prehab' : 'roadwork_zone2',

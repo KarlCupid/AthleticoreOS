@@ -77,6 +77,21 @@ export const trainingGoals = [
     "summary": "Low-contact boxing fundamentals, rhythm, positioning, and movement quality."
   },
   {
+    "id": "boxing_skill_microdose",
+    "label": "Boxing Skill Microdose",
+    "summary": "Short low-risk stance, rhythm, guard, breathing, and movement quality practice."
+  },
+  {
+    "id": "footwork_agility",
+    "label": "Footwork Agility",
+    "summary": "Boxing footwork, stance resets, pivots, balance, and ankle/hip capacity."
+  },
+  {
+    "id": "shadowboxing_quality",
+    "label": "Shadowboxing Quality",
+    "summary": "Low-contact self-guided shadowboxing for posture, rhythm, breathing, and foot placement."
+  },
+  {
     "id": "roadwork_aerobic_base",
     "label": "Roadwork Aerobic Base",
     "summary": "Easy roadwork that supports repeat-round recovery."
@@ -130,6 +145,11 @@ export const trainingGoals = [
     "id": "hip_footwork_durability",
     "label": "Hip Footwork Durability",
     "summary": "Hip, ankle, calf, and foot support for boxing movement frequency."
+  },
+  {
+    "id": "hip_ankle_mobility",
+    "label": "Hip/Ankle Mobility",
+    "summary": "Hip, ankle, calf, adductor, and foot control for boxing stance changes."
   },
   {
     "id": "mobility_prehab",

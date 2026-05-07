@@ -892,9 +892,9 @@ async function run() {
       validationWarning: 'Session was manually moved after a calendar conflict.',
     }, { client });
     const workout = generateSingleSessionWorkout({
-      goalId: 'beginner_strength',
+      goalId: generated.workout?.goalId ?? 'beginner_strength',
       durationMinutes: 30,
-      equipmentIds: ['bodyweight', 'dumbbells'],
+      equipmentIds: ['bodyweight', 'dumbbells', 'open_space', 'track_or_road', 'mat'],
       experienceLevel: 'beginner',
     });
     const attached = await attachGeneratedWorkoutToProgramSession('user-1', userProgramId!, generated.id, workout, { client });

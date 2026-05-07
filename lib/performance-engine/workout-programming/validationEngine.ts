@@ -186,7 +186,12 @@ function allowedMainPayloadKinds(workoutTypeId: string): PrescriptionPayload['ki
   if (workoutTypeId === 'low_impact_conditioning') return ['conditioning', 'interval', 'cardio'];
   if (workoutTypeId === 'conditioning') return ['conditioning', 'interval'];
   if (workoutTypeId === 'core_durability') return ['balance', 'resistance'];
-  if (workoutTypeId === 'boxing_support') return ['power', 'conditioning', 'balance', 'resistance'];
+  if (workoutTypeId === 'boxing_progression') return ['conditioning', 'mobility', 'balance', 'recovery'];
+  if (workoutTypeId === 'roadwork_tempo') return ['cardio'];
+  if (workoutTypeId === 'roadwork_intervals') return ['interval', 'conditioning'];
+  if (workoutTypeId === 'boxing_conditioning_support') return ['interval', 'conditioning', 'power'];
+  if (workoutTypeId === 'boxing_durability') return ['mobility', 'balance', 'resistance', 'recovery'];
+  if (workoutTypeId === 'boxing_support') return ['power', 'conditioning', 'balance', 'resistance', 'mobility'];
   if (workoutTypeId === 'power') return ['power'];
   return ['resistance', 'cardio', 'interval', 'mobility', 'flexibility', 'balance', 'recovery', 'power', 'conditioning'];
 }

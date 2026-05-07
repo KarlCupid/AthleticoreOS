@@ -8,6 +8,7 @@ import {
 } from './boxingTrainingModel.ts';
 import type {
   BoxingTrainingContext,
+  BoxingSessionFamily,
   CombatSportContext,
   GeneratedProgram,
   GeneratedProgramSession,
@@ -83,6 +84,30 @@ const HARD_BOXING_FAMILIES = new Set([
   'alactic_repeat_power',
   'glycolytic_round_tolerance',
 ]);
+
+const PLAUSIBLE_BOXING_TEMPLATE_IDS: Partial<Record<BoxingSessionFamily, readonly string[]>> = {
+  boxing_skill_microdose: ['boxing_skill_microdose'],
+  footwork_agility: ['footwork_agility'],
+  reaction_rhythm: ['boxing_skill_microdose', 'shadowboxing_quality', 'footwork_agility'],
+  shadowboxing_quality: ['shadowboxing_quality'],
+  bag_pad_support: ['boxing_skill_microdose', 'shadowboxing_quality'],
+  max_strength_lower: ['lower_strength', 'full_gym_strength'],
+  strength_power: ['boxing_support', 'full_gym_strength', 'lower_strength'],
+  explosive_power: ['boxing_rotational_power', 'boxing_support'],
+  rotational_power: ['boxing_rotational_power'],
+  trunk_durability: ['boxing_trunk_durability'],
+  shoulder_scap_durability: ['boxing_shoulder_scap_durability'],
+  neck_trap_durability: ['boxing_neck_trap_durability'],
+  hip_ankle_mobility: ['boxing_hip_ankle_mobility'],
+  roadwork_zone2: ['boxing_roadwork_zone2'],
+  roadwork_tempo: ['boxing_roadwork_tempo'],
+  roadwork_intervals: ['boxing_roadwork_intervals'],
+  alactic_repeat_power: ['boxing_alactic_repeat_power'],
+  glycolytic_round_tolerance: ['boxing_glycolytic_round_tolerance'],
+  boxing_conditioning_support: ['boxing_alactic_repeat_power', 'boxing_glycolytic_round_tolerance'],
+  mobility_prehab: ['boxing_hip_ankle_mobility', 'boxing_shoulder_scap_durability', 'boxing_neck_trap_durability', 'recovery_reset'],
+  recovery_reset: ['boxing_recovery_reset', 'recovery_reset'],
+};
 
 function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items));
@@ -801,7 +826,7 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       if (candidate == null && intentCountsAsHard(sessionIntent)) {
         placementIntent = {
           ...sessionIntent,
-          goalId: 'mobility',
+          goalId: 'mobility_prehab',
           plannedIntensity: 'low',
           role: 'mobility_prehab',
           boxingRole: 'mobility_prehab',
@@ -832,7 +857,7 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       const adjacentHard = intentHard && hasAdjacentHardDay(candidate.dayIndex, weekSessions);
       const lowConditioningIntent = (placementIntent.role === 'conditioning_support' || placementIntent.role === 'boxing_conditioning_support')
         && placementIntent.plannedIntensity !== 'hard';
-      const goalId = (overHardBudget || adjacentHard || lowConditioningIntent) ? 'mobility' : placementIntent.goalId;
+      const goalId = (overHardBudget || adjacentHard || lowConditioningIntent) ? 'mobility_prehab' : placementIntent.goalId;
       const effectiveIntensity = (overHardBudget || adjacentHard) ? 'low' : placementIntent.plannedIntensity;
       const phaseSafetyFlags = phase === 'deload'
         ? unique([...safetyFlags, 'time_limited'])
@@ -1005,6 +1030,7 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
     const week = program.weeks.find((item) => item.weekIndex === weekIndex);
     const weekSessions = program.sessions.filter((session) => session.weekIndex === weekIndex);
     const hardDayCap = week?.weeklyDose?.hardDayCap ?? week?.weeklyVolumeSummary.hardDayCap ?? 3;
+    const strictBoxingContent = week?.weeklyDose?.track != null && week.weeklyDose.track !== 'general_fitness_legacy';
     if (!week) errors.push(`Week ${weekIndex} is missing structured week output.`);
     if (weekSessions.length === 0) errors.push(`Week ${weekIndex} has no sessions.`);
     if (hardDayCount(weekSessions) > hardDayCap) errors.push(`Week ${weekIndex} has too many hard sessions for the resolved hard-day cap (${hardDayCount(weekSessions)}/${hardDayCap}).`);
@@ -1022,6 +1048,19 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
       if (dose.track === 'aspiring_boxer' && weekSessions.some((session) => !session.protectedAnchor && session.boxingSessionFamily === 'glycolytic_round_tolerance')) {
         errors.push(`Week ${weekIndex} gave aspiring-boxer track an unsafe advanced conditioning family.`);
       }
+      if (dose.boxingProgressionPhase === 'taper' && weekSessions.some((session) => !session.protectedAnchor && sessionIsHard(session))) {
+        errors.push(`Week ${weekIndex} taper includes hard generated S&C or conditioning.`);
+      }
+      const summary = week.weeklyVolumeSummary;
+      if (summary.generatedFullSessionCount == null || summary.generatedSupportSessionCount == null || summary.generatedMicrodoseCount == null) {
+        errors.push(`Week ${weekIndex} summary is missing generated dose category counts.`);
+      }
+      if (summary.protectedBoxingSessionCount == null || summary.protectedSparringCount == null || summary.protectedRoadworkCount == null) {
+        errors.push(`Week ${weekIndex} summary is missing protected boxing counts.`);
+      }
+      if (!summary.boxingLoadLedger || !week.boxingLoadLedger) errors.push(`Week ${weekIndex} is missing boxing load ledger output.`);
+      if (!week.qualityGaps) errors.push(`Week ${weekIndex} is missing boxing quality gaps.`);
+      if (!week.variancePlan) errors.push(`Week ${weekIndex} is missing controlled variance plan.`);
     }
     for (let day = 1; day <= 6; day += 1) {
       const todayHard = weekSessions.some((session) => session.dayIndex === day && sessionIsHard(session));
@@ -1035,8 +1074,20 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
       ))
       .map((session) => session.dayIndex));
     for (const session of weekSessions) {
+      if (session.protectedAnchor && (session.protectedDurationMinutes == null || session.protectedDurationMinutes <= 0)) {
+        errors.push(`${session.id} protected duration is missing or uncountable.`);
+      }
       if (!session.protectedAnchor && !session.workout) errors.push(`${session.id} is missing generated workout.`);
       if (session.workout?.validation && !session.workout.validation.isValid) errors.push(`${session.id} generated workout is invalid.`);
+      if (!session.protectedAnchor && session.boxingSessionFamily) {
+        if (!session.boxingSessionRole || !session.sessionDoseCategory || !session.rationale?.length) {
+          errors.push(`${session.id} has a boxing family without role, dose category, or rationale.`);
+        }
+        const plausibleTemplateIds = strictBoxingContent ? PLAUSIBLE_BOXING_TEMPLATE_IDS[session.boxingSessionFamily] : undefined;
+        if (plausibleTemplateIds && session.workout && !plausibleTemplateIds.includes(session.workout.templateId)) {
+          errors.push(`${session.id} used template ${session.workout.templateId} for ${session.boxingSessionFamily}; expected one of ${plausibleTemplateIds.join(', ')}.`);
+        }
+      }
       if (!session.protectedAnchor && sessionIsHard(session) && protectedHardBoxingDays.has(session.dayIndex)) {
         errors.push(`${session.id} stacks hard generated work on protected sparring/competition day.`);
       }
@@ -1053,6 +1104,13 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
   if (new Set(protectedIds).size !== protectedIds.length) errors.push('Protected anchor ids must stay unique per week.');
   if (program.sessions.some((session) => session.protectedAnchor && session.protectedWorkoutModality === 'external_non_boxing_load' && /boxing/i.test(session.label))) {
     errors.push('A boxing-labeled protected workout was treated as external non-boxing load.');
+  }
+  if (program.sessions.some((session) => (
+    session.protectedAnchor
+    && session.protectedWorkoutModality !== 'external_non_boxing_load'
+    && /\b(mma|grappling|wrestling|bjj|jiu jitsu|jiu-jitsu|muay thai|kickboxing)\b/i.test(session.label)
+  ))) {
+    errors.push('A non-boxing protected combat label was treated as boxing load.');
   }
   if (program.movementPatternBalance.warnings.some((warning) => warning.includes('needs mobility'))) {
     errors.push('Program movement pattern balance is missing recovery support.');

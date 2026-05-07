@@ -1,6 +1,7 @@
 import type { Exercise } from '../../types.ts';
 import { uniqueById } from '../helpers.ts';
 import { cardioExercises } from './cardio.ts';
+import { boxingExercises } from './boxing.ts';
 import { coreExercises } from './core.ts';
 import {
   expandedCardioExercises,
@@ -19,6 +20,7 @@ import { upperBodyExercises } from './upperBody.ts';
 
 export {
   cardioExercises,
+  boxingExercises,
   coreExercises,
   lowerBodyExercises,
   mobilityExercises,
@@ -35,6 +37,7 @@ export {
 };
 
 export const exerciseContentPacks = {
+  boxing: boxingExercises,
   lowerBody: [...lowerBodyExercises, ...expandedLowerBodyExercises],
   upperBody: [...upperBodyExercises, ...expandedUpperBodyExercises],
   core: [...coreExercises, ...expandedCoreExercises],

@@ -1,6 +1,7 @@
 import type { SessionTemplate } from '../../types.ts';
 import { uniqueById } from '../helpers.ts';
 import { balanceSessionTemplates } from './balance.ts';
+import { boxingSessionTemplates } from './boxing.ts';
 import { cardioSessionTemplates } from './cardio.ts';
 import { hypertrophySessionTemplates } from './hypertrophy.ts';
 import { mobilitySessionTemplates } from './mobility.ts';
@@ -10,6 +11,7 @@ import { strengthSessionTemplates } from './strength.ts';
 
 export {
   balanceSessionTemplates,
+  boxingSessionTemplates,
   cardioSessionTemplates,
   hypertrophySessionTemplates,
   mobilitySessionTemplates,
@@ -19,6 +21,7 @@ export {
 };
 
 export const sessionContentPacks = {
+  boxing: boxingSessionTemplates,
   strength: strengthSessionTemplates,
   hypertrophy: hypertrophySessionTemplates,
   cardio: cardioSessionTemplates,

@@ -1,6 +1,7 @@
 import type { PrescriptionTemplate } from '../../types.ts';
 import { uniqueById } from '../helpers.ts';
 import { balancePrescriptionTemplates } from './balance.ts';
+import { boxingPrescriptionTemplates } from './boxing.ts';
 import { cardioPrescriptionTemplates } from './cardio.ts';
 import { flexibilityPrescriptionTemplates } from './flexibility.ts';
 import { hypertrophyPrescriptionTemplates } from './hypertrophy.ts';
@@ -12,6 +13,7 @@ import { strengthPrescriptionTemplates } from './strength.ts';
 
 export {
   balancePrescriptionTemplates,
+  boxingPrescriptionTemplates,
   cardioPrescriptionTemplates,
   flexibilityPrescriptionTemplates,
   hypertrophyPrescriptionTemplates,
@@ -23,6 +25,7 @@ export {
 };
 
 export const prescriptionContentPacks = {
+  boxing: boxingPrescriptionTemplates,
   strength: strengthPrescriptionTemplates,
   hypertrophy: hypertrophyPrescriptionTemplates,
   cardio: cardioPrescriptionTemplates,

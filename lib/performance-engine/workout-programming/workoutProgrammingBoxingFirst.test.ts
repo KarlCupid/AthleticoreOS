@@ -1,7 +1,9 @@
 import {
+  generateSingleSessionWorkout,
   generateWeeklyWorkoutProgram,
   inferProtectedWorkoutModality,
   validateGeneratedProgram,
+  validateWorkoutProgrammingCatalog,
 } from './index.ts';
 import { generateWeeklyProgramFromPerformanceState } from './workoutProgramService.ts';
 import type {
@@ -9,6 +11,7 @@ import type {
   BoxingTrainingContext,
   BoxingTrainingTrack,
   GeneratedProgram,
+  GeneratedWorkout,
   ProtectedWorkoutInput,
   WorkoutReadinessBand,
 } from './index.ts';
@@ -80,6 +83,12 @@ function generatedHardCount(program: GeneratedProgram): number {
   return generatedSessions(program).filter((session) => session.plannedIntensity === 'hard').length;
 }
 
+function generatedTemplateIds(program: GeneratedProgram): string[] {
+  return generatedSessions(program)
+    .map((session) => session.workout?.templateId)
+    .filter((templateId): templateId is string => Boolean(templateId));
+}
+
 function hasHardGeneratedOnProtectedSparringDay(program: GeneratedProgram): boolean {
   return program.weeks.some((programWeek) => {
     const sparringDays = new Set(programWeek.sessions
@@ -108,6 +117,7 @@ function printGolden(label: string, program: GeneratedProgram): void {
       `role=${session.boxingSessionRole ?? session.sessionRole ?? 'n/a'}`,
       `dose=${session.sessionDoseCategory ?? 'anchor'}`,
       `intensity=${session.plannedIntensity ?? 'n/a'}`,
+      `template=${session.workout?.templateId ?? 'protected'}`,
     ].join(' '));
   }
   console.log(`rationale=${firstWeek.coachRationale?.slice(0, 3).join(' | ')}`);
@@ -115,6 +125,61 @@ function printGolden(label: string, program: GeneratedProgram): void {
 }
 
 console.log('\n-- workout programming boxing-first planner --');
+
+(() => {
+  const cases: Array<[string, NonNullable<ProtectedWorkoutInput['modality']>, ReturnType<typeof inferProtectedWorkoutModality>]> = [
+    ['Boxing Skill', 'sport_skill', 'boxing_skill'],
+    ['Pads', 'sport_skill', 'pad_work'],
+    ['Heavy Bag', 'sport_skill', 'bag_work'],
+    ['Shadowboxing', 'sport_skill', 'shadowboxing'],
+    ['Grappling', 'sport_skill', 'external_non_boxing_load'],
+    ['MMA Practice', 'sport_skill', 'external_non_boxing_load'],
+    ['Wrestling', 'sport_skill', 'external_non_boxing_load'],
+    ['Muay Thai', 'sport_skill', 'external_non_boxing_load'],
+  ];
+  for (const [label, modality, expected] of cases) {
+    assert(`A0 deprecated sport_skill ${label} -> ${expected}`, inferProtectedWorkoutModality({
+      label,
+      modality,
+    }) === expected);
+  }
+})();
+
+(() => {
+  const familyCases: Array<{
+    family: BoxingSessionFamily;
+    goalId: string;
+    expectedTemplateIds: string[];
+    experienceLevel?: 'beginner' | 'intermediate';
+  }> = [
+    { family: 'boxing_skill_microdose', goalId: 'boxing_skill_microdose', expectedTemplateIds: ['boxing_skill_microdose'], experienceLevel: 'beginner' },
+    { family: 'footwork_agility', goalId: 'footwork_agility', expectedTemplateIds: ['footwork_agility'], experienceLevel: 'beginner' },
+    { family: 'shadowboxing_quality', goalId: 'shadowboxing_quality', expectedTemplateIds: ['shadowboxing_quality'], experienceLevel: 'beginner' },
+    { family: 'roadwork_zone2', goalId: 'roadwork_aerobic_base', expectedTemplateIds: ['boxing_roadwork_zone2'], experienceLevel: 'beginner' },
+    { family: 'roadwork_tempo', goalId: 'roadwork_tempo', expectedTemplateIds: ['boxing_roadwork_tempo'] },
+    { family: 'roadwork_intervals', goalId: 'roadwork_intervals', expectedTemplateIds: ['boxing_roadwork_intervals'] },
+    { family: 'alactic_repeat_power', goalId: 'alactic_repeat_power', expectedTemplateIds: ['boxing_alactic_repeat_power'] },
+    { family: 'glycolytic_round_tolerance', goalId: 'glycolytic_round_tolerance', expectedTemplateIds: ['boxing_glycolytic_round_tolerance'] },
+    { family: 'rotational_power', goalId: 'rotational_power', expectedTemplateIds: ['boxing_rotational_power'] },
+    { family: 'trunk_durability', goalId: 'trunk_rotation_durability', expectedTemplateIds: ['boxing_trunk_durability'], experienceLevel: 'beginner' },
+    { family: 'shoulder_scap_durability', goalId: 'shoulder_scap_durability', expectedTemplateIds: ['boxing_shoulder_scap_durability'], experienceLevel: 'beginner' },
+    { family: 'neck_trap_durability', goalId: 'neck_trap_durability', expectedTemplateIds: ['boxing_neck_trap_durability'], experienceLevel: 'beginner' },
+    { family: 'hip_ankle_mobility', goalId: 'hip_ankle_mobility', expectedTemplateIds: ['boxing_hip_ankle_mobility'], experienceLevel: 'beginner' },
+    { family: 'recovery_reset', goalId: 'recovery_reset', expectedTemplateIds: ['boxing_recovery_reset'], experienceLevel: 'beginner' },
+  ];
+  for (const item of familyCases) {
+    const workout: GeneratedWorkout = generateSingleSessionWorkout({
+      goalId: item.goalId,
+      durationMinutes: item.family === 'roadwork_zone2' ? 35 : 30,
+      equipmentIds: ['bodyweight', 'open_space', 'mat', 'track_or_road', 'medicine_ball', 'resistance_band', 'stationary_bike'],
+      experienceLevel: item.experienceLevel ?? 'intermediate',
+      readinessBand: 'green',
+    });
+    assert(`B0 ${item.family} uses boxing-specific template`, item.expectedTemplateIds.includes(workout.templateId));
+    assert(`B0 ${item.family} validates`, workout.validation?.isValid === true);
+    assert(`B0 ${item.family} is not generic fallback`, !['mobility_flow', 'zone2_cardio', 'low_impact_conditioning', 'boxing_support'].includes(workout.templateId));
+  }
+})();
 
 (() => {
   const program = baseProgram({
@@ -131,6 +196,7 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('A total exposures reach at least five', (firstWeek.weeklyVolumeSummary.totalExposureCount ?? 0) >= 5);
   assert('A hard-day cap respected', firstWeek.hardDayCount <= (firstWeek.weeklyDose?.hardDayCap ?? 3));
   assert('A validation passes', validateGeneratedProgram(program).valid);
+  assert('A selected templates include boxing support', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_') || templateId === 'footwork_agility'));
 })();
 
 (() => {
@@ -146,7 +212,9 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('B generated support volume remains useful', (week(program).weeklyVolumeSummary.generatedSupportSessionCount ?? 0) + (week(program).weeklyVolumeSummary.generatedMicrodoseCount ?? 0) >= 2);
   assert('B generated hard count capped', generatedHardCount(program) <= 1);
   assert('B no hard generated stacking onto sparring', !hasHardGeneratedOnProtectedSparringDay(program));
+  assert('B no generated sparring template', !generatedTemplateIds(program).some((templateId) => /sparring/i.test(templateId)));
   assert('B includes roadwork/mobility/durability/recovery support', families.some((family) => ['roadwork_zone2', 'mobility_prehab', 'shoulder_scap_durability', 'hip_ankle_mobility', 'recovery_reset'].includes(family)));
+  assert('B selected support is boxing-relevant', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_')));
   assert('B validation passes', validateGeneratedProgram(program).valid);
 })();
 
@@ -158,6 +226,7 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('C includes strength/power or durability', families.some((family) => ['strength_power', 'max_strength_lower', 'shoulder_scap_durability', 'hip_ankle_mobility'].includes(family)));
   assert('C includes roadwork or mobility/prehab', families.some((family) => ['roadwork_zone2', 'mobility_prehab', 'hip_ankle_mobility'].includes(family)));
   assert('C no sparring generated', !families.some((family) => family.includes('sparring')));
+  assert('C uses boxing-specific templates', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_') || ['footwork_agility', 'shadowboxing_quality'].includes(templateId)));
 })();
 
 (() => {
@@ -182,6 +251,7 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('E protected roadwork count increments', week(program).weeklyDose?.protectedRoadworkCount === 1);
   assert('E additional roadwork target reduced', week(program).weeklyDose?.roadworkAerobicTarget === 0);
   assert('E strength/power and boxing support still generated', families.some((family) => ['strength_power', 'max_strength_lower'].includes(family)) && families.some((family) => ['footwork_agility', 'shadowboxing_quality', 'mobility_prehab'].includes(family)));
+  assert('E selected templates remain plausible', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_') || templateId === 'lower_strength'));
   assert('E validation passes', validateGeneratedProgram(program).valid);
 })();
 
@@ -190,6 +260,7 @@ console.log('\n-- workout programming boxing-first planner --');
   const families = generatedFamilies(program);
   assert('F taper has no reckless hard S&C', generatedHardCount(program) === 0);
   assert('F taper is maintenance/recovery/mobility/technical-light only', families.every((family) => ['recovery_reset', 'shoulder_scap_durability', 'shadowboxing_quality', 'mobility_prehab'].includes(family)));
+  assert('F taper templates are recovery/mobility/technical-light', generatedTemplateIds(program).every((templateId) => ['boxing_recovery_reset', 'boxing_shoulder_scap_durability', 'shadowboxing_quality'].includes(templateId)));
   assert('F validation passes', validateGeneratedProgram(program).valid);
 })();
 
@@ -265,6 +336,14 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('L variance plan exists', Boolean(week(open).variancePlan));
   assert('L beginner/taper lower variance than open/development', week(beginner).variancePlan?.varianceLevel === 'low' && week(taper).variancePlan?.varianceLevel === 'low' && week(open).variancePlan?.varianceLevel === 'moderate');
   assert('L variance preserves adaptation families', hasFamily(open, 'max_strength_lower') || hasFamily(open, 'strength_power'));
+})();
+
+(() => {
+  const validation = validateWorkoutProgrammingCatalog();
+  assert('I0 content validation catalog passes', validation.isValid === true);
+  if (!validation.isValid) {
+    console.error(validation.errors.join('\n'));
+  }
 })();
 
 (async () => {

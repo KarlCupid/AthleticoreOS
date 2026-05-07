@@ -45,19 +45,23 @@ const GOAL_TO_WORKOUT_TYPE: Record<string, string> = {
   upper_body_strength: 'upper_strength',
   lower_body_strength: 'lower_strength',
   boxing_support: 'boxing_support',
-  boxing_progression: 'boxing_support',
+  boxing_progression: 'boxing_progression',
+  boxing_skill_microdose: 'boxing_progression',
+  footwork_agility: 'boxing_progression',
+  shadowboxing_quality: 'boxing_progression',
   roadwork_aerobic_base: 'zone2_cardio',
-  roadwork_tempo: 'zone2_cardio',
-  roadwork_intervals: 'low_impact_conditioning',
-  alactic_repeat_power: 'boxing_support',
-  glycolytic_round_tolerance: 'low_impact_conditioning',
+  roadwork_tempo: 'roadwork_tempo',
+  roadwork_intervals: 'roadwork_intervals',
+  alactic_repeat_power: 'boxing_conditioning_support',
+  glycolytic_round_tolerance: 'boxing_conditioning_support',
   explosive_power: 'power',
   rotational_power: 'boxing_support',
   trunk_rotation_durability: 'core_durability',
-  shoulder_scap_durability: 'mobility',
-  neck_trap_durability: 'mobility',
-  hip_footwork_durability: 'mobility',
-  mobility_prehab: 'mobility',
+  shoulder_scap_durability: 'boxing_durability',
+  neck_trap_durability: 'boxing_durability',
+  hip_footwork_durability: 'boxing_durability',
+  hip_ankle_mobility: 'boxing_durability',
+  mobility_prehab: 'boxing_durability',
   recovery_reset: 'recovery',
   return_to_training: 'recovery',
 };
@@ -528,11 +532,16 @@ function payloadForExercise(
 ): PrescriptionPayload {
   const payload = template.payload;
   if (payload.kind === 'cardio') {
+    const exerciseText = `${exercise.id} ${exercise.name}`.toLowerCase();
     return {
       ...payload,
       modality: exercise.equipmentIds.includes('stationary_bike') || exercise.equipmentIds.includes('assault_bike')
         ? 'bike'
-        : exercise.equipmentIds.includes('rowing_machine') ? 'rower' : 'walk',
+        : exercise.equipmentIds.includes('rowing_machine')
+          ? 'rower'
+          : exercise.equipmentIds.includes('track_or_road') && (exerciseText.includes('run') || exerciseText.includes('roadwork'))
+            ? 'run'
+            : 'walk',
       durationMinutes: withNumericTarget(payload.durationMinutes, durationMinutes),
     };
   }

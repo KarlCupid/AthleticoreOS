@@ -28,6 +28,29 @@ Protected boxing sessions are schedule anchors. Boxing skill, pads, bag work, sp
 
 Sparring and competition are protected or coach-led only. The generator never creates live sparring, unsupervised fight simulation, or high-contact prescriptions.
 
+Deprecated `sport_skill` inputs are treated cautiously. They become boxing load only when the label clearly says boxing, pads, mitts, bag work, shadowboxing, footwork, sparring, bout, or boxing class/practice. MMA, grappling, wrestling, BJJ, Muay Thai, and kickboxing labels remain external non-boxing load.
+
+## Boxing Content Layer
+
+The planner requests boxing session families and the content layer now resolves those families to dedicated templates, prescriptions, and exercises rather than generic cardio, mobility, or strength fallbacks.
+
+- `boxing_skill_microdose`: short, low-risk skill support built around stance, breathing, rhythm, posture, and movement quality.
+- `footwork_agility`: boxing footwork, change-of-direction quality, ankle/calf/hip capacity, balance, and repeatable stance resets.
+- `shadowboxing_quality`: self-guided, low-contact shadowboxing quality with guard, foot placement, breath, and rhythm cues. It is support work, not a replacement for coaching.
+- `roadwork_zone2`: conversational aerobic base for repeat-round recovery.
+- `roadwork_tempo`: controlled moderate pacing durability for prepared weeks.
+- `roadwork_intervals`: harder aerobic-power support only when readiness and hard-day budget allow.
+- `alactic_repeat_power`: short burst work with long recoveries and low total fatigue, aimed at first-step and repeat-output quality.
+- `glycolytic_round_tolerance`: controlled round-based tolerance for prepared athletes, kept away from hard sparring.
+- `rotational_power`: low-volume, high-intent hip-to-trunk power transfer.
+- `trunk_durability`: anti-rotation, anti-extension, carries, bracing, and posture under fatigue.
+- `shoulder_scap_durability`: scapular control, serratus/rotator-cuff endurance, thoracic position, and guard durability.
+- `neck_trap_durability`: conservative trap, scapular, and postural durability only. The engine does not prescribe loaded neck bridges, aggressive manual resistance, or contact preparation.
+- `hip_ankle_mobility` and `hip_footwork_durability`: hips, ankles, calves, adductors, lateral movement capacity, and footwork readiness.
+- `recovery_reset`: breathing, easy circulation, mobility, and nervous-system downshifting.
+
+Microdoses exist because boxing adaptation depends on useful frequency, but not every exposure should be a full workout. A microdose can stack with protected boxing when it is short, low-load, and improves the chain without stealing from skill practice or recovery.
+
 ## Athletic Chain
 
 The weekly dose plan scores a boxing performance vector:
