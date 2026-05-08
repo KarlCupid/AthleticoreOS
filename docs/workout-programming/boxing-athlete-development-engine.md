@@ -51,6 +51,12 @@ The planner requests boxing session families and the content layer now resolves 
 
 Microdoses exist because boxing adaptation depends on useful frequency, but not every exposure should be a full workout. A microdose can stack with protected boxing when it is short, low-load, and improves the chain without stealing from skill practice or recovery.
 
+## Intent-To-Template Binding
+
+Planner intents carry the intended boxing session family, planned role, dose category, and optional preferred template ID into workout generation. The engine first tries the preferred template, then the canonical template for the boxing family, then falls back to normal scoring only when the intended template is incompatible with readiness, safety flags, duration, equipment, or experience.
+
+Fallbacks must be visible. If a boxing intent cannot use its intended template, the generated workout decision trace explains what was rejected and which safe fallback was selected. Silent generic fallbacks are treated as validation risk.
+
 ## Athletic Chain
 
 The weekly dose plan scores a boxing performance vector:
@@ -71,11 +77,54 @@ Each week exposes a boxing load ledger with protected boxing minutes/rounds, spa
 
 Protected roadwork can reduce additional generated roadwork, but protected boxing does not automatically erase Athleticore S&C or low-load support.
 
+Generated workouts update the ledger from actual selected content. If a hard conditioning intent is downgraded to mobility, recovery, or durability support, the ledger credits the lower-load work that was actually prescribed. Blocked workouts do not count as successful generated dose.
+
+The ledger also tracks technical microdose minutes so short boxing-support exposures are visible instead of being hidden inside generic session counts.
+
+## Outcome-Aware Progression
+
+The engine now has conservative progression hooks for boxing families. Recent completions, session RPE, pain before and after, completion status, feedback tags, and recent progression decisions can produce one of these actions:
+
+- `progress_volume`
+- `progress_intensity`
+- `repeat`
+- `regress`
+- `swap_family`
+- `deload`
+- `coach_review`
+
+Easy completed roadwork can earn a small volume or frequency progression. Hard alactic work that felt too difficult repeats or regresses instead of intensifying. Increased pain during shoulder or neck/trap durability triggers regression or coach review. Missed or abandoned sessions reduce variance and complexity before the engine adds novelty.
+
+These decisions can influence next-week family selection, variance level, dose target, and the hard generated cap. They are deliberately conservative until richer athlete history is available.
+
 ## Scheduling
 
 Hard generated work does not stack onto sparring or competition. Hard generated conditioning is kept away from hard sparring unless the plan can justify it. Low-load mobility, prehab, recovery, and footwork microdoses may stack when day capacity is safe.
 
 Protected duration and load count toward day capacity. If hard work cannot be placed safely, the scheduler downgrades to boxing-relevant low-load support when useful and warns when dose is under target.
+
+Placement uses a lightweight boxing week layout score. Candidates are penalized for hard work on sparring or competition days, reckless adjacent hard days, losing the only recovery day on high-load weeks, and poor spacing for the track. Amateur plans prefer agility and repeat-output spacing. Pro plans prefer pacing durability and recovery spacing. Limited availability can still stack low-load support on protected boxing days when the capacity math is safe.
+
+## UI-Ready Summary
+
+Generated weeks expose boxing-specific helper copy for product surfaces:
+
+- `weeklyBoxingHeadline`
+- `weeklyBoxingSummary`
+- `primaryBoxingFocus`
+- `hardDaySummary`
+- `protectedLoadSummary`
+- `generatedSupportSummary`
+- `nextBestAction`
+- `coachSummaryBullets`
+
+The copy should explain the actual programming decision, such as sparring owning the hard stress, roadwork already being covered, or red readiness removing hard work.
+
+## Media Readiness
+
+Dedicated boxing exercises currently use pending media hooks rather than invented assets. The content audit reports how many boxing exercises still need media, their priority, whether alt text is present, whether a missing-media reason is present, and whether a safe text-only fallback exists through setup, execution, and safety instructions.
+
+Text-only fallback is acceptable for the current safe-support layer, but media readiness remains a production review item before media-rich surfaces rely on these drills.
 
 ## Readiness And Taper
 

@@ -1,8 +1,11 @@
 import type {
   AthleteTrainingArchetype,
+  BoxingGeneratedDoseContribution,
   BoxingPerformanceVector,
   BoxingPlannedSessionIntent,
   BoxingPlannedSessionRole,
+  BoxingProgressionDecision,
+  BoxingProgressionSignal,
   BoxingQualityGap,
   BoxingRulesetProfile,
   BoxingSessionDoseCategory,
@@ -13,11 +16,13 @@ import type {
   BoxingWeeklyLoadLedger,
   CombatSportContext,
   GeneratedProgramSession,
+  ProgressionDecision,
   ProgramPhase,
   ProtectedBoxingWorkoutModality,
   ProtectedWorkoutInput,
   ProtectedWorkoutModality,
   WeeklyTrainingDosePrescription,
+  WorkoutCompletionLog,
   WorkoutIntensity,
   WorkoutReadinessBand,
 } from './types.ts';
@@ -111,6 +116,34 @@ const HARD_FAMILIES = new Set<BoxingSessionFamily>([
   'alactic_repeat_power',
   'glycolytic_round_tolerance',
 ]);
+
+const BOXING_FAMILY_TEMPLATE_IDS: Record<BoxingSessionFamily, string> = {
+  boxing_skill_microdose: 'boxing_skill_microdose',
+  footwork_agility: 'footwork_agility',
+  reaction_rhythm: 'boxing_skill_microdose',
+  shadowboxing_quality: 'shadowboxing_quality',
+  bag_pad_support: 'shadowboxing_quality',
+  max_strength_lower: 'lower_strength',
+  strength_power: 'boxing_support',
+  explosive_power: 'boxing_rotational_power',
+  rotational_power: 'boxing_rotational_power',
+  trunk_durability: 'boxing_trunk_durability',
+  shoulder_scap_durability: 'boxing_shoulder_scap_durability',
+  neck_trap_durability: 'boxing_neck_trap_durability',
+  hip_ankle_mobility: 'boxing_hip_ankle_mobility',
+  roadwork_zone2: 'boxing_roadwork_zone2',
+  roadwork_tempo: 'boxing_roadwork_tempo',
+  roadwork_intervals: 'boxing_roadwork_intervals',
+  alactic_repeat_power: 'boxing_alactic_repeat_power',
+  glycolytic_round_tolerance: 'boxing_glycolytic_round_tolerance',
+  boxing_conditioning_support: 'boxing_alactic_repeat_power',
+  mobility_prehab: 'boxing_hip_ankle_mobility',
+  recovery_reset: 'boxing_recovery_reset',
+};
+
+export function templateIdForBoxingFamily(family: BoxingSessionFamily): string {
+  return BOXING_FAMILY_TEMPLATE_IDS[family];
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -620,6 +653,7 @@ function emptyLedger(hardDayCap: number): BoxingWeeklyLoadLedger {
     highIntensityIntervals: 0,
     alacticBursts: 0,
     glycolyticRounds: 0,
+    technicalMicrodoseMinutes: 0,
     sessionRpeLoad: 0,
     protectedLoadScore: 0,
     generatedLoadScore: 0,
@@ -775,6 +809,180 @@ function qualityGaps(current: BoxingPerformanceVector, target: BoxingPerformance
     });
 }
 
+function familyForGoalId(goalId: string | undefined): BoxingSessionFamily | null {
+  switch (goalId) {
+    case 'boxing_skill_microdose':
+    case 'boxing_progression':
+      return 'boxing_skill_microdose';
+    case 'footwork_agility':
+      return 'footwork_agility';
+    case 'shadowboxing_quality':
+      return 'shadowboxing_quality';
+    case 'roadwork_aerobic_base':
+      return 'roadwork_zone2';
+    case 'roadwork_tempo':
+      return 'roadwork_tempo';
+    case 'roadwork_intervals':
+      return 'roadwork_intervals';
+    case 'alactic_repeat_power':
+      return 'alactic_repeat_power';
+    case 'glycolytic_round_tolerance':
+      return 'glycolytic_round_tolerance';
+    case 'explosive_power':
+      return 'explosive_power';
+    case 'rotational_power':
+      return 'rotational_power';
+    case 'trunk_rotation_durability':
+      return 'trunk_durability';
+    case 'shoulder_scap_durability':
+      return 'shoulder_scap_durability';
+    case 'neck_trap_durability':
+      return 'neck_trap_durability';
+    case 'hip_footwork_durability':
+    case 'hip_ankle_mobility':
+      return 'hip_ankle_mobility';
+    case 'mobility_prehab':
+      return 'mobility_prehab';
+    case 'recovery_reset':
+    case 'recovery':
+      return 'recovery_reset';
+    case 'boxing_support':
+      return 'strength_power';
+    default:
+      return null;
+  }
+}
+
+function familyForTemplateId(templateId: string | undefined): BoxingSessionFamily | null {
+  if (!templateId) return null;
+  const direct = (Object.entries(BOXING_FAMILY_TEMPLATE_IDS) as Array<[BoxingSessionFamily, string]>)
+    .find(([, id]) => id === templateId)?.[0];
+  if (direct) return direct;
+  if (templateId === 'lower_strength') return 'max_strength_lower';
+  if (templateId === 'boxing_support') return 'strength_power';
+  if (templateId === 'boxing_roadwork_zone2') return 'roadwork_zone2';
+  if (templateId === 'boxing_roadwork_tempo') return 'roadwork_tempo';
+  if (templateId === 'boxing_roadwork_intervals') return 'roadwork_intervals';
+  return null;
+}
+
+function completionMatchesFamily(completion: WorkoutCompletionLog, family: BoxingSessionFamily): boolean {
+  return familyForGoalId(completion.goalId) === family
+    || familyForTemplateId(completion.prescriptionTemplateId) === family
+    || (family === 'roadwork_zone2' && completion.workoutTypeId === 'zone2_cardio')
+    || (family === 'recovery_reset' && completion.workoutTypeId === 'recovery');
+}
+
+function completionWasSuccessful(completion: WorkoutCompletionLog): boolean {
+  return completion.completionStatus == null || completion.completionStatus === 'completed';
+}
+
+function average(values: number[]): number | null {
+  const finite = values.filter((value) => Number.isFinite(value));
+  if (finite.length === 0) return null;
+  return finite.reduce((sum, value) => sum + value, 0) / finite.length;
+}
+
+export function evaluateBoxingProgressionForFamily(signal: BoxingProgressionSignal): BoxingProgressionDecision {
+  const completions = signal.recentWorkoutCompletions ?? [];
+  const matchingCompletions = completions.filter((completion) => completionMatchesFamily(completion, signal.family));
+  const usefulCompletions = matchingCompletions.length > 0 ? matchingCompletions : completions;
+  const completionRate = signal.completionRate
+    ?? (usefulCompletions.length
+      ? usefulCompletions.filter(completionWasSuccessful).length / usefulCompletions.length
+      : 1);
+  const latest = usefulCompletions[0];
+  const averageRpe = average([
+    signal.sessionRpe ?? NaN,
+    ...usefulCompletions.slice(0, 3).map((completion) => completion.sessionRpe),
+  ]);
+  const painBefore = signal.painScoreBefore ?? latest?.painScoreBefore ?? null;
+  const painAfter = signal.painScoreAfter ?? latest?.painScoreAfter ?? null;
+  const painDelta = painBefore != null && painAfter != null ? painAfter - painBefore : 0;
+  const tags = new Set((signal.feedbackTags ?? []).map(normalizeText));
+  const priorCaution = signal.recentProgressionDecisions?.some((decision) => /regress|deload|recover|reduce|substitute/i.test(decision.direction)) ?? false;
+
+  if (painDelta >= 2 || [...tags].some((tag) => /pain|sharp|symptom|injury/.test(tag))) {
+    const shoulderOrNeck = signal.family === 'shoulder_scap_durability' || signal.family === 'neck_trap_durability';
+    return {
+      family: signal.family,
+      action: shoulderOrNeck ? 'coach_review' : 'regress',
+      rationale: shoulderOrNeck
+        ? 'Pain increased on a shoulder/neck durability exposure, so progression pauses and coach review is recommended before adding load.'
+        : 'Pain increased after this family, so the next exposure should regress before any progression.',
+      doseTargetDelta: -1,
+      hardGeneratedCapDelta: -1,
+      varianceLevelOverride: 'low',
+      avoidedFamilies: [signal.family],
+      coachReviewRecommended: shoulderOrNeck,
+    };
+  }
+
+  if (completionRate < 0.67 || [...tags].some((tag) => /missed|skipped|could not finish|too busy/.test(tag))) {
+    return {
+      family: signal.family,
+      action: 'deload',
+      rationale: 'Recent missed or incomplete sessions point to too much complexity or load, so next week should simplify and preserve low-load frequency.',
+      doseTargetDelta: -1,
+      hardGeneratedCapDelta: -1,
+      varianceLevelOverride: 'low',
+      avoidedFamilies: HARD_FAMILIES.has(signal.family) ? [signal.family] : [],
+    };
+  }
+
+  if ((averageRpe ?? 0) >= 8.5 || [...tags].some((tag) => /too hard|crushed|failed|overwhelmed/.test(tag))) {
+    return {
+      family: signal.family,
+      action: HARD_FAMILIES.has(signal.family) ? 'regress' : 'repeat',
+      rationale: 'The last exposure was too demanding, so Athleticore repeats or slightly regresses instead of intensifying.',
+      doseTargetDelta: HARD_FAMILIES.has(signal.family) ? -1 : 0,
+      hardGeneratedCapDelta: HARD_FAMILIES.has(signal.family) ? -1 : 0,
+      varianceLevelOverride: 'low',
+      avoidedFamilies: HARD_FAMILIES.has(signal.family) ? [signal.family] : [],
+    };
+  }
+
+  const easySuccessfulCount = usefulCompletions
+    .filter((completion) => completionWasSuccessful(completion) && completion.sessionRpe <= 5.5)
+    .length;
+  if (
+    easySuccessfulCount >= 2
+    && completionRate >= 0.9
+    && !priorCaution
+    && ['roadwork_zone2', 'roadwork_tempo', 'recovery_reset', 'mobility_prehab'].includes(signal.family)
+  ) {
+    return {
+      family: signal.family,
+      action: signal.family === 'roadwork_tempo' ? 'progress_intensity' : 'progress_volume',
+      rationale: 'Two easy successful exposures with stable pain support a small, controlled progression.',
+      doseTargetDelta: 1,
+      hardGeneratedCapDelta: 0,
+      varianceLevelOverride: 'moderate',
+      nextFamilyPreference: signal.family,
+    };
+  }
+
+  return {
+    family: signal.family,
+    action: 'repeat',
+    rationale: 'No strong signal supports changing the dose, so the safest next step is to repeat the family and watch completion quality.',
+    doseTargetDelta: 0,
+    hardGeneratedCapDelta: 0,
+  };
+}
+
+function progressionFamilies(input: {
+  completions: readonly WorkoutCompletionLog[];
+  intents: readonly BoxingPlannedSessionIntent[];
+}): BoxingSessionFamily[] {
+  return unique([
+    ...input.completions
+      .map((completion) => familyForGoalId(completion.goalId) ?? familyForTemplateId(completion.prescriptionTemplateId))
+      .filter((family): family is BoxingSessionFamily => Boolean(family)),
+    ...input.intents.map((intentItem) => intentItem.family),
+  ]);
+}
+
 function variancePlan(input: {
   track: BoxingTrainingTrack;
   readinessBand: WorkoutReadinessBand;
@@ -782,14 +990,21 @@ function variancePlan(input: {
   fightCampWeeksOut?: number | undefined;
   safetyFlags: readonly string[];
   intents?: readonly BoxingPlannedSessionIntent[] | undefined;
+  progressionDecisions?: readonly BoxingProgressionDecision[] | undefined;
 }): BoxingVariancePlan {
   const fatigue = input.readinessBand === 'red'
     || input.readinessBand === 'orange'
     || input.safetyFlags.some((flag) => /high_fatigue|poor_sleep|under_fueled|high_soreness/.test(flag));
   const taper = input.fightCampWeeksOut != null && input.fightCampWeeksOut <= 2;
   const beginner = input.track === 'aspiring_boxer' || input.track === 'amateur_novice';
+  const progressionCaution = (input.progressionDecisions ?? []).some((decision) => (
+    decision.varianceLevelOverride === 'low'
+    || decision.action === 'regress'
+    || decision.action === 'deload'
+    || decision.action === 'coach_review'
+  ));
   const highSkillOpen = input.track === 'amateur_open' || input.track === 'amateur_elite' || input.track === 'pro_development';
-  const varianceLevel: BoxingVariancePlan['varianceLevel'] = fatigue || taper || beginner
+  const varianceLevel: BoxingVariancePlan['varianceLevel'] = fatigue || taper || beginner || progressionCaution
     ? 'low'
     : highSkillOpen
       ? 'moderate'
@@ -802,7 +1017,9 @@ function variancePlan(input: {
       : ['strength_power', 'roadwork_zone2', 'mobility_prehab'];
   return {
     varianceLevel,
-    reason: fatigue
+    reason: progressionCaution
+      ? 'Recent outcome signals call for lower variance and repeatable, coach-review-friendly exposures.'
+      : fatigue
       ? 'Readiness or fatigue signals lowered variance so the athlete repeats familiar low-risk formats.'
       : taper
         ? 'Fight-camp taper lowers random novelty and keeps reliable maintenance work.'
@@ -814,11 +1031,14 @@ function variancePlan(input: {
     anchorFamiliesToRepeat: unique(anchors.filter((family) => families.length === 0 || families.includes(family))),
     familiesToRotate: families.filter((family) => !anchors.includes(family)),
     recentlyUsedFamilies: [],
-    avoidedFamilies: fatigue
-      ? ['glycolytic_round_tolerance', 'roadwork_intervals', 'alactic_repeat_power']
-      : taper
-        ? ['glycolytic_round_tolerance', 'roadwork_intervals', 'max_strength_lower']
-        : [],
+    avoidedFamilies: unique([
+      ...(fatigue
+        ? ['glycolytic_round_tolerance', 'roadwork_intervals', 'alactic_repeat_power'] as BoxingSessionFamily[]
+        : taper
+          ? ['glycolytic_round_tolerance', 'roadwork_intervals', 'max_strength_lower'] as BoxingSessionFamily[]
+          : []),
+      ...(input.progressionDecisions ?? []).flatMap((decision) => decision.avoidedFamilies ?? []),
+    ]),
   };
 }
 
@@ -1217,6 +1437,9 @@ export function planWeeklyTrainingDose(input: {
   generatedSessionsPerWeek?: number | undefined;
   totalExposureTarget?: number | undefined;
   safetyFlags?: readonly string[] | undefined;
+  recentWorkoutCompletions?: readonly WorkoutCompletionLog[] | undefined;
+  recentProgressionDecisions?: readonly ProgressionDecision[] | undefined;
+  recentFeedbackTags?: readonly string[] | undefined;
 }): WeeklyTrainingDosePrescription {
   const track = resolveBoxingTrainingTrack({
     goalId: input.goalId,
@@ -1253,6 +1476,33 @@ export function planWeeklyTrainingDose(input: {
     adjustedDose.roadworkTempoTarget = Math.max(0, adjustedDose.roadworkTempoTarget - Math.max(0, counts.protectedRoadworkCount - 1));
   }
 
+  const completionFamilies = progressionFamilies({
+    completions: input.recentWorkoutCompletions ?? [],
+    intents: [],
+  });
+  const provisionalProgressionDecisions = completionFamilies.map((family) => evaluateBoxingProgressionForFamily({
+    family,
+    recentWorkoutCompletions: input.recentWorkoutCompletions as WorkoutCompletionLog[] | undefined,
+    recentProgressionDecisions: input.recentProgressionDecisions as ProgressionDecision[] | undefined,
+    feedbackTags: input.recentFeedbackTags as string[] | undefined,
+  }));
+  for (const decision of provisionalProgressionDecisions) {
+    if (decision.action === 'progress_volume' && decision.doseTargetDelta && decision.doseTargetDelta > 0) {
+      if (decision.family === 'roadwork_zone2') adjustedDose.roadworkAerobicTarget += decision.doseTargetDelta;
+      else if (decision.family === 'roadwork_tempo') adjustedDose.roadworkTempoTarget += decision.doseTargetDelta;
+      else if (decision.family === 'mobility_prehab' || decision.family === 'recovery_reset') adjustedDose.mobilityPrehabTarget += decision.doseTargetDelta;
+      adjustedDose.generatedSessionTarget = Math.min(adjustedDose.generatedSessionTarget + 1, adjustedDose.totalExposureTarget + 1);
+    }
+    if (decision.action === 'progress_intensity' && decision.family === 'roadwork_tempo') {
+      adjustedDose.roadworkTempoTarget += 1;
+    }
+    if (decision.hardGeneratedCapDelta && decision.hardGeneratedCapDelta < 0) {
+      adjustedDose.hardDayTarget = Math.max(0, adjustedDose.hardDayTarget + decision.hardGeneratedCapDelta);
+      adjustedDose.hardDayCap = Math.max(0, adjustedDose.hardDayCap + decision.hardGeneratedCapDelta);
+      adjustedDose.conditioningTarget = Math.max(0, adjustedDose.conditioningTarget - 1);
+    }
+  }
+
   const ledger = protectedLoadLedger({
     protectedWorkouts: input.protectedWorkouts,
     hardDayCap: adjustedDose.hardDayCap,
@@ -1281,6 +1531,16 @@ export function planWeeklyTrainingDose(input: {
     generatedHardSessionCap,
     protectedCounts: counts,
   });
+  const progressionDecisions = provisionalProgressionDecisions.length
+    ? provisionalProgressionDecisions
+    : progressionFamilies({ completions: [], intents })
+      .map((family) => evaluateBoxingProgressionForFamily({
+        family,
+        recentWorkoutCompletions: input.recentWorkoutCompletions as WorkoutCompletionLog[] | undefined,
+        recentProgressionDecisions: input.recentProgressionDecisions as ProgressionDecision[] | undefined,
+        feedbackTags: input.recentFeedbackTags as string[] | undefined,
+      }))
+      .filter((decision) => decision.action !== 'repeat' || decision.doseTargetDelta !== 0);
   const variance = variancePlan({
     track,
     readinessBand: input.readinessBand,
@@ -1288,6 +1548,7 @@ export function planWeeklyTrainingDose(input: {
     fightCampWeeksOut: rulesetProfile.fightCampWeeksOut,
     safetyFlags: input.safetyFlags ?? [],
     intents,
+    progressionDecisions,
   });
   const boxingProgressionPhase = phaseFromContext({
     context: input.boxingTrainingContext,
@@ -1340,11 +1601,13 @@ export function planWeeklyTrainingDose(input: {
     qualityGaps: gaps,
     loadLedger: ledger,
     intents,
+    boxingProgressionDecisions: progressionDecisions,
     variancePlan: variance,
     rationale: [
       ...rationaleForTrack(track, input.protectedWorkouts.length),
       `Hard-day cap is ${adjustedDose.hardDayCap}; protected hard-day count is ${counts.protectedHardDayCount}; generated hard cap is ${generatedHardSessionCap}.`,
       'Variance is controlled: formats may rotate, but the trained boxing qualities stay anchored.',
+      ...progressionDecisions.map((decision) => `Progression signal for ${decision.family}: ${decision.rationale}`),
     ],
     warnings,
   };
@@ -1370,54 +1633,184 @@ function sessionHard(session: GeneratedProgramSession): boolean {
   return false;
 }
 
-function generatedDoseContribution(session: GeneratedProgramSession, ledger: BoxingWeeklyLoadLedger): void {
-  if (session.protectedAnchor || session.workout?.blocked) return;
-  const minutes = sessionEstimatedMinutes(session);
-  const family = session.boxingSessionFamily;
-  if (session.sessionDoseCategory === 'full_session') ledger.generatedFullSessionCount += 1;
-  if (session.sessionDoseCategory === 'support_session') ledger.generatedSupportSessionCount += 1;
-  if (session.sessionDoseCategory === 'microdose') ledger.generatedMicrodoseCount += 1;
-  if (session.sessionDoseCategory === 'recovery_reset') ledger.generatedSupportSessionCount += 1;
-  ledger.generatedLoadScore += session.estimatedLoadScore ?? 0;
-  ledger.sessionRpeLoad += session.estimatedLoadScore ?? 0;
+function numericPayloadTarget(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'object' || value === null) return fallback;
+  const record = value as { target?: unknown; min?: unknown; max?: unknown };
+  for (const candidate of [record.target, record.min, record.max]) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
+  }
+  return fallback;
+}
 
+function familyForActualSession(session: GeneratedProgramSession): BoxingSessionFamily | undefined {
+  return familyForTemplateId(session.workout?.templateId)
+    ?? familyForGoalId(session.workout?.goalId)
+    ?? session.boxingSessionFamily;
+}
+
+function generatedSessionLoadScore(session: GeneratedProgramSession, minutes: number): number {
+  if (session.estimatedLoadScore != null && Number.isFinite(session.estimatedLoadScore)) return session.estimatedLoadScore;
+  const rpe = session.plannedIntensity === 'hard'
+    ? 8
+    : session.plannedIntensity === 'moderate'
+      ? 6
+      : session.plannedIntensity === 'recovery'
+        ? 2
+        : 3;
+  return Math.round(minutes * rpe);
+}
+
+export function contributionForGeneratedSession(session: GeneratedProgramSession): BoxingGeneratedDoseContribution {
+  const zero: BoxingGeneratedDoseContribution = {
+    minutes: 0,
+    loadScore: 0,
+    strengthMainSets: 0,
+    powerContacts: 0,
+    trunkDurabilitySets: 0,
+    shoulderPrehabMinutes: 0,
+    mobilityMinutes: 0,
+    roadworkMinutes: 0,
+    highIntensityIntervals: 0,
+    alacticBursts: 0,
+    glycolyticRounds: 0,
+    technicalMicrodoseMinutes: 0,
+    fullSessionCount: 0,
+    supportSessionCount: 0,
+    microdoseCount: 0,
+    recoveryResetCount: 0,
+    counted: false,
+    rationale: [],
+  };
+  if (session.protectedAnchor) return { ...zero, rationale: ['Protected anchors are accounted separately.'] };
+  if (!session.workout || session.workout.blocked) return { ...zero, rationale: ['Blocked or missing workouts do not count as successful generated dose.'] };
+  const minutes = sessionEstimatedMinutes(session);
+  const family = familyForActualSession(session);
+  const contribution: BoxingGeneratedDoseContribution = {
+    ...zero,
+    minutes,
+    loadScore: generatedSessionLoadScore(session, minutes),
+    fullSessionCount: session.sessionDoseCategory === 'full_session' ? 1 : 0,
+    supportSessionCount: session.sessionDoseCategory === 'support_session' || session.sessionDoseCategory === 'recovery_reset' ? 1 : 0,
+    microdoseCount: session.sessionDoseCategory === 'microdose' ? 1 : 0,
+    recoveryResetCount: session.sessionDoseCategory === 'recovery_reset' ? 1 : 0,
+    counted: true,
+    rationale: [`Actual generated template ${session.workout.templateId} credited as ${family ?? 'unknown boxing support'}.`],
+  };
+
+  for (const block of session.workout.blocks) {
+    for (const exercise of block.exercises) {
+      const payload = exercise.prescription.payload as unknown as Record<string, unknown>;
+      const sets = exercise.prescription.sets ?? numericPayloadTarget(payload.sets, block.kind === 'main' ? 2 : 1);
+      const duration = exercise.prescription.durationMinutes
+        ?? numericPayloadTarget(payload.durationMinutes, Math.max(1, Math.round(block.estimatedDurationMinutes / Math.max(1, block.exercises.length))));
+      const patternText = exercise.movementPatternIds.join(' ');
+      const isMain = block.kind === 'main';
+      const kind = exercise.prescription.kind;
+
+      if (isMain && (kind === 'resistance' || session.workout.workoutTypeId.includes('strength'))) {
+        contribution.strengthMainSets += Math.max(0, sets);
+      }
+      if (kind === 'power') {
+        const reps = typeof exercise.prescription.reps === 'string'
+          ? Number.parseInt(exercise.prescription.reps, 10)
+          : NaN;
+        contribution.powerContacts += Math.max(4, Math.round(sets * (Number.isFinite(reps) ? reps : 4)));
+      }
+      if (kind === 'cardio' || /roadwork|zone2|tempo/.test(session.workout.templateId)) {
+        contribution.roadworkMinutes += Math.max(0, duration);
+      }
+      if (kind === 'interval' || kind === 'conditioning') {
+        const rounds = numericPayloadTarget(payload.rounds, family === 'glycolytic_round_tolerance' ? 3 : 6);
+        contribution.highIntensityIntervals += Math.max(0, Math.round(rounds));
+        if (family === 'alactic_repeat_power' || session.workout.templateId.includes('alactic')) {
+          contribution.alacticBursts += Math.max(0, Math.round(rounds));
+        }
+        if (family === 'glycolytic_round_tolerance' || session.workout.templateId.includes('glycolytic')) {
+          contribution.glycolyticRounds += Math.max(1, Math.round(rounds / 2));
+        }
+      }
+      if (/rotation|anti_rotation|carry|core|bracing/.test(patternText) || family === 'trunk_durability') {
+        contribution.trunkDurabilitySets += Math.max(0, isMain ? sets : Math.ceil(sets / 2));
+      }
+      if (/shoulder_prehab|scap|thoracic/.test(patternText) || family === 'shoulder_scap_durability' || family === 'neck_trap_durability') {
+        contribution.shoulderPrehabMinutes += Math.max(0, duration);
+      }
+      if (kind === 'mobility' || kind === 'flexibility' || kind === 'recovery' || /mobility|breathing|balance/.test(patternText)) {
+        contribution.mobilityMinutes += Math.max(0, duration);
+      }
+      if (['boxing_skill_microdose', 'footwork_agility', 'reaction_rhythm', 'shadowboxing_quality', 'bag_pad_support'].includes(family ?? '')) {
+        contribution.technicalMicrodoseMinutes += Math.max(0, duration);
+      }
+    }
+  }
+
+  if (family === 'rotational_power' || family === 'explosive_power') contribution.powerContacts = Math.max(contribution.powerContacts, 16);
+  if (family === 'alactic_repeat_power') contribution.alacticBursts = Math.max(contribution.alacticBursts, 6);
+  if (family === 'glycolytic_round_tolerance') contribution.glycolyticRounds = Math.max(contribution.glycolyticRounds, 2);
+  if (family === 'recovery_reset') contribution.mobilityMinutes = Math.max(contribution.mobilityMinutes, minutes);
+  if (contribution.technicalMicrodoseMinutes > 0 && contribution.microdoseCount === 0) {
+    contribution.microdoseCount = 1;
+  }
+  return contribution;
+}
+
+function generatedDoseContribution(session: GeneratedProgramSession, ledger: BoxingWeeklyLoadLedger): void {
+  const contribution = contributionForGeneratedSession(session);
+  if (!contribution.counted) return;
+  ledger.generatedFullSessionCount += contribution.fullSessionCount;
+  ledger.generatedSupportSessionCount += contribution.supportSessionCount;
+  ledger.generatedMicrodoseCount += contribution.microdoseCount;
+  ledger.generatedLoadScore += contribution.loadScore;
+  ledger.sessionRpeLoad += contribution.loadScore;
+  ledger.strengthMainSets += contribution.strengthMainSets;
+  ledger.powerContacts += contribution.powerContacts;
+  ledger.trunkDurabilitySets += contribution.trunkDurabilitySets;
+  ledger.shoulderPrehabMinutes += contribution.shoulderPrehabMinutes;
+  ledger.mobilityMinutes += contribution.mobilityMinutes;
+  ledger.roadworkMinutes += contribution.roadworkMinutes;
+  ledger.highIntensityIntervals += contribution.highIntensityIntervals;
+  ledger.alacticBursts += contribution.alacticBursts;
+  ledger.glycolyticRounds += contribution.glycolyticRounds;
+  ledger.technicalMicrodoseMinutes += contribution.technicalMicrodoseMinutes;
+  const family = familyForActualSession(session);
   switch (family) {
     case 'max_strength_lower':
     case 'strength_power':
-      ledger.strengthMainSets += session.sessionDoseCategory === 'full_session' ? 8 : 4;
-      ledger.powerContacts += family === 'strength_power' ? 12 : 0;
+      ledger.strengthMainSets += Math.max(0, contribution.strengthMainSets === 0 ? (session.sessionDoseCategory === 'full_session' ? 8 : 4) : 0);
+      ledger.powerContacts += family === 'strength_power' && contribution.powerContacts === 0 ? 12 : 0;
       break;
     case 'explosive_power':
     case 'rotational_power':
-      ledger.powerContacts += 20;
-      ledger.trunkDurabilitySets += family === 'rotational_power' ? 4 : 0;
+      ledger.powerContacts += contribution.powerContacts === 0 ? 20 : 0;
+      ledger.trunkDurabilitySets += family === 'rotational_power' && contribution.trunkDurabilitySets === 0 ? 4 : 0;
       break;
     case 'alactic_repeat_power':
-      ledger.alacticBursts += 10;
-      ledger.powerContacts += 16;
+      ledger.alacticBursts += contribution.alacticBursts === 0 ? 10 : 0;
+      ledger.powerContacts += contribution.powerContacts === 0 ? 16 : 0;
       break;
     case 'glycolytic_round_tolerance':
-      ledger.glycolyticRounds += 3;
-      ledger.highIntensityIntervals += 4;
+      ledger.glycolyticRounds += contribution.glycolyticRounds === 0 ? 3 : 0;
+      ledger.highIntensityIntervals += contribution.highIntensityIntervals === 0 ? 4 : 0;
       break;
     case 'roadwork_zone2':
     case 'roadwork_tempo':
     case 'roadwork_intervals':
-      ledger.roadworkMinutes += minutes;
-      if (family !== 'roadwork_zone2') ledger.highIntensityIntervals += family === 'roadwork_intervals' ? 6 : 3;
+      ledger.roadworkMinutes += contribution.roadworkMinutes === 0 ? sessionEstimatedMinutes(session) : 0;
+      if (family !== 'roadwork_zone2' && contribution.highIntensityIntervals === 0) ledger.highIntensityIntervals += family === 'roadwork_intervals' ? 6 : 3;
       break;
     case 'trunk_durability':
-      ledger.trunkDurabilitySets += 6;
+      ledger.trunkDurabilitySets += contribution.trunkDurabilitySets === 0 ? 6 : 0;
       break;
     case 'shoulder_scap_durability':
     case 'neck_trap_durability':
-      ledger.shoulderPrehabMinutes += minutes;
-      ledger.mobilityMinutes += Math.round(minutes * 0.5);
+      ledger.shoulderPrehabMinutes += contribution.shoulderPrehabMinutes === 0 ? sessionEstimatedMinutes(session) : 0;
+      ledger.mobilityMinutes += contribution.mobilityMinutes === 0 ? Math.round(sessionEstimatedMinutes(session) * 0.5) : 0;
       break;
     case 'hip_ankle_mobility':
     case 'mobility_prehab':
     case 'recovery_reset':
-      ledger.mobilityMinutes += minutes;
+      ledger.mobilityMinutes += contribution.mobilityMinutes === 0 ? sessionEstimatedMinutes(session) : 0;
       break;
     case 'boxing_skill_microdose':
     case 'footwork_agility':
@@ -1425,9 +1818,8 @@ function generatedDoseContribution(session: GeneratedProgramSession, ledger: Box
     case 'shadowboxing_quality':
     case 'bag_pad_support':
     case 'boxing_conditioning_support':
-      ledger.generatedMicrodoseCount += session.sessionDoseCategory === 'microdose' ? 0 : 1;
-      ledger.powerContacts += family === 'boxing_conditioning_support' ? 8 : 0;
-      ledger.trunkDurabilitySets += family === 'bag_pad_support' ? 2 : 0;
+      ledger.powerContacts += family === 'boxing_conditioning_support' && contribution.powerContacts === 0 ? 8 : 0;
+      ledger.trunkDurabilitySets += family === 'bag_pad_support' && contribution.trunkDurabilitySets === 0 ? 2 : 0;
       break;
   }
 }

@@ -2,8 +2,13 @@ import {
   generateSingleSessionWorkout,
   generateWeeklyWorkoutProgram,
   inferProtectedWorkoutModality,
+  auditBoxingExerciseMediaReadiness,
+  contributionForGeneratedSession,
+  evaluateBoxingProgressionForFamily,
+  templateIdForBoxingFamily,
   validateGeneratedProgram,
   validateWorkoutProgrammingCatalog,
+  workoutProgrammingCatalog,
 } from './index.ts';
 import { generateWeeklyProgramFromPerformanceState } from './workoutProgramService.ts';
 import type {
@@ -13,6 +18,7 @@ import type {
   GeneratedProgram,
   GeneratedWorkout,
   ProtectedWorkoutInput,
+  WorkoutCompletionLog,
   WorkoutReadinessBand,
 } from './index.ts';
 import { mergeProfileRequest } from './workoutServiceShared.ts';
@@ -40,6 +46,7 @@ function baseProgram(input: {
   generatedSessionsPerWeek?: number;
   totalExposureTarget?: number;
   goalId?: string;
+  safetyFlags?: string[];
 }): GeneratedProgram {
   const boxingTrainingContext: BoxingTrainingContext = {
     track: input.track,
@@ -54,6 +61,7 @@ function baseProgram(input: {
     equipmentIds: ['bodyweight', 'dumbbells', 'resistance_band', 'stationary_bike', 'mat', 'track_or_road', 'open_space', 'medicine_ball'],
     experienceLevel: input.track === 'aspiring_boxer' ? 'beginner' : 'intermediate',
     readinessBand: input.readinessBand ?? 'green',
+    safetyFlags: input.safetyFlags ?? [],
     desiredProgramLengthWeeks: 2,
     availableDays: input.availableDays ?? [1, 2, 3, 4, 5, 6],
     protectedWorkouts: input.protectedWorkouts ?? [],
@@ -87,6 +95,33 @@ function generatedTemplateIds(program: GeneratedProgram): string[] {
   return generatedSessions(program)
     .map((session) => session.workout?.templateId)
     .filter((templateId): templateId is string => Boolean(templateId));
+}
+
+function hasTemplateFallbackTrace(workout: GeneratedWorkout | null): boolean {
+  return workout?.decisionTrace?.some((entry) => (
+    /fallback|rejected|preferred_session_template_rejected|boxing_family_template_rejected/i.test(entry.step)
+    || /could not be used|fallback/i.test(entry.reason)
+  )) ?? false;
+}
+
+function boxingIntentTemplatesBound(program: GeneratedProgram): boolean {
+  return generatedSessions(program).every((session) => {
+    if (!session.boxingSessionFamily || !session.workout) return true;
+    return session.workout.templateId === templateIdForBoxingFamily(session.boxingSessionFamily)
+      || hasTemplateFallbackTrace(session.workout);
+  });
+}
+
+function completion(update: Partial<WorkoutCompletionLog>): WorkoutCompletionLog {
+  return {
+    workoutId: update.workoutId ?? 'workout',
+    completedAt: update.completedAt ?? '2026-05-01T00:00:00.000Z',
+    plannedDurationMinutes: update.plannedDurationMinutes ?? 30,
+    actualDurationMinutes: update.actualDurationMinutes ?? 30,
+    sessionRpe: update.sessionRpe ?? 5,
+    exerciseResults: update.exerciseResults ?? [],
+    ...update,
+  };
 }
 
 function hasHardGeneratedOnProtectedSparringDay(program: GeneratedProgram): boolean {
@@ -174,8 +209,12 @@ console.log('\n-- workout programming boxing-first planner --');
       equipmentIds: ['bodyweight', 'open_space', 'mat', 'track_or_road', 'medicine_ball', 'resistance_band', 'stationary_bike'],
       experienceLevel: item.experienceLevel ?? 'intermediate',
       readinessBand: 'green',
+      intendedBoxingSessionFamily: item.family,
+      intendedSessionDoseCategory: item.family === 'boxing_skill_microdose' ? 'microdose' : 'support_session',
+      preferredSessionTemplateId: templateIdForBoxingFamily(item.family),
     });
     assert(`B0 ${item.family} uses boxing-specific template`, item.expectedTemplateIds.includes(workout.templateId));
+    assert(`B0 ${item.family} respects intent-template binding`, workout.templateId === templateIdForBoxingFamily(item.family) || hasTemplateFallbackTrace(workout));
     assert(`B0 ${item.family} validates`, workout.validation?.isValid === true);
     assert(`B0 ${item.family} is not generic fallback`, !['mobility_flow', 'zone2_cardio', 'low_impact_conditioning', 'boxing_support'].includes(workout.templateId));
   }
@@ -197,6 +236,8 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('A hard-day cap respected', firstWeek.hardDayCount <= (firstWeek.weeklyDose?.hardDayCap ?? 3));
   assert('A validation passes', validateGeneratedProgram(program).valid);
   assert('A selected templates include boxing support', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_') || templateId === 'footwork_agility'));
+  assert('A planner intents bind to templates or explain fallback', boxingIntentTemplatesBound(program));
+  assert('A UI-ready boxing copy exists', Boolean(firstWeek.weeklyBoxingHeadline && firstWeek.weeklyBoxingSummary && firstWeek.nextBestAction && firstWeek.coachSummaryBullets?.length));
 })();
 
 (() => {
@@ -215,6 +256,7 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('B no generated sparring template', !generatedTemplateIds(program).some((templateId) => /sparring/i.test(templateId)));
   assert('B includes roadwork/mobility/durability/recovery support', families.some((family) => ['roadwork_zone2', 'mobility_prehab', 'shoulder_scap_durability', 'hip_ankle_mobility', 'recovery_reset'].includes(family)));
   assert('B selected support is boxing-relevant', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_')));
+  assert('B intent-template binding holds or warns', boxingIntentTemplatesBound(program));
   assert('B validation passes', validateGeneratedProgram(program).valid);
 })();
 
@@ -227,6 +269,7 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('C includes roadwork or mobility/prehab', families.some((family) => ['roadwork_zone2', 'mobility_prehab', 'hip_ankle_mobility'].includes(family)));
   assert('C no sparring generated', !families.some((family) => family.includes('sparring')));
   assert('C uses boxing-specific templates', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_') || ['footwork_agility', 'shadowboxing_quality'].includes(templateId)));
+  assert('C exposes boxing-specific next action', /boxing|session|readiness|support/i.test(week(program).nextBestAction ?? ''));
 })();
 
 (() => {
@@ -336,6 +379,133 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('L variance plan exists', Boolean(week(open).variancePlan));
   assert('L beginner/taper lower variance than open/development', week(beginner).variancePlan?.varianceLevel === 'low' && week(taper).variancePlan?.varianceLevel === 'low' && week(open).variancePlan?.varianceLevel === 'moderate');
   assert('L variance preserves adaptation families', hasFamily(open, 'max_strength_lower') || hasFamily(open, 'strength_power'));
+})();
+
+(() => {
+  const easyRoadwork = [
+    completion({ workoutId: 'road-1', goalId: 'roadwork_aerobic_base', workoutTypeId: 'zone2_cardio', sessionRpe: 4, actualDurationMinutes: 35 }),
+    completion({ workoutId: 'road-2', goalId: 'roadwork_aerobic_base', workoutTypeId: 'zone2_cardio', sessionRpe: 5, actualDurationMinutes: 38 }),
+  ];
+  const roadworkDecision = evaluateBoxingProgressionForFamily({ family: 'roadwork_zone2', recentWorkoutCompletions: easyRoadwork });
+  const hardAlacticDecision = evaluateBoxingProgressionForFamily({
+    family: 'alactic_repeat_power',
+    recentWorkoutCompletions: [completion({ workoutId: 'alactic-hard', goalId: 'alactic_repeat_power', sessionRpe: 9.5 })],
+    feedbackTags: ['too_hard'],
+  });
+  const shoulderDecision = evaluateBoxingProgressionForFamily({
+    family: 'shoulder_scap_durability',
+    recentWorkoutCompletions: [completion({ workoutId: 'shoulder', goalId: 'shoulder_scap_durability', sessionRpe: 5, painScoreBefore: 1, painScoreAfter: 4 })],
+  });
+  const missedDecision = evaluateBoxingProgressionForFamily({
+    family: 'roadwork_zone2',
+    recentWorkoutCompletions: [
+      completion({ workoutId: 'missed-1', goalId: 'roadwork_aerobic_base', completionStatus: 'abandoned', sessionRpe: 7 }),
+      completion({ workoutId: 'missed-2', goalId: 'roadwork_aerobic_base', completionStatus: 'stopped', sessionRpe: 6 }),
+    ],
+    feedbackTags: ['missed'],
+  });
+  assert('M roadwork easy completions progress volume', roadworkDecision.action === 'progress_volume' && (roadworkDecision.doseTargetDelta ?? 0) > 0);
+  assert('M hard alactic too hard does not intensify', ['repeat', 'regress'].includes(hardAlacticDecision.action));
+  assert('M shoulder pain increase triggers regress or coach review', ['regress', 'coach_review'].includes(shoulderDecision.action));
+  assert('M missed sessions reduce variance or deload', missedDecision.action === 'deload' && missedDecision.varianceLevelOverride === 'low');
+})();
+
+(() => {
+  const noRunning = generateSingleSessionWorkout({
+    goalId: 'roadwork_aerobic_base',
+    durationMinutes: 35,
+    equipmentIds: ['bodyweight', 'stationary_bike', 'mat', 'open_space'],
+    experienceLevel: 'beginner',
+    safetyFlags: ['no_running'],
+    readinessBand: 'green',
+    intendedBoxingSessionFamily: 'roadwork_zone2',
+    preferredSessionTemplateId: templateIdForBoxingFamily('roadwork_zone2'),
+  });
+  const selectedExerciseIds = noRunning.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exerciseId));
+  const modalities = noRunning.blocks.flatMap((block) => block.exercises.map((exercise) => {
+    const payload = exercise.prescription.payload as { modality?: string };
+    return payload.modality ?? '';
+  }));
+  assert('N no_running roadwork uses non-running fallback', !selectedExerciseIds.some((id) => /run|roadwork/.test(id)) && !modalities.includes('run'));
+
+  const shoulderSafe = generateSingleSessionWorkout({
+    goalId: 'shoulder_scap_durability',
+    durationMinutes: 25,
+    equipmentIds: ['bodyweight', 'resistance_band', 'mat', 'open_space'],
+    experienceLevel: 'beginner',
+    safetyFlags: ['shoulder_caution'],
+    readinessBand: 'green',
+    intendedBoxingSessionFamily: 'shoulder_scap_durability',
+    preferredSessionTemplateId: templateIdForBoxingFamily('shoulder_scap_durability'),
+  });
+  const shoulderExerciseIds = shoulderSafe.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exerciseId));
+  assert('N shoulder caution produces safe shoulder durability', shoulderSafe.validation?.isValid === true && !shoulderExerciseIds.some((id) => /overhead|press_heavy|max/.test(id)));
+})();
+
+(() => {
+  const limited = baseProgram({
+    track: 'amateur_open',
+    availableDays: [1, 3],
+    allowSameDaySupportSessions: true,
+    protectedWorkouts: [
+      { id: 'boxing-1', label: 'Boxing Skill', dayIndex: 1, durationMinutes: 75, intensity: 'moderate' },
+      { id: 'boxing-3', label: 'Boxing Skill', dayIndex: 3, durationMinutes: 75, intensity: 'moderate' },
+    ],
+  });
+  assert('O only two days avoids unsafe hard stacking', generatedHardCount(limited) <= 1 && !hasHardGeneratedOnProtectedSparringDay(limited));
+  assert('O limited availability still stacks low-load support', generatedSessions(limited).some((session) => [1, 3].includes(session.dayIndex) && session.plannedIntensity !== 'hard'));
+
+  const packed = baseProgram({
+    track: 'amateur_elite',
+    allowSameDaySupportSessions: true,
+    protectedWorkouts: [
+      { id: 'boxing-1', label: 'Boxing Skill', dayIndex: 1, durationMinutes: 75, intensity: 'moderate' },
+      { id: 'sparring-2', label: 'Hard Sparring', dayIndex: 2, durationMinutes: 75, intensity: 'hard' },
+      { id: 'pads-3', label: 'Pads', dayIndex: 3, durationMinutes: 60, intensity: 'moderate' },
+      { id: 'boxing-4', label: 'Boxing Skill', dayIndex: 4, durationMinutes: 75, intensity: 'moderate' },
+      { id: 'sparring-5', label: 'Hard Sparring', dayIndex: 5, durationMinutes: 75, intensity: 'hard' },
+      { id: 'bag-6', label: 'Heavy Bag', dayIndex: 6, durationMinutes: 45, intensity: 'moderate' },
+    ],
+  });
+  assert('O heavy protected boxing week avoids extra conditioning', generatedFamilies(packed).every((family) => !['glycolytic_round_tolerance', 'roadwork_intervals', 'alactic_repeat_power'].includes(family)) && generatedHardCount(packed) <= 1);
+})();
+
+(() => {
+  const incompatible = generateSingleSessionWorkout({
+    goalId: 'roadwork_intervals',
+    durationMinutes: 12,
+    equipmentIds: ['bodyweight'],
+    experienceLevel: 'beginner',
+    safetyFlags: ['poor_readiness', 'no_running'],
+    readinessBand: 'red',
+    intendedBoxingSessionFamily: 'roadwork_intervals',
+    preferredSessionTemplateId: templateIdForBoxingFamily('roadwork_intervals'),
+  });
+  assert('P incompatible boxing template safely falls back with warning', incompatible.workoutTypeId === 'recovery' && hasTemplateFallbackTrace(incompatible));
+
+  const redPro = baseProgram({ track: 'pro_development', readinessBand: 'red' });
+  assert('P red readiness plus pro track has zero hard generated work', generatedHardCount(redPro) === 0 && validateGeneratedProgram(redPro).valid);
+
+  const legacy = baseProgram({ track: 'general_fitness_legacy', goalId: 'beginner_strength', generatedSessionsPerWeek: 2 });
+  assert('P explicit legacy preserves non-boxing track', week(legacy).weeklyDose?.track === 'general_fitness_legacy' && week(legacy).weeklyVolumeSummary.generatedSessionCount === 2);
+})();
+
+(() => {
+  const program = baseProgram({
+    track: 'amateur_open',
+    protectedWorkouts: [
+      { id: 'sparring-2', label: 'Hard Sparring', dayIndex: 2, durationMinutes: 75, intensity: 'hard' },
+      { id: 'sparring-4', label: 'Hard Sparring', dayIndex: 4, durationMinutes: 75, intensity: 'hard' },
+    ],
+  });
+  const downgraded = generatedSessions(program).find((session) => session.rationale?.some((line) => /downgraded|converted/.test(line)));
+  assert('Q hard downgrade credits actual low-load support', !downgraded || (contributionForGeneratedSession(downgraded).glycolyticRounds === 0 && contributionForGeneratedSession(downgraded).mobilityMinutes > 0));
+})();
+
+(() => {
+  const report = auditBoxingExerciseMediaReadiness(workoutProgrammingCatalog);
+  assert('R boxing media readiness counts boxing exercises', report.boxingExerciseCount > 0);
+  assert('R boxing missing media exposes alt text, reason, and safe text fallback', report.needingMediaCount > 0 && report.items.filter((item) => item.needsMedia).every((item) => item.hasAltText && item.hasMissingReason && item.safeTextOnlyFallbackAvailable));
 })();
 
 (() => {

@@ -1,4 +1,7 @@
 import {
+  templateIdForBoxingFamily,
+} from './boxingTrainingModel.ts';
+import {
   workoutProgrammingCatalog,
 } from './seedData.ts';
 import { rankExerciseSubstitutions } from './substitutionEngine.ts';
@@ -476,7 +479,145 @@ export function queryWorkoutExercises(
     .slice(0, query.limit ?? catalog.exercises.length);
 }
 
-function selectSessionTemplate(input: GenerateSingleWorkoutInput, workoutTypeId: string, catalog: WorkoutProgrammingCatalog): SessionTemplate | null {
+interface SessionTemplateSelection {
+  template: SessionTemplate;
+  reason: string;
+  confidence: number;
+  traces: WorkoutDecisionTraceEntry[];
+  fallbackWarnings: string[];
+}
+
+function isBoxingSessionTemplate(template: SessionTemplate): boolean {
+  return template.id.startsWith('boxing_') || template.id === 'footwork_agility' || template.id === 'shadowboxing_quality';
+}
+
+function isBoxingSpecificRequest(input: GenerateSingleWorkoutInput, workoutTypeId: string): boolean {
+  if (input.intendedBoxingSessionFamily || input.preferredSessionTemplateId) return true;
+  if (workoutTypeId.startsWith('boxing_')) return true;
+  return [
+    'boxing_progression',
+    'boxing_support',
+    'boxing_skill_microdose',
+    'footwork_agility',
+    'shadowboxing_quality',
+    'roadwork_aerobic_base',
+    'roadwork_tempo',
+    'roadwork_intervals',
+    'alactic_repeat_power',
+    'glycolytic_round_tolerance',
+    'rotational_power',
+    'trunk_rotation_durability',
+    'shoulder_scap_durability',
+    'neck_trap_durability',
+    'hip_ankle_mobility',
+    'hip_footwork_durability',
+    'mobility_prehab',
+    'recovery_reset',
+  ].includes(input.goalId);
+}
+
+function boxingTemplateCompatibilityReason(
+  template: SessionTemplate | null,
+  input: GenerateSingleWorkoutInput,
+  workoutTypeId: string,
+  strictMatch: boolean,
+): string | null {
+  if (!template) return 'Template was not found in the workout catalog.';
+  if (!template.experienceLevels.includes(input.experienceLevel)) {
+    return `${template.id} does not support ${input.experienceLevel} experience.`;
+  }
+  if (input.durationMinutes < template.minDurationMinutes || input.durationMinutes > template.maxDurationMinutes) {
+    return `${template.id} supports ${template.minDurationMinutes}-${template.maxDurationMinutes} minutes, not ${input.durationMinutes}.`;
+  }
+  if ((input.safetyFlags ?? []).some((flag) => RECOVERY_REQUIRED_FLAGS.has(flag)) && template.workoutTypeId !== 'recovery') {
+    return `${template.id} is not recovery-first while safety flags require recovery.`;
+  }
+  const intendedTemplateId = input.intendedBoxingSessionFamily ? templateIdForBoxingFamily(input.intendedBoxingSessionFamily) : null;
+  if (
+    strictMatch
+    && template.workoutTypeId !== workoutTypeId
+    && !template.goalIds.includes(input.goalId)
+    && template.id !== intendedTemplateId
+  ) {
+    return `${template.id} does not match ${input.goalId}, ${workoutTypeId}, or the intended boxing family.`;
+  }
+  return null;
+}
+
+function selectSessionTemplate(input: GenerateSingleWorkoutInput, workoutTypeId: string, catalog: WorkoutProgrammingCatalog): SessionTemplateSelection | null {
+  const traces: WorkoutDecisionTraceEntry[] = [];
+  const fallbackWarnings: string[] = [];
+  const boxingSpecificRequest = isBoxingSpecificRequest(input, workoutTypeId);
+
+  if (input.preferredSessionTemplateId) {
+    const preferred = findById(catalog.sessionTemplates, input.preferredSessionTemplateId);
+    const rejection = boxingTemplateCompatibilityReason(preferred, input, workoutTypeId, true);
+    if (preferred && !rejection) {
+      traces.push(trace({
+        step: 'select_preferred_session_template',
+        reason: `${preferred.id} was selected from preferredSessionTemplateId.`,
+        selectedId: preferred.id,
+        confidence: 0.97,
+        metadata: { workoutTypeId, goalId: input.goalId },
+      }));
+      return {
+        template: preferred,
+        reason: `${preferred.label} was selected because the request explicitly preferred this compatible template.`,
+        confidence: 0.97,
+        traces,
+        fallbackWarnings,
+      };
+    }
+    const warning = `Preferred boxing template ${input.preferredSessionTemplateId} could not be used: ${rejection ?? 'unknown compatibility issue'}.`;
+    fallbackWarnings.push(warning);
+    traces.push(trace({
+      step: 'preferred_session_template_rejected',
+      reason: warning,
+      rejectedIds: [input.preferredSessionTemplateId],
+      confidence: 0.72,
+      metadata: { workoutTypeId, goalId: input.goalId },
+    }));
+  }
+
+  if (input.intendedBoxingSessionFamily) {
+    const intendedTemplateId = templateIdForBoxingFamily(input.intendedBoxingSessionFamily);
+    const intended = findById(catalog.sessionTemplates, intendedTemplateId);
+    const rejection = boxingTemplateCompatibilityReason(intended, input, workoutTypeId, true);
+    if (intended && !rejection) {
+      traces.push(trace({
+        step: 'select_boxing_family_template',
+        reason: `${intended.id} was selected from intended boxing family ${input.intendedBoxingSessionFamily}.`,
+        selectedId: intended.id,
+        confidence: 0.95,
+        metadata: {
+          intendedBoxingSessionFamily: input.intendedBoxingSessionFamily,
+          intendedBoxingSessionRole: input.intendedBoxingSessionRole,
+          intendedSessionDoseCategory: input.intendedSessionDoseCategory,
+        },
+      }));
+      return {
+        template: intended,
+        reason: `${intended.label} was selected because it is the canonical template for ${input.intendedBoxingSessionFamily}.`,
+        confidence: 0.95,
+        traces,
+        fallbackWarnings,
+      };
+    }
+    const warning = `Intended boxing family ${input.intendedBoxingSessionFamily} maps to ${intendedTemplateId}, but it could not be used: ${rejection ?? 'unknown compatibility issue'}.`;
+    fallbackWarnings.push(warning);
+    traces.push(trace({
+      step: 'boxing_family_template_rejected',
+      reason: warning,
+      rejectedIds: [intendedTemplateId],
+      confidence: 0.74,
+      metadata: {
+        intendedBoxingSessionFamily: input.intendedBoxingSessionFamily,
+        workoutTypeId,
+        goalId: input.goalId,
+      },
+    }));
+  }
+
   const compatible = catalog.sessionTemplates
     .filter((template) => template.experienceLevels.includes(input.experienceLevel))
     .map((template) => {
@@ -488,12 +629,33 @@ function selectSessionTemplate(input: GenerateSingleWorkoutInput, workoutTypeId:
       score -= Math.abs(template.defaultDurationMinutes - input.durationMinutes) / 2;
       if ((input.safetyFlags ?? []).includes('no_jumping') && template.formatId !== 'intervals') score += 3;
       if ((input.safetyFlags ?? []).some((flag) => RECOVERY_REQUIRED_FLAGS.has(flag)) && template.workoutTypeId === 'recovery') score += 40;
+      if (!boxingSpecificRequest && isBoxingSessionTemplate(template)) score -= 45;
       return { template, score };
     })
     .filter((item) => item.template.workoutTypeId === workoutTypeId || item.template.goalIds.includes(input.goalId) || item.score >= 40)
     .sort((a, b) => b.score - a.score);
 
-  return compatible[0]?.template ?? null;
+  const selected = compatible[0]?.template ?? null;
+  if (!selected) return null;
+  if (fallbackWarnings.length) {
+    traces.push(trace({
+      step: 'boxing_template_fallback_selected',
+      reason: `Selected ${selected.id} by scoring after boxing-specific template binding could not be satisfied.`,
+      selectedId: selected.id,
+      rejectedIds: compatible.slice(1, 4).map((item) => item.template.id),
+      confidence: 0.7,
+      metadata: { fallbackWarnings },
+    }));
+  }
+  return {
+    template: selected,
+    reason: fallbackWarnings.length
+      ? `${selected.label} was selected by fallback scoring after the intended boxing template could not be used.`
+      : `${selected.label} best matches goal, workout type, experience, and requested duration.`,
+    confidence: fallbackWarnings.length ? 0.7 : 0.9,
+    traces,
+    fallbackWarnings,
+  };
 }
 
 function blockDuration(template: SessionTemplate, block: SessionTemplateBlock, requestedDurationMinutes: number): number {
@@ -907,19 +1069,25 @@ export function generateSingleSessionWorkout(
     metadata: { requestedGoalId: request.goalId, effectiveGoalId: effectiveRequest.goalId },
   }));
 
-  const template = selectSessionTemplate(effectiveRequest, workoutTypeId, catalog);
-  if (!template) {
+  const templateSelection = selectSessionTemplate(effectiveRequest, workoutTypeId, catalog);
+  if (!templateSelection) {
     throw new Error(`No session template can satisfy ${effectiveRequest.goalId} in ${effectiveRequest.durationMinutes} minutes.`);
   }
+  const template = templateSelection.template;
+  decisionTrace.push(...templateSelection.traces);
   const selectedTemplateTrace = trace({
     step: 'select_session_template',
-    reason: `${template.label} best matches goal, workout type, experience, and requested duration.`,
+    reason: templateSelection.reason,
     selectedId: template.id,
-    confidence: effectiveRequest.durationMinutes >= template.minDurationMinutes ? 0.9 : 0.72,
+    confidence: templateSelection.confidence,
     metadata: {
       formatId: template.formatId,
       requestedDurationMinutes: effectiveRequest.durationMinutes,
       defaultDurationMinutes: template.defaultDurationMinutes,
+      intendedBoxingSessionFamily: effectiveRequest.intendedBoxingSessionFamily,
+      intendedBoxingSessionRole: effectiveRequest.intendedBoxingSessionRole,
+      intendedSessionDoseCategory: effectiveRequest.intendedSessionDoseCategory,
+      fallbackWarnings: templateSelection.fallbackWarnings,
     },
   });
   decisionTrace.push(selectedTemplateTrace);
@@ -1030,6 +1198,7 @@ export function generateSingleSessionWorkout(
     safetyFlags.length
       ? `Safety filters were applied: ${safetyFlags.join(', ')}.`
       : 'No safety flags were supplied, so the generator still used conservative prescriptions.',
+    ...templateSelection.fallbackWarnings,
   ];
 
   const generated: GeneratedWorkout = {

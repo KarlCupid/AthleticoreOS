@@ -487,6 +487,10 @@ export interface GenerateSingleWorkoutInput {
   readinessBand?: WorkoutReadinessBand;
   workoutEnvironment?: 'home' | 'gym' | 'outdoor' | 'travel' | 'unknown';
   preferredToneVariant?: DescriptionToneVariant;
+  intendedBoxingSessionFamily?: BoxingSessionFamily | undefined;
+  intendedBoxingSessionRole?: BoxingPlannedSessionRole | undefined;
+  intendedSessionDoseCategory?: BoxingSessionDoseCategory | undefined;
+  preferredSessionTemplateId?: string | undefined;
 }
 
 export type WorkoutReadinessBand = 'green' | 'yellow' | 'orange' | 'red' | 'unknown';
@@ -632,6 +636,7 @@ export interface BoxingWeeklyLoadLedger {
   highIntensityIntervals: number;
   alacticBursts: number;
   glycolyticRounds: number;
+  technicalMicrodoseMinutes: number;
   sessionRpeLoad: number;
   protectedLoadScore: number;
   generatedLoadScore: number;
@@ -750,6 +755,68 @@ export interface BoxingPlannedSessionIntent {
   countsAsHard?: boolean | undefined;
 }
 
+export interface BoxingGeneratedDoseContribution {
+  minutes: number;
+  loadScore: number;
+  strengthMainSets: number;
+  powerContacts: number;
+  trunkDurabilitySets: number;
+  shoulderPrehabMinutes: number;
+  mobilityMinutes: number;
+  roadworkMinutes: number;
+  highIntensityIntervals: number;
+  alacticBursts: number;
+  glycolyticRounds: number;
+  technicalMicrodoseMinutes: number;
+  fullSessionCount: number;
+  supportSessionCount: number;
+  microdoseCount: number;
+  recoveryResetCount: number;
+  counted: boolean;
+  rationale: string[];
+}
+
+export type BoxingProgressionAction =
+  | 'progress_volume'
+  | 'progress_intensity'
+  | 'repeat'
+  | 'regress'
+  | 'swap_family'
+  | 'deload'
+  | 'coach_review';
+
+export interface BoxingProgressionSignal {
+  family: BoxingSessionFamily;
+  recentWorkoutCompletions?: WorkoutCompletionLog[] | undefined;
+  recentProgressionDecisions?: ProgressionDecision[] | undefined;
+  sessionRpe?: number | undefined;
+  painScoreBefore?: number | null | undefined;
+  painScoreAfter?: number | null | undefined;
+  completionRate?: number | undefined;
+  feedbackTags?: string[] | undefined;
+}
+
+export interface BoxingProgressionDecision {
+  family: BoxingSessionFamily;
+  action: BoxingProgressionAction;
+  rationale: string;
+  doseTargetDelta?: number | undefined;
+  hardGeneratedCapDelta?: number | undefined;
+  varianceLevelOverride?: BoxingVariancePlan['varianceLevel'] | undefined;
+  nextFamilyPreference?: BoxingSessionFamily | undefined;
+  avoidedFamilies?: BoxingSessionFamily[] | undefined;
+  coachReviewRecommended?: boolean | undefined;
+}
+
+export interface BoxingWeekLayoutCandidate {
+  dayIndex: number;
+  score: number;
+  stacked: boolean;
+  hardIntent: boolean;
+  rationale: string[];
+  rejected?: boolean | undefined;
+}
+
 export type PlannedSessionIntent = BoxingPlannedSessionIntent;
 
 export interface BoxingWeeklyDosePlan {
@@ -779,6 +846,7 @@ export interface BoxingWeeklyDosePlan {
   qualityGaps: BoxingQualityGap[];
   loadLedger: BoxingWeeklyLoadLedger;
   intents: BoxingPlannedSessionIntent[];
+  boxingProgressionDecisions?: BoxingProgressionDecision[] | undefined;
   variancePlan: BoxingVariancePlan;
   rationale: string[];
   warnings: string[];
@@ -1022,6 +1090,7 @@ export interface PersonalizedWorkoutInput extends GenerateSingleWorkoutInput {
   energyLevel?: number;
   recentWorkoutCompletions?: WorkoutCompletionLog[];
   recentProgressionDecisions?: ProgressionDecision[];
+  recentFeedbackTags?: string[];
   protectedWorkouts?: ProtectedWorkoutInput[];
   boxingTrainingContext?: BoxingTrainingContext;
   combatSportContext?: CombatSportContext;
@@ -1485,6 +1554,14 @@ export interface GeneratedProgramWeek {
   userFacingWarnings?: string[] | undefined;
   hardDayCount: number;
   validationWarnings: string[];
+  weeklyBoxingHeadline?: string | undefined;
+  weeklyBoxingSummary?: string | undefined;
+  primaryBoxingFocus?: string | undefined;
+  hardDaySummary?: string | undefined;
+  protectedLoadSummary?: string | undefined;
+  generatedSupportSummary?: string | undefined;
+  nextBestAction?: string | undefined;
+  coachSummaryBullets?: string[] | undefined;
 }
 
 export type GeneratedProgramStatus = 'draft' | 'active' | 'completed' | 'archived';
@@ -1519,6 +1596,14 @@ export interface GeneratedProgram {
   variancePlan?: BoxingVariancePlan[] | undefined;
   coachRationale?: string[] | undefined;
   userFacingWarnings?: string[] | undefined;
+  weeklyBoxingHeadline?: string | undefined;
+  weeklyBoxingSummary?: string | undefined;
+  primaryBoxingFocus?: string | undefined;
+  hardDaySummary?: string | undefined;
+  protectedLoadSummary?: string | undefined;
+  generatedSupportSummary?: string | undefined;
+  nextBestAction?: string | undefined;
+  coachSummaryBullets?: string[] | undefined;
 }
 
 export interface WorkoutAnalyticsSummary {

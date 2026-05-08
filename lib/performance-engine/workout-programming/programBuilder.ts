@@ -5,8 +5,10 @@ import {
   planWeeklyTrainingDose,
   protectedWorkoutCountsAsHardDay,
   protectedWorkoutLoadScore,
+  templateIdForBoxingFamily,
 } from './boxingTrainingModel.ts';
 import type {
+  BoxingWeekLayoutCandidate,
   BoxingTrainingContext,
   BoxingSessionFamily,
   CombatSportContext,
@@ -105,7 +107,7 @@ const PLAUSIBLE_BOXING_TEMPLATE_IDS: Partial<Record<BoxingSessionFamily, readonl
   alactic_repeat_power: ['boxing_alactic_repeat_power'],
   glycolytic_round_tolerance: ['boxing_glycolytic_round_tolerance'],
   boxing_conditioning_support: ['boxing_alactic_repeat_power', 'boxing_glycolytic_round_tolerance'],
-  mobility_prehab: ['boxing_hip_ankle_mobility', 'boxing_shoulder_scap_durability', 'boxing_neck_trap_durability', 'recovery_reset'],
+  mobility_prehab: ['boxing_hip_ankle_mobility', 'boxing_shoulder_scap_durability', 'boxing_neck_trap_durability', 'boxing_recovery_reset', 'recovery_reset'],
   recovery_reset: ['boxing_recovery_reset', 'recovery_reset'],
 };
 
@@ -253,25 +255,61 @@ function chooseDayForIntent(input: {
   hardDayCap: number;
   allowSameDaySupportSessions: boolean;
   durationMinutes: number;
+  track?: string | undefined;
+  phase?: ProgramPhase | undefined;
 }): { dayIndex: number; stacked: boolean } | null {
   const dayLoads = dayLoadsFromSessions(input.weekSessions);
   const candidateDays = input.availableDays.map((day) => dayLoads.get(day)).filter((day): day is DayLoadState => Boolean(day));
   const hardIntent = intentCountsAsHard(input.intent);
   const currentHardDays = hardDayCount(input.weekSessions);
+  const weekLoad = input.weekSessions.reduce((sum, session) => sum + (session.estimatedLoadScore ?? 0), 0);
 
   const sorted = candidateDays
-    .map((day) => {
+    .map((day): BoxingWeekLayoutCandidate => {
       const stacked = day.sessions.length > 0;
+      const protectedHard = day.modalities.includes('sparring') || day.modalities.includes('competition');
+      const adjacentHard = hasAdjacentHardDay(day.dayIndex, input.weekSessions);
+      const rationale: string[] = [];
       let score = day.sessions.length * 30 + day.totalMinutes + day.estimatedLoadScore / 25;
-      if (hasAdjacentHardDay(day.dayIndex, input.weekSessions)) score += hardIntent ? 250 : 20;
-      if (day.hardCount > 0) score += hardIntent ? 500 : 80;
-      if (stacked && !hardIntent && LOW_LOAD_STACKING_ROLES.has(input.intent.role)) score -= 12;
-      return { day, score, stacked };
+      if (protectedHard && hardIntent) {
+        score += 1_000;
+        rationale.push('Hard generated work cannot sit on sparring or competition day.');
+      }
+      if (adjacentHard) {
+        score += hardIntent ? 350 : 20;
+        rationale.push(hardIntent ? 'Avoids reckless adjacent hard-day placement.' : 'Low-load support can live near hard work when capacity is safe.');
+      }
+      if (day.hardCount > 0) {
+        score += hardIntent ? 600 : 60;
+        rationale.push('Existing hard load on this day increases placement cost.');
+      }
+      if (stacked && !hardIntent && LOW_LOAD_STACKING_ROLES.has(input.intent.role)) {
+        score -= 25;
+        rationale.push('Low-load boxing support may stack with an anchor when duration and load are safe.');
+      }
+      if (weekLoad >= 1_200 && day.sessions.length === 0 && [6, 7].includes(day.dayIndex) && !hardIntent) {
+        score += 30;
+        rationale.push('High-load weeks preserve a true recovery day when possible.');
+      }
+      if (input.track?.startsWith('amateur') && ['footwork_agility', 'alactic_repeat_power'].includes(input.intent.family)) {
+        score += adjacentHard ? 70 : -10;
+        rationale.push('Amateur layout favors spaced agility and repeat-output exposures.');
+      }
+      if (input.track?.startsWith('pro') && ['roadwork_zone2', 'roadwork_tempo', 'trunk_durability', 'shoulder_scap_durability'].includes(input.intent.family)) {
+        if (!hardIntent && day.hardCount === 0) score -= 8;
+        rationale.push('Pro layout favors pacing durability and recovery spacing.');
+      }
+      if (input.phase === 'return_to_training' || input.phase === 'deload') {
+        score += hardIntent ? 500 : -6;
+        rationale.push('Recovery/deload weeks bias low-load placement.');
+      }
+      return { dayIndex: day.dayIndex, score, stacked, hardIntent, rationale };
     })
-    .sort((a, b) => a.score - b.score || a.day.dayIndex - b.day.dayIndex);
+    .sort((a, b) => a.score - b.score || a.dayIndex - b.dayIndex);
 
   for (const candidate of sorted) {
-    const day = candidate.day;
+    const day = dayLoads.get(candidate.dayIndex);
+    if (!day) continue;
     if (hardIntent) {
       if (currentHardDays >= input.hardDayCap) continue;
       if (day.sessions.length > 0) continue;
@@ -282,7 +320,8 @@ function chooseDayForIntent(input: {
   }
 
   for (const candidate of sorted) {
-    const day = candidate.day;
+    const day = dayLoads.get(candidate.dayIndex);
+    if (!day) continue;
     if (canStackOnProtectedDay({
       day,
       intent: input.intent,
@@ -505,6 +544,12 @@ function rebuildProgram(
       const tomorrowHard = week.sessions.some((session) => session.dayIndex === day + 1 && sessionIsHard(session));
       if (todayHard && tomorrowHard) weekWarnings.push(`Week ${week.weekIndex} has back-to-back hard days on days ${day} and ${day + 1}.`);
     }
+    const copy = boxingWeekCopy({
+      weekIndex: week.weekIndex,
+      phase: week.phase,
+      sessions: week.sessions,
+      weeklyDose: week.weeklyDose,
+    });
     return {
       ...week,
       movementPatternBalance: movementPatternCounts(week.sessions),
@@ -519,6 +564,7 @@ function rebuildProgram(
       userFacingWarnings: week.weeklyDose?.warnings,
       hardDayCount: summary.hardDayCount,
       validationWarnings: unique([...week.validationWarnings, ...weekWarnings]),
+      ...copy,
     };
   });
   const movementPatternBalance = buildMovementPatternBalance(updatedWeeks);
@@ -541,6 +587,14 @@ function rebuildProgram(
     variancePlan: updatedWeeks.map((week) => week.weeklyDose?.variancePlan).filter((plan): plan is NonNullable<typeof plan> => Boolean(plan)),
     coachRationale: unique(updatedWeeks.flatMap((week) => week.weeklyDose?.rationale ?? [])),
     userFacingWarnings: unique(updatedWeeks.flatMap((week) => week.weeklyDose?.warnings ?? [])),
+    weeklyBoxingHeadline: updatedWeeks[0]?.weeklyBoxingHeadline,
+    weeklyBoxingSummary: updatedWeeks[0]?.weeklyBoxingSummary,
+    primaryBoxingFocus: updatedWeeks[0]?.primaryBoxingFocus,
+    hardDaySummary: updatedWeeks[0]?.hardDaySummary,
+    protectedLoadSummary: updatedWeeks[0]?.protectedLoadSummary,
+    generatedSupportSummary: updatedWeeks[0]?.generatedSupportSummary,
+    nextBestAction: updatedWeeks[0]?.nextBestAction,
+    coachSummaryBullets: updatedWeeks[0]?.coachSummaryBullets,
   };
 }
 
@@ -754,6 +808,76 @@ function progressionPlanFor(input: ProgramBuilderInput, weeks: GeneratedProgramW
   });
 }
 
+function titleCaseTrack(track: string | undefined): string {
+  return (track ?? 'boxing')
+    .split('_')
+    .map((part) => part.length ? `${part[0]?.toUpperCase() ?? ''}${part.slice(1)}` : part)
+    .join(' ');
+}
+
+function primaryFocusFromDose(dose: WeeklyTrainingDosePrescription | undefined): string {
+  if (!dose) return 'boxing support';
+  const families = unique(dose.intents.map((intentItem) => intentItem.family));
+  const priorityGap = dose.qualityGaps[0]?.quality;
+  if (priorityGap) return `${String(priorityGap)} with ${families.slice(0, 2).join(' and ')}`;
+  return families.slice(0, 3).join(', ') || 'boxing support';
+}
+
+function boxingWeekCopy(input: {
+  weekIndex: number;
+  phase: ProgramPhase;
+  sessions: GeneratedProgramSession[];
+  weeklyDose?: WeeklyTrainingDosePrescription | undefined;
+}): Pick<GeneratedProgramWeek,
+  | 'weeklyBoxingHeadline'
+  | 'weeklyBoxingSummary'
+  | 'primaryBoxingFocus'
+  | 'hardDaySummary'
+  | 'protectedLoadSummary'
+  | 'generatedSupportSummary'
+  | 'nextBestAction'
+  | 'coachSummaryBullets'
+> {
+  const dose = input.weeklyDose;
+  const trackLabel = titleCaseTrack(dose?.track);
+  const protectedBoxing = input.sessions.filter((session) => session.protectedAnchor && session.protectedWorkoutModality && session.protectedWorkoutModality !== 'external_non_boxing_load').length;
+  const protectedSparring = input.sessions.filter((session) => session.protectedAnchor && session.protectedWorkoutModality === 'sparring').length;
+  const generated = input.sessions.filter((session) => !session.protectedAnchor && !session.workout?.blocked);
+  const supportCount = generated.filter((session) => session.sessionDoseCategory === 'support_session' || session.sessionDoseCategory === 'microdose' || session.sessionDoseCategory === 'recovery_reset').length;
+  const hardGenerated = generated.filter(sessionIsHard).length;
+  const primaryFocus = primaryFocusFromDose(dose);
+  const redReadiness = dose?.hardDayCap === 0 || input.phase === 'return_to_training';
+  const sparringMessage = protectedSparring >= 1
+    ? 'Your sparring already owns the hard boxing stress, so Athleticore kept generated work supportive.'
+    : protectedBoxing > 0
+      ? 'Protected boxing anchors are counted as load while Athleticore fills the missing athletic-chain support.'
+      : 'Athleticore is building boxing frequency with low-risk skill support plus the missing athletic-chain qualities.';
+  const weeklyBoxingHeadline = `${trackLabel}: week ${input.weekIndex} builds ${primaryFocus}.`;
+  const weeklyBoxingSummary = redReadiness
+    ? `${trackLabel}: red readiness means no hard generated work; recovery reset and microdose support only.`
+    : `${trackLabel}: this week builds ${primaryFocus} around ${protectedBoxing} protected boxing anchor(s).`;
+  const nextBestAction = redReadiness
+    ? 'Keep the next session easy and log readiness, pain, and completion before progressing.'
+    : protectedSparring >= 2
+      ? 'Treat sparring as the high-stress exposure and complete the generated recovery or durability support.'
+      : 'Complete the first generated support session and log RPE so next week can progress or repeat intelligently.';
+  return {
+    weeklyBoxingHeadline,
+    weeklyBoxingSummary,
+    primaryBoxingFocus: primaryFocus,
+    hardDaySummary: `Hard days: ${input.sessions.filter(sessionIsHard).length}/${dose?.hardDayCap ?? 3}; generated hard work: ${hardGenerated}.`,
+    protectedLoadSummary: `${protectedBoxing} protected boxing anchor(s), ${protectedSparring} sparring anchor(s), protected load ${dose?.protectedLoadScore ?? 0}.`,
+    generatedSupportSummary: `${supportCount} generated support/microdose/recovery exposure(s), generated load ${dose?.loadLedger.generatedLoadScore ?? 0}.`,
+    nextBestAction,
+    coachSummaryBullets: unique([
+      sparringMessage,
+      dose?.protectedRoadworkCount ? 'Roadwork is covered, so generated work can bias strength-power, durability, or technical-light support.' : 'Roadwork and aerobic support are checked against the weekly ledger.',
+      dose?.variancePlan.reason ?? 'Variance stays controlled so the adaptation target does not become random.',
+      nextBestAction,
+    ].filter(Boolean)),
+  };
+}
+
 export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): GeneratedProgram {
   const weekCount = input.desiredProgramLengthWeeks ?? input.weekCount ?? 4;
   const protectedWorkouts = input.protectedWorkouts ?? [];
@@ -778,7 +902,11 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       generatedSessionsPerWeek: input.generatedSessionsPerWeek,
       totalExposureTarget: input.totalExposureTarget,
       safetyFlags,
+      recentWorkoutCompletions: input.recentWorkoutCompletions,
+      recentProgressionDecisions: input.recentProgressionDecisions,
+      recentFeedbackTags: input.recentFeedbackTags,
     });
+    const boxingDrivenWeek = weeklyDose.track !== 'general_fitness_legacy';
     const weekSessions: GeneratedProgramSession[] = [];
 
     for (const protectedWorkout of protectedWorkouts) {
@@ -822,6 +950,8 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         hardDayCap: weeklyDose.hardDayCap,
         allowSameDaySupportSessions: allowSameDaySupportSessions(input),
         durationMinutes,
+        track: weeklyDose.track,
+        phase,
       });
       if (candidate == null && intentCountsAsHard(sessionIntent)) {
         placementIntent = {
@@ -845,6 +975,8 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
           hardDayCap: weeklyDose.hardDayCap,
           allowSameDaySupportSessions: allowSameDaySupportSessions(input),
           durationMinutes,
+          track: weeklyDose.track,
+          phase,
         });
       }
       if (candidate == null) {
@@ -857,8 +989,26 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       const adjacentHard = intentHard && hasAdjacentHardDay(candidate.dayIndex, weekSessions);
       const lowConditioningIntent = (placementIntent.role === 'conditioning_support' || placementIntent.role === 'boxing_conditioning_support')
         && placementIntent.plannedIntensity !== 'hard';
-      const goalId = (overHardBudget || adjacentHard || lowConditioningIntent) ? 'mobility_prehab' : placementIntent.goalId;
-      const effectiveIntensity = (overHardBudget || adjacentHard) ? 'low' : placementIntent.plannedIntensity;
+      const downgradeToMobility = overHardBudget || adjacentHard || lowConditioningIntent;
+      const workoutIntent: PlannedSessionIntent = downgradeToMobility
+        ? {
+          ...placementIntent,
+          goalId: 'mobility_prehab',
+          plannedIntensity: 'low',
+          role: 'mobility_prehab',
+          boxingRole: 'mobility_prehab',
+          family: 'mobility_prehab',
+          doseCategory: 'support_session',
+          canStackWithProtected: true,
+          countsAsHard: false,
+          rationale: [
+            ...placementIntent.rationale,
+            'The actual generated dose was converted to low boxing-relevant mobility/prehab because the original hard or conditioning intent was not appropriate for this week layout.',
+          ],
+        }
+        : placementIntent;
+      const goalId = workoutIntent.goalId;
+      const effectiveIntensity = workoutIntent.plannedIntensity;
       const phaseSafetyFlags = phase === 'deload'
         ? unique([...safetyFlags, 'time_limited'])
         : phase === 'return_to_training'
@@ -871,6 +1021,12 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         preferredDurationMinutes: durationMinutes,
         safetyFlags: phaseSafetyFlags,
       };
+      if (boxingDrivenWeek) {
+        workoutRequest.intendedBoxingSessionFamily = workoutIntent.family;
+        workoutRequest.intendedBoxingSessionRole = workoutIntent.boxingRole;
+        workoutRequest.intendedSessionDoseCategory = workoutIntent.doseCategory;
+        workoutRequest.preferredSessionTemplateId = templateIdForBoxingFamily(workoutIntent.family);
+      }
       if (phase === 'return_to_training') {
         workoutRequest.readinessBand = 'red';
       } else {
@@ -888,17 +1044,20 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         label: workout.blocked ? `Blocked ${goalId}` : workout.templateId,
         workout,
         plannedIntensity: effectiveIntensity,
-        sessionRole: placementIntent.role,
-        boxingSessionRole: placementIntent.boxingRole,
-        boxingSessionFamily: placementIntent.family,
-        sessionDoseCategory: placementIntent.doseCategory,
+        sessionRole: workoutIntent.role,
+        boxingSessionRole: boxingDrivenWeek ? workoutIntent.boxingRole : undefined,
+        boxingSessionFamily: boxingDrivenWeek ? workoutIntent.family : undefined,
+        sessionDoseCategory: workoutIntent.doseCategory,
         estimatedLoadScore: estimateGeneratedLoad(workout.estimatedDurationMinutes, effectiveIntensity),
         rationale: [
-          ...placementIntent.rationale,
-          `${goalId} was selected as ${placementIntent.role} boxing-athlete support in the ${phase} phase.`,
+          ...workoutIntent.rationale,
+          `${goalId} was selected as ${workoutIntent.role} boxing-athlete support in the ${phase} phase.`,
           candidate.stacked ? 'This low-load support session safely stacks with a protected anchor instead of treating that day as closed.' : 'Placement respects weekly day load and hard/easy distribution.',
           overHardBudget ? 'A hard support intent was downgraded because protected work already consumed the hard-session budget.' : '',
           adjacentHard ? 'A hard support intent was downgraded to avoid back-to-back high-fatigue days.' : '',
+          workout.decisionTrace?.some((entry) => entry.step.includes('fallback') || entry.step.includes('rejected'))
+            ? 'Template binding emitted a trace because the intended boxing template required a safe fallback.'
+            : '',
         ].filter(Boolean),
       };
       if (!generatedSession.workout?.blocked && sessionIsHard(generatedSession)) {
@@ -910,8 +1069,10 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       if (workout.blocked && effectiveIntensity === 'hard') {
         generatedSession.plannedIntensity = 'low';
         generatedSession.sessionRole = 'recovery_reset';
-        generatedSession.boxingSessionRole = 'recovery_reset';
-        generatedSession.boxingSessionFamily = 'recovery_reset';
+        if (boxingDrivenWeek) {
+          generatedSession.boxingSessionRole = 'recovery_reset';
+          generatedSession.boxingSessionFamily = 'recovery_reset';
+        }
         generatedSession.sessionDoseCategory = 'recovery_reset';
       }
       weekSessions.push(generatedSession);
@@ -937,6 +1098,7 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       weekWarnings.push(`Week ${weekIndex} exceeds resolved hard-day cap (${hardDayCount(weekSessions)}/${weeklyDose.hardDayCap}).`);
     }
     const summary = weeklySummaryWithDose(weekIndex, phase, weekSessions, weeklyDose);
+    const copy = boxingWeekCopy({ weekIndex, phase, sessions: weekSessions, weeklyDose });
     const week: GeneratedProgramWeek = {
       weekIndex,
       phase,
@@ -960,6 +1122,7 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       userFacingWarnings: weeklyDose.warnings,
       hardDayCount: summary.hardDayCount,
       validationWarnings: weekWarnings,
+      ...copy,
     };
     weeks.push(week);
     sessions.push(...weekSessions);
@@ -971,6 +1134,12 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
   const weeklyVolumeSummary = weeks.map((week) => week.weeklyVolumeSummary);
   const progressionPlan = progressionPlanFor(input, weeks);
   const currentPhase = weeks[0]?.phase ?? 'maintenance';
+  const firstWeekCopy = weeks[0] ? boxingWeekCopy({
+    weekIndex: weeks[0].weekIndex,
+    phase: weeks[0].phase,
+    sessions: weeks[0].sessions,
+    weeklyDose: weeks[0].weeklyDose,
+  }) : {};
 
   const program: GeneratedProgram = {
     id: `${input.goalId}:program:${weekCount}w`,
@@ -1007,6 +1176,7 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
     variancePlan: weeklyDosePlan.map((dose) => dose.variancePlan),
     coachRationale: unique(weeklyDosePlan.flatMap((dose) => dose.rationale)),
     userFacingWarnings: unique(weeklyDosePlan.flatMap((dose) => dose.warnings)),
+    ...firstWeekCopy,
   };
   const calendarEvents = input.calendarEvents ?? input.existingCalendarEvents ?? [];
   if (input.startDate || calendarEvents.length > 0) {
@@ -1061,6 +1231,9 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
       if (!summary.boxingLoadLedger || !week.boxingLoadLedger) errors.push(`Week ${weekIndex} is missing boxing load ledger output.`);
       if (!week.qualityGaps) errors.push(`Week ${weekIndex} is missing boxing quality gaps.`);
       if (!week.variancePlan) errors.push(`Week ${weekIndex} is missing controlled variance plan.`);
+      if (!week.weeklyBoxingHeadline || !week.weeklyBoxingSummary || !week.nextBestAction || !week.coachSummaryBullets?.length) {
+        errors.push(`Week ${weekIndex} is missing UI-ready boxing summary fields.`);
+      }
     }
     for (let day = 1; day <= 6; day += 1) {
       const todayHard = weekSessions.some((session) => session.dayIndex === day && sessionIsHard(session));
@@ -1086,6 +1259,14 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
         const plausibleTemplateIds = strictBoxingContent ? PLAUSIBLE_BOXING_TEMPLATE_IDS[session.boxingSessionFamily] : undefined;
         if (plausibleTemplateIds && session.workout && !plausibleTemplateIds.includes(session.workout.templateId)) {
           errors.push(`${session.id} used template ${session.workout.templateId} for ${session.boxingSessionFamily}; expected one of ${plausibleTemplateIds.join(', ')}.`);
+        }
+        const intendedTemplateId = strictBoxingContent ? templateIdForBoxingFamily(session.boxingSessionFamily) : null;
+        const hasFallbackTrace = session.workout?.decisionTrace?.some((entry) => (
+          /fallback|rejected|preferred_session_template_rejected|boxing_family_template_rejected/i.test(entry.step)
+          || /could not be used|fallback/i.test(entry.reason)
+        )) ?? false;
+        if (intendedTemplateId && session.workout && session.workout.templateId !== intendedTemplateId && !hasFallbackTrace) {
+          errors.push(`${session.id} used ${session.workout.templateId} for ${session.boxingSessionFamily} without a template-binding fallback warning; intended ${intendedTemplateId}.`);
         }
       }
       if (!session.protectedAnchor && sessionIsHard(session) && protectedHardBoxingDays.has(session.dayIndex)) {

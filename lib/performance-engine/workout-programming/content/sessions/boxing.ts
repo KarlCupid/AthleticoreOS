@@ -1187,6 +1187,7 @@ export const boxingSessionTemplates = [
     "workoutTypeId": "recovery",
     "goalIds": [
       "recovery_reset",
+      "recovery",
       "return_to_training"
     ],
     "formatId": "recovery_flow",

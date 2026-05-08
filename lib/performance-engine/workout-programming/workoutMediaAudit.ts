@@ -48,6 +48,7 @@ export interface WorkoutMediaAuditReport {
     missingAltText: number;
     unreviewedMedia: number;
     highPriorityExercisesWithoutDemoAssets: number;
+    boxingExercisesNeedingMedia: number;
   };
   missingMedia: ExerciseMediaAuditIssue[];
   productionExercisesMissingMedia: ExerciseMediaAuditIssue[];
@@ -55,6 +56,23 @@ export interface WorkoutMediaAuditReport {
   missingAltText: ExerciseMediaAuditIssue[];
   unreviewedMedia: ExerciseMediaAuditIssue[];
   highPriorityExercisesWithoutDemoAssets: ExerciseMediaAuditIssue[];
+  boxingMediaReadiness: BoxingExerciseMediaReadinessReport;
+}
+
+export interface BoxingExerciseMediaReadinessItem {
+  id: string;
+  name: string;
+  priority: ExerciseMediaPriority | 'unknown';
+  hasAltText: boolean;
+  hasMissingReason: boolean;
+  safeTextOnlyFallbackAvailable: boolean;
+  needsMedia: boolean;
+}
+
+export interface BoxingExerciseMediaReadinessReport {
+  boxingExerciseCount: number;
+  needingMediaCount: number;
+  items: BoxingExerciseMediaReadinessItem[];
 }
 
 const ASSET_FIELDS = ['thumbnailUrl', 'imageUrl', 'videoUrl', 'animationUrl'] as const;
@@ -132,6 +150,44 @@ function issueFor(
   };
 }
 
+function isBoxingExercise(exercise: Exercise): boolean {
+  return exercise.id.startsWith('boxing_');
+}
+
+function hasInstructionText(value: unknown): boolean {
+  return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
+}
+
+export function auditBoxingExerciseMediaReadiness(catalog: WorkoutProgrammingCatalog): BoxingExerciseMediaReadinessReport {
+  const items = catalog.exercises
+    .filter(isBoxingExercise)
+    .map((exercise): BoxingExerciseMediaReadinessItem => {
+      const media = exercise.media;
+      const needsMedia = !hasExerciseMediaAsset(media);
+      const record = exercise as unknown as {
+        setupInstructions?: unknown;
+        executionInstructions?: unknown;
+        safetyNotes?: unknown;
+      };
+      return {
+        id: exercise.id,
+        name: exercise.name,
+        priority: media?.priority ?? 'unknown',
+        hasAltText: cleanText(media?.altText) !== null,
+        hasMissingReason: cleanText(media?.missingReason) !== null,
+        safeTextOnlyFallbackAvailable: hasInstructionText(record.setupInstructions)
+          && hasInstructionText(record.executionInstructions)
+          && hasInstructionText(record.safetyNotes),
+        needsMedia,
+      };
+    });
+  return {
+    boxingExerciseCount: items.length,
+    needingMediaCount: items.filter((item) => item.needsMedia).length,
+    items,
+  };
+}
+
 export function auditWorkoutProgrammingExerciseMedia(
   catalog: WorkoutProgrammingCatalog,
   generatedAt = new Date().toISOString(),
@@ -196,6 +252,7 @@ export function auditWorkoutProgrammingExerciseMedia(
       ));
     }
   }
+  const boxingMediaReadiness = auditBoxingExerciseMediaReadiness(catalog);
 
   return {
     generatedAt,
@@ -208,6 +265,7 @@ export function auditWorkoutProgrammingExerciseMedia(
       missingAltText: missingAltText.length,
       unreviewedMedia: unreviewedMedia.length,
       highPriorityExercisesWithoutDemoAssets: highPriorityExercisesWithoutDemoAssets.length,
+      boxingExercisesNeedingMedia: boxingMediaReadiness.needingMediaCount,
     },
     missingMedia,
     productionExercisesMissingMedia,
@@ -215,5 +273,6 @@ export function auditWorkoutProgrammingExerciseMedia(
     missingAltText,
     unreviewedMedia,
     highPriorityExercisesWithoutDemoAssets,
+    boxingMediaReadiness,
   };
 }
