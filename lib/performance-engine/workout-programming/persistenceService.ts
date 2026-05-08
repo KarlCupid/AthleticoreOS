@@ -1392,6 +1392,7 @@ function completionPayload(userId: string, completion: WorkoutCompletionLog, gen
     power_quality_score: completion.powerQualityScore ?? null,
     pain_score_before: completion.painScoreBefore ?? null,
     pain_score_after: completion.painScoreAfter ?? null,
+    feedback_tags: uniqueStrings(completion.feedbackTags ?? []),
     notes: completion.notes ?? null,
   };
 }
@@ -1861,6 +1862,7 @@ function completionFromRow(row: Record<string, unknown>, exerciseResults: Exerci
   const powerQualityScore = rowOptionalNumber(row, 'power_quality_score');
   const painScoreBefore = rowOptionalNumber(row, 'pain_score_before');
   const painScoreAfter = rowOptionalNumber(row, 'pain_score_after');
+  const feedbackTags = rowStringArray(row, 'feedback_tags');
   if (workoutTypeId) completion.workoutTypeId = workoutTypeId;
   if (goalId) completion.goalId = goalId;
   if (prescriptionTemplateId) completion.prescriptionTemplateId = prescriptionTemplateId;
@@ -1875,6 +1877,7 @@ function completionFromRow(row: Record<string, unknown>, exerciseResults: Exerci
   if (powerQualityScore != null) completion.powerQualityScore = powerQualityScore;
   if (painScoreBefore != null) completion.painScoreBefore = painScoreBefore;
   if (painScoreAfter != null) completion.painScoreAfter = painScoreAfter;
+  if (feedbackTags.length > 0) completion.feedbackTags = feedbackTags;
   return completion;
 }
 

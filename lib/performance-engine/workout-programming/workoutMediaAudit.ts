@@ -75,6 +75,21 @@ export interface BoxingExerciseMediaReadinessReport {
   items: BoxingExerciseMediaReadinessItem[];
 }
 
+export interface BoxingExerciseMediaReleaseReadinessIssue {
+  id: string;
+  name: string;
+  severity: 'warning' | 'error';
+  reason: string;
+}
+
+export interface BoxingExerciseMediaReleaseReadinessReport {
+  ready: boolean;
+  productionMode: boolean;
+  boxingExerciseCount: number;
+  needingMediaCount: number;
+  issues: BoxingExerciseMediaReleaseReadinessIssue[];
+}
+
 const ASSET_FIELDS = ['thumbnailUrl', 'imageUrl', 'videoUrl', 'animationUrl'] as const;
 
 function cleanUrl(value: unknown): string | null {
@@ -185,6 +200,73 @@ export function auditBoxingExerciseMediaReadiness(catalog: WorkoutProgrammingCat
     boxingExerciseCount: items.length,
     needingMediaCount: items.filter((item) => item.needsMedia).length,
     items,
+  };
+}
+
+export function auditBoxingExerciseMediaReleaseReadiness(
+  catalog: WorkoutProgrammingCatalog,
+  options: { productionMode?: boolean } = {},
+): BoxingExerciseMediaReleaseReadinessReport {
+  const productionMode = options.productionMode === true;
+  const items = catalog.exercises.filter(isBoxingExercise);
+  const issues: BoxingExerciseMediaReleaseReadinessIssue[] = [];
+
+  for (const exercise of items) {
+    const productionEligible = exercise.rolloutEligibility === 'production';
+    if (!productionEligible) continue;
+    const media = exercise.media;
+    const hasAsset = hasExerciseMediaAsset(media);
+    const hasAltText = cleanText(media?.altText) !== null;
+    const hasMissingReason = cleanText(media?.missingReason) !== null;
+    const record = exercise as unknown as {
+      setupInstructions?: unknown;
+      executionInstructions?: unknown;
+      safetyNotes?: unknown;
+    };
+    const hasTextFallback = hasInstructionText(record.setupInstructions)
+      && hasInstructionText(record.executionInstructions)
+      && hasInstructionText(record.safetyNotes);
+
+    if (!hasAsset && !hasTextFallback) {
+      issues.push({
+        id: exercise.id,
+        name: exercise.name,
+        severity: 'error',
+        reason: 'Production boxing exercise has no media asset and no safe text-only fallback.',
+      });
+    }
+    if (!hasAsset && !hasAltText) {
+      issues.push({
+        id: exercise.id,
+        name: exercise.name,
+        severity: 'error',
+        reason: 'Missing boxing media needs alt text for the pending asset.',
+      });
+    }
+    if (!hasAsset && !hasMissingReason) {
+      issues.push({
+        id: exercise.id,
+        name: exercise.name,
+        severity: 'error',
+        reason: 'Missing boxing media needs a missingReason.',
+      });
+    }
+    if (productionMode && media?.priority === 'high' && (!hasExerciseDemoMediaAsset(media) || media.reviewStatus !== 'approved')) {
+      issues.push({
+        id: exercise.id,
+        name: exercise.name,
+        severity: 'error',
+        reason: 'High-priority production boxing exercise needs an approved demo asset.',
+      });
+    }
+  }
+
+  return {
+    ready: issues.every((issue) => issue.severity !== 'error'),
+    productionMode,
+    boxingExerciseCount: items.length,
+    needingMediaCount: items.filter((exercise) => !hasExerciseMediaAsset(exercise.media)).length,
+    issues,
   };
 }
 

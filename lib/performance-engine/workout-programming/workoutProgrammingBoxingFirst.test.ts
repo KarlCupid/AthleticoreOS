@@ -3,6 +3,7 @@ import {
   generateWeeklyWorkoutProgram,
   inferProtectedWorkoutModality,
   auditBoxingExerciseMediaReadiness,
+  auditBoxingExerciseMediaReleaseReadiness,
   contributionForGeneratedSession,
   evaluateBoxingProgressionForFamily,
   templateIdForBoxingFamily,
@@ -506,6 +507,25 @@ console.log('\n-- workout programming boxing-first planner --');
   const report = auditBoxingExerciseMediaReadiness(workoutProgrammingCatalog);
   assert('R boxing media readiness counts boxing exercises', report.boxingExerciseCount > 0);
   assert('R boxing missing media exposes alt text, reason, and safe text fallback', report.needingMediaCount > 0 && report.items.filter((item) => item.needsMedia).every((item) => item.hasAltText && item.hasMissingReason && item.safeTextOnlyFallbackAvailable));
+  const releaseReport = auditBoxingExerciseMediaReleaseReadiness(workoutProgrammingCatalog, { productionMode: true });
+  assert('R boxing media release readiness accepts safe text-only pending media', releaseReport.ready && releaseReport.issues.length === 0);
+  const brokenCatalog = {
+    ...workoutProgrammingCatalog,
+    exercises: workoutProgrammingCatalog.exercises.map((exercise) => exercise.id === 'boxing_stance_breathing_reset'
+      ? {
+        ...exercise,
+        media: {
+          ...exercise.media,
+          altText: '',
+          missingReason: '',
+          priority: 'high' as const,
+        },
+        setupInstructions: [],
+      }
+      : exercise),
+  };
+  const brokenReport = auditBoxingExerciseMediaReleaseReadiness(brokenCatalog, { productionMode: true });
+  assert('R boxing media release readiness fails missing alt reason or text fallback', !brokenReport.ready && brokenReport.issues.some((issue) => issue.id === 'boxing_stance_breathing_reset'));
 })();
 
 (() => {

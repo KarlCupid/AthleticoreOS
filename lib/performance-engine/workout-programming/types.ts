@@ -1323,6 +1323,7 @@ export interface WorkoutCompletionLog {
   powerQualityScore?: number | null;
   painScoreBefore?: number | null;
   painScoreAfter?: number | null;
+  feedbackTags?: string[];
   notes?: string | null;
   exerciseResults: ExerciseCompletionResult[];
 }

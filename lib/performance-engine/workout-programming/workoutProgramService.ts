@@ -6,6 +6,8 @@ import {
   attachGeneratedWorkoutToProgramSession as persistAttachGeneratedWorkoutToProgramSession,
   listUserPrograms as persistListUserPrograms,
   loadGeneratedProgram as persistLoadGeneratedProgram,
+  loadRecentCompletions,
+  loadRecentProgressionDecisionsForUser,
   loadUserWorkoutProfile,
   markProgramSessionCompleted as persistMarkProgramSessionCompleted,
   NotFoundError,
@@ -25,6 +27,10 @@ import type {
   WorkoutProgrammingServiceOptions,
 } from './workoutProgrammingServiceTypes.ts';
 
+function completionFeedbackTags(completions: readonly { feedbackTags?: readonly string[] | undefined }[]): string[] {
+  return [...new Set(completions.flatMap((completion) => completion.feedbackTags ?? []).filter((tag) => tag.trim().length > 0))];
+}
+
 export async function generateWeeklyProgramForUser(
   userId: string,
   request: WorkoutProgrammingProgramRequest,
@@ -32,9 +38,15 @@ export async function generateWeeklyProgramForUser(
 ): Promise<GeneratedProgram> {
   const profile = await loadUserWorkoutProfile(userId, options);
   const input = mergeProfileRequest(userId, profile, request);
+  const recentWorkoutCompletions = input.recentWorkoutCompletions ?? await loadRecentCompletions(userId, { ...options, limit: 10 });
+  const recentProgressionDecisions = input.recentProgressionDecisions ?? await loadRecentProgressionDecisionsForUser(userId, { ...options, limit: 10 });
+  const recentFeedbackTags = input.recentFeedbackTags ?? request.recentFeedbackTags ?? completionFeedbackTags(recentWorkoutCompletions);
   const program = generateWeeklyWorkoutProgram({
     ...request,
     ...input,
+    recentWorkoutCompletions,
+    recentProgressionDecisions,
+    recentFeedbackTags,
   });
   if (!options?.persistGeneratedProgram) return program;
   const userProgramId = await persistGeneratedProgram(userId, program, options);

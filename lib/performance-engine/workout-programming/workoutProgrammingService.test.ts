@@ -175,6 +175,29 @@ function insertedPayload(calls: CallRecord[], table: string): unknown {
   return calls.find((call) => call.table === table && call.method === 'insert')?.args[0];
 }
 
+function completionRow(update: Partial<Record<string, unknown>>): Record<string, unknown> {
+  return {
+    id: update.id ?? 'completion-id',
+    user_id: 'user-1',
+    generated_workout_id: null,
+    source: 'generated_workout',
+    workout_type_id: update.workout_type_id ?? 'zone2_cardio',
+    goal_id: update.goal_id ?? 'roadwork_aerobic_base',
+    prescription_template_id: update.prescription_template_id ?? null,
+    completion_status: update.completion_status ?? 'completed',
+    substitutions_used: update.substitutions_used ?? [],
+    completed_at: update.completed_at ?? '2026-05-01T00:00:00.000Z',
+    planned_duration_minutes: update.planned_duration_minutes ?? 35,
+    actual_duration_minutes: update.actual_duration_minutes ?? 35,
+    session_rpe: update.session_rpe ?? 5,
+    pain_score_before: update.pain_score_before ?? null,
+    pain_score_after: update.pain_score_after ?? null,
+    feedback_tags: update.feedback_tags ?? [],
+    notes: update.notes ?? null,
+    ...update,
+  };
+}
+
 async function run() {
   console.log('\n-- workout programming service --');
 
@@ -493,6 +516,153 @@ async function run() {
       experienceLevel: 'beginner',
     });
     assert('generateWeeklyProgramForUser returns weekly program shape', program.weeks.length === 2 && program.sessions.length > 0 && program.progressionPlan.length === 2);
+  }
+
+  {
+    const { client, calls } = createMockSupabase({
+      workout_completions: [
+        completionRow({ id: 'road-1', goal_id: 'roadwork_aerobic_base', workout_type_id: 'zone2_cardio', session_rpe: 4, actual_duration_minutes: 35 }),
+        completionRow({ id: 'road-2', goal_id: 'roadwork_aerobic_base', workout_type_id: 'zone2_cardio', session_rpe: 5, actual_duration_minutes: 38 }),
+      ],
+    });
+    const program = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 40,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'stationary_bike', 'resistance_band'],
+      experienceLevel: 'intermediate',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'amateur_open' },
+    }, { client });
+    assert('service weekly boxing loads recent completions', calls.some((call) => call.table === 'workout_completions' && call.method === 'select') && calls.some((call) => call.table === 'progression_decisions' && call.method === 'select'));
+    assert('service roadwork completion progression affects next plan', program.weeks[0]?.weeklyDose?.boxingProgressionDecisions?.some((decision) => decision.family === 'roadwork_zone2' && decision.action === 'progress_volume') === true);
+  }
+
+  {
+    const { client } = createMockSupabase({
+      workout_completions: [
+        completionRow({ id: 'alactic-hard', goal_id: 'alactic_repeat_power', workout_type_id: 'boxing_support', session_rpe: 9.5, feedback_tags: ['too_hard'] }),
+      ],
+    });
+    const program = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 40,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'stationary_bike', 'resistance_band'],
+      experienceLevel: 'intermediate',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'amateur_open' },
+    }, { client });
+    const decision = program.weeks[0]?.weeklyDose?.boxingProgressionDecisions?.find((item) => item.family === 'alactic_repeat_power');
+    assert('service hard alactic too-hard feedback does not intensify', Boolean(decision && ['repeat', 'regress'].includes(decision.action)));
+  }
+
+  {
+    const { client } = createMockSupabase({
+      workout_completions: [
+        completionRow({ id: 'shoulder-pain', goal_id: 'shoulder_scap_durability', workout_type_id: 'mobility', session_rpe: 5, pain_score_before: 1, pain_score_after: 4 }),
+      ],
+    });
+    const program = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 35,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'resistance_band'],
+      experienceLevel: 'intermediate',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'pro_development' },
+    }, { client });
+    const decision = program.weeks[0]?.weeklyDose?.boxingProgressionDecisions?.find((item) => item.family === 'shoulder_scap_durability');
+    assert('service shoulder pain increase triggers regression or coach review', Boolean(decision && ['regress', 'coach_review'].includes(decision.action)));
+  }
+
+  {
+    const { client } = createMockSupabase({
+      workout_completions: [
+        completionRow({ id: 'missed-1', goal_id: 'roadwork_aerobic_base', workout_type_id: 'zone2_cardio', completion_status: 'abandoned', session_rpe: 7, feedback_tags: ['missed'] }),
+        completionRow({ id: 'missed-2', goal_id: 'roadwork_aerobic_base', workout_type_id: 'zone2_cardio', completion_status: 'stopped', session_rpe: 6 }),
+      ],
+    });
+    const program = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 40,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'stationary_bike', 'resistance_band'],
+      experienceLevel: 'intermediate',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'amateur_open' },
+    }, { client });
+    assert('service missed sessions lower variance or complexity', program.weeks[0]?.variancePlan?.varianceLevel === 'low' || program.weeks[0]?.weeklyDose?.boxingProgressionDecisions?.some((decision) => decision.action === 'deload') === true);
+  }
+
+  {
+    const aspiring = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 35,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'resistance_band'],
+      experienceLevel: 'beginner',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'aspiring_boxer' },
+    });
+    assert('service aspiring boxer onboarding produces boxing support plan', aspiring.weeks[0]?.weeklyDose?.track === 'aspiring_boxer' && aspiring.sessions.some((session) => session.boxingSessionFamily === 'boxing_skill_microdose'));
+
+    const classes = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 45,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'stationary_bike', 'resistance_band'],
+      experienceLevel: 'intermediate',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'amateur_open' },
+      protectedWorkouts: [
+        { id: 'boxing-2', label: 'Boxing Class', dayIndex: 2, durationMinutes: 75, intensity: 'moderate' },
+        { id: 'boxing-4', label: 'Boxing Class', dayIndex: 4, durationMinutes: 75, intensity: 'moderate' },
+      ],
+    });
+    assert('service amateur open with two boxing classes keeps enough generated support', (classes.weeks[0]?.weeklyVolumeSummary.generatedSupportSessionCount ?? 0) + (classes.weeks[0]?.weeklyVolumeSummary.generatedMicrodoseCount ?? 0) >= 3);
+
+    const sparring = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 45,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'stationary_bike', 'resistance_band'],
+      experienceLevel: 'intermediate',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'amateur_open' },
+      protectedWorkouts: [
+        { id: 'sparring-2', label: 'Hard Sparring', dayIndex: 2, durationMinutes: 75, intensity: 'hard' },
+        { id: 'sparring-5', label: 'Hard Sparring', dayIndex: 5, durationMinutes: 75, intensity: 'hard' },
+      ],
+    });
+    const firstWeekSparringSessions = sparring.weeks[0]!.sessions;
+    assert('service hard sparring twice keeps low-load support and hard cap', sparring.weeks[0]!.hardDayCount <= sparring.weeks[0]!.weeklyDose!.hardDayCap && firstWeekSparringSessions.filter((session) => !session.protectedAnchor && session.plannedIntensity === 'hard').length <= 1);
+
+    const noRunning = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 40,
+      equipmentIds: ['bodyweight', 'stationary_bike', 'mat', 'open_space'],
+      experienceLevel: 'intermediate',
+      readinessBand: 'green',
+      safetyFlags: ['no_running'],
+      boxingTrainingContext: { track: 'amateur_open' },
+    });
+    const selectedExerciseIds = noRunning.sessions.flatMap((session) => session.workout?.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exerciseId)) ?? []);
+    assert('service no_running with roadwork need uses safe fallback', !selectedExerciseIds.some((id) => /run|roadwork/.test(id)));
+
+    const taper = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'boxing_support',
+      durationMinutes: 35,
+      equipmentIds: ['bodyweight', 'mat', 'open_space', 'resistance_band'],
+      experienceLevel: 'advanced',
+      readinessBand: 'green',
+      boxingTrainingContext: { track: 'pro_12_round', fightCampWeeksOut: 1 },
+    });
+    assert('service pro 12-round taper has no hard S&C', taper.sessions.filter((session) => !session.protectedAnchor && session.plannedIntensity === 'hard').length === 0);
+
+    const legacy = await generateWeeklyProgramForUser('user-1', {
+      goalId: 'beginner_strength',
+      durationMinutes: 35,
+      equipmentIds: ['bodyweight', 'dumbbells'],
+      experienceLevel: 'beginner',
+      readinessBand: 'green',
+      sessionsPerWeek: 2,
+      boxingTrainingContext: { track: 'general_fitness_legacy' },
+    });
+    assert('service general fitness legacy stays conservative', legacy.weeks[0]?.weeklyDose?.track === 'general_fitness_legacy' && legacy.weeks[0]?.weeklyVolumeSummary.generatedSessionCount === 2);
   }
 
   {
