@@ -18,7 +18,7 @@ Every reviewable content record supports:
 - `riskLevel`: `low`, `moderate`, or `high`
 - `rolloutEligibility`: `dev_only`, `preview`, `production`, or `blocked`
 
-Rejected or blocked content must never be selected. Draft and needs-review content can be used only in internal preview/beta workflows that surface warnings. Production generation requires `reviewStatus = approved` and `rolloutEligibility = production`.
+Rejected or blocked content must never be selected. Draft and needs-review content can be used only in internal preview workflows that surface warnings. Production generation requires `reviewStatus = approved` and `rolloutEligibility = production`.
 
 ## Risk Levels
 
@@ -85,7 +85,7 @@ Preview generation can include draft or needs-review content when allowed, but i
 
 ## Audit Behavior
 
-Content audit tooling mirrors the runtime gate. Records that are explicitly `dev_only` or `preview` are reported as gated review work, not as production-breaking errors, as long as they are not rejected, blocked, or marked production-eligible with unsafe review metadata. This lets the app ship production-approved content while newer exercises or rules remain visible to reviewers in beta.
+Content audit tooling mirrors the runtime gate. Records that are explicitly `dev_only` or `preview` are reported as gated review work, not as production-breaking errors, as long as they are not rejected, blocked, or marked production-eligible with unsafe review metadata. This lets the app ship production-approved content while newer exercises or rules remain visible to internal reviewers.
 
 Run:
 
@@ -94,7 +94,7 @@ npm run workout:validate-content
 npm run workout:audit-content
 ```
 
-Release mode is stricter than the normal beta audit:
+Release mode is stricter than the normal internal preview audit:
 
 ```bash
 npm run workout:validate-content -- --strict
@@ -104,7 +104,7 @@ npm run workout:audit-content -- --release
 
 `--strict` and `--release` fail unless the release report has `productionReady: true`. They block on validation errors, production blockers, unsafe production-eligible content, rejected content that is not blocked, high-risk production content without safety approval, incomplete production descriptions, production exercises without safety notes or substitutions, production prescriptions without progression/regression/deload rules, and production exercises without approved release media.
 
-Preview/dev-only content can remain in the catalog for beta review. It does not block strict release when it is safely gated with `rolloutEligibility = preview` or `dev_only`; it does block if it is rejected without `blocked` rollout, marked production-eligible before approval, or otherwise creates a catalog-wide validation error.
+Preview/dev-only content can remain in the catalog for internal review. It does not block strict release when it is safely gated with `rolloutEligibility = preview` or `dev_only`; it does block if it is rejected without `blocked` rollout, marked production-eligible before approval, or otherwise creates a catalog-wide validation error.
 
 The audit JSON and human report include:
 

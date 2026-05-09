@@ -2,7 +2,7 @@
 
 This folder documents the production-grade workout-programming system under `lib/performance-engine/workout-programming/`.
 
-The module turns a training request into a safe, explainable workout or weekly program. It combines static programming taxonomy, typed prescriptions, hand-authored coaching intelligence, user constraints, substitution logic, validation, progression decisions, persistence services, a feature-flagged beta UI flow, and an isolated developer-only preview panel.
+The module turns boxing-athlete context into a safe, explainable workout or weekly program. The boxing workout-programming engine is the canonical runtime source for weekly planning, generated support sessions, completion, progression, and training-week intelligence. It combines static programming taxonomy, typed prescriptions, hand-authored coaching intelligence, user constraints, substitution logic, validation, progression decisions, persistence services, boxing-week adapters, and internal diagnostics.
 
 ## Audience
 
@@ -23,10 +23,11 @@ The module turns a training request into a safe, explainable workout or weekly p
 - `workoutDescriptionService.ts`: display-ready coaching copy.
 - `personalizationEngine.ts`: user profile handling and next progression decisions.
 - `programBuilder.ts`: weekly periodized planning.
+- `generatedProgramWeeklyPlanAdapter.ts`: canonical `GeneratedProgram` to `weekly_plan_entries` projection plus old-row compatibility helpers.
 - `persistenceService.ts`: Supabase-compatible persistence surfaces with in-code fallback.
 - `workoutProgrammingService.ts`: high-level app-facing facade.
 - `workoutGenerationService.ts`, `workoutCompletionService.ts`, `workoutProgressionService.ts`, `workoutProgramService.ts`, `workoutDescriptionFacade.ts`, `workoutSubstitutionService.ts`: focused service orchestration behind the facade.
-- `workoutProgrammingFallbacks.ts`: shared beta/dev fallback, error-copy, feature-flag, and content-review-mode rules.
+- `workoutProgrammingFallbacks.ts`: internal diagnostics fallback, error-copy, feature-flag, and content-review-mode rules.
 - `workoutSafetyCopy.ts`: shared generated-workout safety, fallback, and local-mode copy.
 - `contentReviewWorkflow.ts`: JSON queue/decision workflow for coach/admin review handoff.
 - `workoutMediaAudit.ts`: exercise media asset audit helpers and approved media selection.
@@ -68,31 +69,39 @@ The module turns a training request into a safe, explainable workout or weekly p
 - [Models and Content](./models-and-content.md)
 - [Engine Behavior](./engine-behavior.md)
 - [Boxing Athlete Development Engine](./boxing-athlete-development-engine.md)
+- [Boxing Engine Source Of Truth](./boxing-engine-source-of-truth.md)
 - [How-To Workflows](./how-to.md)
 - [Generated Workout UI Smoke Checklist](./ui-smoke-checklist.md)
 - [Testing, Limitations, and Roadmap](./testing-limitations-roadmap.md)
 
-## Quick Start: Generate a Workout
+## Quick Start: Generate a Boxing Session
 
 ```ts
 import { workoutProgrammingService } from '../lib/performance-engine/workout-programming';
 
-const workout = await workoutProgrammingService.generatePreviewWorkout({
-  goalId: 'beginner_strength',
-  durationMinutes: 30,
-  equipmentIds: ['bodyweight', 'dumbbells'],
+const session = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, {
+  goalId: 'footwork_agility',
+  durationMinutes: 20,
+  equipmentIds: ['bodyweight', 'open_space'],
   experienceLevel: 'beginner',
   readinessBand: 'green',
+  intendedBoxingSessionFamily: 'footwork_agility',
+  intendedBoxingSessionRole: 'footwork_agility',
+  intendedSessionDoseCategory: 'microdose',
+  preferredSessionTemplateId: 'footwork_agility',
 });
 ```
 
-For user-aware generation:
+For weekly boxing planning:
 
 ```ts
-const workout = await workoutProgrammingService.generateWorkoutForUser(userId, {
-  goalId: 'dumbbell_hypertrophy',
-  preferredDurationMinutes: 45,
+const program = await workoutProgrammingService.generateWeeklyProgramForUser(userId, {
+  goalId: 'boxing_support',
+  sessionsPerWeek: 4,
+  desiredProgramLengthWeeks: 4,
+  availableDays: [1, 2, 4, 6],
+  boxingTrainingContext: { track: 'amateur_open' },
 });
 ```
 
-Use the service layer for app integration. Lower-level engines remain exported for tests and specialist work, but UI/API code should not assemble raw seed data directly.
+Use the service layer and boxing weekly adapter for app integration. Lower-level legacy engines remain exported for tests, compatibility, and unrelated specialist work, but UI/API code must not assemble raw seed data or call old adaptive weekly generation as a product fallback.

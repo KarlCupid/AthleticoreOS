@@ -57,15 +57,13 @@ async function run() {
       && renderTest.includes('GeneratedWorkoutBetaSessionCard'),
   );
 
-  assert('feature flags gate generated workout preview and beta flow', hasAll(workoutScreen, [
-    'useGeneratedWorkoutBeta',
-    'GeneratedWorkoutBetaContainer',
-    'GeneratedWorkoutDevPreviewPanel',
+  assert('feature flags gate boxing workout generation and internal diagnostics separately', hasAll(workoutScreen, [
+    'useBoxingGeneratedWorkout',
+    'BoxingGeneratedWorkoutContainer',
+    'showBoxingGeneratedFlow',
+    'BoxingWeekIntelligenceCard',
   ]) && hasAll(betaHook, [
-    'resolveGeneratedWorkoutFeatureFlags',
-    'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA',
-    "dev: typeof __DEV__ !== 'undefined' && __DEV__",
-    'process.env.EXPO_PUBLIC_BUILD_PROFILE',
+    'process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED',
     'if (!betaEnabled) return;',
   ]) && !betaHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
     'resolveGeneratedWorkoutFeatureFlags',
@@ -78,24 +76,26 @@ async function run() {
     "const betaEnabled = developerFlagEnvironment && betaFlag === '1'",
     "previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1'",
   ]) && hasAll(betaContainer, [
-    'testID="generated-workout-beta-section"',
-  ]) && !betaContainer.includes('generated-workout-preview-section') && hasAll(devPreviewPanel, [
-    'testID="generated-workout-preview-section"',
-    'developer-only debug section',
+    'testID="boxing-generated-workout-section"',
+  ]) && !betaContainer.includes('internal-workout-diagnostics-section') && hasAll(devPreviewPanel, [
+    'testID="internal-workout-diagnostics-section"',
+    'internal diagnostics section',
   ]));
 
-  assert('friend preview and production EAS profiles explicitly keep generated workout flags off', hasAll(easJson, [
+  assert('friend preview and production EAS profiles enable boxing engine while keeping diagnostics off', hasAll(easJson, [
     '"preview"',
     '"production"',
+    '"EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED": "1"',
     '"EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA": "0"',
     '"EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"',
   ]));
 
-  assert('feature-flagged beta path does not replace existing workout screen flow', hasAll(workoutScreen, [
+  assert('boxing generated path preserves plan, history, analytics, and guided fallback navigation', hasAll(workoutScreen, [
     'WorkoutPrescriptionSection',
     'WorkoutHistoryTab',
     'WorkoutAnalyticsTab',
     "navigation.navigate('GuidedWorkout'",
+    "navigation.navigate('WorkoutDetail'",
     "navigation.navigate('WeeklyPlanSetup')",
     "activeTab === 'history'",
     "activeTab === 'analytics'",
@@ -132,8 +132,8 @@ async function run() {
     'generatedWorkoutDefaultSafetyNotes',
   ]));
 
-  assert('preview and beta error states surface service failures without crashing the screen', hasAll(workoutScreen, [
-    'GeneratedWorkoutBetaContainer',
+  assert('preview and boxing generated error states surface service failures without crashing the screen', hasAll(workoutScreen, [
+    'BoxingGeneratedWorkoutContainer',
   ]) && hasAll(betaHook, [
     'setError',
     'normalizeGeneratedWorkoutError',
@@ -157,29 +157,29 @@ async function run() {
     'Generated preview unavailable',
   ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
 
-  assert('beta flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(betaCard, [
-    'testID="generated-workout-beta-card"',
-    'testID="generated-workout-beta-stage-row"',
-    'testID="generated-workout-beta-generate"',
+  assert('boxing generated flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(betaCard, [
+    'testID="boxing-generated-workout-card"',
+    'testID="boxing-generated-workout-stage-row"',
+    'testID="boxing-generated-workout-generate"',
     'onPress={submitGenerate}',
-    'testID="generated-workout-beta-start"',
+    'testID="boxing-generated-workout-start"',
     'disabled={workout.blocked === true}',
     'onPress={onStart}',
-    'testID="generated-workout-beta-checklist"',
+    'testID="boxing-generated-workout-checklist"',
     'Mark all',
-    'testID="generated-workout-beta-lifecycle"',
-    'testID="generated-workout-beta-lifecycle-controls"',
-    'testID="generated-workout-beta-pause"',
-    'testID="generated-workout-beta-resume"',
-    'testID="generated-workout-beta-session-log"',
-    'testID="generated-workout-beta-feedback"',
+    'testID="boxing-generated-workout-lifecycle"',
+    'testID="boxing-generated-workout-lifecycle-controls"',
+    'testID="boxing-generated-workout-pause"',
+    'testID="boxing-generated-workout-resume"',
+    'testID="boxing-generated-workout-session-log"',
+    'testID="boxing-generated-workout-feedback"',
     'Too easy',
     'Right',
     'Too hard',
-    'testID="generated-workout-beta-notes"',
-    'testID="generated-workout-beta-complete"',
+    'testID="boxing-generated-workout-notes"',
+    'testID="boxing-generated-workout-complete"',
     'onPress={submitComplete}',
-    'testID="generated-workout-beta-next-progression"',
+    'testID="boxing-generated-workout-next-progression"',
     'Recommended next step',
     'progressionDecision.userMessage',
     'generatedWorkoutSafetyReminder',

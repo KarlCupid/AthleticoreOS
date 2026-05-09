@@ -246,7 +246,7 @@ async function run() {
   {
     const recoveryState = buildState({ phase: 'recovery', blockGoal: 'strength' });
     const goal = resolveTrainingGoalFromCurrentPhase({ performanceState: recoveryState });
-    assert('current training phase influences generated goal', goal.value === 'recovery');
+    assert('current training phase influences generated goal', goal.value === 'recovery_reset');
   }
 
   {

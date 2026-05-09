@@ -10,6 +10,18 @@ import {
 import { getExerciseLibrary } from '../../lib/api/scService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { getErrorMessage } from '../../lib/utils/logger';
+import {
+    generatedWorkoutCompletionOptionsForUser,
+    generatedWorkoutFlowUserId,
+    generatedWorkoutLifecycleOptionsForUser,
+    getBoxingSnapshotFromWeeklyPlanEntry,
+    workoutProgrammingService,
+    type BoxingGeneratedPlanEntrySnapshot,
+    type GeneratedWorkout,
+    type GeneratedWorkoutSessionLifecycleStatus,
+    type ProgressionDecision,
+} from '../../lib/performance-engine/workout-programming';
+import type { GeneratedWorkoutBetaCompletionDraft } from '../components/workout/GeneratedWorkoutBetaSessionCard';
 import type {
     WeeklyPlanEntryRow,
     WorkoutPrescriptionV2,
@@ -22,6 +34,14 @@ import type {
 export function useWorkoutDetail() {
     const [entry, setEntry] = useState<WeeklyPlanEntryRow | null>(null);
     const [prescription, setPrescription] = useState<WorkoutPrescriptionV2 | null>(null);
+    const [boxingSnapshot, setBoxingSnapshot] = useState<BoxingGeneratedPlanEntrySnapshot | null>(null);
+    const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
+    const [generatedStage, setGeneratedStage] = useState<'inspect' | 'started' | 'completed'>('inspect');
+    const [generatedStartedAt, setGeneratedStartedAt] = useState<string | null>(null);
+    const [generatedLifecycleStatus, setGeneratedLifecycleStatus] = useState<GeneratedWorkoutSessionLifecycleStatus | null>(null);
+    const [generatedLifecycleMessage, setGeneratedLifecycleMessage] = useState<string | null>(null);
+    const [generatedCompleting, setGeneratedCompleting] = useState(false);
+    const [generatedProgressionDecision, setGeneratedProgressionDecision] = useState<ProgressionDecision | null>(null);
     const [exerciseLibrary, setExerciseLibrary] = useState<ExerciseLibraryRow[]>([]);
     const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -53,8 +73,16 @@ export function useWorkoutDetail() {
             if (!mountedRef.current || requestId !== loadRequestIdRef.current) return;
             setEntry(loadedEntry);
             setExerciseLibrary(library);
+            const boxing = getBoxingSnapshotFromWeeklyPlanEntry(loadedEntry);
+            setBoxingSnapshot(boxing);
+            setGeneratedWorkout(boxing?.generatedWorkout ?? null);
+            setGeneratedStage(loadedEntry?.status === 'completed' ? 'completed' : 'inspect');
+            setGeneratedStartedAt(null);
+            setGeneratedLifecycleStatus(null);
+            setGeneratedLifecycleMessage(null);
+            setGeneratedProgressionDecision(null);
             const snap = loadedEntry?.prescription_snapshot ?? null;
-            setPrescription(snap);
+            setPrescription(boxing ? null : snap);
         } catch (_err) {
             if (!mountedRef.current || requestId !== loadRequestIdRef.current) return;
             Alert.alert('Error', getErrorMessage(_err));
@@ -138,13 +166,20 @@ export function useWorkoutDetail() {
         }
         setIsRegenerating(true);
         try {
-            const newPrescription = await regenerateDayWorkout(userId, entry.id, newFocus);
+            const newWorkout = await regenerateDayWorkout(userId, entry.id, newFocus);
             if (!mountedRef.current) return;
-            setPrescription(newPrescription);
+            setGeneratedWorkout(newWorkout);
+            setGeneratedStage('inspect');
+            setPrescription(null);
             setExpandedExerciseId(null);
             // Refresh entry to pick up any status/focus changes
             const refreshed = await getWeeklyPlanEntryById(entry.id);
-            if (mountedRef.current && refreshed) setEntry(refreshed);
+            if (mountedRef.current && refreshed) {
+                setEntry(refreshed);
+                const boxing = getBoxingSnapshotFromWeeklyPlanEntry(refreshed);
+                setBoxingSnapshot(boxing);
+                setGeneratedWorkout(boxing?.generatedWorkout ?? newWorkout);
+            }
         } catch (_err) {
             if (!mountedRef.current) return;
             Alert.alert('Error', `Could not regenerate workout: ${getErrorMessage(_err)}`);
@@ -154,6 +189,125 @@ export function useWorkoutDetail() {
             }
         }
     }, [entry]);
+
+    const startGeneratedWorkout = useCallback(async () => {
+        if (!generatedWorkout) return;
+        const userId = await getActiveUserId();
+        const generatedWorkoutId = boxingSnapshot?.generatedWorkoutId ?? null;
+        const occurredAt = new Date().toISOString();
+        setGeneratedStartedAt(occurredAt);
+        setGeneratedStage('started');
+        setGeneratedLifecycleStatus('started');
+        setGeneratedLifecycleMessage(null);
+        try {
+            const lifecycle = await workoutProgrammingService.startGeneratedWorkoutSession(
+                generatedWorkoutFlowUserId(userId),
+                generatedWorkoutId,
+                generatedWorkoutLifecycleOptionsForUser(userId, occurredAt),
+            );
+            if (!mountedRef.current) return;
+            setGeneratedStartedAt(lifecycle.lifecycle.startedAt ?? occurredAt);
+            setGeneratedLifecycleStatus(lifecycle.lifecycle.status);
+            setGeneratedLifecycleMessage(lifecycle.persisted ? null : 'Session started locally. Saving will resume when available.');
+            if (lifecycle.fallbackMessage) setGeneratedLifecycleMessage(`Session started locally: ${lifecycle.fallbackMessage}`);
+        } catch (_err) {
+            if (!mountedRef.current) return;
+            setGeneratedLifecycleMessage('Session started locally. Start state could not be saved yet.');
+        }
+    }, [boxingSnapshot?.generatedWorkoutId, generatedWorkout]);
+
+    const pauseGeneratedWorkout = useCallback(async () => {
+        const userId = await getActiveUserId();
+        const generatedWorkoutId = boxingSnapshot?.generatedWorkoutId ?? null;
+        const occurredAt = new Date().toISOString();
+        setGeneratedLifecycleStatus('paused');
+        setGeneratedLifecycleMessage('Session paused.');
+        try {
+            const lifecycle = await workoutProgrammingService.pauseGeneratedWorkoutSession(
+                generatedWorkoutFlowUserId(userId),
+                generatedWorkoutId,
+                generatedWorkoutLifecycleOptionsForUser(userId, occurredAt),
+            );
+            if (!mountedRef.current) return;
+            setGeneratedLifecycleStatus(lifecycle.lifecycle.status);
+            setGeneratedLifecycleMessage(lifecycle.persisted ? 'Session paused and saved.' : 'Session paused locally.');
+        } catch {
+            if (mountedRef.current) setGeneratedLifecycleMessage('Session paused locally. Pause state could not be saved yet.');
+        }
+    }, [boxingSnapshot?.generatedWorkoutId]);
+
+    const resumeGeneratedWorkout = useCallback(async () => {
+        const userId = await getActiveUserId();
+        const generatedWorkoutId = boxingSnapshot?.generatedWorkoutId ?? null;
+        const occurredAt = new Date().toISOString();
+        setGeneratedStage('started');
+        setGeneratedLifecycleStatus('resumed');
+        setGeneratedLifecycleMessage('Session resumed.');
+        try {
+            const lifecycle = await workoutProgrammingService.resumeGeneratedWorkoutSession(
+                generatedWorkoutFlowUserId(userId),
+                generatedWorkoutId,
+                generatedWorkoutLifecycleOptionsForUser(userId, occurredAt),
+            );
+            if (!mountedRef.current) return;
+            setGeneratedStartedAt((current) => current ?? lifecycle.lifecycle.startedAt ?? occurredAt);
+            setGeneratedLifecycleStatus(lifecycle.lifecycle.status);
+            setGeneratedLifecycleMessage(lifecycle.persisted ? 'Session resumed and saved.' : 'Session resumed locally.');
+        } catch {
+            if (mountedRef.current) setGeneratedLifecycleMessage('Session resumed locally. Resume state could not be saved yet.');
+        }
+    }, [boxingSnapshot?.generatedWorkoutId]);
+
+    const abandonGeneratedWorkout = useCallback(async () => {
+        const userId = await getActiveUserId();
+        const generatedWorkoutId = boxingSnapshot?.generatedWorkoutId ?? null;
+        const occurredAt = new Date().toISOString();
+        try {
+            await workoutProgrammingService.abandonGeneratedWorkoutSession(
+                generatedWorkoutFlowUserId(userId),
+                generatedWorkoutId,
+                generatedWorkoutLifecycleOptionsForUser(userId, occurredAt),
+            );
+        } catch {
+            // Local UI reset still wins; persistence can catch up from lifecycle records later.
+        }
+        if (!mountedRef.current) return;
+        setGeneratedStage('inspect');
+        setGeneratedStartedAt(null);
+        setGeneratedLifecycleStatus(null);
+        setGeneratedLifecycleMessage('Session abandoned.');
+    }, [boxingSnapshot?.generatedWorkoutId]);
+
+    const completeGeneratedWorkout = useCallback(async (draft: GeneratedWorkoutBetaCompletionDraft) => {
+        if (!generatedWorkout) return;
+        const userId = await getActiveUserId();
+        const completionInput = {
+            workout: generatedWorkout,
+            generatedWorkoutId: boxingSnapshot?.generatedWorkoutId ?? null,
+            startedAt: generatedStartedAt,
+            completedAt: new Date().toISOString(),
+            ...draft,
+        };
+        setGeneratedCompleting(true);
+        try {
+            const result = await workoutProgrammingService.completeGeneratedWorkoutSession(
+                generatedWorkoutFlowUserId(userId),
+                completionInput,
+                generatedWorkoutCompletionOptionsForUser(userId),
+            );
+            if (!mountedRef.current) return;
+            setGeneratedProgressionDecision(result.progressionDecision);
+            setGeneratedStage('completed');
+            setGeneratedLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
+            setGeneratedLifecycleMessage(result.lifecycleFallbackMessage ? `Completion saved locally: ${result.lifecycleFallbackMessage}` : 'Completion saved. Progression updated.');
+            setEntry((previous) => previous ? { ...previous, status: 'completed' } : previous);
+        } catch (_err) {
+            if (!mountedRef.current) return;
+            Alert.alert('Completion failed', getErrorMessage(_err));
+        } finally {
+            if (mountedRef.current) setGeneratedCompleting(false);
+        }
+    }, [boxingSnapshot?.generatedWorkoutId, generatedStartedAt, generatedWorkout]);
 
     const markSkipped = useCallback(async () => {
         if (!entry) return;
@@ -182,6 +336,15 @@ export function useWorkoutDetail() {
     return {
         entry,
         prescription,
+        boxingSnapshot,
+        generatedWorkout,
+        generatedStage,
+        generatedStartedAt,
+        generatedLifecycleStatus,
+        generatedLifecycleMessage,
+        generatedCompleting,
+        generatedProgressionDecision,
+        isBoxingGeneratedEntry: Boolean(boxingSnapshot),
         exerciseLibrary,
         expandedExerciseId,
         isLoading,
@@ -193,6 +356,11 @@ export function useWorkoutDetail() {
         toggleExpanded,
         swapExercise,
         regenerate,
+        startGeneratedWorkout,
+        pauseGeneratedWorkout,
+        resumeGeneratedWorkout,
+        abandonGeneratedWorkout,
+        completeGeneratedWorkout,
         markSkipped,
         restore,
     };

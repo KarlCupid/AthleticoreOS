@@ -1,26 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
 import { InteractionManager } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { handleMissedDay } from '../../lib/engine/calculateSchedule';
-import { generateAdaptiveSmartWeekPlan } from '../../lib/engine/adaptiveTrainingAdapter';
 import {
   getWeeklyPlanConfig,
   getActiveWeekPlan,
-  saveWeekPlan,
   markDayCompleted,
   markDaySkipped,
   rescheduleMissedDay,
   cancelActivePlan,
 } from '../../lib/api/weeklyPlanService';
+import { generateAndSaveBoxingWeeklyPlan } from '../../lib/api/boxingWeeklyPlanService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
-import { getWeeksSinceLastDeload } from '../../lib/api/overloadService';
-import { getAthleteContext, getActiveUserId } from '../../lib/api/athleteContextService';
-import { getRecurringActivities } from '../../lib/api/scheduleService';
-import { getExerciseLibrary, getRecentExerciseIds, getRecentMuscleVolume } from '../../lib/api/scService';
+import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate, addDays } from '../../lib/utils/date';
 import { getDailyEngineState, getWeeklyAthleteSummary } from '../../lib/api/dailyPerformanceService';
-import { getActiveWeightClassPlan } from '../../lib/api/weightClassPlanService';
 import { resolveWeeklyPlanWeekStart } from '../../lib/engine/weeklyPlanWeekStart';
 import {
   buildUnifiedPerformanceViewModel,
@@ -32,29 +26,12 @@ import type {
   WeeklyPlanEntryRow,
   SmartWeekPlanResult,
   ReadinessState,
-  CampConfig,
   GymProfileRow,
-  MuscleGroup,
-  CampPlanRow,
   TrainingSessionFamily,
   WeeklyTrainingMixPlan,
   WorkoutDoseBucket,
   SessionDoseSummary,
 } from '../../lib/engine/types';
-
-const EMPTY_VOLUME: Record<MuscleGroup, number> = {
-  chest: 0,
-  back: 0,
-  shoulders: 0,
-  quads: 0,
-  hamstrings: 0,
-  glutes: 0,
-  arms: 0,
-  core: 0,
-  full_body: 0,
-  neck: 0,
-  calves: 0,
-};
 
 const TARGET_FAMILIES: TrainingSessionFamily[] = ['sparring', 'boxing_skill', 'conditioning', 'strength', 'durability_core', 'recovery', 'rest'];
 
@@ -234,39 +211,6 @@ function mapUnifiedReadinessToLegacy(band: ReadinessBand): ReadinessState {
   return 'Depleted';
 }
 
-function normalizeCampConfig(raw: CampPlanRow | CampConfig): CampConfig {
-  if ('fightDate' in raw && 'campStartDate' in raw) {
-    return raw;
-  }
-
-  const row = raw as CampPlanRow;
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    fightDate: row.fight_date,
-    campStartDate: row.camp_start_date,
-    totalWeeks: row.total_weeks,
-    hasConcurrentWeightClassPlan: row.has_concurrent_weight_class_plan,
-    basePhaseDates: {
-      start: row.base_phase_start,
-      end: row.base_phase_end,
-    },
-    buildPhaseDates: {
-      start: row.build_phase_start,
-      end: row.build_phase_end,
-    },
-    peakPhaseDates: {
-      start: row.peak_phase_start,
-      end: row.peak_phase_end,
-    },
-    taperPhaseDates: {
-      start: row.taper_phase_start,
-      end: row.taper_phase_end,
-    },
-    status: row.status,
-  };
-}
-
 async function getCurrentReadinessContext(
   userId: string,
   date: string = todayStr(),
@@ -292,71 +236,7 @@ export async function generateAndSaveWeeklyPlan(
   gym: GymProfileRow | null,
   weekStart: string,
 ): Promise<SmartWeekPlanResult> {
-  if (!gym) {
-    throw new Error('Create a default gym profile before generating a workout plan.');
-  }
-
-  const readinessContext = await getCurrentReadinessContext(userId, todayStr());
-  const athleteContext = await getAthleteContext(userId);
-
-  let campConfig: CampConfig | null = null;
-  const { data: campData } = await supabase
-    .from('fight_camps')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (campData) {
-    campConfig = normalizeCampConfig(campData as CampPlanRow | CampConfig);
-  }
-
-  const activeWeightClassPlan = await getActiveWeightClassPlan(userId);
-
-  const [weeksSinceDeload, recurringActivities, exerciseLibrary, recentExerciseIds, recentMuscleVolume] = await Promise.all([
-    getWeeksSinceLastDeload(userId),
-    getRecurringActivities(userId),
-    getExerciseLibrary(),
-    getRecentExerciseIds(userId),
-    getRecentMuscleVolume(userId),
-  ]);
-
-  if (exerciseLibrary.length === 0) {
-    throw new Error('Exercise library is empty. Apply the S&C resource migration before generating a weekly plan.');
-  }
-
-  const result = generateAdaptiveSmartWeekPlan({
-    config: planConfig,
-    readinessState: readinessContext.readinessState,
-    phase: athleteContext.phase,
-    acwr: readinessContext.acwr,
-    fitnessLevel: athleteContext.fitnessLevel,
-    performanceGoalType: athleteContext.performanceGoalType,
-    exerciseLibrary,
-    recentExerciseIds,
-    recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
-    campConfig,
-    activeWeightClassPlan,
-    weeksSinceLastDeload: weeksSinceDeload,
-    gymProfile: gym,
-    weekStartDate: weekStart,
-    recurringActivities,
-  });
-
-  const guidedWithoutPrescription = result.entries.filter((entry) =>
-    entry.focus != null && !(entry.prescription_snapshot?.exercises?.length),
-  );
-  if (guidedWithoutPrescription.length > 0) {
-    throw new Error(`Weekly plan generated ${guidedWithoutPrescription.length} guided session(s) without S&C prescriptions.`);
-  }
-
-  await saveWeekPlan(userId, result.entries);
-  const weeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: true });
-
-  return {
-    ...result,
-    entries: weeklyAthleteSummary.entries,
-  };
+  return generateAndSaveBoxingWeeklyPlan(userId, planConfig, gym, weekStart);
 }
 
 export function useWeeklyPlan() {
@@ -452,7 +332,7 @@ export function useWeeklyPlan() {
       } else {
         const weeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: Boolean(forceStartDate) });
         if (gym && shouldRepairUnderfilledWeek(weeklyAthleteSummary.entries, weekStart)) {
-          const repairedWeek = await generateAndSaveWeeklyPlan(userId, planConfig, gym, weekStart);
+          const repairedWeek = await generateAndSaveBoxingWeeklyPlan(userId, planConfig, gym, weekStart);
           applyWeeklyAthleteSummary({
             entries: repairedWeek.entries.map((entry) => ({
               ...entry,
@@ -567,7 +447,7 @@ export function useWeeklyPlan() {
 
     setLoading(true);
     try {
-      await generateAndSaveWeeklyPlan(userId, config, gymProfile, activeWeekStart);
+      await generateAndSaveBoxingWeeklyPlan(userId, config, gymProfile, activeWeekStart);
       await loadPlan(activeWeekStart);
     } catch (err: unknown) {
       logError('useWeeklyPlan.generateActiveWeek', err);

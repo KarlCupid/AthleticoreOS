@@ -2,7 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   GENERATED_WORKOUT_SAFETY_COPY,
+  templateIdForBoxingFamily,
   generatedWorkoutSafetyReminder,
+  type BoxingPlannedSessionRole,
+  type BoxingSessionDoseCategory,
+  type BoxingSessionFamily,
+  type BoxingTrainingContext,
   type GeneratedWorkout,
   type GeneratedWorkoutSessionExerciseCompletionInput,
   type GeneratedWorkoutSessionLifecycleStatus,
@@ -13,11 +18,18 @@ import { Card } from '../Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
 import { GeneratedWorkoutPreviewCard } from './GeneratedWorkoutPreviewCard';
 
+// Deprecated filename/API aliases remain for migration stability. The product
+// surface is the boxing generated workout flow exported at the bottom of this file.
 export interface GeneratedWorkoutBetaConfig {
   goalId: string;
   durationMinutes: number;
   equipmentIds: string[];
   readinessBand: WorkoutReadinessBand;
+  intendedBoxingSessionFamily: BoxingSessionFamily;
+  intendedBoxingSessionRole: BoxingPlannedSessionRole;
+  intendedSessionDoseCategory: BoxingSessionDoseCategory;
+  preferredSessionTemplateId: string;
+  boxingTrainingContext?: BoxingTrainingContext;
 }
 
 export type GeneratedWorkoutBetaStage = 'configure' | 'inspect' | 'started' | 'completed';
@@ -65,22 +77,261 @@ interface GeneratedWorkoutBetaSessionCardProps {
   onAbandon?: () => void;
   onComplete: (draft: GeneratedWorkoutBetaCompletionDraft) => void;
   onReset: () => void;
+  mode?: 'configure' | 'executeOnly';
 }
 
-const GOAL_OPTIONS = [
-  { id: 'beginner_strength', label: 'Strength' },
-  { id: 'dumbbell_hypertrophy', label: 'Hypertrophy' },
-  { id: 'zone2_cardio', label: 'Zone 2' },
-  { id: 'mobility', label: 'Mobility' },
-  { id: 'recovery', label: 'Recovery' },
-] as const;
+export interface BoxingGeneratedWorkoutOption {
+  id: string;
+  label: string;
+  goalId: string;
+  intendedBoxingSessionFamily: BoxingSessionFamily;
+  intendedBoxingSessionRole: BoxingPlannedSessionRole;
+  intendedSessionDoseCategory: BoxingSessionDoseCategory;
+  preferredSessionTemplateId: string;
+  defaultDurationMinutes: number;
+  minDurationMinutes: number;
+  maxDurationMinutes: number;
+  defaultEquipmentIds: string[];
+  minExperience: 'beginner' | 'intermediate' | 'advanced';
+  blockedReadinessBands: WorkoutReadinessBand[];
+  rationale: string;
+}
 
-const DURATION_OPTIONS = [30, 40, 50] as const;
+export const BOXING_GENERATED_WORKOUT_OPTIONS: BoxingGeneratedWorkoutOption[] = [
+  {
+    id: 'boxing_skill_microdose',
+    label: 'Boxing skill microdose',
+    goalId: 'boxing_skill_microdose',
+    intendedBoxingSessionFamily: 'boxing_skill_microdose',
+    intendedBoxingSessionRole: 'boxing_skill_microdose',
+    intendedSessionDoseCategory: 'microdose',
+    preferredSessionTemplateId: templateIdForBoxingFamily('boxing_skill_microdose'),
+    defaultDurationMinutes: 15,
+    minDurationMinutes: 10,
+    maxDurationMinutes: 25,
+    defaultEquipmentIds: ['bodyweight', 'open_space'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'A short technical touch that adds skill quality without loading the week hard.',
+  },
+  {
+    id: 'footwork_agility',
+    label: 'Footwork agility',
+    goalId: 'footwork_agility',
+    intendedBoxingSessionFamily: 'footwork_agility',
+    intendedBoxingSessionRole: 'footwork_agility',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('footwork_agility'),
+    defaultDurationMinutes: 25,
+    minDurationMinutes: 15,
+    maxDurationMinutes: 40,
+    defaultEquipmentIds: ['bodyweight', 'open_space'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'Builds stance, rhythm, and position changes without pretending external sport load is boxing skill.',
+  },
+  {
+    id: 'shadowboxing_quality',
+    label: 'Shadowboxing quality',
+    goalId: 'shadowboxing_quality',
+    intendedBoxingSessionFamily: 'shadowboxing_quality',
+    intendedBoxingSessionRole: 'boxing_technical_practice',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('shadowboxing_quality'),
+    defaultDurationMinutes: 25,
+    minDurationMinutes: 15,
+    maxDurationMinutes: 40,
+    defaultEquipmentIds: ['bodyweight', 'open_space'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'Keeps boxing intent high while controlling fatigue, volume, and impact.',
+  },
+  {
+    id: 'roadwork_base',
+    label: 'Roadwork base',
+    goalId: 'roadwork_aerobic_base',
+    intendedBoxingSessionFamily: 'roadwork_zone2',
+    intendedBoxingSessionRole: 'roadwork_aerobic_base',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('roadwork_zone2'),
+    defaultDurationMinutes: 35,
+    minDurationMinutes: 20,
+    maxDurationMinutes: 55,
+    defaultEquipmentIds: ['track_or_road'],
+    minExperience: 'beginner',
+    blockedReadinessBands: ['red'],
+    rationale: 'Adds aerobic base that supports rounds and recovery between boxing days.',
+  },
+  {
+    id: 'roadwork_tempo',
+    label: 'Roadwork tempo',
+    goalId: 'roadwork_tempo',
+    intendedBoxingSessionFamily: 'roadwork_tempo',
+    intendedBoxingSessionRole: 'roadwork_tempo',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('roadwork_tempo'),
+    defaultDurationMinutes: 30,
+    minDurationMinutes: 20,
+    maxDurationMinutes: 45,
+    defaultEquipmentIds: ['track_or_road'],
+    minExperience: 'intermediate',
+    blockedReadinessBands: ['orange', 'red'],
+    rationale: 'Builds controlled pressure without stacking another hard boxing day.',
+  },
+  {
+    id: 'roadwork_intervals',
+    label: 'Roadwork intervals',
+    goalId: 'roadwork_intervals',
+    intendedBoxingSessionFamily: 'roadwork_intervals',
+    intendedBoxingSessionRole: 'roadwork_intervals',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('roadwork_intervals'),
+    defaultDurationMinutes: 28,
+    minDurationMinutes: 18,
+    maxDurationMinutes: 40,
+    defaultEquipmentIds: ['track_or_road'],
+    minExperience: 'intermediate',
+    blockedReadinessBands: ['orange', 'red'],
+    rationale: 'Adds repeatability only when readiness can absorb it.',
+  },
+  {
+    id: 'alactic_repeat_power',
+    label: 'Alactic repeat power',
+    goalId: 'alactic_repeat_power',
+    intendedBoxingSessionFamily: 'alactic_repeat_power',
+    intendedBoxingSessionRole: 'alactic_repeat_power',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('alactic_repeat_power'),
+    defaultDurationMinutes: 25,
+    minDurationMinutes: 15,
+    maxDurationMinutes: 35,
+    defaultEquipmentIds: ['bodyweight', 'open_space'],
+    minExperience: 'intermediate',
+    blockedReadinessBands: ['orange', 'red'],
+    rationale: 'Small explosive repeat doses for boxing speed without generating sparring.',
+  },
+  {
+    id: 'round_tolerance',
+    label: 'Round tolerance',
+    goalId: 'glycolytic_round_tolerance',
+    intendedBoxingSessionFamily: 'glycolytic_round_tolerance',
+    intendedBoxingSessionRole: 'glycolytic_round_tolerance',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('glycolytic_round_tolerance'),
+    defaultDurationMinutes: 30,
+    minDurationMinutes: 20,
+    maxDurationMinutes: 40,
+    defaultEquipmentIds: ['bodyweight', 'open_space'],
+    minExperience: 'intermediate',
+    blockedReadinessBands: ['orange', 'red'],
+    rationale: 'Rounds-style conditioning for tolerance, capped by readiness and weekly hard-day load.',
+  },
+  {
+    id: 'rotational_power',
+    label: 'Rotational power',
+    goalId: 'rotational_power',
+    intendedBoxingSessionFamily: 'rotational_power',
+    intendedBoxingSessionRole: 'rotational_power',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('rotational_power'),
+    defaultDurationMinutes: 30,
+    minDurationMinutes: 20,
+    maxDurationMinutes: 45,
+    defaultEquipmentIds: ['medicine_ball', 'open_space'],
+    minExperience: 'beginner',
+    blockedReadinessBands: ['red'],
+    rationale: 'Links hips, trunk, and punch mechanics with controlled power work.',
+  },
+  {
+    id: 'trunk_durability',
+    label: 'Trunk durability',
+    goalId: 'trunk_rotation_durability',
+    intendedBoxingSessionFamily: 'trunk_durability',
+    intendedBoxingSessionRole: 'trunk_rotation_durability',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('trunk_durability'),
+    defaultDurationMinutes: 25,
+    minDurationMinutes: 15,
+    maxDurationMinutes: 35,
+    defaultEquipmentIds: ['bodyweight', 'mat'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'Builds trunk control for punching, bracing, and fatigue resistance.',
+  },
+  {
+    id: 'shoulder_durability',
+    label: 'Shoulder durability',
+    goalId: 'shoulder_scap_durability',
+    intendedBoxingSessionFamily: 'shoulder_scap_durability',
+    intendedBoxingSessionRole: 'shoulder_scap_durability',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('shoulder_scap_durability'),
+    defaultDurationMinutes: 22,
+    minDurationMinutes: 12,
+    maxDurationMinutes: 35,
+    defaultEquipmentIds: ['resistance_band', 'mat'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'Supports punch volume and guard durability while respecting pain changes.',
+  },
+  {
+    id: 'neck_trap_durability',
+    label: 'Neck/trap durability',
+    goalId: 'neck_trap_durability',
+    intendedBoxingSessionFamily: 'neck_trap_durability',
+    intendedBoxingSessionRole: 'neck_trap_durability',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('neck_trap_durability'),
+    defaultDurationMinutes: 18,
+    minDurationMinutes: 10,
+    maxDurationMinutes: 30,
+    defaultEquipmentIds: ['bodyweight', 'mat'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'A conservative neck and upper-back support dose for boxing posture and contact tolerance.',
+  },
+  {
+    id: 'hip_ankle_mobility',
+    label: 'Hip/ankle mobility',
+    goalId: 'hip_ankle_mobility',
+    intendedBoxingSessionFamily: 'hip_ankle_mobility',
+    intendedBoxingSessionRole: 'hip_footwork_durability',
+    intendedSessionDoseCategory: 'support_session',
+    preferredSessionTemplateId: templateIdForBoxingFamily('hip_ankle_mobility'),
+    defaultDurationMinutes: 20,
+    minDurationMinutes: 10,
+    maxDurationMinutes: 30,
+    defaultEquipmentIds: ['bodyweight', 'mat'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'Keeps stance, pivots, and footwork range available without extra fatigue.',
+  },
+  {
+    id: 'recovery_reset',
+    label: 'Recovery reset',
+    goalId: 'recovery_reset',
+    intendedBoxingSessionFamily: 'recovery_reset',
+    intendedBoxingSessionRole: 'recovery_reset',
+    intendedSessionDoseCategory: 'recovery_reset',
+    preferredSessionTemplateId: templateIdForBoxingFamily('recovery_reset'),
+    defaultDurationMinutes: 20,
+    minDurationMinutes: 10,
+    maxDurationMinutes: 30,
+    defaultEquipmentIds: ['bodyweight', 'mat'],
+    minExperience: 'beginner',
+    blockedReadinessBands: [],
+    rationale: 'Downshifts the day when readiness, pain, or missed work says the smarter move is recovery.',
+  },
+];
+const DEFAULT_BOXING_GENERATED_WORKOUT_OPTION = BOXING_GENERATED_WORKOUT_OPTIONS[0] as BoxingGeneratedWorkoutOption;
+
 const EQUIPMENT_OPTIONS = [
   { id: 'bodyweight', label: 'Bodyweight' },
-  { id: 'dumbbells', label: 'Dumbbells' },
-  { id: 'bench', label: 'Bench' },
-  { id: 'stationary_bike', label: 'Bike' },
+  { id: 'open_space', label: 'Open space' },
+  { id: 'track_or_road', label: 'Road/track' },
+  { id: 'mat', label: 'Mat' },
+  { id: 'resistance_band', label: 'Band' },
+  { id: 'medicine_ball', label: 'Med ball' },
 ] as const;
 const READINESS_OPTIONS: WorkoutReadinessBand[] = ['green', 'yellow', 'orange', 'red', 'unknown'];
 const FEEDBACK_OPTIONS = [
@@ -90,7 +341,7 @@ const FEEDBACK_OPTIONS = [
   { id: 'pain', label: 'Pain or discomfort' },
   { id: 'time_fit', label: 'Time fit' },
 ] as const;
-const BETA_STAGES: GeneratedWorkoutBetaStage[] = ['configure', 'inspect', 'started', 'completed'];
+const BOXING_GENERATED_WORKOUT_STAGES: GeneratedWorkoutBetaStage[] = ['configure', 'inspect', 'started', 'completed'];
 
 function labelize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
@@ -276,10 +527,15 @@ export function GeneratedWorkoutBetaSessionCard({
   onAbandon,
   onComplete,
   onReset,
+  mode = 'configure',
 }: GeneratedWorkoutBetaSessionCardProps) {
-  const [goalId, setGoalId] = useState('beginner_strength');
-  const [durationMinutes, setDurationMinutes] = useState(30);
-  const [equipmentIds, setEquipmentIds] = useState<string[]>(['bodyweight']);
+  const [optionId, setOptionId] = useState(DEFAULT_BOXING_GENERATED_WORKOUT_OPTION.id);
+  const selectedOption = useMemo(
+    () => BOXING_GENERATED_WORKOUT_OPTIONS.find((option) => option.id === optionId) ?? DEFAULT_BOXING_GENERATED_WORKOUT_OPTION,
+    [optionId],
+  );
+  const [durationMinutes, setDurationMinutes] = useState(selectedOption.defaultDurationMinutes);
+  const [equipmentIds, setEquipmentIds] = useState<string[]>(selectedOption.defaultEquipmentIds);
   const [readinessBand, setReadinessBand] = useState<WorkoutReadinessBand>(defaultReadinessBand);
   const [sessionRpe, setSessionRpe] = useState(6);
   const [painScoreBefore, setPainScoreBefore] = useState(0);
@@ -298,8 +554,20 @@ export function GeneratedWorkoutBetaSessionCard({
   const completedExerciseCount = completedExerciseIds.length;
   const totalExerciseCount = allExercises.length;
   const allExercisesComplete = totalExerciseCount > 0 && completedExerciseCount === totalExerciseCount;
-  const currentStageIndex = BETA_STAGES.indexOf(stage);
+  const currentStageIndex = BOXING_GENERATED_WORKOUT_STAGES.indexOf(stage);
   const sessionPaused = lifecycleStatus === 'paused';
+  const readinessBlocked = selectedOption.blockedReadinessBands.includes(readinessBand);
+  const durationOptions = useMemo(() => {
+    const values = [
+      selectedOption.minDurationMinutes,
+      selectedOption.defaultDurationMinutes,
+      selectedOption.maxDurationMinutes,
+      durationMinutes,
+    ];
+    return Array.from(new Set(values))
+      .filter((value) => value >= selectedOption.minDurationMinutes && value <= selectedOption.maxDurationMinutes)
+      .sort((a, b) => a - b);
+  }, [durationMinutes, selectedOption]);
 
   function toggleListValue(value: string, values: string[], setter: (next: string[]) => void) {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
@@ -308,6 +576,12 @@ export function GeneratedWorkoutBetaSessionCard({
   function toggleEquipment(id: string) {
     const next = equipmentIds.includes(id) ? equipmentIds.filter((item) => item !== id) : [...equipmentIds, id];
     setEquipmentIds(next.length > 0 ? next : ['bodyweight']);
+  }
+
+  function selectOption(option: BoxingGeneratedWorkoutOption) {
+    setOptionId(option.id);
+    setDurationMinutes(option.defaultDurationMinutes);
+    setEquipmentIds(option.defaultEquipmentIds);
   }
 
   function exerciseLogFor(exercise: GeneratedWorkout['blocks'][number]['exercises'][number], completed: boolean) {
@@ -334,6 +608,7 @@ export function GeneratedWorkoutBetaSessionCard({
   }
 
   function submitGenerate() {
+    if (readinessBlocked) return;
     setCompletedExerciseIds([]);
     setSubstitutionsUsed([]);
     setFeedbackTags([]);
@@ -346,7 +621,17 @@ export function GeneratedWorkoutBetaSessionCard({
     setRating(4);
     setCompletionStatus('completed');
     setNotes('');
-    onGenerate({ goalId, durationMinutes, equipmentIds, readinessBand });
+    onGenerate({
+      goalId: selectedOption.goalId,
+      durationMinutes,
+      equipmentIds,
+      readinessBand,
+      intendedBoxingSessionFamily: selectedOption.intendedBoxingSessionFamily,
+      intendedBoxingSessionRole: selectedOption.intendedBoxingSessionRole,
+      intendedSessionDoseCategory: selectedOption.intendedSessionDoseCategory,
+      preferredSessionTemplateId: selectedOption.preferredSessionTemplateId,
+      boxingTrainingContext: { track: 'aspiring_boxer' },
+    });
   }
 
   function toggleAllExercisesComplete() {
@@ -385,17 +670,17 @@ export function GeneratedWorkoutBetaSessionCard({
   }
 
   return (
-    <View testID="generated-workout-beta-card" style={styles.stack}>
+    <View testID="boxing-generated-workout-card" style={styles.stack}>
       <Card
-        title="Generated workout beta"
-        subtitle={userAuthenticated ? 'Generate, run, complete, and progress.' : 'Local beta mode; sign in to persist.'}
+        title="Boxing session generator"
+        subtitle={userAuthenticated ? 'Generate, run, complete, and progress boxing support.' : 'Sign in to save boxing completions and progression.'}
         subtitleLines={2}
         backgroundTone="workoutFloor"
         backgroundScrimColor="rgba(10, 10, 10, 0.72)"
         style={styles.card}
       >
-        <View testID="generated-workout-beta-stage-row" style={styles.stageRow}>
-          {BETA_STAGES.map((item, index) => {
+        <View testID="boxing-generated-workout-stage-row" style={styles.stageRow}>
+          {BOXING_GENERATED_WORKOUT_STAGES.map((item, index) => {
             const active = index === currentStageIndex;
             const complete = index < currentStageIndex;
             return (
@@ -412,19 +697,22 @@ export function GeneratedWorkoutBetaSessionCard({
         </View>
         <Text style={styles.stageHelp}>{stageHelp(stage)}</Text>
 
+        {mode === 'configure' ? (
+          <>
         <View style={styles.section}>
-          <Text accessibilityRole="header" style={styles.sectionLabel}>Goal</Text>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>Boxing session</Text>
           <View style={styles.chipRow}>
-            {GOAL_OPTIONS.map((goal) => (
-              <ToggleChip key={goal.id} label={goal.label} selected={goalId === goal.id} onPress={() => setGoalId(goal.id)} disabled={loading || completing} />
+            {BOXING_GENERATED_WORKOUT_OPTIONS.map((option) => (
+              <ToggleChip key={option.id} label={option.label} selected={optionId === option.id} onPress={() => selectOption(option)} disabled={loading || completing} />
             ))}
           </View>
+          <Text style={styles.sectionHint}>{selectedOption.rationale}</Text>
         </View>
 
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.sectionLabel}>Duration</Text>
           <View style={styles.chipRow}>
-            {DURATION_OPTIONS.map((duration) => (
+            {durationOptions.map((duration) => (
               <ToggleChip key={duration} label={`${duration} min`} selected={durationMinutes === duration} onPress={() => setDurationMinutes(duration)} disabled={loading || completing} />
             ))}
           </View>
@@ -447,27 +735,35 @@ export function GeneratedWorkoutBetaSessionCard({
             ))}
           </View>
         </View>
+          </>
+        ) : null}
 
         {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
+        {readinessBlocked && mode === 'configure' ? (
+          <Text accessibilityRole="alert" style={styles.errorText}>
+            Choose recovery reset or a low-dose skill option today. This boxing session is blocked for {labelize(readinessBand)} readiness.
+          </Text>
+        ) : null}
         <Text style={styles.safetyReminder}>{generatedWorkoutSafetyReminder()}</Text>
 
+        {mode === 'configure' ? (
         <View style={styles.actionRow}>
           <Pressable
-            testID="generated-workout-beta-generate"
+            testID="boxing-generated-workout-generate"
             accessibilityRole="button"
-            accessibilityLabel={loading ? 'Generating workout' : workout ? 'Regenerate workout' : 'Generate workout'}
-            style={[styles.primaryButton, loading && styles.disabledButton]}
-            disabled={loading || completing}
+            accessibilityLabel={loading ? 'Generating boxing session' : workout ? 'Regenerate boxing session' : 'Generate boxing session'}
+            style={[styles.primaryButton, (loading || readinessBlocked) && styles.disabledButton]}
+            disabled={loading || completing || readinessBlocked}
             onPress={submitGenerate}
           >
-            <Text style={styles.primaryButtonText}>{loading ? 'Generating...' : workout ? 'Regenerate' : 'Generate Workout'}</Text>
+            <Text style={styles.primaryButtonText}>{loading ? 'Generating...' : workout ? 'Regenerate' : 'Generate Boxing Session'}</Text>
           </Pressable>
           {workout ? (
             <Pressable
-              testID="generated-workout-beta-clear"
+              testID="boxing-generated-workout-clear"
               accessibilityRole="button"
-              accessibilityLabel="Clear generated workout"
-              accessibilityHint="Asks for confirmation before removing the generated workout draft."
+              accessibilityLabel="Clear generated boxing session"
+              accessibilityHint="Asks for confirmation before removing the generated boxing session draft."
               style={styles.secondaryButton}
               disabled={loading || completing}
               onPress={onReset}
@@ -476,13 +772,14 @@ export function GeneratedWorkoutBetaSessionCard({
             </Pressable>
           ) : null}
         </View>
+        ) : null}
 
         {workout ? (
-          <View testID="generated-workout-beta-status" style={styles.statusPanel}>
+          <View testID="boxing-generated-workout-status" style={styles.statusPanel}>
             <Text style={styles.statusHeadline}>{workoutSafetyLine(workout)}</Text>
-            <Text style={styles.statusText}>{persisted ? `Saved as ${generatedWorkoutId}` : 'Not persisted; using in-memory beta mode.'}</Text>
+            <Text style={styles.statusText}>{persisted ? `Saved session ${generatedWorkoutId}` : 'Not persisted; completion will stay local until saving is available.'}</Text>
             {lifecycleStatus ? (
-              <Text testID="generated-workout-beta-lifecycle" style={styles.statusText}>Session status: {labelize(lifecycleStatus)}</Text>
+              <Text testID="boxing-generated-workout-lifecycle" style={styles.statusText}>Session status: {labelize(lifecycleStatus)}</Text>
             ) : null}
             {lifecycleMessage ? <Text style={styles.statusText}>{lifecycleMessage}</Text> : null}
             <Text style={styles.statusText}>Validation: {workout.validation?.isValid ? 'passed' : 'review warnings available'}</Text>
@@ -491,10 +788,10 @@ export function GeneratedWorkoutBetaSessionCard({
       </Card>
 
       {workout ? (
-        <GeneratedWorkoutPreviewCard
-          workout={workout}
-          title="Generated workout"
-          subtitle={stage === 'inspect' ? 'Inspect before starting' : 'Session details'}
+          <GeneratedWorkoutPreviewCard
+            workout={workout}
+          title="Boxing session plan"
+          subtitle={stage === 'inspect' ? 'Review before starting' : 'Session details'}
         />
       ) : null}
 
@@ -509,27 +806,27 @@ export function GeneratedWorkoutBetaSessionCard({
         >
           {stage === 'inspect' ? (
             <Pressable
-              testID="generated-workout-beta-start"
+              testID="boxing-generated-workout-start"
               accessibilityRole="button"
-              accessibilityLabel={workout.blocked ? GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview : 'Start generated workout'}
+              accessibilityLabel={workout.blocked ? GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview : 'Start boxing session'}
               accessibilityState={{ disabled: workout.blocked === true }}
               disabled={workout.blocked === true}
               style={[styles.primaryButton, workout.blocked && styles.disabledButton]}
               onPress={onStart}
             >
-              <Text style={styles.primaryButtonText}>{workout.blocked ? 'Blocked by Safety Review' : 'Start Workout'}</Text>
+              <Text style={styles.primaryButtonText}>{workout.blocked ? 'Blocked by Safety Review' : 'Start Session'}</Text>
             </Pressable>
           ) : null}
 
           {startedAt ? <Text style={styles.statusText}>Started {new Date(startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text> : null}
 
           {stage === 'started' ? (
-            <View testID="generated-workout-beta-lifecycle-controls" style={styles.lifecycleControls}>
+            <View testID="boxing-generated-workout-lifecycle-controls" style={styles.lifecycleControls}>
               {sessionPaused ? (
                 <Pressable
-                  testID="generated-workout-beta-resume"
+                  testID="boxing-generated-workout-resume"
                   accessibilityRole="button"
-                  accessibilityLabel="Resume generated workout"
+                  accessibilityLabel="Resume boxing session"
                   style={styles.secondaryButton}
                   disabled={completing || !onResume}
                   onPress={onResume}
@@ -538,9 +835,9 @@ export function GeneratedWorkoutBetaSessionCard({
                 </Pressable>
               ) : (
                 <Pressable
-                  testID="generated-workout-beta-pause"
+                  testID="boxing-generated-workout-pause"
                   accessibilityRole="button"
-                  accessibilityLabel="Pause generated workout"
+                  accessibilityLabel="Pause boxing session"
                   style={styles.secondaryButton}
                   disabled={completing || !onPause}
                   onPress={onPause}
@@ -549,10 +846,10 @@ export function GeneratedWorkoutBetaSessionCard({
                 </Pressable>
               )}
               <Pressable
-                testID="generated-workout-beta-abandon"
+                testID="boxing-generated-workout-abandon"
                 accessibilityRole="button"
-                accessibilityLabel="Abandon generated workout"
-                accessibilityHint="Asks for confirmation before abandoning this generated workout."
+                accessibilityLabel="Abandon boxing session"
+                accessibilityHint="Asks for confirmation before abandoning this generated boxing session."
                 style={styles.quietButton}
                 disabled={completing || !onAbandon}
                 onPress={onAbandon}
@@ -563,7 +860,7 @@ export function GeneratedWorkoutBetaSessionCard({
           ) : null}
 
           {stage === 'started' || stage === 'completed' ? (
-            <View testID="generated-workout-beta-checklist" style={styles.section}>
+            <View testID="boxing-generated-workout-checklist" style={styles.section}>
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionHeaderCopy}>
                   <Text accessibilityRole="header" style={styles.sectionLabel}>Exercise checklist</Text>
@@ -681,7 +978,7 @@ export function GeneratedWorkoutBetaSessionCard({
                   ))}
                 </View>
               </View>
-              <View testID="generated-workout-beta-session-log" style={styles.logPanel}>
+                <View testID="boxing-generated-workout-session-log" style={styles.logPanel}>
                 <Text accessibilityRole="header" style={styles.sectionLabel}>Session log</Text>
                 <Text style={styles.sectionHint}>Capture effort and pain honestly. This guides the next recommendation.</Text>
                 <Stepper label="Session effort rating" value={sessionRpe} min={1} max={10} onChange={setSessionRpe} />
@@ -692,14 +989,14 @@ export function GeneratedWorkoutBetaSessionCard({
               <View style={styles.section}>
                 <Text accessibilityRole="header" style={styles.sectionLabel}>Feedback</Text>
                 <Text style={styles.sectionHint}>Pick what best describes the session. Preferences shape future exercise choices.</Text>
-                <View testID="generated-workout-beta-feedback" style={styles.chipRow}>
+                <View testID="boxing-generated-workout-feedback" style={styles.chipRow}>
                   {FEEDBACK_OPTIONS.map((option) => (
                     <ToggleChip key={option.id} label={option.label} selected={feedbackTags.includes(option.id)} onPress={() => toggleListValue(option.id, feedbackTags, setFeedbackTags)} />
                   ))}
                 </View>
               </View>
               <TextInput
-                testID="generated-workout-beta-notes"
+                testID="boxing-generated-workout-notes"
                 accessibilityLabel="Workout notes"
                 style={styles.notesInput}
                 value={notes}
@@ -709,20 +1006,20 @@ export function GeneratedWorkoutBetaSessionCard({
                 multiline
               />
               <Pressable
-                testID="generated-workout-beta-complete"
+                testID="boxing-generated-workout-complete"
                 accessibilityRole="button"
-                accessibilityLabel={sessionPaused ? 'Resume generated workout before completing' : completing ? 'Completing workout' : 'Complete generated workout'}
+                accessibilityLabel={sessionPaused ? 'Resume boxing session before completing' : completing ? 'Completing boxing session' : 'Complete boxing session'}
                 style={[styles.primaryButton, (completing || sessionPaused) && styles.disabledButton]}
                 disabled={completing || sessionPaused}
                 onPress={submitComplete}
               >
-                <Text style={styles.primaryButtonText}>{sessionPaused ? 'Resume to Complete' : completing ? 'Completing...' : 'Complete Workout'}</Text>
+                <Text style={styles.primaryButtonText}>{sessionPaused ? 'Resume to Complete' : completing ? 'Completing...' : 'Complete Session'}</Text>
               </Pressable>
             </>
           ) : null}
 
           {stage === 'completed' && progressionDecision ? (
-            <View testID="generated-workout-beta-next-progression" style={styles.progressionPanel}>
+            <View testID="boxing-generated-workout-next-progression" style={styles.progressionPanel}>
               <Text accessibilityRole="header" style={styles.sectionLabel}>Recommended next step</Text>
               <Text style={styles.progressionTitle}>{labelize(progressionDecision.direction)}</Text>
               <Text style={styles.progressionBody}>{progressionDecision.userMessage ?? progressionDecision.reason}</Text>
@@ -737,6 +1034,11 @@ export function GeneratedWorkoutBetaSessionCard({
     </View>
   );
 }
+
+export const BoxingGeneratedWorkoutSessionCard = GeneratedWorkoutBetaSessionCard;
+export type BoxingGeneratedWorkoutConfig = GeneratedWorkoutBetaConfig;
+export type BoxingGeneratedWorkoutStage = GeneratedWorkoutBetaStage;
+export type BoxingGeneratedWorkoutCompletionDraft = GeneratedWorkoutBetaCompletionDraft;
 
 const styles = StyleSheet.create({
   stack: {

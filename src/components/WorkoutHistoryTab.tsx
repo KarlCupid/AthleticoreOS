@@ -99,7 +99,7 @@ export function WorkoutHistoryTab({ workoutHistory }: WorkoutHistoryTabProps) {
                 ) : null}
               </View>
               <View style={styles.doneBadge}>
-                <Text style={styles.doneBadgeText}>{isGeneratedEntry(log) ? 'Generated session' : 'Logged'}</Text>
+                <Text style={styles.doneBadgeText}>{isGeneratedEntry(log) ? 'Boxing support' : 'Logged'}</Text>
               </View>
             </View>
           </Card>

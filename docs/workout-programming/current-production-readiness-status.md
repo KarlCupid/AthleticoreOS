@@ -4,9 +4,9 @@ This is the current workout-programming rollout posture. It is intentionally ope
 
 ## Status
 
-Workout-programming infrastructure is production-hardened behind release gates and feature flags, but the current catalog is not production-release-ready. The launch posture is **fully gated preview**: generated workouts are intentionally unavailable in friend preview and production builds until the strict content report has `productionReady: true`, the live DB/RLS checks pass against a local or dedicated non-production Supabase project, and the remaining device/E2E risks are accepted.
+Workout-programming infrastructure is production-hardened behind release gates and feature flags. The product posture is now **boxing-engine canonical**: new weekly workout plans, generated support sessions, completion, progression, history, analytics, Train, Plan, and Workout Detail all route through the boxing workout-programming engine.
 
-Friend preview builds must present the existing Today, Plan, Train, guided workout, history, and analytics experiences only. They must not show a generated workout beta, developer preview, or half-production generated workout entry point.
+Strict content/media release gates still matter. Text-only generated boxing support can remain usable when media is missing and the content review gate allows it; production media-rich surfaces must respect approved media and release reports. Internal diagnostics must not appear as normal product UX.
 
 The system currently has:
 
@@ -18,22 +18,22 @@ The system currently has:
 - Generated workout completions mapped into history and analytics surfaces.
 - Recommendation quality telemetry.
 - User-safe and admin/debug decision trace summaries.
-- React Native render tests for generated workout preview and beta flow.
+- React Native render tests for generated workout preview and boxing generated flow.
 - Guarded live DB/RLS smoke scripts and an optional manual GitHub release-gate job.
 
 ## Runtime Flags
 
-- `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=1` enables the generated workout beta flow only when `__DEV__` is true.
-- `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1` enables the isolated developer preview only when `__DEV__` is true and beta is off.
-- EAS `preview` and `production` profiles explicitly set both flags to `0`.
-- With both flags off, generated workout beta and preview UI should not render.
-- In non-dev builds, generated workout beta and preview UI should not render even if a flag is accidentally set.
+- `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=1` enables the boxing workout engine product path.
+- `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=0` hides the new boxing generation UI and fails weekly generation clearly instead of falling back to legacy generation.
+- `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA` and `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW` are internal diagnostics flags only. They must not own normal Train UX.
+- EAS `development`, `preview`, and `production` profiles explicitly set the boxing engine flag to `1`; preview and production keep diagnostics flags at `0`.
 
 Current rollout decision:
 
-- `productionReady: false`
-- Rollout posture: gated preview, dev-only generated workout surfaces.
-- Friend preview posture: generated workouts unavailable by design.
+- Canonical engine: boxing workout-programming engine.
+- Weekly source of truth: `GeneratedProgram`.
+- Weekly storage/calendar projection: `weekly_plan_entries` created from `GeneratedProgramSession`.
+- Compatibility posture: old entries and old prescription snapshots remain readable, but old adaptive generation is not a fallback.
 
 ## Release Commands
 
@@ -100,19 +100,20 @@ The current strict content commands run and fail as intended. At the time of thi
 - 0 release production blockers.
 - 16 review blockers, all intentionally gated preview content.
 - 0 release review blockers.
-- 66 production-eligible exercises missing approved production media.
-- Media audit output now separates production missing media, beta missing media, missing alt text, unreviewed media, and high-priority exercises without demo assets.
-- 130 content warnings, mostly missing media hooks/assets.
+- 81 production-eligible exercises missing approved production media.
+- Media audit output separates production missing media, internal-preview missing media, missing alt text, unreviewed media, and high-priority exercises without demo assets.
+- 145 content warnings, mostly missing media hooks/assets.
 
 The remaining strict-release blocker is missing reviewed production exercise media. The preview-only review blockers are gated out of production selection and are not a friend-preview launch surface. The previous production prescription progression/regression/deload rule-link blockers have been closed.
 
 ## Current Limitations
 
 - Live DB/RLS tests are intentionally outside `npm run quality`; they require a real Supabase target.
-- Generated workout UI has render coverage, but broad rollout still needs device/E2E smoke coverage for backgrounding, reload, and resume.
-- Generated workout beta and developer preview surfaces are dev-only while the catalog is not production-ready.
+- Boxing generated workout UI has render coverage, but still needs device/E2E smoke coverage for backgrounding, reload, resume, Detail lazy generation, and Plan navigation.
+- Internal diagnostics surfaces are gated away from normal Train UX.
 - The catalog currently fails strict release until production exercise media is produced, reviewed, and linked.
 - Program persistence is hardened, but program scheduling is not yet a polished calendar-driven production workflow.
+- Legacy weekly rows can be rendered or safely migrated to boxing intent, but old `calculateSC`/adaptive weekly generation is not a normal runtime path.
 - Recommendation quality telemetry exists, but production tuning needs real outcome volume.
 - Preview/dev-only content remains intentionally gated from production generation.
 - Content authoring still happens in TypeScript content packs, but review status can now move through the JSON review-decision workflow or Supabase review metadata updates instead of only manual TypeScript edits.

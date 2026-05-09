@@ -2,43 +2,44 @@
 
 This guide gives practical workflows for engineers and content editors.
 
-## How to Generate a Workout
+## How to Generate a Boxing Workout
 
-Use the service layer for app/API code:
+Use the service layer for app/API code. Product UI should pass boxing intent instead of a generic fitness goal:
 
 ```ts
 import { workoutProgrammingService } from '../../lib/performance-engine/workout-programming';
 
-const workout = await workoutProgrammingService.generatePreviewWorkout({
-  goalId: 'beginner_strength',
-  durationMinutes: 30,
-  equipmentIds: ['bodyweight', 'dumbbells'],
+const session = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, {
+  goalId: 'roadwork_aerobic_base',
+  durationMinutes: 35,
+  equipmentIds: ['bodyweight', 'track_or_road'],
   experienceLevel: 'beginner',
   readinessBand: 'green',
+  intendedBoxingSessionFamily: 'roadwork_zone2',
+  intendedBoxingSessionRole: 'roadwork_aerobic_base',
+  intendedSessionDoseCategory: 'support_session',
+  preferredSessionTemplateId: 'boxing_roadwork_zone2',
 });
 ```
 
-For user-personalized generation:
+For a boxing support microdose:
 
 ```ts
-const workout = await workoutProgrammingService.generateWorkoutForUser(userId, {
-  goalId: 'dumbbell_hypertrophy',
-  preferredDurationMinutes: 45,
+const session = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, {
+  goalId: 'footwork_agility',
+  preferredDurationMinutes: 20,
+  equipmentIds: ['bodyweight', 'open_space'],
+  intendedBoxingSessionFamily: 'footwork_agility',
+  intendedBoxingSessionRole: 'footwork_agility',
+  intendedSessionDoseCategory: 'microdose',
+  preferredSessionTemplateId: 'footwork_agility',
   preferredToneVariant: 'coach_like',
 });
 ```
 
-For the beta generated-session flow, use the session helpers so generation, persistence,
-completion, feedback, and progression stay in the service layer:
+Use the session helpers so generation, persistence, completion, feedback, and progression stay in the service layer:
 
 ```ts
-const session = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, {
-  goalId: 'beginner_strength',
-  durationMinutes: 30,
-  equipmentIds: ['bodyweight', 'dumbbells'],
-  readinessBand: 'green',
-});
-
 const completion = await workoutProgrammingService.completeGeneratedWorkoutSession(userId, {
   workout: session.workout,
   generatedWorkoutId: session.generatedWorkoutId,
@@ -57,12 +58,21 @@ For weekly programs:
 
 ```ts
 const program = await workoutProgrammingService.generateWeeklyProgramForUser(userId, {
-  goalId: 'beginner_strength',
-  sessionsPerWeek: 3,
+  goalId: 'boxing_support',
+  sessionsPerWeek: 4,
   desiredProgramLengthWeeks: 4,
-  availableDays: [1, 3, 5],
+  availableDays: [1, 2, 4, 6],
+  boxingTrainingContext: {
+    track: 'amateur_open',
+    protectedWorkouts: [
+      { dayOfWeek: 2, modality: 'boxing_skill', durationMinutes: 75, intensity: 'moderate' },
+      { dayOfWeek: 5, modality: 'sparring', durationMinutes: 60, intensity: 'hard' },
+    ],
+  },
 });
 ```
+
+After weekly generation, app/API code should project the program into `weekly_plan_entries` with `generatedProgramToWeeklyPlanEntries`. Do not call `generateAdaptiveSmartWeekPlan` or `calculateSC` as a fallback.
 
 ## How to Add a New Exercise
 
@@ -221,32 +231,24 @@ debugging.
 4. Add a forward-only migration if schema changes are required.
 5. Do not let UI code talk directly to raw tables unless there is a strong reason.
 
-## How to Display Generated Workouts
+## How to Display Generated Boxing Workouts
 
 UI should render a `GeneratedWorkout` and avoid business logic duplication.
 
-Current non-invasive UI path:
+Current product UI path:
 
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
 - `src/components/workout/GeneratedWorkoutBetaSessionCard.tsx`
 - `src/components/workout/GeneratedWorkoutBetaContainer.tsx`
-- `src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx`
-- Feature flags resolved through generated workout flow helpers, not inline screen logic
-- Beta flow enabled only in dev builds when `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA=1`
-- Developer-only read-only preview enabled when beta is disabled, `__DEV__` is true, and `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1`
+- `src/screens/WorkoutScreen.tsx`
+- `src/screens/WorkoutDetailScreen.tsx`
+- `src/hooks/useGeneratedWorkoutBeta.ts` exported as `useBoxingGeneratedWorkout`
+- Rollout flag: `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED`
 
-The beta flow supports generate, inspect, start, completion logging, workout feedback,
-exercise preferences, and next progression recommendation. When a Supabase user is
-available it persists generated workouts, completions, feedback, and progression
-decisions. Without an authenticated user, it stays in local in-memory mode.
+The boxing generated flow supports generate, inspect, start, completion logging, workout feedback, exercise preferences, and next progression recommendation. When a Supabase user is available it persists generated workouts, completions, feedback, and progression decisions. Without an authenticated user, it stays in local in-memory mode.
 
-Friend preview and production builds keep generated workouts unavailable while the
-catalog release report is not `productionReady: true`. EAS `preview` and
-`production` profiles set both generated-workout flags to `0`, and runtime flag
-resolution ignores generated-workout flags when `__DEV__` is false.
+Train shows a boxing-week intelligence card when an active boxing-generated week exists. The standalone generator appears only as part of today's generated boxing session; it is not a generic product panel.
 
-The developer preview panel is a fixed-fixture debug surface. It does not own beta
-fallback behavior, does not persist, and should not be treated as a production
-rollout path.
+The developer preview panel is an internal diagnostics surface. It is not rendered in the normal Train screen, does not persist, and should not be treated as a production rollout path.
 
-Future UI work should call `workoutProgrammingService`, not raw seed data or lower-level engines.
+Future UI work should call `workoutProgrammingService`, the boxing weekly adapter, or the generated workout completion service. It should not call raw seed data, lower-level legacy engines, `generateAdaptiveSmartWeekPlan`, or `calculateSC` for product workout generation.

@@ -117,7 +117,7 @@ export function WorkoutAnalyticsTab({
         <Card style={styles.sourceCard}>
           <View style={styles.sourceHeader}>
             <Text style={styles.sourceTitle}>Session sources</Text>
-            <Text style={styles.sourceBadge}>Generated included</Text>
+            <Text style={styles.sourceBadge}>Boxing support included</Text>
           </View>
           <View style={styles.sourceRows}>
             <View style={styles.sourceRow}>
@@ -125,7 +125,7 @@ export function WorkoutAnalyticsTab({
               <Text style={styles.sourceValue}>{sourceSummary.legacyCount} | Load {sourceSummary.legacyLoad}</Text>
             </View>
             <View style={styles.sourceRow}>
-              <Text style={styles.sourceLabel}>Generated session</Text>
+              <Text style={styles.sourceLabel}>Generated boxing support</Text>
               <Text style={styles.sourceValue}>{sourceSummary.generatedCount} | Load {sourceSummary.generatedLoad}</Text>
             </View>
           </View>

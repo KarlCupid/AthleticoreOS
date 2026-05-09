@@ -18,7 +18,6 @@ import {
   readinessBandFromLevel,
   normalizeGeneratedWorkoutError,
   resolveGeneratedWorkoutContentReviewOptions,
-  resolveGeneratedWorkoutFeatureFlags,
   workoutProgrammingService,
   type GeneratedWorkout,
   type GeneratedWorkoutSessionLifecycleStatus,
@@ -28,6 +27,8 @@ import {
 
 type ReloadWorkoutData = (userId?: string) => void | Promise<void>;
 
+// Deprecated filename/API alias: normal product code should import
+// `useBoxingGeneratedWorkout`; the old beta name remains for migration stability.
 interface UseGeneratedWorkoutBetaOptions {
   userId: string | null | undefined;
   currentLevel: string | null | undefined;
@@ -101,11 +102,7 @@ export function useGeneratedWorkoutBeta({
   loadHistoryData,
   loadAnalyticsData,
 }: UseGeneratedWorkoutBetaOptions): UseGeneratedWorkoutBetaResult {
-  const { betaEnabled } = resolveGeneratedWorkoutFeatureFlags({
-    betaFlag: process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA,
-    dev: typeof __DEV__ !== 'undefined' && __DEV__,
-    buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE,
-  });
+  const betaEnabled = process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED !== '0';
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [generatedWorkoutId, setGeneratedWorkoutId] = useState<string | null>(null);
   const [persisted, setPersisted] = useState(false);
@@ -136,7 +133,7 @@ export function useGeneratedWorkoutBeta({
         setStage(betaStageFromLifecycleStatus(lifecycle.status));
         setStartedAt(lifecycle.startedAt ?? lifecycle.resumedAt ?? null);
         setLifecycleStatus(lifecycle.status);
-        setLifecycleMessage('Restored an active generated workout session.');
+        setLifecycleMessage('Restored an active boxing session.');
         addMonitoringBreadcrumb('generated_workout', 'restore_active_session_succeeded', {
           status: lifecycle.status,
           generatedWorkoutIdPresent: Boolean(lifecycle.generatedWorkoutId),
@@ -144,7 +141,7 @@ export function useGeneratedWorkoutBeta({
       } catch (loadError) {
         if (!cancelled) {
           logError('useGeneratedWorkoutBeta.restoreActiveSession', loadError, { hasUserId: Boolean(userId) });
-          setLifecycleMessage(normalizeGeneratedWorkoutError(loadError, 'Unable to restore active generated workout session.'));
+          setLifecycleMessage(normalizeGeneratedWorkoutError(loadError, 'Unable to restore active boxing session.'));
         }
       }
     }
@@ -154,17 +151,21 @@ export function useGeneratedWorkoutBeta({
 
   const generate = useCallback(async (config: GeneratedWorkoutBetaConfig) => {
     if (!betaEnabled) return;
-    const experienceLevel = config.goalId === 'dumbbell_hypertrophy' ? 'intermediate' as const : 'beginner' as const;
-    const workoutEnvironment = config.equipmentIds.includes('stationary_bike') ? 'gym' as const : 'home' as const;
+    const roadwork = config.intendedBoxingSessionFamily.startsWith('roadwork_');
     const request = {
       goalId: config.goalId,
       durationMinutes: config.durationMinutes,
       preferredDurationMinutes: config.durationMinutes,
       equipmentIds: config.equipmentIds,
       readinessBand: config.readinessBand,
-      experienceLevel,
-      workoutEnvironment,
+      experienceLevel: 'beginner' as const,
+      workoutEnvironment: roadwork ? 'outdoor' as const : 'home' as const,
       preferredToneVariant: 'coach_like' as const,
+      intendedBoxingSessionFamily: config.intendedBoxingSessionFamily,
+      intendedBoxingSessionRole: config.intendedBoxingSessionRole,
+      intendedSessionDoseCategory: config.intendedSessionDoseCategory,
+      preferredSessionTemplateId: config.preferredSessionTemplateId,
+      boxingTrainingContext: config.boxingTrainingContext ?? { track: 'aspiring_boxer' as const },
     };
 
     setLoading(true);
@@ -192,7 +193,7 @@ export function useGeneratedWorkoutBeta({
           setPersisted(result.persisted);
           setStage('inspect');
           setLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'inspected');
-          setLifecycleMessage(result.lifecycleFallbackMessage ? `Using local lifecycle fallback: ${result.lifecycleFallbackMessage}` : null);
+          setLifecycleMessage(result.lifecycleFallbackMessage ? `Using local session save fallback: ${result.lifecycleFallbackMessage}` : null);
           addMonitoringBreadcrumb('generated_workout', 'generate_persisted_succeeded', {
             persisted: result.persisted,
             lifecycleStatus: result.lifecycle?.lifecycle.status ?? 'inspected',
@@ -221,7 +222,7 @@ export function useGeneratedWorkoutBeta({
           setPersisted(false);
           setStage('inspect');
           setLifecycleStatus('inspected');
-          setLifecycleMessage(GENERATED_WORKOUT_FALLBACK_COPY.generatedSessionLocal);
+          setLifecycleMessage('Generated boxing session locally. Sign in or reconnect to save it.');
           setError(formatGeneratedWorkoutPersistenceFallbackMessage('generatedLocallyPersistenceUnavailable', persistError, 'Unable to save generated workout.'));
           addMonitoringBreadcrumb('generated_workout', 'generate_local_fallback_succeeded', {
             goalId: config.goalId,
@@ -239,7 +240,7 @@ export function useGeneratedWorkoutBeta({
       setPersisted(false);
       setStage('inspect');
       setLifecycleStatus('inspected');
-      setLifecycleMessage(GENERATED_WORKOUT_FALLBACK_COPY.generatedSessionLocal);
+        setLifecycleMessage('Generated boxing session locally. Sign in to save completions and progression.');
       addMonitoringBreadcrumb('generated_workout', 'generate_local_succeeded', {
         goalId: config.goalId,
       });
@@ -269,7 +270,7 @@ export function useGeneratedWorkoutBeta({
       const lifecycle = await workoutProgrammingService.startGeneratedWorkoutSession(generatedWorkoutFlowUserId(userId), generatedWorkoutId, generatedWorkoutLifecycleOptionsForUser(userId, occurredAt));
       setStartedAt(lifecycle.lifecycle.startedAt ?? occurredAt);
       setLifecycleStatus(lifecycle.lifecycle.status);
-      setLifecycleMessage(lifecycle.persisted ? null : 'Session started locally. Persistence will resume when available.');
+      setLifecycleMessage(lifecycle.persisted ? null : 'Session started locally. Saving will resume when available.');
       if (lifecycle.fallbackMessage) setLifecycleMessage(`Session started locally: ${lifecycle.fallbackMessage}`);
       addMonitoringBreadcrumb('generated_workout', 'start_succeeded', {
         persisted: lifecycle.persisted,
@@ -277,7 +278,7 @@ export function useGeneratedWorkoutBeta({
       });
     } catch (startError) {
       logError('useGeneratedWorkoutBeta.start', startError, { generatedWorkoutIdPresent: Boolean(generatedWorkoutId) });
-      setLifecycleMessage(formatGeneratedWorkoutPersistenceFallbackMessage('sessionStartedLocalPersistenceUnavailable', startError, 'Unable to persist start state.'));
+      setLifecycleMessage(formatGeneratedWorkoutPersistenceFallbackMessage('sessionStartedLocalPersistenceUnavailable', startError, 'Unable to save start state.'));
     }
   }, [generatedWorkoutId, userId]);
 
@@ -466,3 +467,7 @@ export function useGeneratedWorkoutBeta({
     },
   };
 }
+
+export const useBoxingGeneratedWorkout = useGeneratedWorkoutBeta;
+export type BoxingGeneratedWorkoutController = GeneratedWorkoutBetaController;
+export type UseBoxingGeneratedWorkoutResult = UseGeneratedWorkoutBetaResult;

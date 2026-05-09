@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail';
 import { useWorkoutDetailController } from '../hooks/useWorkoutDetailController';
+import { BoxingGeneratedWorkoutSessionCard } from '../components/workout/GeneratedWorkoutBetaSessionCard';
 import type { TrainStackParamList } from '../navigation/types';
 import type {
     WorkoutSessionSection,
@@ -26,6 +27,7 @@ import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 import { formatShortWeekday } from '../../lib/utils/date';
 import { formatRestForCoach, formatRpeForCoach } from '../components/workout/trainingCopy';
 import { resolveWorkoutDetailParams } from '../navigation/routeValidation';
+import { boxingEntryDisplayMeta } from '../../lib/performance-engine/workout-programming';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteProp = import('@react-navigation/native').RouteProp<TrainStackParamList, 'WorkoutDetail'>;
@@ -79,6 +81,14 @@ export function WorkoutDetailScreen() {
     const {
         entry,
         prescription,
+        boxingSnapshot,
+        generatedWorkout,
+        generatedStage,
+        generatedStartedAt,
+        generatedLifecycleStatus,
+        generatedLifecycleMessage,
+        generatedCompleting,
+        generatedProgressionDecision,
         exerciseLibrary,
         expandedExerciseId,
         isLoading,
@@ -90,6 +100,11 @@ export function WorkoutDetailScreen() {
         toggleExpanded,
         swapExercise,
         regenerate,
+        startGeneratedWorkout,
+        pauseGeneratedWorkout,
+        resumeGeneratedWorkout,
+        abandonGeneratedWorkout,
+        completeGeneratedWorkout,
         markSkipped,
         restore,
     } = useWorkoutDetail();
@@ -129,20 +144,31 @@ export function WorkoutDetailScreen() {
     const status = entry?.status ?? 'planned';
     const showBottomCtaBar = false as boolean;
     const focus = entry?.focus ?? null;
+    const boxingMeta = entry ? boxingEntryDisplayMeta(entry) : null;
+    const detailGeneratedWorkout = generatedWorkout ?? boxingSnapshot?.generatedWorkout ?? null;
+    const isProtectedBoxingAnchor = Boolean(boxingSnapshot?.protectedAnchor);
+    const isArchivedCompatibility = Boolean(entry && !boxingSnapshot && !prescription);
     const focusLabel = getSessionFamilyLabel({
         sessionType: entry?.session_type ?? null,
         focus,
         prescription,
     });
+    const displayTitle = boxingMeta?.title ?? focusLabel;
     const dayLabel = date ? formatShortWeekday(date) : '';
     const durationMin = entry?.estimated_duration_min ?? 0;
     const intensity = entry?.target_intensity ?? null;
-    const sessionGoal = prescription?.sessionGoal ?? prescription?.sessionIntent ?? null;
+    const sessionGoal = boxingSnapshot?.rationale?.[0]
+        ?? boxingSnapshot?.weekSummary.nextBestAction
+        ?? prescription?.sessionGoal
+        ?? prescription?.sessionIntent
+        ?? null;
 
     const sections = prescription?.sections ?? [];
     const flatExercises = sections.length === 0 ? (prescription?.exercises ?? []) : [];
-    const blockCount = sections.length > 0 ? sections.length : flatExercises.length > 0 ? 1 : 0;
-    const movementCount = sections.length > 0
+    const generatedBlockCount = detailGeneratedWorkout?.blocks.length ?? 0;
+    const generatedMovementCount = detailGeneratedWorkout?.blocks.reduce((total, block) => total + block.exercises.length, 0) ?? 0;
+    const blockCount = generatedBlockCount > 0 ? generatedBlockCount : sections.length > 0 ? sections.length : flatExercises.length > 0 ? 1 : 0;
+    const movementCount = generatedMovementCount > 0 ? generatedMovementCount : sections.length > 0
         ? sections.reduce((total, section) => total + section.exercises.length, 0)
         : flatExercises.length;
     const effortSummary = intensity != null ? `Effort ${intensity}/10` : 'Coach-paced effort';
@@ -182,7 +208,7 @@ export function WorkoutDetailScreen() {
         );
     }
 
-    if (!entry || !prescription) {
+    if (!entry) {
         return (
             <View style={[styles.container, { paddingTop: insets.top }]}>
                 <View style={styles.loadingHeader}>
@@ -191,8 +217,8 @@ export function WorkoutDetailScreen() {
                     </TouchableOpacity>
                 </View>
                 <View style={styles.loadingCenter}>
-                    <Text style={styles.emptyTitle}>No workout found</Text>
-                    <Text style={styles.emptySubtitle}>This session has no prescription yet.</Text>
+                    <Text style={styles.emptyTitle}>No session found</Text>
+                    <Text style={styles.emptySubtitle}>Open this boxing session from Train or Plan to review it safely.</Text>
                     <TouchableOpacity style={styles.retryBtn} onPress={() => void load(weeklyPlanEntryId)}>
                         <Text style={styles.retryText}>Retry</Text>
                     </TouchableOpacity>
@@ -209,7 +235,7 @@ export function WorkoutDetailScreen() {
                     <Text style={styles.backText}>‹</Text>
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
-                    <Text style={styles.headerTitle} numberOfLines={1}>{focusLabel} · {dayLabel}</Text>
+                    <Text style={styles.headerTitle} numberOfLines={1}>{displayTitle} - {dayLabel}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] + '20' }]}>
                         <Text style={[styles.statusText, { color: STATUS_COLORS[status] }]}>{STATUS_LABELS[status]}</Text>
                     </View>
@@ -254,9 +280,79 @@ export function WorkoutDetailScreen() {
                         <Text style={styles.intentLabel}>COACH BRIEF</Text>
                         <Text style={styles.intentText}>{sessionGoal}</Text>
                         <Text style={styles.intentSubText}>{whatToExpect}</Text>
+                        {boxingMeta?.sourceLabel ? <Text style={styles.intentSubText}>{boxingMeta.sourceLabel}</Text> : null}
+                        {boxingMeta?.why ? <Text style={styles.intentSubText}>{boxingMeta.why}</Text> : null}
                     </Animated.View>
                 )}
 
+                {isProtectedBoxingAnchor ? (
+                    <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
+                        <Text style={styles.actionLabel}>Protected boxing anchor</Text>
+                        <Text style={styles.intentText}>
+                            This session is a fixed boxing commitment. Athleticore will not generate sparring or replace it; the week plan adds support and recovery around the anchor.
+                        </Text>
+                        {status === 'skipped' ? (
+                            <TouchableOpacity style={styles.startBtn} onPress={handleRestore}>
+                                <Text style={styles.startBtnText}>Restore Anchor</Text>
+                            </TouchableOpacity>
+                        ) : null}
+                    </Animated.View>
+                ) : null}
+
+                {boxingSnapshot && !isProtectedBoxingAnchor && detailGeneratedWorkout ? (
+                    <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.generatedSessionWrapper}>
+                        <BoxingGeneratedWorkoutSessionCard
+                            userAuthenticated
+                            stage={generatedStage}
+                            workout={detailGeneratedWorkout}
+                            generatedWorkoutId={boxingSnapshot.generatedWorkoutId ?? null}
+                            persisted={Boolean(boxingSnapshot.generatedWorkoutId)}
+                            startedAt={generatedStartedAt}
+                            lifecycleStatus={generatedLifecycleStatus}
+                            lifecycleMessage={generatedLifecycleMessage}
+                            loading={isRegenerating}
+                            completing={generatedCompleting}
+                            error={null}
+                            progressionDecision={generatedProgressionDecision}
+                            defaultReadinessBand="unknown"
+                            onGenerate={() => undefined}
+                            onStart={() => { void startGeneratedWorkout(); }}
+                            onPause={() => { void pauseGeneratedWorkout(); }}
+                            onResume={() => { void resumeGeneratedWorkout(); }}
+                            onAbandon={() => {
+                                Alert.alert('Abandon boxing session?', 'This stops the generated boxing session and saves no completion result.', [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    { text: 'Abandon', style: 'destructive', onPress: () => { void abandonGeneratedWorkout(); } },
+                                ]);
+                            }}
+                            onComplete={(draft) => { void completeGeneratedWorkout(draft); }}
+                            onReset={() => undefined}
+                            mode="executeOnly"
+                        />
+                    </Animated.View>
+                ) : null}
+
+                {boxingSnapshot && !isProtectedBoxingAnchor && !detailGeneratedWorkout ? (
+                    <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
+                        <Text style={styles.actionLabel}>Session plan</Text>
+                        <Text style={styles.intentText}>This boxing entry has programming intent but no attached GeneratedWorkout snapshot yet.</Text>
+                        <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Generate Session Plan'}</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+                ) : null}
+
+                {isArchivedCompatibility ? (
+                    <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
+                        <Text style={styles.actionLabel}>Compatibility view</Text>
+                        <Text style={styles.intentText}>{boxingMeta?.why ?? 'This old entry is readable, but it is not the source of new workout programming.'}</Text>
+                        <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Create Boxing Session Plan'}</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+                ) : null}
+
+                {!boxingSnapshot && prescription ? (
                 <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
                     <Text style={styles.actionLabel}>Ready to train?</Text>
                     {status === 'planned' || status === 'rescheduled' ? (
@@ -293,6 +389,7 @@ export function WorkoutDetailScreen() {
                         </View>
                     ) : null}
                 </Animated.View>
+                ) : null}
 
                 {/* Sectioned exercises */}
                 {sections.length > 0 && sections.map((section, sIdx) => (
@@ -739,6 +836,9 @@ const styles = StyleSheet.create({
         padding: SPACING.md,
         marginBottom: SPACING.sm,
         ...SHADOWS.sm,
+    },
+    generatedSessionWrapper: {
+        marginBottom: SPACING.sm,
     },
     actionLabel: {
         fontSize: 11,

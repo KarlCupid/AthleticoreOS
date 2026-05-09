@@ -19,6 +19,7 @@ declare const global: Record<string, unknown>;
 
 let passed = 0;
 let failed = 0;
+let workoutScreenHasBoxingEntry = false;
 
 function assert(label: string, condition: boolean): void {
   if (condition) {
@@ -118,8 +119,77 @@ function installRenderMocks(): void {
       props.children,
     ),
   };
+  function boxingGeneratedEntry() {
+    const snapshot = {
+      snapshotKind: 'boxing_generated_program_entry',
+      schemaVersion: 1,
+      sourceOfTruth: 'GeneratedProgram',
+      programId: 'render-program',
+      sessionId: 'render-session',
+      weekIndex: 1,
+      dayIndex: 1,
+      scheduledDate: '2026-05-03',
+      label: 'Footwork agility',
+      protectedAnchor: false,
+      goalId: 'footwork_agility',
+      preferredSessionTemplateId: 'footwork_agility',
+      plannedIntensity: 'low',
+      estimatedDurationMinutes: 20,
+      boxingSessionFamily: 'footwork_agility',
+      boxingSessionRole: 'footwork_agility',
+      sessionDoseCategory: 'microdose',
+      rationale: ['Footwork keeps the boxing week sharp without adding hard load.'],
+      generatedWorkout: null,
+      weekSummary: {
+        weeklyBoxingHeadline: 'Build cleaner feet around protected boxing.',
+        weeklyBoxingSummary: 'Athleticore generated support around boxing anchors.',
+        primaryBoxingFocus: 'Footwork quality',
+        hardDaySummary: '1 of 3 hard days planned.',
+        protectedLoadSummary: 'Protected boxing anchors stay fixed.',
+        generatedSupportSummary: 'One microdose keeps quality high.',
+        nextBestAction: 'Run the footwork microdose before heavy fatigue.',
+        coachSummaryBullets: ['Keep the microdose crisp.'],
+        coachRationale: ['Render fixture for boxing weekly intelligence.'],
+        userFacingWarnings: [],
+        validationWarnings: [],
+        hardDayCount: 1,
+        hardDayCap: 3,
+        generatedFullSessionCount: 0,
+        generatedSupportSessionCount: 0,
+        generatedMicrodoseCount: 1,
+        protectedBoxingSessionCount: 1,
+        protectedSparringCount: 0,
+        protectedRoadworkCount: 0,
+        qualityGaps: [],
+      },
+    };
+    return {
+      id: 'render-weekly-entry',
+      user_id: 'render-user-id',
+      week_start_date: '2026-05-03',
+      date: '2026-05-03',
+      day_of_week: 0,
+      slot: 'single',
+      day_order: 1,
+      session_type: 'boxing_practice',
+      focus: 'sport_specific',
+      session_family: 'boxing_skill',
+      sc_session_family: 'footwork',
+      placement_source: 'generated',
+      progression_intent: 'footwork_agility',
+      estimated_duration_min: 20,
+      target_intensity: 3,
+      status: 'planned',
+      prescription_snapshot: snapshot,
+      is_deload: false,
+      scheduled_activity_id: null,
+    };
+  }
+
   const workoutDataMock = {
-    useWorkoutData: () => ({
+    useWorkoutData: () => {
+      const boxingEntry = workoutScreenHasBoxingEntry ? boxingGeneratedEntry() : null;
+      return ({
       loading: false,
       refreshing: false,
       loadData: noop,
@@ -131,8 +201,8 @@ function installRenderMocks(): void {
       sessions: [],
       userId: 'render-user-id',
       dailyAthleteSummary: null,
-      todayPlanEntry: null,
-      weeklyEntries: [],
+      todayPlanEntry: boxingEntry,
+      weeklyEntries: boxingEntry ? [boxingEntry] : [],
       historyLoaded: true,
       analyticsLoaded: true,
       historyLoading: false,
@@ -146,7 +216,8 @@ function installRenderMocks(): void {
       performanceContext: {
         bodyMass: null,
       },
-    }),
+    });
+    },
     computeACWRTimeSeries: () => [],
   };
   const workoutUtilsMock = {
@@ -255,13 +326,17 @@ function progressionDecision(): ProgressionDecision {
 }
 
 function setWorkoutScreenFlags(flags: { beta?: boolean; preview?: boolean; dev?: boolean }) {
-  if (flags.beta) process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA = '1';
-  else delete process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA;
+  if (flags.beta) process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED = '1';
+  else process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED = '0';
 
   if (flags.preview) process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW = '1';
   else delete process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW;
 
   global.__DEV__ = flags.dev ?? true;
+}
+
+function setWorkoutScreenData(flags: { boxingEntry?: boolean }) {
+  workoutScreenHasBoxingEntry = flags.boxingEntry === true;
 }
 
 function loadWorkoutScreen() {
@@ -376,12 +451,12 @@ async function run(): Promise<void> {
     progressionDecision: null,
   }));
   assert('beta session card renders configure state', Boolean(
-    configure.getByTestId('generated-workout-beta-card')
-      && configure.getByLabelText('Generate workout')
+    configure.getByTestId('boxing-generated-workout-card')
+      && configure.getByLabelText('Generate boxing session')
       && configure.getByText('Choose the basics. The engine keeps safety and readiness in the request.'),
   ));
-  act(() => { fireEvent.press(configure.getByLabelText('Generate workout')); });
-  assert('beta configure state calls generate handler', eventLog.includes('generate'));
+  act(() => { fireEvent.press(configure.getByLabelText('Generate boxing session')); });
+  assert('boxing configure state calls generate handler', eventLog.includes('generate'));
   configure.unmount();
 
   const inspect = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
@@ -390,9 +465,9 @@ async function run(): Promise<void> {
     workout: validWorkout,
     progressionDecision: null,
   }));
-  assert('beta session card renders inspect state', Boolean(inspect.getByLabelText('Start generated workout')));
-  act(() => { fireEvent.press(inspect.getByLabelText('Start generated workout')); });
-  assert('beta inspect state calls start handler', eventLog.includes('start'));
+  assert('boxing session card renders inspect state', Boolean(inspect.getByLabelText('Start boxing session')));
+  act(() => { fireEvent.press(inspect.getByLabelText('Start boxing session')); });
+  assert('boxing inspect state calls start handler', eventLog.includes('start'));
   inspect.unmount();
 
   const blockedInspect = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
@@ -401,7 +476,7 @@ async function run(): Promise<void> {
     workout: blockedWorkout,
     progressionDecision: null,
   }));
-  const blockedStart = blockedInspect.getByTestId('generated-workout-beta-start');
+  const blockedStart = blockedInspect.getByTestId('boxing-generated-workout-start');
   assert('start button is disabled for blocked workouts', Boolean(
     blockedStart.props.disabled === true
       && blockedStart.props.accessibilityState?.disabled === true
@@ -417,18 +492,18 @@ async function run(): Promise<void> {
     lifecycleStatus: 'started',
     progressionDecision: null,
   }));
-  assert('beta session card renders started state', Boolean(started.getByTestId('generated-workout-beta-checklist')));
-  assert('beta session card renders lifecycle controls', Boolean(started.getByTestId('generated-workout-beta-lifecycle-controls') && started.getByLabelText('Pause generated workout')));
-  assert('completion controls render checklist', Boolean(started.getByTestId('generated-workout-beta-checklist')));
+  assert('boxing session card renders started state', Boolean(started.getByTestId('boxing-generated-workout-checklist')));
+  assert('boxing session card renders lifecycle controls', Boolean(started.getByTestId('boxing-generated-workout-lifecycle-controls') && started.getByLabelText('Pause boxing session')));
+  assert('completion controls render checklist', Boolean(started.getByTestId('boxing-generated-workout-checklist')));
   assert('completion controls render RPE', Boolean(started.getByLabelText('Decrease Session effort rating') && started.getByLabelText('Increase Session effort rating')));
   assert('completion controls render pain before/after', Boolean(started.getByLabelText('Decrease Pain before') && started.getByLabelText('Increase Pain after')));
-  assert('completion controls render feedback tags', Boolean(started.getByTestId('generated-workout-beta-feedback') && started.getByText('Too easy') && started.getByText('Pain or discomfort')));
-  assert('completion controls render notes', Boolean(started.getByTestId('generated-workout-beta-notes')));
-  assert('completion controls render complete button', Boolean(started.getByLabelText('Complete generated workout')));
+  assert('completion controls render feedback tags', Boolean(started.getByTestId('boxing-generated-workout-feedback') && started.getByText('Too easy') && started.getByText('Pain or discomfort')));
+  assert('completion controls render notes', Boolean(started.getByTestId('boxing-generated-workout-notes')));
+  assert('completion controls render complete button', Boolean(started.getByLabelText('Complete boxing session')));
   act(() => { fireEvent.press(started.getByLabelText('Mark all exercises complete')); });
   act(() => { fireEvent.changeText(started.getByLabelText('Workout notes'), 'Felt smooth and controlled.'); });
-  act(() => { fireEvent.press(started.getByLabelText('Complete generated workout')); });
-  assert('beta started state calls complete handler', eventLog.includes('complete'));
+  act(() => { fireEvent.press(started.getByLabelText('Complete boxing session')); });
+  assert('boxing started state calls complete handler', eventLog.includes('complete'));
   started.unmount();
 
   const paused = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
@@ -439,9 +514,9 @@ async function run(): Promise<void> {
     lifecycleStatus: 'paused',
     progressionDecision: null,
   }));
-  assert('beta session card can resume a paused persisted session', Boolean(paused.getByLabelText('Resume generated workout') && paused.getByText('Resume to Complete')));
-  act(() => { fireEvent.press(paused.getByLabelText('Resume generated workout')); });
-  assert('beta paused state calls resume handler', eventLog.includes('resume'));
+  assert('boxing session card can resume a paused persisted session', Boolean(paused.getByLabelText('Resume boxing session') && paused.getByText('Resume to Complete')));
+  act(() => { fireEvent.press(paused.getByLabelText('Resume boxing session')); });
+  assert('boxing paused state calls resume handler', eventLog.includes('resume'));
   paused.unmount();
 
   const completed = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
@@ -451,7 +526,7 @@ async function run(): Promise<void> {
     startedAt: '2026-05-03T12:00:00.000Z',
     progressionDecision: progressionDecision(),
   }));
-  assert('beta session card renders completed state', Boolean(completed.getByTestId('generated-workout-beta-next-progression')));
+  assert('boxing session card renders completed state', Boolean(completed.getByTestId('boxing-generated-workout-next-progression')));
   assert('progression recommendation renders after completion', Boolean(
     completed.getByText('Recommended next step')
       && completed.getByText('Progress')
@@ -459,39 +534,41 @@ async function run(): Promise<void> {
   ));
   completed.unmount();
 
+  setWorkoutScreenData({ boxingEntry: true });
   setWorkoutScreenFlags({ beta: false, preview: false, dev: true });
   const WorkoutScreenFlagsOff = loadWorkoutScreen();
   const flagsOff = render(React.createElement(WorkoutScreenFlagsOff));
-  assert('feature flag off does not render beta or preview flow', Boolean(
-    flagsOff.queryByTestId('generated-workout-beta-section') === null
-      && flagsOff.queryByTestId('generated-workout-preview-section') === null,
+  assert('boxing engine flag off does not render generator or diagnostics flow', Boolean(
+    flagsOff.queryByTestId('boxing-generated-workout-section') === null
+      && flagsOff.queryByTestId('internal-workout-diagnostics-section') === null,
   ));
   flagsOff.unmount();
 
   setWorkoutScreenFlags({ beta: true, preview: true, dev: true });
   const WorkoutScreenBetaOn = loadWorkoutScreen();
   const betaOn = render(React.createElement(WorkoutScreenBetaOn));
-  assert('beta feature flag on renders the beta section and suppresses preview', Boolean(
-    betaOn.getByTestId('generated-workout-beta-section')
-      && betaOn.queryByTestId('generated-workout-preview-section') === null,
+  assert('boxing engine flag on renders the boxing section and suppresses diagnostics', Boolean(
+    betaOn.getByTestId('boxing-generated-workout-section')
+      && betaOn.queryByTestId('internal-workout-diagnostics-section') === null,
   ));
   betaOn.unmount();
 
   setWorkoutScreenFlags({ beta: true, preview: true, dev: false });
   const WorkoutScreenNonDevFlagsOn = loadWorkoutScreen();
   const nonDevFlagsOn = render(React.createElement(WorkoutScreenNonDevFlagsOn));
-  assert('non-dev builds do not render generated workout beta or preview even if flags are set', Boolean(
-    nonDevFlagsOn.queryByTestId('generated-workout-beta-section') === null
-      && nonDevFlagsOn.queryByTestId('generated-workout-preview-section') === null,
+  assert('non-dev builds render the boxing product flow when the rollout flag is enabled', Boolean(
+    nonDevFlagsOn.getByTestId('boxing-generated-workout-section')
+      && nonDevFlagsOn.queryByTestId('internal-workout-diagnostics-section') === null,
   ));
   nonDevFlagsOn.unmount();
 
-  setWorkoutScreenFlags({ beta: false, preview: true, dev: true });
+  setWorkoutScreenFlags({ beta: true, preview: true, dev: true });
+  setWorkoutScreenData({ boxingEntry: false });
   const WorkoutScreenPreviewOn = loadWorkoutScreen();
   const previewOn = render(React.createElement(WorkoutScreenPreviewOn));
-  assert('preview feature flag on renders the preview section', Boolean(
-    previewOn.getByTestId('generated-workout-preview-section')
-      && previewOn.queryByTestId('generated-workout-beta-section') === null,
+  assert('normal Train screen does not render standalone generator or internal diagnostics without a boxing plan entry', Boolean(
+    previewOn.queryByTestId('internal-workout-diagnostics-section') === null
+      && previewOn.queryByTestId('boxing-generated-workout-section') === null,
   ));
   previewOn.unmount();
 

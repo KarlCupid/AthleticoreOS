@@ -162,9 +162,9 @@ async function run() {
     'generatedWorkoutDefaultSafetyNotes',
   ].every((needle) => previewCard.includes(needle)));
 
-  assert('beta UI actions have descriptive accessibility labels', [
-    'accessibilityLabel={loading ? \'Generating workout\'',
-    'accessibilityLabel="Clear generated workout"',
+  assert('boxing generated workout UI actions have descriptive accessibility labels', [
+    'accessibilityLabel={loading ? \'Generating boxing session\'',
+    'accessibilityLabel="Clear generated boxing session"',
     'GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview',
     'generatedWorkoutSafetyReminder',
     'accessibilityLabel={allExercisesComplete ? \'Clear all completed exercises\'',
@@ -173,11 +173,11 @@ async function run() {
   ].every((needle) => betaCard.includes(needle)));
 
   assert('workout screen generated sections are labeled for assistive tech', [
-    'accessibilityLabel="Generated workout beta flow"',
-    'testID="generated-workout-beta-section"',
+    'accessibilityLabel="Boxing generated workout flow"',
+    'testID="boxing-generated-workout-section"',
   ].every((needle) => betaContainer.includes(needle)) && [
-    'accessibilityLabel="Generated workout developer preview section"',
-    'testID="generated-workout-preview-section"',
+    'accessibilityLabel="Internal workout diagnostics section"',
+    'testID="internal-workout-diagnostics-section"',
   ].every((needle) => devPreviewPanel.includes(needle)));
 }
 

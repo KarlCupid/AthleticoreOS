@@ -39,7 +39,7 @@ npm run workout:validate-content -- --strict
 npm run workout:audit-content -- --release
 ```
 
-These commands fail unless the workout-programming release report is production-ready. Preview/dev-only content can remain gated for beta review, but production-eligible content must have review approval, safety approval where required, complete descriptions, exercise safety notes, relevant substitutions, prescription progression/regression/deload rules, and approved production media.
+These commands fail unless the workout-programming release report is production-ready. Preview/dev-only content can remain gated for internal review, but production-eligible content must have review approval, safety approval where required, complete descriptions, exercise safety notes, relevant substitutions, prescription progression/regression/deload rules, and approved production media.
 
 ## Workout-Programming Test Files
 
@@ -48,8 +48,9 @@ These commands fail unless the workout-programming release report is production-
 - `workoutProgrammingPersistence.test.ts`: persistence service user scoping, atomic RPC coverage, guarded fallback behavior, and insert payloads.
 - `workoutProgrammingService.test.ts`: high-level app-facing service output shape.
 - `workoutProgrammingQA.test.ts`: deep scenario QA and edge cases.
-- `workoutProgrammingUiSmoke.test.ts`: feature-flag and fixture smoke coverage for generated workout preview and beta flow.
-- `workoutProgrammingGeneratedWorkoutRender.test.ts`: React Native render coverage for generated preview, beta flow states, blocked starts, completion controls, progression copy, and Workout screen feature flags.
+- `generatedProgramWeeklyPlanAdapter.test.ts`: `GeneratedProgram` to `weekly_plan_entries` projection, boxing metadata snapshots, no generated sparring, external non-boxing load mapping, and old-row compatibility helpers.
+- `workoutProgrammingUiSmoke.test.ts`: feature-flag and fixture smoke coverage for boxing generated workout UI and internal diagnostics.
+- `workoutProgrammingGeneratedWorkoutRender.test.ts`: React Native render coverage for generated preview, boxing generated flow states, blocked starts, completion controls, progression copy, and Workout screen rollout behavior.
 - `workoutProgrammingOperationalGuards.test.ts`: live DB guard behavior and content-audit release gating.
 
 ## What Tests Should Catch
@@ -64,6 +65,10 @@ Tests should fail for:
 - Invalid generated workouts.
 - Red-flag safety not blocking.
 - Protected workouts being removed from programs.
+- Boxing weekly generation falling back to old adaptive generation.
+- Generated sparring.
+- MMA, grappling, wrestling, BJJ, Muay Thai, or kickboxing being counted as boxing skill.
+- Generic generated workout UI replacing boxing-session intent.
 - User-specific persistence reads/writes missing `user_id` or parent scoping.
 
 ## Current QA Scenarios
@@ -105,15 +110,16 @@ Tests should fail for:
 
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
 - Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they run through the manual GitHub release-gate job, `npm run workout:live-db-smoke`, or `npm run workout:release-gate`.
-- Generated workout persistence and beta start/log UI are wired behind dev-only feature flags, with component-level React Native render coverage now in place; broad rollout still needs production-ready content, device/E2E coverage, and an intentional flag posture change.
-- Generated workout beta lifecycle state is now durable for persisted sessions, including active-session restore; broad rollout still needs device/E2E coverage for backgrounding, reload, and resume on real devices.
-- Program persistence has atomic save/load/update/archive/session-completion helpers, but it is not yet a polished calendar-driven production workflow.
+- Boxing generated workout persistence and start/log UI are wired into the main product path behind `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED`; device/E2E coverage is still needed for backgrounding, reload, and resume on real devices.
+- Generated workout lifecycle state is durable for persisted sessions, including active-session restore.
+- Program persistence has atomic save/load/update/archive/session-completion helpers, and weekly plan rows are now a projection of `GeneratedProgram`; live calendar polish still needs device/E2E coverage.
 - Strict content release mode is wired into `workout:release-gate`; the current catalog fails release until production exercise media is produced, reviewed, and linked. Production prescription progression/regression/deload rule-link gaps are covered by content tests.
 - Some constrained requests intentionally fall back to recovery instead of forcing the requested workout type.
 - Balance and older-adult concepts are represented through current goals/safety flags, not a dedicated older-adult product surface.
 - The generator is deterministic enough for tests but not yet tuned with real-world recommendation quality data.
 - Media fields exist but are not fully populated with production assets.
 - Preview/dev-only content is intentionally gated from production generation until review is complete.
+- Legacy weekly rows and old `WorkoutPrescriptionV2` snapshots are readable for compatibility, but old adaptive generation is not a product fallback.
 - Content authoring still happens in TypeScript content packs, but review status can now move through the JSON review-decision workflow or Supabase review metadata updates instead of only manual TypeScript edits.
 
 ## Future Roadmap
@@ -121,9 +127,9 @@ Tests should fail for:
 Near term:
 
 - Keep the manual live Supabase RLS and DB release gate green against a dedicated test project before workout-programming rollout.
-- Add device/E2E smoke tests for the generated workout beta flow.
+- Add device/E2E smoke tests for boxing generated session start, pause/resume, completion, active-session restore, Plan navigation, and Workout Detail lazy generation.
 - Promote preview/dev-only exercises only after coach and safety review.
-- Add a developer fixture selector to the isolated dev preview panel if fixed-fixture debugging becomes too narrow.
+- Add a developer fixture selector to the isolated internal diagnostics panel if fixed-fixture debugging becomes too narrow.
 - Add content QA snapshots for descriptions and prescription payloads.
 
 Medium term:
@@ -137,7 +143,7 @@ Medium term:
 Long term:
 
 - Integrate workout programming directly with the Unified Performance Engine and `PerformanceState`.
-- Harmonize generated workouts with protected boxing sessions, nutrition/fueling, readiness, body mass, and risk state.
+- Continue harmonizing generated boxing workouts with protected boxing sessions, nutrition/fueling, readiness, body mass, and risk state.
 - Support richer periodization across build, camp, competition week, and recovery phases.
 - Add coach-facing review tools for generated programs.
 - Build a safe content publishing pipeline with validation before content reaches users.

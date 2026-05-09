@@ -20,12 +20,16 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
-import { GeneratedWorkoutBetaContainer } from '../components/workout/GeneratedWorkoutBetaContainer';
-import { GeneratedWorkoutDevPreviewPanel } from '../components/workout/GeneratedWorkoutDevPreviewPanel';
+import { BoxingGeneratedWorkoutContainer } from '../components/workout/GeneratedWorkoutBetaContainer';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { useGeneratedWorkoutBeta } from '../hooks/useGeneratedWorkoutBeta';
+import { useBoxingGeneratedWorkout } from '../hooks/useGeneratedWorkoutBeta';
+import {
+  boxingEntryDisplayMeta,
+  getBoxingSnapshotFromWeeklyPlanEntry,
+  type BoxingGeneratedPlanEntrySnapshot,
+} from '../../lib/performance-engine/workout-programming';
 import {
   buildSleepData,
   buildTrainTodaySummary,
@@ -125,6 +129,45 @@ function EmptyPlanCard({ onPress }: { onPress: () => void }) {
   );
 }
 
+function BoxingWeekIntelligenceCard({ snapshot }: { snapshot: BoxingGeneratedPlanEntrySnapshot | null }) {
+  if (!snapshot) return null;
+  const week = snapshot.weekSummary;
+  const bullets = [
+    week.primaryBoxingFocus ? `Focus: ${week.primaryBoxingFocus}` : null,
+    week.hardDaySummary,
+    week.protectedLoadSummary,
+    week.generatedSupportSummary,
+    week.nextBestAction,
+  ].filter((item): item is string => Boolean(item));
+  const qualityGaps = week.qualityGaps.map((gap) => `${String(gap.quality).replace(/_/g, ' ')} (${gap.priority})`).slice(0, 3);
+  return (
+    <Card
+      title={week.weeklyBoxingHeadline ?? 'Boxing week intelligence'}
+      subtitle={week.weeklyBoxingSummary ?? 'GeneratedProgram is the source of this week.'}
+      subtitleLines={3}
+      backgroundTone="workoutFloor"
+      backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+    >
+      <View style={styles.intelligenceStack}>
+        {bullets.map((item) => (
+          <View key={item} style={styles.intelligenceRow}>
+            <View style={styles.guardrailDot} />
+            <Text style={styles.intelligenceText}>{item}</Text>
+          </View>
+        ))}
+        <View style={styles.intelligenceMetaRow}>
+          <Text style={styles.intelligenceMeta}>Hard days {week.hardDayCount}{week.hardDayCap != null ? `/${week.hardDayCap}` : ''}</Text>
+          {week.protectedBoxingSessionCount != null ? <Text style={styles.intelligenceMeta}>Protected boxing {week.protectedBoxingSessionCount}</Text> : null}
+          {week.generatedSupportSessionCount != null ? <Text style={styles.intelligenceMeta}>Support {week.generatedSupportSessionCount}</Text> : null}
+          {week.generatedMicrodoseCount != null ? <Text style={styles.intelligenceMeta}>Microdose {week.generatedMicrodoseCount}</Text> : null}
+        </View>
+        {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Quality gaps: {qualityGaps.join(', ')}</Text> : null}
+        {week.variancePlan?.reason ? <Text style={styles.intelligenceNote}>{week.variancePlan.reason}</Text> : null}
+      </View>
+    </Card>
+  );
+}
+
 export function WorkoutScreen() {
   const navigation = useNavigation<NavProp>();
   const parentNavigation = navigation.getParent();
@@ -138,7 +181,7 @@ export function WorkoutScreen() {
     historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
     performanceContext,
   } = useWorkoutData();
-  const generatedWorkoutBetaController = useGeneratedWorkoutBeta({
+  const boxingGeneratedWorkoutController = useBoxingGeneratedWorkout({
     userId,
     currentLevel,
     historyLoaded,
@@ -187,6 +230,13 @@ export function WorkoutScreen() {
   }, [navigation, currentLevel]);
 
   const groupedWeeklyEntries = useMemo(() => groupWeekEntries(weeklyEntries), [weeklyEntries]);
+  const todayBoxingSnapshot = useMemo(() => getBoxingSnapshotFromWeeklyPlanEntry(todayPlanEntry), [todayPlanEntry]);
+  const todayBoxingMeta = useMemo(() => todayPlanEntry ? boxingEntryDisplayMeta(todayPlanEntry) : null, [todayPlanEntry]);
+  const weekBoxingSnapshot = useMemo(
+    () => todayBoxingSnapshot ?? weeklyEntries.map(getBoxingSnapshotFromWeeklyPlanEntry).find((snapshot): snapshot is BoxingGeneratedPlanEntrySnapshot => Boolean(snapshot)) ?? null,
+    [todayBoxingSnapshot, weeklyEntries],
+  );
+  const showBoxingGeneratedFlow = Boolean(todayBoxingSnapshot && !todayBoxingSnapshot.protectedAnchor);
   const contextualTodayActivities = useMemo(() => todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type)), [todayActivities]);
   const weightData = useMemo(() => buildWeightData(checkins), [checkins]);
   const sleepData = useMemo(() => buildSleepData(checkins), [checkins]);
@@ -196,6 +246,7 @@ export function WorkoutScreen() {
   const floorVM = useMemo(() => buildTrainingFloorViewModel(prescription as any, dailyAthleteSummary), [prescription, dailyAthleteSummary]);
 
   const todaySessionLabel = useMemo(() => {
+    if (todayBoxingMeta) return todayBoxingMeta.title;
     if (todayPlanEntry) return getWorkoutFocusLabel(
       todayPlanEntry.focus,
       todayPlanEntry.session_type,
@@ -205,7 +256,7 @@ export function WorkoutScreen() {
     if (prescription) return getSessionFamilyLabel({ workoutType: prescription.workoutType, focus: prescription.focus, prescription: prescription as any });
     if (contextualTodayActivities.length > 0) return formatActivityLabel(contextualTodayActivities[0]);
     return null;
-  }, [todayPlanEntry, prescription, contextualTodayActivities]);
+  }, [todayBoxingMeta, todayPlanEntry, prescription, contextualTodayActivities]);
 
   const todaySummary = useMemo(() => buildTrainTodaySummary({
     floorVM,
@@ -230,6 +281,7 @@ export function WorkoutScreen() {
   const handlePrimaryAction = useCallback(() => {
     if (todayPlanEntry) {
       if (todayPlanEntry.status === 'completed' || todayPlanEntry.status === 'skipped') { void openWorkoutDetail(todayPlanEntry); return; }
+      if (getBoxingSnapshotFromWeeklyPlanEntry(todayPlanEntry)) { void openWorkoutDetail(todayPlanEntry); return; }
       void openGuidedWorkout(todayPlanEntry); return;
     }
     if (prescription) { void openGuidedWorkout(null); return; }
@@ -296,6 +348,11 @@ export function WorkoutScreen() {
                 showBodyMass={Boolean(performanceContext.bodyMass)}
               />
             </Animated.View>
+            {!initialLoadError && weekBoxingSnapshot ? (
+              <Animated.View entering={FadeInDown.delay(30).duration(300).springify()}>
+                <BoxingWeekIntelligenceCard snapshot={weekBoxingSnapshot} />
+              </Animated.View>
+            ) : null}
             {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}
             {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
             {!initialLoadError && hasStructuredToday ? (
@@ -338,8 +395,7 @@ export function WorkoutScreen() {
                 <WorkoutPrescriptionSection prescription={prescription} themeColor={themeColor} showStartButton={false} />
               </Animated.View>
             ) : null}
-            {!initialLoadError ? <GeneratedWorkoutBetaContainer controller={generatedWorkoutBetaController} /> : null}
-            {!initialLoadError ? <GeneratedWorkoutDevPreviewPanel active={activeTab === 'today'} /> : null}
+            {!initialLoadError && showBoxingGeneratedFlow ? <BoxingGeneratedWorkoutContainer controller={boxingGeneratedWorkoutController} /> : null}
             {!initialLoadError && contextualTodayActivities.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
                 <Card
@@ -373,12 +429,13 @@ export function WorkoutScreen() {
                   const extraSessions = Math.max(0, group.sessions.length - 1);
                   const status = getWeekStatus(group);
                   const chipStyles = getChipStyles(status.tone);
-                  const sessionLabel = getWorkoutFocusLabel(
+                  const boxingMeta = boxingEntryDisplayMeta(primaryEntry);
+                  const sessionLabel = boxingMeta.isCompatibilityOnly ? getWorkoutFocusLabel(
                     primaryEntry.focus,
                     primaryEntry.session_type,
                     primaryEntry.prescription_snapshot,
                     primaryEntry.sc_session_family,
-                  );
+                  ) : boxingMeta.title;
                   const handlePress = () => {
                     if (group.date === todayLocalDate() && primaryEntry.status === 'planned') { void openGuidedWorkout(primaryEntry); return; }
                     void openWorkoutDetail(primaryEntry);
@@ -402,6 +459,8 @@ export function WorkoutScreen() {
                             {extraSessions > 0 ? <Text style={styles.weekCardMore}>+{extraSessions} more</Text> : null}
                           </View>
                           <Text style={styles.weekCardMeta}>{primaryEntry.estimated_duration_min} min{primaryEntry.target_intensity ? `  |  Effort ${primaryEntry.target_intensity}/10` : ''}</Text>
+                          <Text style={styles.weekCardNote}>{boxingMeta.sourceLabel}{boxingMeta.doseLabel ? `  |  ${boxingMeta.doseLabel}` : ''}</Text>
+                          {boxingMeta.why ? <Text style={styles.weekCardNote}>{boxingMeta.why}</Text> : null}
                           {group.sessions.some((session) => session.is_deload) ? <Text style={styles.weekCardNote}>Recovery emphasis this day.</Text> : null}
                         </View>
                         <View style={[styles.weekStatusChip, { backgroundColor: chipStyles.backgroundColor }]}><Text style={[styles.weekStatusChipText, { color: chipStyles.color }]}>{status.label}</Text></View>
@@ -477,6 +536,12 @@ const styles = StyleSheet.create({
   guardrailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
   guardrailDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 6 },
   guardrailText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
+  intelligenceStack: { gap: SPACING.sm },
+  intelligenceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
+  intelligenceText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
+  intelligenceMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginTop: SPACING.xs },
+  intelligenceMeta: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.sm, paddingVertical: 5, fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  intelligenceNote: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 17 },
   primaryButton: { minHeight: 52, backgroundColor: COLORS.accent, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.md, marginTop: SPACING.md },
   primaryButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
   secondaryLink: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.xs },

@@ -2,8 +2,10 @@ import React from 'react';
 import { Alert } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { UseGeneratedWorkoutBetaResult } from '../../hooks/useGeneratedWorkoutBeta';
-import { GeneratedWorkoutBetaSessionCard } from './GeneratedWorkoutBetaSessionCard';
+import { BoxingGeneratedWorkoutSessionCard } from './GeneratedWorkoutBetaSessionCard';
 
+// Deprecated filename/API alias: normal product code should use
+// `BoxingGeneratedWorkoutContainer`; the old beta name remains for migration stability.
 interface GeneratedWorkoutBetaContainerProps {
   controller: UseGeneratedWorkoutBetaResult;
 }
@@ -15,8 +17,8 @@ export function GeneratedWorkoutBetaContainer({ controller }: GeneratedWorkoutBe
 
   const confirmReset = () => {
     Alert.alert(
-      'Clear generated workout?',
-      'This removes the current generated workout draft from this screen.',
+      'Clear boxing session?',
+      'This removes the current generated boxing session draft from this screen.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Clear', style: 'destructive', onPress: beta.reset },
@@ -26,8 +28,8 @@ export function GeneratedWorkoutBetaContainer({ controller }: GeneratedWorkoutBe
 
   const confirmAbandon = () => {
     Alert.alert(
-      'Abandon generated workout?',
-      'This stops the generated workout session and saves no completion result.',
+      'Abandon boxing session?',
+      'This stops the generated boxing session and saves no completion result.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Abandon', style: 'destructive', onPress: () => { void beta.abandon(); } },
@@ -37,11 +39,11 @@ export function GeneratedWorkoutBetaContainer({ controller }: GeneratedWorkoutBe
 
   return (
     <Animated.View
-      testID="generated-workout-beta-section"
-      accessibilityLabel="Generated workout beta flow"
+      testID="boxing-generated-workout-section"
+      accessibilityLabel="Boxing generated workout flow"
       entering={FadeInDown.delay(70).duration(280).springify()}
     >
-      <GeneratedWorkoutBetaSessionCard
+      <BoxingGeneratedWorkoutSessionCard
         userAuthenticated={beta.userAuthenticated}
         stage={beta.stage}
         workout={beta.workout}
@@ -66,3 +68,6 @@ export function GeneratedWorkoutBetaContainer({ controller }: GeneratedWorkoutBe
     </Animated.View>
   );
 }
+
+export const BoxingGeneratedWorkoutContainer = GeneratedWorkoutBetaContainer;
+export type BoxingGeneratedWorkoutContainerProps = GeneratedWorkoutBetaContainerProps;

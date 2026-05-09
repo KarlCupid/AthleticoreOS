@@ -528,27 +528,6 @@ async function testPrescriptionResolution(): Promise<void> {
     adaptPrescriptionToDailyReadiness: ({ prescription }) => prescription
       ? ({ ...prescription, message: `${prescription.message}:adapted` })
       : null,
-    generateWorkoutV2: () => {
-      generated = true;
-      return makePrescription('generated');
-    },
-    getDefaultGymProfile: async () => ({ equipment: ['barbell'] } as Awaited<ReturnType<PrescriptionResolutionDependencies['getDefaultGymProfile']>>),
-    getExerciseLibrary: async () => [],
-    getRecentExerciseIds: async () => [],
-    getRecentMuscleVolume: async () => ({
-      chest: 0,
-      back: 0,
-      shoulders: 0,
-      quads: 0,
-      hamstrings: 0,
-      glutes: 0,
-      arms: 0,
-      core: 0,
-      full_body: 0,
-      neck: 0,
-      calves: 0,
-    }),
-    getExerciseHistoryBatch: async () => new Map(),
   };
 
   const result = await resolveWorkoutPrescriptionWithDependencies({
@@ -585,27 +564,22 @@ async function testPrescriptionResolution(): Promise<void> {
   }, dependencies);
   assert('prescription resolution returns null without a plan entry', absent === null);
 
-  await assertRejects('prescription resolution propagates generation failures', () =>
-    resolveWorkoutPrescriptionWithDependencies({
-      userId: 'user-1',
-      date: '2026-04-20',
-      phase: 'off-season',
-      readinessState: 'Prime',
-      readinessProfile: makeReadinessProfile(),
-      constraintSet: makeConstraintSet(),
-      acwr: makeAcwr(),
-      fitnessLevel: 'intermediate',
-      trainingAge: 'intermediate',
-      performanceGoalType: 'conditioning',
-      weeklyPlanEntry: makeEntry(),
-      objectiveContext: makeMacrocycleContext(),
-      medStatus: null,
-    }, {
-      ...dependencies,
-      generateWorkoutV2: () => {
-        throw new Error('generation failed');
-      },
-    }));
+  const legacyMissingSnapshot = await resolveWorkoutPrescriptionWithDependencies({
+    userId: 'user-1',
+    date: '2026-04-20',
+    phase: 'off-season',
+    readinessState: 'Prime',
+    readinessProfile: makeReadinessProfile(),
+    constraintSet: makeConstraintSet(),
+    acwr: makeAcwr(),
+    fitnessLevel: 'intermediate',
+    trainingAge: 'intermediate',
+    performanceGoalType: 'conditioning',
+    weeklyPlanEntry: makeEntry(),
+    objectiveContext: makeMacrocycleContext(),
+    medStatus: null,
+  }, dependencies);
+  assert('prescription resolution does not generate old calculateSC prescriptions for missing snapshots', legacyMissingSnapshot === null && generated === false);
 }
 
 async function testHydrationRisk(): Promise<void> {

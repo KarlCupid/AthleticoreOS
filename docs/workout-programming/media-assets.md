@@ -36,12 +36,12 @@ npm run workout:audit-content -- --release
 The report includes:
 
 - production exercises missing media
-- beta exercises missing media
+- internal-preview exercises missing media
 - missing media alt text
 - unreviewed media
 - high-priority exercises without demo assets
 
-Preview/beta exercises can be missing assets if they are safely gated, but the
+Preview/internal-review exercises can be missing assets if they are safely gated, but the
 missing assets remain visible in the audit. Production-eligible exercises require
 approved media when release media is required.
 

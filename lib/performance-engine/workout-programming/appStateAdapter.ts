@@ -704,18 +704,18 @@ export function resolveWorkoutPreferencesFromHistory(input: {
 function goalFromTrainingBlockGoal(goal: TrainingBlockGoal | null | undefined): string | null {
   switch (goal) {
     case 'strength':
-      return 'beginner_strength';
+      return 'rotational_power';
     case 'conditioning':
-      return 'zone2_cardio';
+      return 'roadwork_aerobic_base';
     case 'boxing_skill':
     case 'fight_camp':
       return 'boxing_support';
     case 'weight_class_prep':
       return 'low_impact_conditioning';
     case 'recovery':
-      return 'recovery';
+      return 'recovery_reset';
     case 'general_build':
-      return 'beginner_strength';
+      return 'boxing_support';
     default:
       return null;
   }
@@ -727,7 +727,7 @@ function goalFromPhase(phase: AthleticorePhase | null | undefined): string | nul
     case 'deload':
     case 'taper':
     case 'competition_week':
-      return 'recovery';
+      return 'recovery_reset';
     case 'onboarding':
     case 'transition':
       return 'return_to_training';
@@ -735,9 +735,9 @@ function goalFromPhase(phase: AthleticorePhase | null | undefined): string | nul
     case 'short_notice_camp':
       return 'boxing_support';
     case 'body_recomposition':
-      return 'hypertrophy';
+      return 'boxing_support';
     case 'weight_class_management':
-      return 'low_impact_conditioning';
+      return 'roadwork_aerobic_base';
     default:
       return null;
   }
@@ -746,12 +746,12 @@ function goalFromPhase(phase: AthleticorePhase | null | undefined): string | nul
 function goalFromJourneyGoalType(value: string | null | undefined): string | null {
   if (!value) return null;
   const key = normalizeKey(value);
-  if (key.includes('hypertrophy') || key.includes('muscle')) return 'hypertrophy';
-  if (key.includes('strength')) return 'beginner_strength';
-  if (key.includes('conditioning')) return 'zone2_cardio';
+  if (key.includes('hypertrophy') || key.includes('muscle')) return 'boxing_support';
+  if (key.includes('strength')) return 'rotational_power';
+  if (key.includes('conditioning')) return 'roadwork_aerobic_base';
   if (key.includes('boxing') || key.includes('fight')) return 'boxing_support';
-  if (key.includes('mobility')) return 'mobility';
-  if (key.includes('recovery')) return 'recovery';
+  if (key.includes('mobility')) return 'hip_ankle_mobility';
+  if (key.includes('recovery')) return 'recovery_reset';
   return null;
 }
 
@@ -764,14 +764,14 @@ export function resolveTrainingGoalFromCurrentPhase(input: {
   const phaseGoal = goalFromPhase(performanceState?.phase.current);
   const blockGoal = goalFromTrainingBlockGoal(performanceState?.activeTrainingBlock?.goal);
   const journeyGoal = goalFromJourneyGoalType(performanceState?.journey.goals[0]?.type ?? performanceState?.journey.goals[0]?.label);
-  const goalId = requested ?? phaseGoal ?? blockGoal ?? journeyGoal ?? 'beginner_strength';
+  const goalId = requested ?? phaseGoal ?? blockGoal ?? journeyGoal ?? 'boxing_support';
   const source = requested ? 'request' : phaseGoal ? 'PerformanceState.phase' : blockGoal ? 'activeTrainingBlock.goal' : journeyGoal ? 'journey.goal' : 'fallback';
   return {
     value: goalId,
     trace: trace({
       step: 'resolve_training_goal',
       reason: source === 'fallback'
-        ? 'No app-wide goal signal was available, so workout programming used beginner strength as a conservative default.'
+        ? 'No app-wide goal signal was available, so workout programming used boxing support as the conservative default.'
         : `Training goal was resolved from ${source}.`,
       selectedId: goalId,
       confidence: source === 'fallback' ? 0.55 : 0.86,
@@ -923,7 +923,7 @@ function trackFromAppState(input: {
       || modality === 'competition';
   });
   const hasBoxingSignal = sport === 'boxing' || input.goalId === 'boxing_support' || /boxing|boxer|fight/.test(input.goalId) || hasBoxingProtected;
-  if (!hasBoxingSignal) return input.requested?.archetype === 'general_fitness_legacy' ? 'general_fitness_legacy' : 'aspiring_boxer';
+  if (!hasBoxingSignal) return 'aspiring_boxer';
   if (hasFightCampSignal && competitionLevel === 'professional') return 'pro_8_10_round';
   if (hasFightCampSignal) return 'amateur_open';
   if (competitionLevel === 'professional') return 'pro_development';

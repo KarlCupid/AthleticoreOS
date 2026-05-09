@@ -18,7 +18,7 @@ Athleticore workout programming is boxing-first. The engine is not a generic wor
 - `pro_4_6_round`: bridge between amateur pace and professional pacing.
 - `pro_8_10_round`: aerobic durability, strength maintenance, durability, and fewer random finishers.
 - `pro_12_round`: highest aerobic base, repeat-round recovery, durability, pacing, and taper discipline.
-- `general_fitness_legacy`: explicit opt-in only.
+- `general_fitness_legacy`: compatibility-only for old persisted data and explicit tests. It is not a normal user-facing generation mode.
 
 Legacy combat archetypes are accepted only as compatibility inputs and map into boxing tracks when the goal, labels, or context clearly indicate boxing. Non-boxing protected labels such as MMA, grappling, wrestling, BJJ, Muay Thai, and kickboxing are external load, not boxing skill.
 

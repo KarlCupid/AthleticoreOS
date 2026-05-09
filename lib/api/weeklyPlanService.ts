@@ -4,6 +4,16 @@ import { toScheduledActivityPayload } from '../engine/sessionOwnership';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
 import { withEngineInvalidation } from './engineInvalidation';
+import {
+    buildGeneratedWorkoutRequestFromPlanEntry,
+    getBoxingSnapshotFromWeeklyPlanEntry,
+    migrateLegacyEntryToBoxingIntent,
+    templateIdForBoxingFamily,
+    workoutProgrammingService,
+    type BoxingGeneratedPlanEntrySnapshot,
+    type GeneratedWorkout,
+    type WorkoutReadinessBand,
+} from '../performance-engine/workout-programming';
 
 export { buildWeeklyPlanEntryInsertPayload } from './weeklyPlanPersistence';
 
@@ -707,6 +717,49 @@ export async function updatePlanEntryPrescription(
     });
 }
 
+export async function updatePlanEntryBoxingGeneratedWorkout(
+    entryId: string,
+    snapshot: BoxingGeneratedPlanEntrySnapshot,
+    workout: GeneratedWorkout,
+    generatedWorkoutId: string | null,
+): Promise<void> {
+    const context = await getPlanEntryMutationContext(entryId);
+    const nextSnapshot: BoxingGeneratedPlanEntrySnapshot = {
+        ...snapshot,
+        generatedWorkoutId: generatedWorkoutId ?? snapshot.generatedWorkoutId ?? null,
+        generatedWorkout: workout,
+        goalId: workout.goalId,
+        preferredSessionTemplateId: snapshot.preferredSessionTemplateId ?? workout.templateId,
+        estimatedDurationMinutes: workout.estimatedDurationMinutes,
+    };
+    const metadataPayload = {
+        prescription_snapshot: nextSnapshot,
+        progression_intent: nextSnapshot.boxingSessionRole ?? null,
+    };
+
+    return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_boxing_workout_update' }, async () => {
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .update(applyWeeklyPlanColumnCompatibility(metadataPayload))
+            .eq('id', entryId);
+
+        if (error) {
+            if (isMissingWeeklyPlanMetadataColumnError(error)) {
+                hasWeeklyPlanMetadataColumns = false;
+                const retry = await supabase
+                    .from('weekly_plan_entries')
+                    .update({ prescription_snapshot: nextSnapshot })
+                    .eq('id', entryId);
+                if (retry.error) throw retry.error;
+                return;
+            }
+            throw error;
+        }
+
+        hasWeeklyPlanMetadataColumns = true;
+    });
+}
+
 export async function restorePlanEntry(entryId: string): Promise<void> {
     const context = await getPlanEntryMutationContext(entryId);
 
@@ -722,56 +775,88 @@ export async function restorePlanEntry(entryId: string): Promise<void> {
 export async function regenerateDayWorkout(
     userId: string,
     entryId: string,
-    overrideFocus?: import('../engine/types').WorkoutFocus,
-): Promise<import('../engine/types').WorkoutPrescriptionV2> {
-    const [entry, athleteCtx] = await Promise.all([
-        getWeeklyPlanEntryById(entryId),
-        import('./athleteContextService').then(m => m.getAthleteContext(userId)),
-    ]);
+    _overrideFocus?: import('../engine/types').WorkoutFocus,
+): Promise<GeneratedWorkout> {
+    const entry = await getWeeklyPlanEntryById(entryId);
     if (!entry) throw new Error('Plan entry not found');
-
-    const [engineState, gymProfile, exerciseLibrary, recentExerciseIds, recentMuscleVolume] = await Promise.all([
-        import('./dailyPerformanceService').then(m => m.getDailyEngineState(userId, entry.date)),
-        import('./gymProfileService').then(m => m.getDefaultGymProfile(userId)),
-        import('./scService').then(m => m.getExerciseLibrary()),
-        import('./scService').then(m => m.getRecentExerciseIds(userId)),
-        import('./scService').then(m => m.getRecentMuscleVolume(userId)),
-    ]);
-    const exerciseHistory = await import('./scService').then((m) =>
-        m.getExerciseHistoryBatch(userId, exerciseLibrary.map((exercise) => exercise.id)),
-    );
-    if (exerciseLibrary.length === 0) {
-        throw new Error('Exercise library is empty. Apply the S&C resource migration before regenerating guided workouts.');
+    if (entry.placement_source === 'locked') {
+        throw new Error('Protected boxing anchors cannot be regenerated. Athleticore can add support around them, but it will not replace or generate sparring.');
     }
 
-    const { generateWorkoutV2 } = await import('../engine/calculateSC');
+    const [engineState, gymProfile] = await Promise.all([
+        import('./dailyPerformanceService').then(m => m.getDailyEngineState(userId, entry.date)),
+        import('./gymProfileService').then(m => m.getDefaultGymProfile(userId)),
+    ]);
 
-    const prescription = generateWorkoutV2({
-        readinessState: engineState.readinessState,
-        readinessProfile: engineState.readinessProfile,
-        constraintSet: engineState.constraintSet,
-        phase: engineState.objectiveContext.phase,
-        acwr: engineState.acwr.ratio,
-        exerciseLibrary,
-        recentExerciseIds,
-        recentMuscleVolume,
-        fitnessLevel: athleteCtx.fitnessLevel,
-        weeklyPlanFocus: overrideFocus ?? entry.focus ?? undefined,
-        availableMinutes: entry.estimated_duration_min,
-        trainingIntensityCap: undefined,
-        gymEquipment: gymProfile?.equipment ?? undefined,
-        exerciseHistory,
-        isDeloadWeek: entry.is_deload,
-        trainingDate: entry.date,
-        performanceGoalType: engineState.objectiveContext.performanceGoalType,
-        medStatus: engineState.medStatus,
-        sessionFamily: entry.session_family ?? undefined,
-        scSessionFamily: entry.sc_session_family ?? entry.prescription_snapshot?.scSessionFamily ?? null,
-        sessionModules: entry.session_modules ?? entry.prescription_snapshot?.sessionComposition ?? null,
+    const readinessBand = (
+        engineState.unifiedPerformance?.canonicalOutputs.readiness.readinessBand
+        ?? (engineState.readinessState === 'Prime' ? 'green' : engineState.readinessState === 'Caution' ? 'orange' : 'red')
+    ) as WorkoutReadinessBand;
+    const equipmentIds = [
+        'bodyweight',
+        'mat',
+        'open_space',
+        'track_or_road',
+        ...(gymProfile?.equipment ?? []).map((item) => item === 'resistance_bands' ? 'resistance_band' : item),
+    ];
+    const request = buildGeneratedWorkoutRequestFromPlanEntry({
+        entry,
+        readinessBand,
+        equipmentIds: Array.from(new Set(equipmentIds)),
     });
 
-    await updatePlanEntryPrescription(entryId, prescription);
-    return prescription;
+    const result = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, request, {
+        useSupabase: true,
+        persistGeneratedWorkout: true,
+        catalogFallback: 'safe',
+        contentReviewMode: 'production',
+        allowDraftContent: false,
+    });
+
+    const existingSnapshot = getBoxingSnapshotFromWeeklyPlanEntry(entry);
+    const migration = migrateLegacyEntryToBoxingIntent(entry);
+    const family = existingSnapshot?.boxingSessionFamily ?? migration.family;
+    if (!existingSnapshot && !family) {
+        throw new Error('This archived workout can be viewed, but it cannot be regenerated without boxing session intent.');
+    }
+    const snapshot: BoxingGeneratedPlanEntrySnapshot = existingSnapshot ?? (() => {
+        const migrated: BoxingGeneratedPlanEntrySnapshot = {
+            snapshotKind: 'boxing_generated_program_entry',
+            schemaVersion: 1,
+            sourceOfTruth: 'GeneratedProgram',
+            programId: `migrated-weekly-entry:${entry.week_start_date}`,
+            userProgramId: null,
+            sessionId: entry.id,
+            generatedWorkoutId: result.generatedWorkoutId,
+            weekIndex: 1,
+            dayIndex: Math.max(1, Math.min(7, entry.day_order ?? 1)),
+            scheduledDate: entry.date,
+            label: family ? family.replace(/_/g, ' ') : 'Boxing support',
+            protectedAnchor: false,
+            goalId: request.goalId,
+            preferredSessionTemplateId: family ? templateIdForBoxingFamily(family) : result.workout.templateId,
+            plannedIntensity: result.workout.estimatedDurationMinutes <= 25 ? 'low' : 'moderate',
+            estimatedDurationMinutes: result.workout.estimatedDurationMinutes,
+            estimatedLoadScore: null,
+            rationale: [migration.reason],
+            generatedWorkout: result.workout,
+            weekSummary: {
+                coachSummaryBullets: [],
+                coachRationale: [migration.reason],
+                userFacingWarnings: [],
+                validationWarnings: [],
+                hardDayCount: 0,
+                qualityGaps: [],
+            },
+        };
+        if (family) migrated.boxingSessionFamily = family;
+        if (request.intendedBoxingSessionRole) migrated.boxingSessionRole = request.intendedBoxingSessionRole;
+        if (request.intendedSessionDoseCategory) migrated.sessionDoseCategory = request.intendedSessionDoseCategory;
+        return migrated;
+    })();
+
+    await updatePlanEntryBoxingGeneratedWorkout(entry.id, snapshot, result.workout, result.generatedWorkoutId);
+    return result.workout;
 }
 
 export async function markRecommendationAccepted(entryId: string): Promise<void> {

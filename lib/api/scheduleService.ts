@@ -11,18 +11,14 @@ import {
     ScheduleSource,
     WeeklyComplianceReport,
     DailyAdaptationResult,
-    MuscleGroup,
 } from '../engine/types';
 import { calculateWeeklyCompliance, getTrainingStreak, adaptDailySchedule } from '../engine/calculateSchedule';
-import { generateAdaptiveSmartWeekPlan } from '../engine/adaptiveTrainingAdapter';
-import { getRecentExerciseIds, getExerciseLibrary, getRecentMuscleVolume, getExerciseHistoryBatch } from './scService';
+import { getExerciseLibrary } from './scService';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getActiveFightCamp } from './fightCampService';
 import { getAthleteContext } from './athleteContextService';
 import { getDefaultGymProfile } from './gymProfileService';
-import { getWeeksSinceLastDeload } from './overloadService';
-import { getWeeklyPlanConfig, saveWeekPlan } from './weeklyPlanService';
-import { getActiveWeightClassPlan } from './weightClassPlanService';
+import { getWeeklyPlanConfig } from './weeklyPlanService';
 import { logWarn } from '../utils/logger';
 import { isGuidedEngineActivityType } from '../engine/sessionOwnership';
 import { withEngineInvalidation } from './engineInvalidation';
@@ -50,20 +46,6 @@ const DEFAULT_WEEKLY_TARGETS: Omit<WeeklyTargetsRow, 'id' | 'user_id'> = {
     conditioning_sessions: 1,
     recovery_sessions: 1,
     total_weekly_load_cap: 4000,
-};
-
-const EMPTY_VOLUME: Record<MuscleGroup, number> = {
-    chest: 0,
-    back: 0,
-    shoulders: 0,
-    quads: 0,
-    hamstrings: 0,
-    glutes: 0,
-    arms: 0,
-    core: 0,
-    full_body: 0,
-    neck: 0,
-    calves: 0,
 };
 
 export type SameDayOverrideType = 'lighter' | 'harder' | 'moved' | 'skipped' | 'completed';
@@ -933,16 +915,9 @@ export async function getDailyAdaptationForToday(userId: string): Promise<DailyA
 }
 
 export async function syncEngineSchedule(userId: string, weekStartDate: string): Promise<void> {
-    const [config, athleteContext, campConfig, weeksSinceLastDeload, recurringActivities, gymProfile, exerciseLibrary, recentExerciseIds, recentMuscleVolume] = await Promise.all([
+    const [config, gymProfile] = await Promise.all([
         getWeeklyPlanConfig(userId),
-        getAthleteContext(userId),
-        getActiveFightCamp(userId),
-        getWeeksSinceLastDeload(userId),
-        getRecurringActivities(userId),
         getDefaultGymProfile(userId),
-        getExerciseLibrary(),
-        getRecentExerciseIds(userId),
-        getRecentMuscleVolume(userId),
     ]);
 
     if (!config) return;
@@ -950,32 +925,6 @@ export async function syncEngineSchedule(userId: string, weekStartDate: string):
         throw new Error('Create a default gym profile before generating a workout plan.');
     }
 
-    const activeWeightClassPlan = await getActiveWeightClassPlan(userId);
-
-    const engineState = await loadDailyEngineState(userId, today());
-    const exerciseHistory = await getExerciseHistoryBatch(
-        userId,
-        exerciseLibrary.map((exercise) => exercise.id),
-    );
-
-    const result = generateAdaptiveSmartWeekPlan({
-        config,
-        readinessState: engineState.readinessState,
-        phase: athleteContext.phase,
-        acwr: engineState.acwr.ratio,
-        fitnessLevel: athleteContext.fitnessLevel,
-        performanceGoalType: athleteContext.performanceGoalType,
-        exerciseLibrary,
-        exerciseHistory,
-        recentExerciseIds,
-        recentMuscleVolume: recentMuscleVolume ?? { ...EMPTY_VOLUME },
-        campConfig,
-        activeWeightClassPlan,
-        weeksSinceLastDeload,
-        gymProfile,
-        weekStartDate,
-        recurringActivities,
-    });
-
-    await saveWeekPlan(userId, result.entries);
+    const { generateAndSaveBoxingWeeklyPlan } = await import('./boxingWeeklyPlanService');
+    await generateAndSaveBoxingWeeklyPlan(userId, config, gymProfile, weekStartDate);
 }

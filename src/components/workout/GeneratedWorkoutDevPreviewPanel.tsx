@@ -45,14 +45,14 @@ export function GeneratedWorkoutDevPreviewPanel({ active }: GeneratedWorkoutDevP
 
   return (
     <Animated.View
-      testID="generated-workout-preview-section"
-      accessibilityLabel="Generated workout developer preview section"
+      testID="internal-workout-diagnostics-section"
+      accessibilityLabel="Internal workout diagnostics section"
       entering={FadeInDown.delay(70).duration(280).springify()}
     >
       {preview.loading && !preview.workout ? (
         <GeneratedWorkoutDevStateCard
           title="Generating programming preview"
-          body="This developer-only debug section is loading a fixed fixture through the workout-programming service layer."
+          body="This internal diagnostics section is loading a fixed fixture through the workout-programming service layer."
           actionLabel="Refresh Preview"
           onPress={() => { void preview.load(); }}
         />

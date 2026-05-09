@@ -173,11 +173,11 @@ Supported phases:
 - `return_to_training`
 - `maintenance`
 
-### Combat-First Weekly Dose
+### Boxing-First Weekly Dose
 
-Athleticore's workout program builder is combat-sport-first. Unless a caller explicitly requests `general_fitness_legacy`, missing context falls toward an aspiring fighter model instead of generic wellness.
+Athleticore's workout program builder is boxing-first. Missing context falls toward an aspiring boxer model instead of generic wellness. `general_fitness_legacy` remains compatibility-only for old persisted data and explicit tests, not a normal product mode.
 
-The builder resolves a weekly dose before scheduling. `combatTrainingModel.ts` produces:
+The builder resolves a weekly dose before scheduling. `boxingTrainingModel.ts` produces:
 
 - Total exposure and generated support-session targets
 - Strength/power, aerobic, conditioning, mobility/prehab, and recovery targets
