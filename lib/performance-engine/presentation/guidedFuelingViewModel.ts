@@ -169,6 +169,10 @@ function buildPrimaryFocus(input: {
   if (input.weightClassPlan?.safetyStatus === 'unsafe' || input.weightClassPlan?.feasibilityStatus === 'unsafe') {
     return 'Fueling stays safety-first today. Athleticore will not chase an aggressive body-mass target.';
   }
+  const directSupportFocus = supportFuelFocusForSession(primarySupportSession(input.sessions));
+  if (directSupportFocus) {
+    return directSupportFocus;
+  }
   if (isRecoveryPhase(input.phase) || input.recoveryDirective?.focus === 'hydration_restore') {
     return 'Recovery days still need enough food. Today is about restoring, not restricting.';
   }
@@ -220,8 +224,9 @@ function buildSessionGuidance(
   sessions: ComposedSession[],
 ): string[] {
   const directive = prioritizeDirective(directives);
+  const supportLine = supportFuelFocusForSession(primarySupportSession(sessions));
   if (!directive) {
-    return ['No session-specific fueling block is needed yet. Keep meals, fluids, and recovery steady.'];
+    return [supportLine ?? 'No session-specific fueling block is needed yet. Keep meals, fluids, and recovery steady.'];
   }
 
   const session = sessions.find((candidate) => candidate.id === directive.sessionId) ?? null;
@@ -232,9 +237,49 @@ function buildSessionGuidance(
     directive.postSessionGuidance[0] ? `After ${sessionLabel}: ${directive.postSessionGuidance[0]}` : null,
   ].filter((line): line is string => Boolean(line));
 
-  return lines.length > 0 ? lines.slice(0, 3).map(humanizeSentence) : [
+  const withSupport = unique([supportLine, ...lines].filter((line): line is string => Boolean(line)));
+  return withSupport.length > 0 ? withSupport.slice(0, 3).map(humanizeSentence) : [
     `${sessionLabel} has a session fueling note. Keep food and fluids close to the session window.`,
   ];
+}
+
+function primarySupportSession(sessions: ComposedSession[]): ComposedSession | null {
+  return [...sessions]
+    .filter((session) => session.supportMetadata?.expectedFuelPriority || session.supportMetadata?.athleticDevelopmentDomain)
+    .sort((a, b) => supportSessionRank(b) - supportSessionRank(a))[0] ?? null;
+}
+
+function supportSessionRank(session: ComposedSession): number {
+  const priority = session.supportMetadata?.expectedFuelPriority;
+  if (priority === 'sparring') return 7;
+  if (priority === 'conditioning_intervals' || priority === 'roadwork_tempo') return 6;
+  if (priority === 'strength_power' || priority === 'power') return 5;
+  if (priority === 'roadwork_aerobic') return 4;
+  if (priority === 'durability') return 3;
+  if (priority === 'boxing_practice') return 2;
+  if (priority === 'mobility' || priority === 'recovery') return 1;
+  return 0;
+}
+
+function supportFuelFocusForSession(session: ComposedSession | null): string | null {
+  const metadata = session?.supportMetadata;
+  const priority = metadata?.expectedFuelPriority;
+  const domain = metadata?.athleticDevelopmentDomain;
+  if (priority === 'sparring') return 'Sparring day: do not under-fuel high-stress work.';
+  if (priority === 'conditioning_intervals') return 'Conditioning intervals today: prioritize pre-session carbs and post-session glycogen restore.';
+  if (priority === 'strength_power' || priority === 'power' || domain === 'strength' || domain === 'power') {
+    return 'Strength & power support today: fuel enough to train, then hit protein to recover.';
+  }
+  if (priority === 'roadwork_aerobic' || priority === 'roadwork_tempo' || domain === 'roadwork') {
+    return 'Roadwork support today: hydration steady, normal fueling unless the session runs long.';
+  }
+  if (priority === 'durability' || domain === 'durability') {
+    return 'Durability support today: lower carb demand, but protein and hydration still matter.';
+  }
+  if (domain === 'boxing_skill_support') {
+    return 'Skill support today: keep meals normal, arrive hydrated, and stay sharp.';
+  }
+  return null;
 }
 
 function buildRecoveryFocus(

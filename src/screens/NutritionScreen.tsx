@@ -220,6 +220,8 @@ export function NutritionScreen() {
     }
 
     const waterTarget = Math.round(viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0);
+    const supportLabel = viewModel.dailyAthleteSummary?.fuelDirective.supportDomainLabel?.trim() ?? null;
+    const missionMeta = supportLabel ? `${supportLabel} - Water ${waterTarget} oz` : `${sessionPlan.priorityLabel} - Water ${waterTarget} oz`;
 
     return (
       <>
@@ -229,14 +231,9 @@ export function NutritionScreen() {
           backgroundScrimColor="rgba(10, 10, 10, 0.66)"
         >
           <Text style={inline.sectionEyebrow}>Fuel mission</Text>
-          <Text style={inline.cardHeadline}>
-            {humanizeCoachSentence(
-              viewModel.dailyAthleteSummary?.fuelDirective.message,
-              'Stay on top of your food today.',
-            )}
-          </Text>
+          <Text style={inline.cardHeadline}>{quickVM.fuelDirectiveHeadline}</Text>
           <Text style={inline.copyMuted} numberOfLines={1}>
-            {sessionPlan.priorityLabel} · Water {waterTarget} oz
+            {missionMeta}
           </Text>
           {viewModel.targets.safetyWarning !== 'none' ? (
             <View style={inline.warningBanner}>

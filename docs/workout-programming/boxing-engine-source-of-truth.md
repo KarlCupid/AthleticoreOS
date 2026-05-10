@@ -28,7 +28,7 @@ These paths are not allowed to own normal product workout generation:
 
 They may exist only for old data compatibility, characterization tests, unrelated legacy calculations, or explicit migration helpers.
 
-Legacy workout-generation functions such as `generateWorkoutV2`, `generateAdaptiveSmartWeekPlan`, the `generateSmartWeekPlan` alias, and compatibility block planning (`generateLegacyBlockPlan` / legacy `generateBlockPlan` alias) are exposed only from `lib/engine/legacyWorkoutGeneration.ts`, which is an explicit compatibility/simulation boundary. Product app code should not import them from `lib/engine/index.ts`.
+Legacy workout-generation functions such as `generateWorkoutV2`, `generateAdaptiveSmartWeekPlan`, the `generateSmartWeekPlan` alias, and compatibility block planning (`generateLegacyBlockPlan`) are exposed only from `lib/engine/legacyWorkoutGeneration.ts`, which is an explicit compatibility/simulation boundary. Product app code should not import them from `lib/engine/index.ts`.
 
 ## Weekly Plan Flow
 

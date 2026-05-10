@@ -32,6 +32,40 @@ function buildPostSessionCue(proteinG: number): string | null {
   return `Get ${proteinG}g of protein within 30 min after training.`;
 }
 
+function buildSupportFuelHeadline(
+  fuelDirective: DailyAthleteSummary['fuelDirective'],
+): string | null {
+  const priority = fuelDirective.expectedFuelPriority ?? fuelDirective.prioritySession;
+  const domain = fuelDirective.athleticDevelopmentDomain;
+
+  if (priority === 'sparring') {
+    return 'Sparring day: do not under-fuel high-stress work.';
+  }
+  if (priority === 'conditioning_intervals') {
+    return 'Conditioning intervals today: prioritize pre-session carbs and post-session glycogen restore.';
+  }
+  if (priority === 'strength_power' || priority === 'power' || domain === 'strength' || domain === 'power') {
+    return 'Strength & power support today: fuel enough to train, then hit protein to recover.';
+  }
+  if (priority === 'roadwork_aerobic' || priority === 'roadwork_tempo' || domain === 'roadwork') {
+    return 'Roadwork support today: hydration steady, normal fueling unless the session runs long.';
+  }
+  if (priority === 'durability' || domain === 'durability') {
+    return 'Durability support today: lower carb demand, but protein and hydration still matter.';
+  }
+  if (domain === 'boxing_skill_support') {
+    return 'Skill support today: keep meals normal, arrive hydrated, and stay sharp.';
+  }
+  if (priority === 'mobility' || priority === 'recovery' || domain === 'mobility' || domain === 'recovery') {
+    return 'Recovery support today: steady meals, protein, and hydration are enough.';
+  }
+  if (priority === 'body_mass_protect' || domain === 'weight_class_support') {
+    return 'Body-mass support today: fuel safely and do not chase restriction around training.';
+  }
+
+  return null;
+}
+
 function buildQuickIntents(
   mission: DailyAthleteSummary,
   totals: { calories: number; protein: number; carbs: number; fat: number },
@@ -99,9 +133,10 @@ export function buildNutritionQuickActionViewModel(
   const { fuelDirective, trainingDirective } = mission;
   const isTrainingDay =
     trainingDirective.sessionRole !== 'recover' && trainingDirective.sessionRole !== 'rest';
+  const supportFuelHeadline = buildSupportFuelHeadline(fuelDirective);
 
   return {
-    fuelDirectiveHeadline: humanizeCoachCopy(
+    fuelDirectiveHeadline: supportFuelHeadline ?? humanizeCoachCopy(
       fuelDirective.message || 'Stay on top of your food today.',
     ),
     preSessionCue: buildPreSessionCue(fuelDirective.preSessionCarbsG),

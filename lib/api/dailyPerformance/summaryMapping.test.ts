@@ -195,7 +195,7 @@ console.log('\n-- daily athlete summary support metadata --');
       boxingSessionFamily: 'footwork_agility',
       boxingSessionRole: 'footwork_agility',
       supportDomainLabel: 'Skill support',
-      expectedFuelPriority: 'boxing_practice',
+      expectedFuelPriority: 'mobility',
       expectedCarbDemandClass: 'low',
       expectedRecoveryDemandClass: 'low',
       expectedHydrationDemandClass: 'baseline',
@@ -207,6 +207,33 @@ console.log('\n-- daily athlete summary support metadata --');
   }));
   assert('boxing skill support microdose does not become spar support', summary.trainingDirective.sessionRole !== 'spar_support'
     && summary.trainingDirective.sessionRole === 'develop');
+})();
+
+(() => {
+  const summary = build(supportSession({
+    family: 'conditioning',
+    title: 'Conditioning support: alactic repeats',
+    durationMinutes: { target: 36, min: 32, max: 40, unit: 'minute', confidence: { level: 'medium', score: 0.7, reasons: [] }, precision: 'range' },
+    intensityRpe: { target: 8, min: 7, max: 9, unit: 'rpe', confidence: { level: 'medium', score: 0.7, reasons: [] }, precision: 'range' },
+    supportMetadata: {
+      athleticDevelopmentDomain: 'conditioning',
+      boxingSessionFamily: 'alactic_repeat_power',
+      boxingSessionRole: 'alactic_repeat_power',
+      supportDomainLabel: 'Conditioning support',
+      expectedFuelPriority: 'conditioning_intervals',
+      expectedCarbDemandClass: 'high',
+      expectedRecoveryDemandClass: 'high',
+      expectedHydrationDemandClass: 'high',
+      sessionEnergyDemandScore: 82,
+      sessionRecoveryDemandScore: 78,
+      plannedIntensity: 'hard',
+      sAndCRationale: 'Build repeat-output capacity without generating sparring.',
+    },
+  }));
+  assert('hard conditioning support is express/develop, not spar support', summary.trainingDirective.sessionRole !== 'spar_support'
+    && (summary.trainingDirective.sessionRole === 'express' || summary.trainingDirective.sessionRole === 'develop'));
+  assert('hard conditioning drives interval fuel metadata', summary.fuelDirective.expectedFuelPriority === 'conditioning_intervals'
+    && summary.fuelDirective.sessionDemandScore === 82);
 })();
 
 (() => {

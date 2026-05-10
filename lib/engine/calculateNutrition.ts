@@ -703,23 +703,23 @@ function sessionFuelingPlanFromDirective(input: {
     switch (input.priority) {
       case 'strength_power':
       case 'heavy_sc':
-        return 'Today is strength-power support, so the goal is enough carbs to train and protein to recover.';
+        return 'Strength & power support today: fuel enough to train, then hit protein to recover.';
       case 'power':
         return 'Today is power support for boxing; arrive fueled enough to move fast and recover with protein.';
       case 'roadwork_aerobic':
-        return 'Roadwork base is low intensity; keep hydration steady and fuel normally unless duration is long.';
+        return 'Roadwork support today: hydration steady, normal fueling unless the session runs long.';
       case 'roadwork_tempo':
         return 'Roadwork tempo needs enough carbohydrate and fluids to hold controlled pace without under-fueling.';
       case 'conditioning_intervals':
       case 'conditioning':
-        return 'Conditioning intervals need pre-session carbs and fluids, then glycogen restore after training.';
+        return 'Conditioning intervals today: prioritize pre-session carbs and post-session glycogen restore.';
       case 'durability':
-        return 'Durability support has lower carb demand, but protein, micronutrients, and hydration still matter.';
+        return 'Durability support today: lower carb demand, but protein and hydration still matter.';
       case 'mobility':
       case 'recovery':
         return 'Recovery reset day: stay consistent, hit protein, and hydrate.';
       case 'sparring':
-        return 'Sparring already drives high stress today; do not under-fuel recovery.';
+        return 'Sparring day: do not under-fuel high-stress work.';
       default:
         return 'Nutrition and Fueling Engine generated session fueling guidance.';
     }
@@ -820,8 +820,8 @@ function resolveFromTarget(input: {
     deficitClass: deficitClass(input.baseTargets),
     recoveryNutritionFocus: recovery,
     sessionDemandScore: directDemandScore > 0
-      ? clamp(Math.round(directDemandScore), activeCount > 0 ? 15 : 0, 95)
-      : clamp(Math.round(estimateTrainingExpenditure(input.activities) / 5), activeCount > 0 ? 15 : 0, 95),
+      ? clamp(Math.round(directDemandScore), activeCount > 0 ? 15 : 0, 100)
+      : clamp(Math.round(estimateTrainingExpenditure(input.activities) / 5), activeCount > 0 ? 15 : 0, 100),
     hydrationBoostOz,
     hydrationPlan: hydrationPlan({
       target: input.target,

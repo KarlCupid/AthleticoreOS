@@ -76,7 +76,7 @@ const program = await workoutProgrammingService.generateWeeklyProgramForUser(use
 
 After weekly generation, app/API code should project the program into `weekly_plan_entries` with `generatedProgramToWeeklyPlanEntries`. Do not call `generateAdaptiveSmartWeekPlan` or `calculateSC` as a fallback.
 
-If compatibility or simulation code must exercise old generation APIs, import them from `lib/engine/legacyWorkoutGeneration.ts`. That includes `generateLegacyBlockPlan` / the legacy `generateBlockPlan` alias. Do not expose them through `lib/engine/index.ts` or call them from product workout-generation flows.
+If compatibility or simulation code must exercise old generation APIs, import them from `lib/engine/legacyWorkoutGeneration.ts`. That includes `generateLegacyBlockPlan`. Do not expose them through `lib/engine/index.ts` or call them from product workout-generation flows.
 
 ## How to Add a New Exercise
 
@@ -272,6 +272,14 @@ Daily performance and nutrition should consume snapshot metadata directly:
 - `athleticDevelopmentRationale`
 
 `DailyAthleteSummary.trainingDirective` exposes those support-domain fields for UI copy and summary cards. UI should prefer direct metadata over title parsing.
+
+Support-demand scores use one 0-100 scale across workout programming, GeneratedProgram snapshots, daily performance, and Fuel:
+
+- 0-20: baseline / very low
+- 21-40: low
+- 41-60: moderate
+- 61-80: high
+- 81-100: very high
 
 `DailyAthleteSummary.fuelDirective` exposes the same support-domain fields for Fuel and nutrition surfaces: support domain, support label, fuel priority, demand classes, energy/recovery demand scores, boxing family/role, boxing relevance, S&C rationale, and athletic-development rationale. Fuel UI should read these fields directly and keep `prioritySession` as the canonical fueling priority.
 

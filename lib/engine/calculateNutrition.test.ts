@@ -142,13 +142,13 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
       label: 'strength domain maps to strength-power fueling',
       activity: { activity_type: 'sc' as any, expected_intensity: 7, estimated_duration_min: 50, athletic_development_domain: 'strength', support_domain_label: 'Strength' },
       expected: 'strength_power',
-      copy: 'strength-power support',
+      copy: 'Strength & power support today',
     },
     {
       label: 'roadwork base maps to aerobic fueling',
       activity: { activity_type: 'road_work' as any, expected_intensity: 4, estimated_duration_min: 35, athletic_development_domain: 'roadwork', support_domain_label: 'Roadwork base' },
       expected: 'roadwork_aerobic',
-      copy: 'Roadwork base is low intensity',
+      copy: 'Roadwork support today',
     },
     {
       label: 'roadwork tempo maps to tempo fueling',

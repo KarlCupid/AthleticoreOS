@@ -98,10 +98,14 @@ function range<TUnit extends 'kcal' | 'g' | 'oz' | 'mg' | 'minute' | 'rpe'>(
 function sessionStress(session: ComposedSession): number {
   const duration = session.durationMinutes.target ?? 0;
   const intensity = session.intensityRpe.target ?? 0;
-  return session.supportMetadata?.sessionEnergyDemandScore
-    ?? session.supportMetadata?.sessionRecoveryDemandScore
-    ?? session.stressScore
-    ?? Math.round((duration * intensity) / 10);
+  const directScores = [
+    session.supportMetadata?.sessionEnergyDemandScore,
+    session.supportMetadata?.sessionRecoveryDemandScore,
+  ].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  return directScores.length > 0
+    ? Math.max(...directScores)
+    : session.stressScore
+      ?? Math.round((duration * intensity) / 10);
 }
 
 function demandClassValue(

@@ -146,9 +146,10 @@ export function protectedModalityToAthleticDevelopmentDomain(
     case 'bag_work':
     case 'pad_work':
     case 'sparring':
-    case 'boxing_conditioning':
     case 'competition':
       return 'boxing_skill_support';
+    case 'boxing_conditioning':
+      return 'conditioning';
     case 'strength':
     case 'strength_power':
       return 'strength';
@@ -166,6 +167,9 @@ export function protectedModalityToAthleticDevelopmentDomain(
       return 'mobility';
     case 'recovery':
       return 'recovery';
+    case 'external_non_boxing_load':
+      // External load is preserved as other load; it must not be inferred as boxing skill support.
+      return undefined;
     default:
       return undefined;
   }
@@ -268,8 +272,13 @@ export function fuelPriorityForSupportDomain(input: {
   protectedModality?: ProtectedWorkoutModality | null | undefined;
 }): AthleteSupportFuelPriority {
   const modality = input.protectedModality;
+  const duration = input.durationMinutes ?? 0;
+  const hardIntensity = input.plannedIntensity === 'hard';
   if (modality === 'sparring' || modality === 'competition') return 'sparring';
-  if (modality === 'boxing_skill' || modality === 'shadowboxing' || modality === 'footwork' || modality === 'bag_work' || modality === 'pad_work' || modality === 'boxing_conditioning') {
+  if (modality === 'boxing_conditioning') {
+    return hardIntensity || duration >= 30 ? 'conditioning_intervals' : 'boxing_practice';
+  }
+  if (modality === 'boxing_skill' || modality === 'shadowboxing' || modality === 'footwork' || modality === 'bag_work' || modality === 'pad_work') {
     return 'boxing_practice';
   }
 
@@ -277,19 +286,24 @@ export function fuelPriorityForSupportDomain(input: {
   const domain = input.domain ?? familyToAthleticDevelopmentDomain(family, input.role);
   if (domain === 'strength') return 'strength_power';
   if (domain === 'power') return 'power';
+  if (domain === 'speed_agility') return hardIntensity ? 'conditioning_intervals' : 'power';
   if (family === 'roadwork_tempo') return 'roadwork_tempo';
+  if (family === 'roadwork_intervals') return 'conditioning_intervals';
   if (domain === 'roadwork') return 'roadwork_aerobic';
   if (domain === 'conditioning') return 'conditioning_intervals';
   if (domain === 'durability') return 'durability';
   if (domain === 'mobility') return 'mobility';
+  if (domain === 'weight_class_support') return 'body_mass_protect';
   if (domain === 'boxing_skill_support') {
-    const meaningfulDuration = (input.durationMinutes ?? 0) >= 25;
-    const meaningfulIntensity = input.plannedIntensity === 'hard';
+    const meaningfulDuration = duration >= 25;
+    const meaningfulIntensity = hardIntensity;
     return meaningfulDuration || meaningfulIntensity ? 'boxing_practice' : 'mobility';
   }
   return 'recovery';
 }
 
+// Support demand scores use a 0-100 scale:
+// 0-20 baseline/very low, 21-40 low, 41-60 moderate, 61-80 high, 81-100 very high.
 export function supportDemandForSession(input: {
   domain?: BoxingAthleteSupportDomain | null | undefined;
   family?: BoxingSessionFamily | null | undefined;
@@ -316,50 +330,64 @@ export function supportDemandForSession(input: {
         expectedCarbDemandClass: 'high',
         expectedRecoveryDemandClass: 'high',
         expectedHydrationDemandClass: 'high',
-        sessionEnergyDemandScore: 9,
-        sessionRecoveryDemandScore: 9,
+        sessionEnergyDemandScore: 92,
+        sessionRecoveryDemandScore: 95,
       };
     case 'boxing_practice':
       return {
         expectedCarbDemandClass: long || hardIntensity ? 'high' : 'moderate',
         expectedRecoveryDemandClass: hardIntensity ? 'high' : 'moderate',
         expectedHydrationDemandClass: 'moderate',
-        sessionEnergyDemandScore: long ? 8 : 6,
-        sessionRecoveryDemandScore: hardIntensity ? 7 : 5,
+        sessionEnergyDemandScore: long || hardIntensity ? 80 : 70,
+        sessionRecoveryDemandScore: hardIntensity ? 78 : 60,
       };
-    case 'strength_power':
     case 'power':
       return {
         expectedCarbDemandClass: 'moderate',
         expectedRecoveryDemandClass: 'high',
         expectedHydrationDemandClass: 'moderate',
-        sessionEnergyDemandScore: 6,
-        sessionRecoveryDemandScore: 7,
+        sessionEnergyDemandScore: 58,
+        sessionRecoveryDemandScore: 68,
+      };
+    case 'strength_power':
+      return {
+        expectedCarbDemandClass: 'moderate',
+        expectedRecoveryDemandClass: 'high',
+        expectedHydrationDemandClass: 'moderate',
+        sessionEnergyDemandScore: 62,
+        sessionRecoveryDemandScore: 72,
       };
     case 'roadwork_aerobic':
       return {
         expectedCarbDemandClass: veryLong ? 'moderate' : 'low',
         expectedRecoveryDemandClass: long ? 'moderate' : 'low',
         expectedHydrationDemandClass: long ? 'moderate' : 'low',
-        sessionEnergyDemandScore: long ? 5 : 3,
-        sessionRecoveryDemandScore: long ? 4 : 2,
+        sessionEnergyDemandScore: veryLong ? 58 : long ? 50 : 34,
+        sessionRecoveryDemandScore: long ? 45 : 28,
       };
     case 'roadwork_tempo':
+      return {
+        expectedCarbDemandClass: 'high',
+        expectedRecoveryDemandClass: 'high',
+        expectedHydrationDemandClass: 'high',
+        sessionEnergyDemandScore: 72,
+        sessionRecoveryDemandScore: 68,
+      };
     case 'conditioning_intervals':
       return {
         expectedCarbDemandClass: 'high',
         expectedRecoveryDemandClass: 'high',
         expectedHydrationDemandClass: 'high',
-        sessionEnergyDemandScore: 8,
-        sessionRecoveryDemandScore: 8,
+        sessionEnergyDemandScore: 82,
+        sessionRecoveryDemandScore: 78,
       };
     case 'durability':
       return {
         expectedCarbDemandClass: 'low',
         expectedRecoveryDemandClass: 'moderate',
         expectedHydrationDemandClass: 'low',
-        sessionEnergyDemandScore: 3,
-        sessionRecoveryDemandScore: 4,
+        sessionEnergyDemandScore: 32,
+        sessionRecoveryDemandScore: 42,
       };
     case 'mobility':
     case 'recovery':
@@ -367,32 +395,32 @@ export function supportDemandForSession(input: {
         expectedCarbDemandClass: 'baseline',
         expectedRecoveryDemandClass: 'low',
         expectedHydrationDemandClass: 'baseline',
-        sessionEnergyDemandScore: 1,
-        sessionRecoveryDemandScore: 2,
+        sessionEnergyDemandScore: fuelPriority === 'mobility' ? 18 : 12,
+        sessionRecoveryDemandScore: fuelPriority === 'mobility' ? 20 : 24,
       };
     case 'double_session':
       return {
         expectedCarbDemandClass: 'high',
         expectedRecoveryDemandClass: 'high',
         expectedHydrationDemandClass: 'high',
-        sessionEnergyDemandScore: 9,
-        sessionRecoveryDemandScore: 8,
+        sessionEnergyDemandScore: 90,
+        sessionRecoveryDemandScore: 85,
       };
     case 'body_mass_protect':
       return {
         expectedCarbDemandClass: 'moderate',
         expectedRecoveryDemandClass: 'high',
         expectedHydrationDemandClass: 'high',
-        sessionEnergyDemandScore: 5,
-        sessionRecoveryDemandScore: 7,
+        sessionEnergyDemandScore: hardIntensity ? 70 : 55,
+        sessionRecoveryDemandScore: 75,
       };
     default:
       return {
         expectedCarbDemandClass: 'baseline',
         expectedRecoveryDemandClass: 'baseline',
         expectedHydrationDemandClass: 'baseline',
-        sessionEnergyDemandScore: 2,
-        sessionRecoveryDemandScore: 2,
+        sessionEnergyDemandScore: 20,
+        sessionRecoveryDemandScore: 20,
       };
   }
 }

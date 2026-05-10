@@ -71,7 +71,8 @@ assert('legacy workout-generation APIs live behind explicit compatibility module
   && /generateAdaptiveSmartWeekPlan/.test(legacyWorkoutGeneration)
   && /generateLegacySmartWeekPlan/.test(legacyWorkoutGeneration)
   && /generateSmartWeekPlan/.test(legacyWorkoutGeneration)
-  && /generateLegacyBlockPlan/.test(legacyWorkoutGeneration));
+  && /generateLegacyBlockPlan/.test(legacyWorkoutGeneration)
+  && !/generateLegacyBlockPlan as generateBlockPlan/.test(legacyWorkoutGeneration));
 
 const sources = activeSource();
 const combined = sources.map((source) => `\n${source.file}\n${source.text}`).join('\n');

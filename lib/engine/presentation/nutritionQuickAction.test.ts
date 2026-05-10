@@ -97,6 +97,31 @@ assert('training day: intraSessionCue mentions 30g', result.intraSessionCue!.inc
 assert('training day: postSessionCue present (postSessionProteinG > 0)', result.postSessionCue !== null);
 assert('training day: postSessionCue mentions 40g protein', result.postSessionCue!.includes('40g of protein'));
 
+const strengthSupport = buildNutritionQuickActionViewModel(makeMission({
+  fuelDirective: {
+    ...makeMission().fuelDirective,
+    athleticDevelopmentDomain: 'strength',
+    supportDomainLabel: 'Strength & power support',
+    expectedFuelPriority: 'strength_power',
+    sessionEnergyDemandScore: 62,
+    sessionRecoveryDemandScore: 72,
+  },
+}), ZERO_TOTALS);
+assert('support metadata headline beats generic fuel message', strengthSupport.fuelDirectiveHeadline === 'Strength & power support today: fuel enough to train, then hit protein to recover.');
+
+const intervalsSupport = buildNutritionQuickActionViewModel(makeMission({
+  fuelDirective: {
+    ...makeMission().fuelDirective,
+    athleticDevelopmentDomain: 'conditioning',
+    supportDomainLabel: 'Conditioning support',
+    expectedFuelPriority: 'conditioning_intervals',
+    expectedCarbDemandClass: 'high',
+    sessionEnergyDemandScore: 82,
+    sessionRecoveryDemandScore: 78,
+  },
+}), ZERO_TOTALS);
+assert('conditioning support headline uses direct fuel priority', intervalsSupport.fuelDirectiveHeadline.includes('pre-session carbs'));
+
 console.log('\n── rest day ──');
 
 const restMission = makeMission({

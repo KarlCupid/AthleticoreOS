@@ -336,9 +336,9 @@ export function WorkoutDetailScreen() {
                 {boxingSnapshot && !isProtectedBoxingAnchor && !detailGeneratedWorkout ? (
                     <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
                         <Text style={styles.actionLabel}>Session plan</Text>
-                        <Text style={styles.intentText}>This Athleticore support entry has programming intent but no attached GeneratedWorkout snapshot yet.</Text>
+                        <Text style={styles.intentText}>The plan is set. Open the full session when you are ready and Athleticore will build the details from today's support plan.</Text>
                         <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
-                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Generate Support Plan'}</Text>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Building...' : 'Build Full Session'}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 ) : null}

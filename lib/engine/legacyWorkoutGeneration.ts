@@ -41,5 +41,3 @@ export function generateLegacyBlockPlan(input: GenerateBlockPlanInput): BlockPla
 
   return { weeks };
 }
-
-export { generateLegacyBlockPlan as generateBlockPlan };

@@ -10,7 +10,7 @@ import {
 } from '../../lib/api/weeklyPlanService';
 import { getExerciseLibrary } from '../../lib/api/scService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
-import { getErrorMessage, logError } from '../../lib/utils/logger';
+import { getErrorMessage, logError, logWarn } from '../../lib/utils/logger';
 import {
     generatedWorkoutCompletionOptionsForUser,
     generatedWorkoutFlowUserId,
@@ -31,6 +31,23 @@ import type {
     WorkoutSessionSection,
     SectionExercisePrescription,
 } from '../../lib/engine/types';
+
+function buildGenerationFailureCopy(error: unknown): string {
+    const message = getErrorMessage(error).toLowerCase();
+    if (message.includes('protected boxing') || message.includes('sparring')) {
+        return 'Protected boxing stays anchored. Athleticore can build support around it, but it will not generate sparring or replace the session.';
+    }
+    if (message.includes('safety') || message.includes('unsafe') || message.includes('validation')) {
+        return 'Athleticore could not build a safe version of this session from the current constraints. Try a recovery option or update readiness and safety flags.';
+    }
+    if (message.includes('readiness') || message.includes('poor_readiness') || message.includes('red')) {
+        return 'Readiness is blocking this support session today. Keep the work recovery-first and refresh after your next check-in.';
+    }
+    if (message.includes('no session template') || message.includes('no safe workout') || message.includes('cannot satisfy')) {
+        return 'No safe workout matched today\'s time, equipment, and safety constraints. Adjust the setup or take the recovery option.';
+    }
+    return 'Athleticore could not build the full session right now. Try again after refreshing the plan.';
+}
 
 export function useWorkoutDetail() {
     const [entry, setEntry] = useState<WeeklyPlanEntryRow | null>(null);
@@ -77,6 +94,14 @@ export function useWorkoutDetail() {
             const boxing = getBoxingSnapshotFromWeeklyPlanEntry(loadedEntry);
             setBoxingSnapshot(boxing);
             setGeneratedWorkout(boxing?.generatedWorkout ?? null);
+            if (boxing && !boxing.protectedAnchor && !boxing.generatedWorkout) {
+                logWarn('useWorkoutDetail.load.missingGeneratedWorkoutAttachment', 'Planned support session opened without an attached GeneratedWorkout. Lazy generation is available.', {
+                    weeklyPlanEntryId: loadedEntry?.id ?? entryId,
+                    generatedProgramSessionId: boxing.sessionId,
+                    boxingSessionFamily: boxing.boxingSessionFamily ?? null,
+                    supportDomainLabel: boxing.supportDomainLabel ?? null,
+                });
+            }
             setGeneratedStage(loadedEntry?.status === 'completed' ? 'completed' : 'inspect');
             setGeneratedStartedAt(null);
             setGeneratedLifecycleStatus(null);
@@ -183,13 +208,18 @@ export function useWorkoutDetail() {
             }
         } catch (_err) {
             if (!mountedRef.current) return;
-            Alert.alert('Error', `Could not regenerate workout: ${getErrorMessage(_err)}`);
+            logError('useWorkoutDetail.regenerate.lazyGenerationFailed', _err, {
+                weeklyPlanEntryId: entry.id,
+                boxingSessionFamily: boxingSnapshot?.boxingSessionFamily ?? null,
+                supportDomainLabel: boxingSnapshot?.supportDomainLabel ?? null,
+            });
+            Alert.alert('Could not build session', buildGenerationFailureCopy(_err));
         } finally {
             if (mountedRef.current) {
                 setIsRegenerating(false);
             }
         }
-    }, [entry]);
+    }, [boxingSnapshot?.boxingSessionFamily, boxingSnapshot?.supportDomainLabel, entry]);
 
     const startGeneratedWorkout = useCallback(async () => {
         if (!generatedWorkout) return;
@@ -297,16 +327,18 @@ export function useWorkoutDetail() {
                 generatedWorkoutCompletionOptionsForUser(userId),
             );
             const completionLinkId = result.workoutCompletionId ?? boxingSnapshot?.generatedWorkoutId ?? generatedWorkout.templateId;
+            let weeklyEntrySyncFailed = false;
+            let programSessionSyncFailed = false;
             if (entry?.id) {
                 try {
                     await markDayCompleted(entry.id, completionLinkId);
                 } catch (completionError) {
+                    weeklyEntrySyncFailed = true;
                     logError('useWorkoutDetail.completeGeneratedWorkout.markDayCompleted', completionError, {
                         weeklyPlanEntryId: entry.id,
                         generatedWorkoutId: boxingSnapshot?.generatedWorkoutId ?? null,
                         workoutCompletionId: result.workoutCompletionId ?? null,
                     });
-                    throw completionError;
                 }
             }
             if (userId && boxingSnapshot?.userProgramId) {
@@ -322,6 +354,7 @@ export function useWorkoutDetail() {
                         { useSupabase: true },
                     );
                 } catch (programSyncError) {
+                    programSessionSyncFailed = true;
                     logError('useWorkoutDetail.completeGeneratedWorkout.programSessionSync', programSyncError, {
                         weeklyPlanEntryId: entry?.id ?? null,
                         userProgramId: boxingSnapshot.userProgramId,
@@ -335,7 +368,15 @@ export function useWorkoutDetail() {
             setGeneratedProgressionDecision(result.progressionDecision);
             setGeneratedStage('completed');
             setGeneratedLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
-            setGeneratedLifecycleMessage(result.lifecycleFallbackMessage ? `Completion saved locally: ${result.lifecycleFallbackMessage}` : 'Completion saved. Progression updated.');
+            setGeneratedLifecycleMessage(
+                weeklyEntrySyncFailed
+                    ? 'Completion saved. Today\'s plan status did not sync yet; refresh to check the week.'
+                    : programSessionSyncFailed
+                      ? 'Completion saved. Program sync will catch up later.'
+                      : result.lifecycleFallbackMessage
+                        ? `Completion saved locally: ${result.lifecycleFallbackMessage}`
+                        : 'Completion saved. Progression updated.',
+            );
             setEntry((previous) => refreshedEntry ?? (previous ? { ...previous, status: 'completed', workout_log_id: completionLinkId } : previous));
             if (refreshedEntry) {
                 const refreshedSnapshot = getBoxingSnapshotFromWeeklyPlanEntry(refreshedEntry);

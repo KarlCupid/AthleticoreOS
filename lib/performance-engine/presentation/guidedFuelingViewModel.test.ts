@@ -3,7 +3,9 @@ import {
   confidenceFromLevel,
   createAthleteJourneyState,
   createAthleteProfile,
+  createComposedSession,
   createFoodEntry,
+  createMeasurementRange,
   createPhaseState,
   createRiskFlag,
   createTrackingEntry,
@@ -12,6 +14,7 @@ import {
   runUnifiedPerformanceEngine,
   type AthleteProfile,
   type AthleticorePhase,
+  type ComposedSession,
   type FoodEntry,
   type ProtectedAnchorInput,
   type RiskFlag,
@@ -81,6 +84,30 @@ function sparringAnchor(): ProtectedAnchorInput {
     canMerge: false,
     reason: 'Coach-led sparring is fixed.',
   };
+}
+
+function supportSession(): ComposedSession {
+  return createComposedSession({
+    id: 'fuel-strength-support',
+    date: DATE,
+    family: 'strength',
+    source: 'engine_generated',
+    protectedAnchor: false,
+    title: 'Strength & power support',
+    durationMinutes: createMeasurementRange({ target: 35, unit: 'minute', confidence: CONFIDENCE }),
+    intensityRpe: createMeasurementRange({ target: 6, unit: 'rpe', confidence: CONFIDENCE }),
+    supportMetadata: {
+      athleticDevelopmentDomain: 'strength',
+      supportDomainLabel: 'Strength & power support',
+      expectedFuelPriority: 'strength_power',
+      expectedCarbDemandClass: 'moderate',
+      expectedRecoveryDemandClass: 'high',
+      expectedHydrationDemandClass: 'moderate',
+      sessionEnergyDemandScore: 62,
+      sessionRecoveryDemandScore: 72,
+    },
+    confidence: CONFIDENCE,
+  });
 }
 
 function tracked(input: {
@@ -164,6 +191,7 @@ function run(input: {
   phase?: AthleticorePhase;
   protectedAnchors?: ProtectedAnchorInput[];
   foodEntries?: FoodEntry[];
+  plannedSessions?: ComposedSession[];
   risks?: RiskFlag[];
   currentWeightLbs?: number | null;
   targetWeightLbs?: number | null;
@@ -201,6 +229,7 @@ function run(input: {
     weekStartDate: WEEK_START,
     generatedAt: GENERATED_AT,
     protectedAnchors: input.protectedAnchors ?? [],
+    plannedSessions: input.plannedSessions ?? [],
     trackingEntries: tracking(),
     bodyMassState: currentBodyMass,
     foodEntries: input.foodEntries ?? [verifiedFood()],
@@ -222,6 +251,19 @@ function allText(value: unknown): string {
   return JSON.stringify(value).toLowerCase();
 }
 
+function withCanonicalSessions(
+  result: ReturnType<typeof runUnifiedPerformanceEngine>,
+  sessions: ComposedSession[],
+): ReturnType<typeof runUnifiedPerformanceEngine> {
+  return {
+    ...result,
+    canonicalOutputs: {
+      ...result.canonicalOutputs,
+      composedSessions: sessions,
+    },
+  };
+}
+
 console.log('\n-- guided fueling view model --');
 
 {
@@ -233,6 +275,17 @@ console.log('\n-- guided fueling view model --');
   assert('fueling focus renders for high-output day', model.primaryFocus.toLowerCase().includes('today needs more fuel'));
   assert('session fueling directive appears', model.sessionGuidance.some((line) => line.toLowerCase().includes('before team sparring')) && model.sessionGuidance.some((line) => line.toLowerCase().includes('after team sparring')));
   assert('macro ranges appear without dominating the model', model.macroTargets.length === 4 && model.macroTargets.every((macro) => macro.rangeLabel !== 'Range unknown'));
+}
+
+{
+  const base = run();
+  const model = buildGuidedFuelingViewModel(withCanonicalSessions(base, [
+    supportSession(),
+    ...base.canonicalOutputs.composedSessions,
+  ]));
+
+  assert('guided fueling uses direct support metadata for primary focus', model.primaryFocus === 'Strength & power support today: fuel enough to train, then hit protein to recover.');
+  assert('guided fueling includes direct support guidance line', model.sessionGuidance.some((line) => line.includes('Strength & power support today')));
 }
 
 {

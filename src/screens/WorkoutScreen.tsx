@@ -133,6 +133,37 @@ function formatSupportValue(value: string | null | undefined): string | null {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatFuelPriorityLabel(value: string | null | undefined): string | null {
+  switch (value) {
+    case 'sparring':
+      return 'Sparring day fuel';
+    case 'boxing_practice':
+      return 'Boxing practice fuel';
+    case 'strength_power':
+      return 'Strength & power fuel';
+    case 'power':
+      return 'Power fuel';
+    case 'roadwork_aerobic':
+      return 'Roadwork base fuel';
+    case 'roadwork_tempo':
+      return 'Roadwork tempo fuel';
+    case 'conditioning_intervals':
+      return 'Interval fuel';
+    case 'durability':
+      return 'Durability fuel';
+    case 'mobility':
+      return 'Light skill fuel';
+    case 'recovery':
+      return 'Recovery fuel';
+    case 'double_session':
+      return 'Two-session fuel';
+    case 'body_mass_protect':
+      return 'Body-mass support fuel';
+    default:
+      return formatSupportValue(value);
+  }
+}
+
 function PlannedSupportSessionCard({
   entry,
   snapshot,
@@ -145,7 +176,7 @@ function PlannedSupportSessionCard({
   const domainLabel = snapshot.supportDomainLabel ?? boxingEntryDisplayMeta(entry).sourceLabel;
   const doseLabel = formatSupportValue(snapshot.sessionDoseCategory);
   const intensityLabel = formatSupportValue(snapshot.plannedIntensity);
-  const fuelLabel = formatSupportValue(snapshot.expectedFuelPriority);
+  const fuelLabel = formatFuelPriorityLabel(snapshot.expectedFuelPriority);
   const duration = snapshot.estimatedDurationMinutes ?? entry.estimated_duration_min;
   const attached = Boolean(snapshot.generatedWorkout);
   const rationale = snapshot.sAndCRationale
@@ -171,8 +202,8 @@ function PlannedSupportSessionCard({
         </View>
         {rationale ? <Text style={styles.supportBody}>{rationale}</Text> : null}
         {relevance ? <Text style={styles.supportBody}>{relevance}</Text> : null}
-        {fuelLabel ? <Text style={styles.supportFuel}>Fuel priority: {fuelLabel}</Text> : null}
-        <Text style={styles.supportAttachedState}>{attached ? 'Generated workout attached' : 'Generated workout will attach in WorkoutDetail'}</Text>
+        {fuelLabel ? <Text style={styles.supportFuel}>Fuel: {fuelLabel}</Text> : null}
+        <Text style={styles.supportAttachedState}>{attached ? 'Workout details are ready' : 'Details will build when you open it'}</Text>
         <AnimatedPressable
           accessibilityRole="button"
           accessibilityLabel="Open support session"
