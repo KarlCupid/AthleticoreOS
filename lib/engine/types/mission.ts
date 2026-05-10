@@ -144,6 +144,11 @@ export interface FuelDirective {
   expectedHydrationDemandClass?: SupportDemandClass | null;
   sessionEnergyDemandScore?: number | null;
   sessionRecoveryDemandScore?: number | null;
+  boxingSessionFamily?: string | null;
+  boxingSessionRole?: string | null;
+  boxingRelevance?: string | null;
+  sAndCRationale?: string | null;
+  athleticDevelopmentRationale?: string | null;
   sessionDemandScore: number;
   calories: number;
   protein: number;

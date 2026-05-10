@@ -58,7 +58,7 @@ Compatibility helpers must not recreate old runtime generation as a fallback. Ol
 
 The Today tab shows the planned Athleticore support entry from the weekly snapshot through one execution card with one `WorkoutDetail` CTA. It must not also show a duplicate hero start CTA or automatically mount the standalone ad hoc generator just because today has a generated weekly entry. Standalone support generation is explicit/ad hoc extra support only.
 
-Daily performance, DailyAthleteSummary, and nutrition read support-domain metadata directly from `BoxingGeneratedPlanEntrySnapshot`, including `athleticDevelopmentDomain`, `supportDomainLabel`, `expectedFuelPriority`, demand classes, boxing relevance, S&C rationale, and energy/recovery demand scores. `TrainingDirective` and `FuelDirective` both expose those support-domain fields so UI and fueling surfaces do not need title parsing. Title and family heuristics are fallback behavior for old data, not the primary interpretation path.
+Daily performance, DailyAthleteSummary, and nutrition read support-domain metadata directly from `BoxingGeneratedPlanEntrySnapshot`, including `athleticDevelopmentDomain`, `supportDomainLabel`, `expectedFuelPriority`, demand classes, boxing session family/role, boxing relevance, S&C rationale, athletic-development rationale, and energy/recovery demand scores. `TrainingDirective` and `FuelDirective` both expose those support-domain fields so UI and fueling surfaces do not need title parsing. Title and family heuristics are fallback behavior for old data, not the primary interpretation path.
 
 ## Boxing Safety Rules
 

@@ -265,12 +265,15 @@ Daily performance and nutrition should consume snapshot metadata directly:
 - `sessionEnergyDemandScore`
 - `sessionRecoveryDemandScore`
 - `supportDomainLabel`
+- `boxingSessionFamily`
+- `boxingSessionRole`
 - `boxingRelevance`
 - `sAndCRationale`
+- `athleticDevelopmentRationale`
 
 `DailyAthleteSummary.trainingDirective` exposes those support-domain fields for UI copy and summary cards. UI should prefer direct metadata over title parsing.
 
-`DailyAthleteSummary.fuelDirective` exposes the support domain, support label, fuel priority, demand classes, and energy/recovery demand scores for Fuel and nutrition surfaces. Fuel UI should read these fields directly and keep `prioritySession` as the canonical fueling priority.
+`DailyAthleteSummary.fuelDirective` exposes the same support-domain fields for Fuel and nutrition surfaces: support domain, support label, fuel priority, demand classes, energy/recovery demand scores, boxing family/role, boxing relevance, S&C rationale, and athletic-development rationale. Fuel UI should read these fields directly and keep `prioritySession` as the canonical fueling priority.
 
 Low-risk `boxing_skill_support` microdoses are not sparring. They should route as develop/recover support unless the session is actual sparring, protected boxing practice, or high-intensity boxing practice.
 

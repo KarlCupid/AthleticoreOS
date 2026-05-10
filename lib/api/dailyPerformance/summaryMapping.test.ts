@@ -120,7 +120,12 @@ console.log('\n-- daily athlete summary support metadata --');
     && summary.fuelDirective.athleticDevelopmentDomain === 'strength'
     && summary.fuelDirective.expectedFuelPriority === 'strength_power'
     && summary.fuelDirective.expectedCarbDemandClass === 'moderate'
-    && summary.fuelDirective.sessionEnergyDemandScore === 52);
+    && summary.fuelDirective.sessionEnergyDemandScore === 52
+    && summary.fuelDirective.boxingSessionFamily === 'strength_power'
+    && summary.fuelDirective.boxingSessionRole === 'support_session'
+    && summary.fuelDirective.boxingRelevance === 'Supports boxing without replacing coach-led practice.'
+    && summary.fuelDirective.sAndCRationale === 'Build force transfer for cleaner punching mechanics.'
+    && summary.fuelDirective.athleticDevelopmentRationale === 'Strength work fills the week quality gap.');
   assert('fuel directive reasons explain direct support metadata', summary.fuelDirective.reasons.some((reason) => reason.includes('direct strength power metadata')));
 })();
 
@@ -146,7 +151,8 @@ console.log('\n-- daily athlete summary support metadata --');
     && summary.fuelDirective.expectedFuelPriority === 'roadwork_aerobic'
     && summary.fuelDirective.expectedCarbDemandClass === 'moderate'
     && summary.fuelDirective.expectedRecoveryDemandClass === 'moderate'
-    && summary.fuelDirective.expectedHydrationDemandClass === 'moderate');
+    && summary.fuelDirective.expectedHydrationDemandClass === 'moderate'
+    && summary.fuelDirective.sAndCRationale === 'Build aerobic support for repeat-round recovery.');
 })();
 
 (() => {
@@ -173,7 +179,9 @@ console.log('\n-- daily athlete summary support metadata --');
     && summary.trainingDirective.expectedFuelPriority === 'durability');
   assert('durability support exposes recovery demand metadata to fuel directive', summary.fuelDirective.expectedFuelPriority === 'durability'
     && summary.fuelDirective.expectedRecoveryDemandClass === 'moderate'
-    && summary.fuelDirective.sessionRecoveryDemandScore === 35);
+    && summary.fuelDirective.sessionRecoveryDemandScore === 35
+    && summary.fuelDirective.boxingSessionFamily === 'shoulder_scap_durability'
+    && summary.fuelDirective.sAndCRationale === 'Build tissue capacity without adding sparring load.');
 })();
 
 (() => {

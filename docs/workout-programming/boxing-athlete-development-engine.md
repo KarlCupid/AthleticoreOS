@@ -130,7 +130,7 @@ Generated support domains feed nutrition and recovery demand instead of forcing 
 
 - Generated weekly-plan snapshots carry `athleticDevelopmentDomain`, `expectedFuelPriority`, carbohydrate/recovery/hydration demand classes, and energy/recovery demand scores into daily performance.
 - Daily nutrition consumes those direct fields before any title or label fallback.
-- `DailyAthleteSummary.trainingDirective` and `fuelDirective` both expose support-domain metadata directly for Train, Fuel, and summary surfaces.
+- `DailyAthleteSummary.trainingDirective` and `fuelDirective` both expose support-domain metadata directly for Train, Fuel, and summary surfaces, including boxing family/role, boxing relevance, S&C rationale, and athletic-development rationale.
 - Snapshot metadata is the handoff contract; `placement_source` can help with display and migrations, but daily performance should not need it to recognize a generated support session.
 - Strength and power sessions emphasize carbs to train, protein to recover, and no aggressive deficit override on heavy S&C days.
 - Roadwork base uses duration-aware carbohydrate and hydration support without unnecessary high-carb copy for short easy sessions.
@@ -167,7 +167,7 @@ Train and Plan tabs should treat generated support snapshots as Athleticore supp
 
 Generated weekly support entries execute through `WorkoutDetail` and the generated-workout completion path. If the weekly snapshot has no attached `GeneratedWorkout`, `WorkoutDetail` owns the lazy generation/attachment step. `GuidedWorkout` remains available only for old guided-prescription rows that are still readable for compatibility.
 
-`DailyAthleteSummary.trainingDirective` and `fuelDirective` expose support-domain metadata directly (`athleticDevelopmentDomain`, `supportDomainLabel`, fuel priority, demand classes, demand scores, boxing relevance, and S&C rationale where relevant) so Train, Fuel, and summary surfaces can say "Roadwork support", "Strength & power support", or "Durability support" without title parsing.
+`DailyAthleteSummary.trainingDirective` and `fuelDirective` expose support-domain metadata directly (`athleticDevelopmentDomain`, `supportDomainLabel`, fuel priority, demand classes, demand scores, boxing session family/role, boxing relevance, S&C rationale, and athletic-development rationale where relevant) so Train, Fuel, and summary surfaces can say "Roadwork support", "Strength & power support", or "Durability support" without title parsing.
 
 ## Media Readiness
 
