@@ -56,7 +56,9 @@ Compatibility helpers must not recreate old runtime generation as a fallback. Ol
 
 `GuidedWorkout` is compatibility-only for old rows that still carry a legacy guided prescription. Generated support sessions and protected boxing anchors route through `WorkoutDetail`; if a support snapshot does not yet have an attached `GeneratedWorkout`, the detail surface may lazily generate and attach one through the generated-workout path.
 
-Daily performance and nutrition read support-domain metadata directly from `BoxingGeneratedPlanEntrySnapshot`, including `athleticDevelopmentDomain`, `expectedFuelPriority`, demand classes, and energy/recovery demand scores. Title and family heuristics are fallback behavior for old data, not the primary interpretation path.
+The Today tab shows the planned Athleticore support entry from the weekly snapshot. It must not automatically mount the standalone ad hoc generator just because today has a generated weekly entry. Standalone support generation is explicit/ad hoc only.
+
+Daily performance, DailyAthleteSummary, and nutrition read support-domain metadata directly from `BoxingGeneratedPlanEntrySnapshot`, including `athleticDevelopmentDomain`, `supportDomainLabel`, `expectedFuelPriority`, demand classes, boxing relevance, S&C rationale, and energy/recovery demand scores. Title and family heuristics are fallback behavior for old data, not the primary interpretation path.
 
 ## Boxing Safety Rules
 

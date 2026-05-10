@@ -16,7 +16,7 @@ import {
   type SessionFamily,
 } from '../index.ts';
 import { generateAdaptiveSmartWeekPlan } from '../../engine/adaptiveTrainingAdapter.ts';
-import { generateSmartWeekPlan } from '../../engine/calculateSchedule.ts';
+import { generateSmartWeekPlan } from '../../engine/legacyWorkoutGeneration.ts';
 import type {
   MuscleGroup,
   RecurringActivityRow,

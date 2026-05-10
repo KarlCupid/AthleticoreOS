@@ -1,6 +1,7 @@
 import type { DailyCheckin, TrainingSession } from '../../hooks/useWorkoutData';
 import { getSessionFamilyLabel } from '../../../lib/engine/sessionLabels';
 import type { TrainingFloorViewModel } from '../../../lib/engine/presentation/types';
+import type { BoxingGeneratedPlanEntrySnapshot } from '../../../lib/performance-engine/workout-programming';
 
 export const WORKOUT_TABS = ['today', 'plan', 'history', 'analytics'] as const;
 
@@ -138,13 +139,18 @@ function getEffortGuidance(input: {
 
 function buildGuardrails(input: {
   floorVM: Partial<TrainingFloorViewModel> | null;
+  supportSession?: BoxingGeneratedPlanEntrySnapshot | null | undefined;
 }): string[] {
-  const { floorVM } = input;
+  const { floorVM, supportSession } = input;
   const guardrails: string[] = [];
   const activationGuidance = floorVM?.activationGuidance?.trim();
 
   if (activationGuidance) {
     guardrails.push(activationGuidance);
+  }
+
+  if (supportSession?.athleticDevelopmentDomain === 'boxing_skill_support') {
+    guardrails.push('This supports your boxing; it is not a replacement for coach-led practice.');
   }
 
   return guardrails.slice(0, 2);
@@ -155,10 +161,20 @@ export function buildTrainTodaySummary(input: {
   sessionLabel: string | null;
   targetIntensity: number | null;
   durationMin: number | null;
+  supportSession?: BoxingGeneratedPlanEntrySnapshot | null | undefined;
 }): TrainTodaySummary {
-  const { floorVM, sessionLabel, targetIntensity, durationMin } = input;
-  const goal = floorVM?.sessionGoal?.trim() || 'Get good work done today.';
-  const reason = floorVM?.reasonSentence?.trim() || 'Stick with today\'s plan and keep it clean.';
+  const { floorVM, sessionLabel, targetIntensity, durationMin, supportSession } = input;
+  const supportDomainLabel = supportSession?.supportDomainLabel?.trim();
+  const supportLabel = supportSession?.label?.trim();
+  const supportGoal = supportDomainLabel && supportLabel
+    ? `${supportDomainLabel}: ${supportLabel}`
+    : supportDomainLabel ?? supportLabel ?? null;
+  const supportReason = supportSession?.sAndCRationale?.trim()
+    || supportSession?.athleticDevelopmentRationale?.trim()
+    || supportSession?.boxingRelevance?.trim()
+    || null;
+  const goal = supportGoal || floorVM?.sessionGoal?.trim() || 'Get good work done today.';
+  const reason = supportReason || floorVM?.reasonSentence?.trim() || 'Stick with today\'s plan and keep it clean.';
   const resolvedDuration = durationMin ?? floorVM?.estimatedDurationMin ?? 0;
 
   return {
@@ -167,7 +183,7 @@ export function buildTrainTodaySummary(input: {
     reason,
     durationLabel: resolvedDuration > 0 ? `${resolvedDuration} min` : null,
     ...getEffortGuidance({ targetIntensity }),
-    guardrails: buildGuardrails({ floorVM }),
+    guardrails: buildGuardrails({ floorVM, supportSession }),
   };
 }
 

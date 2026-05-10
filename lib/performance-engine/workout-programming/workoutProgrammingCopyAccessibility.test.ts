@@ -173,7 +173,7 @@ async function run() {
   ].every((needle) => supportCard.includes(needle)));
 
   assert('workout screen generated sections are labeled for assistive tech', [
-    'accessibilityLabel="Athleticore support session flow"',
+    'Standalone Athleticore support session flow',
     'testID="boxing-generated-workout-section"',
   ].every((needle) => supportContainer.includes(needle)) && [
     'accessibilityLabel="Internal workout diagnostics section"',

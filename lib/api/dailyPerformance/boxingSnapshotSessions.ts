@@ -34,6 +34,7 @@ function familyForDomain(domain: BoxingAthleteSupportDomain | undefined, fallbac
 }
 
 function fallbackFamily(entry: WeeklyPlanEntryRow): SessionFamily {
+  // Family inference is a fallback for older rows. GeneratedProgram snapshots carry direct domain metadata.
   switch (entry.session_type) {
     case 'boxing_practice':
       return 'boxing_skill';
@@ -115,6 +116,7 @@ function stressScoreFromSnapshot(snapshot: NonNullable<ReturnType<typeof getBoxi
 
 export function boxingSnapshotToDailyPerformanceSession(entry: WeeklyPlanEntryRow): ComposedSession | null {
   const snapshot = getBoxingSnapshotFromWeeklyPlanEntry(entry);
+  // Protected boxing anchors stay in the protected-anchor lane; they are not generated planned sessions.
   if (!snapshot || snapshot.protectedAnchor) return null;
   const domain = snapshot.athleticDevelopmentDomain;
   const family = familyForDomain(domain, fallbackFamily(entry));
@@ -131,6 +133,7 @@ export function boxingSnapshotToDailyPerformanceSession(entry: WeeklyPlanEntryRo
     date: entry.date,
     family,
     source: 'engine_generated',
+    // Generated support sessions are never protected anchors.
     protectedAnchor: false,
     anchorId: null,
     title,

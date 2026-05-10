@@ -9,12 +9,11 @@ import {
     validateDayLoad,
     suggestAlternative,
     detectOvertrainingRisk,
-    generateSmartWeekPlan,
     generateBlockPlan,
     resolveGuidedAvailability,
     updateRollingPlanContextFromPrescription,
 } from './calculateSchedule.ts';
-import { generateWorkoutV2 } from './calculateSC.ts';
+import { generateSmartWeekPlan, generateWorkoutV2 } from './legacyWorkoutGeneration.ts';
 import { generateCampPlan } from './calculateCamp.ts';
 import type {
     ExerciseHistoryEntry,

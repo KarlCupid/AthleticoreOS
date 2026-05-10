@@ -162,7 +162,11 @@ Generated weeks expose S&C coach helper copy for product surfaces:
 
 The copy should explain the actual programming decision, such as boxing practice being covered by protected anchors, sparring owning the hard stress, roadwork already being covered, or red readiness removing hard work.
 
-Train and Plan tabs should treat generated support snapshots as Athleticore support sessions. They execute through `WorkoutDetail` and the generated-workout completion path. `GuidedWorkout` remains available only for old guided-prescription rows that are still readable for compatibility.
+Train and Plan tabs should treat generated support snapshots as Athleticore support sessions. Today renders the planned support session from the weekly entry snapshot with support-domain copy, rationale, fuel priority, attached-workout state, and a CTA into `WorkoutDetail`. It does not show the standalone configure/generate flow for that planned entry.
+
+Generated weekly support entries execute through `WorkoutDetail` and the generated-workout completion path. If the weekly snapshot has no attached `GeneratedWorkout`, `WorkoutDetail` owns the lazy generation/attachment step. `GuidedWorkout` remains available only for old guided-prescription rows that are still readable for compatibility.
+
+`DailyAthleteSummary.trainingDirective` exposes support-domain metadata directly (`athleticDevelopmentDomain`, `supportDomainLabel`, fuel priority, demand classes, demand scores, boxing relevance, and S&C rationale) so Train, Fuel, and summary surfaces can say "Roadwork support", "Strength & power support", or "Durability support" without title parsing.
 
 ## Media Readiness
 

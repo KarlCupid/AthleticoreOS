@@ -7,7 +7,6 @@ import type {
     ReadinessState,
     ScheduledActivityRow,
     SmartWeekPlanInput,
-    SmartWeekPlanResult,
     WeeklyComplianceReport,
     WeeklyPlanEntryRow,
     MissedDayRescheduleInput,
@@ -27,7 +26,7 @@ import { getGoalBasedFocusRotation, resolveTrainingBlockContext } from './perfor
 import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { classifyGuidedSessionType } from './sessionOwnership.ts';
 import { todayLocalDate } from '../utils/date.ts';
-import { generateAdaptiveSmartWeekPlan } from './adaptiveTrainingAdapter.ts';
+import { generateLegacySmartWeekPlan } from './legacyWorkoutGeneration.ts';
 
 import {
   ACWR_DANGER,
@@ -670,39 +669,8 @@ export function resolveGuidedAvailability(input: {
     };
 }
 
-// ─── generateSmartWeekPlan ──────────────────────────────────────
-
-/**
- * Generates an intelligent weekly S&C plan based on available days,
- * time constraints, camp phase, readiness, and deload needs.
- *
- * @ANTI-WIRING:
- * UI Parameters Expected:
- *   - config: WeeklyPlanConfigRow (from weekly_plan_config table)
- *   - readinessState: ReadinessState (from readiness engine)
- *   - phase: Phase (current training phase)
- *   - acwr: number (Acute:Chronic Workload Ratio)
- *   - fitnessLevel: FitnessLevel (from athlete_profiles)
- *   - exerciseLibrary: ExerciseLibraryRow[] (full library)
- *   - recentMuscleVolume: Record<MuscleGroup, number> (recent volume data)
- *   - campConfig: CampConfig | null (active camp)
- *   - activeWeightClassPlan: WeightClassPlanRow | null (active weight-class context)
- *   - weeksSinceLastDeload: number
- *   - gymProfile: GymProfileRow | null
- *   - weekStartDate: string (Monday ISO date)
- *
- * Returns: SmartWeekPlanResult
- *   - entries: WeeklyPlanEntryRow[] (the week's scheduled sessions)
- *   - isDeloadWeek: boolean
- *   - deloadReason: string | null
- *   - weeklyFocusSplit: Partial<Record<WorkoutFocus, number>>
- *   - message: string
- *
- * Pure synchronous function. No database queries. No LLM generation.
- */
-export function generateSmartWeekPlan(input: SmartWeekPlanInput): SmartWeekPlanResult {
-    return generateAdaptiveSmartWeekPlan(input);
-}
+// Legacy smart-week generation moved to legacyWorkoutGeneration.ts.
+// calculateSchedule keeps schedule mutation utilities only.
 
 /**
  * When a planned training day is missed, redistributes the top-priority
@@ -858,7 +826,8 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
 export function generateBlockPlan(input: GenerateBlockPlanInput): BlockPlanResult {
     const weeks = Array.from({ length: Math.max(0, input.weeks) }, (_, index) => {
         const weekStartDate = addDays(input.startDate, index * 7);
-        const weekPlan = generateSmartWeekPlan({
+        // Legacy block planning remains available only through the explicit compatibility boundary.
+        const weekPlan = generateLegacySmartWeekPlan({
             ...input,
             weekStartDate,
         });

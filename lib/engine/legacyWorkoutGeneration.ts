@@ -8,5 +8,6 @@ export {
 // Compatibility only. Do not use for product workout generation.
 export {
   generateAdaptiveSmartWeekPlan,
+  generateAdaptiveSmartWeekPlan as generateLegacySmartWeekPlan,
   generateAdaptiveSmartWeekPlan as generateSmartWeekPlan,
 } from './adaptiveTrainingAdapter.ts';

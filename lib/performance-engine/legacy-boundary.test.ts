@@ -59,19 +59,28 @@ for (const file of deletedFiles) {
 }
 
 const engineIndex = read('lib/engine/index.ts');
+const calculateSchedule = read('lib/engine/calculateSchedule.ts');
 assert('legacy weight-class generator is not exported', !/calculateWeightCut|generateCutPlan|computeDailyCutProtocol|determineCutPhase|getDailyCutIntensityCap/.test(engineIndex));
 assert('legacy workout-generation APIs are not exported from main engine barrel', !/generateWorkoutV2|generateAdaptiveSmartWeekPlan|generateSmartWeekPlan|generateWorkout,/.test(engineIndex));
+assert('calculateSchedule does not expose legacy smart-week generation', !/export function generateSmartWeekPlan|generateAdaptiveSmartWeekPlan/.test(calculateSchedule));
 
 const legacyWorkoutGeneration = read('lib/engine/legacyWorkoutGeneration.ts');
 assert('legacy workout-generation APIs live behind explicit compatibility module', /Compatibility only\. Do not use for product workout generation\./.test(legacyWorkoutGeneration)
   && /generateWorkoutV2/.test(legacyWorkoutGeneration)
   && /generateAdaptiveSmartWeekPlan/.test(legacyWorkoutGeneration)
+  && /generateLegacySmartWeekPlan/.test(legacyWorkoutGeneration)
   && /generateSmartWeekPlan/.test(legacyWorkoutGeneration));
 
 const sources = activeSource();
 const combined = sources.map((source) => `\n${source.file}\n${source.text}`).join('\n');
+const productSources = [...walk('src'), ...walk('lib/api')]
+  .filter((file) => /\.(ts|tsx|js|jsx)$/.test(file) && !file.endsWith('.test.ts'))
+  .map((file) => ({ file, text: read(file) }));
+const legacyGenerationImportPattern = /import\s+(?:type\s+)?(?:[^;]*\b(?:generateAdaptiveSmartWeekPlan|generateWorkoutV2|generateSmartWeekPlan)\b[^;]*)\s+from\s+['"][^'"]+['"]/;
+const productLegacyGenerationImports = productSources.filter((source) => legacyGenerationImportPattern.test(source.text));
 
 assert('active app source does not import old weight-class generator module', !combined.includes('calculateWeightCut'));
+assert('product src/ and lib/api do not import old workout-generation APIs', productLegacyGenerationImports.length === 0);
 assert('active app source does not reference daily body-mass guidance persistence helpers', !/upsertDailyCutProtocol|getDailyCutProtocol|updateProtocolCompliance|getLastRefeedDate|getConsecutiveDepletedDays/.test(combined));
 assert('active app source does not reference removed daily protocol UI', !/DailyProtocolCard|SafetyStatusIndicator|DashboardNutritionCard/.test(combined));
 assert('active app source does not carry a cutProtocol compatibility field', !/\bcutProtocol\b/.test(combined));

@@ -20,6 +20,7 @@ declare const global: Record<string, unknown>;
 let passed = 0;
 let failed = 0;
 let workoutScreenHasBoxingEntry = false;
+let workoutScreenNavigationEvents: Array<{ screen: string; params: Record<string, unknown> | undefined }> = [];
 
 function assert(label: string, condition: boolean): void {
   if (condition) {
@@ -135,9 +136,19 @@ function installRenderMocks(): void {
       preferredSessionTemplateId: 'footwork_agility',
       plannedIntensity: 'low',
       estimatedDurationMinutes: 20,
+      athleticDevelopmentDomain: 'boxing_skill_support',
+      supportDomainLabel: 'Skill support',
+      expectedFuelPriority: 'boxing_practice',
+      expectedCarbDemandClass: 'low',
+      expectedRecoveryDemandClass: 'low',
+      expectedHydrationDemandClass: 'baseline',
+      sessionEnergyDemandScore: 20,
+      sessionRecoveryDemandScore: 18,
       boxingSessionFamily: 'footwork_agility',
       boxingSessionRole: 'footwork_agility',
       sessionDoseCategory: 'microdose',
+      sAndCRationale: 'Build sharper footwork without adding sparring load.',
+      boxingRelevance: 'This supports boxing without replacing coach-led practice.',
       rationale: ['Footwork keeps the boxing week sharp without adding hard load.'],
       generatedWorkout: null,
       weekSummary: {
@@ -246,8 +257,8 @@ function installRenderMocks(): void {
       return {
         useFocusEffect: noop,
         useNavigation: () => ({
-          getParent: () => ({ navigate: noop }),
-          navigate: noop,
+          getParent: () => ({ navigate: (screen: string, params?: Record<string, unknown>) => { workoutScreenNavigationEvents.push({ screen, params }); } }),
+          navigate: (screen: string, params?: Record<string, unknown>) => { workoutScreenNavigationEvents.push({ screen, params }); },
         }),
       };
     }
@@ -278,7 +289,7 @@ function installRenderMocks(): void {
     if (request === '../../lib/engine/presentation') return { buildTrainingFloorViewModel: () => ({ isDeload: false }) };
     if (request === '../../lib/api/fightCampService') return { getGuidedWorkoutContext: async () => ({ phase: 'build', fitnessLevel: 'beginner' }) };
     if (request === '../../lib/utils/date') return { todayLocalDate: () => '2026-05-03' };
-    if (request === '../../lib/supabase') return { supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } };
+    if (request === '../../lib/supabase') return { supabase: { auth: { getSession: async () => ({ data: { session: { user: { id: 'render-user-id' } } } }) } } };
     if (request === '../../lib/engine/sessionLabels') return { getSessionFamilyLabel: () => 'Training' };
     if (request === '../../lib/engine/sessionOwnership') return { isGuidedEngineActivityType: () => false };
     if (request === './workout/utils') return workoutUtilsMock;
@@ -337,6 +348,7 @@ function setWorkoutScreenFlags(flags: { beta?: boolean; preview?: boolean; dev?:
 
 function setWorkoutScreenData(flags: { boxingEntry?: boolean }) {
   workoutScreenHasBoxingEntry = flags.boxingEntry === true;
+  workoutScreenNavigationEvents = [];
 }
 
 function loadWorkoutScreen() {
@@ -538,26 +550,36 @@ async function run(): Promise<void> {
   setWorkoutScreenFlags({ beta: false, preview: false, dev: true });
   const WorkoutScreenFlagsOff = loadWorkoutScreen();
   const flagsOff = render(React.createElement(WorkoutScreenFlagsOff));
-  assert('boxing engine flag off does not render generator or diagnostics flow', Boolean(
-    flagsOff.queryByTestId('boxing-generated-workout-section') === null
+  assert('boxing engine flag off still renders planned support session, not standalone generator or diagnostics flow', Boolean(
+    flagsOff.getByTestId('planned-support-session-card')
+      && flagsOff.queryByTestId('boxing-generated-workout-section') === null
       && flagsOff.queryByTestId('internal-workout-diagnostics-section') === null,
+  ));
+  await act(async () => { fireEvent.press(flagsOff.getByLabelText('Open support session')); });
+  assert('planned support session primary CTA opens WorkoutDetail', Boolean(
+    workoutScreenNavigationEvents.some((event) => event.screen === 'WorkoutDetail'
+      && (event.params as { weeklyPlanEntryId?: string } | undefined)?.weeklyPlanEntryId === 'render-weekly-entry'),
   ));
   flagsOff.unmount();
 
+  setWorkoutScreenData({ boxingEntry: true });
   setWorkoutScreenFlags({ beta: true, preview: true, dev: true });
   const WorkoutScreenBetaOn = loadWorkoutScreen();
   const betaOn = render(React.createElement(WorkoutScreenBetaOn));
-  assert('boxing engine flag on renders the boxing section and suppresses diagnostics', Boolean(
-    betaOn.getByTestId('boxing-generated-workout-section')
+  assert('boxing engine flag on keeps Today entry-bound and suppresses standalone generator', Boolean(
+    betaOn.getByTestId('planned-support-session-card')
+      && betaOn.queryByTestId('boxing-generated-workout-section') === null
       && betaOn.queryByTestId('internal-workout-diagnostics-section') === null,
   ));
   betaOn.unmount();
 
+  setWorkoutScreenData({ boxingEntry: true });
   setWorkoutScreenFlags({ beta: true, preview: true, dev: false });
   const WorkoutScreenNonDevFlagsOn = loadWorkoutScreen();
   const nonDevFlagsOn = render(React.createElement(WorkoutScreenNonDevFlagsOn));
-  assert('non-dev builds render the boxing product flow when the rollout flag is enabled', Boolean(
-    nonDevFlagsOn.getByTestId('boxing-generated-workout-section')
+  assert('non-dev builds keep planned support entry-bound when rollout flag is enabled', Boolean(
+    nonDevFlagsOn.getByTestId('planned-support-session-card')
+      && nonDevFlagsOn.queryByTestId('boxing-generated-workout-section') === null
       && nonDevFlagsOn.queryByTestId('internal-workout-diagnostics-section') === null,
   ));
   nonDevFlagsOn.unmount();
@@ -566,9 +588,10 @@ async function run(): Promise<void> {
   setWorkoutScreenData({ boxingEntry: false });
   const WorkoutScreenPreviewOn = loadWorkoutScreen();
   const previewOn = render(React.createElement(WorkoutScreenPreviewOn));
-  assert('normal Train screen does not render standalone generator or internal diagnostics without a boxing plan entry', Boolean(
-    previewOn.queryByTestId('internal-workout-diagnostics-section') === null
-      && previewOn.queryByTestId('boxing-generated-workout-section') === null,
+  assert('normal Train screen does not render planned support card, standalone generator, or internal diagnostics without a boxing plan entry', Boolean(
+    previewOn.queryByTestId('planned-support-session-card') === null
+      && previewOn.queryByTestId('boxing-generated-workout-section') === null
+      && previewOn.queryByTestId('internal-workout-diagnostics-section') === null,
   ));
   previewOn.unmount();
 

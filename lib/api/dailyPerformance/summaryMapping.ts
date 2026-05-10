@@ -36,6 +36,88 @@ function primaryUnifiedSession(result: UnifiedPerformanceEngineResult | null): C
     ?? null;
 }
 
+const FUEL_PRIORITIES: ReadonlySet<NonNullable<DailyAthleteSummary['trainingDirective']['expectedFuelPriority']>> = new Set([
+  'sparring',
+  'boxing_practice',
+  'strength_power',
+  'power',
+  'roadwork_aerobic',
+  'roadwork_tempo',
+  'conditioning_intervals',
+  'durability',
+  'mobility',
+  'heavy_sc',
+  'conditioning',
+  'double_session',
+  'recovery',
+  'body_mass_protect',
+]);
+
+const SUPPORT_DEMAND_CLASSES: ReadonlySet<NonNullable<DailyAthleteSummary['trainingDirective']['expectedCarbDemandClass']>> = new Set([
+  'baseline',
+  'low',
+  'moderate',
+  'high',
+]);
+
+type TrainingDirectiveFuelPriority = NonNullable<DailyAthleteSummary['trainingDirective']['expectedFuelPriority']>;
+type TrainingDirectiveSupportDemandClass = NonNullable<DailyAthleteSummary['trainingDirective']['expectedCarbDemandClass']>;
+
+function supportText(value: string | null | undefined): string | null {
+  const text = value?.trim();
+  return text ? text : null;
+}
+
+function supportScore(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function supportFuelPriority(value: string | null | undefined): TrainingDirectiveFuelPriority | null {
+  return FUEL_PRIORITIES.has(value as TrainingDirectiveFuelPriority)
+    ? value as TrainingDirectiveFuelPriority
+    : null;
+}
+
+function supportDemandClass(value: string | null | undefined): TrainingDirectiveSupportDemandClass | null {
+  return SUPPORT_DEMAND_CLASSES.has(value as TrainingDirectiveSupportDemandClass)
+    ? value as TrainingDirectiveSupportDemandClass
+    : null;
+}
+
+function supportIntentFromSession(
+  result: UnifiedPerformanceEngineResult | null,
+  session: ComposedSession | null,
+): string {
+  const metadata = session?.supportMetadata ?? null;
+  if (metadata?.supportDomainLabel) {
+    const label = supportText(metadata.supportDomainLabel);
+    const sessionTitle = supportText(session?.title);
+    if (label && sessionTitle && !sessionTitle.toLowerCase().startsWith(label.toLowerCase())) {
+      return `${label}: ${sessionTitle}`;
+    }
+    return sessionTitle ?? label ?? 'Follow the Athleticore support plan.';
+  }
+
+  return session?.title
+    ?? result?.canonicalOutputs.trainingBlock.explanation?.summary
+    ?? 'Follow the unified performance plan.';
+}
+
+function supportReasonFromSession(
+  session: ComposedSession | null,
+  fallbackReason: string,
+): string {
+  const metadata = session?.supportMetadata ?? null;
+  if (metadata) {
+    return supportText(metadata.sAndCRationale)
+      ?? supportText(metadata.athleticDevelopmentRationale)
+      ?? supportText(metadata.boxingRelevance)
+      ?? supportText(session?.explanation?.summary)
+      ?? fallbackReason;
+  }
+  return fallbackReason;
+}
+
 function workoutTypeFromSession(session: ComposedSession | null): DailyAthleteSummary['trainingDirective']['workoutType'] {
   switch (session?.family) {
     case 'sparring':
@@ -118,6 +200,7 @@ function priorityFromSession(session: ComposedSession | null): NutritionFuelingT
     return direct;
   }
 
+  // Title/family inference is fallback-only for older rows without direct support metadata.
   const title = `${session?.title ?? ''} ${(session?.explanation?.summary ?? '')}`.toLowerCase();
   if (title.includes('roadwork tempo')) return 'roadwork_tempo';
   if (title.includes('roadwork') || session?.family === 'roadwork') return 'roadwork_aerobic';
@@ -332,6 +415,7 @@ export function buildDailyAthleteSummaryFromUnified(input: {
   unifiedPerformance: UnifiedPerformanceEngineResult | null;
 }): { summary: DailyAthleteSummary; nutritionTarget: NutritionFuelingTarget } {
   const session = primaryUnifiedSession(input.unifiedPerformance);
+  const supportMetadata = session?.supportMetadata ?? null;
   const nutritionTarget = nutritionFuelingTargetFromUnified({
     result: input.unifiedPerformance,
     hydration: input.hydration,
@@ -339,9 +423,10 @@ export function buildDailyAthleteSummaryFromUnified(input: {
   });
   const riskLevel = riskLevelFromUnified(input.unifiedPerformance);
   const explanations = input.unifiedPerformance?.explanations ?? [];
-  const trainingReason = session?.explanation?.summary
+  const fallbackTrainingReason = session?.explanation?.summary
     ?? input.unifiedPerformance?.canonicalOutputs.trainingBlock.explanation?.summary
     ?? 'Training was resolved from the Unified Performance Engine.';
+  const trainingReason = supportReasonFromSession(session, fallbackTrainingReason);
   const readinessAdjustment = input.unifiedPerformance?.canonicalOutputs.readiness.recommendedTrainingAdjustment;
   const sessionRole = sessionRoleFromUnified(input.unifiedPerformance, session);
 
@@ -367,7 +452,7 @@ export function buildDailyAthleteSummaryFromUnified(input: {
         isMandatoryRecovery: sessionRole === 'recover' || Boolean(readinessAdjustment?.replaceWithMobility),
         focus: workoutFocusFromSession(session),
         workoutType: workoutTypeFromSession(session),
-        intent: session?.title ?? input.unifiedPerformance?.canonicalOutputs.trainingBlock.explanation?.summary ?? 'Follow the unified performance plan.',
+        intent: supportIntentFromSession(input.unifiedPerformance, session),
         reason: trainingReason,
         intensityCap: input.unifiedPerformance?.finalPlanStatus === 'blocked' ? 2 : null,
         durationMin: rangeTarget(session?.durationMinutes),
@@ -379,6 +464,19 @@ export function buildDailyAthleteSummaryFromUnified(input: {
         medStatus: input.medStatus,
         source: 'daily_engine',
         prescription: input.workoutPrescription,
+        athleticDevelopmentDomain: supportText(supportMetadata?.athleticDevelopmentDomain),
+        supportDomainLabel: supportText(supportMetadata?.supportDomainLabel),
+        expectedFuelPriority: supportFuelPriority(supportMetadata?.expectedFuelPriority),
+        expectedCarbDemandClass: supportDemandClass(supportMetadata?.expectedCarbDemandClass),
+        expectedRecoveryDemandClass: supportDemandClass(supportMetadata?.expectedRecoveryDemandClass),
+        expectedHydrationDemandClass: supportDemandClass(supportMetadata?.expectedHydrationDemandClass),
+        sessionEnergyDemandScore: supportScore(supportMetadata?.sessionEnergyDemandScore),
+        sessionRecoveryDemandScore: supportScore(supportMetadata?.sessionRecoveryDemandScore),
+        boxingSessionFamily: supportText(supportMetadata?.boxingSessionFamily),
+        boxingSessionRole: supportText(supportMetadata?.boxingSessionRole),
+        boxingRelevance: supportText(supportMetadata?.boxingRelevance),
+        sAndCRationale: supportText(supportMetadata?.sAndCRationale),
+        athleticDevelopmentRationale: supportText(supportMetadata?.athleticDevelopmentRationale),
       },
       fuelDirective: {
         state: nutritionTarget.fuelState,

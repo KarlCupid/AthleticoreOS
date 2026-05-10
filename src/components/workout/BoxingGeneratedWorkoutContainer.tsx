@@ -6,9 +6,10 @@ import { BoxingGeneratedWorkoutSessionCard } from './BoxingGeneratedWorkoutSessi
 
 export interface BoxingGeneratedWorkoutContainerProps {
   controller: UseBoxingGeneratedWorkoutResult;
+  mode?: 'standalone';
 }
 
-export function BoxingGeneratedWorkoutContainer({ controller }: BoxingGeneratedWorkoutContainerProps) {
+export function BoxingGeneratedWorkoutContainer({ controller, mode = 'standalone' }: BoxingGeneratedWorkoutContainerProps) {
   const { engineEnabled, support } = controller;
 
   if (!engineEnabled) return null;
@@ -38,7 +39,7 @@ export function BoxingGeneratedWorkoutContainer({ controller }: BoxingGeneratedW
   return (
     <Animated.View
       testID="boxing-generated-workout-section"
-      accessibilityLabel="Athleticore support session flow"
+      accessibilityLabel={mode === 'standalone' ? 'Standalone Athleticore support session flow' : 'Athleticore support session flow'}
       entering={FadeInDown.delay(70).duration(280).springify()}
     >
       <BoxingGeneratedWorkoutSessionCard

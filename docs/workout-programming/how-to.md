@@ -243,7 +243,7 @@ Current product UI path:
 
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
 - `src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx`
-- `src/components/workout/BoxingGeneratedWorkoutContainer.tsx`
+- `src/components/workout/BoxingGeneratedWorkoutContainer.tsx` for explicit standalone/ad hoc generation only
 - `src/screens/WorkoutScreen.tsx`
 - `src/screens/WorkoutDetailScreen.tsx`
 - `src/hooks/useBoxingGeneratedWorkout.ts`
@@ -251,9 +251,9 @@ Current product UI path:
 
 The Athleticore support flow supports generate, inspect, start, completion logging, workout feedback, exercise preferences, and next progression recommendation. When a Supabase user is available it persists generated workouts, completions, feedback, and progression decisions. Without an authenticated user, it stays in local in-memory mode.
 
-Train shows Athlete Support This Week when an active generated week exists. Protected boxing anchors are separated from Athleticore support sessions, and domain tags show Strength, Power, Roadwork, Conditioning, Durability, Mobility, Recovery, or Skill support.
+Train shows Athlete Support This Week when an active generated week exists. The Today tab shows the planned Athleticore support session from `todayPlanEntry` and its `BoxingGeneratedPlanEntrySnapshot`, not an unrelated standalone configure/generate surface. Protected boxing anchors are separated from Athleticore support sessions, and domain tags show Strength, Power, Roadwork, Conditioning, Durability, Mobility, Recovery, or Skill support.
 
-Today's active support session is selected from `weekly_plan_entries` by reading the `BoxingGeneratedPlanEntrySnapshot` directly. The snapshot is the runtime signal even if older rows are missing `placement_source`. Planned generated support snapshots open `WorkoutDetail`, not `GuidedWorkout`; old guided-prescription rows remain readable through compatibility routing only.
+Today's active support session is selected from `weekly_plan_entries` by reading the `BoxingGeneratedPlanEntrySnapshot` directly. The snapshot is the runtime signal even if older rows are missing `placement_source`. Planned generated support snapshots open `WorkoutDetail`, not `GuidedWorkout`; old guided-prescription rows remain readable through compatibility routing only. If the planned snapshot has no attached `GeneratedWorkout`, `WorkoutDetail` owns the generate/attach step from the weekly-plan snapshot.
 
 Daily performance and nutrition should consume snapshot metadata directly:
 
@@ -264,9 +264,14 @@ Daily performance and nutrition should consume snapshot metadata directly:
 - `expectedHydrationDemandClass`
 - `sessionEnergyDemandScore`
 - `sessionRecoveryDemandScore`
+- `supportDomainLabel`
+- `boxingRelevance`
+- `sAndCRationale`
+
+`DailyAthleteSummary.trainingDirective` exposes those support-domain fields for UI copy and summary cards. UI should prefer direct metadata over title parsing.
 
 Title and family string inference is only a fallback for archived rows.
 
 Internal diagnostics are not rendered in the normal Train screen, do not persist, and should not be treated as a production rollout path.
 
-Future UI work should call `workoutProgrammingService`, the boxing weekly adapter, or the generated workout completion service. It should not call raw seed data, lower-level legacy engines, `generateAdaptiveSmartWeekPlan`, or `calculateSC` for product workout generation.
+Future UI work should call `workoutProgrammingService`, the boxing weekly adapter, or the generated workout completion service. It should not call raw seed data, lower-level legacy engines, `generateAdaptiveSmartWeekPlan`, `generateSmartWeekPlan`, `generateWorkoutV2`, or `calculateSC` for product workout generation. Those old functions remain compatibility-only behind `lib/engine/legacyWorkoutGeneration.ts`.

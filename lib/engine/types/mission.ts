@@ -52,6 +52,12 @@ export type DirectiveSource =
   | 'weekly_plan_snapshot'
   | 'daily_engine';
 
+export type SupportDemandClass =
+  | 'baseline'
+  | 'low'
+  | 'moderate'
+  | 'high';
+
 export interface PerformanceObjective {
   mode: AthleteGoalMode;
   goalType: BuildPhaseGoalType | PerformanceGoalType;
@@ -102,6 +108,19 @@ export interface TrainingDirective {
   medStatus?: MEDStatus | null;
   source: DirectiveSource;
   prescription: WorkoutPrescriptionV2 | null;
+  athleticDevelopmentDomain?: string | null;
+  supportDomainLabel?: string | null;
+  expectedFuelPriority?: FuelPriority | null;
+  expectedCarbDemandClass?: SupportDemandClass | null;
+  expectedRecoveryDemandClass?: SupportDemandClass | null;
+  expectedHydrationDemandClass?: SupportDemandClass | null;
+  sessionEnergyDemandScore?: number | null;
+  sessionRecoveryDemandScore?: number | null;
+  boxingSessionFamily?: string | null;
+  boxingSessionRole?: string | null;
+  boxingRelevance?: string | null;
+  sAndCRationale?: string | null;
+  athleticDevelopmentRationale?: string | null;
 }
 
 export interface MissionProtectWindow {

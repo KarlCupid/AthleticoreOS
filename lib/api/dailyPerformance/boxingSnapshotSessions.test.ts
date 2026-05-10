@@ -94,6 +94,16 @@ console.log('\n-- boxing snapshot daily performance mapping --');
   assert('strength domain maps to strength composed session', session?.family === 'strength');
   assert('strength domain carries direct fuel priority', session?.supportMetadata?.expectedFuelPriority === 'strength_power');
   assert('strength domain carries direct recovery demand score', session?.supportMetadata?.sessionRecoveryDemandScore === 64);
+  assert('strength domain carries support-domain copy fields', Boolean(
+    session?.supportMetadata?.athleticDevelopmentDomain === 'strength'
+      && session.supportMetadata.boxingSessionFamily === 'strength_power'
+      && session.supportMetadata.supportDomainLabel === 'Strength support'
+      && session.supportMetadata.expectedCarbDemandClass === 'moderate'
+      && session.supportMetadata.expectedHydrationDemandClass === 'moderate'
+      && session.supportMetadata.sessionEnergyDemandScore === 52
+      && session.supportMetadata.sAndCRationale === 'Build boxing-relevant physical qualities.'
+      && session.supportMetadata.boxingRelevance === 'Supports boxing without replacing boxing practice.'
+  ));
 })();
 
 (() => {
@@ -152,6 +162,7 @@ console.log('\n-- boxing snapshot daily performance mapping --');
     }),
   }));
   assert('durability domain maps to recovery support, not boxing practice', session?.family === 'recovery');
+  assert('durability support does not become protected anchor', session?.protectedAnchor === false && session?.source === 'engine_generated');
 })();
 
 (() => {

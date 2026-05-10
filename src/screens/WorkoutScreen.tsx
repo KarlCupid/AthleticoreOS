@@ -20,11 +20,9 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
-import { BoxingGeneratedWorkoutContainer } from '../components/workout/BoxingGeneratedWorkoutContainer';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { useBoxingGeneratedWorkout } from '../hooks/useBoxingGeneratedWorkout';
 import {
   boxingEntryDisplayMeta,
   classifyPlanEntryRuntimeSurface,
@@ -130,6 +128,74 @@ function EmptyPlanCard({ onPress }: { onPress: () => void }) {
   );
 }
 
+function formatSupportValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function PlannedSupportSessionCard({
+  entry,
+  snapshot,
+  onOpen,
+}: {
+  entry: WeeklyPlanEntryRow;
+  snapshot: BoxingGeneratedPlanEntrySnapshot;
+  onOpen: () => void;
+}) {
+  const domainLabel = snapshot.supportDomainLabel ?? boxingEntryDisplayMeta(entry).sourceLabel;
+  const doseLabel = formatSupportValue(snapshot.sessionDoseCategory);
+  const intensityLabel = formatSupportValue(snapshot.plannedIntensity);
+  const fuelLabel = formatSupportValue(snapshot.expectedFuelPriority);
+  const duration = snapshot.estimatedDurationMinutes ?? entry.estimated_duration_min;
+  const attached = Boolean(snapshot.generatedWorkout);
+  const rationale = snapshot.sAndCRationale
+    ?? snapshot.athleticDevelopmentRationale
+    ?? snapshot.rationale[0]
+    ?? snapshot.weekSummary.nextBestAction
+    ?? null;
+  const relevance = snapshot.boxingRelevance ?? null;
+
+  return (
+    <Card
+      title={domainLabel}
+      subtitle={snapshot.label}
+      subtitleLines={2}
+      backgroundTone="workoutFloor"
+      backgroundScrimColor="rgba(10, 10, 10, 0.68)"
+    >
+      <View testID="planned-support-session-card" style={styles.supportSessionStack}>
+        <View style={styles.supportMetaRow}>
+          {doseLabel ? <Text style={styles.supportMetaPill}>{doseLabel}</Text> : null}
+          {duration ? <Text style={styles.supportMetaPill}>{duration} min</Text> : null}
+          {intensityLabel ? <Text style={styles.supportMetaPill}>{intensityLabel} intensity</Text> : null}
+        </View>
+        {rationale ? <Text style={styles.supportBody}>{rationale}</Text> : null}
+        {relevance ? <Text style={styles.supportBody}>{relevance}</Text> : null}
+        {fuelLabel ? <Text style={styles.supportFuel}>Fuel priority: {fuelLabel}</Text> : null}
+        <Text style={styles.supportAttachedState}>{attached ? 'Generated workout attached' : 'Generated workout will attach in WorkoutDetail'}</Text>
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Open support session"
+          style={styles.primaryButton}
+          onPress={onOpen}
+        >
+          <Text style={styles.primaryButtonText}>Open support session</Text>
+        </AnimatedPressable>
+        {!attached ? (
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="Generate attached workout"
+            style={styles.secondaryLink}
+            onPress={onOpen}
+          >
+            <Text style={styles.secondaryLinkText}>Generate attached workout</Text>
+          </AnimatedPressable>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
 function AthleteSupportWeekCard({ snapshot }: { snapshot: BoxingGeneratedPlanEntrySnapshot | null }) {
   if (!snapshot) return null;
   const week = snapshot.weekSummary;
@@ -185,36 +251,13 @@ export function WorkoutScreen() {
     historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
     performanceContext,
   } = useWorkoutData();
-  const boxingGeneratedWorkoutController = useBoxingGeneratedWorkout({
-    userId,
-    currentLevel,
-    historyLoaded,
-    analyticsLoaded,
-    loadHistoryData,
-    loadAnalyticsData,
-  });
 
   useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
   useEffect(() => { if (activeTab === 'history' && !historyLoaded && !historyLoading) void loadHistoryData(); }, [activeTab, historyLoaded, historyLoading, loadHistoryData]);
   useEffect(() => { if (activeTab === 'analytics' && !analyticsLoaded && !analyticsLoading) void loadAnalyticsData(); }, [activeTab, analyticsLoaded, analyticsLoading, loadAnalyticsData]);
   useEffect(() => { setShowWorkoutDetails(false); }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
 
-  const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
-    if (entry && classifyPlanEntryRuntimeSurface(entry) !== 'legacy_guided_workout') {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      const context = await getGuidedWorkoutContext(session.user.id, entry.date);
-      navigation.navigate('WorkoutDetail', {
-        weeklyPlanEntryId: entry.id,
-        date: entry.date,
-        readinessState: currentLevel ?? 'Prime',
-        phase: context.phase,
-        fitnessLevel: context.fitnessLevel,
-        isDeloadWeek: entry.is_deload,
-      });
-      return;
-    }
-
+  const openLegacyGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
     const trainingDate = entry?.date ?? todayLocalDate();
@@ -248,6 +291,14 @@ export function WorkoutScreen() {
     });
   }, [navigation, currentLevel]);
 
+  const openTrainingEntry = useCallback(async (entry: WeeklyPlanEntryRow) => {
+    if (classifyPlanEntryRuntimeSurface(entry) === 'legacy_guided_workout') {
+      await openLegacyGuidedWorkout(entry);
+      return;
+    }
+    await openWorkoutDetail(entry);
+  }, [openLegacyGuidedWorkout, openWorkoutDetail]);
+
   const groupedWeeklyEntries = useMemo(() => groupWeekEntries(weeklyEntries), [weeklyEntries]);
   const todayBoxingSnapshot = useMemo(() => getBoxingSnapshotFromWeeklyPlanEntry(todayPlanEntry), [todayPlanEntry]);
   const todayBoxingMeta = useMemo(() => todayPlanEntry ? boxingEntryDisplayMeta(todayPlanEntry) : null, [todayPlanEntry]);
@@ -255,7 +306,6 @@ export function WorkoutScreen() {
     () => todayBoxingSnapshot ?? weeklyEntries.map(getBoxingSnapshotFromWeeklyPlanEntry).find((snapshot): snapshot is BoxingGeneratedPlanEntrySnapshot => Boolean(snapshot)) ?? null,
     [todayBoxingSnapshot, weeklyEntries],
   );
-  const showBoxingGeneratedFlow = Boolean(todayBoxingSnapshot && !todayBoxingSnapshot.protectedAnchor);
   const contextualTodayActivities = useMemo(() => todayActivities.filter((activity) => !isGuidedEngineActivityType(activity.activity_type)), [todayActivities]);
   const weightData = useMemo(() => buildWeightData(checkins), [checkins]);
   const sleepData = useMemo(() => buildSleepData(checkins), [checkins]);
@@ -282,7 +332,8 @@ export function WorkoutScreen() {
     sessionLabel: todaySessionLabel,
     targetIntensity: todayPlanEntry?.target_intensity ?? null,
     durationMin: todayPlanEntry?.estimated_duration_min ?? prescription?.estimatedDurationMin ?? null,
-  }), [floorVM, todaySessionLabel, todayPlanEntry?.target_intensity, todayPlanEntry?.estimated_duration_min, prescription?.estimatedDurationMin]);
+    supportSession: todayBoxingSnapshot && !todayBoxingSnapshot.protectedAnchor ? todayBoxingSnapshot : null,
+  }), [floorVM, todaySessionLabel, todayPlanEntry?.target_intensity, todayPlanEntry?.estimated_duration_min, prescription?.estimatedDurationMin, todayBoxingSnapshot]);
 
   const heroToneStyles = getHeroToneStyles(todaySummary.effortTone);
   const hasStructuredToday = Boolean(todayPlanEntry || prescription);
@@ -299,15 +350,13 @@ export function WorkoutScreen() {
 
   const handlePrimaryAction = useCallback(() => {
     if (todayPlanEntry) {
-      const runtimeSurface = classifyPlanEntryRuntimeSurface(todayPlanEntry);
       if (todayPlanEntry.status === 'completed' || todayPlanEntry.status === 'skipped') { void openWorkoutDetail(todayPlanEntry); return; }
-      if (runtimeSurface === 'legacy_guided_workout') { void openGuidedWorkout(todayPlanEntry); return; }
-      void openWorkoutDetail(todayPlanEntry); return;
+      void openTrainingEntry(todayPlanEntry); return;
     }
-    if (prescription) { void openGuidedWorkout(null); return; }
+    if (prescription) { void openLegacyGuidedWorkout(null); return; }
     if (groupedWeeklyEntries.length === 0) { navigation.navigate('WeeklyPlanSetup'); return; }
     void handleStartWorkout(navigation);
-  }, [todayPlanEntry, prescription, groupedWeeklyEntries.length, navigation, handleStartWorkout, openGuidedWorkout, openWorkoutDetail]);
+  }, [todayPlanEntry, prescription, groupedWeeklyEntries.length, navigation, handleStartWorkout, openLegacyGuidedWorkout, openTrainingEntry, openWorkoutDetail]);
 
   if (loading) {
     return (
@@ -415,7 +464,15 @@ export function WorkoutScreen() {
                 <WorkoutPrescriptionSection prescription={prescription} themeColor={themeColor} showStartButton={false} />
               </Animated.View>
             ) : null}
-            {!initialLoadError && showBoxingGeneratedFlow ? <BoxingGeneratedWorkoutContainer controller={boxingGeneratedWorkoutController} /> : null}
+            {!initialLoadError && todayPlanEntry && todayBoxingSnapshot && !todayBoxingSnapshot.protectedAnchor ? (
+              <Animated.View entering={FadeInDown.delay(60).duration(280).springify()}>
+                <PlannedSupportSessionCard
+                  entry={todayPlanEntry}
+                  snapshot={todayBoxingSnapshot}
+                  onOpen={() => { void openWorkoutDetail(todayPlanEntry); }}
+                />
+              </Animated.View>
+            ) : null}
             {!initialLoadError && contextualTodayActivities.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
                 <Card
@@ -457,12 +514,7 @@ export function WorkoutScreen() {
                     primaryEntry.sc_session_family,
                   ) : boxingMeta.title;
                   const handlePress = () => {
-                    const runtimeSurface = classifyPlanEntryRuntimeSurface(primaryEntry);
-                    if (group.date === todayLocalDate() && primaryEntry.status === 'planned' && runtimeSurface === 'legacy_guided_workout') {
-                      void openGuidedWorkout(primaryEntry);
-                      return;
-                    }
-                    void openWorkoutDetail(primaryEntry);
+                    void openTrainingEntry(primaryEntry);
                   };
                   return (
                     <Animated.View key={group.date} entering={FadeInDown.delay(index * 45).duration(260).springify()}>
@@ -560,6 +612,12 @@ const styles = StyleSheet.create({
   guardrailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
   guardrailDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 6 },
   guardrailText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
+  supportSessionStack: { gap: SPACING.sm },
+  supportMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
+  supportMetaPill: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.sm, paddingVertical: 5, fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  supportBody: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
+  supportFuel: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 18 },
+  supportAttachedState: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 18 },
   intelligenceStack: { gap: SPACING.sm },
   intelligenceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
   intelligenceText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },

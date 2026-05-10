@@ -18,9 +18,9 @@ The render test uses `@testing-library/react-native/pure` with a small Node-comp
 - Boxing engine off: set `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=0`; the app should avoid rendering the generation UI and must not fall back to old adaptive generation.
 - Internal diagnostics: `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1` remains internal-only and is not part of normal Train UX.
 
-When the boxing engine flag is off, the generated support section should not render and weekly generation should fail clearly instead of substituting a legacy plan. History, analytics, old compatibility entries, and guided fallback navigation should still behave normally.
+When the boxing engine flag is off, the standalone generated support section should not render and weekly generation should fail clearly instead of substituting a legacy plan. A weekly entry that already has a `BoxingGeneratedPlanEntrySnapshot` still appears on Today as the planned Athleticore support session and opens `WorkoutDetail`. History, analytics, old compatibility entries, and guided fallback navigation should still behave normally.
 
-Friend preview and production builds should render the boxing product path when enabled and should not render internal diagnostics.
+Friend preview and production builds should render the boxing product path when enabled and should not render internal diagnostics. Today should remain entry-bound: no duplicate standalone configure/generate surface should appear beneath a planned generated support entry.
 
 The internal diagnostics panel is intentionally isolated. It loads a fixed fixture for debug inspection, does not persist, and does not share product fallback state or completion behavior.
 
@@ -28,13 +28,14 @@ The internal diagnostics panel is intentionally isolated. It loads a fixed fixtu
 
 1. Generate a boxing week and open the Workout screen.
 2. Confirm Athlete Support This Week, Today, Plan, History, and Analytics tabs load.
-3. Open an Athleticore support session.
-4. Generate or inspect a support session such as rotational power, roadwork base, shoulder durability, or footwork agility.
-5. Confirm session intent, summary, blocks, exercises, prescriptions, effort/rest guidance, safety notes, substitutions, scaling, success criteria, tracking metrics, completion copy, and any validation warnings are visible.
-6. Start the workout and confirm the checklist, exercise logging fields, feedback tags, notes, and completion button appear.
-7. Complete the workout and confirm the next progression recommendation appears.
-8. Repeat with a red-flag safety fixture or mocked service error and confirm the UI surfaces the blocked/error state without starting a session.
-9. Disable `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED` and confirm the generation UI hides without legacy fallback.
+3. Confirm Today shows the planned Athleticore support session card, not the standalone generator.
+4. Open an Athleticore support session and confirm it routes to `WorkoutDetail`.
+5. Generate or inspect a support session such as rotational power, roadwork base, shoulder durability, or footwork agility from the detail surface when an attached workout is missing.
+6. Confirm session intent, summary, blocks, exercises, prescriptions, effort/rest guidance, safety notes, substitutions, scaling, success criteria, tracking metrics, completion copy, and any validation warnings are visible.
+7. Start the workout and confirm the checklist, exercise logging fields, feedback tags, notes, and completion button appear.
+8. Complete the workout and confirm the next progression recommendation appears.
+9. Repeat with a red-flag safety fixture or mocked service error and confirm the UI surfaces the blocked/error state without starting a session.
+10. Disable `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED` and confirm the standalone generation UI hides without legacy fallback.
 
 ## Error States To Exercise
 
@@ -50,4 +51,4 @@ Run the automated smoke layer with:
 npm run test:engine
 ```
 
-The render test verifies valid generated-workout preview card content, blocked preview card content, boxing configure/inspect/started/completed states, disabled blocked starts, completion controls, progression recommendations, and Workout screen rollout visibility.
+The render test verifies valid generated-workout preview card content, blocked preview card content, boxing configure/inspect/started/completed states, disabled blocked starts, completion controls, progression recommendations, Today planned-support card rendering, absence of the standalone generator by default, and WorkoutDetail routing from the planned support CTA.

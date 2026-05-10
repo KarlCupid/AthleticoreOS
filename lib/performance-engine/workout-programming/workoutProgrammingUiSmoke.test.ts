@@ -61,10 +61,10 @@ async function run() {
       && renderTest.includes('BoxingGeneratedWorkoutSessionCard'),
   );
 
-  assert('feature flags gate boxing workout generation and internal diagnostics separately', hasAll(workoutScreen, [
-    'useBoxingGeneratedWorkout',
-    'BoxingGeneratedWorkoutContainer',
-    'showBoxingGeneratedFlow',
+  assert('Today uses an entry-bound planned support session while standalone generation remains explicit', hasAll(workoutScreen, [
+    'PlannedSupportSessionCard',
+    'testID="planned-support-session-card"',
+    'Open support session',
     'AthleteSupportWeekCard',
   ]) && hasAll(supportHook, [
     'resolveBoxingSAndCEngineFlags',
@@ -81,7 +81,8 @@ async function run() {
     "previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1'",
   ]) && hasAll(supportContainer, [
     'testID="boxing-generated-workout-section"',
-  ]) && !supportContainer.includes('internal-workout-diagnostics-section') && hasAll(devPreviewPanel, [
+    "mode = 'standalone'",
+  ]) && !workoutScreen.includes('BoxingGeneratedWorkoutContainer') && !workoutScreen.includes('showBoxingGeneratedFlow') && !supportContainer.includes('internal-workout-diagnostics-section') && hasAll(devPreviewPanel, [
     'testID="internal-workout-diagnostics-section"',
     'internal diagnostics section',
   ]));
@@ -108,8 +109,10 @@ async function run() {
 
   assert('WorkoutScreen routes generated support snapshots to WorkoutDetail before GuidedWorkout compatibility', hasAll(workoutScreen, [
     'classifyPlanEntryRuntimeSurface',
-    "runtimeSurface === 'legacy_guided_workout'",
-    "classifyPlanEntryRuntimeSurface(entry) !== 'legacy_guided_workout'",
+    'openTrainingEntry',
+    'openWorkoutDetail',
+    'openLegacyGuidedWorkout',
+    "classifyPlanEntryRuntimeSurface(entry) === 'legacy_guided_workout'",
     "navigation.navigate('WorkoutDetail'",
   ]) && hasAll(workoutDetailController, [
     'classifyPlanEntryRuntimeSurface',
@@ -125,7 +128,7 @@ async function run() {
     'classifyPlanEntryRuntimeSurface',
     "screen: 'WorkoutDetail'",
     "screen: 'GuidedWorkout'",
-  ]) && !workoutScreen.includes("if (group.date === todayLocalDate() && primaryEntry.status === 'planned') { void openGuidedWorkout(primaryEntry); return; }"));
+  ]) && !workoutScreen.includes('openGuidedWorkout'));
 
   assert('preview card exposes all display sections requested by generated workouts', hasAll(previewCard, [
     'testID="generated-workout-preview-card"',
@@ -158,7 +161,7 @@ async function run() {
   ]));
 
   assert('preview and boxing generated error states surface service failures without crashing the screen', hasAll(workoutScreen, [
-    'BoxingGeneratedWorkoutContainer',
+    'PlannedSupportSessionCard',
   ]) && hasAll(supportHook, [
     'setError',
     'normalizeGeneratedWorkoutError',
