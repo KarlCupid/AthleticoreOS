@@ -76,7 +76,7 @@ const program = await workoutProgrammingService.generateWeeklyProgramForUser(use
 
 After weekly generation, app/API code should project the program into `weekly_plan_entries` with `generatedProgramToWeeklyPlanEntries`. Do not call `generateAdaptiveSmartWeekPlan` or `calculateSC` as a fallback.
 
-If compatibility code must exercise old generation APIs, import them from `lib/engine/legacyWorkoutGeneration.ts`. Do not expose them through `lib/engine/index.ts` or call them from product workout-generation flows.
+If compatibility or simulation code must exercise old generation APIs, import them from `lib/engine/legacyWorkoutGeneration.ts`. That includes `generateLegacyBlockPlan` / the legacy `generateBlockPlan` alias. Do not expose them through `lib/engine/index.ts` or call them from product workout-generation flows.
 
 ## How to Add a New Exercise
 
@@ -243,7 +243,7 @@ Current product UI path:
 
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
 - `src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx`
-- `src/components/workout/BoxingGeneratedWorkoutContainer.tsx` for explicit standalone/ad hoc generation only
+- `src/components/workout/BoxingGeneratedWorkoutContainer.tsx` for explicit standalone/ad hoc extra support generation only
 - `src/screens/WorkoutScreen.tsx`
 - `src/screens/WorkoutDetailScreen.tsx`
 - `src/hooks/useBoxingGeneratedWorkout.ts`
@@ -251,7 +251,7 @@ Current product UI path:
 
 The Athleticore support flow supports generate, inspect, start, completion logging, workout feedback, exercise preferences, and next progression recommendation. When a Supabase user is available it persists generated workouts, completions, feedback, and progression decisions. Without an authenticated user, it stays in local in-memory mode.
 
-Train shows Athlete Support This Week when an active generated week exists. The Today tab shows the planned Athleticore support session from `todayPlanEntry` and its `BoxingGeneratedPlanEntrySnapshot`, not an unrelated standalone configure/generate surface. Protected boxing anchors are separated from Athleticore support sessions, and domain tags show Strength, Power, Roadwork, Conditioning, Durability, Mobility, Recovery, or Skill support.
+Train shows Athlete Support This Week when an active generated week exists. The Today tab shows the planned Athleticore support session from `todayPlanEntry` and its `BoxingGeneratedPlanEntrySnapshot` as the single active-session execution card, not a duplicate hero CTA and not an unrelated standalone configure/generate surface. Protected boxing anchors are separated from Athleticore support sessions, and domain tags show Strength, Power, Roadwork, Conditioning, Durability, Mobility, Recovery, or Skill support.
 
 Today's active support session is selected from `weekly_plan_entries` by reading the `BoxingGeneratedPlanEntrySnapshot` directly. The snapshot is the runtime signal even if older rows are missing `placement_source`. Planned generated support snapshots open `WorkoutDetail`, not `GuidedWorkout`; old guided-prescription rows remain readable through compatibility routing only. If the planned snapshot has no attached `GeneratedWorkout`, `WorkoutDetail` owns the generate/attach step from the weekly-plan snapshot.
 
@@ -270,8 +270,12 @@ Daily performance and nutrition should consume snapshot metadata directly:
 
 `DailyAthleteSummary.trainingDirective` exposes those support-domain fields for UI copy and summary cards. UI should prefer direct metadata over title parsing.
 
+`DailyAthleteSummary.fuelDirective` exposes the support domain, support label, fuel priority, demand classes, and energy/recovery demand scores for Fuel and nutrition surfaces. Fuel UI should read these fields directly and keep `prioritySession` as the canonical fueling priority.
+
+Low-risk `boxing_skill_support` microdoses are not sparring. They should route as develop/recover support unless the session is actual sparring, protected boxing practice, or high-intensity boxing practice.
+
 Title and family string inference is only a fallback for archived rows.
 
 Internal diagnostics are not rendered in the normal Train screen, do not persist, and should not be treated as a production rollout path.
 
-Future UI work should call `workoutProgrammingService`, the boxing weekly adapter, or the generated workout completion service. It should not call raw seed data, lower-level legacy engines, `generateAdaptiveSmartWeekPlan`, `generateSmartWeekPlan`, `generateWorkoutV2`, or `calculateSC` for product workout generation. Those old functions remain compatibility-only behind `lib/engine/legacyWorkoutGeneration.ts`.
+Future UI work should call `workoutProgrammingService`, the boxing weekly adapter, or the generated workout completion service. It should not call raw seed data, lower-level legacy engines, `generateAdaptiveSmartWeekPlan`, `generateSmartWeekPlan`, `generateLegacyBlockPlan`, `generateWorkoutV2`, or `calculateSC` for product workout generation. Those old functions remain compatibility/simulation-only behind `lib/engine/legacyWorkoutGeneration.ts`.

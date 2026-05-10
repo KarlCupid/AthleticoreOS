@@ -166,19 +166,24 @@ export function buildTrainTodaySummary(input: {
   const { floorVM, sessionLabel, targetIntensity, durationMin, supportSession } = input;
   const supportDomainLabel = supportSession?.supportDomainLabel?.trim();
   const supportLabel = supportSession?.label?.trim();
-  const supportGoal = supportDomainLabel && supportLabel
-    ? `${supportDomainLabel}: ${supportLabel}`
-    : supportDomainLabel ?? supportLabel ?? null;
-  const supportReason = supportSession?.sAndCRationale?.trim()
-    || supportSession?.athleticDevelopmentRationale?.trim()
-    || supportSession?.boxingRelevance?.trim()
-    || null;
+  const supportSessionLabel = supportDomainLabel ?? supportLabel ?? null;
+  const supportRationale = supportSession?.sAndCRationale?.trim() ?? null;
+  const supportDevelopmentRationale = supportSession?.athleticDevelopmentRationale?.trim() ?? null;
+  const supportRelevance = supportSession?.boxingRelevance?.trim() ?? null;
+  const supportGoal = supportLabel && supportLabel.toLowerCase() !== supportSessionLabel?.toLowerCase()
+    ? supportLabel
+    : supportDevelopmentRationale ?? supportRelevance ?? supportRationale ?? null;
+  const supportReason = [
+    supportRationale,
+    supportDevelopmentRationale,
+    supportRelevance,
+  ].find((candidate) => Boolean(candidate) && candidate !== supportGoal) ?? supportRationale ?? supportDevelopmentRationale ?? supportRelevance ?? null;
   const goal = supportGoal || floorVM?.sessionGoal?.trim() || 'Get good work done today.';
   const reason = supportReason || floorVM?.reasonSentence?.trim() || 'Stick with today\'s plan and keep it clean.';
   const resolvedDuration = durationMin ?? floorVM?.estimatedDurationMin ?? 0;
 
   return {
-    sessionLabel: sessionLabel?.trim() || 'Today\'s training',
+    sessionLabel: supportSessionLabel || sessionLabel?.trim() || 'Today\'s training',
     goal,
     reason,
     durationLabel: resolvedDuration > 0 ? `${resolvedDuration} min` : null,

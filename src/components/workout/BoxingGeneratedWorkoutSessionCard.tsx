@@ -470,7 +470,7 @@ function stageLabel(stage: BoxingGeneratedWorkoutStage): string {
 }
 
 function stageHelp(stage: BoxingGeneratedWorkoutStage): string {
-  if (stage === 'configure') return 'Choose the basics. The engine keeps safety and readiness in the request.';
+  if (stage === 'configure') return 'Choose an extra support dose. Planned weekly sessions open from Today and WorkoutDetail.';
   if (stage === 'inspect') return 'Review the session before starting. Use substitutions or scaling if needed.';
   if (stage === 'started') return 'Check off work as you finish it, then log effort, pain, feedback, and notes.';
   return 'Review the recommendation before the next generated session.';
@@ -672,6 +672,12 @@ export function BoxingGeneratedWorkoutSessionCard({
   const currentStageIndex = BOXING_GENERATED_WORKOUT_STAGES.indexOf(stage);
   const sessionPaused = lifecycleStatus === 'paused';
   const readinessBlocked = selectedOption.blockedReadinessBands.includes(readinessBand);
+  const cardTitle = mode === 'executeOnly' ? 'Athleticore support session' : 'Generate extra support session';
+  const cardSubtitle = mode === 'executeOnly'
+    ? 'Weekly support execution from today\'s plan.'
+    : userAuthenticated
+      ? 'Ad hoc Athleticore support outside the planned weekly session path.'
+      : 'Sign in to save extra support completions and progression.';
   const durationOptions = useMemo(() => {
     const values = [
       selectedOption.minDurationMinutes,
@@ -788,8 +794,8 @@ export function BoxingGeneratedWorkoutSessionCard({
   return (
     <View testID="boxing-generated-workout-card" style={styles.stack}>
       <Card
-        title="Boxing S&C Builder"
-        subtitle={userAuthenticated ? 'Generate Athleticore support around your protected boxing anchors.' : 'Sign in to save Athleticore support completions and progression.'}
+        title={cardTitle}
+        subtitle={cardSubtitle}
         subtitleLines={2}
         backgroundTone="workoutFloor"
         backgroundScrimColor="rgba(10, 10, 10, 0.72)"
@@ -817,7 +823,7 @@ export function BoxingGeneratedWorkoutSessionCard({
           <>
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.sectionLabel}>Athlete development</Text>
-          <Text style={styles.sectionHint}>Athleticore builds strength, power, roadwork, mobility, durability, and low-risk skill support. Sparring and coach-led boxing practice are protected anchors, not generated here.</Text>
+          <Text style={styles.sectionHint}>Use this for explicit extra support only. Sparring and coach-led boxing practice are protected anchors, not generated here.</Text>
           {OPTION_GROUP_ORDER.map((group) => {
             const groupOptions = BOXING_GENERATED_WORKOUT_OPTIONS.filter((option) => option.group === group);
             return (
@@ -876,12 +882,12 @@ export function BoxingGeneratedWorkoutSessionCard({
           <Pressable
             testID="boxing-generated-workout-generate"
             accessibilityRole="button"
-            accessibilityLabel={loading ? 'Generating Athleticore support session' : workout ? 'Regenerate Athleticore support session' : 'Generate Athleticore support session'}
+            accessibilityLabel={loading ? 'Generating extra support session' : workout ? 'Regenerate extra support session' : 'Generate extra support session'}
             style={[styles.primaryButton, (loading || readinessBlocked) && styles.disabledButton]}
             disabled={loading || completing || readinessBlocked}
             onPress={submitGenerate}
           >
-            <Text style={styles.primaryButtonText}>{loading ? 'Generating...' : workout ? 'Regenerate' : 'Generate Support Session'}</Text>
+            <Text style={styles.primaryButtonText}>{loading ? 'Generating...' : workout ? 'Regenerate' : 'Generate Extra Support'}</Text>
           </Pressable>
           {workout ? (
             <Pressable

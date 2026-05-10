@@ -68,6 +68,64 @@ const noActivationSummary = buildTrainTodaySummary({
 
 assert('guardrails stay empty when canonical floor has no activation guidance', noActivationSummary.guardrails.length === 0);
 
+console.log('\n-- train today support metadata copy --');
+
+const strengthSupportSummary = buildTrainTodaySummary({
+  floorVM: {
+    sessionGoal: 'Generic strength day',
+    reasonSentence: 'Generic reason.',
+    activationGuidance: null,
+    estimatedDurationMin: 40,
+  },
+  sessionLabel: 'Fallback title',
+  targetIntensity: 6,
+  durationMin: 35,
+  supportSession: {
+    label: 'Trunk transfer',
+    supportDomainLabel: 'Strength & power support',
+    athleticDevelopmentDomain: 'strength',
+    sAndCRationale: 'Build force transfer for cleaner punching mechanics.',
+    boxingRelevance: 'Supports punch mechanics without replacing boxing practice.',
+  } as any,
+});
+
+assert('support metadata owns Today session label', strengthSupportSummary.sessionLabel === 'Strength & power support');
+assert('support metadata uses specific support title as goal', strengthSupportSummary.goal === 'Trunk transfer');
+assert('support metadata prefers S&C rationale as reason', strengthSupportSummary.reason === 'Build force transfer for cleaner punching mechanics.');
+assert('S&C support does not show coach-led practice disclaimer', !strengthSupportSummary.guardrails.some((item) => /coach-led practice/i.test(item)));
+
+const roadworkSupportSummary = buildTrainTodaySummary({
+  floorVM: null,
+  sessionLabel: null,
+  targetIntensity: 5,
+  durationMin: 35,
+  supportSession: {
+    label: 'Roadwork base',
+    supportDomainLabel: 'Roadwork support',
+    athleticDevelopmentDomain: 'roadwork',
+    sAndCRationale: 'Build aerobic support for repeat-round recovery.',
+  } as any,
+});
+
+assert('roadwork support copy reads as boxer S&C support', roadworkSupportSummary.sessionLabel === 'Roadwork support'
+  && roadworkSupportSummary.goal === 'Roadwork base'
+  && roadworkSupportSummary.reason === 'Build aerobic support for repeat-round recovery.');
+
+const skillSupportSummary = buildTrainTodaySummary({
+  floorVM: null,
+  sessionLabel: 'Fallback title',
+  targetIntensity: 3,
+  durationMin: 15,
+  supportSession: {
+    label: 'Footwork rhythm',
+    supportDomainLabel: 'Skill support',
+    athleticDevelopmentDomain: 'boxing_skill_support',
+    sAndCRationale: 'Keep footwork sharp without adding sparring load.',
+  } as any,
+});
+
+assert('skill support keeps coach-led practice disclaimer', skillSupportSummary.guardrails.some((item) => /coach-led practice/i.test(item)));
+
 console.log('\n-- workout progress summary labels --');
 
 const strongProgress = buildWorkoutProgressSummary({

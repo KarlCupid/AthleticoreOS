@@ -163,7 +163,7 @@ async function run() {
   ].every((needle) => previewCard.includes(needle)));
 
   assert('Athleticore support UI actions have descriptive accessibility labels', [
-    'accessibilityLabel={loading ? \'Generating Athleticore support session\'',
+    'accessibilityLabel={loading ? \'Generating extra support session\'',
     'accessibilityLabel="Clear generated Athleticore support session"',
     'GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview',
     'generatedWorkoutSafetyReminder',
@@ -173,7 +173,7 @@ async function run() {
   ].every((needle) => supportCard.includes(needle)));
 
   assert('workout screen generated sections are labeled for assistive tech', [
-    'Standalone Athleticore support session flow',
+    'Ad hoc Athleticore support session flow',
     'testID="boxing-generated-workout-section"',
   ].every((needle) => supportContainer.includes(needle)) && [
     'accessibilityLabel="Internal workout diagnostics section"',

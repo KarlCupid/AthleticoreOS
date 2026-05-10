@@ -26,7 +26,6 @@ export {
   validateDayLoad,
   suggestAlternative,
   detectOvertrainingRisk,
-  generateBlockPlan,
   calculateWeeklyCompliance,
   getTrainingStreak,
 } from './calculateSchedule.ts';

@@ -155,13 +155,116 @@ function workoutFocusFromSession(session: ComposedSession | null): DailyAthleteS
   }
 }
 
+function supportDemandClassRank(value: string | null | undefined): number {
+  switch (value) {
+    case 'high':
+      return 3;
+    case 'moderate':
+      return 2;
+    case 'low':
+      return 1;
+    case 'baseline':
+      return 0;
+    default:
+      return -1;
+  }
+}
+
+function supportDemandLevel(session: ComposedSession | null): 'low' | 'moderate' | 'high' {
+  const metadata = session?.supportMetadata ?? null;
+  const intensity = rangeTarget(session?.intensityRpe);
+  const demandClassRank = Math.max(
+    supportDemandClassRank(metadata?.expectedCarbDemandClass),
+    supportDemandClassRank(metadata?.expectedRecoveryDemandClass),
+    supportDemandClassRank(metadata?.expectedHydrationDemandClass),
+  );
+  const score = supportScore(metadata?.sessionEnergyDemandScore)
+    ?? supportScore(metadata?.sessionRecoveryDemandScore)
+    ?? null;
+
+  if (
+    metadata?.plannedIntensity === 'hard'
+    || (intensity != null && intensity >= 7)
+    || demandClassRank >= 3
+    || (score != null && score >= 65)
+  ) {
+    return 'high';
+  }
+
+  if (
+    metadata?.plannedIntensity === 'moderate'
+    || (intensity != null && intensity >= 5)
+    || demandClassRank >= 2
+    || (score != null && score >= 40)
+  ) {
+    return 'moderate';
+  }
+
+  return 'low';
+}
+
+function isSparSupportSession(session: ComposedSession | null): boolean {
+  if (!session) return false;
+  if (session.family === 'sparring') return true;
+  if (session.family !== 'boxing_skill') return false;
+
+  const intensity = rangeTarget(session.intensityRpe);
+  const metadata = session.supportMetadata ?? null;
+  const protectedBoxingPractice = session.protectedAnchor
+    || session.source === 'protected_anchor'
+    || metadata?.protectedWorkoutModality === 'boxing_practice';
+
+  if (metadata?.athleticDevelopmentDomain === 'boxing_skill_support' && !protectedBoxingPractice) {
+    return (intensity ?? 0) >= 7;
+  }
+
+  return protectedBoxingPractice || (intensity ?? 0) >= 7;
+}
+
+function sessionRoleFromSupportMetadata(
+  session: ComposedSession | null,
+): DailyAthleteSummary['trainingDirective']['sessionRole'] | null {
+  const domain = supportText(session?.supportMetadata?.athleticDevelopmentDomain);
+  if (!domain) return null;
+  if (isSparSupportSession(session)) return 'spar_support';
+
+  switch (domain) {
+    case 'strength':
+    case 'power':
+    case 'speed_agility':
+    case 'roadwork':
+      return 'develop';
+    case 'conditioning':
+      return supportDemandLevel(session) === 'high' ? 'express' : 'develop';
+    case 'durability': {
+      const intensity = rangeTarget(session?.intensityRpe);
+      const score = Math.max(
+        supportScore(session?.supportMetadata?.sessionEnergyDemandScore) ?? 0,
+        supportScore(session?.supportMetadata?.sessionRecoveryDemandScore) ?? 0,
+      );
+      return supportDemandLevel(session) === 'high' || (intensity != null && intensity >= 5) || score >= 50
+        ? 'develop'
+        : 'recover';
+    }
+    case 'mobility':
+    case 'recovery':
+      return 'recover';
+    case 'boxing_skill_support':
+      return session?.supportMetadata?.plannedIntensity === 'recovery' ? 'recover' : 'develop';
+    default:
+      return null;
+  }
+}
+
 function sessionRoleFromUnified(result: UnifiedPerformanceEngineResult | null, session: ComposedSession | null): DailyAthleteSummary['trainingDirective']['sessionRole'] {
   if (!result) return 'recover';
   if (result.finalPlanStatus === 'blocked') return 'recover';
   if (result.canonicalOutputs.readiness.recommendedTrainingAdjustment.replaceWithMobility) return 'recover';
   if (session?.family === 'rest') return 'rest';
+  const supportRole = sessionRoleFromSupportMetadata(session);
+  if (supportRole) return supportRole;
   if (session?.family === 'recovery') return 'recover';
-  if (session?.family === 'sparring' || session?.family === 'boxing_skill') return 'spar_support';
+  if (isSparSupportSession(session)) return 'spar_support';
   if (result.performanceState.phase.current === 'competition_week' || result.performanceState.phase.current === 'taper') return 'taper_sharpen';
   return result.finalPlanStatus === 'ready' ? 'develop' : 'express';
 }
@@ -223,8 +326,34 @@ function priorityFromSession(session: ComposedSession | null): NutritionFuelingT
   }
 }
 
+function fuelStateFromSupportMetadata(session: ComposedSession | null): NutritionFuelingTarget['fuelState'] | null {
+  const domain = supportText(session?.supportMetadata?.athleticDevelopmentDomain);
+  if (!domain) return null;
+  if (isSparSupportSession(session)) return 'spar_support';
+
+  switch (domain) {
+    case 'strength':
+    case 'power':
+    case 'speed_agility':
+      return 'strength_power';
+    case 'roadwork':
+    case 'conditioning':
+      return 'aerobic';
+    case 'durability':
+    case 'mobility':
+    case 'recovery':
+      return 'active_recovery';
+    case 'boxing_skill_support':
+      return supportDemandLevel(session) === 'low' ? 'active_recovery' : 'aerobic';
+    default:
+      return null;
+  }
+}
+
 function fuelStateFromUnified(target: NutritionTarget, session: ComposedSession | null): NutritionFuelingTarget['fuelState'] {
   if (target.phase === 'competition_week' || target.phase === 'taper') return 'taper';
+  const supportFuelState = fuelStateFromSupportMetadata(session);
+  if (supportFuelState) return supportFuelState;
   if (session?.family === 'sparring' || session?.family === 'boxing_skill') return 'spar_support';
   if (session?.family === 'strength') return 'strength_power';
   if (session?.family === 'recovery' || session?.family === 'rest') return 'active_recovery';
@@ -325,6 +454,14 @@ function sessionFuelingPlanFromUnified(input: {
       supportCoachingNote,
     ],
   };
+}
+
+function supportFuelMetadataReason(metadata: ComposedSession['supportMetadata']): string | null {
+  const label = supportText(metadata?.supportDomainLabel);
+  const priority = supportFuelPriority(metadata?.expectedFuelPriority);
+  if (!label && !priority) return null;
+  const priorityLabel = priority?.replace(/_/g, ' ') ?? 'support-session';
+  return `${label ?? 'Planned support session'} fueling uses direct ${priorityLabel} metadata from the weekly support plan.`;
 }
 
 function nutritionFuelingTargetFromUnified(input: {
@@ -429,6 +566,10 @@ export function buildDailyAthleteSummaryFromUnified(input: {
   const trainingReason = supportReasonFromSession(session, fallbackTrainingReason);
   const readinessAdjustment = input.unifiedPerformance?.canonicalOutputs.readiness.recommendedTrainingAdjustment;
   const sessionRole = sessionRoleFromUnified(input.unifiedPerformance, session);
+  const fuelMetadataReason = supportFuelMetadataReason(supportMetadata);
+  const fuelDirectiveReasons = fuelMetadataReason
+    ? [...nutritionTarget.reasonLines, fuelMetadataReason]
+    : nutritionTarget.reasonLines;
 
   return {
     nutritionTarget,
@@ -483,6 +624,14 @@ export function buildDailyAthleteSummaryFromUnified(input: {
         prioritySession: nutritionTarget.prioritySession,
         deficitClass: nutritionTarget.deficitClass,
         recoveryNutritionFocus: nutritionTarget.recoveryNutritionFocus,
+        athleticDevelopmentDomain: supportText(supportMetadata?.athleticDevelopmentDomain),
+        supportDomainLabel: supportText(supportMetadata?.supportDomainLabel),
+        expectedFuelPriority: supportFuelPriority(supportMetadata?.expectedFuelPriority),
+        expectedCarbDemandClass: supportDemandClass(supportMetadata?.expectedCarbDemandClass),
+        expectedRecoveryDemandClass: supportDemandClass(supportMetadata?.expectedRecoveryDemandClass),
+        expectedHydrationDemandClass: supportDemandClass(supportMetadata?.expectedHydrationDemandClass),
+        sessionEnergyDemandScore: supportScore(supportMetadata?.sessionEnergyDemandScore),
+        sessionRecoveryDemandScore: supportScore(supportMetadata?.sessionRecoveryDemandScore),
         sessionDemandScore: nutritionTarget.sessionDemandScore,
         calories: nutritionTarget.adjustedCalories,
         protein: nutritionTarget.protein,
@@ -497,8 +646,8 @@ export function buildDailyAthleteSummaryFromUnified(input: {
         compliancePriority: nutritionTarget.prioritySession === 'recovery' ? 'recovery' : input.objectiveContext.weightClassState === 'driving' ? 'weight' : 'performance',
         adjustmentFlag: null,
         source: 'daily_engine',
-        message: nutritionTarget.message,
-        reasons: nutritionTarget.reasonLines,
+        message: [nutritionTarget.message, fuelMetadataReason].filter(Boolean).join(' '),
+        reasons: fuelDirectiveReasons,
         sessionFuelingPlan: nutritionTarget.sessionFuelingPlan,
         energyAvailability: nutritionTarget.energyAvailability,
         fuelingFloorTriggered: nutritionTarget.fuelingFloorTriggered,

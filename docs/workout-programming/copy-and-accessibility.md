@@ -47,7 +47,7 @@ Avoid:
 Generated workout UI should include:
 
 - Clear headings for session intent, blocks, exercises, safety, scaling, feedback, and next step.
-- Descriptive button labels such as "Generate Athleticore support session", "Start Athleticore support session", and "Complete Athleticore support session".
+- Descriptive button labels such as "Generate extra support session", "Start Athleticore support session", and "Complete Athleticore support session".
 - Checkbox labels that include the exercise name.
 - Input labels that include the exercise name when repeated fields appear.
 - Visible safety notes, not color-only warnings.

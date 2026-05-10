@@ -9,6 +9,12 @@ export interface BoxingGeneratedWorkoutContainerProps {
   mode?: 'standalone';
 }
 
+/**
+ * Explicit ad hoc support generation only.
+ *
+ * Planned weekly Athleticore support entries should open from Today into
+ * WorkoutDetail, where the weekly snapshot owns lazy generation and execution.
+ */
 export function BoxingGeneratedWorkoutContainer({ controller, mode = 'standalone' }: BoxingGeneratedWorkoutContainerProps) {
   const { engineEnabled, support } = controller;
 
@@ -39,7 +45,7 @@ export function BoxingGeneratedWorkoutContainer({ controller, mode = 'standalone
   return (
     <Animated.View
       testID="boxing-generated-workout-section"
-      accessibilityLabel={mode === 'standalone' ? 'Standalone Athleticore support session flow' : 'Athleticore support session flow'}
+      accessibilityLabel={mode === 'standalone' ? 'Ad hoc Athleticore support session flow' : 'Athleticore support session flow'}
       entering={FadeInDown.delay(70).duration(280).springify()}
     >
       <BoxingGeneratedWorkoutSessionCard

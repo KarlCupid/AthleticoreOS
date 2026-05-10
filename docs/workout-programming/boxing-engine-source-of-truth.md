@@ -28,7 +28,7 @@ These paths are not allowed to own normal product workout generation:
 
 They may exist only for old data compatibility, characterization tests, unrelated legacy calculations, or explicit migration helpers.
 
-Legacy workout-generation functions such as `generateWorkoutV2`, `generateAdaptiveSmartWeekPlan`, and the `generateSmartWeekPlan` alias are exposed only from `lib/engine/legacyWorkoutGeneration.ts`, which is an explicit compatibility boundary. Product app code should not import them from `lib/engine/index.ts`.
+Legacy workout-generation functions such as `generateWorkoutV2`, `generateAdaptiveSmartWeekPlan`, the `generateSmartWeekPlan` alias, and compatibility block planning (`generateLegacyBlockPlan` / legacy `generateBlockPlan` alias) are exposed only from `lib/engine/legacyWorkoutGeneration.ts`, which is an explicit compatibility/simulation boundary. Product app code should not import them from `lib/engine/index.ts`.
 
 ## Weekly Plan Flow
 
@@ -56,14 +56,15 @@ Compatibility helpers must not recreate old runtime generation as a fallback. Ol
 
 `GuidedWorkout` is compatibility-only for old rows that still carry a legacy guided prescription. Generated support sessions and protected boxing anchors route through `WorkoutDetail`; if a support snapshot does not yet have an attached `GeneratedWorkout`, the detail surface may lazily generate and attach one through the generated-workout path.
 
-The Today tab shows the planned Athleticore support entry from the weekly snapshot. It must not automatically mount the standalone ad hoc generator just because today has a generated weekly entry. Standalone support generation is explicit/ad hoc only.
+The Today tab shows the planned Athleticore support entry from the weekly snapshot through one execution card with one `WorkoutDetail` CTA. It must not also show a duplicate hero start CTA or automatically mount the standalone ad hoc generator just because today has a generated weekly entry. Standalone support generation is explicit/ad hoc extra support only.
 
-Daily performance, DailyAthleteSummary, and nutrition read support-domain metadata directly from `BoxingGeneratedPlanEntrySnapshot`, including `athleticDevelopmentDomain`, `supportDomainLabel`, `expectedFuelPriority`, demand classes, boxing relevance, S&C rationale, and energy/recovery demand scores. Title and family heuristics are fallback behavior for old data, not the primary interpretation path.
+Daily performance, DailyAthleteSummary, and nutrition read support-domain metadata directly from `BoxingGeneratedPlanEntrySnapshot`, including `athleticDevelopmentDomain`, `supportDomainLabel`, `expectedFuelPriority`, demand classes, boxing relevance, S&C rationale, and energy/recovery demand scores. `TrainingDirective` and `FuelDirective` both expose those support-domain fields so UI and fueling surfaces do not need title parsing. Title and family heuristics are fallback behavior for old data, not the primary interpretation path.
 
 ## Boxing Safety Rules
 
 - No generated sparring.
 - Sparring and competition are protected coach-led anchors only.
+- Low-risk generated skill support is not sparring or spar support; only actual sparring, protected boxing practice, or high-intensity boxing practice should use that role.
 - Protected boxing anchors are not silently moved or removed.
 - MMA, grappling, wrestling, BJJ, Muay Thai, kickboxing, and other non-boxing labels are external non-boxing load unless the entry explicitly describes boxing.
 - Missing readiness, pain, sleep, hydration, body-mass, symptoms, or fueling data is unknown, not safe.

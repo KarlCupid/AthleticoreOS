@@ -15,8 +15,6 @@ import type {
     PrescribedExercise,
     CampPhase,
     RecurringActivityRow,
-    GenerateBlockPlanInput,
-    BlockPlanResult,
     TrainingSessionFamily,
     ExerciseHistoryEntry,
     MuscleGroup,
@@ -26,7 +24,6 @@ import { getGoalBasedFocusRotation, resolveTrainingBlockContext } from './perfor
 import { deriveReadinessProfile, deriveStimulusConstraintSet } from './readiness/profile.ts';
 import { classifyGuidedSessionType } from './sessionOwnership.ts';
 import { todayLocalDate } from '../utils/date.ts';
-import { generateLegacySmartWeekPlan } from './legacyWorkoutGeneration.ts';
 
 import {
   ACWR_DANGER,
@@ -822,44 +819,5 @@ export function handleMissedDay(input: MissedDayRescheduleInput): MissedDayResch
         message,
     };
 }
-
-export function generateBlockPlan(input: GenerateBlockPlanInput): BlockPlanResult {
-    const weeks = Array.from({ length: Math.max(0, input.weeks) }, (_, index) => {
-        const weekStartDate = addDays(input.startDate, index * 7);
-        // Legacy block planning remains available only through the explicit compatibility boundary.
-        const weekPlan = generateLegacySmartWeekPlan({
-            ...input,
-            weekStartDate,
-        });
-
-        return {
-            weekStartDate,
-            isDeloadWeek: weekPlan.isDeloadWeek,
-            deloadReason: weekPlan.deloadReason,
-            weeklyMixPlan: weekPlan.weeklyMixPlan,
-        };
-    });
-
-    return { weeks };
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

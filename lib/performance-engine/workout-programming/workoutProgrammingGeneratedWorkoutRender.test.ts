@@ -464,10 +464,10 @@ async function run(): Promise<void> {
   }));
   assert('beta session card renders configure state', Boolean(
     configure.getByTestId('boxing-generated-workout-card')
-      && configure.getByLabelText('Generate Athleticore support session')
-      && configure.getByText('Choose the basics. The engine keeps safety and readiness in the request.'),
+      && configure.getByLabelText('Generate extra support session')
+      && configure.getByText('Choose an extra support dose. Planned weekly sessions open from Today and WorkoutDetail.'),
   ));
-  act(() => { fireEvent.press(configure.getByLabelText('Generate Athleticore support session')); });
+  act(() => { fireEvent.press(configure.getByLabelText('Generate extra support session')); });
   assert('boxing configure state calls generate handler', eventLog.includes('generate'));
   configure.unmount();
 
@@ -554,6 +554,11 @@ async function run(): Promise<void> {
     flagsOff.getByTestId('planned-support-session-card')
       && flagsOff.queryByTestId('boxing-generated-workout-section') === null
       && flagsOff.queryByTestId('internal-workout-diagnostics-section') === null,
+  ));
+  assert('planned support session exposes a single Today execution CTA', Boolean(
+    flagsOff.getAllByLabelText('Open support session').length === 1
+      && flagsOff.queryByLabelText('Start session') === null
+      && flagsOff.queryByLabelText('Generate attached workout') === null,
   ));
   await act(async () => { fireEvent.press(flagsOff.getByLabelText('Open support session')); });
   assert('planned support session primary CTA opens WorkoutDetail', Boolean(

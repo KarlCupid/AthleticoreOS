@@ -136,6 +136,14 @@ export interface FuelDirective {
   prioritySession?: FuelPriority;
   deficitClass?: DeficitClass;
   recoveryNutritionFocus?: RecoveryNutritionFocus;
+  athleticDevelopmentDomain?: string | null;
+  supportDomainLabel?: string | null;
+  expectedFuelPriority?: FuelPriority | null;
+  expectedCarbDemandClass?: SupportDemandClass | null;
+  expectedRecoveryDemandClass?: SupportDemandClass | null;
+  expectedHydrationDemandClass?: SupportDemandClass | null;
+  sessionEnergyDemandScore?: number | null;
+  sessionRecoveryDemandScore?: number | null;
   sessionDemandScore: number;
   calories: number;
   protein: number;

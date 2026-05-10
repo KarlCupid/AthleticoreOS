@@ -116,6 +116,12 @@ console.log('\n-- daily athlete summary support metadata --');
   assert('strength support demand scores reach training directive', summary.trainingDirective.sessionEnergyDemandScore === 52
     && summary.trainingDirective.sessionRecoveryDemandScore === 64);
   assert('support rationale wins over title/fallback copy', summary.trainingDirective.reason === 'Build force transfer for cleaner punching mechanics.');
+  assert('strength support metadata reaches fuel directive', summary.fuelDirective.supportDomainLabel === 'Strength & power support'
+    && summary.fuelDirective.athleticDevelopmentDomain === 'strength'
+    && summary.fuelDirective.expectedFuelPriority === 'strength_power'
+    && summary.fuelDirective.expectedCarbDemandClass === 'moderate'
+    && summary.fuelDirective.sessionEnergyDemandScore === 52);
+  assert('fuel directive reasons explain direct support metadata', summary.fuelDirective.reasons.some((reason) => reason.includes('direct strength power metadata')));
 })();
 
 (() => {
@@ -136,12 +142,18 @@ console.log('\n-- daily athlete summary support metadata --');
   }));
   assert('roadwork support keeps direct fuel priority in training directive', summary.trainingDirective.expectedFuelPriority === 'roadwork_aerobic');
   assert('roadwork support also drives nutrition priority directly', summary.fuelDirective.prioritySession === 'roadwork_aerobic');
+  assert('roadwork support exposes fuel metadata directly', summary.fuelDirective.supportDomainLabel === 'Roadwork support'
+    && summary.fuelDirective.expectedFuelPriority === 'roadwork_aerobic'
+    && summary.fuelDirective.expectedCarbDemandClass === 'moderate'
+    && summary.fuelDirective.expectedRecoveryDemandClass === 'moderate'
+    && summary.fuelDirective.expectedHydrationDemandClass === 'moderate');
 })();
 
 (() => {
   const summary = build(supportSession({
     family: 'recovery',
     title: 'Durability support',
+    intensityRpe: { target: 3, min: 2, max: 4, unit: 'rpe', confidence: { level: 'medium', score: 0.7, reasons: [] }, precision: 'range' },
     supportMetadata: {
       athleticDevelopmentDomain: 'durability',
       boxingSessionFamily: 'shoulder_scap_durability',
@@ -159,6 +171,65 @@ console.log('\n-- daily athlete summary support metadata --');
   assert('durability support stays recovery/support, not boxing practice', summary.trainingDirective.workoutType === 'recovery'
     && summary.trainingDirective.sessionRole === 'recover'
     && summary.trainingDirective.expectedFuelPriority === 'durability');
+  assert('durability support exposes recovery demand metadata to fuel directive', summary.fuelDirective.expectedFuelPriority === 'durability'
+    && summary.fuelDirective.expectedRecoveryDemandClass === 'moderate'
+    && summary.fuelDirective.sessionRecoveryDemandScore === 35);
+})();
+
+(() => {
+  const summary = build(supportSession({
+    family: 'boxing_skill',
+    title: 'Skill support: footwork rhythm',
+    durationMinutes: { target: 15, min: 10, max: 20, unit: 'minute', confidence: { level: 'medium', score: 0.7, reasons: [] }, precision: 'range' },
+    intensityRpe: { target: 3, min: 2, max: 4, unit: 'rpe', confidence: { level: 'medium', score: 0.7, reasons: [] }, precision: 'range' },
+    supportMetadata: {
+      athleticDevelopmentDomain: 'boxing_skill_support',
+      boxingSessionFamily: 'footwork_agility',
+      boxingSessionRole: 'footwork_agility',
+      supportDomainLabel: 'Skill support',
+      expectedFuelPriority: 'boxing_practice',
+      expectedCarbDemandClass: 'low',
+      expectedRecoveryDemandClass: 'low',
+      expectedHydrationDemandClass: 'baseline',
+      sessionEnergyDemandScore: 20,
+      sessionRecoveryDemandScore: 18,
+      plannedIntensity: 'low',
+      sAndCRationale: 'Keep footwork quality sharp without adding sparring load.',
+    },
+  }));
+  assert('boxing skill support microdose does not become spar support', summary.trainingDirective.sessionRole !== 'spar_support'
+    && summary.trainingDirective.sessionRole === 'develop');
+})();
+
+(() => {
+  const summary = build(supportSession({
+    family: 'sparring',
+    source: 'protected_anchor',
+    protectedAnchor: true,
+    title: 'Coach-led sparring',
+    supportMetadata: null,
+  }));
+  assert('protected sparring still routes to spar support', summary.trainingDirective.sessionRole === 'spar_support');
+})();
+
+(() => {
+  const mobilitySummary = build(supportSession({
+    family: 'recovery',
+    title: 'Mobility support',
+    supportMetadata: {
+      athleticDevelopmentDomain: 'mobility',
+      supportDomainLabel: 'Mobility support',
+      expectedFuelPriority: 'mobility',
+      expectedCarbDemandClass: 'baseline',
+      expectedRecoveryDemandClass: 'low',
+      expectedHydrationDemandClass: 'baseline',
+      sessionEnergyDemandScore: 12,
+      sessionRecoveryDemandScore: 16,
+      plannedIntensity: 'recovery',
+    },
+  }));
+  assert('mobility support routes to recover behavior', mobilitySummary.trainingDirective.sessionRole === 'recover'
+    && mobilitySummary.fuelDirective.expectedFuelPriority === 'mobility');
 })();
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --`);

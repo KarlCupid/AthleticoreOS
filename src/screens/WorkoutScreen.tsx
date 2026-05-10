@@ -181,16 +181,6 @@ function PlannedSupportSessionCard({
         >
           <Text style={styles.primaryButtonText}>Open support session</Text>
         </AnimatedPressable>
-        {!attached ? (
-          <AnimatedPressable
-            accessibilityRole="button"
-            accessibilityLabel="Generate attached workout"
-            style={styles.secondaryLink}
-            onPress={onOpen}
-          >
-            <Text style={styles.secondaryLinkText}>Generate attached workout</Text>
-          </AnimatedPressable>
-        ) : null}
       </View>
     </Card>
   );
@@ -337,6 +327,8 @@ export function WorkoutScreen() {
 
   const heroToneStyles = getHeroToneStyles(todaySummary.effortTone);
   const hasStructuredToday = Boolean(todayPlanEntry || prescription);
+  const hasPlannedSupportSession = Boolean(todayPlanEntry && todayBoxingSnapshot && !todayBoxingSnapshot.protectedAnchor);
+  const showTodayHero = hasStructuredToday && !hasPlannedSupportSession;
   const showEmptyPlan = !hasStructuredToday && contextualTodayActivities.length === 0 && groupedWeeklyEntries.length === 0;
   const primaryActionLabel = todayPlanEntry?.status === 'completed'
     ? 'View workout details'
@@ -424,7 +416,7 @@ export function WorkoutScreen() {
             ) : null}
             {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}
             {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
-            {!initialLoadError && hasStructuredToday ? (
+            {!initialLoadError && showTodayHero ? (
               <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}>
                 <Card
                   style={[styles.heroCard, { borderColor: heroToneStyles.borderColor }]}
@@ -464,7 +456,7 @@ export function WorkoutScreen() {
                 <WorkoutPrescriptionSection prescription={prescription} themeColor={themeColor} showStartButton={false} />
               </Animated.View>
             ) : null}
-            {!initialLoadError && todayPlanEntry && todayBoxingSnapshot && !todayBoxingSnapshot.protectedAnchor ? (
+            {!initialLoadError && todayPlanEntry && hasPlannedSupportSession && todayBoxingSnapshot ? (
               <Animated.View entering={FadeInDown.delay(60).duration(280).springify()}>
                 <PlannedSupportSessionCard
                   entry={todayPlanEntry}

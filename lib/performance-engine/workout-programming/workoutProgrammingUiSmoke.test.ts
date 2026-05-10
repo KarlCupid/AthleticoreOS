@@ -69,6 +69,7 @@ async function run() {
   ]) && hasAll(supportHook, [
     'resolveBoxingSAndCEngineFlags',
     'if (!engineEnabled) return;',
+    'Ad hoc/diagnostic support generation only',
   ]) && !supportHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
     'resolveGeneratedWorkoutFeatureFlags',
     'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW',
@@ -81,6 +82,7 @@ async function run() {
     "previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1'",
   ]) && hasAll(supportContainer, [
     'testID="boxing-generated-workout-section"',
+    'Ad hoc Athleticore support session flow',
     "mode = 'standalone'",
   ]) && !workoutScreen.includes('BoxingGeneratedWorkoutContainer') && !workoutScreen.includes('showBoxingGeneratedFlow') && !supportContainer.includes('internal-workout-diagnostics-section') && hasAll(devPreviewPanel, [
     'testID="internal-workout-diagnostics-section"',

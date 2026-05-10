@@ -65,6 +65,8 @@ export interface UseBoxingGeneratedWorkoutResult {
   support: BoxingGeneratedWorkoutController;
 }
 
+// Ad hoc/diagnostic support generation only. Planned weekly support sessions
+// execute from the weekly-plan snapshot through WorkoutDetail.
 function supportStageFromLifecycleStatus(status: GeneratedWorkoutSessionLifecycleStatus): BoxingGeneratedWorkoutStage {
   if (status === 'completed') return 'completed';
   if (status === 'started' || status === 'paused' || status === 'resumed') return 'started';

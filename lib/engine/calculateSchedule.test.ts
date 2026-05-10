@@ -9,11 +9,10 @@ import {
     validateDayLoad,
     suggestAlternative,
     detectOvertrainingRisk,
-    generateBlockPlan,
     resolveGuidedAvailability,
     updateRollingPlanContextFromPrescription,
 } from './calculateSchedule.ts';
-import { generateSmartWeekPlan, generateWorkoutV2 } from './legacyWorkoutGeneration.ts';
+import { generateLegacyBlockPlan, generateSmartWeekPlan, generateWorkoutV2 } from './legacyWorkoutGeneration.ts';
 import { generateCampPlan } from './calculateCamp.ts';
 import type {
     ExerciseHistoryEntry,
@@ -412,7 +411,7 @@ console.log('\n-- generateSmartWeekPlan adaptive path --');
 })();
 
 (() => {
-    const block = generateBlockPlan({
+    const block = generateLegacyBlockPlan({
         config: makeSmartConfig({ available_days: [1, 2, 4, 5] }),
         readinessState: 'Prime',
         phase: 'fight-camp',
