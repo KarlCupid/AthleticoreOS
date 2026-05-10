@@ -200,7 +200,7 @@ export function WorkoutScreen() {
   useEffect(() => { setShowWorkoutDetails(false); }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
 
   const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
-    if (entry && getBoxingSnapshotFromWeeklyPlanEntry(entry)) {
+    if (entry && classifyPlanEntryRuntimeSurface(entry) !== 'legacy_guided_workout') {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
       const context = await getGuidedWorkoutContext(session.user.id, entry.date);

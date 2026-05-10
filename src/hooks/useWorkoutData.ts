@@ -15,6 +15,7 @@ import {
   generatedCompletionSurfacesToAnalyticsSessions,
   generatedCompletionSurfacesToHistoryEntries,
   getBoxingSnapshotFromWeeklyPlanEntry,
+  isActiveAthleticoreSupportPlanEntry,
   mergeWorkoutAnalyticsSessions,
   mergeWorkoutHistoryEntries,
   workoutProgrammingService,
@@ -52,6 +53,8 @@ interface WorkoutNavigation {
 function resolveTodayPlanEntry(engineState: DailyEngineState | null): WeeklyPlanEntryRow | null {
   if (!engineState) return null;
   if (engineState.primaryTrainingPlanEntry) return engineState.primaryTrainingPlanEntry as WeeklyPlanEntryRow;
+  const activeSupportEntry = engineState.weeklyPlanEntries.find(isActiveAthleticoreSupportPlanEntry);
+  if (activeSupportEntry) return activeSupportEntry as WeeklyPlanEntryRow;
   if (engineState.primaryPlanEntry && getBoxingSnapshotFromWeeklyPlanEntry(engineState.primaryPlanEntry)) {
     return engineState.primaryPlanEntry as WeeklyPlanEntryRow;
   }

@@ -253,7 +253,7 @@ The Athleticore support flow supports generate, inspect, start, completion loggi
 
 Train shows Athlete Support This Week when an active generated week exists. Protected boxing anchors are separated from Athleticore support sessions, and domain tags show Strength, Power, Roadwork, Conditioning, Durability, Mobility, Recovery, or Skill support.
 
-Today's active support session is selected from `weekly_plan_entries` by reading the `BoxingGeneratedPlanEntrySnapshot` directly. Planned generated support snapshots open `WorkoutDetail`, not `GuidedWorkout`; old guided-prescription rows remain readable through compatibility routing only.
+Today's active support session is selected from `weekly_plan_entries` by reading the `BoxingGeneratedPlanEntrySnapshot` directly. The snapshot is the runtime signal even if older rows are missing `placement_source`. Planned generated support snapshots open `WorkoutDetail`, not `GuidedWorkout`; old guided-prescription rows remain readable through compatibility routing only.
 
 Daily performance and nutrition should consume snapshot metadata directly:
 

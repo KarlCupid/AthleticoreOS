@@ -9,6 +9,7 @@ import type {
   WeeklyPlanEntryRow,
   WorkoutFocus,
 } from '../../lib/engine/types';
+import { classifyPlanEntryRuntimeSurface } from '../../lib/performance-engine/workout-programming';
 import type { TrainStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
@@ -46,6 +47,7 @@ export function useWorkoutDetailController({
 }: UseWorkoutDetailControllerParams) {
   const handleStartWorkout = useCallback(() => {
     if (!entry) return;
+    if (classifyPlanEntryRuntimeSurface(entry) !== 'legacy_guided_workout') return;
     navigation.navigate('GuidedWorkout', {
       weeklyPlanEntryId: entry.id,
       scheduledActivityId: entry.scheduled_activity_id ?? undefined,

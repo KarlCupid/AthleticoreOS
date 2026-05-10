@@ -8,6 +8,7 @@ import {
   classifyPlanEntryRuntimeSurface,
   isActiveAthleticoreSupportPlanEntry,
   isLegacyGuidedWorkoutPlanEntry,
+  isProtectedAthleticoreAnchorEntry,
 } from '../performance-engine/workout-programming/planEntryRuntime.ts';
 
 let passed = 0;
@@ -92,6 +93,18 @@ console.log('\n-- sessionOwnership --');
     placement_source: 'generated',
     prescription_snapshot: snapshot,
   };
+  const protectedEntry = {
+    ...generatedEntry,
+    id: 'protected',
+    session_type: 'boxing_practice',
+    placement_source: 'locked',
+    prescription_snapshot: {
+      ...snapshot,
+      sessionId: 'session-protected',
+      protectedAnchor: true,
+      protectedWorkoutModality: 'boxing_skill',
+    },
+  };
   const legacyEntry = {
     id: 'legacy',
     status: 'planned',
@@ -104,7 +117,8 @@ console.log('\n-- sessionOwnership --');
   };
 
   assert('generated support snapshot is active Athleticore support', isActiveAthleticoreSupportPlanEntry(generatedEntry as any));
-  assert('generated support snapshot opens detail surface', classifyPlanEntryRuntimeSurface(generatedEntry as any) === 'athleticore_support_detail');
+  assert('generated support snapshot uses Athleticore support runtime surface', classifyPlanEntryRuntimeSurface(generatedEntry as any) === 'athleticore_support_session');
+  assert('protected boxing snapshot uses protected-anchor runtime surface', isProtectedAthleticoreAnchorEntry(protectedEntry as any) && classifyPlanEntryRuntimeSurface(protectedEntry as any) === 'protected_boxing_anchor');
   assert('generated support snapshot is not legacy guided compatibility', !isLegacyGuidedWorkoutPlanEntry(generatedEntry as any));
   assert('legacy guided prescription remains GuidedWorkout compatibility', classifyPlanEntryRuntimeSurface(legacyEntry as any) === 'legacy_guided_workout');
 })();

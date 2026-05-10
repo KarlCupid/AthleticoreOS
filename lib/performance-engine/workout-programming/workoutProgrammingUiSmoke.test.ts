@@ -38,6 +38,9 @@ async function run() {
   const packageJson = read('package.json');
   const easJson = read('eas.json');
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
+  const workoutDetailController = read('src/hooks/useWorkoutDetailController.ts');
+  const dashboardScreen = read('src/screens/DashboardScreen.tsx');
+  const dayDetailScreen = read('src/screens/DayDetailScreen.tsx');
   const supportHook = read('src/hooks/useBoxingGeneratedWorkout.ts');
   const devPreviewHook = read('src/hooks/useGeneratedWorkoutDevPreview.ts');
   const supportContainer = read('src/components/workout/BoxingGeneratedWorkoutContainer.tsx');
@@ -106,7 +109,22 @@ async function run() {
   assert('WorkoutScreen routes generated support snapshots to WorkoutDetail before GuidedWorkout compatibility', hasAll(workoutScreen, [
     'classifyPlanEntryRuntimeSurface',
     "runtimeSurface === 'legacy_guided_workout'",
+    "classifyPlanEntryRuntimeSurface(entry) !== 'legacy_guided_workout'",
     "navigation.navigate('WorkoutDetail'",
+  ]) && hasAll(workoutDetailController, [
+    'classifyPlanEntryRuntimeSurface',
+    "classifyPlanEntryRuntimeSurface(entry) !== 'legacy_guided_workout'",
+    "navigation.navigate('GuidedWorkout'",
+  ]) && hasAll(dashboardScreen, [
+    'getWeeklyPlanEntryById',
+    'classifyPlanEntryRuntimeSurface',
+    'openTrainScreen("WorkoutDetail"',
+    'openTrainScreen("GuidedWorkout"',
+  ]) && hasAll(dayDetailScreen, [
+    'getWeeklyPlanEntryById',
+    'classifyPlanEntryRuntimeSurface',
+    "screen: 'WorkoutDetail'",
+    "screen: 'GuidedWorkout'",
   ]) && !workoutScreen.includes("if (group.date === todayLocalDate() && primaryEntry.status === 'planned') { void openGuidedWorkout(primaryEntry); return; }"));
 
   assert('preview card exposes all display sections requested by generated workouts', hasAll(previewCard, [

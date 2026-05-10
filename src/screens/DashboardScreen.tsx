@@ -61,7 +61,9 @@ import { logError } from "../../lib/utils/logger";
 import { useDashboardData } from "../hooks/useDashboardData";
 import { styles } from "./DashboardScreen.styles";
 import { getGuidedWorkoutContext } from "../../lib/api/fightCampService";
+import { getWeeklyPlanEntryById } from "../../lib/api/weeklyPlanService";
 import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
+import { classifyPlanEntryRuntimeSurface } from "../../lib/performance-engine/workout-programming";
 
 const BRAND_LOGO = require("../../assets/images/athleticore-logo.png");
 
@@ -178,6 +180,17 @@ export function DashboardScreen() {
         session.user.id,
         todayPlanEntry.date,
       );
+      if (classifyPlanEntryRuntimeSurface(todayPlanEntry) !== "legacy_guided_workout") {
+        openTrainScreen("WorkoutDetail", {
+          weeklyPlanEntryId: todayPlanEntry.id,
+          date: todayPlanEntry.date,
+          readinessState: currentLevel ?? "Prime",
+          phase: context.phase,
+          fitnessLevel: context.fitnessLevel,
+          isDeloadWeek: todayPlanEntry.is_deload,
+        });
+        return;
+      }
       openTrainScreen("GuidedWorkout", {
         weeklyPlanEntryId: todayPlanEntry.id,
         scheduledActivityId: todayPlanEntry.scheduled_activity_id ?? undefined,
@@ -203,6 +216,32 @@ export function DashboardScreen() {
         session.user.id,
         primaryActivity.date,
       );
+      try {
+        const linkedEntry = await getWeeklyPlanEntryById(primaryActivity.weekly_plan_entry_id);
+        if (!linkedEntry || classifyPlanEntryRuntimeSurface(linkedEntry) !== "legacy_guided_workout") {
+          openTrainScreen("WorkoutDetail", {
+            weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
+            date: linkedEntry?.date ?? primaryActivity.date,
+            readinessState: currentLevel ?? "Prime",
+            phase: context.phase,
+            fitnessLevel: context.fitnessLevel,
+            isDeloadWeek: linkedEntry?.is_deload,
+          });
+          return;
+        }
+      } catch (error) {
+        logError("DashboardScreen.openTodayTraining.weeklyPlanEntry", error, {
+          weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
+        });
+        openTrainScreen("WorkoutDetail", {
+          weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
+          date: primaryActivity.date,
+          readinessState: currentLevel ?? "Prime",
+          phase: context.phase,
+          fitnessLevel: context.fitnessLevel,
+        });
+        return;
+      }
       openTrainScreen("GuidedWorkout", {
         weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
         scheduledActivityId: primaryActivity.id,

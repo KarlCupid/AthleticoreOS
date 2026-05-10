@@ -98,6 +98,18 @@ console.log('\n-- boxing snapshot daily performance mapping --');
 
 (() => {
   const session = boxingSnapshotToDailyPerformanceSession(makeEntry({
+    id: 'snapshot-source-entry',
+    placement_source: null,
+    prescription_snapshot: makeSnapshot({
+      athleticDevelopmentDomain: 'strength',
+      expectedFuelPriority: 'strength_power',
+    }),
+  }));
+  assert('valid GeneratedProgram snapshot is daily-performance source of truth without placement_source', session?.id === 'weekly_plan_entry:snapshot-source-entry');
+})();
+
+(() => {
+  const session = boxingSnapshotToDailyPerformanceSession(makeEntry({
     id: 'roadwork-entry',
     session_type: 'road_work',
     prescription_snapshot: makeSnapshot({

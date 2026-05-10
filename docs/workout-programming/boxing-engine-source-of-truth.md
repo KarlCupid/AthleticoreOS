@@ -13,7 +13,7 @@ AthleticoreOS is a boxing-athlete S&C and performance-support platform. Workout 
 
 `weekly_plan_entries` and `scheduled_activities` remain useful storage and calendar surfaces. They do not decide the programming intent for new weeks. New weekly rows should be created from boxing `GeneratedProgram` sessions through `generatedProgramWeeklyPlanAdapter.ts`.
 
-Today's active Athleticore training selection recognizes a `BoxingGeneratedPlanEntrySnapshot` in `weekly_plan_entries.prescription_snapshot` as the source of truth. A planned generated support snapshot is active training even when it has no legacy `WorkoutPrescriptionV2.exercises`. Planned generated support ranks ahead of protected anchors and old guided compatibility rows.
+Today's active Athleticore training selection recognizes a `BoxingGeneratedPlanEntrySnapshot` in `weekly_plan_entries.prescription_snapshot` as the source of truth. A planned generated support snapshot is active training even when it has no legacy `WorkoutPrescriptionV2.exercises`, and runtime code should trust the snapshot itself rather than require `placement_source = generated`. Planned generated support ranks ahead of protected anchors and old guided compatibility rows.
 
 ## Not Source Of Truth
 
@@ -48,6 +48,7 @@ Old `weekly_plan_entries` and old `prescription_snapshot` rows can be read so at
 - Detect old rows with `isLegacyWeeklyPlanEntry`.
 - Detect boxing rows with `isBoxingGeneratedWeeklyPlanEntry`.
 - Read boxing snapshots with `getBoxingSnapshotFromWeeklyPlanEntry`.
+- Classify runtime surfaces with `classifyPlanEntryRuntimeSurface`: `athleticore_support_session`, `protected_boxing_anchor`, `legacy_guided_workout`, `archived_compatibility`, or `unknown`.
 - Map safe old rows into a boxing intent with `migrateLegacyEntryToBoxingIntent`.
 - Build a `GeneratedWorkout` request from a boxing entry with `buildGeneratedWorkoutRequestFromPlanEntry`.
 

@@ -130,6 +130,7 @@ Generated support domains feed nutrition and recovery demand instead of forcing 
 
 - Generated weekly-plan snapshots carry `athleticDevelopmentDomain`, `expectedFuelPriority`, carbohydrate/recovery/hydration demand classes, and energy/recovery demand scores into daily performance.
 - Daily nutrition consumes those direct fields before any title or label fallback.
+- Snapshot metadata is the handoff contract; `placement_source` can help with display and migrations, but daily performance should not need it to recognize a generated support session.
 - Strength and power sessions emphasize carbs to train, protein to recover, and no aggressive deficit override on heavy S&C days.
 - Roadwork base uses duration-aware carbohydrate and hydration support without unnecessary high-carb copy for short easy sessions.
 - Conditioning intervals emphasize pre-session carbs, fluids, electrolytes when needed, and glycogen restore.

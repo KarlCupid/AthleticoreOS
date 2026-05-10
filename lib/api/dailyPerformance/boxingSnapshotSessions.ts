@@ -115,7 +115,7 @@ function stressScoreFromSnapshot(snapshot: NonNullable<ReturnType<typeof getBoxi
 
 export function boxingSnapshotToDailyPerformanceSession(entry: WeeklyPlanEntryRow): ComposedSession | null {
   const snapshot = getBoxingSnapshotFromWeeklyPlanEntry(entry);
-  if (!snapshot || snapshot.protectedAnchor || entry.placement_source !== 'generated') return null;
+  if (!snapshot || snapshot.protectedAnchor) return null;
   const domain = snapshot.athleticDevelopmentDomain;
   const family = familyForDomain(domain, fallbackFamily(entry));
   const confidence = confidenceFromLevel('medium', [

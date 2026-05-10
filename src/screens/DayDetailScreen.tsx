@@ -26,8 +26,10 @@ import { addManualActivity, applySameDayOverride, skipActivity, updateScheduledA
 import { validateDayLoad } from '../../lib/engine/calculateSchedule';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
+import { getWeeklyPlanEntryById } from '../../lib/api/weeklyPlanService';
 import type { ActivityType, ScheduledActivityRow, ReadinessState } from '../../lib/engine/types';
 import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
+import { classifyPlanEntryRuntimeSurface } from '../../lib/performance-engine/workout-programming';
 import { logError } from '../../lib/utils/logger';
 import { resolveDayDetailParams } from '../navigation/routeValidation';
 
@@ -122,6 +124,53 @@ export function DayDetailScreen() {
             if (!session?.user) return;
 
             const context = await getGuidedWorkoutContext(session.user.id, activity.date);
+            if (activity.weekly_plan_entry_id) {
+                try {
+                    const entry = await getWeeklyPlanEntryById(activity.weekly_plan_entry_id);
+                    if (entry && classifyPlanEntryRuntimeSurface(entry) !== 'legacy_guided_workout') {
+                        navigation.navigate('Train', {
+                            screen: 'WorkoutDetail',
+                            params: {
+                                weeklyPlanEntryId: entry.id,
+                                date: entry.date,
+                                readinessState,
+                                phase: context.phase,
+                                fitnessLevel: context.fitnessLevel,
+                                isDeloadWeek: entry.is_deload,
+                            },
+                        });
+                        return;
+                    }
+                    if (!entry) {
+                        navigation.navigate('Train', {
+                            screen: 'WorkoutDetail',
+                            params: {
+                                weeklyPlanEntryId: activity.weekly_plan_entry_id,
+                                date: activity.date,
+                                readinessState,
+                                phase: context.phase,
+                                fitnessLevel: context.fitnessLevel,
+                            },
+                        });
+                        return;
+                    }
+                } catch (error) {
+                    logError('DayDetailScreen.navigateToLogger.weeklyPlanEntry', error, {
+                        weeklyPlanEntryId: activity.weekly_plan_entry_id,
+                    });
+                    navigation.navigate('Train', {
+                        screen: 'WorkoutDetail',
+                        params: {
+                            weeklyPlanEntryId: activity.weekly_plan_entry_id,
+                            date: activity.date,
+                            readinessState,
+                            phase: context.phase,
+                            fitnessLevel: context.fitnessLevel,
+                        },
+                    });
+                    return;
+                }
+            }
             navigation.navigate('Train', {
                 screen: 'GuidedWorkout',
                 params: {
