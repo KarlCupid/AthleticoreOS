@@ -49,8 +49,8 @@ These commands fail unless the workout-programming release report is production-
 - `workoutProgrammingService.test.ts`: high-level app-facing service output shape.
 - `workoutProgrammingQA.test.ts`: deep scenario QA and edge cases.
 - `generatedProgramWeeklyPlanAdapter.test.ts`: `GeneratedProgram` to `weekly_plan_entries` projection, boxing metadata snapshots, no generated sparring, external non-boxing load mapping, and old-row compatibility helpers.
-- `workoutProgrammingUiSmoke.test.ts`: feature-flag and fixture smoke coverage for boxing generated workout UI and internal diagnostics.
-- `workoutProgrammingGeneratedWorkoutRender.test.ts`: React Native render coverage for generated preview, boxing generated flow states, blocked starts, completion controls, progression copy, and Workout screen rollout behavior.
+- `workoutProgrammingUiSmoke.test.ts`: feature-flag and fixture smoke coverage for Athleticore support UI and internal diagnostics.
+- `workoutProgrammingGeneratedWorkoutRender.test.ts`: React Native render coverage for generated preview, support-flow states, blocked starts, completion controls, progression copy, and Workout screen rollout behavior.
 - `workoutProgrammingOperationalGuards.test.ts`: live DB guard behavior and content-audit release gating.
 
 ## What Tests Should Catch
@@ -68,7 +68,7 @@ Tests should fail for:
 - Boxing weekly generation falling back to old adaptive generation.
 - Generated sparring.
 - MMA, grappling, wrestling, BJJ, Muay Thai, or kickboxing being counted as boxing skill.
-- Generic generated workout UI replacing boxing-session intent.
+- Generic generated workout UI replacing boxer-first support-session intent.
 - User-specific persistence reads/writes missing `user_id` or parent scoping.
 
 ## Current QA Scenarios
@@ -110,7 +110,7 @@ Tests should fail for:
 
 - Static catalog loading from Supabase is conservative and falls back to in-code seed data if incomplete.
 - Live database RLS isolation and DB smoke scripts require a local or dedicated test Supabase instance and are intentionally not part of `npm run quality`; they run through the manual GitHub release-gate job, `npm run workout:live-db-smoke`, or `npm run workout:release-gate`.
-- Boxing generated workout persistence and start/log UI are wired into the main product path behind `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED`; device/E2E coverage is still needed for backgrounding, reload, and resume on real devices.
+- Athleticore support-session persistence and start/log UI are wired into the main product path behind `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED`; device/E2E coverage is still needed for backgrounding, reload, and resume on real devices.
 - Generated workout lifecycle state is durable for persisted sessions, including active-session restore.
 - Program persistence has atomic save/load/update/archive/session-completion helpers, and weekly plan rows are now a projection of `GeneratedProgram`; live calendar polish still needs device/E2E coverage.
 - Strict content release mode is wired into `workout:release-gate`; the current catalog fails release until production exercise media is produced, reviewed, and linked. Production prescription progression/regression/deload rule-link gaps are covered by content tests.
@@ -143,7 +143,7 @@ Medium term:
 Long term:
 
 - Integrate workout programming directly with the Unified Performance Engine and `PerformanceState`.
-- Continue harmonizing generated boxing workouts with protected boxing sessions, nutrition/fueling, readiness, body mass, and risk state.
+- Continue harmonizing Athleticore support sessions with protected boxing anchors, nutrition/fueling, readiness, body mass, and risk state.
 - Support richer periodization across build, camp, competition week, and recovery phases.
 - Add coach-facing review tools for generated programs.
 - Build a safe content publishing pipeline with validation before content reaches users.

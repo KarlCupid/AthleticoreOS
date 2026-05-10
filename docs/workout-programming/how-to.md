@@ -2,9 +2,9 @@
 
 This guide gives practical workflows for engineers and content editors.
 
-## How to Generate a Boxing Workout
+## How to Generate an Athleticore Support Session
 
-Use the service layer for app/API code. Product UI should pass boxing intent instead of a generic fitness goal:
+Use the service layer for app/API code. Product UI should pass boxing intent plus athletic-development domain instead of a generic fitness goal:
 
 ```ts
 import { workoutProgrammingService } from '../../lib/performance-engine/workout-programming';
@@ -18,11 +18,12 @@ const session = await workoutProgrammingService.generateGeneratedWorkoutSessionF
   intendedBoxingSessionFamily: 'roadwork_zone2',
   intendedBoxingSessionRole: 'roadwork_aerobic_base',
   intendedSessionDoseCategory: 'support_session',
+  athleticDevelopmentDomain: 'roadwork',
   preferredSessionTemplateId: 'boxing_roadwork_zone2',
 });
 ```
 
-For a boxing support microdose:
+For low-risk boxing skill support:
 
 ```ts
 const session = await workoutProgrammingService.generateGeneratedWorkoutSessionForUser(userId, {
@@ -32,6 +33,7 @@ const session = await workoutProgrammingService.generateGeneratedWorkoutSessionF
   intendedBoxingSessionFamily: 'footwork_agility',
   intendedBoxingSessionRole: 'footwork_agility',
   intendedSessionDoseCategory: 'microdose',
+  athleticDevelopmentDomain: 'speed_agility',
   preferredSessionTemplateId: 'footwork_agility',
   preferredToneVariant: 'coach_like',
 });
@@ -231,24 +233,24 @@ debugging.
 4. Add a forward-only migration if schema changes are required.
 5. Do not let UI code talk directly to raw tables unless there is a strong reason.
 
-## How to Display Generated Boxing Workouts
+## How to Display Athleticore Support Sessions
 
 UI should render a `GeneratedWorkout` and avoid business logic duplication.
 
 Current product UI path:
 
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
-- `src/components/workout/GeneratedWorkoutBetaSessionCard.tsx`
-- `src/components/workout/GeneratedWorkoutBetaContainer.tsx`
+- `src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx`
+- `src/components/workout/BoxingGeneratedWorkoutContainer.tsx`
 - `src/screens/WorkoutScreen.tsx`
 - `src/screens/WorkoutDetailScreen.tsx`
-- `src/hooks/useGeneratedWorkoutBeta.ts` exported as `useBoxingGeneratedWorkout`
+- `src/hooks/useBoxingGeneratedWorkout.ts`
 - Rollout flag: `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED`
 
-The boxing generated flow supports generate, inspect, start, completion logging, workout feedback, exercise preferences, and next progression recommendation. When a Supabase user is available it persists generated workouts, completions, feedback, and progression decisions. Without an authenticated user, it stays in local in-memory mode.
+The Athleticore support flow supports generate, inspect, start, completion logging, workout feedback, exercise preferences, and next progression recommendation. When a Supabase user is available it persists generated workouts, completions, feedback, and progression decisions. Without an authenticated user, it stays in local in-memory mode.
 
-Train shows a boxing-week intelligence card when an active boxing-generated week exists. The standalone generator appears only as part of today's generated boxing session; it is not a generic product panel.
+Train shows Athlete Support This Week when an active generated week exists. Protected boxing anchors are separated from Athleticore support sessions, and domain tags show Strength, Power, Roadwork, Conditioning, Durability, Mobility, Recovery, or Skill support.
 
-The developer preview panel is an internal diagnostics surface. It is not rendered in the normal Train screen, does not persist, and should not be treated as a production rollout path.
+Internal diagnostics are not rendered in the normal Train screen, do not persist, and should not be treated as a production rollout path.
 
 Future UI work should call `workoutProgrammingService`, the boxing weekly adapter, or the generated workout completion service. It should not call raw seed data, lower-level legacy engines, `generateAdaptiveSmartWeekPlan`, or `calculateSC` for product workout generation.

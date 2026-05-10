@@ -20,11 +20,11 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
-import { BoxingGeneratedWorkoutContainer } from '../components/workout/GeneratedWorkoutBetaContainer';
+import { BoxingGeneratedWorkoutContainer } from '../components/workout/BoxingGeneratedWorkoutContainer';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { useBoxingGeneratedWorkout } from '../hooks/useGeneratedWorkoutBeta';
+import { useBoxingGeneratedWorkout } from '../hooks/useBoxingGeneratedWorkout';
 import {
   boxingEntryDisplayMeta,
   getBoxingSnapshotFromWeeklyPlanEntry,
@@ -129,11 +129,12 @@ function EmptyPlanCard({ onPress }: { onPress: () => void }) {
   );
 }
 
-function BoxingWeekIntelligenceCard({ snapshot }: { snapshot: BoxingGeneratedPlanEntrySnapshot | null }) {
+function AthleteSupportWeekCard({ snapshot }: { snapshot: BoxingGeneratedPlanEntrySnapshot | null }) {
   if (!snapshot) return null;
   const week = snapshot.weekSummary;
   const bullets = [
-    week.primaryBoxingFocus ? `Focus: ${week.primaryBoxingFocus}` : null,
+    week.sAndCFocus ? `S&C focus: ${week.sAndCFocus}` : week.primaryBoxingFocus ? `Focus: ${week.primaryBoxingFocus}` : null,
+    week.protectedBoxingPracticeSummary,
     week.hardDaySummary,
     week.protectedLoadSummary,
     week.generatedSupportSummary,
@@ -142,8 +143,8 @@ function BoxingWeekIntelligenceCard({ snapshot }: { snapshot: BoxingGeneratedPla
   const qualityGaps = week.qualityGaps.map((gap) => `${String(gap.quality).replace(/_/g, ' ')} (${gap.priority})`).slice(0, 3);
   return (
     <Card
-      title={week.weeklyBoxingHeadline ?? 'Boxing week intelligence'}
-      subtitle={week.weeklyBoxingSummary ?? 'GeneratedProgram is the source of this week.'}
+      title={week.weeklyAthleticDevelopmentHeadline ?? week.weeklyBoxingHeadline ?? 'Athlete Support This Week'}
+      subtitle={week.weeklyAthleticDevelopmentSummary ?? week.weeklyBoxingSummary ?? 'Athleticore builds the S&C support around your boxing anchors.'}
       subtitleLines={3}
       backgroundTone="workoutFloor"
       backgroundScrimColor="rgba(10, 10, 10, 0.72)"
@@ -158,8 +159,10 @@ function BoxingWeekIntelligenceCard({ snapshot }: { snapshot: BoxingGeneratedPla
         <View style={styles.intelligenceMetaRow}>
           <Text style={styles.intelligenceMeta}>Hard days {week.hardDayCount}{week.hardDayCap != null ? `/${week.hardDayCap}` : ''}</Text>
           {week.protectedBoxingSessionCount != null ? <Text style={styles.intelligenceMeta}>Protected boxing {week.protectedBoxingSessionCount}</Text> : null}
-          {week.generatedSupportSessionCount != null ? <Text style={styles.intelligenceMeta}>Support {week.generatedSupportSessionCount}</Text> : null}
-          {week.generatedMicrodoseCount != null ? <Text style={styles.intelligenceMeta}>Microdose {week.generatedMicrodoseCount}</Text> : null}
+          {week.generatedSAndCSessionCount != null ? <Text style={styles.intelligenceMeta}>S&C support {week.generatedSAndCSessionCount}</Text> : null}
+          {week.generatedRoadworkCount != null ? <Text style={styles.intelligenceMeta}>Roadwork {week.generatedRoadworkCount}</Text> : null}
+          {week.generatedDurabilityCount != null ? <Text style={styles.intelligenceMeta}>Durability {week.generatedDurabilityCount}</Text> : null}
+          {week.generatedSkillSupportCount != null ? <Text style={styles.intelligenceMeta}>Skill support {week.generatedSkillSupportCount}</Text> : null}
         </View>
         {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Quality gaps: {qualityGaps.join(', ')}</Text> : null}
         {week.variancePlan?.reason ? <Text style={styles.intelligenceNote}>{week.variancePlan.reason}</Text> : null}
@@ -350,7 +353,7 @@ export function WorkoutScreen() {
             </Animated.View>
             {!initialLoadError && weekBoxingSnapshot ? (
               <Animated.View entering={FadeInDown.delay(30).duration(300).springify()}>
-                <BoxingWeekIntelligenceCard snapshot={weekBoxingSnapshot} />
+                <AthleteSupportWeekCard snapshot={weekBoxingSnapshot} />
               </Animated.View>
             ) : null}
             {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}

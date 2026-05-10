@@ -3,6 +3,7 @@ import type {
   MacrocycleContext,
   ReadinessProfile,
   ScheduledActivityRow,
+  WeeklyPlanEntryRow,
 } from '../../engine/index.ts';
 import { normalizeNutritionGoal, type getAthleteContext } from '../athleteContextService';
 import {
@@ -18,6 +19,7 @@ import { buildDailyBodyMassState } from './bodyMassMapping';
 import { mapLegacyPhaseToUnifiedPhase, trainingBackgroundFromFitnessLevel } from './phaseMapping';
 import { protectedAnchorsFromScheduledActivities } from './protectedAnchors';
 import { buildUnifiedTrackingEntries, type DailyReadinessCheckinRow } from './trackingEntries';
+import { boxingSnapshotsToDailyPerformanceSessions } from './boxingSnapshotSessions';
 
 function acwrRatioForUnifiedEngine(acwr: ACWRResult | null): number | null {
   const ratio = acwr?.ratio;
@@ -33,6 +35,7 @@ export function resolveUnifiedDailyPerformance(input: {
   acwr: ACWRResult | null;
   todayCheckin?: DailyReadinessCheckinRow | null | undefined;
   scheduledActivities: ScheduledActivityRow[];
+  weeklyPlanEntries?: WeeklyPlanEntryRow[] | undefined;
   currentWeight: number | null;
   targetWeight: number | null;
   weekStart: string;
@@ -111,6 +114,7 @@ export function resolveUnifiedDailyPerformance(input: {
       todayCheckin: input.todayCheckin,
     }),
     protectedAnchors: protectedAnchorsFromScheduledActivities(input.scheduledActivities),
+    plannedSessions: boxingSnapshotsToDailyPerformanceSessions(input.weeklyPlanEntries ?? []),
     acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr),
     weightClass: hasWeightClassContext
       ? {

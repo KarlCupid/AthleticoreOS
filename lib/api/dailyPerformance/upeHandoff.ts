@@ -7,6 +7,7 @@ import type {
   ReadinessProfile,
   ScheduledActivityRow,
   StimulusConstraintSet,
+  WeeklyPlanEntryRow,
 } from '../../engine/index.ts';
 import type { WorkoutPrescriptionV2 } from '../../engine/types';
 import type { UnifiedPerformanceEngineResult } from '../../performance-engine/index.ts';
@@ -24,6 +25,7 @@ export interface UpeHandoffDependencies {
     acwr: ACWRResult;
     todayCheckin?: DailyReadinessCheckinRow | null | undefined;
     scheduledActivities: ScheduledActivityRow[];
+    weeklyPlanEntries?: WeeklyPlanEntryRow[] | undefined;
     currentWeight: number | null;
     targetWeight: number | null;
     weekStart: string;
@@ -66,6 +68,7 @@ export function resolveUpeHandoff(
     acwr: ACWRResult;
     todayCheckin: DailyReadinessCheckinRow | null;
     scheduledActivities: ScheduledActivityRow[];
+    weeklyPlanEntries?: WeeklyPlanEntryRow[] | undefined;
     currentWeight: number | null;
     targetWeight: number | null;
     weekStart: string;
@@ -81,6 +84,7 @@ export function resolveUpeHandoff(
     acwr: input.acwr,
     todayCheckin: input.todayCheckin,
     scheduledActivities: input.scheduledActivities,
+    weeklyPlanEntries: input.weeklyPlanEntries,
     currentWeight: input.currentWeight,
     targetWeight: input.targetWeight,
     weekStart: input.weekStart,

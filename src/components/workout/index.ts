@@ -47,12 +47,19 @@ export type { TimerMode, TimerDisplayProps } from './TimerDisplay';
 export { TrainingCard } from './TrainingCard';
 export type { TrainingMetric } from './TrainingCard';
 export { GeneratedWorkoutPreviewCard } from './GeneratedWorkoutPreviewCard';
-export { GeneratedWorkoutBetaSessionCard } from './GeneratedWorkoutBetaSessionCard';
+export {
+  BOXING_GENERATED_WORKOUT_OPTIONS,
+  BoxingGeneratedWorkoutSessionCard,
+  BoxingGeneratedWorkoutSessionCard as GeneratedWorkoutBetaSessionCard,
+} from './BoxingGeneratedWorkoutSessionCard';
 export type {
-  GeneratedWorkoutBetaCompletionDraft,
-  GeneratedWorkoutBetaConfig,
-  GeneratedWorkoutBetaStage,
-} from './GeneratedWorkoutBetaSessionCard';
+  BoxingGeneratedWorkoutCompletionDraft,
+  BoxingGeneratedWorkoutConfig,
+  BoxingGeneratedWorkoutStage,
+} from './BoxingGeneratedWorkoutSessionCard';
+export type { BoxingGeneratedWorkoutCompletionDraft as GeneratedWorkoutBetaCompletionDraft } from './BoxingGeneratedWorkoutSessionCard';
+export type { BoxingGeneratedWorkoutConfig as GeneratedWorkoutBetaConfig } from './BoxingGeneratedWorkoutSessionCard';
+export type { BoxingGeneratedWorkoutStage as GeneratedWorkoutBetaStage } from './BoxingGeneratedWorkoutSessionCard';
 export { LoadingPyramid } from './LoadingPyramid';
 export { CircuitView } from './CircuitView';
 export { ConditioningCard } from './ConditioningCard';

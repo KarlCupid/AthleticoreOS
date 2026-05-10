@@ -69,7 +69,7 @@ assert('core UI flow source/app-flow guards remain while workout programming own
   /@testing-library\/react-native/i.test(packageJson)
     && workoutRenderTest.includes("@testing-library/react-native/pure")
     && workoutRenderTest.includes('GeneratedWorkoutPreviewCard')
-    && workoutRenderTest.includes('GeneratedWorkoutBetaSessionCard'),
+    && workoutRenderTest.includes('BoxingGeneratedWorkoutSessionCard'),
 ));
 
 assert('Today screen renders Today Mission and exposes primary and secondary action selectors', hasAll(todayMissionPanel, [

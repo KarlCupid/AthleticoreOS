@@ -1,12 +1,12 @@
-# Boxing Generated Workout UI Smoke Checklist
+# Athleticore Support Session UI Smoke Checklist
 
-Boxing generated workout programming has both source/fixture smoke guards and a fast React Native render harness. Automated UI coverage lives in:
+Athleticore support-session programming has both source/fixture smoke guards and a fast React Native render harness. Automated UI coverage lives in:
 
 - `lib/performance-engine/workout-programming/workoutProgrammingUiSmoke.test.ts`
 - `lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts`
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
-- `src/components/workout/GeneratedWorkoutBetaSessionCard.tsx`
-- `src/components/workout/GeneratedWorkoutBetaContainer.tsx`
+- `src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx`
+- `src/components/workout/BoxingGeneratedWorkoutContainer.tsx`
 - `src/screens/WorkoutScreen.tsx`
 - `src/screens/WorkoutDetailScreen.tsx`
 
@@ -18,7 +18,7 @@ The render test uses `@testing-library/react-native/pure` with a small Node-comp
 - Boxing engine off: set `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=0`; the app should avoid rendering the generation UI and must not fall back to old adaptive generation.
 - Internal diagnostics: `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW=1` remains internal-only and is not part of normal Train UX.
 
-When the boxing engine flag is off, the generated boxing section should not render and weekly generation should fail clearly instead of substituting a legacy plan. History, analytics, old compatibility entries, and guided fallback navigation should still behave normally.
+When the boxing engine flag is off, the generated support section should not render and weekly generation should fail clearly instead of substituting a legacy plan. History, analytics, old compatibility entries, and guided fallback navigation should still behave normally.
 
 Friend preview and production builds should render the boxing product path when enabled and should not render internal diagnostics.
 
@@ -27,9 +27,9 @@ The internal diagnostics panel is intentionally isolated. It loads a fixed fixtu
 ## Manual Smoke Pass
 
 1. Generate a boxing week and open the Workout screen.
-2. Confirm the boxing week intelligence card, Today, Plan, History, and Analytics tabs load.
-3. Open a generated boxing session.
-4. Generate or inspect a boxing support session such as footwork agility or roadwork base.
+2. Confirm Athlete Support This Week, Today, Plan, History, and Analytics tabs load.
+3. Open an Athleticore support session.
+4. Generate or inspect a support session such as rotational power, roadwork base, shoulder durability, or footwork agility.
 5. Confirm session intent, summary, blocks, exercises, prescriptions, effort/rest guidance, safety notes, substitutions, scaling, success criteria, tracking metrics, completion copy, and any validation warnings are visible.
 6. Start the workout and confirm the checklist, exercise logging fields, feedback tags, notes, and completion button appear.
 7. Complete the workout and confirm the next progression recommendation appears.

@@ -14,6 +14,7 @@ import {
 import { generateWeeklyProgramFromPerformanceState } from './workoutProgramService.ts';
 import type {
   BoxingSessionFamily,
+  BoxingAthleteSupportDomain,
   BoxingTrainingContext,
   BoxingTrainingTrack,
   GeneratedProgram,
@@ -90,6 +91,10 @@ function generatedFamilies(program: GeneratedProgram): BoxingSessionFamily[] {
 
 function generatedHardCount(program: GeneratedProgram): number {
   return generatedSessions(program).filter((session) => session.plannedIntensity === 'hard').length;
+}
+
+function generatedDomainCount(program: GeneratedProgram, domain: BoxingAthleteSupportDomain): number {
+  return generatedSessions(program).filter((session) => session.athleticDevelopmentDomain === domain).length;
 }
 
 function generatedTemplateIds(program: GeneratedProgram): string[] {
@@ -233,6 +238,11 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('A modalities infer boxing_skill and pad_work', firstWeek.sessions.some((session) => session.protectedWorkoutModality === 'boxing_skill') && firstWeek.sessions.some((session) => session.protectedWorkoutModality === 'pad_work'));
   assert('A protected boxing count is two', firstWeek.weeklyVolumeSummary.protectedBoxingSessionCount === 2);
   assert('A generated support sessions are at least three', (firstWeek.weeklyVolumeSummary.generatedSupportSessionCount ?? 0) + (firstWeek.weeklyVolumeSummary.generatedMicrodoseCount ?? 0) >= 3);
+  assert('A protected boxing covers practice so skill support is capped', generatedDomainCount(program, 'boxing_skill_support') <= 1);
+  assert('A S&C support includes strength/power', generatedDomainCount(program, 'strength') + generatedDomainCount(program, 'power') >= 1);
+  assert('A S&C support includes roadwork or conditioning', generatedDomainCount(program, 'roadwork') + generatedDomainCount(program, 'conditioning') >= 1);
+  assert('A S&C support includes durability or mobility', generatedDomainCount(program, 'durability') + generatedDomainCount(program, 'mobility') >= 1);
+  assert('A summary says protected anchors cover boxing practice', /covered|protected boxing anchor/i.test(firstWeek.weeklyAthleticDevelopmentSummary ?? '') && /cover boxing practice/i.test(firstWeek.protectedBoxingPracticeSummary ?? ''));
   assert('A total exposures reach at least five', (firstWeek.weeklyVolumeSummary.totalExposureCount ?? 0) >= 5);
   assert('A hard-day cap respected', firstWeek.hardDayCount <= (firstWeek.weeklyDose?.hardDayCap ?? 3));
   assert('A validation passes', validateGeneratedProgram(program).valid);
@@ -253,9 +263,11 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('B modality infers sparring', week(program).sessions.filter((session) => session.protectedWorkoutModality === 'sparring').length === 2);
   assert('B generated support volume remains useful', (week(program).weeklyVolumeSummary.generatedSupportSessionCount ?? 0) + (week(program).weeklyVolumeSummary.generatedMicrodoseCount ?? 0) >= 2);
   assert('B generated hard count capped', generatedHardCount(program) <= 1);
+  assert('B generated hard conditioning is capped', (week(program).weeklyDose?.generatedConditioningHardCap ?? 99) === 0);
   assert('B no hard generated stacking onto sparring', !hasHardGeneratedOnProtectedSparringDay(program));
   assert('B no generated sparring template', !generatedTemplateIds(program).some((templateId) => /sparring/i.test(templateId)));
   assert('B includes roadwork/mobility/durability/recovery support', families.some((family) => ['roadwork_zone2', 'mobility_prehab', 'shoulder_scap_durability', 'hip_ankle_mobility', 'recovery_reset'].includes(family)));
+  assert('B nutrition demand stays supportive around sparring', generatedSessions(program).every((session) => session.expectedFuelPriority !== 'conditioning_intervals' || session.plannedIntensity !== 'hard'));
   assert('B selected support is boxing-relevant', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_')));
   assert('B intent-template binding holds or warns', boxingIntentTemplatesBound(program));
   assert('B validation passes', validateGeneratedProgram(program).valid);
@@ -268,6 +280,7 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('C includes boxing progression support', families.some((family) => ['boxing_skill_microdose', 'shadowboxing_quality', 'footwork_agility'].includes(family)));
   assert('C includes strength/power or durability', families.some((family) => ['strength_power', 'max_strength_lower', 'shoulder_scap_durability', 'hip_ankle_mobility'].includes(family)));
   assert('C includes roadwork or mobility/prehab', families.some((family) => ['roadwork_zone2', 'mobility_prehab', 'hip_ankle_mobility'].includes(family)));
+  assert('C aspiring boxer is not only skill drills', new Set(generatedSessions(program).map((session) => session.athleticDevelopmentDomain)).size >= 3);
   assert('C no sparring generated', !families.some((family) => family.includes('sparring')));
   assert('C uses boxing-specific templates', generatedTemplateIds(program).some((templateId) => templateId.startsWith('boxing_') || ['footwork_agility', 'shadowboxing_quality'].includes(templateId)));
   assert('C exposes boxing-specific next action', /boxing|session|readiness|support/i.test(week(program).nextBestAction ?? ''));
@@ -281,6 +294,7 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('D amateur/pro plans have different tracks', week(amateur).weeklyDose?.track !== week(pro).weeklyDose?.track);
   assert('D amateur emphasizes pace/agility/repeat output', /repeat-output|agility|Amateur/i.test(amateurRationale));
   assert('D pro emphasizes pacing/aerobic/durability/recovery', /pacing durability|aerobic|durability|Pro/i.test(proRationale));
+  assert('D pro has S&C support bias', (week(pro).weeklyVolumeSummary.generatedSAndCSessionCount ?? 0) >= (week(pro).weeklyVolumeSummary.generatedSkillSupportCount ?? 0));
   assert('D both validate', validateGeneratedProgram(amateur).valid && validateGeneratedProgram(pro).valid);
 })();
 

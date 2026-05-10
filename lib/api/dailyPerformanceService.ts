@@ -131,6 +131,7 @@ async function computeDailyEngineState(
     acwr,
     todayCheckin,
     scheduledActivities,
+    weeklyPlanEntries: planSelection.weeklyPlanEntries,
     currentWeight: canonicalCurrentWeight,
     targetWeight: canonicalTargetWeight,
     weekStart: weekWindow.weekStart,

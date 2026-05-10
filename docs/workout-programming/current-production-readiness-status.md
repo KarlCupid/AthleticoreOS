@@ -4,9 +4,9 @@ This is the current workout-programming rollout posture. It is intentionally ope
 
 ## Status
 
-Workout-programming infrastructure is production-hardened behind release gates and feature flags. The product posture is now **boxing-engine canonical**: new weekly workout plans, generated support sessions, completion, progression, history, analytics, Train, Plan, and Workout Detail all route through the boxing workout-programming engine.
+Workout-programming infrastructure is production-hardened behind release gates and feature flags. The product posture is now **boxing-athlete support canonical**: new weekly plans, generated S&C/support sessions, completion, progression, history, analytics, Train, Plan, Workout Detail, nutrition, and daily performance all route through the boxing athlete support engine.
 
-Strict content/media release gates still matter. Text-only generated boxing support can remain usable when media is missing and the content review gate allows it; production media-rich surfaces must respect approved media and release reports. Internal diagnostics must not appear as normal product UX.
+Strict content/media release gates still matter. Text-only generated support can remain usable when media is missing and the content review gate allows it; production media-rich surfaces must respect approved media and release reports. Internal diagnostics must not appear as normal product UX.
 
 The system currently has:
 
@@ -23,14 +23,14 @@ The system currently has:
 
 ## Runtime Flags
 
-- `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=1` enables the boxing workout engine product path.
-- `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=0` hides the new boxing generation UI and fails weekly generation clearly instead of falling back to legacy generation.
+- `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=1` enables the boxing S&C support product path.
+- `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=0` hides the support-generation UI and fails weekly generation clearly instead of falling back to legacy generation.
 - `EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA` and `EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW` are internal diagnostics flags only. They must not own normal Train UX.
 - EAS `development`, `preview`, and `production` profiles explicitly set the boxing engine flag to `1`; preview and production keep diagnostics flags at `0`.
 
 Current rollout decision:
 
-- Canonical engine: boxing workout-programming engine.
+- Canonical engine: boxing athlete support engine.
 - Weekly source of truth: `GeneratedProgram`.
 - Weekly storage/calendar projection: `weekly_plan_entries` created from `GeneratedProgramSession`.
 - Compatibility posture: old entries and old prescription snapshots remain readable, but old adaptive generation is not a fallback.

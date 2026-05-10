@@ -150,8 +150,8 @@ async function run() {
   ]).size >= 5);
 
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
-  const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
-  const betaContainer = read('src/components/workout/GeneratedWorkoutBetaContainer.tsx');
+  const supportCard = read('src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx');
+  const supportContainer = read('src/components/workout/BoxingGeneratedWorkoutContainer.tsx');
   const devPreviewPanel = read('src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx');
 
   assert('preview UI exposes screen-reader labels and section headings', [
@@ -162,20 +162,20 @@ async function run() {
     'generatedWorkoutDefaultSafetyNotes',
   ].every((needle) => previewCard.includes(needle)));
 
-  assert('boxing generated workout UI actions have descriptive accessibility labels', [
-    'accessibilityLabel={loading ? \'Generating boxing session\'',
-    'accessibilityLabel="Clear generated boxing session"',
+  assert('Athleticore support UI actions have descriptive accessibility labels', [
+    'accessibilityLabel={loading ? \'Generating Athleticore support session\'',
+    'accessibilityLabel="Clear generated Athleticore support session"',
     'GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview',
     'generatedWorkoutSafetyReminder',
     'accessibilityLabel={allExercisesComplete ? \'Clear all completed exercises\'',
     'accessibilityLabel={`${completed ? \'Mark incomplete\' : \'Mark complete\'}: ${exercise.name}`}',
     'Session effort rating',
-  ].every((needle) => betaCard.includes(needle)));
+  ].every((needle) => supportCard.includes(needle)));
 
   assert('workout screen generated sections are labeled for assistive tech', [
-    'accessibilityLabel="Boxing generated workout flow"',
+    'accessibilityLabel="Athleticore support session flow"',
     'testID="boxing-generated-workout-section"',
-  ].every((needle) => betaContainer.includes(needle)) && [
+  ].every((needle) => supportContainer.includes(needle)) && [
     'accessibilityLabel="Internal workout diagnostics section"',
     'testID="internal-workout-diagnostics-section"',
   ].every((needle) => devPreviewPanel.includes(needle)));

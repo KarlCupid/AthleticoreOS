@@ -15,7 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail';
 import { useWorkoutDetailController } from '../hooks/useWorkoutDetailController';
-import { BoxingGeneratedWorkoutSessionCard } from '../components/workout/GeneratedWorkoutBetaSessionCard';
+import { BoxingGeneratedWorkoutSessionCard } from '../components/workout/BoxingGeneratedWorkoutSessionCard';
 import type { TrainStackParamList } from '../navigation/types';
 import type {
     WorkoutSessionSection,
@@ -218,7 +218,7 @@ export function WorkoutDetailScreen() {
                 </View>
                 <View style={styles.loadingCenter}>
                     <Text style={styles.emptyTitle}>No session found</Text>
-                    <Text style={styles.emptySubtitle}>Open this boxing session from Train or Plan to review it safely.</Text>
+                    <Text style={styles.emptySubtitle}>Open this session from Train or Plan to review it safely.</Text>
                     <TouchableOpacity style={styles.retryBtn} onPress={() => void load(weeklyPlanEntryId)}>
                         <Text style={styles.retryText}>Retry</Text>
                     </TouchableOpacity>
@@ -282,6 +282,7 @@ export function WorkoutDetailScreen() {
                         <Text style={styles.intentSubText}>{whatToExpect}</Text>
                         {boxingMeta?.sourceLabel ? <Text style={styles.intentSubText}>{boxingMeta.sourceLabel}</Text> : null}
                         {boxingMeta?.why ? <Text style={styles.intentSubText}>{boxingMeta.why}</Text> : null}
+                        {boxingSnapshot?.boxingRelevance ? <Text style={styles.intentSubText}>{boxingSnapshot.boxingRelevance}</Text> : null}
                     </Animated.View>
                 )}
 
@@ -289,7 +290,7 @@ export function WorkoutDetailScreen() {
                     <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
                         <Text style={styles.actionLabel}>Protected boxing anchor</Text>
                         <Text style={styles.intentText}>
-                            This session is a fixed boxing commitment. Athleticore will not generate sparring or replace it; the week plan adds support and recovery around the anchor.
+                            This is coach-led or protected boxing work. Athleticore will not generate sparring or replace it; the week plan builds S&C, roadwork, durability, mobility, and recovery around the anchor.
                         </Text>
                         {status === 'skipped' ? (
                             <TouchableOpacity style={styles.startBtn} onPress={handleRestore}>
@@ -320,7 +321,7 @@ export function WorkoutDetailScreen() {
                             onPause={() => { void pauseGeneratedWorkout(); }}
                             onResume={() => { void resumeGeneratedWorkout(); }}
                             onAbandon={() => {
-                                Alert.alert('Abandon boxing session?', 'This stops the generated boxing session and saves no completion result.', [
+                                Alert.alert('Abandon support session?', 'This stops the generated Athleticore support session and saves no completion result.', [
                                     { text: 'Cancel', style: 'cancel' },
                                     { text: 'Abandon', style: 'destructive', onPress: () => { void abandonGeneratedWorkout(); } },
                                 ]);
@@ -335,9 +336,9 @@ export function WorkoutDetailScreen() {
                 {boxingSnapshot && !isProtectedBoxingAnchor && !detailGeneratedWorkout ? (
                     <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
                         <Text style={styles.actionLabel}>Session plan</Text>
-                        <Text style={styles.intentText}>This boxing entry has programming intent but no attached GeneratedWorkout snapshot yet.</Text>
+                        <Text style={styles.intentText}>This Athleticore support entry has programming intent but no attached GeneratedWorkout snapshot yet.</Text>
                         <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
-                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Generate Session Plan'}</Text>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Generate Support Plan'}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 ) : null}
@@ -347,7 +348,7 @@ export function WorkoutDetailScreen() {
                         <Text style={styles.actionLabel}>Compatibility view</Text>
                         <Text style={styles.intentText}>{boxingMeta?.why ?? 'This old entry is readable, but it is not the source of new workout programming.'}</Text>
                         <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
-                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Create Boxing Session Plan'}</Text>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Create Support Plan'}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 ) : null}

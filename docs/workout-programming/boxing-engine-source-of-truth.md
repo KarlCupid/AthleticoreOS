@@ -1,6 +1,6 @@
 # Boxing Engine Source Of Truth
 
-AthleticoreOS is a boxing-athlete development platform. Workout programming has one canonical runtime owner: the boxing workout-programming engine in `lib/performance-engine/workout-programming/`.
+AthleticoreOS is a boxing-athlete S&C and performance-support platform. Workout programming has one canonical runtime owner: the boxing athlete support engine in `lib/performance-engine/workout-programming/`.
 
 ## Canonical Objects
 
@@ -8,6 +8,7 @@ AthleticoreOS is a boxing-athlete development platform. Workout programming has 
 - Planned session: `GeneratedProgramSession`
 - Executable generated workout: `GeneratedWorkout`
 - Weekly persistence projection: `weekly_plan_entries`, built from `GeneratedProgram` sessions
+- Athletic-development domain: `BoxingAthleteSupportDomain`
 - Completion and progression source: generated workout completion logs, exercise results, substitutions, feedback tags, pain before/after, session RPE, ratings, notes, readiness, and progression decisions
 
 `weekly_plan_entries` and `scheduled_activities` remain useful storage and calendar surfaces. They do not decide the programming intent for new weeks. New weekly rows should be created from boxing `GeneratedProgram` sessions through `generatedProgramWeeklyPlanAdapter.ts`.
@@ -30,9 +31,9 @@ They may exist only for old data compatibility, characterization tests, unrelate
 1. Load weekly configuration, gym/equipment profile, athlete context, readiness, fight-camp context, protected recurring activities, recent completions, and progression decisions.
 2. Build a `BoxingTrainingContext`.
 3. Call `generateWeeklyProgramForUser` or `generateWeeklyProgramFromPerformanceState`.
-4. Convert `GeneratedProgram` sessions into `weekly_plan_entries`.
-5. Save the week projection.
-6. Render Train, Plan, Detail, history, and analytics from the boxing snapshot and generated workout completion surfaces.
+4. Convert `GeneratedProgram` sessions into `weekly_plan_entries` with support-domain snapshots.
+5. Save the week projection before persisting/linking the generated program so orphan active programs are not left silently.
+6. Render Train, Plan, Detail, history, analytics, nutrition, and daily performance from the boxing snapshot and generated workout completion surfaces.
 
 If boxing generation fails, the product should show a clear "could not generate week" error. It must not silently substitute the old adaptive generator.
 
@@ -56,6 +57,8 @@ Compatibility helpers must not recreate old runtime generation as a fallback. Ol
 - MMA, grappling, wrestling, BJJ, Muay Thai, kickboxing, and other non-boxing labels are external non-boxing load unless the entry explicitly describes boxing.
 - Missing readiness, pain, sleep, hydration, body-mass, symptoms, or fueling data is unknown, not safe.
 - Hard generated work should not stack onto sparring or competition days.
+- Generated Athleticore support is never marked as a boxing-practice replacement.
+- Nutrition, hydration, recovery, and weight-class copy must follow the support domain and safety state.
 - Content review, media review, safety validation, and red-readiness blocks remain strict.
 
 ## Data Migration Strategy

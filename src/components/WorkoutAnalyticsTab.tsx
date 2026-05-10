@@ -72,11 +72,18 @@ export function WorkoutAnalyticsTab({
   const sourceSummary = useMemo(() => {
     const generated = trainingLoadData.filter((point) => point.source === 'generated');
     const legacy = trainingLoadData.filter((point) => point.source !== 'generated');
+    const generatedByLabel = generated.reduce<Record<string, { count: number; load: number }>>((acc, point) => {
+      const label = point.sourceLabel ?? 'Athleticore support';
+      const current = acc[label] ?? { count: 0, load: 0 };
+      acc[label] = { count: current.count + 1, load: current.load + point.y };
+      return acc;
+    }, {});
     return {
       generatedCount: generated.length,
       generatedLoad: generated.reduce((sum, point) => sum + point.y, 0),
       legacyCount: legacy.length,
       legacyLoad: legacy.reduce((sum, point) => sum + point.y, 0),
+      generatedByLabel,
     };
   }, [trainingLoadData]);
 
@@ -117,7 +124,7 @@ export function WorkoutAnalyticsTab({
         <Card style={styles.sourceCard}>
           <View style={styles.sourceHeader}>
             <Text style={styles.sourceTitle}>Session sources</Text>
-            <Text style={styles.sourceBadge}>Boxing support included</Text>
+            <Text style={styles.sourceBadge}>Athleticore support included</Text>
           </View>
           <View style={styles.sourceRows}>
             <View style={styles.sourceRow}>
@@ -125,9 +132,15 @@ export function WorkoutAnalyticsTab({
               <Text style={styles.sourceValue}>{sourceSummary.legacyCount} | Load {sourceSummary.legacyLoad}</Text>
             </View>
             <View style={styles.sourceRow}>
-              <Text style={styles.sourceLabel}>Generated boxing support</Text>
+              <Text style={styles.sourceLabel}>Generated support sessions</Text>
               <Text style={styles.sourceValue}>{sourceSummary.generatedCount} | Load {sourceSummary.generatedLoad}</Text>
             </View>
+            {Object.entries(sourceSummary.generatedByLabel).slice(0, 5).map(([label, summary]) => (
+              <View key={label} style={styles.sourceRow}>
+                <Text style={styles.sourceLabel}>{label}</Text>
+                <Text style={styles.sourceValue}>{summary.count} | Load {summary.load}</Text>
+              </View>
+            ))}
           </View>
         </Card>
       ) : null}

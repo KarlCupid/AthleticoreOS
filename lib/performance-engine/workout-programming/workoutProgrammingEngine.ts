@@ -8,6 +8,7 @@ import { rankExerciseSubstitutions } from './substitutionEngine.ts';
 import { createWorkoutValidationResult, validateWorkoutDomain } from './validationEngine.ts';
 import { generateWorkoutDescription } from './workoutDescriptionService.ts';
 import { getPrimaryExerciseMediaAsset } from './workoutMediaAudit.ts';
+import { supportSessionMetadata } from './athleteSupportDomains.ts';
 import type {
   Exercise,
   ExerciseSelectionScoreTrace,
@@ -1200,6 +1201,13 @@ export function generateSingleSessionWorkout(
       : 'No safety flags were supplied, so the generator still used conservative prescriptions.',
     ...templateSelection.fallbackWarnings,
   ];
+  const supportMeta = supportSessionMetadata({
+    family: effectiveRequest.intendedBoxingSessionFamily,
+    role: effectiveRequest.intendedBoxingSessionRole,
+    domain: effectiveRequest.athleticDevelopmentDomain,
+    doseCategory: effectiveRequest.intendedSessionDoseCategory,
+    durationMinutes: estimatedDurationMinutes,
+  });
 
   const generated: GeneratedWorkout = {
     schemaVersion: 'generated-workout-v1',
@@ -1209,6 +1217,22 @@ export function generateSingleSessionWorkout(
     templateId: template.id,
     formatId: template.formatId,
     experienceLevel: effectiveRequest.experienceLevel,
+    boxingSessionFamily: effectiveRequest.intendedBoxingSessionFamily,
+    boxingSessionRole: effectiveRequest.intendedBoxingSessionRole,
+    sessionDoseCategory: effectiveRequest.intendedSessionDoseCategory,
+    athleticDevelopmentDomain: supportMeta.athleticDevelopmentDomain,
+    supportDomainLabel: supportMeta.supportDomainLabel,
+    boxingRelevance: supportMeta.boxingRelevance,
+    athleticDevelopmentRationale: supportMeta.athleticDevelopmentRationale,
+    sAndCRationale: supportMeta.sAndCRationale,
+    isBoxingPracticeReplacement: false,
+    isCoachLedRequired: false,
+    expectedFuelPriority: supportMeta.expectedFuelPriority,
+    expectedCarbDemandClass: supportMeta.expectedCarbDemandClass,
+    expectedRecoveryDemandClass: supportMeta.expectedRecoveryDemandClass,
+    expectedHydrationDemandClass: supportMeta.expectedHydrationDemandClass,
+    sessionEnergyDemandScore: supportMeta.sessionEnergyDemandScore,
+    sessionRecoveryDemandScore: supportMeta.sessionRecoveryDemandScore,
     requestedDurationMinutes: effectiveRequest.durationMinutes,
     estimatedDurationMinutes,
     equipmentIds: selectedEquipment,

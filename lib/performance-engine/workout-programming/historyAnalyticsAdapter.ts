@@ -84,21 +84,23 @@ function titleToken(value: string | undefined | null): string {
 
 function boxingGeneratedLabel(workoutTypeId: string | undefined, goalId: string | undefined): string {
   const normalized = `${goalId ?? ''} ${workoutTypeId ?? ''}`.toLowerCase();
-  if (normalized.includes('footwork')) return 'Footwork agility';
-  if (normalized.includes('shadowboxing')) return 'Shadowboxing quality';
+  if (normalized.includes('footwork')) return 'Speed & agility support';
+  if (normalized.includes('shadowboxing')) return 'Skill support';
   if (normalized.includes('roadwork_aerobic') || normalized.includes('roadwork_zone2') || normalized.includes('zone2')) return 'Roadwork base';
   if (normalized.includes('roadwork_tempo')) return 'Roadwork tempo';
   if (normalized.includes('roadwork_intervals')) return 'Roadwork intervals';
-  if (normalized.includes('alactic')) return 'Alactic repeat power';
-  if (normalized.includes('glycolytic') || normalized.includes('round_tolerance')) return 'Round tolerance';
-  if (normalized.includes('rotational')) return 'Rotational power';
+  if (normalized.includes('alactic')) return 'Conditioning support';
+  if (normalized.includes('glycolytic') || normalized.includes('round_tolerance')) return 'Conditioning support';
+  if (normalized.includes('rotational')) return 'Power support';
+  if (normalized.includes('explosive')) return 'Power support';
+  if (normalized.includes('strength')) return 'Strength support';
   if (normalized.includes('trunk')) return 'Trunk durability';
   if (normalized.includes('shoulder') || normalized.includes('scap')) return 'Shoulder durability';
   if (normalized.includes('neck') || normalized.includes('trap')) return 'Neck and trap durability';
   if (normalized.includes('hip') || normalized.includes('ankle') || normalized.includes('mobility')) return 'Hip and ankle mobility';
   if (normalized.includes('recovery')) return 'Recovery reset';
-  if (normalized.includes('boxing_skill')) return 'Boxing skill microdose';
-  return 'Generated boxing support';
+  if (normalized.includes('boxing_skill')) return 'Skill support';
+  return 'Athleticore support';
 }
 
 function legacyWorkoutType(workoutTypeId: string | undefined): WorkoutLogRow['workout_type'] {
@@ -307,5 +309,5 @@ export function mergeWorkoutAnalyticsSessions<T extends UnifiedWorkoutAnalyticsS
 }
 
 export function generatedHistoryDisplayTitle(entry: GeneratedWorkoutHistoryEntry): string {
-  return boxingGeneratedLabel(entry.workoutTypeId, entry.goalId) || titleToken(entry.focus ?? 'Generated boxing support');
+  return boxingGeneratedLabel(entry.workoutTypeId, entry.goalId) || titleToken(entry.focus ?? 'Athleticore support');
 }

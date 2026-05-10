@@ -272,7 +272,7 @@ function installRenderMocks(): void {
     if (request === '../components/workout') {
       return {
         GeneratedWorkoutPreviewCard: require('../../../src/components/workout/GeneratedWorkoutPreviewCard.tsx').GeneratedWorkoutPreviewCard,
-        GeneratedWorkoutBetaSessionCard: require('../../../src/components/workout/GeneratedWorkoutBetaSessionCard.tsx').GeneratedWorkoutBetaSessionCard,
+        BoxingGeneratedWorkoutSessionCard: require('../../../src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx').BoxingGeneratedWorkoutSessionCard,
       };
     }
     if (request === '../../lib/engine/presentation') return { buildTrainingFloorViewModel: () => ({ isDeload: false }) };
@@ -355,8 +355,8 @@ async function run(): Promise<void> {
     GeneratedWorkoutPreviewCard,
   } = require('../../../src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const {
-    GeneratedWorkoutBetaSessionCard,
-  } = require('../../../src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
+    BoxingGeneratedWorkoutSessionCard,
+  } = require('../../../src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx');
 
   const validWorkout = await generatePreviewWorkout(workoutProgrammingServiceFixtures.beginnerBodyweightStrength, {
     persistGeneratedWorkout: false,
@@ -444,7 +444,7 @@ async function run(): Promise<void> {
     onReset: () => { eventLog.push('reset'); },
   };
 
-  const configure = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
+  const configure = render(React.createElement(BoxingGeneratedWorkoutSessionCard, {
     ...baseBetaProps,
     stage: 'configure',
     workout: null,
@@ -452,25 +452,25 @@ async function run(): Promise<void> {
   }));
   assert('beta session card renders configure state', Boolean(
     configure.getByTestId('boxing-generated-workout-card')
-      && configure.getByLabelText('Generate boxing session')
+      && configure.getByLabelText('Generate Athleticore support session')
       && configure.getByText('Choose the basics. The engine keeps safety and readiness in the request.'),
   ));
-  act(() => { fireEvent.press(configure.getByLabelText('Generate boxing session')); });
+  act(() => { fireEvent.press(configure.getByLabelText('Generate Athleticore support session')); });
   assert('boxing configure state calls generate handler', eventLog.includes('generate'));
   configure.unmount();
 
-  const inspect = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
+  const inspect = render(React.createElement(BoxingGeneratedWorkoutSessionCard, {
     ...baseBetaProps,
     stage: 'inspect',
     workout: validWorkout,
     progressionDecision: null,
   }));
-  assert('boxing session card renders inspect state', Boolean(inspect.getByLabelText('Start boxing session')));
-  act(() => { fireEvent.press(inspect.getByLabelText('Start boxing session')); });
+  assert('boxing session card renders inspect state', Boolean(inspect.getByLabelText('Start Athleticore support session')));
+  act(() => { fireEvent.press(inspect.getByLabelText('Start Athleticore support session')); });
   assert('boxing inspect state calls start handler', eventLog.includes('start'));
   inspect.unmount();
 
-  const blockedInspect = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
+  const blockedInspect = render(React.createElement(BoxingGeneratedWorkoutSessionCard, {
     ...baseBetaProps,
     stage: 'inspect',
     workout: blockedWorkout,
@@ -484,7 +484,7 @@ async function run(): Promise<void> {
   ));
   blockedInspect.unmount();
 
-  const started = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
+  const started = render(React.createElement(BoxingGeneratedWorkoutSessionCard, {
     ...baseBetaProps,
     stage: 'started',
     workout: validWorkout,
@@ -493,20 +493,20 @@ async function run(): Promise<void> {
     progressionDecision: null,
   }));
   assert('boxing session card renders started state', Boolean(started.getByTestId('boxing-generated-workout-checklist')));
-  assert('boxing session card renders lifecycle controls', Boolean(started.getByTestId('boxing-generated-workout-lifecycle-controls') && started.getByLabelText('Pause boxing session')));
+  assert('boxing session card renders lifecycle controls', Boolean(started.getByTestId('boxing-generated-workout-lifecycle-controls') && started.getByLabelText('Pause Athleticore support session')));
   assert('completion controls render checklist', Boolean(started.getByTestId('boxing-generated-workout-checklist')));
   assert('completion controls render RPE', Boolean(started.getByLabelText('Decrease Session effort rating') && started.getByLabelText('Increase Session effort rating')));
   assert('completion controls render pain before/after', Boolean(started.getByLabelText('Decrease Pain before') && started.getByLabelText('Increase Pain after')));
   assert('completion controls render feedback tags', Boolean(started.getByTestId('boxing-generated-workout-feedback') && started.getByText('Too easy') && started.getByText('Pain or discomfort')));
   assert('completion controls render notes', Boolean(started.getByTestId('boxing-generated-workout-notes')));
-  assert('completion controls render complete button', Boolean(started.getByLabelText('Complete boxing session')));
+  assert('completion controls render complete button', Boolean(started.getByLabelText('Complete Athleticore support session')));
   act(() => { fireEvent.press(started.getByLabelText('Mark all exercises complete')); });
   act(() => { fireEvent.changeText(started.getByLabelText('Workout notes'), 'Felt smooth and controlled.'); });
-  act(() => { fireEvent.press(started.getByLabelText('Complete boxing session')); });
+  act(() => { fireEvent.press(started.getByLabelText('Complete Athleticore support session')); });
   assert('boxing started state calls complete handler', eventLog.includes('complete'));
   started.unmount();
 
-  const paused = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
+  const paused = render(React.createElement(BoxingGeneratedWorkoutSessionCard, {
     ...baseBetaProps,
     stage: 'started',
     workout: validWorkout,
@@ -514,12 +514,12 @@ async function run(): Promise<void> {
     lifecycleStatus: 'paused',
     progressionDecision: null,
   }));
-  assert('boxing session card can resume a paused persisted session', Boolean(paused.getByLabelText('Resume boxing session') && paused.getByText('Resume to Complete')));
-  act(() => { fireEvent.press(paused.getByLabelText('Resume boxing session')); });
+  assert('boxing session card can resume a paused persisted session', Boolean(paused.getByLabelText('Resume Athleticore support session') && paused.getByText('Resume to Complete')));
+  act(() => { fireEvent.press(paused.getByLabelText('Resume Athleticore support session')); });
   assert('boxing paused state calls resume handler', eventLog.includes('resume'));
   paused.unmount();
 
-  const completed = render(React.createElement(GeneratedWorkoutBetaSessionCard, {
+  const completed = render(React.createElement(BoxingGeneratedWorkoutSessionCard, {
     ...baseBetaProps,
     stage: 'completed',
     workout: validWorkout,

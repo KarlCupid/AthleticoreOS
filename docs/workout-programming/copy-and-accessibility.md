@@ -1,6 +1,6 @@
 # Workout Programming Copy and Accessibility
 
-This guide covers generated workout descriptions and the boxing generated-workout UI. The goal is clear, calm, coach-quality language that works for future localization and basic assistive technology.
+This guide covers generated workout descriptions and the Athleticore support-session UI. The goal is clear, calm, coach-quality S&C language that works for future localization and basic assistive technology.
 
 ## Copy Principles
 
@@ -47,7 +47,7 @@ Avoid:
 Generated workout UI should include:
 
 - Clear headings for session intent, blocks, exercises, safety, scaling, feedback, and next step.
-- Descriptive button labels such as "Generate boxing session", "Start boxing session", and "Complete boxing session".
+- Descriptive button labels such as "Generate Athleticore support session", "Start Athleticore support session", and "Complete Athleticore support session".
 - Checkbox labels that include the exercise name.
 - Input labels that include the exercise name when repeated fields appear.
 - Visible safety notes, not color-only warnings.

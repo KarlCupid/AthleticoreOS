@@ -2,7 +2,7 @@
 
 This folder documents the production-grade workout-programming system under `lib/performance-engine/workout-programming/`.
 
-The module turns boxing-athlete context into a safe, explainable workout or weekly program. The boxing workout-programming engine is the canonical runtime source for weekly planning, generated support sessions, completion, progression, and training-week intelligence. It combines static programming taxonomy, typed prescriptions, hand-authored coaching intelligence, user constraints, substitution logic, validation, progression decisions, persistence services, boxing-week adapters, and internal diagnostics.
+The module turns boxing-athlete context into a safe, explainable Athleticore support session or weekly S&C support program. The boxing athlete support engine is the canonical runtime source for weekly planning, generated support sessions, completion, progression, nutrition handoff, daily performance handoff, and training-week intelligence. It combines static programming taxonomy, typed prescriptions, hand-authored coaching intelligence, user constraints, substitution logic, validation, progression decisions, persistence services, support-domain adapters, and internal diagnostics.
 
 ## Audience
 
@@ -13,7 +13,7 @@ The module turns boxing-athlete context into a safe, explainable workout or week
 
 ## Main Files
 
-- `types.ts`: canonical TypeScript ontology.
+- `types.ts`: canonical TypeScript ontology, including `BoxingAthleteSupportDomain`.
 - `seedData.ts`: static taxonomy, exercises, prescriptions, session templates.
 - `intelligenceData.ts`: rules, safety flags, descriptions, cues, mistakes, substitution rules, validation metadata.
 - `workoutProgrammingEngine.ts`: single-session generation and catalog validation.
@@ -74,7 +74,7 @@ The module turns boxing-athlete context into a safe, explainable workout or week
 - [Generated Workout UI Smoke Checklist](./ui-smoke-checklist.md)
 - [Testing, Limitations, and Roadmap](./testing-limitations-roadmap.md)
 
-## Quick Start: Generate a Boxing Session
+## Quick Start: Generate a Support Session
 
 ```ts
 import { workoutProgrammingService } from '../lib/performance-engine/workout-programming';
@@ -88,6 +88,7 @@ const session = await workoutProgrammingService.generateGeneratedWorkoutSessionF
   intendedBoxingSessionFamily: 'footwork_agility',
   intendedBoxingSessionRole: 'footwork_agility',
   intendedSessionDoseCategory: 'microdose',
+  athleticDevelopmentDomain: 'speed_agility',
   preferredSessionTemplateId: 'footwork_agility',
 });
 ```

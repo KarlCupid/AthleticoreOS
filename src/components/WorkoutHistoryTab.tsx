@@ -99,7 +99,7 @@ export function WorkoutHistoryTab({ workoutHistory }: WorkoutHistoryTabProps) {
                 ) : null}
               </View>
               <View style={styles.doneBadge}>
-                <Text style={styles.doneBadgeText}>{isGeneratedEntry(log) ? 'Boxing support' : 'Logged'}</Text>
+                <Text style={styles.doneBadgeText}>{isGeneratedEntry(log) ? log.sourceLabel : 'Logged'}</Text>
               </View>
             </View>
           </Card>
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.sm + 2,
     paddingVertical: 6,
-    maxWidth: 112,
+    maxWidth: 150,
   },
   doneBadgeText: {
     fontSize: 11,

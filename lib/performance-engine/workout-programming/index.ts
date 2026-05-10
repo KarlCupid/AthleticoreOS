@@ -7,6 +7,8 @@ export * from './seedData.ts';
 export * from './intelligenceData.ts';
 export * from './seedLoader.ts';
 export * from './workoutProgrammingEngine.ts';
+export * from './athleteSupportDomains.ts';
+export * from './engineFlags.ts';
 export * from './workoutDescriptionService.ts';
 export * from './catalogValidation.ts';
 export * from './content/validation.ts';

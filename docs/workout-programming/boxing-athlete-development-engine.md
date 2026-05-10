@@ -1,16 +1,16 @@
 # Boxing Athlete Development Engine
 
-Athleticore workout programming is boxing-first. The engine is not a generic workout generator and not a broad combat-sport generator. Protected boxing sessions stay anchored, then Athleticore fills the missing athletic qualities around them.
+Athleticore workout programming is boxing-first S&C and performance support. It is not a generic workout generator, not a broad combat-sport generator, and not a boxing coaching replacement. Protected boxing practice stays anchored; generated Athleticore support fills the missing strength, power, speed, roadwork, conditioning, mobility, durability, recovery, nutrition, hydration, and weight-class support around it.
 
 ## Pillars
 
 - Variance: rotate formats only when the trained quality remains stable. Beginners and tapers use low variance. Open/development tracks can use moderate variance.
 - Volume: track generated and protected dose through a weekly boxing load ledger instead of guessing.
-- Frequency: preserve full sessions, support sessions, microdoses, and recovery resets so useful exposure does not disappear when protected boxing is present.
+- Frequency: preserve full S&C sessions, support sessions, low-risk skill microdoses, roadwork, durability, and recovery resets so useful exposure does not disappear when protected boxing is present.
 
 ## Tracks
 
-- `aspiring_boxer`: fundamentals, shadowboxing, footwork, roadwork, mobility, and strength basics. No generated sparring.
+- `aspiring_boxer`: low-risk skill support, footwork capacity, roadwork, mobility, durability, and strength basics. No generated sparring.
 - `amateur_novice`: high-frequency short development with controlled conditioning and durability.
 - `amateur_open`: repeat-output, agility, fast starts, alactic repeatability, and enough aerobic support.
 - `amateur_elite`: higher specificity, sharper high/low scheduling, frequent microdoses, and controlled variance.
@@ -24,15 +24,34 @@ Legacy combat archetypes are accepted only as compatibility inputs and map into 
 
 ## Protected Load
 
-Protected boxing sessions are schedule anchors. Boxing skill, pads, bag work, sparring, roadwork, competition, mobility/prehab, and recovery labels are inferred when modality is missing.
+Protected boxing sessions are schedule anchors. Boxing classes, pads, bag work, sparring, and competition satisfy boxing-practice exposure where appropriate. Athleticore generated work supports around them; it does not silently move them, replace them, or pretend to be the athlete's boxing coach.
 
 Sparring and competition are protected or coach-led only. The generator never creates live sparring, unsupervised fight simulation, or high-contact prescriptions.
 
 Deprecated `sport_skill` inputs are treated cautiously. They become boxing load only when the label clearly says boxing, pads, mitts, bag work, shadowboxing, footwork, sparring, bout, or boxing class/practice. MMA, grappling, wrestling, BJJ, Muay Thai, and kickboxing labels remain external non-boxing load.
 
-## Boxing Content Layer
+## Athletic Development Domain Layer
 
-The planner requests boxing session families and the content layer now resolves those families to dedicated templates, prescriptions, and exercises rather than generic cardio, mobility, or strength fallbacks.
+Every generated session carries a first-class `athleticDevelopmentDomain` above the boxing session family. The user-facing language should describe the athletic quality being trained, then explain why it matters for boxing.
+
+Supported domains:
+
+- `boxing_skill_support`
+- `strength`
+- `power`
+- `speed_agility`
+- `conditioning`
+- `roadwork`
+- `durability`
+- `mobility`
+- `recovery`
+- `nutrition_fueling`
+- `hydration`
+- `weight_class_support`
+
+Display labels are Strength, Power, Speed & agility, Conditioning, Roadwork, Durability, Mobility, Recovery, and Boxing skill support.
+
+The planner requests boxing session families and the content layer resolves those families to dedicated templates, prescriptions, and exercises without falling back to generic cardio, mobility, or strength as product behavior.
 
 - `boxing_skill_microdose`: short, low-risk skill support built around stance, breathing, rhythm, posture, and movement quality.
 - `footwork_agility`: boxing footwork, change-of-direction quality, ankle/calf/hip capacity, balance, and repeatable stance resets.
@@ -42,7 +61,7 @@ The planner requests boxing session families and the content layer now resolves 
 - `roadwork_intervals`: harder aerobic-power support only when readiness and hard-day budget allow.
 - `alactic_repeat_power`: short burst work with long recoveries and low total fatigue, aimed at first-step and repeat-output quality.
 - `glycolytic_round_tolerance`: controlled round-based tolerance for prepared athletes, kept away from hard sparring.
-- `rotational_power`: low-volume, high-intent hip-to-trunk power transfer.
+- `rotational_power`: low-volume, high-intent hip-to-trunk power transfer. It is power for boxing, not boxing practice.
 - `trunk_durability`: anti-rotation, anti-extension, carries, bracing, and posture under fatigue.
 - `shoulder_scap_durability`: scapular control, serratus/rotator-cuff endurance, thoracic position, and guard durability.
 - `neck_trap_durability`: conservative trap, scapular, and postural durability only. The engine does not prescribe loaded neck bridges, aggressive manual resistance, or contact preparation.
@@ -77,7 +96,7 @@ Each week exposes a boxing load ledger with protected boxing minutes/rounds, spa
 
 Protected roadwork can reduce additional generated roadwork, but protected boxing does not automatically erase Athleticore S&C or low-load support.
 
-Generated workouts update the ledger from actual selected content. If a hard conditioning intent is downgraded to mobility, recovery, or durability support, the ledger credits the lower-load work that was actually prescribed. Blocked workouts do not count as successful generated dose.
+Generated Athleticore support sessions update the ledger from actual selected content. If a hard conditioning intent is downgraded to mobility, recovery, or durability support, the ledger credits the lower-load work that was actually prescribed. Blocked sessions do not count as successful generated dose.
 
 The ledger also tracks technical microdose minutes so short boxing-support exposures are visible instead of being hidden inside generic session counts.
 
@@ -105,20 +124,40 @@ Protected duration and load count toward day capacity. If hard work cannot be pl
 
 Placement uses a lightweight boxing week layout score. Candidates are penalized for hard work on sparring or competition days, reckless adjacent hard days, losing the only recovery day on high-load weeks, and poor spacing for the track. Amateur plans prefer agility and repeat-output spacing. Pro plans prefer pacing durability and recovery spacing. Limited availability can still stack low-load support on protected boxing days when the capacity math is safe.
 
+## Nutrition, Hydration, And Weight Class
+
+Generated support domains feed nutrition and recovery demand instead of forcing the nutrition engine to guess from generic activity labels.
+
+- Strength and power sessions emphasize carbs to train, protein to recover, and no aggressive deficit override on heavy S&C days.
+- Roadwork base uses duration-aware carbohydrate and hydration support without unnecessary high-carb copy for short easy sessions.
+- Conditioning intervals emphasize pre-session carbs, fluids, electrolytes when needed, and glycogen restore.
+- Durability, mobility, and recovery emphasize consistency, protein, hydration, and safety flags.
+- Sparring and competition remain protected high-stress anchors that require performance fueling and recovery support.
+- Weight-class support never overrides safety floors, hydration needs, under-fueling risk, illness, injury, dizziness, fainting, acute pain, or poor readiness.
+
 ## UI-Ready Summary
 
-Generated weeks expose boxing-specific helper copy for product surfaces:
+Generated weeks expose S&C coach helper copy for product surfaces:
 
-- `weeklyBoxingHeadline`
-- `weeklyBoxingSummary`
-- `primaryBoxingFocus`
+- `weeklyAthleticDevelopmentHeadline`
+- `weeklyAthleticDevelopmentSummary`
+- `sAndCFocus`
+- `supportDomainSummary`
+- `protectedBoxingPracticeSummary`
+- `athleticDevelopmentFocusAreas`
+- `generatedSAndCSessionCount`
+- `generatedSkillSupportCount`
+- `generatedRoadworkCount`
+- `generatedStrengthPowerCount`
+- `generatedDurabilityCount`
+- `generatedRecoveryCount`
 - `hardDaySummary`
 - `protectedLoadSummary`
 - `generatedSupportSummary`
 - `nextBestAction`
 - `coachSummaryBullets`
 
-The copy should explain the actual programming decision, such as sparring owning the hard stress, roadwork already being covered, or red readiness removing hard work.
+The copy should explain the actual programming decision, such as boxing practice being covered by protected anchors, sparring owning the hard stress, roadwork already being covered, or red readiness removing hard work.
 
 ## Media Readiness
 

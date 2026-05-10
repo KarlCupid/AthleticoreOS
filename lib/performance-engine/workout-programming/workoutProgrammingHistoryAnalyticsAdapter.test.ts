@@ -92,7 +92,7 @@ function run() {
   console.log('\n-- workout programming history and analytics adapter --');
 
   const historyEntry = mapGeneratedCompletionToHistoryEntry(generatedSurface);
-  assert('generated completion maps into history view', historyEntry.source === 'generated' && historyEntry.sourceLabel === 'Generated boxing support');
+  assert('generated completion maps into history view', historyEntry.source === 'generated' && historyEntry.sourceLabel === 'Strength support');
   assert('history preserves generated workout type and goal', historyEntry.workoutTypeId === 'bodyweight_strength' && historyEntry.goalId === 'strength_foundation');
   assert('history preserves RPE and pain metrics', historyEntry.session_rpe === 7 && historyEntry.painScoreBefore === 2 && historyEntry.painScoreAfter === 3);
   assert('history preserves completion status', historyEntry.completionStatus === 'partial');

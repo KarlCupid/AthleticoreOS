@@ -47,6 +47,10 @@ type DayActivity = {
   estimated_duration_min: number;
   start_time?: string | null | undefined;
   custom_label?: string | null | undefined;
+  athletic_development_domain?: string | null | undefined;
+  boxing_session_family?: string | null | undefined;
+  support_domain_label?: string | null | undefined;
+  fuel_priority?: FuelPriority | null | undefined;
 };
 
 type NutritionResolutionOptions = {
@@ -190,6 +194,25 @@ function activityFamily(activity: ActivityType): SessionFamily {
   }
 }
 
+function inferredFuelPriority(activity: DayActivity): FuelPriority | null {
+  if (activity.fuel_priority) return activity.fuel_priority;
+  const domain = activity.athletic_development_domain;
+  const label = `${activity.custom_label ?? ''} ${activity.support_domain_label ?? ''} ${activity.boxing_session_family ?? ''}`.toLowerCase();
+  if (activity.activity_type === 'sparring') return 'sparring';
+  if (domain === 'strength' || label.includes('strength')) return 'strength_power';
+  if (domain === 'power' || label.includes('power')) return 'power';
+  if (domain === 'roadwork' && (label.includes('tempo') || activity.expected_intensity >= 6)) return 'roadwork_tempo';
+  if (domain === 'roadwork' || label.includes('roadwork')) return 'roadwork_aerobic';
+  if (domain === 'conditioning' || label.includes('interval') || label.includes('alactic') || label.includes('round tolerance')) return 'conditioning_intervals';
+  if (domain === 'durability' || label.includes('durability')) return 'durability';
+  if (domain === 'mobility' || label.includes('mobility') || label.includes('prehab')) return 'mobility';
+  if (domain === 'recovery' || activity.activity_type === 'active_recovery') return 'recovery';
+  if (domain === 'boxing_skill_support' || activity.activity_type === 'boxing_practice') {
+    return activity.expected_intensity >= 6 || activity.estimated_duration_min >= 25 ? 'boxing_practice' : 'mobility';
+  }
+  return null;
+}
+
 function sessionTitle(activity: DayActivity): string {
   if (activity.custom_label?.trim()) return activity.custom_label.trim();
   return activity.activity_type.replace(/_/g, ' ');
@@ -197,7 +220,16 @@ function sessionTitle(activity: DayActivity): string {
 
 function toComposedSessions(activities: DayActivity[], date: string): ComposedSession[] {
   return activities.map((activity, index) => {
-    const family = activityFamily(activity.activity_type);
+    const priority = inferredFuelPriority(activity);
+    const family = priority === 'strength_power' || priority === 'power'
+      ? 'strength'
+      : priority === 'roadwork_aerobic' || priority === 'roadwork_tempo'
+        ? 'roadwork'
+        : priority === 'conditioning_intervals'
+          ? 'conditioning'
+          : priority === 'durability' || priority === 'mobility'
+            ? 'recovery'
+            : activityFamily(activity.activity_type);
     const duration = Math.max(0, activity.estimated_duration_min);
     const intensity = clamp(activity.expected_intensity, 0, 10);
 
@@ -220,7 +252,15 @@ function toComposedSessions(activities: DayActivity[], date: string): ComposedSe
       }),
       startsAt: activity.start_time ? `${date}T${activity.start_time.length === 5 ? `${activity.start_time}:00` : activity.start_time}` : null,
       stressScore: Math.round((duration * intensity) / 10),
-      tissueLoads: family === 'strength' ? ['strength'] : family === 'sparring' ? ['impact', 'neural'] : [],
+      tissueLoads: family === 'strength'
+        ? ['strength']
+        : priority === 'durability'
+          ? ['trunk', 'shoulder_scap', 'neck_trap']
+          : priority === 'mobility'
+            ? ['hip_ankle', 'mobility']
+            : family === 'sparring'
+              ? ['impact', 'neural']
+              : [],
       confidence: ENGINE_CONFIDENCE,
     });
   });
@@ -435,10 +475,13 @@ function activeActivities(activities: DayActivity[]): DayActivity[] {
 
 function activityPriorityScore(activity: DayActivity): number {
   const base = activity.expected_intensity * 10 + Math.round(activity.estimated_duration_min / 5);
+  const priority = inferredFuelPriority(activity);
   if (activity.activity_type === 'sparring') return base + 35;
   if (activity.activity_type === 'boxing_practice') return base + 20;
+  if (priority === 'strength_power' || priority === 'power') return base + 18;
+  if (priority === 'conditioning_intervals' || activity.activity_type === 'conditioning') return base + 16;
+  if (priority === 'roadwork_tempo') return base + 14;
   if (activity.activity_type === 'sc') return base + 15;
-  if (activity.activity_type === 'conditioning') return base + 12;
   return base;
 }
 
@@ -481,6 +524,32 @@ function getPrioritySession(activities: DayActivity[], trainingIntensityCap?: nu
     };
   }
 
+  const inferred = inferredFuelPriority(activity);
+  if (inferred) {
+    const labels: Record<FuelPriority, string> = {
+      sparring: 'Sparring',
+      boxing_practice: 'Boxing practice',
+      strength_power: 'Strength-power support',
+      power: 'Power support',
+      roadwork_aerobic: 'Roadwork base',
+      roadwork_tempo: 'Roadwork tempo',
+      conditioning_intervals: 'Conditioning intervals',
+      durability: 'Durability support',
+      mobility: 'Mobility support',
+      heavy_sc: 'Heavy S&C',
+      conditioning: 'Conditioning',
+      double_session: 'Double session day',
+      recovery: 'Recovery session',
+      body_mass_protect: 'Body-mass support session',
+    };
+    return {
+      priority: inferred,
+      label: labels[inferred],
+      sessionLabel: activity.custom_label ?? activity.support_domain_label ?? labels[inferred],
+      activity,
+    };
+  }
+
   switch (activity.activity_type) {
     case 'sparring':
       return { priority: 'sparring', label: 'Sparring', sessionLabel: activity.custom_label ?? 'Sparring', activity };
@@ -488,14 +557,21 @@ function getPrioritySession(activities: DayActivity[], trainingIntensityCap?: nu
       return { priority: 'boxing_practice', label: 'Boxing practice', sessionLabel: activity.custom_label ?? 'Technical practice', activity };
     case 'sc':
       return {
-        priority: activity.expected_intensity >= 7 ? 'heavy_sc' : 'conditioning',
-        label: activity.expected_intensity >= 7 ? 'Heavy S&C' : 'S&C session',
+        priority: 'strength_power',
+        label: 'Strength-power support',
         sessionLabel: activity.custom_label ?? 'Strength and conditioning',
         activity,
       };
     case 'conditioning':
+      return { priority: 'conditioning_intervals', label: 'Conditioning intervals', sessionLabel: activity.custom_label ?? 'Conditioning support', activity };
     case 'road_work':
     case 'running':
+      return {
+        priority: activity.expected_intensity >= 6 ? 'roadwork_tempo' : 'roadwork_aerobic',
+        label: activity.expected_intensity >= 6 ? 'Roadwork tempo' : 'Roadwork base',
+        sessionLabel: activity.custom_label ?? 'Roadwork support',
+        activity,
+      };
     case 'other':
     default:
       return { priority: 'conditioning', label: 'Conditioning', sessionLabel: activity.custom_label ?? 'Conditioning session', activity };
@@ -512,17 +588,18 @@ function fuelState(priority: FuelPriority, target: NutritionTarget): NutritionFu
   if (priority === 'body_mass_protect') return 'body_mass_protect';
   if (target.phase === 'taper' || target.phase === 'competition_week') return 'taper';
   if (priority === 'sparring' || priority === 'boxing_practice') return 'spar_support';
-  if (priority === 'heavy_sc') return 'strength_power';
+  if (priority === 'heavy_sc' || priority === 'strength_power' || priority === 'power') return 'strength_power';
   if (priority === 'double_session') return 'double_day';
-  if (priority === 'recovery') return 'active_recovery';
+  if (priority === 'recovery' || priority === 'mobility' || priority === 'durability') return 'active_recovery';
   return 'aerobic';
 }
 
 function recoveryFocus(target: NutritionTarget, priority: FuelPriority): RecoveryNutritionFocus {
   const focus = target.recoveryDirectives[0]?.focus;
   if (priority === 'sparring' || focus === 'impact_recovery' || focus === 'tissue_repair') return 'impact_recovery';
-  if (focus === 'glycogen_restore') return 'glycogen_restore';
+  if (focus === 'glycogen_restore' || priority === 'conditioning_intervals' || priority === 'roadwork_tempo') return 'glycogen_restore';
   if (focus === 'hydration_restore') return 'hydration_restore';
+  if (priority === 'roadwork_aerobic') return 'hydration_restore';
   return 'none';
 }
 
@@ -537,6 +614,8 @@ function hydrationPlan(input: {
   const notes = [
     ...(input.target.sodiumElectrolyteGuidance?.electrolyteNotes ?? []),
     input.priority === 'sparring' ? 'Start the first session hydrated so speed and decision-making stay protected.' : null,
+    input.priority === 'roadwork_aerobic' ? 'Roadwork base usually needs steady hydration; add electrolytes if it is long, hot, or sweaty.' : null,
+    input.priority === 'conditioning_intervals' ? 'Conditioning intervals need fluids and electrolytes before and after the session.' : null,
     input.target.phase === 'competition_week' || input.target.phase === 'taper' ? 'Avoid new hydration products during competition week.' : null,
   ].filter((line): line is string => Boolean(line));
 
@@ -546,6 +625,9 @@ function hydrationPlan(input: {
     emphasis: input.recoveryFocus === 'hydration_restore'
         ? 'recovery'
         : input.priority === 'sparring' || input.priority === 'double_session' || input.priority === 'boxing_practice'
+          || input.priority === 'strength_power' || input.priority === 'power'
+          || input.priority === 'roadwork_aerobic' || input.priority === 'roadwork_tempo'
+          || input.priority === 'conditioning_intervals'
           ? 'performance'
           : 'baseline',
     notes,
@@ -593,6 +675,31 @@ function sessionFuelingPlanFromDirective(input: {
         notes: postWindow.notes,
       }
     : defaultFuelingWindow('After training', 'Normal meal timing is enough today');
+  const supportNote = (() => {
+    switch (input.priority) {
+      case 'strength_power':
+      case 'heavy_sc':
+        return 'Today is strength-power support, so the goal is enough carbs to train and protein to recover.';
+      case 'power':
+        return 'Today is power support for boxing; arrive fueled enough to move fast and recover with protein.';
+      case 'roadwork_aerobic':
+        return 'Roadwork base is low intensity; keep hydration steady and fuel normally unless duration is long.';
+      case 'roadwork_tempo':
+        return 'Roadwork tempo needs enough carbohydrate and fluids to hold controlled pace without under-fueling.';
+      case 'conditioning_intervals':
+      case 'conditioning':
+        return 'Conditioning intervals need pre-session carbs and fluids, then glycogen restore after training.';
+      case 'durability':
+        return 'Durability support has lower carb demand, but protein, micronutrients, and hydration still matter.';
+      case 'mobility':
+      case 'recovery':
+        return 'Recovery reset day: stay consistent, hit protein, and hydrate.';
+      case 'sparring':
+        return 'Sparring already drives high stress today; do not under-fuel recovery.';
+      default:
+        return 'Nutrition and Fueling Engine generated session fueling guidance.';
+    }
+  })();
 
   return {
     priority: input.priority,
@@ -618,7 +725,7 @@ function sessionFuelingPlanFromDirective(input: {
     postSession: post,
     hydrationNotes: directive?.duringSessionGuidance ?? [],
     coachingNotes: [
-      'Nutrition and Fueling Engine generated session fueling guidance.',
+      supportNote,
       directive?.explanation?.summary ?? 'Session fueling came from the Nutrition and Fueling Engine.',
     ].filter((line): line is string => Boolean(line)),
   };

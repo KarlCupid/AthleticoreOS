@@ -1,5 +1,14 @@
 import { generatePersonalizedWorkout } from './intelligenceEngine.ts';
 import {
+  emptySupportDomainSummary,
+  isSAndCSupportDomain,
+  protectedModalityToAthleticDevelopmentDomain,
+  supportDomainLabel,
+  supportSessionMetadata,
+  familyToAthleticDevelopmentDomain,
+  supportDomainSourceLabel,
+} from './athleteSupportDomains.ts';
+import {
   finalizeBoxingWeeklyDosePlan,
   inferProtectedWorkoutModality,
   planWeeklyTrainingDose,
@@ -9,6 +18,7 @@ import {
 } from './boxingTrainingModel.ts';
 import type {
   BoxingWeekLayoutCandidate,
+  BoxingAthleteSupportDomain,
   BoxingTrainingContext,
   BoxingSessionFamily,
   CombatSportContext,
@@ -407,6 +417,41 @@ function workoutTypeCounts(sessions: GeneratedProgramSession[]): Record<string, 
   return counts;
 }
 
+function supportDomainForSession(session: GeneratedProgramSession): BoxingAthleteSupportDomain | undefined {
+  return session.athleticDevelopmentDomain
+    ?? familyToAthleticDevelopmentDomain(session.boxingSessionFamily, session.boxingSessionRole)
+    ?? protectedModalityToAthleticDevelopmentDomain(session.protectedWorkoutModality);
+}
+
+function supportDomainCounts(sessions: readonly GeneratedProgramSession[]): Record<BoxingAthleteSupportDomain, number> {
+  const counts = emptySupportDomainSummary();
+  for (const session of sessions) {
+    if (!session.protectedAnchor && session.workout?.blocked) continue;
+    const domain = supportDomainForSession(session);
+    if (!domain) continue;
+    counts[domain] += 1;
+  }
+  return counts;
+}
+
+function generatedSupportDomainCounts(sessions: readonly GeneratedProgramSession[]): Record<BoxingAthleteSupportDomain, number> {
+  return supportDomainCounts(sessions.filter((session) => !session.protectedAnchor && !session.workout?.blocked));
+}
+
+function topSupportDomains(counts: Record<BoxingAthleteSupportDomain, number>, limit = 3): BoxingAthleteSupportDomain[] {
+  return (Object.keys(counts) as BoxingAthleteSupportDomain[])
+    .filter((domain) => counts[domain] > 0)
+    .sort((a, b) => counts[b] - counts[a])
+    .slice(0, limit);
+}
+
+function supportDomainPhrase(domains: readonly BoxingAthleteSupportDomain[]): string {
+  const labels = domains.map(supportDomainLabel);
+  if (labels.length === 0) return 'athlete support';
+  if (labels.length === 1) return labels[0] ?? 'athlete support';
+  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+}
+
 function hardDayCount(sessions: GeneratedProgramSession[]): number {
   return sessions.filter(sessionIsHard).length;
 }
@@ -414,6 +459,8 @@ function hardDayCount(sessions: GeneratedProgramSession[]): number {
 function weeklySummary(weekIndex: number, phase: ProgramPhase, sessions: GeneratedProgramSession[]): ProgramWeeklyVolumeSummary {
   const generatedSessions = sessions.filter((session) => !session.protectedAnchor && !session.workout?.blocked);
   const protectedSessions = sessions.filter((session) => session.protectedAnchor);
+  const domainCounts = generatedSupportDomainCounts(sessions);
+  const focusAreas = topSupportDomains(domainCounts, 4);
   return {
     weekIndex,
     phase,
@@ -451,6 +498,15 @@ function weeklySummary(weekIndex: number, phase: ProgramPhase, sessions: Generat
       || session.protectedWorkoutModality === 'roadwork_intervals'
       || session.protectedWorkoutModality === 'zone2'
     )).length,
+    generatedSAndCSessionCount: generatedSessions.filter((session) => isSAndCSupportDomain(supportDomainForSession(session))).length,
+    generatedSkillSupportCount: domainCounts.boxing_skill_support,
+    generatedRoadworkCount: domainCounts.roadwork,
+    generatedStrengthPowerCount: domainCounts.strength + domainCounts.power,
+    generatedDurabilityCount: domainCounts.durability + domainCounts.mobility,
+    generatedRecoveryCount: domainCounts.recovery,
+    supportDomainSummary: domainCounts,
+    protectedBoxingPracticeSummary: `${protectedSessions.filter((session) => supportDomainForSession(session) === 'boxing_skill_support').length} protected boxing anchor(s) cover practice exposure.`,
+    athleticDevelopmentFocusAreas: focusAreas,
     workoutTypeCounts: workoutTypeCounts(sessions),
   };
 }
@@ -463,6 +519,8 @@ function weeklySummaryWithDose(
 ): ProgramWeeklyVolumeSummary {
   const summary = weeklySummary(weekIndex, phase, sessions);
   if (!weeklyDose) return summary;
+  const domainCounts = generatedSupportDomainCounts(sessions);
+  const focusAreas = topSupportDomains(domainCounts, 4);
   return {
     ...summary,
     hardDayCap: weeklyDose.hardDayCap,
@@ -484,6 +542,15 @@ function weeklySummaryWithDose(
     )).length,
     protectedSparringCount: weeklyDose.protectedSparringCount,
     protectedRoadworkCount: weeklyDose.protectedRoadworkCount,
+    generatedSAndCSessionCount: summary.generatedSAndCSessionCount ?? 0,
+    generatedSkillSupportCount: domainCounts.boxing_skill_support,
+    generatedRoadworkCount: domainCounts.roadwork,
+    generatedStrengthPowerCount: domainCounts.strength + domainCounts.power,
+    generatedDurabilityCount: domainCounts.durability + domainCounts.mobility,
+    generatedRecoveryCount: domainCounts.recovery,
+    supportDomainSummary: domainCounts,
+    protectedBoxingPracticeSummary: `${summary.protectedBoxingSessionCount ?? 0} protected boxing anchor(s) cover practice exposure.`,
+    athleticDevelopmentFocusAreas: focusAreas,
     boxingLoadLedger: weeklyDose.loadLedger,
     rulesetTrack: weeklyDose.track,
     boxingProgressionPhase: weeklyDose.boxingProgressionPhase,
@@ -590,6 +657,12 @@ function rebuildProgram(
     weeklyBoxingHeadline: updatedWeeks[0]?.weeklyBoxingHeadline,
     weeklyBoxingSummary: updatedWeeks[0]?.weeklyBoxingSummary,
     primaryBoxingFocus: updatedWeeks[0]?.primaryBoxingFocus,
+    weeklyAthleticDevelopmentHeadline: updatedWeeks[0]?.weeklyAthleticDevelopmentHeadline,
+    weeklyAthleticDevelopmentSummary: updatedWeeks[0]?.weeklyAthleticDevelopmentSummary,
+    sAndCFocus: updatedWeeks[0]?.sAndCFocus,
+    supportDomainSummary: updatedWeeks[0]?.supportDomainSummary,
+    protectedBoxingPracticeSummary: updatedWeeks[0]?.protectedBoxingPracticeSummary,
+    athleticDevelopmentFocusAreas: updatedWeeks[0]?.athleticDevelopmentFocusAreas,
     hardDaySummary: updatedWeeks[0]?.hardDaySummary,
     protectedLoadSummary: updatedWeeks[0]?.protectedLoadSummary,
     generatedSupportSummary: updatedWeeks[0]?.generatedSupportSummary,
@@ -816,11 +889,13 @@ function titleCaseTrack(track: string | undefined): string {
 }
 
 function primaryFocusFromDose(dose: WeeklyTrainingDosePrescription | undefined): string {
-  if (!dose) return 'boxing support';
-  const families = unique(dose.intents.map((intentItem) => intentItem.family));
+  if (!dose) return 'athlete support';
+  const domains = unique(dose.intents
+    .map((intentItem) => intentItem.athleticDevelopmentDomain ?? familyToAthleticDevelopmentDomain(intentItem.family, intentItem.boxingRole))
+    .filter((domain): domain is BoxingAthleteSupportDomain => Boolean(domain)));
   const priorityGap = dose.qualityGaps[0]?.quality;
-  if (priorityGap) return `${String(priorityGap)} with ${families.slice(0, 2).join(' and ')}`;
-  return families.slice(0, 3).join(', ') || 'boxing support';
+  if (priorityGap) return `${String(priorityGap)} with ${supportDomainPhrase(domains.slice(0, 2))}`;
+  return supportDomainPhrase(domains.slice(0, 3));
 }
 
 function boxingWeekCopy(input: {
@@ -832,6 +907,12 @@ function boxingWeekCopy(input: {
   | 'weeklyBoxingHeadline'
   | 'weeklyBoxingSummary'
   | 'primaryBoxingFocus'
+  | 'weeklyAthleticDevelopmentHeadline'
+  | 'weeklyAthleticDevelopmentSummary'
+  | 'sAndCFocus'
+  | 'supportDomainSummary'
+  | 'protectedBoxingPracticeSummary'
+  | 'athleticDevelopmentFocusAreas'
   | 'hardDaySummary'
   | 'protectedLoadSummary'
   | 'generatedSupportSummary'
@@ -843,6 +924,9 @@ function boxingWeekCopy(input: {
   const protectedBoxing = input.sessions.filter((session) => session.protectedAnchor && session.protectedWorkoutModality && session.protectedWorkoutModality !== 'external_non_boxing_load').length;
   const protectedSparring = input.sessions.filter((session) => session.protectedAnchor && session.protectedWorkoutModality === 'sparring').length;
   const generated = input.sessions.filter((session) => !session.protectedAnchor && !session.workout?.blocked);
+  const domainCounts = generatedSupportDomainCounts(input.sessions);
+  const focusAreas = topSupportDomains(domainCounts, 4);
+  const focusPhrase = supportDomainPhrase(focusAreas);
   const supportCount = generated.filter((session) => session.sessionDoseCategory === 'support_session' || session.sessionDoseCategory === 'microdose' || session.sessionDoseCategory === 'recovery_reset').length;
   const hardGenerated = generated.filter(sessionIsHard).length;
   const primaryFocus = primaryFocusFromDose(dose);
@@ -852,25 +936,39 @@ function boxingWeekCopy(input: {
     : protectedBoxing > 0
       ? 'Protected boxing anchors are counted as load while Athleticore fills the missing athletic-chain support.'
       : 'Athleticore is building boxing frequency with low-risk skill support plus the missing athletic-chain qualities.';
-  const weeklyBoxingHeadline = `${trackLabel}: week ${input.weekIndex} builds ${primaryFocus}.`;
-  const weeklyBoxingSummary = redReadiness
-    ? `${trackLabel}: red readiness means no hard generated work; recovery reset and microdose support only.`
-    : `${trackLabel}: this week builds ${primaryFocus} around ${protectedBoxing} protected boxing anchor(s).`;
+  const weeklyAthleticDevelopmentHeadline = `${trackLabel}: week ${input.weekIndex} builds ${focusPhrase}.`;
+  const weeklyAthleticDevelopmentSummary = redReadiness
+    ? `${trackLabel}: red readiness means no hard generated work; Athleticore stays with recovery, mobility, and low-risk support only.`
+    : protectedBoxing >= 2
+      ? `Your boxing practice is covered by ${protectedBoxing} protected anchor(s), so Athleticore is filling ${focusPhrase}.`
+      : `${trackLabel}: Athleticore builds ${focusPhrase} around ${protectedBoxing} protected boxing anchor(s).`;
+  const weeklyBoxingHeadline = weeklyAthleticDevelopmentHeadline;
+  const weeklyBoxingSummary = weeklyAthleticDevelopmentSummary;
   const nextBestAction = redReadiness
     ? 'Keep the next session easy and log readiness, pain, and completion before progressing.'
     : protectedSparring >= 2
       ? 'Treat sparring as the high-stress exposure and complete the generated recovery or durability support.'
       : 'Complete the first generated support session and log RPE so next week can progress or repeat intelligently.';
+  const protectedBoxingPracticeSummary = protectedBoxing > 0
+    ? `${protectedBoxing} protected boxing anchor(s) cover boxing practice exposure this week.`
+    : 'No protected boxing anchors are logged, so Athleticore keeps skill support low risk and still builds the full boxer.';
   return {
     weeklyBoxingHeadline,
     weeklyBoxingSummary,
     primaryBoxingFocus: primaryFocus,
+    weeklyAthleticDevelopmentHeadline,
+    weeklyAthleticDevelopmentSummary,
+    sAndCFocus: focusPhrase,
+    supportDomainSummary: domainCounts,
+    protectedBoxingPracticeSummary,
+    athleticDevelopmentFocusAreas: focusAreas,
     hardDaySummary: `Hard days: ${input.sessions.filter(sessionIsHard).length}/${dose?.hardDayCap ?? 3}; generated hard work: ${hardGenerated}.`,
     protectedLoadSummary: `${protectedBoxing} protected boxing anchor(s), ${protectedSparring} sparring anchor(s), protected load ${dose?.protectedLoadScore ?? 0}.`,
-    generatedSupportSummary: `${supportCount} generated support/microdose/recovery exposure(s), generated load ${dose?.loadLedger.generatedLoadScore ?? 0}.`,
+    generatedSupportSummary: `${supportCount} Athleticore support exposure(s), generated load ${dose?.loadLedger.generatedLoadScore ?? 0}.`,
     nextBestAction,
     coachSummaryBullets: unique([
       sparringMessage,
+      protectedBoxingPracticeSummary,
       dose?.protectedRoadworkCount ? 'Roadwork is covered, so generated work can bias strength-power, durability, or technical-light support.' : 'Roadwork and aerobic support are checked against the weekly ledger.',
       dose?.variancePlan.reason ?? 'Variance stays controlled so the adaptation target does not become random.',
       nextBestAction,
@@ -912,6 +1010,11 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
     for (const protectedWorkout of protectedWorkouts) {
       const modality = inferProtectedWorkoutModality(protectedWorkout);
       const isHard = protectedWorkoutCountsAsHardDay(protectedWorkout);
+      const protectedMeta = supportSessionMetadata({
+        protectedModality: modality,
+        plannedIntensity: isHard ? 'hard' : protectedWorkout.intensity,
+        durationMinutes: protectedWorkout.protectedDurationMinutes ?? protectedWorkout.durationMinutes,
+      });
       const protectedSession: GeneratedProgramSession = {
         id: `week_${weekIndex}:protected:${protectedWorkout.id}`,
         dayIndex: protectedWorkout.dayIndex,
@@ -921,12 +1024,22 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         label: protectedWorkout.label,
         workout: null,
         plannedIntensity: isHard ? 'hard' : protectedWorkout.intensity,
+        athleticDevelopmentDomain: protectedMeta.athleticDevelopmentDomain,
+        supportDomainLabel: modality === 'sparring' || modality === 'competition' ? 'Protected boxing' : protectedMeta.supportDomainLabel,
+        isBoxingPracticeReplacement: false,
+        isCoachLedRequired: modality === 'sparring' || modality === 'competition' || modality === 'pad_work',
+        expectedFuelPriority: protectedMeta.expectedFuelPriority,
+        expectedCarbDemandClass: protectedMeta.expectedCarbDemandClass,
+        expectedRecoveryDemandClass: protectedMeta.expectedRecoveryDemandClass,
+        expectedHydrationDemandClass: protectedMeta.expectedHydrationDemandClass,
+        sessionEnergyDemandScore: protectedMeta.sessionEnergyDemandScore,
+        sessionRecoveryDemandScore: protectedMeta.sessionRecoveryDemandScore,
         protectedWorkoutModality: modality,
         protectedDurationMinutes: protectedWorkout.protectedDurationMinutes ?? protectedWorkout.durationMinutes,
         estimatedLoadScore: protectedWorkoutLoadScore(protectedWorkout),
         rationale: [
           'Protected workouts are schedule anchors and are preserved untouched.',
-          `${modality} counts toward weekly load${isHard ? ' and hard-day exposure' : ''}, but does not automatically replace generated S&C support.`,
+          `${modality} counts toward boxing practice exposure and weekly load${isHard ? ' and hard-day exposure' : ''}; Athleticore supports around it.`,
         ],
       };
       weekSessions.push(protectedSession);
@@ -1007,6 +1120,14 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
           ],
         }
         : placementIntent;
+      const supportMeta = supportSessionMetadata({
+        family: workoutIntent.family,
+        role: workoutIntent.boxingRole,
+        domain: workoutIntent.athleticDevelopmentDomain,
+        doseCategory: workoutIntent.doseCategory,
+        plannedIntensity: workoutIntent.plannedIntensity,
+        durationMinutes,
+      });
       const goalId = workoutIntent.goalId;
       const effectiveIntensity = workoutIntent.plannedIntensity;
       const phaseSafetyFlags = phase === 'deload'
@@ -1025,6 +1146,7 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         workoutRequest.intendedBoxingSessionFamily = workoutIntent.family;
         workoutRequest.intendedBoxingSessionRole = workoutIntent.boxingRole;
         workoutRequest.intendedSessionDoseCategory = workoutIntent.doseCategory;
+        workoutRequest.athleticDevelopmentDomain = supportMeta.athleticDevelopmentDomain;
         workoutRequest.preferredSessionTemplateId = templateIdForBoxingFamily(workoutIntent.family);
       }
       if (phase === 'return_to_training') {
@@ -1048,10 +1170,24 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         boxingSessionRole: boxingDrivenWeek ? workoutIntent.boxingRole : undefined,
         boxingSessionFamily: boxingDrivenWeek ? workoutIntent.family : undefined,
         sessionDoseCategory: workoutIntent.doseCategory,
+        athleticDevelopmentDomain: supportMeta.athleticDevelopmentDomain,
+        supportDomainLabel: supportMeta.supportDomainLabel,
+        boxingRelevance: supportMeta.boxingRelevance,
+        athleticDevelopmentRationale: supportMeta.athleticDevelopmentRationale,
+        sAndCRationale: supportMeta.sAndCRationale,
+        isBoxingPracticeReplacement: false,
+        isCoachLedRequired: false,
+        expectedFuelPriority: supportMeta.expectedFuelPriority,
+        expectedCarbDemandClass: supportMeta.expectedCarbDemandClass,
+        expectedRecoveryDemandClass: supportMeta.expectedRecoveryDemandClass,
+        expectedHydrationDemandClass: supportMeta.expectedHydrationDemandClass,
+        sessionEnergyDemandScore: supportMeta.sessionEnergyDemandScore,
+        sessionRecoveryDemandScore: supportMeta.sessionRecoveryDemandScore,
         estimatedLoadScore: estimateGeneratedLoad(workout.estimatedDurationMinutes, effectiveIntensity),
         rationale: [
           ...workoutIntent.rationale,
-          `${goalId} was selected as ${workoutIntent.role} boxing-athlete support in the ${phase} phase.`,
+          `${goalId} was selected as ${supportMeta.supportDomainLabel ?? supportDomainSourceLabel(supportMeta.athleticDevelopmentDomain)} for boxing in the ${phase} phase.`,
+          supportMeta.boxingRelevance ?? '',
           candidate.stacked ? 'This low-load support session safely stacks with a protected anchor instead of treating that day as closed.' : 'Placement respects weekly day load and hard/easy distribution.',
           overHardBudget ? 'A hard support intent was downgraded because protected work already consumed the hard-session budget.' : '',
           adjacentHard ? 'A hard support intent was downgraded to avoid back-to-back high-fatigue days.' : '',
@@ -1067,6 +1203,13 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
         generatedSession.rationale?.push('Protected boxing sessions count as load, not as automatic generated-session substitutions.');
       }
       if (workout.blocked && effectiveIntensity === 'hard') {
+        const recoveryMeta = supportSessionMetadata({
+          family: 'recovery_reset',
+          role: 'recovery_reset',
+          doseCategory: 'recovery_reset',
+          plannedIntensity: 'recovery',
+          durationMinutes: workout.estimatedDurationMinutes,
+        });
         generatedSession.plannedIntensity = 'low';
         generatedSession.sessionRole = 'recovery_reset';
         if (boxingDrivenWeek) {
@@ -1074,6 +1217,17 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
           generatedSession.boxingSessionFamily = 'recovery_reset';
         }
         generatedSession.sessionDoseCategory = 'recovery_reset';
+        generatedSession.athleticDevelopmentDomain = recoveryMeta.athleticDevelopmentDomain;
+        generatedSession.supportDomainLabel = recoveryMeta.supportDomainLabel;
+        generatedSession.boxingRelevance = recoveryMeta.boxingRelevance;
+        generatedSession.athleticDevelopmentRationale = recoveryMeta.athleticDevelopmentRationale;
+        generatedSession.sAndCRationale = recoveryMeta.sAndCRationale;
+        generatedSession.expectedFuelPriority = recoveryMeta.expectedFuelPriority;
+        generatedSession.expectedCarbDemandClass = recoveryMeta.expectedCarbDemandClass;
+        generatedSession.expectedRecoveryDemandClass = recoveryMeta.expectedRecoveryDemandClass;
+        generatedSession.expectedHydrationDemandClass = recoveryMeta.expectedHydrationDemandClass;
+        generatedSession.sessionEnergyDemandScore = recoveryMeta.sessionEnergyDemandScore;
+        generatedSession.sessionRecoveryDemandScore = recoveryMeta.sessionRecoveryDemandScore;
       }
       weekSessions.push(generatedSession);
       generatedCount += 1;
@@ -1228,11 +1382,17 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
       if (summary.protectedBoxingSessionCount == null || summary.protectedSparringCount == null || summary.protectedRoadworkCount == null) {
         errors.push(`Week ${weekIndex} summary is missing protected boxing counts.`);
       }
+      if (summary.generatedSAndCSessionCount == null || summary.generatedSkillSupportCount == null || !summary.supportDomainSummary) {
+        errors.push(`Week ${weekIndex} summary is missing athletic-development support domain counts.`);
+      }
       if (!summary.boxingLoadLedger || !week.boxingLoadLedger) errors.push(`Week ${weekIndex} is missing boxing load ledger output.`);
       if (!week.qualityGaps) errors.push(`Week ${weekIndex} is missing boxing quality gaps.`);
       if (!week.variancePlan) errors.push(`Week ${weekIndex} is missing controlled variance plan.`);
       if (!week.weeklyBoxingHeadline || !week.weeklyBoxingSummary || !week.nextBestAction || !week.coachSummaryBullets?.length) {
         errors.push(`Week ${weekIndex} is missing UI-ready boxing summary fields.`);
+      }
+      if (!week.weeklyAthleticDevelopmentHeadline || !week.weeklyAthleticDevelopmentSummary || !week.protectedBoxingPracticeSummary) {
+        errors.push(`Week ${weekIndex} is missing UI-ready athletic development summary fields.`);
       }
     }
     for (let day = 1; day <= 6; day += 1) {
@@ -1253,8 +1413,8 @@ export function validateGeneratedProgram(program: GeneratedProgram): { valid: bo
       if (!session.protectedAnchor && !session.workout) errors.push(`${session.id} is missing generated workout.`);
       if (session.workout?.validation && !session.workout.validation.isValid) errors.push(`${session.id} generated workout is invalid.`);
       if (!session.protectedAnchor && session.boxingSessionFamily) {
-        if (!session.boxingSessionRole || !session.sessionDoseCategory || !session.rationale?.length) {
-          errors.push(`${session.id} has a boxing family without role, dose category, or rationale.`);
+        if (!session.boxingSessionRole || !session.sessionDoseCategory || !session.rationale?.length || !session.athleticDevelopmentDomain) {
+          errors.push(`${session.id} has a boxing family without role, dose category, support domain, or rationale.`);
         }
         const plausibleTemplateIds = strictBoxingContent ? PLAUSIBLE_BOXING_TEMPLATE_IDS[session.boxingSessionFamily] : undefined;
         if (plausibleTemplateIds && session.workout && !plausibleTemplateIds.includes(session.workout.templateId)) {

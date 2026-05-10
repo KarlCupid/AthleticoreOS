@@ -152,6 +152,13 @@ export type FuelState =
 export type FuelPriority =
   | 'sparring'
   | 'boxing_practice'
+  | 'strength_power'
+  | 'power'
+  | 'roadwork_aerobic'
+  | 'roadwork_tempo'
+  | 'conditioning_intervals'
+  | 'durability'
+  | 'mobility'
   | 'heavy_sc'
   | 'conditioning'
   | 'double_session'

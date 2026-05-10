@@ -136,6 +136,53 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
 })();
 
 (() => {
+  const base = calculateNutritionTargetEstimate(baseInput({ phase: 'camp-build', nutritionGoal: 'maintain' }));
+  const cases = [
+    {
+      label: 'strength domain maps to strength-power fueling',
+      activity: { activity_type: 'sc' as any, expected_intensity: 7, estimated_duration_min: 50, athletic_development_domain: 'strength', support_domain_label: 'Strength' },
+      expected: 'strength_power',
+      copy: 'strength-power support',
+    },
+    {
+      label: 'roadwork base maps to aerobic fueling',
+      activity: { activity_type: 'road_work' as any, expected_intensity: 4, estimated_duration_min: 35, athletic_development_domain: 'roadwork', support_domain_label: 'Roadwork base' },
+      expected: 'roadwork_aerobic',
+      copy: 'Roadwork base is low intensity',
+    },
+    {
+      label: 'roadwork tempo maps to tempo fueling',
+      activity: { activity_type: 'road_work' as any, expected_intensity: 7, estimated_duration_min: 35, athletic_development_domain: 'roadwork', support_domain_label: 'Roadwork tempo' },
+      expected: 'roadwork_tempo',
+      copy: 'Roadwork tempo',
+    },
+    {
+      label: 'conditioning domain maps to interval fueling',
+      activity: { activity_type: 'conditioning' as any, expected_intensity: 8, estimated_duration_min: 30, athletic_development_domain: 'conditioning', support_domain_label: 'Conditioning intervals' },
+      expected: 'conditioning_intervals',
+      copy: 'Conditioning intervals',
+    },
+    {
+      label: 'durability domain maps to support fueling',
+      activity: { activity_type: 'sc' as any, expected_intensity: 3, estimated_duration_min: 25, athletic_development_domain: 'durability', support_domain_label: 'Durability' },
+      expected: 'durability',
+      copy: 'Durability support',
+    },
+    {
+      label: 'recovery domain maps to recovery fueling',
+      activity: { activity_type: 'active_recovery' as any, expected_intensity: 2, estimated_duration_min: 20, athletic_development_domain: 'recovery', support_domain_label: 'Recovery reset' },
+      expected: 'recovery',
+      copy: 'Recovery reset day',
+    },
+  ];
+  for (const item of cases) {
+    const resolved = resolveDailyNutritionTargetEstimate(base, [item.activity]);
+    assert(item.label, resolved.prioritySession === item.expected);
+    assert(`${item.label} copy`, resolved.sessionFuelingPlan.coachingNotes.join(' ').includes(item.copy));
+  }
+})();
+
+(() => {
   const base = calculateNutritionTargetEstimate(baseInput({
     phase: 'camp-build',
     nutritionGoal: 'maintain',

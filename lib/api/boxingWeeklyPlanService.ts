@@ -17,12 +17,14 @@ import type {
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { getAthleteContext } from './athleteContextService';
 import { getDailyEngineState, getWeeklyAthleteSummary } from './dailyPerformanceService';
-import { saveWeekPlan } from './weeklyPlanService';
+import { saveWeekPlan, updatePlanEntryBoxingGeneratedWorkout } from './weeklyPlanService';
 import { getRecurringActivities } from './scheduleService';
 import {
   generatedProgramToWeeklyPlanEntries,
+  getBoxingSnapshotFromWeeklyPlanEntry,
   inferProtectedWorkoutModality,
   readinessBandFromLevel,
+  resolveBoxingSAndCEngineFlags,
   workoutProgrammingService,
   type BoxingTrainingContext,
   type BoxingTrainingTrack,
@@ -65,7 +67,10 @@ const EQUIPMENT_ALIASES: Record<string, string> = {
 };
 
 export function isBoxingWorkoutEngineEnabled(flag = process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED): boolean {
-  return flag !== '0';
+  return resolveBoxingSAndCEngineFlags({
+    ...(process.env as Record<string, string | undefined>),
+    EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED: flag,
+  }).engineEnabled;
 }
 
 function todayStr(): string {
@@ -350,10 +355,10 @@ export async function generateAndSaveBoxingWeeklyPlan(
   weekStart: string,
 ): Promise<SmartWeekPlanResult> {
   if (!isBoxingWorkoutEngineEnabled()) {
-    throw new Error('The boxing workout engine is disabled for this build. Enable EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED to generate a boxing week.');
+    throw new Error('The Boxing S&C support engine is disabled for this build. Enable EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED to generate an Athleticore support week.');
   }
   if (!gym) {
-    throw new Error('Create a gym profile before generating a boxing workout plan.');
+    throw new Error('Create a gym profile before generating a boxing S&C support plan.');
   }
 
   const [athleteContext, engineState, recurringActivities, campResult] = await Promise.all([
@@ -408,7 +413,7 @@ export async function generateAndSaveBoxingWeeklyPlan(
     deloadStrategy: planConfig.auto_deload_interval_weeks > 0 ? 'week_four' : 'none',
   }, {
     useSupabase: true,
-    persistGeneratedProgram: true,
+    persistGeneratedProgram: false,
     catalogFallback: 'safe',
     contentReviewMode: 'production',
     allowDraftContent: false,
@@ -426,12 +431,42 @@ export async function generateAndSaveBoxingWeeklyPlan(
   }
 
   await saveWeekPlan(userId, adapted.entries);
+  const initialWeeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: true });
+  let userProgramId: string | null = null;
+  try {
+    userProgramId = await workoutProgrammingService.saveGeneratedProgramForUser(userId, program, {
+      useSupabase: true,
+      catalogFallback: 'safe',
+      contentReviewMode: 'production',
+      allowDraftContent: false,
+    });
+    if (userProgramId) {
+      program.persistenceId = userProgramId;
+      for (const entry of initialWeeklyAthleteSummary.entries) {
+        const snapshot = getBoxingSnapshotFromWeeklyPlanEntry(entry);
+        if (!snapshot || snapshot.protectedAnchor || !snapshot.generatedWorkout) continue;
+        await updatePlanEntryBoxingGeneratedWorkout(
+          entry.id,
+          { ...snapshot, userProgramId },
+          snapshot.generatedWorkout,
+          snapshot.generatedWorkoutId ?? null,
+        );
+      }
+    }
+  } catch (persistOrLinkError) {
+    if (userProgramId) {
+      await workoutProgrammingService.archiveGeneratedProgramForUser(userId, userProgramId, { useSupabase: true }).catch(() => null);
+    }
+    throw persistOrLinkError;
+  }
   const weeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: true });
   const savedEntries = weeklyAthleteSummary.entries;
   const firstWeek = program.weeks[0];
-  const message = firstWeek?.weeklyBoxingSummary
+  const message = firstWeek?.weeklyAthleticDevelopmentSummary
+    ?? firstWeek?.weeklyBoxingSummary
+    ?? program.weeklyAthleticDevelopmentSummary
     ?? program.weeklyBoxingSummary
-    ?? 'Boxing week generated from protected anchors, readiness, and Athleticore support sessions.';
+    ?? 'Athleticore support week generated from protected boxing anchors, readiness, and S&C support sessions.';
 
   return {
     entries: savedEntries,

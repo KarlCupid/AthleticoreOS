@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import {
     getWeeklyPlanEntryById,
+    markDayCompleted,
     markDaySkipped,
     restorePlanEntry,
     updatePlanEntryPrescription,
@@ -21,7 +22,7 @@ import {
     type GeneratedWorkoutSessionLifecycleStatus,
     type ProgressionDecision,
 } from '../../lib/performance-engine/workout-programming';
-import type { GeneratedWorkoutBetaCompletionDraft } from '../components/workout/GeneratedWorkoutBetaSessionCard';
+import type { BoxingGeneratedWorkoutCompletionDraft } from '../components/workout/BoxingGeneratedWorkoutSessionCard';
 import type {
     WeeklyPlanEntryRow,
     WorkoutPrescriptionV2,
@@ -278,7 +279,7 @@ export function useWorkoutDetail() {
         setGeneratedLifecycleMessage('Session abandoned.');
     }, [boxingSnapshot?.generatedWorkoutId]);
 
-    const completeGeneratedWorkout = useCallback(async (draft: GeneratedWorkoutBetaCompletionDraft) => {
+    const completeGeneratedWorkout = useCallback(async (draft: BoxingGeneratedWorkoutCompletionDraft) => {
         if (!generatedWorkout) return;
         const userId = await getActiveUserId();
         const completionInput = {
@@ -295,19 +296,45 @@ export function useWorkoutDetail() {
                 completionInput,
                 generatedWorkoutCompletionOptionsForUser(userId),
             );
+            const completionLinkId = result.workoutCompletionId ?? boxingSnapshot?.generatedWorkoutId ?? generatedWorkout.templateId;
+            if (entry?.id) {
+                await markDayCompleted(entry.id, completionLinkId);
+            }
+            if (userId && boxingSnapshot?.userProgramId) {
+                try {
+                    await workoutProgrammingService.markGeneratedProgramSessionCompletedForUser(
+                        userId,
+                        boxingSnapshot.userProgramId,
+                        boxingSnapshot.sessionId,
+                        {
+                            completedAt: completionInput.completedAt,
+                            workoutCompletionId: result.workoutCompletionId,
+                        },
+                        { useSupabase: true },
+                    );
+                } catch {
+                    // Weekly plan completion is the source of truth in the app. Program-session sync is best-effort for older rows.
+                }
+            }
+            const refreshedEntry = entry?.id ? await getWeeklyPlanEntryById(entry.id) : null;
             if (!mountedRef.current) return;
             setGeneratedProgressionDecision(result.progressionDecision);
             setGeneratedStage('completed');
             setGeneratedLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
             setGeneratedLifecycleMessage(result.lifecycleFallbackMessage ? `Completion saved locally: ${result.lifecycleFallbackMessage}` : 'Completion saved. Progression updated.');
-            setEntry((previous) => previous ? { ...previous, status: 'completed' } : previous);
+            setEntry((previous) => refreshedEntry ?? (previous ? { ...previous, status: 'completed', workout_log_id: completionLinkId } : previous));
+            if (refreshedEntry) {
+                const refreshedSnapshot = getBoxingSnapshotFromWeeklyPlanEntry(refreshedEntry);
+                setBoxingSnapshot(refreshedSnapshot);
+                setGeneratedWorkout(refreshedSnapshot?.generatedWorkout ?? generatedWorkout);
+            }
         } catch (_err) {
             if (!mountedRef.current) return;
             Alert.alert('Completion failed', getErrorMessage(_err));
         } finally {
             if (mountedRef.current) setGeneratedCompleting(false);
         }
-    }, [boxingSnapshot?.generatedWorkoutId, generatedStartedAt, generatedWorkout]);
+    }, [boxingSnapshot, entry?.id, generatedStartedAt, generatedWorkout]);
 
     const markSkipped = useCallback(async () => {
         if (!entry) return;

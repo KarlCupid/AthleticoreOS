@@ -38,14 +38,14 @@ async function run() {
   const packageJson = read('package.json');
   const easJson = read('eas.json');
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
-  const betaHook = read('src/hooks/useGeneratedWorkoutBeta.ts');
+  const supportHook = read('src/hooks/useBoxingGeneratedWorkout.ts');
   const devPreviewHook = read('src/hooks/useGeneratedWorkoutDevPreview.ts');
-  const betaContainer = read('src/components/workout/GeneratedWorkoutBetaContainer.tsx');
+  const supportContainer = read('src/components/workout/BoxingGeneratedWorkoutContainer.tsx');
   const devPreviewPanel = read('src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx');
   const safetyCopy = read('lib/performance-engine/workout-programming/workoutSafetyCopy.ts');
   const fallbacks = read('lib/performance-engine/workout-programming/workoutProgrammingFallbacks.ts');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
-  const betaCard = read('src/components/workout/GeneratedWorkoutBetaSessionCard.tsx');
+  const supportCard = read('src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx');
   const renderTest = read('lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts');
 
   assert(
@@ -54,18 +54,18 @@ async function run() {
       && /react-test-renderer/i.test(packageJson)
       && renderTest.includes("@testing-library/react-native/pure")
       && renderTest.includes('GeneratedWorkoutPreviewCard')
-      && renderTest.includes('GeneratedWorkoutBetaSessionCard'),
+      && renderTest.includes('BoxingGeneratedWorkoutSessionCard'),
   );
 
   assert('feature flags gate boxing workout generation and internal diagnostics separately', hasAll(workoutScreen, [
     'useBoxingGeneratedWorkout',
     'BoxingGeneratedWorkoutContainer',
     'showBoxingGeneratedFlow',
-    'BoxingWeekIntelligenceCard',
-  ]) && hasAll(betaHook, [
-    'process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED',
-    'if (!betaEnabled) return;',
-  ]) && !betaHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
+    'AthleteSupportWeekCard',
+  ]) && hasAll(supportHook, [
+    'resolveBoxingSAndCEngineFlags',
+    'if (!engineEnabled) return;',
+  ]) && !supportHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
     'resolveGeneratedWorkoutFeatureFlags',
     'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW',
     'process.env.EXPO_PUBLIC_BUILD_PROFILE',
@@ -75,9 +75,9 @@ async function run() {
     'developerFlagEnvironment',
     "const betaEnabled = developerFlagEnvironment && betaFlag === '1'",
     "previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1'",
-  ]) && hasAll(betaContainer, [
+  ]) && hasAll(supportContainer, [
     'testID="boxing-generated-workout-section"',
-  ]) && !betaContainer.includes('internal-workout-diagnostics-section') && hasAll(devPreviewPanel, [
+  ]) && !supportContainer.includes('internal-workout-diagnostics-section') && hasAll(devPreviewPanel, [
     'testID="internal-workout-diagnostics-section"',
     'internal diagnostics section',
   ]));
@@ -134,7 +134,7 @@ async function run() {
 
   assert('preview and boxing generated error states surface service failures without crashing the screen', hasAll(workoutScreen, [
     'BoxingGeneratedWorkoutContainer',
-  ]) && hasAll(betaHook, [
+  ]) && hasAll(supportHook, [
     'setError',
     'normalizeGeneratedWorkoutError',
     'formatGeneratedWorkoutPersistenceFallbackMessage',
@@ -155,9 +155,9 @@ async function run() {
     'professionalGuidance',
   ]) && hasAll(devPreviewPanel, [
     'Generated preview unavailable',
-  ]) && betaCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
+  ]) && supportCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
 
-  assert('boxing generated flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(betaCard, [
+  assert('Athleticore support flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(supportCard, [
     'testID="boxing-generated-workout-card"',
     'testID="boxing-generated-workout-stage-row"',
     'testID="boxing-generated-workout-generate"',

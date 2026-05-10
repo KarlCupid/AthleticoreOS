@@ -4,6 +4,7 @@ import {
   GENERATED_WORKOUT_SAFETY_COPY,
   generatedWorkoutDefaultSafetyNotes,
   getPrimaryExerciseMediaAsset,
+  supportDomainLabel,
   summarizeWorkoutDecisionForUser,
   type GeneratedExercisePrescription,
   type GeneratedWorkout,
@@ -245,8 +246,8 @@ function BulletList({ items }: { items: string[] }) {
 
 export function GeneratedWorkoutPreviewCard({
   workout,
-  title = 'Generated workout preview',
-  subtitle = 'Developer-only programming engine output',
+  title = 'Athleticore support session',
+  subtitle = 'Strength, conditioning, roadwork, durability, and recovery support for boxing',
 }: GeneratedWorkoutPreviewCardProps) {
   const description = workout.description;
   const allSubstitutions = workout.blocks
@@ -295,6 +296,7 @@ export function GeneratedWorkoutPreviewCard({
         <View style={styles.headerCopy}>
           <View style={styles.metaRow}>
             <MetaPill label={labelize(workout.workoutTypeId)} />
+            {workout.athleticDevelopmentDomain ? <MetaPill label={supportDomainLabel(workout.athleticDevelopmentDomain)} /> : null}
             <MetaPill label={labelize(workout.goalId)} />
             <MetaPill label={`${workout.estimatedDurationMinutes} min`} />
             <MetaPill label={`${workout.blocks.length} blocks`} />
@@ -306,6 +308,7 @@ export function GeneratedWorkoutPreviewCard({
           <Text style={styles.summary}>{workout.userFacingSummary ?? description?.plainLanguageSummary}</Text>
           <View testID="generated-workout-preview-session-header" style={styles.factGrid}>
             <FactTile label="Workout type" value={labelize(workout.workoutTypeId)} />
+            <FactTile label="Support domain" value={workout.athleticDevelopmentDomain ? supportDomainLabel(workout.athleticDevelopmentDomain) : 'Athleticore support'} detail={workout.boxingRelevance ?? workout.sAndCRationale ?? null} />
             <FactTile label="Goal" value={workout.trainingGoalLabel ?? labelize(workout.goalId)} />
             <FactTile label="Duration" value={`${workout.estimatedDurationMinutes} min`} detail={`Requested ${workout.requestedDurationMinutes} min`} />
             <FactTile label="Readiness" value={readinessAdjustment ? 'Adjusted' : 'No change'} detail={readinessAdjustment ?? 'Use normal effort unless your readiness changes.'} tone={readinessAdjustment ? 'caution' : 'default'} />
@@ -314,6 +317,7 @@ export function GeneratedWorkoutPreviewCard({
         </View>
 
         <CopySection title="Why this workout?" testID="generated-workout-preview-why">
+          {workout.sAndCRationale || workout.athleticDevelopmentRationale ? <Text style={styles.bodyText}>{workout.sAndCRationale ?? workout.athleticDevelopmentRationale}</Text> : null}
           <Text style={styles.bodyText}>{decisionSummary.headline}</Text>
           <BulletList items={whySummaryBullets} />
         </CopySection>

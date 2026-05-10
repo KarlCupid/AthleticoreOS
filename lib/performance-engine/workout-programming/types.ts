@@ -490,6 +490,7 @@ export interface GenerateSingleWorkoutInput {
   intendedBoxingSessionFamily?: BoxingSessionFamily | undefined;
   intendedBoxingSessionRole?: BoxingPlannedSessionRole | undefined;
   intendedSessionDoseCategory?: BoxingSessionDoseCategory | undefined;
+  athleticDevelopmentDomain?: BoxingAthleteSupportDomain | undefined;
   preferredSessionTemplateId?: string | undefined;
 }
 
@@ -651,6 +652,36 @@ export type BoxingSessionDoseCategory =
   | 'microdose'
   | 'recovery_reset';
 
+export type BoxingAthleteSupportDomain =
+  | 'boxing_skill_support'
+  | 'strength'
+  | 'power'
+  | 'speed_agility'
+  | 'conditioning'
+  | 'roadwork'
+  | 'durability'
+  | 'mobility'
+  | 'recovery'
+  | 'nutrition_fueling'
+  | 'hydration'
+  | 'weight_class_support';
+
+export type AthleteSupportFuelPriority =
+  | 'sparring'
+  | 'boxing_practice'
+  | 'strength_power'
+  | 'power'
+  | 'roadwork_aerobic'
+  | 'roadwork_tempo'
+  | 'conditioning_intervals'
+  | 'durability'
+  | 'mobility'
+  | 'recovery'
+  | 'double_session'
+  | 'body_mass_protect';
+
+export type SupportDemandClass = 'baseline' | 'low' | 'moderate' | 'high';
+
 export type BoxingSessionFamily =
   | 'boxing_skill_microdose'
   | 'footwork_agility'
@@ -747,6 +778,17 @@ export interface BoxingPlannedSessionIntent {
   boxingRole?: BoxingPlannedSessionRole | undefined;
   family: BoxingSessionFamily;
   doseCategory: BoxingSessionDoseCategory;
+  athleticDevelopmentDomain?: BoxingAthleteSupportDomain | undefined;
+  supportDomainLabel?: string | undefined;
+  boxingRelevance?: string | undefined;
+  athleticDevelopmentRationale?: string | undefined;
+  sAndCRationale?: string | undefined;
+  expectedFuelPriority?: AthleteSupportFuelPriority | undefined;
+  expectedCarbDemandClass?: SupportDemandClass | undefined;
+  expectedRecoveryDemandClass?: SupportDemandClass | undefined;
+  expectedHydrationDemandClass?: SupportDemandClass | undefined;
+  sessionEnergyDemandScore?: number | undefined;
+  sessionRecoveryDemandScore?: number | undefined;
   canStackWithProtected: boolean;
   rationale: string[];
   qualityTargets?: Array<keyof BoxingPerformanceVector> | undefined;
@@ -842,6 +884,11 @@ export interface BoxingWeeklyDosePlan {
   protectedRoadworkCount: number;
   protectedLoadScore: number;
   generatedHardSessionCap: number;
+  generatedSkillSupportCap: number;
+  generatedConditioningHardCap: number;
+  generatedStrengthPowerFloor: number;
+  generatedDurabilityFloor: number;
+  generatedRoadworkFloor: number;
   performanceVector: BoxingPerformanceVector;
   qualityGaps: BoxingQualityGap[];
   loadLedger: BoxingWeeklyLoadLedger;
@@ -1209,6 +1256,22 @@ export interface GeneratedWorkout {
   formatId: string;
   experienceLevel?: WorkoutExperienceLevel;
   sessionIntent?: string;
+  boxingSessionFamily?: BoxingSessionFamily | undefined;
+  boxingSessionRole?: BoxingPlannedSessionRole | undefined;
+  sessionDoseCategory?: BoxingSessionDoseCategory | undefined;
+  athleticDevelopmentDomain?: BoxingAthleteSupportDomain | undefined;
+  supportDomainLabel?: string | undefined;
+  boxingRelevance?: string | undefined;
+  athleticDevelopmentRationale?: string | undefined;
+  sAndCRationale?: string | undefined;
+  isBoxingPracticeReplacement?: boolean | undefined;
+  isCoachLedRequired?: boolean | undefined;
+  expectedFuelPriority?: AthleteSupportFuelPriority | undefined;
+  expectedCarbDemandClass?: SupportDemandClass | undefined;
+  expectedRecoveryDemandClass?: SupportDemandClass | undefined;
+  expectedHydrationDemandClass?: SupportDemandClass | undefined;
+  sessionEnergyDemandScore?: number | undefined;
+  sessionRecoveryDemandScore?: number | undefined;
   userFacingSummary?: string;
   description?: WorkoutDescription;
   descriptions?: WorkoutDescription[];
@@ -1497,6 +1560,19 @@ export interface GeneratedProgramSession {
   boxingSessionRole?: BoxingPlannedSessionRole | undefined;
   boxingSessionFamily?: BoxingSessionFamily | undefined;
   sessionDoseCategory?: BoxingSessionDoseCategory | undefined;
+  athleticDevelopmentDomain?: BoxingAthleteSupportDomain | undefined;
+  supportDomainLabel?: string | undefined;
+  boxingRelevance?: string | undefined;
+  athleticDevelopmentRationale?: string | undefined;
+  sAndCRationale?: string | undefined;
+  isBoxingPracticeReplacement?: boolean | undefined;
+  isCoachLedRequired?: boolean | undefined;
+  expectedFuelPriority?: AthleteSupportFuelPriority | undefined;
+  expectedCarbDemandClass?: SupportDemandClass | undefined;
+  expectedRecoveryDemandClass?: SupportDemandClass | undefined;
+  expectedHydrationDemandClass?: SupportDemandClass | undefined;
+  sessionEnergyDemandScore?: number | undefined;
+  sessionRecoveryDemandScore?: number | undefined;
   protectedWorkoutModality?: ProtectedWorkoutModality;
   protectedDurationMinutes?: number;
   estimatedLoadScore?: number;
@@ -1527,6 +1603,15 @@ export interface ProgramWeeklyVolumeSummary {
   protectedBoxingSessionCount?: number;
   protectedSparringCount?: number;
   protectedRoadworkCount?: number;
+  generatedSAndCSessionCount?: number;
+  generatedSkillSupportCount?: number;
+  generatedRoadworkCount?: number;
+  generatedStrengthPowerCount?: number;
+  generatedDurabilityCount?: number;
+  generatedRecoveryCount?: number;
+  supportDomainSummary?: Record<BoxingAthleteSupportDomain, number> | undefined;
+  protectedBoxingPracticeSummary?: string | undefined;
+  athleticDevelopmentFocusAreas?: BoxingAthleteSupportDomain[] | undefined;
   boxingLoadLedger?: BoxingWeeklyLoadLedger | undefined;
   rulesetTrack?: BoxingTrainingTrack | undefined;
   boxingProgressionPhase?: BoxingTrainingContext['boxingProgressionPhase'];
@@ -1558,6 +1643,12 @@ export interface GeneratedProgramWeek {
   weeklyBoxingHeadline?: string | undefined;
   weeklyBoxingSummary?: string | undefined;
   primaryBoxingFocus?: string | undefined;
+  weeklyAthleticDevelopmentHeadline?: string | undefined;
+  weeklyAthleticDevelopmentSummary?: string | undefined;
+  sAndCFocus?: string | undefined;
+  supportDomainSummary?: Record<BoxingAthleteSupportDomain, number> | undefined;
+  protectedBoxingPracticeSummary?: string | undefined;
+  athleticDevelopmentFocusAreas?: BoxingAthleteSupportDomain[] | undefined;
   hardDaySummary?: string | undefined;
   protectedLoadSummary?: string | undefined;
   generatedSupportSummary?: string | undefined;
@@ -1600,6 +1691,12 @@ export interface GeneratedProgram {
   weeklyBoxingHeadline?: string | undefined;
   weeklyBoxingSummary?: string | undefined;
   primaryBoxingFocus?: string | undefined;
+  weeklyAthleticDevelopmentHeadline?: string | undefined;
+  weeklyAthleticDevelopmentSummary?: string | undefined;
+  sAndCFocus?: string | undefined;
+  supportDomainSummary?: Record<BoxingAthleteSupportDomain, number> | undefined;
+  protectedBoxingPracticeSummary?: string | undefined;
+  athleticDevelopmentFocusAreas?: BoxingAthleteSupportDomain[] | undefined;
   hardDaySummary?: string | undefined;
   protectedLoadSummary?: string | undefined;
   generatedSupportSummary?: string | undefined;

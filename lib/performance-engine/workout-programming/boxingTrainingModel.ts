@@ -26,6 +26,7 @@ import type {
   WorkoutIntensity,
   WorkoutReadinessBand,
 } from './types.ts';
+import { supportSessionMetadata } from './athleteSupportDomains.ts';
 
 type BoxingCompatibilityInput = {
   goalId: string;
@@ -1077,13 +1078,31 @@ function intent(input: {
       ? 'low'
       : input.plannedIntensity;
   const doseCategory = plannedIntensity === 'low' && wantsHard ? 'support_session' : input.doseCategory;
+  const family = plannedIntensity === 'low' && wantsHard ? 'mobility_prehab' : input.family;
+  const supportMeta = supportSessionMetadata({
+    family,
+    role: input.role,
+    doseCategory,
+    plannedIntensity,
+  });
   return {
     goalId: plannedIntensity === 'low' && wantsHard ? 'mobility_prehab' : input.goalId,
     plannedIntensity,
     role: input.role,
     boxingRole: input.role,
-    family: plannedIntensity === 'low' && wantsHard ? 'mobility_prehab' : input.family,
+    family,
     doseCategory,
+    athleticDevelopmentDomain: supportMeta.athleticDevelopmentDomain,
+    supportDomainLabel: supportMeta.supportDomainLabel,
+    boxingRelevance: supportMeta.boxingRelevance,
+    athleticDevelopmentRationale: supportMeta.athleticDevelopmentRationale,
+    sAndCRationale: supportMeta.sAndCRationale,
+    expectedFuelPriority: supportMeta.expectedFuelPriority,
+    expectedCarbDemandClass: supportMeta.expectedCarbDemandClass,
+    expectedRecoveryDemandClass: supportMeta.expectedRecoveryDemandClass,
+    expectedHydrationDemandClass: supportMeta.expectedHydrationDemandClass,
+    sessionEnergyDemandScore: supportMeta.sessionEnergyDemandScore,
+    sessionRecoveryDemandScore: supportMeta.sessionRecoveryDemandScore,
     canStackWithProtected: plannedIntensity !== 'hard' && (doseCategory !== 'full_session' || LOW_LOAD_FAMILIES.has(input.family)),
     rationale: plannedIntensity === input.plannedIntensity
       ? input.rationale
@@ -1110,6 +1129,8 @@ function buildIntents(input: {
   phase: ProgramPhase;
   gaps: readonly BoxingQualityGap[];
   generatedHardSessionCap: number;
+  generatedSkillSupportCap: number;
+  generatedConditioningHardCap: number;
   protectedCounts: ReturnType<typeof protectedCounts>;
 }): BoxingPlannedSessionIntent[] {
   if (input.track === 'general_fitness_legacy') {
@@ -1147,7 +1168,10 @@ function buildIntents(input: {
   const taper = input.ruleset.fightCampWeeksOut != null && input.ruleset.fightCampWeeksOut <= 1;
   const redDose = input.dose.hardDayCap === 0;
   const protectedRoadworkCovered = input.protectedCounts.protectedRoadworkCount >= input.dose.roadworkAerobicTarget;
-  const protectedSkillCovered = input.protectedCounts.protectedTechnicalCount + input.protectedCounts.protectedSparringCount >= input.dose.boxingSkillTarget;
+  const protectedPracticeExposure = input.protectedCounts.protectedTechnicalCount
+    + input.protectedCounts.protectedBagPadCount
+    + input.protectedCounts.protectedSparringCount;
+  const protectedSkillCovered = protectedPracticeExposure >= input.dose.boxingSkillTarget;
 
   if (redDose) {
     intents.push(intent({
@@ -1212,7 +1236,14 @@ function buildIntents(input: {
     return intents.slice(0, input.dose.generatedSessionTarget);
   }
 
-  if (!protectedSkillCovered || input.track === 'aspiring_boxer' || input.track.startsWith('amateur')) {
+  const skillSupportAlready = () => intents.filter((item) => item.athleticDevelopmentDomain === 'boxing_skill_support').length;
+  const shouldAddSkillSupport = skillSupportAlready() < input.generatedSkillSupportCap && (
+    !protectedSkillCovered
+    || (input.track === 'aspiring_boxer' && protectedPracticeExposure === 0)
+    || (input.track.startsWith('amateur') && protectedPracticeExposure < 2)
+  );
+
+  if (shouldAddSkillSupport) {
     intents.push(intent({
       goalId: input.track === 'aspiring_boxer' ? 'boxing_skill_microdose' : 'footwork_agility',
       plannedIntensity: 'low',
@@ -1267,7 +1298,7 @@ function buildIntents(input: {
     }));
   }
 
-  if (input.track.startsWith('amateur') && input.dose.conditioningTarget > 0) {
+  if (input.track.startsWith('amateur') && input.dose.conditioningTarget > 0 && hardUsed < input.generatedConditioningHardCap) {
     hardUsed = pushIntent(intents, {
       goalId: 'alactic_repeat_power',
       plannedIntensity: input.track === 'amateur_novice' ? 'moderate' : 'hard',
@@ -1283,7 +1314,7 @@ function buildIntents(input: {
       generatedHardSessionCap: input.generatedHardSessionCap,
       hardUsed,
     });
-  } else if (input.track.startsWith('pro') && input.dose.roadworkTempoTarget > 0 && !protectedRoadworkCovered) {
+  } else if (input.track.startsWith('pro') && input.dose.roadworkTempoTarget > 0 && !protectedRoadworkCovered && hardUsed < input.generatedConditioningHardCap) {
     hardUsed = pushIntent(intents, {
       goalId: 'roadwork_tempo',
       plannedIntensity: 'moderate',
@@ -1398,17 +1429,17 @@ function buildIntents(input: {
 
 function rationaleForTrack(track: BoxingTrainingTrack, protectedCount: number): string[] {
   const base = [
-    `Weekly dose resolved as ${track} with protected boxing load credited before generated support.`,
-    `${protectedCount} protected session(s) count toward load and hard-day exposure but do not automatically replace Athleticore S&C/support frequency.`,
+    `Weekly dose resolved as ${track} with protected boxing load credited before Athleticore support is generated.`,
+    `${protectedCount} protected session(s) count toward boxing practice, load, and hard-day exposure while Athleticore fills S&C, roadwork, durability, mobility, and recovery gaps.`,
   ];
   if (track.startsWith('amateur')) {
-    base.push(`${track}: we prioritized repeat-output, agility, fast technical exposure, and aerobic recovery between bursts.`);
+    base.push(`${track}: Athleticore prioritizes speed/agility, repeatability, roadwork, strength-power, and durability around coach-led boxing.`);
   }
   if (track.startsWith('pro')) {
-    base.push(`${track}: we emphasized pacing durability, aerobic depth, power retention, trunk/shoulder durability, and taper discipline.`);
+    base.push(`${track}: Athleticore emphasizes pacing durability, aerobic depth, power retention, trunk/shoulder durability, and taper discipline.`);
   }
   if (track === 'aspiring_boxer') {
-    base.push('Aspiring-boxer track develops fundamentals, roadwork, mobility, strength basics, and agility; sparring is never generated.');
+    base.push('Aspiring-boxer track includes safe skill-support microdoses plus roadwork, mobility, strength basics, and agility; sparring is never generated.');
   }
   return base;
 }
@@ -1475,6 +1506,26 @@ export function planWeeklyTrainingDose(input: {
     adjustedDose.roadworkAerobicTarget = Math.max(0, adjustedDose.roadworkAerobicTarget - counts.protectedRoadworkCount);
     adjustedDose.roadworkTempoTarget = Math.max(0, adjustedDose.roadworkTempoTarget - Math.max(0, counts.protectedRoadworkCount - 1));
   }
+  const protectedBoxingPracticeExposure = counts.protectedTechnicalCount
+    + counts.protectedBagPadCount
+    + counts.protectedSparringCount;
+  if (counts.protectedTechnicalCount + counts.protectedBagPadCount >= 2) {
+    adjustedDose.boxingSkillTarget = Math.min(adjustedDose.boxingSkillTarget, 1);
+    adjustedDose.footworkAgilityTarget = Math.min(adjustedDose.footworkAgilityTarget, 1);
+    adjustedDose.strengthPowerTarget = Math.max(adjustedDose.strengthPowerTarget, 1);
+    adjustedDose.roadworkAerobicTarget = Math.max(adjustedDose.roadworkAerobicTarget, counts.protectedRoadworkCount > 0 ? 0 : 1);
+    adjustedDose.mobilityPrehabTarget = Math.max(adjustedDose.mobilityPrehabTarget, 1);
+  }
+  if (counts.protectedSparringCount >= 1) {
+    adjustedDose.conditioningTarget = Math.min(adjustedDose.conditioningTarget, counts.protectedSparringCount >= 2 ? 0 : 1);
+    adjustedDose.roadworkTempoTarget = Math.min(adjustedDose.roadworkTempoTarget, counts.protectedSparringCount >= 2 ? 0 : 1);
+    adjustedDose.hardDayTarget = Math.min(adjustedDose.hardDayTarget, counts.protectedSparringCount >= 2 ? 1 : 2);
+    adjustedDose.mobilityPrehabTarget = Math.max(adjustedDose.mobilityPrehabTarget, 1);
+    adjustedDose.recoveryTarget = Math.max(adjustedDose.recoveryTarget, counts.protectedSparringCount >= 2 ? 1 : adjustedDose.recoveryTarget);
+    if (counts.protectedSparringCount >= 2) {
+      adjustedDose.strengthPowerTarget = Math.max(adjustedDose.strengthPowerTarget, track.startsWith('pro') ? 1 : adjustedDose.strengthPowerTarget);
+    }
+  }
 
   const completionFamilies = progressionFamilies({
     completions: input.recentWorkoutCompletions ?? [],
@@ -1509,11 +1560,23 @@ export function planWeeklyTrainingDose(input: {
     ruleset: rulesetProfile,
   });
   const highProtectedLoad = ledger.protectedLoadScore >= 1_000 || counts.protectedHardDayCount >= 2;
+  const generatedConditioningHardCap = counts.protectedSparringCount >= 2
+    ? 0
+    : counts.protectedSparringCount >= 1
+      ? 1
+      : adjustedDose.hardDayCap;
   const generatedHardSessionCap = Math.max(0, Math.min(
     adjustedDose.strengthPowerTarget + adjustedDose.conditioningTarget + adjustedDose.roadworkTempoTarget,
     adjustedDose.hardDayCap - counts.protectedHardDayCount,
     highProtectedLoad ? 1 : adjustedDose.hardDayCap,
+    generatedConditioningHardCap + Math.max(0, adjustedDose.strengthPowerTarget),
   ));
+  const generatedSkillSupportCap = protectedBoxingPracticeExposure >= 2
+    ? 1
+    : Math.max(1, adjustedDose.boxingSkillTarget + Math.min(1, adjustedDose.footworkAgilityTarget));
+  const generatedStrengthPowerFloor = adjustedDose.strengthPowerTarget > 0 ? 1 : 0;
+  const generatedDurabilityFloor = adjustedDose.mobilityPrehabTarget > 0 || adjustedDose.recoveryTarget > 0 ? 1 : 0;
+  const generatedRoadworkFloor = adjustedDose.roadworkAerobicTarget > 0 || adjustedDose.roadworkTempoTarget > 0 ? 1 : 0;
   const currentVector = performanceVectorFromLedger(ledger);
   const targetVector = targetPerformanceVector(adjustedDose, track);
   const gaps = qualityGaps(currentVector, targetVector);
@@ -1529,6 +1592,8 @@ export function planWeeklyTrainingDose(input: {
     phase: input.phase,
     gaps,
     generatedHardSessionCap,
+    generatedSkillSupportCap,
+    generatedConditioningHardCap,
     protectedCounts: counts,
   });
   const progressionDecisions = provisionalProgressionDecisions.length
@@ -1570,6 +1635,12 @@ export function planWeeklyTrainingDose(input: {
   if (counts.protectedRoadworkCount > 0) {
     warnings.push('Roadwork is already covered, so this week reduces extra roadwork and emphasizes the next boxing-athlete support gaps.');
   }
+  if (protectedBoxingPracticeExposure >= 2) {
+    warnings.push('Your protected boxing anchors cover practice exposure; Athleticore-generated work is biased toward S&C and recovery support.');
+  }
+  if (counts.protectedSparringCount >= 2) {
+    warnings.push('Two or more sparring anchors cap generated hard conditioning; support work stays mostly aerobic, durability, recovery, and low-volume strength-power.');
+  }
 
   const plan: WeeklyTrainingDosePrescription = {
     archetype: track,
@@ -1597,6 +1668,11 @@ export function planWeeklyTrainingDose(input: {
     protectedRoadworkCount: counts.protectedRoadworkCount,
     protectedLoadScore: ledger.protectedLoadScore,
     generatedHardSessionCap,
+    generatedSkillSupportCap,
+    generatedConditioningHardCap,
+    generatedStrengthPowerFloor,
+    generatedDurabilityFloor,
+    generatedRoadworkFloor,
     performanceVector: currentVector,
     qualityGaps: gaps,
     loadLedger: ledger,
@@ -1605,6 +1681,12 @@ export function planWeeklyTrainingDose(input: {
     variancePlan: variance,
     rationale: [
       ...rationaleForTrack(track, input.protectedWorkouts.length),
+      protectedBoxingPracticeExposure >= 2
+        ? 'Protected boxing practice covers the technical exposure, so generated work biases S&C, roadwork, durability, mobility, and recovery support.'
+        : 'Generated support keeps boxing context while filling the athlete-development qualities around practice.',
+      counts.protectedSparringCount >= 1
+        ? 'Sparring owns the highest-stress boxing work; generated conditioning is capped and supportive.'
+        : 'No protected sparring signal was found, so Athleticore can use controlled conditioning only when the week can absorb it.',
       `Hard-day cap is ${adjustedDose.hardDayCap}; protected hard-day count is ${counts.protectedHardDayCount}; generated hard cap is ${generatedHardSessionCap}.`,
       'Variance is controlled: formats may rotate, but the trained boxing qualities stay anchored.',
       ...progressionDecisions.map((decision) => `Progression signal for ${decision.family}: ${decision.rationale}`),

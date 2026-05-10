@@ -14,7 +14,15 @@ import {
   contributionForGeneratedSession,
   templateIdForBoxingFamily,
 } from './boxingTrainingModel.ts';
+import {
+  familyToAthleticDevelopmentDomain,
+  protectedModalityToAthleticDevelopmentDomain,
+  supportDomainSourceLabel,
+  supportSessionMetadata,
+} from './athleteSupportDomains.ts';
 import type {
+  AthleteSupportFuelPriority,
+  BoxingAthleteSupportDomain,
   BoxingPlannedSessionRole,
   BoxingQualityGap,
   BoxingSessionDoseCategory,
@@ -30,6 +38,7 @@ import type {
   WeeklyTrainingDosePrescription,
   WorkoutIntensity,
   WorkoutReadinessBand,
+  SupportDemandClass,
 } from './types.ts';
 import type { WorkoutProgrammingUserRequest } from './workoutProgrammingServiceTypes.ts';
 
@@ -40,53 +49,78 @@ export interface BoxingGeneratedPlanEntrySnapshot {
   schemaVersion: 1;
   sourceOfTruth: 'GeneratedProgram';
   programId: string;
-  userProgramId?: string | null;
+  userProgramId?: string | null | undefined;
   sessionId: string;
-  generatedWorkoutId?: string | null;
+  generatedWorkoutId?: string | null | undefined;
   weekIndex: number;
   dayIndex: number;
   scheduledDate: string;
   label: string;
   protectedAnchor: boolean;
   goalId: string;
-  preferredSessionTemplateId?: string | null;
-  plannedIntensity?: WorkoutIntensity;
+  preferredSessionTemplateId?: string | null | undefined;
+  plannedIntensity?: WorkoutIntensity | undefined;
   estimatedDurationMinutes: number;
-  estimatedLoadScore?: number | null;
-  boxingSessionFamily?: BoxingSessionFamily;
-  boxingSessionRole?: BoxingPlannedSessionRole;
-  sessionDoseCategory?: BoxingSessionDoseCategory;
-  protectedWorkoutModality?: ProtectedWorkoutModality;
-  protectedDurationMinutes?: number;
+  estimatedLoadScore?: number | null | undefined;
+  boxingSessionFamily?: BoxingSessionFamily | undefined;
+  boxingSessionRole?: BoxingPlannedSessionRole | undefined;
+  sessionDoseCategory?: BoxingSessionDoseCategory | undefined;
+  athleticDevelopmentDomain?: BoxingAthleteSupportDomain | undefined;
+  sAndCRationale?: string | undefined;
+  athleticDevelopmentRationale?: string | undefined;
+  boxingRelevance?: string | undefined;
+  supportDomainLabel?: string | undefined;
+  isBoxingPracticeReplacement: false;
+  isCoachLedRequired?: boolean | undefined;
+  expectedFuelPriority?: AthleteSupportFuelPriority | undefined;
+  expectedCarbDemandClass?: SupportDemandClass | undefined;
+  expectedRecoveryDemandClass?: SupportDemandClass | undefined;
+  expectedHydrationDemandClass?: SupportDemandClass | undefined;
+  sessionEnergyDemandScore?: number | undefined;
+  sessionRecoveryDemandScore?: number | undefined;
+  protectedWorkoutModality?: ProtectedWorkoutModality | undefined;
+  protectedDurationMinutes?: number | undefined;
   rationale: string[];
   generatedWorkout: GeneratedWorkout | null;
   weekSummary: BoxingGeneratedProgramWeekSnapshot;
 }
 
 export interface BoxingGeneratedProgramWeekSnapshot {
-  weeklyBoxingHeadline?: string;
-  weeklyBoxingSummary?: string;
-  primaryBoxingFocus?: string;
-  hardDaySummary?: string;
-  protectedLoadSummary?: string;
-  generatedSupportSummary?: string;
-  nextBestAction?: string;
+  weeklyBoxingHeadline?: string | undefined;
+  weeklyBoxingSummary?: string | undefined;
+  primaryBoxingFocus?: string | undefined;
+  weeklyAthleticDevelopmentHeadline?: string | undefined;
+  weeklyAthleticDevelopmentSummary?: string | undefined;
+  sAndCFocus?: string | undefined;
+  supportDomainSummary?: Record<BoxingAthleteSupportDomain, number> | undefined;
+  protectedBoxingPracticeSummary?: string | undefined;
+  athleticDevelopmentFocusAreas?: BoxingAthleteSupportDomain[] | undefined;
+  hardDaySummary?: string | undefined;
+  protectedLoadSummary?: string | undefined;
+  generatedSupportSummary?: string | undefined;
+  nextBestAction?: string | undefined;
   coachSummaryBullets: string[];
   coachRationale: string[];
   userFacingWarnings: string[];
   validationWarnings: string[];
   hardDayCount: number;
-  hardDayCap?: number;
-  generatedFullSessionCount?: number;
-  generatedSupportSessionCount?: number;
-  generatedMicrodoseCount?: number;
-  protectedBoxingSessionCount?: number;
-  protectedSparringCount?: number;
-  protectedRoadworkCount?: number;
-  boxingWeeklyDosePlan?: WeeklyTrainingDosePrescription;
-  boxingLoadLedger?: BoxingWeeklyLoadLedger;
+  hardDayCap?: number | undefined;
+  generatedFullSessionCount?: number | undefined;
+  generatedSupportSessionCount?: number | undefined;
+  generatedMicrodoseCount?: number | undefined;
+  protectedBoxingSessionCount?: number | undefined;
+  protectedSparringCount?: number | undefined;
+  protectedRoadworkCount?: number | undefined;
+  generatedSAndCSessionCount?: number | undefined;
+  generatedSkillSupportCount?: number | undefined;
+  generatedRoadworkCount?: number | undefined;
+  generatedStrengthPowerCount?: number | undefined;
+  generatedDurabilityCount?: number | undefined;
+  generatedRecoveryCount?: number | undefined;
+  boxingWeeklyDosePlan?: WeeklyTrainingDosePrescription | undefined;
+  boxingLoadLedger?: BoxingWeeklyLoadLedger | undefined;
   qualityGaps: BoxingQualityGap[];
-  variancePlan?: BoxingVariancePlan;
+  variancePlan?: BoxingVariancePlan | undefined;
 }
 
 export interface GeneratedProgramWeeklyPlanAdapterResult {
@@ -95,7 +129,7 @@ export interface GeneratedProgramWeeklyPlanAdapterResult {
   sourceSummary: {
     sourceOfTruth: 'GeneratedProgram';
     programId: string;
-    userProgramId?: string | null;
+    userProgramId?: string | null | undefined;
     weekStart: string;
     generatedSessionCount: number;
     protectedAnchorCount: number;
@@ -105,6 +139,13 @@ export interface GeneratedProgramWeeklyPlanAdapterResult {
     protectedBoxingSessionCount: number;
     protectedSparringCount: number;
     protectedRoadworkCount: number;
+    generatedSAndCSessionCount: number;
+    generatedSkillSupportCount: number;
+    generatedRoadworkCount: number;
+    generatedStrengthPowerCount: number;
+    generatedDurabilityCount: number;
+    generatedRecoveryCount: number;
+    supportDomainSummary?: Record<BoxingAthleteSupportDomain, number> | undefined;
   };
 }
 
@@ -196,25 +237,25 @@ const ROLE_BY_FAMILY: Record<BoxingSessionFamily, BoxingPlannedSessionRole> = {
 
 const FAMILY_LABELS: Record<BoxingSessionFamily, string> = {
   boxing_skill_microdose: 'Boxing skill microdose',
-  footwork_agility: 'Footwork agility',
-  reaction_rhythm: 'Reaction and rhythm',
-  shadowboxing_quality: 'Shadowboxing quality',
-  bag_pad_support: 'Bag or pad support',
-  max_strength_lower: 'Lower strength',
-  strength_power: 'Strength power',
-  explosive_power: 'Explosive power',
-  rotational_power: 'Rotational power',
+  footwork_agility: 'Speed & agility for boxing',
+  reaction_rhythm: 'Reaction and rhythm support',
+  shadowboxing_quality: 'Shadowboxing quality support',
+  bag_pad_support: 'Bag/pad support',
+  max_strength_lower: 'Lower-body strength',
+  strength_power: 'Strength & power',
+  explosive_power: 'Explosive power for boxing',
+  rotational_power: 'Rotational power for boxing',
   trunk_durability: 'Trunk durability',
-  shoulder_scap_durability: 'Shoulder durability',
-  neck_trap_durability: 'Neck and trap durability',
-  hip_ankle_mobility: 'Hip and ankle mobility',
+  shoulder_scap_durability: 'Shoulder durability for boxing',
+  neck_trap_durability: 'Neck/trap durability',
+  hip_ankle_mobility: 'Hip/ankle capacity',
   roadwork_zone2: 'Roadwork base',
   roadwork_tempo: 'Roadwork tempo',
   roadwork_intervals: 'Roadwork intervals',
   alactic_repeat_power: 'Alactic repeat power',
   glycolytic_round_tolerance: 'Round tolerance',
-  boxing_conditioning_support: 'Boxing conditioning support',
-  mobility_prehab: 'Mobility prehab',
+  boxing_conditioning_support: 'Conditioning support for boxing',
+  mobility_prehab: 'Mobility/prehab',
   recovery_reset: 'Recovery reset',
 };
 
@@ -238,7 +279,7 @@ const PROTECTED_MODALITY_LABELS: Partial<Record<ProtectedWorkoutModality, string
 };
 
 export function boxingSessionFamilyLabel(family: BoxingSessionFamily | null | undefined): string {
-  return family ? FAMILY_LABELS[family] : 'Boxing support';
+  return family ? FAMILY_LABELS[family] : 'Athleticore support';
 }
 
 export function boxingDoseCategoryLabel(category: BoxingSessionDoseCategory | null | undefined): string {
@@ -453,6 +494,12 @@ function sessionModulesFor(session: GeneratedProgramSession): SessionModulePlan[
   }];
 }
 
+function athleticDomainForSession(session: GeneratedProgramSession): BoxingAthleteSupportDomain | undefined {
+  return session.athleticDevelopmentDomain
+    ?? familyToAthleticDevelopmentDomain(session.boxingSessionFamily, session.boxingSessionRole)
+    ?? protectedModalityToAthleticDevelopmentDomain(session.protectedWorkoutModality);
+}
+
 function weekSnapshot(week: GeneratedProgramWeek | undefined): BoxingGeneratedProgramWeekSnapshot {
   const summary = week?.weeklyVolumeSummary;
   const snapshot: BoxingGeneratedProgramWeekSnapshot = {
@@ -466,6 +513,12 @@ function weekSnapshot(week: GeneratedProgramWeek | undefined): BoxingGeneratedPr
   if (week?.weeklyBoxingHeadline) snapshot.weeklyBoxingHeadline = week.weeklyBoxingHeadline;
   if (week?.weeklyBoxingSummary) snapshot.weeklyBoxingSummary = week.weeklyBoxingSummary;
   if (week?.primaryBoxingFocus) snapshot.primaryBoxingFocus = week.primaryBoxingFocus;
+  if (week?.weeklyAthleticDevelopmentHeadline) snapshot.weeklyAthleticDevelopmentHeadline = week.weeklyAthleticDevelopmentHeadline;
+  if (week?.weeklyAthleticDevelopmentSummary) snapshot.weeklyAthleticDevelopmentSummary = week.weeklyAthleticDevelopmentSummary;
+  if (week?.sAndCFocus) snapshot.sAndCFocus = week.sAndCFocus;
+  if (week?.supportDomainSummary) snapshot.supportDomainSummary = week.supportDomainSummary;
+  if (week?.protectedBoxingPracticeSummary) snapshot.protectedBoxingPracticeSummary = week.protectedBoxingPracticeSummary;
+  if (week?.athleticDevelopmentFocusAreas) snapshot.athleticDevelopmentFocusAreas = week.athleticDevelopmentFocusAreas;
   if (week?.hardDaySummary) snapshot.hardDaySummary = week.hardDaySummary;
   if (week?.protectedLoadSummary) snapshot.protectedLoadSummary = week.protectedLoadSummary;
   if (week?.generatedSupportSummary) snapshot.generatedSupportSummary = week.generatedSupportSummary;
@@ -478,6 +531,15 @@ function weekSnapshot(week: GeneratedProgramWeek | undefined): BoxingGeneratedPr
   if (summary?.protectedBoxingSessionCount != null) snapshot.protectedBoxingSessionCount = summary.protectedBoxingSessionCount;
   if (summary?.protectedSparringCount != null) snapshot.protectedSparringCount = summary.protectedSparringCount;
   if (summary?.protectedRoadworkCount != null) snapshot.protectedRoadworkCount = summary.protectedRoadworkCount;
+  if (summary?.generatedSAndCSessionCount != null) snapshot.generatedSAndCSessionCount = summary.generatedSAndCSessionCount;
+  if (summary?.generatedSkillSupportCount != null) snapshot.generatedSkillSupportCount = summary.generatedSkillSupportCount;
+  if (summary?.generatedRoadworkCount != null) snapshot.generatedRoadworkCount = summary.generatedRoadworkCount;
+  if (summary?.generatedStrengthPowerCount != null) snapshot.generatedStrengthPowerCount = summary.generatedStrengthPowerCount;
+  if (summary?.generatedDurabilityCount != null) snapshot.generatedDurabilityCount = summary.generatedDurabilityCount;
+  if (summary?.generatedRecoveryCount != null) snapshot.generatedRecoveryCount = summary.generatedRecoveryCount;
+  if (summary?.supportDomainSummary) snapshot.supportDomainSummary = summary.supportDomainSummary;
+  if (summary?.protectedBoxingPracticeSummary) snapshot.protectedBoxingPracticeSummary = summary.protectedBoxingPracticeSummary;
+  if (summary?.athleticDevelopmentFocusAreas) snapshot.athleticDevelopmentFocusAreas = summary.athleticDevelopmentFocusAreas;
   if (week?.weeklyDose) snapshot.boxingWeeklyDosePlan = week.weeklyDose;
   const loadLedger = week?.boxingLoadLedger ?? summary?.boxingLoadLedger;
   if (loadLedger) snapshot.boxingLoadLedger = loadLedger;
@@ -488,6 +550,15 @@ function weekSnapshot(week: GeneratedProgramWeek | undefined): BoxingGeneratedPr
 
 function snapshotForSession(program: GeneratedProgram, session: GeneratedProgramSession, week: GeneratedProgramWeek | undefined, scheduledDate: string): BoxingGeneratedPlanEntrySnapshot {
   const family = session.boxingSessionFamily;
+  const supportMeta = supportSessionMetadata({
+    family,
+    role: session.boxingSessionRole,
+    domain: athleticDomainForSession(session),
+    doseCategory: session.sessionDoseCategory,
+    plannedIntensity: session.plannedIntensity,
+    durationMinutes: estimatedMinutes(session),
+    protectedModality: session.protectedWorkoutModality,
+  });
   const snapshot: BoxingGeneratedPlanEntrySnapshot = {
     snapshotKind: 'boxing_generated_program_entry',
     schemaVersion: 1,
@@ -501,6 +572,25 @@ function snapshotForSession(program: GeneratedProgram, session: GeneratedProgram
     protectedAnchor: session.protectedAnchor,
     goalId: session.workout?.goalId ?? (family ? GOAL_ID_BY_FAMILY[family] : program.goalId),
     estimatedDurationMinutes: estimatedMinutes(session),
+    athleticDevelopmentDomain: supportMeta.athleticDevelopmentDomain,
+    supportDomainLabel: session.protectedAnchor && supportMeta.athleticDevelopmentDomain === 'boxing_skill_support'
+      ? 'Protected boxing'
+      : supportMeta.supportDomainLabel,
+    sAndCRationale: session.sAndCRationale ?? supportMeta.sAndCRationale,
+    athleticDevelopmentRationale: session.athleticDevelopmentRationale ?? supportMeta.athleticDevelopmentRationale,
+    boxingRelevance: session.boxingRelevance ?? supportMeta.boxingRelevance,
+    isBoxingPracticeReplacement: false,
+    isCoachLedRequired: session.isCoachLedRequired ?? (
+      session.protectedWorkoutModality === 'sparring'
+      || session.protectedWorkoutModality === 'competition'
+      || session.protectedWorkoutModality === 'pad_work'
+    ),
+    expectedFuelPriority: session.expectedFuelPriority ?? supportMeta.expectedFuelPriority,
+    expectedCarbDemandClass: session.expectedCarbDemandClass ?? supportMeta.expectedCarbDemandClass,
+    expectedRecoveryDemandClass: session.expectedRecoveryDemandClass ?? supportMeta.expectedRecoveryDemandClass,
+    expectedHydrationDemandClass: session.expectedHydrationDemandClass ?? supportMeta.expectedHydrationDemandClass,
+    sessionEnergyDemandScore: session.sessionEnergyDemandScore ?? supportMeta.sessionEnergyDemandScore,
+    sessionRecoveryDemandScore: session.sessionRecoveryDemandScore ?? supportMeta.sessionRecoveryDemandScore,
     rationale: session.rationale ?? [],
     generatedWorkout: session.workout ?? null,
     weekSummary: weekSnapshot(week),
@@ -566,6 +656,9 @@ export function generatedProgramToWeeklyPlanEntries(input: {
     const snapshot = snapshotForSession(input.program, session, firstWeek, scheduledDate);
     const doseSummary = doseSummaryForSession(session);
     const doseBucket = bucketForFamily(session.boxingSessionFamily);
+    const sourceLabel = session.protectedAnchor
+      ? 'Protected boxing'
+      : supportDomainSourceLabel(snapshot.athleticDevelopmentDomain);
     const entry: PersistableWeeklyPlanEntry = {
       user_id: input.userId,
       week_start_date: input.weekStart,
@@ -591,7 +684,7 @@ export function generatedProgramToWeeklyPlanEntries(input: {
         preservedBySubstitution: false,
         reason: session.protectedAnchor
           ? 'Protected boxing anchors are counted as schedule load, not generated support dose.'
-          : `${displayLabelForSession(session)} contributes generated boxing support dose.`,
+          : `${sourceLabel} contributes Athleticore support dose.`,
       }],
       dose_summary: doseSummary,
       realized_dose_buckets: session.protectedAnchor ? [] : [doseBucket],
@@ -625,6 +718,13 @@ export function generatedProgramToWeeklyPlanEntries(input: {
       protectedBoxingSessionCount: summary?.protectedBoxingSessionCount ?? 0,
       protectedSparringCount: summary?.protectedSparringCount ?? 0,
       protectedRoadworkCount: summary?.protectedRoadworkCount ?? 0,
+      generatedSAndCSessionCount: summary?.generatedSAndCSessionCount ?? 0,
+      generatedSkillSupportCount: summary?.generatedSkillSupportCount ?? 0,
+      generatedRoadworkCount: summary?.generatedRoadworkCount ?? 0,
+      generatedStrengthPowerCount: summary?.generatedStrengthPowerCount ?? 0,
+      generatedDurabilityCount: summary?.generatedDurabilityCount ?? 0,
+      generatedRecoveryCount: summary?.generatedRecoveryCount ?? 0,
+      supportDomainSummary: summary?.supportDomainSummary,
     },
   };
 }
@@ -738,6 +838,7 @@ export function buildGeneratedWorkoutRequestFromPlanEntry(input: {
     intendedBoxingSessionFamily: family,
     intendedBoxingSessionRole: snapshot?.boxingSessionRole ?? migration?.role ?? ROLE_BY_FAMILY[family],
     intendedSessionDoseCategory: snapshot?.sessionDoseCategory ?? migration?.doseCategory ?? (family === 'recovery_reset' ? 'recovery_reset' : 'support_session'),
+    athleticDevelopmentDomain: snapshot?.athleticDevelopmentDomain ?? familyToAthleticDevelopmentDomain(family, snapshot?.boxingSessionRole ?? migration?.role ?? ROLE_BY_FAMILY[family]),
     preferredSessionTemplateId: snapshot?.preferredSessionTemplateId ?? migration?.preferredSessionTemplateId ?? templateIdForBoxingFamily(family),
   };
   if (input.boxingTrainingContext) request.boxingTrainingContext = input.boxingTrainingContext;
@@ -760,7 +861,7 @@ export function boxingEntryDisplayMeta(entry: WeeklyPlanEntryRow): {
       title: snapshot.protectedAnchor
         ? boxingProtectedModalityLabel(snapshot.protectedWorkoutModality)
         : boxingSessionFamilyLabel(snapshot.boxingSessionFamily),
-      sourceLabel: snapshot.protectedAnchor ? 'Protected boxing anchor' : boxingDoseCategoryLabel(snapshot.sessionDoseCategory),
+      sourceLabel: snapshot.protectedAnchor ? 'Protected boxing' : supportDomainSourceLabel(snapshot.athleticDevelopmentDomain),
       familyLabel: snapshot.boxingSessionFamily ? boxingSessionFamilyLabel(snapshot.boxingSessionFamily) : null,
       modalityLabel: snapshot.protectedWorkoutModality ? boxingProtectedModalityLabel(snapshot.protectedWorkoutModality) : null,
       doseLabel: snapshot.sessionDoseCategory ? boxingDoseCategoryLabel(snapshot.sessionDoseCategory) : null,

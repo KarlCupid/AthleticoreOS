@@ -100,16 +100,23 @@ function nutritionSafetyWarningFromRisks(flags: RiskFlag[]): NutritionFuelingTar
 }
 
 function priorityFromSession(session: ComposedSession | null): NutritionFuelingTarget['prioritySession'] {
+  const title = `${session?.title ?? ''} ${(session?.explanation?.summary ?? '')}`.toLowerCase();
+  if (title.includes('roadwork tempo')) return 'roadwork_tempo';
+  if (title.includes('roadwork') || session?.family === 'roadwork') return 'roadwork_aerobic';
+  if (title.includes('interval') || title.includes('alactic') || title.includes('round tolerance')) return 'conditioning_intervals';
+  if (title.includes('rotational power') || title.includes('explosive power')) return 'power';
+  if (title.includes('strength')) return 'strength_power';
+  if (title.includes('durability')) return 'durability';
+  if (title.includes('mobility') || title.includes('prehab')) return 'mobility';
   switch (session?.family) {
     case 'sparring':
       return 'sparring';
     case 'boxing_skill':
       return 'boxing_practice';
     case 'strength':
-      return 'heavy_sc';
+      return 'strength_power';
     case 'conditioning':
-    case 'roadwork':
-      return 'conditioning';
+      return 'conditioning_intervals';
     default:
       return 'recovery';
   }
@@ -140,6 +147,29 @@ function sessionFuelingPlanFromUnified(input: {
   const intra = fuelingWindowFromDirective(input.directive, 'intra');
   const post = fuelingWindowFromDirective(input.directive, 'post');
   const sessionLabel = input.session?.title ?? input.directive?.sessionType ?? 'Training support';
+  const supportCoachingNote = (() => {
+    switch (input.priority) {
+      case 'strength_power':
+        return 'Today is strength-power support, so the goal is enough carbs to train and protein to recover.';
+      case 'power':
+        return 'Today is power support for boxing; arrive fueled enough to move fast and recover with protein.';
+      case 'roadwork_aerobic':
+        return 'Roadwork base is low intensity; keep hydration steady and fuel normally unless duration is long.';
+      case 'roadwork_tempo':
+        return 'Roadwork tempo needs enough carbohydrate and fluids to hold controlled pace without under-fueling.';
+      case 'conditioning_intervals':
+        return 'Conditioning intervals need pre-session carbs, fluids, and post-session glycogen restore.';
+      case 'durability':
+        return 'Durability support is lower carb demand, but protein, micronutrients, and hydration still matter.';
+      case 'mobility':
+      case 'recovery':
+        return 'Recovery reset day: stay consistent, hit protein, and hydrate.';
+      case 'sparring':
+        return 'Sparring already drives high stress today; do not under-fuel recovery.';
+      default:
+        return input.directive?.explanation?.summary ?? 'Session fueling came from the Nutrition and Fueling Engine.';
+    }
+  })();
 
   return {
     priority: input.priority,
@@ -169,7 +199,7 @@ function sessionFuelingPlanFromUnified(input: {
     },
     hydrationNotes: input.directive?.duringSessionGuidance ?? [],
     coachingNotes: [
-      input.directive?.explanation?.summary ?? 'Session fueling came from the Nutrition and Fueling Engine.',
+      supportCoachingNote,
     ],
   };
 }
@@ -218,7 +248,7 @@ function nutritionFuelingTargetFromUnified(input: {
     hydrationPlan: {
       dailyTargetOz: hydrationOz,
       sodiumTargetMg: sodiumTarget,
-      emphasis: priority === 'recovery' ? 'baseline' : 'performance',
+      emphasis: priority === 'recovery' || priority === 'mobility' || priority === 'durability' ? 'baseline' : 'performance',
       notes: [
         ...(target?.sodiumElectrolyteGuidance?.electrolyteNotes ?? []),
         input.hydration.message,
