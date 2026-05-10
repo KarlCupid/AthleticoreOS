@@ -171,7 +171,7 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
             if (!mountedRef.current) return;
             setCalorieBalanceData(balance7);
 
-            // ─── Adherence Calendar (30 days) ───
+            // Consistency calendar (30 days).
             const adherence30: AdherenceDay[] = [];
             for (let i = 29; i >= 0; i--) {
                 const d = new Date(now);
@@ -312,9 +312,9 @@ export function NutritionAnalyticsSection({ userId }: NutritionAnalyticsSectionP
                 </View>
             </Card>
 
-            {/* C. Adherence Calendar */}
+            {/* C. Consistency Calendar */}
             <Card style={styles.cardSpacing}>
-                <Text style={styles.chartTitle}>Adherence</Text>
+                <Text style={styles.chartTitle}>Fueling consistency</Text>
                 <Text style={styles.chartSubtitle}>Past 30 days</Text>
 
                 <View style={styles.calendarGrid}>

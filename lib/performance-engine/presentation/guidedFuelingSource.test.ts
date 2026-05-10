@@ -26,12 +26,12 @@ const viewModel = read('lib/performance-engine/presentation/guidedFuelingViewMod
 
 console.log('\n-- guided fueling source --');
 
-assert('Fuel screen renders guided fueling focus', screen.includes('renderGuidedFuelingCard') && screen.includes('guided.primaryFocus'));
-assert('Fuel screen renders why fueling matters', screen.includes('guided.whyItMatters'));
+assert('Fuel screen renders guided fueling focus', screen.includes('renderGuidedFuelingCard') && screen.includes('Fuel focus') && screen.includes('buildFuelCoachCopy'));
+assert('Fuel screen renders why fueling matters', screen.includes('fuelCopy.body'));
 assert('Fuel screen renders session fueling guidance', screen.includes('renderSessionFuelingCard') && screen.includes('guidedFueling.sessionGuidance'));
 assert('Fuel screen renders recovery nutrition focus', screen.includes('Recovery nutrition') && screen.includes('guidedFueling.recoveryNutritionFocus'));
-assert('Fuel screen renders macro ranges after meaning', screen.includes('Macro ranges') && screen.indexOf('renderGuidedFuelingCard') < screen.indexOf('renderMacroTargetsCard'));
-assert('Fuel screen surfaces food log confidence', screen.includes('Food log confidence') && screen.includes('foodLogConfidence'));
+assert('Fuel screen renders macro targets after meaning', screen.includes('Macro targets') && screen.indexOf('renderGuidedFuelingCard') < screen.indexOf('renderMacroTargetsCard'));
+assert('Fuel screen surfaces food-log context', screen.includes('How much Athleticore knows') && screen.includes('foodLogConfidence'));
 assert('Fuel screen explains missing data as unknown, not zero', screen.includes('Athleticore treats that as unknown, not zero'));
 assert('Fuel screen no longer uses the large calorie hero in detailed mode', !screen.includes('styles.calorieHero') && !screen.includes('AnimatedNumber'));
 assert('Fuel screen uses existing Card component', screen.includes("import { Card } from '../components/Card'"));

@@ -389,14 +389,13 @@ async function run(): Promise<void> {
   assert('preview card renders blocks', validWorkout.blocks.every((block) => Boolean(preview.getByText(block.title))));
   assert('preview card renders exercises', Boolean(exercise && preview.getByText(exercise.name)));
   assert('preview card renders prescriptions', hasRenderedText(preview, /Dose/i) && hasRenderedText(preview, /Effort \d+\/10/i));
-  assert('preview card renders effort', Boolean(preview.getByTestId('generated-workout-preview-effort')));
+  assert('preview card renders coach brief', Boolean(preview.getByTestId('generated-workout-preview-brief')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.description?.effortExplanation ?? ''), 'i')));
   assert('preview card renders safety notes', Boolean(preview.getByTestId('generated-workout-preview-safety')) && hasRenderedText(preview, /Pause if pain becomes sharp/i));
-  assert('preview card renders success criteria', Boolean(preview.getByTestId('generated-workout-preview-success')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.successCriteria[0]))));
-  assert('preview card renders substitutions', Boolean(preview.getByTestId('generated-workout-preview-substitutions')) && hasRenderedText(preview, /Substitutions/i));
-  assert('preview card renders scaling options', Boolean(preview.getByTestId('generated-workout-preview-scaling')) && hasRenderedText(preview, /Down:/i));
+  assert('preview card renders success criteria in coach brief', Boolean(preview.getByTestId('generated-workout-preview-brief')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.successCriteria[0]))));
+  assert('preview card renders substitutions and scaling together', Boolean(preview.getByTestId('generated-workout-preview-substitutions')) && hasRenderedText(preview, /Substitutions \/ scaling/i) && hasRenderedText(preview, /Down:/i));
   assert('preview card renders tracking metrics', Boolean(preview.getByTestId('generated-workout-preview-tracking')) && hasRenderedText(preview, new RegExp(escapeRegExp((validWorkout.trackingMetrics ?? validWorkout.trackingMetricIds)[0]), 'i')));
   assert('preview card renders completion message', Boolean(preview.getByTestId('generated-workout-preview-completion')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.description?.completionMessage ?? ''), 'i')));
-  assert('preview card renders user-safe decision summary', Boolean(preview.getByTestId('generated-workout-preview-why')) && hasRenderedText(preview, /Why this workout\?/i));
+  assert('preview card renders user-safe decision summary', Boolean(preview.getByTestId('generated-workout-preview-why')) && hasRenderedText(preview, /Why this session/i));
   assert('preview card omits media panel when no reviewed media asset exists', preview.queryByTestId(`generated-workout-exercise-media-${exercise.exerciseId}`) === null);
   preview.unmount();
 
@@ -431,9 +430,9 @@ async function run(): Promise<void> {
   assert('preview card renders blocked workout safely', Boolean(
     blockedWorkout.blocked
       && blocked.getByTestId('generated-workout-preview-blocked')
-      && blocked.getByText(/This generated session is blocked/i)
+      && blocked.getByText(/This support session needs review/i)
       && hasRenderedText(blocked, /Safety wins/i)
-      && hasRenderedText(blocked, /Hard training is not recommended/i),
+      && hasRenderedText(blocked, /Hard training is not the right call/i),
   ));
   blocked.unmount();
 
@@ -464,10 +463,10 @@ async function run(): Promise<void> {
   }));
   assert('beta session card renders configure state', Boolean(
     configure.getByTestId('boxing-generated-workout-card')
-      && configure.getByLabelText('Generate extra support session')
-      && configure.getByText('Choose an extra support dose. Planned weekly sessions open from Today and WorkoutDetail.'),
+      && configure.getByLabelText('Build support session')
+      && configure.getByText('Choose extra support only when it helps the week. Planned sessions open from Today and Train.'),
   ));
-  act(() => { fireEvent.press(configure.getByLabelText('Generate extra support session')); });
+  act(() => { fireEvent.press(configure.getByLabelText('Build support session')); });
   assert('boxing configure state calls generate handler', eventLog.includes('generate'));
   configure.unmount();
 
@@ -492,7 +491,7 @@ async function run(): Promise<void> {
   assert('start button is disabled for blocked workouts', Boolean(
     blockedStart.props.disabled === true
       && blockedStart.props.accessibilityState?.disabled === true
-      && blockedInspect.getByLabelText('This session is blocked by safety review.'),
+      && blockedInspect.getByLabelText('Review safer options'),
   ));
   blockedInspect.unmount();
 
@@ -526,7 +525,7 @@ async function run(): Promise<void> {
     lifecycleStatus: 'paused',
     progressionDecision: null,
   }));
-  assert('boxing session card can resume a paused persisted session', Boolean(paused.getByLabelText('Resume Athleticore support session') && paused.getByText('Resume to Complete')));
+  assert('boxing session card can resume a paused persisted session', Boolean(paused.getByLabelText('Resume Athleticore support session') && paused.getByText('Resume to complete')));
   act(() => { fireEvent.press(paused.getByLabelText('Resume Athleticore support session')); });
   assert('boxing paused state calls resume handler', eventLog.includes('resume'));
   paused.unmount();

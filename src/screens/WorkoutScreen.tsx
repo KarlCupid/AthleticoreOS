@@ -30,6 +30,10 @@ import {
   type BoxingGeneratedPlanEntrySnapshot,
 } from '../../lib/performance-engine/workout-programming';
 import {
+  buildSupportSessionCoachCopy,
+  sanitizeAthleteFacingCopy,
+} from '../../lib/performance-engine/presentation/coachCopyViewModel';
+import {
   buildSleepData,
   buildTrainTodaySummary,
   buildTrainingLoadData,
@@ -128,42 +132,6 @@ function EmptyPlanCard({ onPress }: { onPress: () => void }) {
   );
 }
 
-function formatSupportValue(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function formatFuelPriorityLabel(value: string | null | undefined): string | null {
-  switch (value) {
-    case 'sparring':
-      return 'Sparring day fuel';
-    case 'boxing_practice':
-      return 'Boxing practice fuel';
-    case 'strength_power':
-      return 'Strength & power fuel';
-    case 'power':
-      return 'Power fuel';
-    case 'roadwork_aerobic':
-      return 'Roadwork base fuel';
-    case 'roadwork_tempo':
-      return 'Roadwork tempo fuel';
-    case 'conditioning_intervals':
-      return 'Interval fuel';
-    case 'durability':
-      return 'Durability fuel';
-    case 'mobility':
-      return 'Light skill fuel';
-    case 'recovery':
-      return 'Recovery fuel';
-    case 'double_session':
-      return 'Two-session fuel';
-    case 'body_mass_protect':
-      return 'Body-mass support fuel';
-    default:
-      return formatSupportValue(value);
-  }
-}
-
 function PlannedSupportSessionCard({
   entry,
   snapshot,
@@ -174,50 +142,50 @@ function PlannedSupportSessionCard({
   onOpen: () => void;
 }) {
   const domainLabel = snapshot.supportDomainLabel ?? boxingEntryDisplayMeta(entry).sourceLabel;
-  const doseLabel = formatSupportValue(snapshot.sessionDoseCategory);
-  const intensityLabel = formatSupportValue(snapshot.plannedIntensity);
-  const fuelLabel = formatFuelPriorityLabel(snapshot.expectedFuelPriority);
   const duration = snapshot.estimatedDurationMinutes ?? entry.estimated_duration_min;
-  const attached = Boolean(snapshot.generatedWorkout);
-  const rationale = snapshot.sAndCRationale
-    ?? snapshot.athleticDevelopmentRationale
-    ?? snapshot.rationale[0]
-    ?? snapshot.weekSummary.nextBestAction
-    ?? null;
-  const relevance = snapshot.boxingRelevance ?? null;
+  const coachCopy = buildSupportSessionCoachCopy({
+    snapshot,
+    durationMinutes: duration,
+    sourceLabel: domainLabel,
+  });
+  const supportHeadline = snapshot.label && snapshot.label !== coachCopy.headline
+    ? snapshot.label
+    : coachCopy.headline;
 
   return (
     <Card
-      title={domainLabel}
-      subtitle={snapshot.label}
+      title="Today's support session"
+      subtitle={coachCopy.headline}
       subtitleLines={2}
       backgroundTone="workoutFloor"
       backgroundScrimColor="rgba(10, 10, 10, 0.68)"
     >
       <View testID="planned-support-session-card" style={styles.supportSessionStack}>
+        <Text style={styles.supportHeadline}>{supportHeadline}</Text>
+        <Text style={styles.supportBody}>{coachCopy.body}</Text>
         <View style={styles.supportMetaRow}>
-          {doseLabel ? <Text style={styles.supportMetaPill}>{doseLabel}</Text> : null}
-          {duration ? <Text style={styles.supportMetaPill}>{duration} min</Text> : null}
-          {intensityLabel ? <Text style={styles.supportMetaPill}>{intensityLabel} intensity</Text> : null}
+          {coachCopy.detailLines.slice(0, 4).map((line) => (
+            <Text key={line} style={styles.supportMetaPill}>{line}</Text>
+          ))}
         </View>
-        {rationale ? <Text style={styles.supportBody}>{rationale}</Text> : null}
-        {relevance ? <Text style={styles.supportBody}>{relevance}</Text> : null}
-        {fuelLabel ? <Text style={styles.supportFuel}>Fuel: {fuelLabel}</Text> : null}
-        <Text style={styles.supportAttachedState}>{attached ? 'Workout details are ready' : 'Details will build when you open it'}</Text>
+        {coachCopy.safetyLines.map((line) => (
+          <Text key={line} style={styles.supportFuel}>{line}</Text>
+        ))}
+        <Text style={styles.supportAttachedState}>{coachCopy.secondaryAction}</Text>
         <AnimatedPressable
           accessibilityRole="button"
-          accessibilityLabel="Open support session"
+          accessibilityLabel={coachCopy.primaryAction}
           style={styles.primaryButton}
           onPress={onOpen}
         >
-          <Text style={styles.primaryButtonText}>Open support session</Text>
+          <Text style={styles.primaryButtonText}>{coachCopy.primaryAction}</Text>
         </AnimatedPressable>
       </View>
     </Card>
   );
 }
 
-function AthleteSupportWeekCard({ snapshot }: { snapshot: BoxingGeneratedPlanEntrySnapshot | null }) {
+function AthleteSupportWeekCard({ snapshot, compact = false }: { snapshot: BoxingGeneratedPlanEntrySnapshot | null; compact?: boolean }) {
   if (!snapshot) return null;
   const week = snapshot.weekSummary;
   const bullets = [
@@ -225,20 +193,21 @@ function AthleteSupportWeekCard({ snapshot }: { snapshot: BoxingGeneratedPlanEnt
     week.protectedBoxingPracticeSummary,
     week.hardDaySummary,
     week.protectedLoadSummary,
-    week.generatedSupportSummary,
-    week.nextBestAction,
-  ].filter((item): item is string => Boolean(item));
-  const qualityGaps = week.qualityGaps.map((gap) => `${String(gap.quality).replace(/_/g, ' ')} (${gap.priority})`).slice(0, 3);
+    compact ? null : week.generatedSupportSummary,
+    compact ? null : week.nextBestAction,
+  ].filter((item): item is string => Boolean(item)).map(sanitizeAthleteFacingCopy);
+  const visibleBullets = compact ? bullets.slice(0, 2) : bullets;
+  const qualityGaps = week.qualityGaps.map((gap) => `${String(gap.quality).replace(/_/g, ' ')} (${gap.priority})`).slice(0, compact ? 1 : 2);
   return (
     <Card
-      title={week.weeklyAthleticDevelopmentHeadline ?? week.weeklyBoxingHeadline ?? 'Athlete Support This Week'}
-      subtitle={week.weeklyAthleticDevelopmentSummary ?? week.weeklyBoxingSummary ?? 'Athleticore builds the S&C support around your boxing anchors.'}
-      subtitleLines={3}
+      title={week.weeklyAthleticDevelopmentHeadline ?? week.weeklyBoxingHeadline ?? 'Athlete support this week'}
+      subtitle={compact ? 'Week shape around your boxing anchors.' : week.weeklyAthleticDevelopmentSummary ?? week.weeklyBoxingSummary ?? 'Athleticore builds the S&C support around your boxing anchors.'}
+      subtitleLines={compact ? 1 : 3}
       backgroundTone="workoutFloor"
       backgroundScrimColor="rgba(10, 10, 10, 0.72)"
     >
       <View style={styles.intelligenceStack}>
-        {bullets.map((item) => (
+        {visibleBullets.map((item) => (
           <View key={item} style={styles.intelligenceRow}>
             <View style={styles.guardrailDot} />
             <Text style={styles.intelligenceText}>{item}</Text>
@@ -252,8 +221,8 @@ function AthleteSupportWeekCard({ snapshot }: { snapshot: BoxingGeneratedPlanEnt
           {week.generatedDurabilityCount != null ? <Text style={styles.intelligenceMeta}>Durability {week.generatedDurabilityCount}</Text> : null}
           {week.generatedSkillSupportCount != null ? <Text style={styles.intelligenceMeta}>Skill support {week.generatedSkillSupportCount}</Text> : null}
         </View>
-        {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Quality gaps: {qualityGaps.join(', ')}</Text> : null}
-        {week.variancePlan?.reason ? <Text style={styles.intelligenceNote}>{week.variancePlan.reason}</Text> : null}
+        {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Watch next: {qualityGaps.join(', ')}</Text> : null}
+        {!compact && week.variancePlan?.reason ? <Text style={styles.intelligenceNote}>{week.variancePlan.reason}</Text> : null}
       </View>
     </Card>
   );
@@ -433,18 +402,6 @@ export function WorkoutScreen() {
       >
         {activeTab === 'today' && (
           <View style={styles.tabStack}>
-            <Animated.View entering={FadeInDown.delay(20).duration(300).springify()}>
-              <UnifiedJourneySummaryCard
-                summary={performanceContext}
-                compact
-                showBodyMass={Boolean(performanceContext.bodyMass)}
-              />
-            </Animated.View>
-            {!initialLoadError && weekBoxingSnapshot ? (
-              <Animated.View entering={FadeInDown.delay(30).duration(300).springify()}>
-                <AthleteSupportWeekCard snapshot={weekBoxingSnapshot} />
-              </Animated.View>
-            ) : null}
             {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}
             {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
             {!initialLoadError && showTodayHero ? (
@@ -499,8 +456,8 @@ export function WorkoutScreen() {
             {!initialLoadError && contextualTodayActivities.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
                 <Card
-                  title="Also today"
-                  subtitle="Other sessions"
+                  title="Other anchors today"
+                  subtitle="Also on the calendar"
                   backgroundTone="schedule"
                   backgroundScrimColor="rgba(10, 10, 10, 0.70)"
                 >
@@ -518,6 +475,20 @@ export function WorkoutScreen() {
                 </Card>
               </Animated.View>
             )}
+            {!initialLoadError ? (
+              <Animated.View entering={FadeInDown.delay(100).duration(280).springify()}>
+                <UnifiedJourneySummaryCard
+                  summary={performanceContext}
+                  compact
+                  showBodyMass={Boolean(performanceContext.bodyMass)}
+                />
+              </Animated.View>
+            ) : null}
+            {!initialLoadError && weekBoxingSnapshot ? (
+              <Animated.View entering={FadeInDown.delay(120).duration(280).springify()}>
+                <AthleteSupportWeekCard snapshot={weekBoxingSnapshot} compact={hasPlannedSupportSession} />
+              </Animated.View>
+            ) : null}
           </View>
         )}
         {activeTab === 'plan' && (
@@ -638,6 +609,7 @@ const styles = StyleSheet.create({
   supportSessionStack: { gap: SPACING.sm },
   supportMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
   supportMetaPill: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.sm, paddingVertical: 5, fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
+  supportHeadline: { fontSize: 19, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, lineHeight: 25 },
   supportBody: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
   supportFuel: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 18 },
   supportAttachedState: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 18 },

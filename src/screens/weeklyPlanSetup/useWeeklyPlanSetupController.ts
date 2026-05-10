@@ -347,7 +347,7 @@ export function useWeeklyPlanSetupController({
     for (const commitment of commitments) {
       if (!isValidTime(commitment.startTime)) {
         if (showAlerts) {
-          Alert.alert('Invalid commitment', 'Each fixed session needs a valid HH:MM start time.');
+          Alert.alert('Check fixed session', 'Each fixed session needs a HH:MM start time.');
         }
         return false;
       }
@@ -355,7 +355,7 @@ export function useWeeklyPlanSetupController({
       const duration = parseNumberInput(commitment.durationMin);
       if (duration == null || duration <= 0) {
         if (showAlerts) {
-          Alert.alert('Invalid commitment', 'Each fixed session needs a valid duration in minutes.');
+          Alert.alert('Check fixed session', 'Each fixed session needs a duration in minutes.');
         }
         return false;
       }
@@ -370,7 +370,7 @@ export function useWeeklyPlanSetupController({
         const parsedTentativeTargetWeight = targetWeight.trim() === '' ? null : parseNumberInput(targetWeight);
         if (targetWeight.trim() !== '' && parsedTentativeTargetWeight == null) {
           if (showAlerts) {
-            Alert.alert('Invalid target weight', 'Enter a valid number for target scale weight, or leave it blank.');
+            Alert.alert('Check target weight', 'Enter a number for target scale weight, or leave it blank.');
           }
           return false;
         }
@@ -387,7 +387,7 @@ export function useWeeklyPlanSetupController({
       const parsedTargetWeight = targetWeight.trim() === '' ? null : parseNumberInput(targetWeight);
       if (targetWeight.trim() !== '' && parsedTargetWeight == null) {
         if (showAlerts) {
-          Alert.alert('Invalid target weight', 'Enter a valid number for target scale weight, or leave it blank.');
+          Alert.alert('Check target weight', 'Enter a number for target scale weight, or leave it blank.');
         }
         return false;
       }
@@ -432,7 +432,7 @@ export function useWeeklyPlanSetupController({
       const parsedWeeks = parseNumberInput(targetHorizonWeeks);
       if (parsedWeeks == null || parsedWeeks <= 0) {
         if (showAlerts) {
-          Alert.alert('Invalid horizon', 'Enter a valid positive number of weeks.');
+          Alert.alert('Check timeline', 'Enter a positive number of weeks.');
         }
         return false;
       }

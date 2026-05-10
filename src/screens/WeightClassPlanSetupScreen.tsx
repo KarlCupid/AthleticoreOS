@@ -196,7 +196,7 @@ export function WeightClassPlanSetupScreen() {
           shouldGenerateProtocol: weightClassEvaluation.shouldGenerateProtocol,
         });
         Alert.alert(
-          'Automatic support blocked',
+          'Support paused for safety',
           guidedCopy.primaryMessage,
         );
         return;
@@ -499,7 +499,7 @@ export function WeightClassPlanSetupScreen() {
         {step < 5 ? (
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel={step === 1 ? 'Evaluate weight class' : step === 4 && isNextDisabled ? 'Automatic support blocked' : step === 4 ? 'Continue after safety preview' : 'Continue'}
+            accessibilityLabel={step === 1 ? 'Evaluate weight class' : step === 4 && isNextDisabled ? 'Support paused for safety' : step === 4 ? 'Continue after safety preview' : 'Continue'}
             accessibilityHint={step < 4 ? 'Moves to the next weight-class setup step.' : 'Continues only when the safety evaluation allows it.'}
             accessibilityState={{ disabled: isNextDisabled }}
             style={[styles.nextButton, isNextDisabled && styles.nextButtonDisabled]}
@@ -511,7 +511,7 @@ export function WeightClassPlanSetupScreen() {
               {step === 1
                 ? 'Evaluate weight class'
                 : step === 4 && isNextDisabled
-                  ? 'Automatic support blocked'
+                  ? 'Support paused for safety'
                   : step === 4
                     ? 'Continue'
                     : 'Next'}

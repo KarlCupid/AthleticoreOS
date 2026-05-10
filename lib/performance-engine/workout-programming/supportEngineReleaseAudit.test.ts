@@ -275,8 +275,8 @@ assert('Today support copy avoids developer snapshot language', (
   && !workoutScreen.includes('Generated workout will attach')
   && !workoutDetail.includes('GeneratedWorkout snapshot')
 ));
-assert('old rows remain readable through compatibility view', (
-  workoutDetail.includes('Compatibility view')
+assert('old rows remain readable through older-session view', (
+  workoutDetail.includes('buildCompatibilityCopy')
   && weeklyPlanService.includes('This archived workout can be viewed')
 ));
 assert('legacy generation has an explicit compatibility boundary', (

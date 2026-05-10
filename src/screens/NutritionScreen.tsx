@@ -31,6 +31,7 @@ import { useFuelData } from '../hooks/useFuelData';
 import type { FuelStackParamList } from '../navigation/types';
 import type { FoodSearchResult, MealType, SessionFuelingWindow } from '../../lib/engine/types';
 import type { GuidedFuelingMacroTarget } from '../../lib/performance-engine';
+import { buildFuelCoachCopy } from '../../lib/performance-engine/presentation/coachCopyViewModel';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { styles } from './NutritionScreen.styles';
 
@@ -230,7 +231,7 @@ export function NutritionScreen() {
           backgroundTone="fuelQuiet"
           backgroundScrimColor="rgba(10, 10, 10, 0.66)"
         >
-          <Text style={inline.sectionEyebrow}>Fuel mission</Text>
+          <Text style={inline.sectionEyebrow}>Fuel focus</Text>
           <Text style={inline.cardHeadline}>{quickVM.fuelDirectiveHeadline}</Text>
           <Text style={inline.copyMuted} numberOfLines={1}>
             {missionMeta}
@@ -242,9 +243,9 @@ export function NutritionScreen() {
               </Text>
             </View>
           ) : null}
-          {renderFuelWindow(sessionPlan.preSession, 'No pre-workout fuel block.')}
+          {renderFuelWindow(sessionPlan.preSession, 'No special pre-session fuel needed.')}
           {sessionPlan.betweenSessions ? renderFuelWindow(sessionPlan.betweenSessions, '') : null}
-          {renderFuelWindow(sessionPlan.postSession, 'No recovery fuel block.')}
+          {renderFuelWindow(sessionPlan.postSession, 'No special recovery fuel needed.')}
         </Card>
 
       </>
@@ -260,6 +261,7 @@ export function NutritionScreen() {
 
   const renderGuidedFuelingCard = (delay: number = STAGGER_DELAY) => {
     const guided = viewModel.guidedFueling;
+    const fuelCopy = buildFuelCoachCopy(guided);
 
     return (
       <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
@@ -268,9 +270,9 @@ export function NutritionScreen() {
           backgroundTone="fuelQuiet"
           backgroundScrimColor="rgba(10, 10, 10, 0.66)"
         >
-          <Text style={inline.sectionEyebrow}>{guided.title}</Text>
-          <Text style={inline.cardHeadline}>{guided.primaryFocus}</Text>
-          <Text style={inline.copyMuted}>{guided.whyItMatters}</Text>
+          <Text style={inline.sectionEyebrow}>Fuel focus</Text>
+          <Text style={inline.cardHeadline}>{fuelCopy.headline}</Text>
+          <Text style={inline.copyMuted}>{fuelCopy.body}</Text>
           <Text style={[inline.noteLine, { color: COLORS.text.primary }]}>{guided.phaseContext}</Text>
           {guided.bodyMassContext ? (
             <View style={inline.guidanceBlock}>
@@ -320,7 +322,7 @@ export function NutritionScreen() {
         backgroundTone="nutrition"
         backgroundScrimColor="rgba(10, 10, 10, 0.70)"
       >
-        <Text style={inline.sectionEyebrow}>Macro ranges</Text>
+        <Text style={inline.sectionEyebrow}>Macro targets</Text>
         <Text style={inline.copyMuted}>
           These numbers support the fueling focus above. They are targets, not the whole point of the day.
         </Text>
@@ -362,7 +364,7 @@ export function NutritionScreen() {
           backgroundScrimColor="rgba(10, 10, 10, 0.70)"
         >
           <View style={inline.cardTitleRow}>
-            <Text style={inline.sectionEyebrow}>Food log confidence</Text>
+            <Text style={inline.sectionEyebrow}>How much Athleticore knows</Text>
             <View style={inline.confidencePill}>
               <Text style={inline.confidencePillText}>{confidence.label}</Text>
             </View>
@@ -381,7 +383,7 @@ export function NutritionScreen() {
     );
   };
 
-  const renderFuelDetailsCard = (delay: number = STAGGER_DELAY * 5) => (
+  const renderFuelDetailsToggle = (delay: number = STAGGER_DELAY * 5) => (
     <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
       <AnimatedPressable
         accessibilityRole="button"
@@ -392,20 +394,23 @@ export function NutritionScreen() {
       >
         <Text style={[inline.linkText, { color: themeColor }]}>{showFuelDetails ? 'Hide details' : 'Show details'}</Text>
       </AnimatedPressable>
-      {showFuelDetails ? (
-        <Card
-          style={{ marginBottom: SPACING.md }}
-          backgroundTone="default"
-          backgroundScrimColor="rgba(10, 10, 10, 0.68)"
-        >
-          <Text style={inline.sectionEyebrow}>Details</Text>
-          {viewModel.guidedFueling.detailLines.map((line, index) => (
-            <Text key={`${line}-${index}`} style={inline.noteLine}>
-              {humanizeCoachSentence(line)}
-            </Text>
-          ))}
-        </Card>
-      ) : null}
+    </Animated.View>
+  );
+
+  const renderFuelDetailsCard = (delay: number = STAGGER_DELAY * 5) => (
+    <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
+      <Card
+        style={{ marginBottom: SPACING.md }}
+        backgroundTone="default"
+        backgroundScrimColor="rgba(10, 10, 10, 0.68)"
+      >
+        <Text style={inline.sectionEyebrow}>Details</Text>
+        {viewModel.guidedFueling.detailLines.map((line, index) => (
+          <Text key={`${line}-${index}`} style={inline.noteLine}>
+            {humanizeCoachSentence(line)}
+          </Text>
+        ))}
+      </Card>
     </Animated.View>
   );
 
@@ -469,13 +474,7 @@ export function NutritionScreen() {
           </Animated.View>
         ) : null}
 
-        {renderMissionCards()}
-
-        {renderMacroTargetsCard(STAGGER_DELAY * 4)}
-        {renderFoodLogConfidenceCard(STAGGER_DELAY * 5)}
-        {renderFuelDetailsCard(STAGGER_DELAY * 6)}
-
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 7).duration(ANIMATION.normal)}>
+        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.normal)}>
           <HydrationTracker
             currentOz={viewModel.totals.water}
             targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0}
@@ -483,12 +482,21 @@ export function NutritionScreen() {
           />
         </Animated.View>
 
+        {renderFuelDetailsToggle(STAGGER_DELAY * 5)}
+        {showFuelDetails ? (
+          <>
+            {renderMacroTargetsCard(STAGGER_DELAY * 6)}
+            {renderFoodLogConfidenceCard(STAGGER_DELAY * 7)}
+            {renderFuelDetailsCard(STAGGER_DELAY * 8)}
+          </>
+        ) : null}
+
         <FuelRail title="Favorites" items={viewModel.favorites} onSelect={handleQuickFoodSelect} />
         <FuelRail title="Recent" items={viewModel.recent} onSelect={handleQuickFoodSelect} />
 
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 5).duration(ANIMATION.normal)}>
           <AnimatedPressable accessibilityRole="button" accessibilityLabel="Open full tracker" onPress={() => setNutritionMode('detailed')} testID="fuel-open-full-tracker">
-            <Text style={[inline.linkText, { color: themeColor }]}>Full tracker</Text>
+            <Text style={[inline.linkText, { color: themeColor }]}>Open full tracker</Text>
           </AnimatedPressable>
         </Animated.View>
       </>
@@ -525,9 +533,11 @@ export function NutritionScreen() {
       ) : null}
 
       {renderSessionFuelingCard(STAGGER_DELAY * 3)}
+      {renderMissionCards()}
       {renderMacroTargetsCard(STAGGER_DELAY * 4)}
       {renderFoodLogConfidenceCard(STAGGER_DELAY * 5)}
-      {renderFuelDetailsCard(STAGGER_DELAY * 6)}
+      {renderFuelDetailsToggle(STAGGER_DELAY * 6)}
+      {showFuelDetails ? renderFuelDetailsCard(STAGGER_DELAY * 7) : null}
 
       <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 7).duration(ANIMATION.normal)}>
         <HydrationTracker
@@ -607,7 +617,7 @@ export function NutritionScreen() {
             </AnimatedPressable>
             <AnimatedPressable
               accessibilityRole="button"
-              accessibilityLabel="Detailed tracker mode"
+              accessibilityLabel="Tracker mode"
               accessibilityState={{ selected: nutritionMode === 'detailed' }}
               style={[styles.modeChip, nutritionMode === 'detailed' && { backgroundColor: COLORS.accent }]}
               onPress={() => setNutritionMode('detailed')}

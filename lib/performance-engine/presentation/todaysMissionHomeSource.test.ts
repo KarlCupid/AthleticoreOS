@@ -43,8 +43,8 @@ assert('Dashboard hook does not fire-and-forget rolling schedule generation', !d
 const requiredMissionFields = [
   'mission.missionTitle',
   'mission.phaseLabel',
-  'mission.primaryFocus',
-  'mission.whyTodayMatters',
+  'coachCopy.headline',
+  'coachCopy.body',
   'mission.trainingSummary',
   'mission.protectedWorkoutSummary',
   'mission.fuelingFocus',
@@ -55,7 +55,7 @@ const requiredMissionFields = [
   'mission.planAdjustments',
   'mission.riskHighlights',
   'mission.nextActions',
-  'mission.confidence.summary',
+  'mission.confidence.level',
 ];
 
 for (const field of requiredMissionFields) {

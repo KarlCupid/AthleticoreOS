@@ -99,7 +99,7 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
           color={COLORS.chart.fitness}
         />
         <StatPill
-          label="Adherence"
+          label="7d consistency"
           value={`${adherence.toFixed(0)}%`}
           color={adherenceColor}
         />

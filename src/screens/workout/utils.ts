@@ -2,6 +2,7 @@ import type { DailyCheckin, TrainingSession } from '../../hooks/useWorkoutData';
 import { getSessionFamilyLabel } from '../../../lib/engine/sessionLabels';
 import type { TrainingFloorViewModel } from '../../../lib/engine/presentation/types';
 import type { BoxingGeneratedPlanEntrySnapshot } from '../../../lib/performance-engine/workout-programming';
+import { sanitizeAthleteFacingCopy } from '../../../lib/performance-engine/presentation/coachCopyViewModel';
 
 export const WORKOUT_TABS = ['today', 'plan', 'history', 'analytics'] as const;
 
@@ -146,7 +147,7 @@ function buildGuardrails(input: {
   const activationGuidance = floorVM?.activationGuidance?.trim();
 
   if (activationGuidance) {
-    guardrails.push(activationGuidance);
+    guardrails.push(sanitizeAthleteFacingCopy(activationGuidance));
   }
 
   if (supportSession?.athleticDevelopmentDomain === 'boxing_skill_support') {
@@ -184,8 +185,8 @@ export function buildTrainTodaySummary(input: {
 
   return {
     sessionLabel: supportSessionLabel || sessionLabel?.trim() || 'Today\'s training',
-    goal,
-    reason,
+    goal: sanitizeAthleteFacingCopy(goal),
+    reason: sanitizeAthleteFacingCopy(reason),
     durationLabel: resolvedDuration > 0 ? `${resolvedDuration} min` : null,
     ...getEffortGuidance({ targetIntensity }),
     guardrails: buildGuardrails({ floorVM, supportSession }),

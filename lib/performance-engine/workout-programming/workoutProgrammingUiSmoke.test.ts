@@ -64,7 +64,8 @@ async function run() {
   assert('Today uses an entry-bound planned support session while standalone generation remains explicit', hasAll(workoutScreen, [
     'PlannedSupportSessionCard',
     'testID="planned-support-session-card"',
-    'Open support session',
+    'buildSupportSessionCoachCopy',
+    'coachCopy.primaryAction',
     'AthleteSupportWeekCard',
   ]) && hasAll(supportHook, [
     'resolveBoxingSAndCEngineFlags',
@@ -136,22 +137,23 @@ async function run() {
     'testID="generated-workout-preview-card"',
     'testID="generated-workout-preview-intent"',
     'testID="generated-workout-preview-session-header"',
+    'testID="generated-workout-preview-brief"',
     'testID="generated-workout-preview-why"',
     'testID="generated-workout-preview-blocks"',
     'testID={`generated-workout-exercise-media-${exercise.exerciseId}`}',
     'getPrimaryExerciseMediaAsset(exercise.media)',
     'formatPrescription(exercise)',
     'formatPayloadDetail(exercise.prescription.payload)',
+    'formatReviewNote',
     'formatTempoGuidance(exercise)',
     'exercise.coachingCues',
     'exercise.commonMistakes',
     'testID="generated-workout-preview-safety"',
-    'testID="generated-workout-preview-scaling"',
     'testID="generated-workout-preview-substitutions"',
-    'testID="generated-workout-preview-success"',
     'testID="generated-workout-preview-validation"',
     'testID="generated-workout-preview-tracking"',
     'testID="generated-workout-preview-completion"',
+    'sanitizeAthleteFacingCopy',
   ]));
 
   assert('preview card renders safety-blocked workouts explicitly', hasAll(previewCard, [

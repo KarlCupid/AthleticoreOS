@@ -13,6 +13,7 @@
     "test:engine": "node scripts/run-engine-tests.js",
     "test:account-deletion": "node scripts/test-account-deletion-coverage.js",
     "test:account-deletion-live": "node scripts/test-account-deletion-live.js",
+    "audit:ui-copy": "node scripts/audit-ui-copy.js",
     "test:rls": "node scripts/test-workout-programming-rls.js",
     "test:workout-db": "node scripts/test-workout-programming-db.js",
     "workout:validate-content": "node scripts/validate-workout-programming-content.js",

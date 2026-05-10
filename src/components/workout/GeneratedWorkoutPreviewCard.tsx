@@ -10,6 +10,10 @@ import {
   type GeneratedWorkout,
   type PrescriptionPayload,
 } from '../../../lib/performance-engine/workout-programming';
+import {
+  buildGeneratedWorkoutPreviewCopy,
+  sanitizeAthleteFacingCopy,
+} from '../../../lib/performance-engine/presentation/coachCopyViewModel';
 import { Card } from '../Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
 
@@ -91,33 +95,24 @@ function formatTempoGuidance(exercise: GeneratedExercisePrescription): string | 
   return payload.kind === 'resistance' ? payload.tempo : null;
 }
 
-function readinessAdjustmentLine(workout: GeneratedWorkout): string | null {
-  const sources = [
-    ...workout.explanations,
-    ...(workout.decisionTrace?.map((entry) => entry.reason) ?? []),
-    ...(workout.validation?.userFacingMessages ?? []),
-  ];
-  return sources.find((item) => /readiness|sleep|soreness|fatigue|recovery/i.test(item)) ?? null;
-}
-
 function safetyStatus(workout: GeneratedWorkout): { label: string; detail: string; tone: 'ok' | 'caution' | 'blocked' } {
   if (workout.blocked) {
     return {
-      label: 'Blocked',
+      label: 'Review needed',
       detail: GENERATED_WORKOUT_SAFETY_COPY.user.blockedWorkoutStatusDetail,
       tone: 'blocked',
     };
   }
   if (workout.validation && !workout.validation.isValid) {
     return {
-      label: 'Needs review',
+      label: 'Review notes',
       detail: GENERATED_WORKOUT_SAFETY_COPY.user.validationReviewBeforeStart,
       tone: 'caution',
     };
   }
   if (workout.safetyFlags.length > 0 || (workout.safetyNotes?.length ?? 0) > 0) {
     return {
-      label: 'Cautions active',
+      label: 'Safety notes',
       detail: GENERATED_WORKOUT_SAFETY_COPY.user.listedGuardrails,
       tone: 'caution',
     };
@@ -131,6 +126,20 @@ function safetyStatus(workout: GeneratedWorkout): { label: string; detail: strin
 
 function labelize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatReviewNote(message: string): string {
+  return sanitizeAthleteFacingCopy(message)
+    .replace(/^support session\.[\w.]+:\s*/i, '')
+    .replace(/\bestimatedDurationMinutes\b/g, 'duration')
+    .replace(/\bequipmentIds\b/g, 'equipment')
+    .replace(/\bblocks\b/g, 'session parts')
+    .replace(/\btemplateId\b/g, 'session template')
+    .replace(/\bwarmup block\b/gi, 'warmup')
+    .replace(/\bmain block\b/gi, 'main work')
+    .replace(/\bcooldown block\b/gi, 'cooldown')
+    .replace(/\bnumber >= 1\b/g, 'at least 1')
+    .trim();
 }
 
 function MetaPill({ label, tone = 'default' }: { label: string; tone?: 'default' | 'ok' | 'caution' | 'blocked' }) {
@@ -234,8 +243,8 @@ function BulletList({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (
     <View style={styles.bulletList}>
-      {items.map((item) => (
-        <View key={item} style={styles.bulletRow}>
+      {items.map((item, index) => (
+        <View key={`${index}:${item}`} style={styles.bulletRow}>
           <View style={styles.bulletDot} />
           <Text style={styles.bulletText}>{item}</Text>
         </View>
@@ -250,6 +259,7 @@ export function GeneratedWorkoutPreviewCard({
   subtitle = 'Strength, conditioning, roadwork, durability, and recovery support for boxing',
 }: GeneratedWorkoutPreviewCardProps) {
   const description = workout.description;
+  const coachCopy = buildGeneratedWorkoutPreviewCopy(workout);
   const allSubstitutions = workout.blocks
     .flatMap((block) => block.exercises)
     .flatMap((exercise) => exercise.substitutions ?? [])
@@ -265,8 +275,7 @@ export function GeneratedWorkoutPreviewCard({
     ...(workout.validationErrors ?? []),
     ...(workout.validation?.warnings ?? []),
     ...(workout.validation?.errors ?? []),
-  ].filter((item): item is string => Boolean(item))));
-  const readinessAdjustment = readinessAdjustmentLine(workout);
+  ].filter((item): item is string => Boolean(item)).map(formatReviewNote)));
   const safety = safetyStatus(workout);
   const decisionSummary = summarizeWorkoutDecisionForUser(workout);
   const whySummaryBullets = Array.from(new Set([
@@ -299,47 +308,39 @@ export function GeneratedWorkoutPreviewCard({
             {workout.athleticDevelopmentDomain ? <MetaPill label={supportDomainLabel(workout.athleticDevelopmentDomain)} /> : null}
             <MetaPill label={labelize(workout.goalId)} />
             <MetaPill label={`${workout.estimatedDurationMinutes} min`} />
-            <MetaPill label={`${workout.blocks.length} blocks`} />
+            <MetaPill label={`${workout.blocks.length} part${workout.blocks.length === 1 ? '' : 's'}`} />
             <MetaPill label={safety.label} tone={safety.tone} />
           </View>
           <Text testID="generated-workout-preview-intent" accessibilityRole="header" style={styles.intent}>
-            {workout.sessionIntent ?? description?.sessionIntent ?? 'Train with intent.'}
+            {coachCopy.headline}
           </Text>
-          <Text style={styles.summary}>{workout.userFacingSummary ?? description?.plainLanguageSummary}</Text>
+          <Text style={styles.summary}>{coachCopy.body}</Text>
           <View testID="generated-workout-preview-session-header" style={styles.factGrid}>
-            <FactTile label="Workout type" value={labelize(workout.workoutTypeId)} />
-            <FactTile label="Support domain" value={workout.athleticDevelopmentDomain ? supportDomainLabel(workout.athleticDevelopmentDomain) : 'Athleticore support'} detail={workout.boxingRelevance ?? workout.sAndCRationale ?? null} />
-            <FactTile label="Goal" value={workout.trainingGoalLabel ?? labelize(workout.goalId)} />
-            <FactTile label="Duration" value={`${workout.estimatedDurationMinutes} min`} detail={`Requested ${workout.requestedDurationMinutes} min`} />
-            <FactTile label="Readiness" value={readinessAdjustment ? 'Adjusted' : 'No change'} detail={readinessAdjustment ?? 'Use normal effort unless your readiness changes.'} tone={readinessAdjustment ? 'caution' : 'default'} />
+            <FactTile label="Focus" value={workout.trainingGoalLabel ?? labelize(workout.goalId)} />
+            <FactTile label="Work" value={`${workout.blocks.length} part${workout.blocks.length === 1 ? '' : 's'}`} detail={`${workout.estimatedDurationMinutes} min`} />
             <FactTile label="Safety" value={safety.label} detail={safety.detail} tone={safety.tone} />
           </View>
         </View>
 
-        <CopySection title="Why this workout?" testID="generated-workout-preview-why">
+        <CopySection title="Coach brief" testID="generated-workout-preview-brief">
+          {description?.effortExplanation ? <Text style={styles.bodyText}>{description.effortExplanation}</Text> : null}
+          <BulletList items={workout.successCriteria.slice(0, 3)} />
+        </CopySection>
+
+        <CopySection title="Why this session" testID="generated-workout-preview-why">
           {workout.sAndCRationale || workout.athleticDevelopmentRationale ? <Text style={styles.bodyText}>{workout.sAndCRationale ?? workout.athleticDevelopmentRationale}</Text> : null}
           <Text style={styles.bodyText}>{decisionSummary.headline}</Text>
           <BulletList items={whySummaryBullets} />
         </CopySection>
 
         {workout.blocked ? (
-          <CopySection title="Safety block" testID="generated-workout-preview-blocked">
+          <CopySection title="Safety" testID="generated-workout-preview-blocked">
             <Text style={styles.bodyText}>{GENERATED_WORKOUT_SAFETY_COPY.user.blockedWorkoutMessage}</Text>
-            <BulletList items={workout.explanations} />
+            <BulletList items={workout.explanations.map(sanitizeAthleteFacingCopy)} />
           </CopySection>
         ) : null}
 
-        {description?.effortExplanation ? (
-          <CopySection title="Effort" testID="generated-workout-preview-effort">
-            <Text style={styles.bodyText}>{description.effortExplanation}</Text>
-          </CopySection>
-        ) : null}
-
-        <CopySection title="Success criteria" testID="generated-workout-preview-success">
-          <BulletList items={workout.successCriteria} />
-        </CopySection>
-
-        <CopySection title="Blocks" testID="generated-workout-preview-blocks">
+        <CopySection title="Today's work" testID="generated-workout-preview-blocks">
           <View style={styles.blockStack}>
             {workout.blocks.map((block) => (
               <View key={block.id} style={styles.block}>
@@ -360,7 +361,7 @@ export function GeneratedWorkoutPreviewCard({
                       <DetailLine label="Intensity" value={`Effort ${exercise.prescription.targetRpe}/10. ${exercise.prescription.intensityCue}`} />
                       <DetailLine label="Rest" value={formatRestGuidance(exercise)} />
                       <DetailLine label="Tempo" value={formatTempoGuidance(exercise)} />
-                      <DetailLine label="Payload" value={formatPayloadDetail(exercise.prescription.payload)} />
+                      <DetailLine label="How to do it" value={formatPayloadDetail(exercise.prescription.payload)} />
                     </View>
                     {exercise.coachingCues && exercise.coachingCues.length > 0 ? (
                       <View style={styles.exerciseSubsection}>
@@ -398,21 +399,22 @@ export function GeneratedWorkoutPreviewCard({
           <BulletList items={primarySafetyNotes} />
         </CopySection>
 
-        <CopySection title="Scaling" testID="generated-workout-preview-scaling">
-          <BulletList items={scalingNotes} />
-        </CopySection>
-
-        <CopySection title="Substitutions" testID="generated-workout-preview-substitutions">
-          <BulletList items={allSubstitutions.map((item) => `${item.name}: ${item.rationale}`)} />
-        </CopySection>
+        {scalingNotes.length > 0 || allSubstitutions.length > 0 ? (
+          <CopySection title="Substitutions / scaling" testID="generated-workout-preview-substitutions">
+            <BulletList items={[
+              ...scalingNotes,
+              ...allSubstitutions.map((item) => `${item.name}: ${item.rationale}`),
+            ]} />
+          </CopySection>
+        ) : null}
 
         {validationMessages.length > 0 ? (
-          <CopySection title="Validation" testID="generated-workout-preview-validation">
+          <CopySection title="Review notes" testID="generated-workout-preview-validation">
             <BulletList items={validationMessages} />
           </CopySection>
         ) : null}
 
-        <CopySection title="Tracking" testID="generated-workout-preview-tracking">
+        <CopySection title="What to log" testID="generated-workout-preview-tracking">
           <View style={styles.tagRow}>
             {(workout.trackingMetrics ?? workout.trackingMetricIds).map((metric) => (
               <View key={metric} style={styles.metricTag}>
@@ -423,7 +425,7 @@ export function GeneratedWorkoutPreviewCard({
         </CopySection>
 
         {description?.completionMessage ? (
-          <CopySection title="Completion" testID="generated-workout-preview-completion">
+          <CopySection title="After you finish" testID="generated-workout-preview-completion">
             <Text style={styles.bodyText}>{description.completionMessage}</Text>
           </CopySection>
         ) : null}

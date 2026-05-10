@@ -414,3 +414,36 @@ Before shipping athlete-facing copy, check:
 - Does it preserve phase continuity?
 - Does it sound like a serious coach, not a generic dashboard?
 
+## UI Copy Smoke Checklist
+
+Use this on Today, Train, Fuel, Workout Detail, Onboarding, and Weight Class before handoff:
+
+- Is there one main decision?
+- Is the next action obvious?
+- Is the why clear?
+- Is the copy specific to the athlete's context?
+- Are developer words hidden?
+- Is detail progressive?
+- Is safety firm but calm?
+- Does the screen avoid shame, hype, and generic dashboard language?
+- Does the screen still work on a small phone without reading five cards?
+
+Developer/model words that should not appear in athlete-facing copy include:
+
+- GeneratedWorkout
+- Snapshot
+- Payload
+- Validation
+- Compatibility view
+- Legacy
+- Beta
+- Dev preview
+- Protocol
+- Compliance
+- Adherence
+- Classification
+- Directive
+- Intervention
+- Invalid
+- Failure
+- Redline

@@ -1070,7 +1070,7 @@ function buildExistingUserMissingDataPrompts(
   const prompts: string[] = [];
 
   if (!performanceContext.available) {
-    prompts.push("Review planning context so Today's Mission can make the next call with more confidence.");
+    prompts.push("Review planning context so Today's Mission can make the next call with more context.");
   }
 
   if (

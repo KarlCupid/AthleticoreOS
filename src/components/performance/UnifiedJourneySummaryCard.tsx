@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { UnifiedPerformanceViewModel } from '../../../lib/performance-engine';
+import { sanitizeAthleteFacingCopy } from '../../../lib/performance-engine/presentation';
 import { Card } from '../Card';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
 
@@ -23,7 +24,10 @@ export function UnifiedJourneySummaryCard({
   const riskTone = getRiskTone(summary.planStatusTone);
   const topRisks = summary.riskFlags.slice(0, compact ? 2 : 3);
   const protectedAnchors = summary.protectedAnchors.slice(0, compact ? 2 : 4);
-  const keyExplanation = summary.explanations[0]?.summary ?? null;
+  const keyExplanation = summary.explanations[0]?.summary
+    ? sanitizeAthleteFacingCopy(summary.explanations[0].summary)
+    : null;
+  const contextSummary = sanitizeAthleteFacingCopy(summary.confidenceSummary).replace(/\bconfidence\b/gi, 'context');
 
   return (
     <Card
@@ -45,20 +49,20 @@ export function UnifiedJourneySummaryCard({
       </View>
 
       <Text style={styles.body} numberOfLines={compact ? 2 : 3}>
-        {summary.phase.reason}
+        {sanitizeAthleteFacingCopy(summary.phase.reason)}
       </Text>
 
       {summary.journey.whatChangedLabel ? (
         <Text style={styles.changeText} numberOfLines={2}>
-          {summary.journey.whatChangedLabel}
+          {sanitizeAthleteFacingCopy(summary.journey.whatChangedLabel)}
         </Text>
       ) : null}
 
       <View style={styles.metricGrid}>
         <Metric label="Segment" value={summary.journey.segmentLabel} />
         <Metric label="Readiness" value={summary.readiness.bandLabel} detail={summary.readiness.scoreLabel} />
-        <Metric label="Training" value={summary.focus.training} lines={compact ? 2 : 3} />
-        <Metric label="Fuel" value={summary.focus.nutrition} lines={compact ? 2 : 3} />
+        <Metric label="Training" value={sanitizeAthleteFacingCopy(summary.focus.training)} lines={compact ? 2 : 3} />
+        <Metric label="Fuel" value={sanitizeAthleteFacingCopy(summary.focus.nutrition)} lines={compact ? 2 : 3} />
       </View>
 
       {summary.journey.nextEventLabel ? (
@@ -76,7 +80,7 @@ export function UnifiedJourneySummaryCard({
           <Text style={styles.body} numberOfLines={2}>
             {[
               summary.bodyMass.trajectoryLabel,
-              summary.bodyMass.feasibilityLabel ? `Feasibility: ${summary.bodyMass.feasibilityLabel}` : null,
+              summary.bodyMass.feasibilityLabel ? `Status: ${summary.bodyMass.feasibilityLabel}` : null,
               summary.bodyMass.riskLabel ? `Risk: ${summary.bodyMass.riskLabel}` : null,
             ].filter(Boolean).join(' / ')}
           </Text>
@@ -100,10 +104,10 @@ export function UnifiedJourneySummaryCard({
 
       {topRisks.length > 0 ? (
         <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>Risk flags</Text>
+          <Text style={styles.sectionLabel}>Safety notes</Text>
           {topRisks.map((risk) => (
             <Text key={risk.id} style={risk.blocksPlan ? styles.blockingRiskText : styles.riskText} numberOfLines={2}>
-              {risk.blocksPlan ? 'Blocked: ' : ''}{risk.message}
+              {risk.blocksPlan ? 'Review first: ' : ''}{sanitizeAthleteFacingCopy(risk.message)}
             </Text>
           ))}
         </View>
@@ -111,7 +115,7 @@ export function UnifiedJourneySummaryCard({
 
       {summary.lowConfidence ? (
         <View style={styles.confidenceStrip}>
-          <Text style={styles.confidenceText} numberOfLines={2}>{summary.confidenceSummary}</Text>
+          <Text style={styles.confidenceText} numberOfLines={2}>{contextSummary}</Text>
         </View>
       ) : keyExplanation ? (
         <Text style={styles.explanationText} numberOfLines={2}>{keyExplanation}</Text>

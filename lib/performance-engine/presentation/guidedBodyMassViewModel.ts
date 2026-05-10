@@ -97,7 +97,7 @@ const UNAVAILABLE_GUIDED_BODY_MASS: GuidedBodyMassViewModel = {
   saferAlternatives: [],
   nutritionImplications: [],
   trainingImplications: [],
-  confidenceSummary: "Confidence is unknown because today's connected body-mass context is unavailable.",
+  confidenceSummary: "Athleticore needs today's connected body-mass context before making a safer call.",
   missingData: ['Body-mass, fueling, readiness, and timing context'],
   clearExplanation: "Athleticore needs today's body-mass, fueling, readiness, training, and fight timing context before it can make a safer call.",
   riskHighlights: [],
@@ -141,7 +141,7 @@ export function buildGuidedBodyMassViewModel(
         { label: 'Trend', value: currentBodyMassTrend },
         { label: 'Phase', value: humanize(performanceState.phase.current) },
       ],
-      nextActions: ['Evaluate class', 'Log body mass'],
+      nextActions: ['Evaluate weight class', 'Log body mass'],
       fightContext: fightContextLabel(fight),
     };
   }
@@ -264,12 +264,12 @@ function primaryMessage(plan: WeightClassPlan): string {
   if (plan.feasibilityStatus === 'unsafe') {
     return "This target looks too aggressive for the time available. Athleticore won't build a risky plan around it. Consider a longer timeline, a different class, or support from a qualified professional.";
   }
-  return 'We need more body-mass data before making a confident call.';
+  return 'We need more body-mass data before making a safer call.';
 }
 
 function clearExplanation(plan: WeightClassPlan): string {
   if (plan.feasibilityStatus === 'insufficient_data') {
-    return 'Athleticore is missing enough current body-mass, target, or timing context to make a confident call.';
+    return 'Athleticore is missing enough current body-mass, target, or timing context to make a safer call.';
   }
 
   const required = requiredChangeLabel(plan).toLowerCase();
@@ -351,7 +351,7 @@ function isPlanBlocked(plan: WeightClassPlan, shouldGenerateProtocol?: boolean |
 
 function statusLabel(status: GuidedBodyMassStatus): string {
   if (status === 'high_risk') return 'High risk';
-  if (status === 'insufficient_data') return 'Insufficient data';
+  if (status === 'insufficient_data') return 'Needs more context';
   return humanize(status);
 }
 
@@ -441,12 +441,12 @@ function safetyFlagLabel(code: string): string {
 
 function confidenceSummary(confidence: ConfidenceValue | null | undefined): string {
   if (!confidence || confidence.level === 'unknown') {
-    return 'Confidence is unknown because key body-mass or timing data is missing.';
+    return 'Key body-mass or timing data is still missing.';
   }
   if (confidence.level === 'low') {
-    return 'Confidence is low, so Athleticore will be cautious with body-mass guidance.';
+    return 'Athleticore has limited context, so body-mass guidance stays cautious.';
   }
-  return `${humanize(confidence.level)} confidence.`;
+  return `${humanize(confidence.level)} context.`;
 }
 
 function formatMass(value: number | null | undefined, unit = 'lb'): string {

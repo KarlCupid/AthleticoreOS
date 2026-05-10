@@ -18,6 +18,7 @@ import { BodyMassSupportTimeline } from '../components/BodyMassSupportTimeline';
 import { BodyMassTrendChart } from '../components/BodyMassTrendChart';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { getBodyMassSupportPhase, type BodyMassSupportPhase } from '../../lib/performance-engine';
+import { buildWeightClassCoachCopy, sanitizeAthleteFacingCopy } from '../../lib/performance-engine/presentation';
 import { todayLocalDate } from '../../lib/utils/date';
 
 type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightClassHome'>;
@@ -69,18 +70,18 @@ export function WeightClassHomeScreen() {
 
   const handleEndPlan = useCallback(() => {
     Alert.alert(
-      'End Weight-Class Plan',
+      'End weight-class plan',
       'Why are you ending this weight-class plan?',
       [
         {
           text: 'Fight fell through',
           onPress: () => {
             Alert.alert(
-              'End Weight-Class Plan',
+              'End weight-class plan',
               'This plan will be marked abandoned and the journey will return to normal performance targets. You can evaluate a new class when another fight appears.',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'End Plan', style: 'destructive', onPress: () => abandon('fight_fell_through') },
+                { text: 'End plan', style: 'destructive', onPress: () => abandon('fight_fell_through') },
               ]
             );
           },
@@ -89,11 +90,11 @@ export function WeightClassHomeScreen() {
           text: 'Made weight',
           onPress: () => {
             Alert.alert(
-              'Mark Complete',
+              'Mark complete',
               'Mark this weight-class plan as complete?',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Mark Complete', onPress: () => abandon('made_weight') },
+                { text: 'Mark complete', onPress: () => abandon('made_weight') },
               ]
             );
           },
@@ -102,11 +103,11 @@ export function WeightClassHomeScreen() {
           text: 'Other reason',
           onPress: () => {
             Alert.alert(
-              'End Weight-Class Plan',
+              'End weight-class plan',
               'End this plan and return to normal performance targets?',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'End Plan', style: 'destructive', onPress: () => abandon('other') },
+                { text: 'End plan', style: 'destructive', onPress: () => abandon('other') },
               ]
             );
           },
@@ -159,9 +160,11 @@ export function WeightClassHomeScreen() {
           <TouchableOpacity
             style={styles.startButton}
             onPress={() => nav.navigate('WeightClassPlanSetup')}
+            accessibilityRole="button"
+            accessibilityLabel="Evaluate weight class"
             testID="weight-class-evaluate-class"
           >
-            <Text style={styles.startButtonText}>Evaluate Class</Text>
+            <Text style={styles.startButtonText}>Evaluate weight class</Text>
           </TouchableOpacity>
           {weightClassHistory.length > 0 && (
             <TouchableOpacity
@@ -195,11 +198,14 @@ export function WeightClassHomeScreen() {
     : performanceContext.bodyMass?.explanation
     ?? performanceContext.nutrition.explanation
     ?? 'Body-mass support is guided by phase, training, fueling, readiness, and safety context together.';
-  const confidenceNote = performanceContext.lowConfidence
-    ? guidedBodyMass.confidenceSummary || performanceContext.confidenceSummary
-    : performanceContext.bodyMass?.riskLabel
-      ? `Current body-mass risk: ${performanceContext.bodyMass.riskLabel}.`
-      : guidedBodyMass.confidenceSummary;
+  const contextNote = sanitizeAthleteFacingCopy(
+    performanceContext.lowConfidence
+      ? guidedBodyMass.confidenceSummary || performanceContext.confidenceSummary
+      : performanceContext.bodyMass?.riskLabel
+        ? `Current body-mass risk: ${performanceContext.bodyMass.riskLabel}.`
+        : guidedBodyMass.confidenceSummary,
+  ).replace(/\bconfidence\b/gi, 'context');
+  const weightCoachCopy = buildWeightClassCoachCopy(guidedBodyMass);
 
   return (
     <ScrollView
@@ -219,9 +225,18 @@ export function WeightClassHomeScreen() {
           </View>
           <View style={styles.adherenceBadge}>
             <Text style={styles.adherenceValue}>{adherenceLast7Days}%</Text>
-            <Text style={styles.adherenceLabel}>7d adherence</Text>
+            <Text style={styles.adherenceLabel}>7d logged</Text>
           </View>
         </View>
+
+        {bodyMassPlanBlocked ? (
+          <View style={styles.heroSafetyBanner}>
+            <Text style={styles.heroSafetyTitle}>{weightCoachCopy.headline}</Text>
+            <Text style={styles.heroSafetyBody}>
+              {weightCoachCopy.safetyLines[0] ?? bodyMassBlockReason}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.heroNumbers}>
           <View style={styles.heroStat}>
@@ -239,7 +254,7 @@ export function WeightClassHomeScreen() {
             <Text style={[styles.heroStatValue, { color: Number(remaining) > 5 ? COLORS.warning : COLORS.success }]}>
               {remaining}
             </Text>
-            <Text style={styles.heroStatLabel}>Remaining (lbs)</Text>
+            <Text style={styles.heroStatLabel}>To target (lbs)</Text>
           </View>
         </View>
 
@@ -247,7 +262,7 @@ export function WeightClassHomeScreen() {
           <View style={styles.projectionBanner}>
             <Text style={styles.projectionText}>
               Projected weigh-in: {projectedWeightByWeighIn.toFixed(1)} lbs
-              {projectedWeightByWeighIn <= activePlan.target_weight ? ' - within target context' : ' - needs review'}
+              {projectedWeightByWeighIn <= activePlan.target_weight ? ' — within target context' : ' — review needed'}
             </Text>
           </View>
         )}
@@ -259,7 +274,7 @@ export function WeightClassHomeScreen() {
       >
         <View style={styles.guidedHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.guidedEyebrow}>{guidedBodyMass.title}</Text>
+            <Text style={styles.guidedEyebrow}>{weightCoachCopy.headline}</Text>
             <Text style={styles.guidedTitle}>{guidedBodyMass.primaryQuestion}</Text>
           </View>
           <View style={[styles.statusPill, { borderColor: statusColor(guidedBodyMass.statusTone) }]}>
@@ -268,15 +283,26 @@ export function WeightClassHomeScreen() {
             </Text>
           </View>
         </View>
-        <Text style={styles.guidanceBody}>{guidedBodyMass.primaryMessage}</Text>
+        <Text style={styles.guidanceBody}>{weightCoachCopy.body}</Text>
         <View style={styles.detailGrid}>
-          {guidedBodyMass.detailRows.slice(0, 6).map((row) => (
-            <View key={`${row.label}-${row.value}`} style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{row.label}</Text>
-              <Text style={styles.detailValue}>{row.value}</Text>
-            </View>
-          ))}
+          {weightCoachCopy.detailLines.slice(0, 6).map((line) => {
+            const [label, ...valueParts] = line.split(': ');
+            return (
+              <View key={line} style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{valueParts.length > 0 ? label : 'Context'}</Text>
+                <Text style={styles.detailValue}>{valueParts.length > 0 ? valueParts.join(': ') : line}</Text>
+              </View>
+            );
+          })}
         </View>
+        {weightCoachCopy.safetyLines.length > 0 ? (
+          <View style={styles.supportBlock}>
+            <Text style={styles.supportTitle}>Safety</Text>
+            {weightCoachCopy.safetyLines.slice(0, 3).map((item) => (
+              <Text key={item} style={styles.supportText}>- {item}</Text>
+            ))}
+          </View>
+        ) : null}
         {guidedBodyMass.professionalReviewRecommendation ? (
           <Text style={styles.reviewText}>{guidedBodyMass.professionalReviewRecommendation}</Text>
         ) : null}
@@ -317,7 +343,7 @@ export function WeightClassHomeScreen() {
           backgroundTone="risk"
           backgroundScrimColor="rgba(10, 10, 10, 0.74)"
         >
-          <Text style={styles.sectionTitle}>Automatic support blocked for safety</Text>
+          <Text style={styles.sectionTitle}>Support paused for safety</Text>
           <Text style={styles.guidanceBody}>{bodyMassBlockReason}</Text>
         </Card>
       ) : (
@@ -328,7 +354,7 @@ export function WeightClassHomeScreen() {
         >
           <Text style={styles.sectionTitle}>Today's body-mass support</Text>
           <Text style={styles.guidanceBody}>{bodyMassGuidance}</Text>
-          <Text style={styles.guidanceMeta}>{confidenceNote}</Text>
+          <Text style={styles.guidanceMeta}>{contextNote}</Text>
         </Card>
       )}
 
@@ -339,8 +365,7 @@ export function WeightClassHomeScreen() {
       >
         <Text style={styles.sectionTitle}>Health guidance note</Text>
         <Text style={styles.guidanceBody}>
-          This feature provides coaching-oriented educational guidance. It does not replace licensed medical advice,
-          diagnosis, or emergency care.
+          This feature gives coaching-oriented guidance. It does not replace medical care, diagnosis, or emergency support.
         </Text>
       </Card>
       {/* Weight chart */}
@@ -372,6 +397,8 @@ export function WeightClassHomeScreen() {
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: phaseColors[0] }]}
             onPress={() => nav.navigate('CompetitionBodyMass')}
+            accessibilityRole="button"
+            accessibilityLabel="Open weight-class context"
             testID="weight-class-fight-week-support"
           >
             <Text style={styles.actionButtonText}>Fight Week Support</Text>
@@ -386,6 +413,8 @@ export function WeightClassHomeScreen() {
               weighInWeightLbs: currentWeight,
               hoursToFight: 24,
             })}
+            accessibilityRole="button"
+            accessibilityLabel="Open post weigh-in recovery"
             testID="weight-class-post-weigh-in-recovery"
           >
             <Text style={styles.actionButtonText}>Post Weigh-In Recovery</Text>
@@ -396,6 +425,8 @@ export function WeightClassHomeScreen() {
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: COLORS.surfaceSecondary }]}
           onPress={() => nav.navigate('WeightClassHistory')}
+          accessibilityRole="button"
+          accessibilityLabel="Open weight-class history"
           testID="weight-class-past-plans"
         >
           <Text style={[styles.actionButtonText, { color: COLORS.text.primary }]}>Past Class Plans</Text>
@@ -405,9 +436,11 @@ export function WeightClassHomeScreen() {
         <TouchableOpacity
           style={styles.endPlanButton}
           onPress={handleEndPlan}
+          accessibilityRole="button"
+          accessibilityLabel="End weight-class plan"
           testID="weight-class-end-plan"
         >
-          <Text style={styles.endPlanText}>End Weight-Class Plan</Text>
+          <Text style={styles.endPlanText}>End weight-class plan</Text>
         </TouchableOpacity>
       </View>
       {/* Weight class info */}
@@ -454,6 +487,25 @@ const styles = StyleSheet.create({
   adherenceBadge: { alignItems: 'center', backgroundColor: 'rgba(10, 10, 10, 0.48)', borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: COLORS.borderLight },
   adherenceValue: { fontSize: 20, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
   adherenceLabel: { fontSize: 10, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, letterSpacing: 0 },
+  heroSafetyBanner: {
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(239, 68, 68, 0.14)',
+    padding: SPACING.md,
+    gap: 4,
+  },
+  heroSafetyTitle: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  heroSafetyBody: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+  },
   heroNumbers: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroStat: { flex: 1, alignItems: 'center' },
   heroStatValue: { fontSize: 26, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },

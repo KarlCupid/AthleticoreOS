@@ -225,8 +225,8 @@ console.log('\n-- guided body-mass view model --');
     targetWeightLbs: 168,
   }));
 
-  assert('insufficient data status renders', model.status === 'insufficient_data' && model.statusLabel === 'Insufficient data');
-  assert('missing data is represented safely', model.confidenceSummary.toLowerCase().includes('low') && model.missingData.length > 0);
+  assert('insufficient data status renders', model.status === 'insufficient_data' && model.statusLabel === 'Needs more context');
+  assert('missing data is represented safely', model.confidenceSummary.toLowerCase().includes('context') && model.missingData.length > 0);
 }
 
 {

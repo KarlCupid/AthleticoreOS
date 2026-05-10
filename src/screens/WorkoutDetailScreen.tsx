@@ -28,6 +28,10 @@ import { formatShortWeekday } from '../../lib/utils/date';
 import { formatRestForCoach, formatRpeForCoach } from '../components/workout/trainingCopy';
 import { resolveWorkoutDetailParams } from '../navigation/routeValidation';
 import { boxingEntryDisplayMeta } from '../../lib/performance-engine/workout-programming';
+import {
+    buildCompatibilityCopy,
+    buildErrorStateCoachCopy,
+} from '../../lib/performance-engine/presentation/coachCopyViewModel';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RouteProp = import('@react-navigation/native').RouteProp<TrainStackParamList, 'WorkoutDetail'>;
@@ -172,7 +176,13 @@ export function WorkoutDetailScreen() {
         ? sections.reduce((total, section) => total + section.exercises.length, 0)
         : flatExercises.length;
     const effortSummary = intensity != null ? `Effort ${intensity}/10` : 'Coach-paced effort';
-    const whatToExpect = `${blockCount} block${blockCount === 1 ? '' : 's'}, ${movementCount} movement${movementCount === 1 ? '' : 's'}, about ${durationMin} min. ${effortSummary}.`;
+    const whatToExpect = `${blockCount} part${blockCount === 1 ? '' : 's'}, ${movementCount} movement${movementCount === 1 ? '' : 's'}, about ${durationMin} min. ${effortSummary}.`;
+    const linkErrorCopy = buildErrorStateCoachCopy({
+        title: 'This session link is unavailable',
+        body: 'Open this session from Train or Plan to review it safely.',
+        action: 'Try again',
+    });
+    const compatibilityCopy = buildCompatibilityCopy({ reason: boxingMeta?.why });
 
     // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -185,8 +195,8 @@ export function WorkoutDetailScreen() {
                     </TouchableOpacity>
                 </View>
                 <View style={styles.loadingCenter}>
-                    <Text style={styles.emptyTitle}>Workout link unavailable</Text>
-                    <Text style={styles.emptySubtitle}>Open this session from Train or Plan to review it safely.</Text>
+                    <Text style={styles.emptyTitle}>{linkErrorCopy.headline}</Text>
+                    <Text style={styles.emptySubtitle}>{linkErrorCopy.body}</Text>
                 </View>
             </View>
         );
@@ -249,7 +259,7 @@ export function WorkoutDetailScreen() {
             {isRegenerating && (
                 <View style={styles.regenOverlay}>
                     <ActivityIndicator size="small" color={COLORS.accent} />
-                    <Text style={styles.regenText}>Regenerating…</Text>
+                    <Text style={styles.regenText}>Building session...</Text>
                 </View>
             )}
 
@@ -321,7 +331,7 @@ export function WorkoutDetailScreen() {
                             onPause={() => { void pauseGeneratedWorkout(); }}
                             onResume={() => { void resumeGeneratedWorkout(); }}
                             onAbandon={() => {
-                                Alert.alert('Abandon support session?', 'This stops the generated Athleticore support session and saves no completion result.', [
+                                Alert.alert('Abandon support session?', 'This stops the Athleticore support session and saves no completion result.', [
                                     { text: 'Cancel', style: 'cancel' },
                                     { text: 'Abandon', style: 'destructive', onPress: () => { void abandonGeneratedWorkout(); } },
                                 ]);
@@ -336,19 +346,19 @@ export function WorkoutDetailScreen() {
                 {boxingSnapshot && !isProtectedBoxingAnchor && !detailGeneratedWorkout ? (
                     <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
                         <Text style={styles.actionLabel}>Session plan</Text>
-                        <Text style={styles.intentText}>The plan is set. Open the full session when you are ready and Athleticore will build the details from today's support plan.</Text>
+                        <Text style={styles.intentText}>The plan is set. Build the full session when you are ready and Athleticore will use today's support plan.</Text>
                         <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
-                            <Text style={styles.startBtnText}>{isRegenerating ? 'Building...' : 'Build Full Session'}</Text>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Building session...' : 'Build full session'}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 ) : null}
 
                 {isArchivedCompatibility ? (
                     <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
-                        <Text style={styles.actionLabel}>Compatibility view</Text>
-                        <Text style={styles.intentText}>{boxingMeta?.why ?? 'This old entry is readable, but it is not the source of new workout programming.'}</Text>
+                        <Text style={styles.actionLabel}>{compatibilityCopy.headline}</Text>
+                        <Text style={styles.intentText}>{compatibilityCopy.body}</Text>
                         <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
-                            <Text style={styles.startBtnText}>{isRegenerating ? 'Generating...' : 'Create Support Plan'}</Text>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Building session...' : compatibilityCopy.primaryAction}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 ) : null}
@@ -622,7 +632,7 @@ function ExerciseRow({
                     )}
                     {substitutions && substitutions.length > 0 && (
                         <View style={styles.subsBlock}>
-                            <Text style={styles.detailLabel}>{isMandatoryRecovery ? 'SUBSTITUTES LOCKED' : 'SUBSTITUTES'}</Text>
+                            <Text style={styles.detailLabel}>{isMandatoryRecovery ? 'SUBSTITUTIONS UNAVAILABLE TODAY' : 'SUBSTITUTIONS'}</Text>
                             {isMandatoryRecovery ? (
                                 <View style={styles.lockoutCard}>
                                     <Text style={styles.lockoutText}>{mandatoryRecoveryReason}</Text>

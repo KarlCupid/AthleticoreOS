@@ -15,6 +15,7 @@ import { addDays, todayLocalDate } from '../../lib/utils/date';
 import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import type { WeightClassPlanRow } from '../../lib/engine/types';
 import { getBodyMassSupportPhase, type BodyMassSupportPhase } from '../../lib/performance-engine';
+import { sanitizeAthleteFacingCopy } from '../../lib/performance-engine/presentation';
 import type { FightWeekDayViewModel } from '../hooks/fuel/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
@@ -23,7 +24,7 @@ import { UrineColorPicker } from '../components/UrineColorPicker';
 import { CognitiveTestCard } from '../components/CognitiveTestCard';
 
 const HEALTH_GUIDANCE_NOTE =
-  'Fight-week body-mass guidance is coaching-oriented education. Escalate to qualified medical support if symptoms worsen or the target becomes unsafe.';
+  'Fight-week body-mass guidance is coaching-oriented. It does not replace medical care, diagnosis, or emergency support.';
 
 const PHASE_LABELS: Record<BodyMassSupportPhase, string> = {
   unknown: 'Body-Mass Context',
@@ -68,7 +69,7 @@ function buildFightWeekDays(weighInDate: string, plan: WeightClassPlanRow): Figh
   });
 }
 
-function ProtocolSection({
+function PlanSection({
   title,
   color,
   items,
@@ -79,7 +80,9 @@ function ProtocolSection({
   items: string[];
   icon?: React.ReactNode;
 }) {
-  const filtered = items.filter((item) => item.trim().length > 0);
+  const filtered = items
+    .map((item) => sanitizeAthleteFacingCopy(item).replace(/\bconfidence\b/gi, 'context'))
+    .filter((item) => item.trim().length > 0);
   if (filtered.length === 0) {
     return null;
   }
@@ -232,8 +235,8 @@ export function CompetitionBodyMassScreen() {
           <Text style={styles.briefText}>{HEALTH_GUIDANCE_NOTE}</Text>
         </Card>
 
-        <ProtocolSection
-          title="Hydration Monitoring"
+        <PlanSection
+          title="Hydration monitoring"
           color={COLORS.chart.water}
           icon={<IconDroplets size={18} color={COLORS.chart.water} />}
           items={[
@@ -243,7 +246,7 @@ export function CompetitionBodyMassScreen() {
           ]}
         />
 
-        <ProtocolSection
+        <PlanSection
           title="Fueling"
           color={COLORS.chart.protein}
           items={[
@@ -253,7 +256,7 @@ export function CompetitionBodyMassScreen() {
           ]}
         />
 
-        <ProtocolSection
+        <PlanSection
           title="Training"
           color={COLORS.chart.fitness}
           items={[
@@ -265,7 +268,7 @@ export function CompetitionBodyMassScreen() {
           ]}
         />
 
-        <ProtocolSection
+        <PlanSection
           title="Body-Mass Safety"
           color={phaseColors[0]}
           items={[

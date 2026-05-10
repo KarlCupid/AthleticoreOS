@@ -6,6 +6,10 @@ import type {
   TodayMissionStatus,
   TodayMissionViewModel,
 } from '../../../lib/performance-engine';
+import {
+  buildTodayCoachCopy,
+  sanitizeAthleteFacingCopy,
+} from '../../../lib/performance-engine/presentation/coachCopyViewModel';
 import { AnimatedPressable } from '../AnimatedPressable';
 import { Card } from '../Card';
 import {
@@ -66,11 +70,13 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
 }: TodayMissionPanelProps) {
   const [showDetails, setShowDetails] = useState(false);
   const status = STATUS_STYLES[mission.status];
+  const coachCopy = buildTodayCoachCopy(mission);
   const primaryAction = mission.nextActions[0] ?? null;
   const secondaryActions = mission.nextActions.slice(1, 3);
   const summaryRows = buildSummaryRows(mission);
   const hasDetails = mission.planAdjustments.length > 0 || mission.explanations.length > 0;
   const hasLowConfidence = mission.confidence.level === 'low' || mission.confidence.level === 'unknown';
+  const contextLine = hasLowConfidence ? coachCopy.safetyLines.find((line) => !mission.riskHighlights.includes(line)) ?? coachCopy.safetyLines[0] : null;
 
   return (
     <Card
@@ -99,12 +105,12 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
       </View>
 
       <Text style={styles.primaryFocus} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.86}>
-        {mission.primaryFocus}
+        {coachCopy.headline}
       </Text>
 
       <View style={styles.whyBlock}>
         <Text style={styles.sectionLabel}>WHY TODAY MATTERS</Text>
-        <Text style={styles.whyText}>{mission.whyTodayMatters}</Text>
+        <Text style={styles.whyText}>{coachCopy.body}</Text>
       </View>
 
       <View style={styles.summaryGrid}>
@@ -124,14 +130,14 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
       {mission.riskHighlights[0] ? (
         <View style={styles.riskCallout}>
           <IconAlertTriangle size={17} color={COLORS.error} />
-          <Text style={styles.riskText}>{mission.riskHighlights[0]}</Text>
+          <Text style={styles.riskText}>{sanitizeAthleteFacingCopy(mission.riskHighlights[0])}</Text>
         </View>
       ) : null}
 
       {hasLowConfidence ? (
         <View style={styles.confidenceCallout}>
           <IconInfo size={17} color={COLORS.text.tertiary} />
-          <Text style={styles.confidenceText}>{mission.confidence.summary}</Text>
+          <Text style={styles.confidenceText}>{contextLine ?? 'Athleticore needs more context before it pushes the day.'}</Text>
         </View>
       ) : null}
 
@@ -157,13 +163,13 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
           {mission.planAdjustments.slice(0, 3).map((adjustment, index) => (
             <View key={`adjustment-${index}`} style={styles.detailItem}>
               <Text style={styles.detailLabel}>What changed</Text>
-              <Text style={styles.detailText}>{adjustment}</Text>
+              <Text style={styles.detailText}>{sanitizeAthleteFacingCopy(adjustment)}</Text>
             </View>
           ))}
           {mission.explanations.slice(0, 2).map((explanation) => (
             <View key={explanation.id} style={styles.detailItem}>
               <Text style={styles.detailLabel}>Why</Text>
-              <Text style={styles.detailText}>{explanation.summary}</Text>
+              <Text style={styles.detailText}>{sanitizeAthleteFacingCopy(explanation.summary)}</Text>
             </View>
           ))}
         </View>
@@ -176,7 +182,7 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
           onPress={() => onAction(primaryAction)}
         >
           <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
-            {primaryAction.label}
+            {coachCopy.primaryAction}
           </Text>
           <IconChevronRight size={18} color={COLORS.text.inverse} />
         </AnimatedPressable>
@@ -192,7 +198,7 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
               onPress={() => onAction(action)}
             >
               <Text style={styles.secondaryButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
-                {action.label}
+                {sanitizeAthleteFacingCopy(action.label)}
               </Text>
             </AnimatedPressable>
           ))}
@@ -220,18 +226,18 @@ interface SummaryRow {
 
 function buildSummaryRows(mission: TodayMissionViewModel): SummaryRow[] {
   return [
-    { id: 'training', label: 'Training', text: mission.trainingSummary },
+    { id: 'training', label: 'Training', text: sanitizeAthleteFacingCopy(mission.trainingSummary) },
     mission.protectedWorkoutSummary
-      ? { id: 'protected', label: 'Anchor', text: mission.protectedWorkoutSummary }
+      ? { id: 'protected', label: 'Anchor', text: sanitizeAthleteFacingCopy(mission.protectedWorkoutSummary) }
       : null,
-    { id: 'fuel', label: 'Fuel', text: mission.fuelingFocus },
-    { id: 'readiness', label: 'Readiness', text: mission.readinessSummary },
-    { id: 'recovery', label: 'Recovery', text: mission.recoveryPriority },
+    { id: 'fuel', label: 'Fuel', text: sanitizeAthleteFacingCopy(mission.fuelingFocus) },
+    { id: 'readiness', label: 'Readiness', text: sanitizeAthleteFacingCopy(mission.readinessSummary) },
+    { id: 'recovery', label: 'Recovery', text: sanitizeAthleteFacingCopy(mission.recoveryPriority) },
     mission.bodyMassContext
-      ? { id: 'bodyMass', label: 'Body mass', text: mission.bodyMassContext, emphasis: mission.status === 'blocked' ? 'risk' : undefined }
+      ? { id: 'bodyMass', label: 'Body mass', text: sanitizeAthleteFacingCopy(mission.bodyMassContext), emphasis: mission.status === 'blocked' ? 'risk' : undefined }
       : null,
     mission.fightOrCompetitionContext
-      ? { id: 'fight', label: 'Fight context', text: mission.fightOrCompetitionContext }
+      ? { id: 'fight', label: 'Fight context', text: sanitizeAthleteFacingCopy(mission.fightOrCompetitionContext) }
       : null,
   ].filter((row): row is SummaryRow => Boolean(row));
 }

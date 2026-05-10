@@ -300,7 +300,7 @@ export function ProfileSettingsScreen() {
     try {
       if (field === 'fight_date') {
         if (trimmed.length > 0 && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-          Alert.alert('Invalid date', 'Use the format YYYY-MM-DD.');
+          Alert.alert('Check date', 'Use the format YYYY-MM-DD.');
           return;
         }
         const nextValue = trimmed.length > 0 ? trimmed : null;
@@ -311,7 +311,7 @@ export function ProfileSettingsScreen() {
       } else {
         const nextValue = trimmed.length > 0 ? Number.parseFloat(trimmed) : null;
         if (trimmed.length > 0 && !Number.isFinite(nextValue)) {
-          Alert.alert('Invalid number', 'Enter a valid numeric value.');
+          Alert.alert('Check number', 'Enter a numeric value.');
           return;
         }
         await updateField(field, nextValue);
@@ -361,7 +361,7 @@ export function ProfileSettingsScreen() {
 
     Alert.alert(
       'Reset training programming?',
-      'This clears setup, active plans, generated sessions, recurring training commitments, and engine snapshots for this tester account. Workout, nutrition, check-in, PR, and exercise history stay intact.',
+      'This clears setup, active plans, support sessions, recurring training commitments, and planning context for this tester account. Workout, nutrition, check-in, PR, and exercise history stay intact.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -606,9 +606,9 @@ export function ProfileSettingsScreen() {
             />
 
             <View style={styles.actionRow}>
-              <ActionButton label={snapshot.activeWeightClassPlan ? 'Open Class Plan' : 'Evaluate Class'} onPress={openWeightClassPlan} />
-              <ActionButton label="Adjust Journey" onPress={openWeeklySetup} variant="secondary" />
-              <ActionButton label="Log Check-in" onPress={openCheckIn} variant="secondary" />
+              <ActionButton label={snapshot.activeWeightClassPlan ? 'Open weight-class plan' : 'Evaluate weight class'} onPress={openWeightClassPlan} />
+              <ActionButton label="Adjust journey" onPress={openWeeklySetup} variant="secondary" />
+              <ActionButton label="Log check-in" onPress={openCheckIn} variant="secondary" />
             </View>
           </Card>
         </Animated.View>

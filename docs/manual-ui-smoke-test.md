@@ -27,6 +27,18 @@ Run this checklist when automated browser or simulator UI testing is unavailable
 - Close, cancel, destructive, and secondary actions remain visible and tappable.
 - Touch targets for important actions are at least 44 px tall.
 
+## UI Copy Smoke Checklist
+
+- Is there one main decision?
+- Is the next action obvious?
+- Is the why clear?
+- Is the copy specific to the athlete's context?
+- Are developer words hidden?
+- Is detail progressive?
+- Is safety firm but calm?
+- Does the screen avoid shame, hype, and generic dashboard language?
+- Does the screen still work on a small phone without reading five cards?
+
 ## Test Data
 
 - Long athlete name: "Alexandria Montgomery-Santos Championship Camp".
@@ -55,7 +67,7 @@ Run this checklist when automated browser or simulator UI testing is unavailable
 5. Return to Today.
 6. Tap each secondary action and confirm it opens the expected screen or action.
 7. Open and close the mission details or explanation toggle.
-8. Confirm risk, confidence, and explanation text do not cover the primary CTA or secondary actions.
+8. Confirm safety, context, and explanation text do not cover the primary CTA or secondary actions.
 9. Scroll to the bottom and confirm bottom navigation does not cover the final card or action.
 10. Trigger the first-run modal if available. Confirm "Check In" is reachable and "Not now" closes the modal.
 
@@ -110,7 +122,7 @@ Run this checklist when automated browser or simulator UI testing is unavailable
 6. In food detail, change serving/amount if available, toggle Save to Favorites, and tap Add/Save.
 7. In custom food, leave required fields empty and confirm Save is disabled or guarded.
 8. Fill required fields, open the keyboard, and confirm Save remains reachable by scrolling if needed.
-9. Confirm macro/fueling cards and low-confidence explanations do not block CTAs.
+9. Confirm macro/fueling cards and limited-context explanations do not block CTAs.
 
 ## Check-In And Readiness
 
@@ -131,7 +143,7 @@ Run this checklist when automated browser or simulator UI testing is unavailable
 3. Enter sport, current body mass, target class, fight date, and weigh-in date.
 4. Confirm Next and Activate/Submit buttons are reachable on small phone and landscape viewports.
 5. Test an unsafe target.
-6. Confirm the unsafe warning blocks risky plan activation but still allows back, safer alternatives, review, or cancellation.
+6. Confirm the unsafe safety note blocks risky plan activation but still allows back, safer alternatives, review, or cancellation.
 7. Confirm safe navigation actions such as history, fight-week support, post-weigh-in recovery, and end plan are reachable if shown.
 
 ## Modals, Sheets, Drawers, And Pickers

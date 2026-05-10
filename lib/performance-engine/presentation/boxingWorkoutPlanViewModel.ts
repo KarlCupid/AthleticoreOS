@@ -94,7 +94,7 @@ export function buildBoxingWorkoutPlanViewModel(
     primaryFocus: clean(week.primaryBoxingFocus) ?? 'boxing support',
     hardDaySummary: clean(week.hardDaySummary) ?? `Hard days: ${week.hardDayCount}/${week.weeklyDose?.hardDayCap ?? 0}.`,
     protectedLoadSummary: clean(week.protectedLoadSummary) ?? `${week.weeklyVolumeSummary.protectedBoxingSessionCount ?? 0} protected boxing anchor(s).`,
-    generatedSupportSummary: clean(week.generatedSupportSummary) ?? `${week.weeklyVolumeSummary.generatedSessionCount} generated support session(s).`,
+    generatedSupportSummary: clean(week.generatedSupportSummary) ?? `${week.weeklyVolumeSummary.generatedSessionCount} support session(s).`,
     nextBestAction: clean(week.nextBestAction) ?? 'Complete the next support session and log RPE, pain, and completion.',
     coachSummaryBullets: week.coachSummaryBullets?.length ? week.coachSummaryBullets : [],
     qualityGaps: week.qualityGaps ?? [],

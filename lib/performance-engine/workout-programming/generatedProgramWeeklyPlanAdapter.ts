@@ -763,7 +763,7 @@ export function migrateLegacyEntryToBoxingIntent(entry: WeeklyPlanEntryRow): Leg
   if (entry.session_type === 'boxing_practice' || entry.focus === 'sport_specific') {
     return {
       status: 'migratable',
-      reason: 'Legacy boxing practice maps to a safe boxing skill microdose.',
+      reason: 'Older boxing practice maps to a small boxing-skill support dose.',
       family: 'boxing_skill_microdose',
       role: 'boxing_skill_microdose',
       doseCategory: 'microdose',
@@ -774,7 +774,7 @@ export function migrateLegacyEntryToBoxingIntent(entry: WeeklyPlanEntryRow): Leg
   if (entry.session_type === 'running' || entry.session_type === 'road_work' || entry.sc_session_family === 'aerobic_base') {
     return {
       status: 'migratable',
-      reason: 'Legacy roadwork maps to boxing roadwork base.',
+      reason: 'Older roadwork maps to boxing roadwork support.',
       family: 'roadwork_zone2',
       role: 'roadwork_aerobic_base',
       doseCategory: 'support_session',
@@ -785,7 +785,7 @@ export function migrateLegacyEntryToBoxingIntent(entry: WeeklyPlanEntryRow): Leg
   if (entry.focus === 'conditioning' || entry.session_type === 'conditioning') {
     return {
       status: 'migratable',
-      reason: 'Legacy conditioning maps to alactic repeat power unless readiness forces recovery.',
+      reason: 'Older conditioning maps to controlled power support unless readiness asks for recovery.',
       family: 'alactic_repeat_power',
       role: 'alactic_repeat_power',
       doseCategory: 'support_session',
@@ -796,7 +796,7 @@ export function migrateLegacyEntryToBoxingIntent(entry: WeeklyPlanEntryRow): Leg
   if (entry.focus === 'recovery' || entry.session_type === 'active_recovery') {
     return {
       status: 'migratable',
-      reason: 'Legacy recovery maps to a boxing recovery reset.',
+      reason: 'Older recovery work maps to a boxing recovery reset.',
       family: 'recovery_reset',
       role: 'recovery_reset',
       doseCategory: 'recovery_reset',
@@ -873,7 +873,7 @@ export function boxingEntryDisplayMeta(entry: WeeklyPlanEntryRow): {
   const migration = migrateLegacyEntryToBoxingIntent(entry);
   return {
     title: migration.family ? boxingSessionFamilyLabel(migration.family) : 'Archived training entry',
-    sourceLabel: 'Compatibility view',
+    sourceLabel: 'Older session',
     familyLabel: migration.family ? boxingSessionFamilyLabel(migration.family) : null,
     modalityLabel: null,
     doseLabel: migration.doseCategory ? boxingDoseCategoryLabel(migration.doseCategory) : null,

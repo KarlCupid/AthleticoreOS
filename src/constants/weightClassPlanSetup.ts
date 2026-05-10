@@ -54,7 +54,7 @@ export const BODY_MASS_PHASES = [
     color: COLORS.chart.protein,
     bg: 'rgba(183, 217, 168, 0.12)',
     description:
-      'Feasibility is checked against the timeline, readiness, nutrition confidence, and body-mass trend.',
+      'Feasibility is checked against the timeline, readiness, nutrition context, and body-mass trend.',
   },
   {
     label: 'Fight Week',
@@ -62,7 +62,7 @@ export const BODY_MASS_PHASES = [
     color: COLORS.accent,
     bg: 'rgba(245, 245, 240, 0.08)',
     description:
-      'Competition-week body-mass monitoring preserves familiar foods, steady fluids, and visible safety warnings.',
+      'Competition-week body-mass monitoring preserves familiar foods, steady fluids, and visible safety notes.',
   },
   {
     label: 'Post Weigh-In Recovery',

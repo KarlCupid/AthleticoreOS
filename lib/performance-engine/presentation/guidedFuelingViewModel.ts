@@ -79,8 +79,8 @@ const UNAVAILABLE_GUIDED_FUELING: GuidedFuelingViewModel = {
   macroTargets: [],
   foodLogConfidence: {
     level: 'unknown',
-    label: 'Unknown confidence',
-    summary: 'Food log confidence is unknown until Athleticore can read today\'s nutrition context.',
+    label: 'Context unknown',
+    summary: 'Athleticore needs today\'s nutrition context before it makes a firmer fueling call.',
     missingData: ['Training, readiness, and fuel context'],
   },
   bodyMassContext: null,
@@ -226,7 +226,7 @@ function buildSessionGuidance(
   const directive = prioritizeDirective(directives);
   const supportLine = supportFuelFocusForSession(primarySupportSession(sessions));
   if (!directive) {
-    return [supportLine ?? 'No session-specific fueling block is needed yet. Keep meals, fluids, and recovery steady.'];
+    return [supportLine ?? 'No special pre-session fuel needed. Keep meals, fluids, and recovery steady.'];
   }
 
   const session = sessions.find((candidate) => candidate.id === directive.sessionId) ?? null;
@@ -293,7 +293,7 @@ function buildRecoveryFocus(
     return 'Keep the next meal balanced and hydrate steadily after training.';
   }
   if (directive.focus === 'glycogen_restore') {
-    return 'Recovery focus: restore carbs and fluids after the hard work so the next session is not under-fueled.';
+    return 'Recovery focus: get carbs and fluids back in after the hard work so the next session is not under-fueled.';
   }
   if (directive.focus === 'tissue_repair') {
     return 'Recovery focus: spread protein through the day and include it in the post-session meal.';
@@ -382,7 +382,7 @@ function buildFoodLogConfidence(input: {
   return {
     level: input.confidence.level,
     label,
-    summary: 'Food log confidence is strong enough to support today\'s fueling guidance.',
+    summary: 'Athleticore knows enough from today\'s log to support the fueling focus.',
     missingData: input.missingData,
   };
 }
@@ -435,7 +435,7 @@ function riskCopy(risk: RiskFlag): string {
     return 'Fuel has been light relative to the work. The priority is getting enough in, not judging the log.';
   }
   if (risk.code === 'low_nutrition_confidence') {
-    return 'Food log confidence is low, so Athleticore will be cautious with major fueling changes.';
+    return 'Athleticore has limited food-log context, so it will be cautious with major fueling changes.';
   }
   if (risk.code === 'missing_data') {
     return 'Some nutrition data is missing, so Athleticore treats it as unknown instead of filling in zero.';
@@ -495,8 +495,10 @@ function rangeLabel(range: MeasurementRange<'kcal' | 'g'> | null | undefined, un
 }
 
 function confidenceLabel(confidence: ConfidenceValue): string {
-  if (confidence.level === 'unknown') return 'Unknown confidence';
-  return `${humanize(confidence.level)} confidence`;
+  if (confidence.level === 'unknown') return 'Context unknown';
+  if (confidence.level === 'low') return 'Limited context';
+  if (confidence.level === 'medium') return 'Enough context';
+  return 'Strong context';
 }
 
 function unique(values: string[]): string[] {

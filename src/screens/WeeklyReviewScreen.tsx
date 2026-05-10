@@ -262,7 +262,7 @@ export function WeeklyReviewScreen() {
         {narrative?.highlightChart === 'training_compliance' ? (
           <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.normal).springify()}>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Training Compliance</Text>
+              <Text style={styles.cardTitle}>Training consistency</Text>
               <WeeklyComplianceBar label="S&C" planned={report.sc.planned} actual={report.sc.actual} color="#4A90D9" />
               <WeeklyComplianceBar label="Boxing" planned={report.boxing.planned} actual={report.boxing.actual} color="#FF6B35" />
             </View>

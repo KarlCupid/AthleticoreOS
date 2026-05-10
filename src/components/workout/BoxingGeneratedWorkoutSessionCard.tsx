@@ -463,17 +463,17 @@ function labelize(value: string): string {
 }
 
 function stageLabel(stage: BoxingGeneratedWorkoutStage): string {
-  if (stage === 'configure') return 'Generate';
-  if (stage === 'inspect') return 'Inspect';
+  if (stage === 'configure') return 'Build';
+  if (stage === 'inspect') return 'Review';
   if (stage === 'started') return 'Complete';
   return 'Next step';
 }
 
 function stageHelp(stage: BoxingGeneratedWorkoutStage): string {
-  if (stage === 'configure') return 'Choose an extra support dose. Planned weekly sessions open from Today and WorkoutDetail.';
+  if (stage === 'configure') return 'Choose extra support only when it helps the week. Planned sessions open from Today and Train.';
   if (stage === 'inspect') return 'Review the session before starting. Use substitutions or scaling if needed.';
   if (stage === 'started') return 'Check off work as you finish it, then log effort, pain, feedback, and notes.';
-  return 'Review the recommendation before the next generated session.';
+  return 'Review the next step before the next support session.';
 }
 
 function workoutSafetyLine(workout: GeneratedWorkout | null): string {
@@ -672,11 +672,11 @@ export function BoxingGeneratedWorkoutSessionCard({
   const currentStageIndex = BOXING_GENERATED_WORKOUT_STAGES.indexOf(stage);
   const sessionPaused = lifecycleStatus === 'paused';
   const readinessBlocked = selectedOption.blockedReadinessBands.includes(readinessBand);
-  const cardTitle = mode === 'executeOnly' ? 'Athleticore support session' : 'Generate extra support session';
+  const cardTitle = mode === 'executeOnly' ? 'Athleticore support session' : 'Build support session';
   const cardSubtitle = mode === 'executeOnly'
     ? 'Weekly support execution from today\'s plan.'
     : userAuthenticated
-      ? 'Ad hoc Athleticore support outside the planned weekly session path.'
+      ? 'Use this only when you need extra support outside the planned week.'
       : 'Sign in to save extra support completions and progression.';
   const durationOptions = useMemo(() => {
     const values = [
@@ -823,7 +823,7 @@ export function BoxingGeneratedWorkoutSessionCard({
           <>
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.sectionLabel}>Athlete development</Text>
-          <Text style={styles.sectionHint}>Use this for explicit extra support only. Sparring and coach-led boxing practice are protected anchors, not generated here.</Text>
+          <Text style={styles.sectionHint}>Use this for explicit extra support only. Sparring and coach-led boxing practice are protected anchors, not built here.</Text>
           {OPTION_GROUP_ORDER.map((group) => {
             const groupOptions = BOXING_GENERATED_WORKOUT_OPTIONS.filter((option) => option.group === group);
             return (
@@ -872,7 +872,7 @@ export function BoxingGeneratedWorkoutSessionCard({
         {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
         {readinessBlocked && mode === 'configure' ? (
           <Text accessibilityRole="alert" style={styles.errorText}>
-            Choose recovery reset or a low-dose skill support option today. This support session is blocked for {labelize(readinessBand)} readiness.
+            Choose recovery reset or a low-dose skill support option today. This support session is unavailable for {labelize(readinessBand)} readiness.
           </Text>
         ) : null}
         <Text style={styles.safetyReminder}>{generatedWorkoutSafetyReminder()}</Text>
@@ -882,19 +882,19 @@ export function BoxingGeneratedWorkoutSessionCard({
           <Pressable
             testID="boxing-generated-workout-generate"
             accessibilityRole="button"
-            accessibilityLabel={loading ? 'Generating extra support session' : workout ? 'Regenerate extra support session' : 'Generate extra support session'}
+            accessibilityLabel={loading ? 'Building support session' : workout ? 'Rebuild support session' : 'Build support session'}
             style={[styles.primaryButton, (loading || readinessBlocked) && styles.disabledButton]}
             disabled={loading || completing || readinessBlocked}
             onPress={submitGenerate}
           >
-            <Text style={styles.primaryButtonText}>{loading ? 'Generating...' : workout ? 'Regenerate' : 'Generate Extra Support'}</Text>
+            <Text style={styles.primaryButtonText}>{loading ? 'Building session...' : workout ? 'Rebuild session' : 'Build support session'}</Text>
           </Pressable>
           {workout ? (
             <Pressable
               testID="boxing-generated-workout-clear"
               accessibilityRole="button"
-              accessibilityLabel="Clear generated Athleticore support session"
-              accessibilityHint="Asks for confirmation before removing the generated support-session draft."
+              accessibilityLabel="Clear Athleticore support session"
+              accessibilityHint="Asks for confirmation before removing this support-session draft."
               style={styles.secondaryButton}
               disabled={loading || completing}
               onPress={onReset}
@@ -908,12 +908,12 @@ export function BoxingGeneratedWorkoutSessionCard({
         {workout ? (
           <View testID="boxing-generated-workout-status" style={styles.statusPanel}>
             <Text style={styles.statusHeadline}>{workoutSafetyLine(workout)}</Text>
-            <Text style={styles.statusText}>{persisted ? `Saved session ${generatedWorkoutId}` : 'Not persisted; completion will stay local until saving is available.'}</Text>
+            <Text style={styles.statusText}>{persisted && generatedWorkoutId ? 'Session saved.' : 'Completion will stay on this device until saving is available.'}</Text>
             {lifecycleStatus ? (
               <Text testID="boxing-generated-workout-lifecycle" style={styles.statusText}>Session status: {labelize(lifecycleStatus)}</Text>
             ) : null}
             {lifecycleMessage ? <Text style={styles.statusText}>{lifecycleMessage}</Text> : null}
-            <Text style={styles.statusText}>Validation: {workout.validation?.isValid ? 'passed' : 'review warnings available'}</Text>
+            <Text style={styles.statusText}>Review notes: {workout.validation?.isValid ? 'none' : 'available before starting'}</Text>
           </View>
         ) : null}
       </Card>
@@ -939,13 +939,13 @@ export function BoxingGeneratedWorkoutSessionCard({
             <Pressable
               testID="boxing-generated-workout-start"
               accessibilityRole="button"
-              accessibilityLabel={workout.blocked ? GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview : 'Start Athleticore support session'}
+              accessibilityLabel={workout.blocked ? 'Review safer options' : 'Start Athleticore support session'}
               accessibilityState={{ disabled: workout.blocked === true }}
               disabled={workout.blocked === true}
               style={[styles.primaryButton, workout.blocked && styles.disabledButton]}
               onPress={onStart}
             >
-              <Text style={styles.primaryButtonText}>{workout.blocked ? 'Blocked by Safety Review' : 'Start Session'}</Text>
+              <Text style={styles.primaryButtonText}>{workout.blocked ? 'Review needed' : 'Start session'}</Text>
             </Pressable>
           ) : null}
 
@@ -976,11 +976,11 @@ export function BoxingGeneratedWorkoutSessionCard({
                   <Text style={styles.secondaryButtonText}>Pause</Text>
                 </Pressable>
               )}
-              <Pressable
+                <Pressable
                 testID="boxing-generated-workout-abandon"
                 accessibilityRole="button"
                 accessibilityLabel="Abandon Athleticore support session"
-                accessibilityHint="Asks for confirmation before abandoning this generated support session."
+                accessibilityHint="Asks for confirmation before abandoning this support session."
                 style={styles.quietButton}
                 disabled={completing || !onAbandon}
                 onPress={onAbandon}
@@ -1144,7 +1144,7 @@ export function BoxingGeneratedWorkoutSessionCard({
                 disabled={completing || sessionPaused}
                 onPress={submitComplete}
               >
-                <Text style={styles.primaryButtonText}>{sessionPaused ? 'Resume to Complete' : completing ? 'Completing...' : 'Complete Session'}</Text>
+                <Text style={styles.primaryButtonText}>{sessionPaused ? 'Resume to complete' : completing ? 'Completing...' : 'Complete session'}</Text>
               </Pressable>
             </>
           ) : null}

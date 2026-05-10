@@ -475,7 +475,7 @@ export function WeeklyPlanScreen() {
                         <SectionHeader title="Weekly Overview" />
                     </View>
                     <View style={styles.metricsRow}>
-                        <StatCard icon={<MaterialCommunityIcons name="target" size={16} color={COLORS.success} />} color={COLORS.success} label="Compliance" value={`${completedSessions}/${totalSessions}`} sub="Sessions" style={styles.metricCard} />
+                        <StatCard icon={<MaterialCommunityIcons name="target" size={16} color={COLORS.success} />} color={COLORS.success} label="Consistency" value={`${completedSessions}/${totalSessions}`} sub="Sessions" style={styles.metricCard} />
                         <StatCard icon={<MaterialCommunityIcons name="timer-outline" size={16} color={COLORS.accent} />} color={COLORS.accent} label="Active Time" value={`${completedHours}h`} sub={`of ${totalHours}h`} style={styles.metricCard} />
                     </View>
 

@@ -163,8 +163,8 @@ async function run() {
   ].every((needle) => previewCard.includes(needle)));
 
   assert('Athleticore support UI actions have descriptive accessibility labels', [
-    'accessibilityLabel={loading ? \'Generating extra support session\'',
-    'accessibilityLabel="Clear generated Athleticore support session"',
+    'accessibilityLabel={loading ? \'Building support session\'',
+    'accessibilityLabel="Clear Athleticore support session"',
     'GENERATED_WORKOUT_SAFETY_COPY.user.sessionBlockedBySafetyReview',
     'generatedWorkoutSafetyReminder',
     'accessibilityLabel={allExercisesComplete ? \'Clear all completed exercises\'',

@@ -50,34 +50,34 @@ const STEP_META = [
     },
     {
         eyebrow: 'Step 2',
-        title: 'Starting Point',
+        title: 'Starting point',
         description: 'Give Athleticore enough context to coach the first stretch.',
     },
     {
         eyebrow: 'Step 3',
-        title: 'Journey And Fight',
+        title: 'Journey and fight',
         description: 'Set the phase and fight context without treating it like a restart.',
     },
     {
         eyebrow: 'Step 4',
-        title: 'Anchors And Days',
+        title: 'Anchors and days',
         description: 'Lock in the sessions and days the plan should build around.',
     },
     {
         eyebrow: 'Step 5',
-        title: 'Fuel And Readiness',
+        title: 'Fuel and readiness',
         description: 'Add the context Athleticore needs to stay useful and cautious.',
     },
     {
         eyebrow: 'Step 6',
-        title: "Today's Mission",
+        title: "Today's mission",
         description: 'Land on the daily call: what matters, why, and what to do next.',
     },
 ] as const;
 
 const BIO_SEX_OPTIONS = [
-    { value: 'male', label: 'Male baseline', descriptor: 'Uses male-based fueling and recovery defaults until your logs sharpen them.' },
-    { value: 'female', label: 'Female baseline', descriptor: 'Uses female-based fueling and recovery defaults until your logs sharpen them.' },
+    { value: 'male', label: 'Use male-based defaults', descriptor: 'Starting recovery and fueling assumptions until your logs sharpen them.' },
+    { value: 'female', label: 'Use female-based defaults', descriptor: 'Starting recovery and fueling assumptions until your logs sharpen them.' },
 ] as const;
 
 const TRAINING_BACKGROUND_OPTIONS: Array<{
@@ -110,7 +110,7 @@ const MAIN_GOAL_OPTIONS: Array<{
 }> = [
     { value: 'conditioning', label: 'Conditioning', descriptor: 'Improve pace, output, and repeatability.' },
     { value: 'strength', label: 'Strength', descriptor: 'Build strength while managing total load.' },
-    { value: 'boxing_skill', label: 'Boxing skill', descriptor: 'Protect technical work and skill rhythm.' },
+    { value: 'boxing_skill', label: 'Protect boxing practice', descriptor: 'Keep coach-led boxing protected and build support around it.' },
     { value: 'weight_class_prep', label: 'Weight-class context', descriptor: 'Keep body-mass guidance safety-first and gradual.' },
 ];
 
@@ -192,7 +192,7 @@ const INTENSITY_OPTIONS = [
     {
         value: 7,
         label: 'Solid',
-        tooltip: 'Moderate-hard. Productive work with clear fatigue, but no redline finish.',
+        tooltip: 'Moderate-hard. Productive work with clear fatigue, but no grind finish.',
     },
     {
         value: 9,
@@ -503,6 +503,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityState={{ selected }}
+            accessibilityLabel={option.label}
         >
             <View style={styles.activityOptionCopy}>
                 <Text style={[styles.activityOptionTitle, selected && styles.activityOptionTitleActive]}>
@@ -548,7 +549,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         <View key={session.id} style={styles.fixedSessionCard}>
             <View style={styles.fixedSessionHeader}>
                 <Text style={styles.fixedSessionTitle}>{session.label || defaultSessionLabel(session.activityType)}</Text>
-                <TouchableOpacity onPress={() => setFixedSessions((current) => current.filter((item) => item.id !== session.id))}>
+                <TouchableOpacity
+                    onPress={() => setFixedSessions((current) => current.filter((item) => item.id !== session.id))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${session.label || defaultSessionLabel(session.activityType)}`}
+                >
                     <Text style={styles.removeText}>Remove</Text>
                 </TouchableOpacity>
             </View>
@@ -560,6 +565,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         key={option.value}
                         style={[styles.pill, session.activityType === option.value && styles.pillActive]}
                         onPress={() => updateFixedSession(session.id, { activityType: option.value })}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: session.activityType === option.value }}
+                        accessibilityLabel={`Set protected workout type to ${option.label}`}
                     >
                         <Text style={[styles.pillText, session.activityType === option.value && styles.pillTextActive]}>
                             {option.label}
@@ -606,6 +614,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             key={minutes}
                             style={[styles.pill, selected && styles.pillActive]}
                             onPress={() => updateFixedSession(session.id, { durationMin: minutes })}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            accessibilityLabel={`Set protected workout duration to ${minutes} minutes`}
                         >
                             <Text style={[styles.pillText, selected && styles.pillTextActive]}>{minutes} min</Text>
                         </TouchableOpacity>
@@ -760,7 +771,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             </View>
                         </View>
 
-                        <Text style={styles.inputLabel}>Physiology defaults</Text>
+                        <Text style={styles.inputLabel}>Recovery and fueling defaults</Text>
                         <View style={styles.activityOptionsList}>
                             {BIO_SEX_OPTIONS.map((option) => renderOptionCard(
                                 bioSex === option.value,
@@ -768,6 +779,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 setBioSex,
                             ))}
                         </View>
+                        <Text style={styles.helperText}>These are starting assumptions only. Your logs will matter more over time.</Text>
 
                         <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Experience level</Text>
                         <View style={styles.activityOptionsList}>
@@ -962,6 +974,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                         ...current,
                                         createFixedSession(availableDays[0] ?? 1),
                                     ])}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Add protected workout"
                                 >
                                     <Text style={styles.addSmallButtonText}>Add</Text>
                                 </TouchableOpacity>
@@ -1065,7 +1079,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             </View>
                             <View style={styles.coachPoint}>
                                 <View style={styles.coachPointRail} />
-                                <Text style={styles.coachPointTitle}>Low-confidence guidance</Text>
+                                <Text style={styles.coachPointTitle}>Limited-context guidance</Text>
                                 <Text style={styles.coachPointText}>
                                     If data is limited, Athleticore will ask for the smallest useful check-in and avoid treating unknowns as safe.
                                 </Text>

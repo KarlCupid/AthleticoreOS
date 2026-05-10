@@ -23,7 +23,7 @@ export function BoxingGeneratedWorkoutContainer({ controller, mode = 'standalone
   const confirmReset = () => {
     Alert.alert(
       'Clear support session?',
-      'This removes the current generated Athleticore support session draft from this screen.',
+      'This removes the current Athleticore support session draft from this screen.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Clear', style: 'destructive', onPress: support.reset },
@@ -34,7 +34,7 @@ export function BoxingGeneratedWorkoutContainer({ controller, mode = 'standalone
   const confirmAbandon = () => {
     Alert.alert(
       'Abandon support session?',
-      'This stops the generated Athleticore support session and saves no completion result.',
+      'This stops the Athleticore support session and saves no completion result.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Abandon', style: 'destructive', onPress: () => { void support.abandon(); } },

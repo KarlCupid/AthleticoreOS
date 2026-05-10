@@ -82,7 +82,7 @@ assert('Today Mission details/risk expansion cannot be a dead control', hasAll(t
   'testID="today-mission-details-toggle"',
   'setShowDetails((current) => !current)',
   'mission.riskHighlights',
-  'mission.confidence.summary',
+  'mission.confidence.level',
 ]));
 assert('Today Mission action dispatcher routes all canonical intents', hasAll(dashboard, [
   'case "log_checkin":',
@@ -225,7 +225,7 @@ assert('body-mass evaluation, safe navigation, and blocked-plan CTAs are stable'
   'testID="weight-class-setup-next"',
   'testID="weight-class-setup-activate"',
   'testID={`weight-class-sport-${sport}`}',
-  'Automatic support blocked',
+  'Support paused for safety',
   'professionalReviewRequired',
 ]) && hasAll(bodyMassViewModel, [
   'saferAlternatives',

@@ -53,7 +53,7 @@ assert('weight-class setup constants use theme tokens', setupConstants.includes(
 assert('weight-class setup copy avoids restart language', !/start over|restart|restarted|reset/.test(setupConstants.toLowerCase()));
 assert('weight cut language is not user-facing', !/weight[- ]cut/.test(userFacing));
 assert('dangerous method names are not user-facing', !/sauna|sweat suit|diuretic|laxative|vomit|severe fasting|extreme fluid restriction|dehydration/.test(userFacing));
-assert('unsafe targets are not normalized as ordinary plans', !userFacing.includes('automatic plan is blocked') && userFacing.includes('automatic support blocked'));
+assert('unsafe targets are not normalized as ordinary plans', !userFacing.includes('automatic plan is blocked') && userFacing.includes('support paused for safety'));
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
 process.exit(failed > 0 ? 1 : 0);

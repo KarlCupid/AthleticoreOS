@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { APP_CHROME, COLORS, RADIUS, SPACING, TYPOGRAPHY_V2, SEMANTIC_PALETTE } from '../../theme/theme';
 
-// Shown on Weekly Review when athlete hits 90%+ compliance for 3+ consecutive weeks.
+// Shown on Weekly Review when athlete hits 90%+ consistency for 3+ consecutive weeks.
 // Lazy-loaded: import only in WeeklyReviewScreen, never on Compass or Training Floor.
 
 interface StreakMilestoneProps {
@@ -47,7 +47,7 @@ export function StreakMilestone({ weeksCount, compliancePercent }: StreakMilesto
                     {weeksCount}-Week Streak
                 </Text>
                 <Text style={styles.sub}>
-                    {Math.round(compliancePercent)}% compliance — you're building something real.
+                    {Math.round(compliancePercent)}% consistency - you're building something real.
                 </Text>
             </View>
         </Animated.View>

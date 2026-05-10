@@ -132,7 +132,7 @@ export function WorkoutAnalyticsTab({
               <Text style={styles.sourceValue}>{sourceSummary.legacyCount} | Load {sourceSummary.legacyLoad}</Text>
             </View>
             <View style={styles.sourceRow}>
-              <Text style={styles.sourceLabel}>Generated support sessions</Text>
+              <Text style={styles.sourceLabel}>Athleticore support sessions</Text>
               <Text style={styles.sourceValue}>{sourceSummary.generatedCount} | Load {sourceSummary.generatedLoad}</Text>
             </View>
             {Object.entries(sourceSummary.generatedByLabel).slice(0, 5).map(([label, summary]) => (

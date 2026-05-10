@@ -39,12 +39,12 @@ export function LegalSupportScreen() {
         <ScreenHeader
           kicker="Support"
           title="Privacy & support"
-          subtitle="Submission-ready account, privacy, and contact details for the app."
+          subtitle="Account, privacy, and contact details."
         />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Card variant="glass" title="Privacy policy" subtitle="In-app summary plus the public policy link used for review.">
+        <Card variant="glass" title="Privacy policy" subtitle="In-app summary and full policy link.">
           <View style={styles.sectionStack}>
             {PRIVACY_POLICY_SECTIONS.map((section, index) => (
               <View
@@ -71,7 +71,7 @@ export function LegalSupportScreen() {
         <Card
           variant="glass"
           title="Support contact"
-          subtitle="Use this for product questions, privacy requests, and App Review follow-up."
+          subtitle="Use this for product questions, privacy requests, and account help."
         >
           <Text style={styles.supportEmail}>{APP_SUPPORT_EMAIL}</Text>
           <AnimatedPressable
@@ -97,12 +97,10 @@ export function LegalSupportScreen() {
         <Card
           variant="glass"
           title="Health guidance note"
-          subtitle="This wording is included to keep the product framed correctly for review."
+          subtitle="How to use coaching guidance safely."
         >
           <Text style={styles.bodyText}>
-            AthletiCore provides training, nutrition, hydration, and weight-management guidance for educational and
-            coaching purposes. It does not diagnose conditions, replace licensed medical care, or act as an emergency
-            service.
+            Athleticore gives coaching-oriented guidance. It does not replace medical care, diagnosis, or emergency support.
           </Text>
         </Card>
       </ScrollView>
