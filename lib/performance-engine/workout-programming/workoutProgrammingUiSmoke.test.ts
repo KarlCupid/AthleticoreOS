@@ -46,6 +46,7 @@ async function run() {
   const fallbacks = read('lib/performance-engine/workout-programming/workoutProgrammingFallbacks.ts');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const supportCard = read('src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx');
+  const workoutDetailHook = read('src/hooks/useWorkoutDetail.ts');
   const renderTest = read('lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts');
 
   assert(
@@ -101,6 +102,12 @@ async function run() {
     "activeTab === 'analytics'",
     "activeTab === 'plan'",
   ]));
+
+  assert('WorkoutScreen routes generated support snapshots to WorkoutDetail before GuidedWorkout compatibility', hasAll(workoutScreen, [
+    'classifyPlanEntryRuntimeSurface',
+    "runtimeSurface === 'legacy_guided_workout'",
+    "navigation.navigate('WorkoutDetail'",
+  ]) && !workoutScreen.includes("if (group.date === todayLocalDate() && primaryEntry.status === 'planned') { void openGuidedWorkout(primaryEntry); return; }"));
 
   assert('preview card exposes all display sections requested by generated workouts', hasAll(previewCard, [
     'testID="generated-workout-preview-card"',
@@ -183,6 +190,14 @@ async function run() {
     'Recommended next step',
     'progressionDecision.userMessage',
     'generatedWorkoutSafetyReminder',
+  ]));
+
+  assert('WorkoutDetail completion persists weekly source of truth and attempts generated-program sync', hasAll(workoutDetailHook, [
+    'completeGeneratedWorkout',
+    'await markDayCompleted(entry.id, completionLinkId)',
+    'markGeneratedProgramSessionCompletedForUser',
+    'useWorkoutDetail.completeGeneratedWorkout.markDayCompleted',
+    'useWorkoutDetail.completeGeneratedWorkout.programSessionSync',
   ]));
 
   const preview = await generatePreviewWorkout(workoutProgrammingServiceFixtures.beginnerBodyweightStrength, {

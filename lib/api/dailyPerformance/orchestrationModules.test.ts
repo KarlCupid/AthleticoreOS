@@ -22,6 +22,7 @@ import {
   resolveDailyPlanSelection,
   type PlanSelectionDependencies,
 } from './planSelection';
+import { isActiveTrainingPlanEntry } from '../../performance-engine/workout-programming/planEntryRuntime.ts';
 import {
   resolveObjectiveContextWithDependencies,
   type AthleteContextSnapshot,
@@ -401,7 +402,7 @@ async function testPlanSelection(): Promise<void> {
   const dependencies: PlanSelectionDependencies = {
     loadPlanEntriesForDate: async () => [engineEntry, heavyEntry],
     loadPlanEntriesForRange: async () => [engineEntry, heavyEntry],
-    isActiveGuidedEnginePlanEntry: (entry) => entry.id === 'engine',
+    isActiveTrainingPlanEntry: (entry) => entry.id === 'engine',
   };
 
   const result = await resolveDailyPlanSelection({
@@ -411,7 +412,82 @@ async function testPlanSelection(): Promise<void> {
     weekEnd: '2026-04-26',
   }, dependencies);
   assert('plan selection picks highest-priority daily entry', result.primaryPlanEntry?.id === 'heavy');
-  assert('plan selection keeps guided engine entry separate', result.primaryEnginePlanEntry?.id === 'engine');
+  assert('plan selection keeps active training entry separate', result.primaryTrainingPlanEntry?.id === 'engine' && result.primaryEnginePlanEntry?.id === 'engine');
+
+  const generatedSnapshot = {
+    snapshotKind: 'boxing_generated_program_entry',
+    schemaVersion: 1,
+    sourceOfTruth: 'GeneratedProgram',
+    programId: 'program-1',
+    sessionId: 'session-generated',
+    weekIndex: 1,
+    dayIndex: 1,
+    scheduledDate: '2026-04-20',
+    label: 'Roadwork base',
+    protectedAnchor: false,
+    goalId: 'roadwork_aerobic_base',
+    plannedIntensity: 'low',
+    estimatedDurationMinutes: 35,
+    athleticDevelopmentDomain: 'roadwork',
+    supportDomainLabel: 'Roadwork base',
+    expectedFuelPriority: 'roadwork_aerobic',
+    expectedCarbDemandClass: 'low',
+    expectedRecoveryDemandClass: 'low',
+    expectedHydrationDemandClass: 'moderate',
+    sessionEnergyDemandScore: 32,
+    sessionRecoveryDemandScore: 24,
+    isBoxingPracticeReplacement: false,
+    rationale: ['Build aerobic support without replacing boxing.'],
+    generatedWorkout: null,
+    weekSummary: {
+      coachSummaryBullets: [],
+      coachRationale: [],
+      userFacingWarnings: [],
+      validationWarnings: [],
+      hardDayCount: 1,
+      qualityGaps: [],
+    },
+  } as any;
+  const generatedEntry = makeEntry({
+    id: 'generated-support',
+    session_type: 'road_work',
+    focus: null,
+    placement_source: 'generated',
+    target_intensity: 3,
+    estimated_duration_min: 35,
+    prescription_snapshot: generatedSnapshot,
+  });
+  const protectedEntry = makeEntry({
+    id: 'protected-anchor',
+    session_type: 'boxing_practice',
+    focus: null,
+    placement_source: 'locked',
+    prescription_snapshot: { ...generatedSnapshot, sessionId: 'session-protected', protectedAnchor: true, protectedWorkoutModality: 'boxing_skill' },
+  });
+  const legacyGuidedEntry = makeEntry({
+    id: 'legacy-guided',
+    session_type: 'conditioning',
+    focus: 'conditioning',
+    prescription_snapshot: {
+      workoutType: 'conditioning',
+      exercises: [{ exercise: { id: 'legacy-exercise' } }],
+    } as any,
+  });
+  const generatedResult = await resolveDailyPlanSelection({
+    userId: 'user-1',
+    date: '2026-04-20',
+    weekStart: '2026-04-20',
+    weekEnd: '2026-04-26',
+  }, {
+    loadPlanEntriesForDate: async () => [legacyGuidedEntry, protectedEntry, generatedEntry],
+    loadPlanEntriesForRange: async () => [legacyGuidedEntry, protectedEntry, generatedEntry],
+    isActiveTrainingPlanEntry,
+  });
+  assert(
+    'boxing-generated support entry without legacy exercises is primary active training',
+    generatedResult.primaryTrainingPlanEntry?.id === 'generated-support'
+      && generatedResult.primaryEnginePlanEntry?.id === 'generated-support',
+  );
 
   const scheduled = pickPrimaryScheduledActivity([
     makeActivity({ id: 'skipped', activity_type: 'sparring', status: 'skipped', expected_intensity: 10 }),

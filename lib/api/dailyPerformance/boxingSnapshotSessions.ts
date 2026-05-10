@@ -7,6 +7,7 @@ import {
   getBoxingSnapshotFromWeeklyPlanEntry,
   type BoxingAthleteSupportDomain,
   type ComposedSession,
+  type DirectSupportSessionMetadata,
   type SessionFamily,
 } from '../../performance-engine';
 
@@ -17,6 +18,8 @@ function familyForDomain(domain: BoxingAthleteSupportDomain | undefined, fallbac
     case 'strength':
     case 'power':
       return 'strength';
+    case 'speed_agility':
+      return 'conditioning';
     case 'roadwork':
       return 'roadwork';
     case 'conditioning':
@@ -67,6 +70,8 @@ function tissueLoadsForDomain(domain: BoxingAthleteSupportDomain | undefined): s
       return ['lower_body_force', 'trunk_transfer'];
     case 'conditioning':
       return ['high_intensity_energy_system'];
+    case 'speed_agility':
+      return ['footwork_speed', 'ankle_calf', 'neural'];
     case 'roadwork':
       return ['aerobic_base'];
     case 'durability':
@@ -80,6 +85,32 @@ function tissueLoadsForDomain(domain: BoxingAthleteSupportDomain | undefined): s
     default:
       return [];
   }
+}
+
+function supportMetadataFromSnapshot(snapshot: NonNullable<ReturnType<typeof getBoxingSnapshotFromWeeklyPlanEntry>>): DirectSupportSessionMetadata {
+  return {
+    athleticDevelopmentDomain: snapshot.athleticDevelopmentDomain ?? null,
+    boxingSessionFamily: snapshot.boxingSessionFamily ?? null,
+    boxingSessionRole: snapshot.boxingSessionRole ?? null,
+    supportDomainLabel: snapshot.supportDomainLabel ?? null,
+    expectedFuelPriority: snapshot.expectedFuelPriority ?? null,
+    expectedCarbDemandClass: snapshot.expectedCarbDemandClass ?? null,
+    expectedRecoveryDemandClass: snapshot.expectedRecoveryDemandClass ?? null,
+    expectedHydrationDemandClass: snapshot.expectedHydrationDemandClass ?? null,
+    sessionEnergyDemandScore: snapshot.sessionEnergyDemandScore ?? null,
+    sessionRecoveryDemandScore: snapshot.sessionRecoveryDemandScore ?? null,
+    plannedIntensity: snapshot.plannedIntensity ?? null,
+    protectedWorkoutModality: snapshot.protectedWorkoutModality ?? null,
+    sAndCRationale: snapshot.sAndCRationale ?? null,
+    boxingRelevance: snapshot.boxingRelevance ?? null,
+    athleticDevelopmentRationale: snapshot.athleticDevelopmentRationale ?? null,
+  };
+}
+
+function stressScoreFromSnapshot(snapshot: NonNullable<ReturnType<typeof getBoxingSnapshotFromWeeklyPlanEntry>>): number | null {
+  const scores = [snapshot.sessionEnergyDemandScore, snapshot.sessionRecoveryDemandScore]
+    .filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
+  return scores.length > 0 ? Math.max(...scores) : null;
 }
 
 export function boxingSnapshotToDailyPerformanceSession(entry: WeeklyPlanEntryRow): ComposedSession | null {
@@ -106,8 +137,9 @@ export function boxingSnapshotToDailyPerformanceSession(entry: WeeklyPlanEntryRo
     durationMinutes: createMeasurementRange({ target: minutes, unit: 'minute', confidence }),
     intensityRpe: createMeasurementRange({ target: intensityTarget(entry), unit: 'rpe', confidence }),
     startsAt: null,
-    stressScore: snapshot.sessionRecoveryDemandScore ?? snapshot.sessionEnergyDemandScore ?? null,
+    stressScore: stressScoreFromSnapshot(snapshot),
     tissueLoads: tissueLoadsForDomain(domain),
+    supportMetadata: supportMetadataFromSnapshot(snapshot),
     explanation: createExplanation({
       summary: snapshot.sAndCRationale ?? snapshot.athleticDevelopmentRationale ?? 'Athleticore support session for boxing.',
       reasons: [

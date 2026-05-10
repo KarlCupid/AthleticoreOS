@@ -25,6 +25,7 @@ export * from './combatTrainingModel.ts';
 export * from './analyticsEngine.ts';
 export * from './historyAnalyticsAdapter.ts';
 export * from './generatedProgramWeeklyPlanAdapter.ts';
+export * from './planEntryRuntime.ts';
 export * from './decisionTraceSummaries.ts';
 export * from './workoutMediaAudit.ts';
 export * from './workoutSafetyCopy.ts';

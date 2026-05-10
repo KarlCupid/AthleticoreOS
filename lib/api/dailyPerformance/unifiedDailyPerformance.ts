@@ -17,7 +17,10 @@ import {
 } from '../../performance-engine/index.ts';
 import { buildDailyBodyMassState } from './bodyMassMapping';
 import { mapLegacyPhaseToUnifiedPhase, trainingBackgroundFromFitnessLevel } from './phaseMapping';
-import { protectedAnchorsFromScheduledActivities } from './protectedAnchors';
+import {
+  protectedAnchorsFromScheduledActivities,
+  protectedAnchorsFromWeeklyPlanEntries,
+} from './protectedAnchors';
 import { buildUnifiedTrackingEntries, type DailyReadinessCheckinRow } from './trackingEntries';
 import { boxingSnapshotsToDailyPerformanceSessions } from './boxingSnapshotSessions';
 
@@ -43,6 +46,18 @@ export function resolveUnifiedDailyPerformance(input: {
   const profile = input.athleteContext.profile;
   if (!profile) return null;
   const canonicalCurrentWeight = input.objectiveContext.currentWeightLbs ?? input.currentWeight ?? null;
+  const scheduledAnchorEntryIds = new Set(
+    input.scheduledActivities
+      .map((activity) => activity.weekly_plan_entry_id ?? null)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const scheduledActivityIds = new Set(input.scheduledActivities.map((activity) => activity.id));
+  const weeklyProtectedAnchors = protectedAnchorsFromWeeklyPlanEntries(
+    (input.weeklyPlanEntries ?? []).filter((entry) => (
+      !scheduledAnchorEntryIds.has(entry.id)
+      && !(entry.scheduled_activity_id && scheduledActivityIds.has(entry.scheduled_activity_id))
+    )),
+  );
 
   const phase = createPhaseState({
     current: mapLegacyPhaseToUnifiedPhase(input.objectiveContext.phase),
@@ -113,7 +128,10 @@ export function resolveUnifiedDailyPerformance(input: {
       currentWeightLbs: canonicalCurrentWeight,
       todayCheckin: input.todayCheckin,
     }),
-    protectedAnchors: protectedAnchorsFromScheduledActivities(input.scheduledActivities),
+    protectedAnchors: [
+      ...protectedAnchorsFromScheduledActivities(input.scheduledActivities),
+      ...weeklyProtectedAnchors,
+    ],
     plannedSessions: boxingSnapshotsToDailyPerformanceSessions(input.weeklyPlanEntries ?? []),
     acuteChronicWorkloadRatio: acwrRatioForUnifiedEngine(input.acwr),
     weightClass: hasWeightClassContext

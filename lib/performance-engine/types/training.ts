@@ -34,6 +34,54 @@ export type SessionSource =
   | 'external_calendar'
   | 'competition';
 
+export type DirectSupportDemandClass = 'baseline' | 'low' | 'moderate' | 'high';
+
+export type DirectSupportFuelPriority =
+  | 'sparring'
+  | 'boxing_practice'
+  | 'strength_power'
+  | 'power'
+  | 'roadwork_aerobic'
+  | 'roadwork_tempo'
+  | 'conditioning_intervals'
+  | 'durability'
+  | 'mobility'
+  | 'recovery'
+  | 'double_session'
+  | 'body_mass_protect';
+
+export type DirectSupportDevelopmentDomain =
+  | 'boxing_skill_support'
+  | 'strength'
+  | 'power'
+  | 'speed_agility'
+  | 'roadwork'
+  | 'conditioning'
+  | 'durability'
+  | 'mobility'
+  | 'recovery'
+  | 'nutrition_fueling'
+  | 'hydration'
+  | 'weight_class_support';
+
+export interface DirectSupportSessionMetadata {
+  athleticDevelopmentDomain?: DirectSupportDevelopmentDomain | string | null;
+  boxingSessionFamily?: string | null;
+  boxingSessionRole?: string | null;
+  supportDomainLabel?: string | null;
+  expectedFuelPriority?: DirectSupportFuelPriority | string | null;
+  expectedCarbDemandClass?: DirectSupportDemandClass | string | null;
+  expectedRecoveryDemandClass?: DirectSupportDemandClass | string | null;
+  expectedHydrationDemandClass?: DirectSupportDemandClass | string | null;
+  sessionEnergyDemandScore?: number | null;
+  sessionRecoveryDemandScore?: number | null;
+  plannedIntensity?: string | null;
+  protectedWorkoutModality?: string | null;
+  sAndCRationale?: string | null;
+  boxingRelevance?: string | null;
+  athleticDevelopmentRationale?: string | null;
+}
+
 export interface ProtectedWorkoutAnchor {
   id: string;
   label: string;
@@ -77,6 +125,7 @@ export interface ComposedSession {
   mergeDecisionId?: string | null;
   stressScore?: number | null;
   tissueLoads?: string[];
+  supportMetadata?: DirectSupportSessionMetadata | null;
   explanation: Explanation | null;
   confidence: ConfidenceValue;
 }
@@ -108,6 +157,7 @@ export function createComposedSession(input: {
   mergeDecisionId?: string | null | undefined;
   stressScore?: number | null | undefined;
   tissueLoads?: string[] | undefined;
+  supportMetadata?: DirectSupportSessionMetadata | null | undefined;
   explanation?: Explanation | null | undefined;
   confidence?: ConfidenceValue | undefined;
 }): ComposedSession {
@@ -127,6 +177,7 @@ export function createComposedSession(input: {
     mergeDecisionId: input.mergeDecisionId ?? null,
     stressScore: input.stressScore ?? null,
     tissueLoads: input.tissueLoads ?? [],
+    supportMetadata: input.supportMetadata ?? null,
     explanation: input.explanation ?? null,
     confidence: input.confidence ?? UNKNOWN_CONFIDENCE,
   };

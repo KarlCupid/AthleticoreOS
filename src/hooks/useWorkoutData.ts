@@ -14,6 +14,7 @@ import {
 import {
   generatedCompletionSurfacesToAnalyticsSessions,
   generatedCompletionSurfacesToHistoryEntries,
+  getBoxingSnapshotFromWeeklyPlanEntry,
   mergeWorkoutAnalyticsSessions,
   mergeWorkoutHistoryEntries,
   workoutProgrammingService,
@@ -46,6 +47,15 @@ export interface TrainingSession extends ACWRTrainingSession {
 
 interface WorkoutNavigation {
   navigate: (screen: string, params: Record<string, unknown>) => void;
+}
+
+function resolveTodayPlanEntry(engineState: DailyEngineState | null): WeeklyPlanEntryRow | null {
+  if (!engineState) return null;
+  if (engineState.primaryTrainingPlanEntry) return engineState.primaryTrainingPlanEntry as WeeklyPlanEntryRow;
+  if (engineState.primaryPlanEntry && getBoxingSnapshotFromWeeklyPlanEntry(engineState.primaryPlanEntry)) {
+    return engineState.primaryPlanEntry as WeeklyPlanEntryRow;
+  }
+  return (engineState.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null;
 }
 
 export function useWorkoutData() {
@@ -209,9 +219,11 @@ export function useWorkoutData() {
     loadData(true);
   }, [loadData]);
 
+  const todayPlanEntry = resolveTodayPlanEntry(engineState);
+
   const handleStartWorkout = async (navigation: WorkoutNavigation) => {
     if (!prescription) return;
-    if (!engineState?.primaryEnginePlanEntry) {
+    if (!todayPlanEntry) {
       navigation.navigate('WeeklyPlanSetup', {});
     }
   };
@@ -230,7 +242,7 @@ export function useWorkoutData() {
     engineState,
     performanceContext,
     dailyAthleteSummary,
-    todayPlanEntry: (engineState?.primaryEnginePlanEntry as WeeklyPlanEntryRow | null) ?? null,
+    todayPlanEntry,
     weeklyEntries,
     isDeloadWeek,
     historyLoaded,

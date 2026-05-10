@@ -13,6 +13,8 @@ AthleticoreOS is a boxing-athlete S&C and performance-support platform. Workout 
 
 `weekly_plan_entries` and `scheduled_activities` remain useful storage and calendar surfaces. They do not decide the programming intent for new weeks. New weekly rows should be created from boxing `GeneratedProgram` sessions through `generatedProgramWeeklyPlanAdapter.ts`.
 
+Today's active Athleticore training selection recognizes a `BoxingGeneratedPlanEntrySnapshot` in `weekly_plan_entries.prescription_snapshot` as the source of truth. A planned generated support snapshot is active training even when it has no legacy `WorkoutPrescriptionV2.exercises`. Planned generated support ranks ahead of protected anchors and old guided compatibility rows.
+
 ## Not Source Of Truth
 
 These paths are not allowed to own normal product workout generation:
@@ -25,6 +27,8 @@ These paths are not allowed to own normal product workout generation:
 - `general_fitness_legacy` as a user-facing mode
 
 They may exist only for old data compatibility, characterization tests, unrelated legacy calculations, or explicit migration helpers.
+
+Legacy workout-generation functions such as `generateWorkoutV2`, `generateAdaptiveSmartWeekPlan`, and the `generateSmartWeekPlan` alias are exposed only from `lib/engine/legacyWorkoutGeneration.ts`, which is an explicit compatibility boundary. Product app code should not import them from `lib/engine/index.ts`.
 
 ## Weekly Plan Flow
 
@@ -48,6 +52,10 @@ Old `weekly_plan_entries` and old `prescription_snapshot` rows can be read so at
 - Build a `GeneratedWorkout` request from a boxing entry with `buildGeneratedWorkoutRequestFromPlanEntry`.
 
 Compatibility helpers must not recreate old runtime generation as a fallback. Old rows without enough boxing intent should be displayed as archived compatibility entries.
+
+`GuidedWorkout` is compatibility-only for old rows that still carry a legacy guided prescription. Generated support sessions and protected boxing anchors route through `WorkoutDetail`; if a support snapshot does not yet have an attached `GeneratedWorkout`, the detail surface may lazily generate and attach one through the generated-workout path.
+
+Daily performance and nutrition read support-domain metadata directly from `BoxingGeneratedPlanEntrySnapshot`, including `athleticDevelopmentDomain`, `expectedFuelPriority`, demand classes, and energy/recovery demand scores. Title and family heuristics are fallback behavior for old data, not the primary interpretation path.
 
 ## Boxing Safety Rules
 

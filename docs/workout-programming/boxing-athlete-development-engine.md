@@ -128,6 +128,8 @@ Placement uses a lightweight boxing week layout score. Candidates are penalized 
 
 Generated support domains feed nutrition and recovery demand instead of forcing the nutrition engine to guess from generic activity labels.
 
+- Generated weekly-plan snapshots carry `athleticDevelopmentDomain`, `expectedFuelPriority`, carbohydrate/recovery/hydration demand classes, and energy/recovery demand scores into daily performance.
+- Daily nutrition consumes those direct fields before any title or label fallback.
 - Strength and power sessions emphasize carbs to train, protein to recover, and no aggressive deficit override on heavy S&C days.
 - Roadwork base uses duration-aware carbohydrate and hydration support without unnecessary high-carb copy for short easy sessions.
 - Conditioning intervals emphasize pre-session carbs, fluids, electrolytes when needed, and glycogen restore.
@@ -158,6 +160,8 @@ Generated weeks expose S&C coach helper copy for product surfaces:
 - `coachSummaryBullets`
 
 The copy should explain the actual programming decision, such as boxing practice being covered by protected anchors, sparring owning the hard stress, roadwork already being covered, or red readiness removing hard work.
+
+Train and Plan tabs should treat generated support snapshots as Athleticore support sessions. They execute through `WorkoutDetail` and the generated-workout completion path. `GuidedWorkout` remains available only for old guided-prescription rows that are still readable for compatibility.
 
 ## Media Readiness
 

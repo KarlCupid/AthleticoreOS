@@ -183,6 +183,28 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
 })();
 
 (() => {
+  const base = calculateNutritionTargetEstimate(baseInput({ phase: 'camp-build', nutritionGoal: 'maintain' }));
+  const resolved = resolveDailyNutritionTargetEstimate(base, [{
+    activity_type: 'road_work' as any,
+    expected_intensity: 4,
+    estimated_duration_min: 35,
+    custom_label: 'Explosive strength title should not win',
+    athletic_development_domain: 'roadwork',
+    support_domain_label: 'Roadwork base',
+    fuel_priority: 'roadwork_aerobic',
+    carb_demand_class: 'low',
+    recovery_demand_class: 'low',
+    hydration_demand_class: 'moderate',
+    energy_demand_score: 31,
+    recovery_demand_score: 22,
+  }]);
+
+  assert('direct fuel priority overrides title inference', resolved.prioritySession === 'roadwork_aerobic');
+  assert('direct demand score feeds nutrition demand score', resolved.sessionDemandScore === 31);
+  assert('direct hydration demand class influences hydration emphasis', resolved.hydrationPlan.emphasis === 'performance');
+})();
+
+(() => {
   const base = calculateNutritionTargetEstimate(baseInput({
     phase: 'camp-build',
     nutritionGoal: 'maintain',

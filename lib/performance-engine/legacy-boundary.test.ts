@@ -60,6 +60,13 @@ for (const file of deletedFiles) {
 
 const engineIndex = read('lib/engine/index.ts');
 assert('legacy weight-class generator is not exported', !/calculateWeightCut|generateCutPlan|computeDailyCutProtocol|determineCutPhase|getDailyCutIntensityCap/.test(engineIndex));
+assert('legacy workout-generation APIs are not exported from main engine barrel', !/generateWorkoutV2|generateAdaptiveSmartWeekPlan|generateSmartWeekPlan|generateWorkout,/.test(engineIndex));
+
+const legacyWorkoutGeneration = read('lib/engine/legacyWorkoutGeneration.ts');
+assert('legacy workout-generation APIs live behind explicit compatibility module', /Compatibility only\. Do not use for product workout generation\./.test(legacyWorkoutGeneration)
+  && /generateWorkoutV2/.test(legacyWorkoutGeneration)
+  && /generateAdaptiveSmartWeekPlan/.test(legacyWorkoutGeneration)
+  && /generateSmartWeekPlan/.test(legacyWorkoutGeneration));
 
 const sources = activeSource();
 const combined = sources.map((source) => `\n${source.file}\n${source.text}`).join('\n');

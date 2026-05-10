@@ -27,6 +27,7 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { useBoxingGeneratedWorkout } from '../hooks/useBoxingGeneratedWorkout';
 import {
   boxingEntryDisplayMeta,
+  classifyPlanEntryRuntimeSurface,
   getBoxingSnapshotFromWeeklyPlanEntry,
   type BoxingGeneratedPlanEntrySnapshot,
 } from '../../lib/performance-engine/workout-programming';
@@ -199,6 +200,21 @@ export function WorkoutScreen() {
   useEffect(() => { setShowWorkoutDetails(false); }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
 
   const openGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
+    if (entry && getBoxingSnapshotFromWeeklyPlanEntry(entry)) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const context = await getGuidedWorkoutContext(session.user.id, entry.date);
+      navigation.navigate('WorkoutDetail', {
+        weeklyPlanEntryId: entry.id,
+        date: entry.date,
+        readinessState: currentLevel ?? 'Prime',
+        phase: context.phase,
+        fitnessLevel: context.fitnessLevel,
+        isDeloadWeek: entry.is_deload,
+      });
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
     const trainingDate = entry?.date ?? todayLocalDate();
@@ -283,9 +299,10 @@ export function WorkoutScreen() {
 
   const handlePrimaryAction = useCallback(() => {
     if (todayPlanEntry) {
+      const runtimeSurface = classifyPlanEntryRuntimeSurface(todayPlanEntry);
       if (todayPlanEntry.status === 'completed' || todayPlanEntry.status === 'skipped') { void openWorkoutDetail(todayPlanEntry); return; }
-      if (getBoxingSnapshotFromWeeklyPlanEntry(todayPlanEntry)) { void openWorkoutDetail(todayPlanEntry); return; }
-      void openGuidedWorkout(todayPlanEntry); return;
+      if (runtimeSurface === 'legacy_guided_workout') { void openGuidedWorkout(todayPlanEntry); return; }
+      void openWorkoutDetail(todayPlanEntry); return;
     }
     if (prescription) { void openGuidedWorkout(null); return; }
     if (groupedWeeklyEntries.length === 0) { navigation.navigate('WeeklyPlanSetup'); return; }
@@ -440,7 +457,11 @@ export function WorkoutScreen() {
                     primaryEntry.sc_session_family,
                   ) : boxingMeta.title;
                   const handlePress = () => {
-                    if (group.date === todayLocalDate() && primaryEntry.status === 'planned') { void openGuidedWorkout(primaryEntry); return; }
+                    const runtimeSurface = classifyPlanEntryRuntimeSurface(primaryEntry);
+                    if (group.date === todayLocalDate() && primaryEntry.status === 'planned' && runtimeSurface === 'legacy_guided_workout') {
+                      void openGuidedWorkout(primaryEntry);
+                      return;
+                    }
                     void openWorkoutDetail(primaryEntry);
                   };
                   return (

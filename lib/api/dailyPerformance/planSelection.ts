@@ -2,7 +2,10 @@ import type {
   ScheduledActivityRow,
   WeeklyPlanEntryRow,
 } from '../../engine/index.ts';
-import { isActiveGuidedEnginePlanEntry } from '../../engine/sessionOwnership';
+import {
+  isActiveTrainingPlanEntry,
+  planEntryActiveTrainingRank,
+} from '../../performance-engine/workout-programming/planEntryRuntime.ts';
 
 type QueryResult<T> = Promise<{ data: T | null; error: unknown | null }>;
 
@@ -21,13 +24,18 @@ interface PlanSelectionClient {
 export interface PlanSelectionDependencies {
   loadPlanEntriesForDate: (userId: string, date: string) => Promise<WeeklyPlanEntryRow[]>;
   loadPlanEntriesForRange: (userId: string, startDate: string, endDate: string) => Promise<WeeklyPlanEntryRow[]>;
-  isActiveGuidedEnginePlanEntry: (entry: WeeklyPlanEntryRow) => boolean;
+  isActiveTrainingPlanEntry: (entry: WeeklyPlanEntryRow) => boolean;
 }
 
 export interface DailyPlanSelection {
   weeklyPlanEntries: WeeklyPlanEntryRow[];
   weeklyEntries: WeeklyPlanEntryRow[];
   primaryPlanEntry: WeeklyPlanEntryRow | null;
+  primaryTrainingPlanEntry: WeeklyPlanEntryRow | null;
+  /**
+   * Compatibility name for older callers. This now means the primary active
+   * Athleticore training row, not just a legacy GuidedWorkout prescription.
+   */
   primaryEnginePlanEntry: WeeklyPlanEntryRow | null;
 }
 
@@ -75,35 +83,47 @@ export async function loadPlanEntriesForRange(
 export const defaultPlanSelectionDependencies: PlanSelectionDependencies = {
   loadPlanEntriesForDate,
   loadPlanEntriesForRange,
-  isActiveGuidedEnginePlanEntry,
+  isActiveTrainingPlanEntry,
 };
 
-export function pickPrimaryPlanEntry(entries: WeeklyPlanEntryRow[]): WeeklyPlanEntryRow | null {
-  if (entries.length === 0) return null;
+function comparePlanEntriesByTrainingWeight(a: WeeklyPlanEntryRow, b: WeeklyPlanEntryRow): number {
+  const intensityDelta = (b.target_intensity ?? 0) - (a.target_intensity ?? 0);
+  if (intensityDelta !== 0) return intensityDelta;
+
+  const durationDelta = b.estimated_duration_min - a.estimated_duration_min;
+  if (durationDelta !== 0) return durationDelta;
 
   const slotRank: Record<WeeklyPlanEntryRow['slot'], number> = {
     single: 0,
     pm: 1,
     am: 2,
   };
-
-  return [...entries].sort((a, b) => {
-    const intensityDelta = (b.target_intensity ?? 0) - (a.target_intensity ?? 0);
-    if (intensityDelta !== 0) return intensityDelta;
-
-    const durationDelta = b.estimated_duration_min - a.estimated_duration_min;
-    if (durationDelta !== 0) return durationDelta;
-
-    return slotRank[a.slot] - slotRank[b.slot];
-  })[0] ?? null;
+  return slotRank[a.slot] - slotRank[b.slot];
 }
 
-export function pickPrimaryEnginePlanEntry(
+export function pickPrimaryPlanEntry(entries: WeeklyPlanEntryRow[]): WeeklyPlanEntryRow | null {
+  if (entries.length === 0) return null;
+
+  return [...entries].sort(comparePlanEntriesByTrainingWeight)[0] ?? null;
+}
+
+export function pickPrimaryTrainingPlanEntry(
   entries: WeeklyPlanEntryRow[],
-  isGuidedEngineEntry: (entry: WeeklyPlanEntryRow) => boolean = isActiveGuidedEnginePlanEntry,
+  isActiveTrainingEntry: (entry: WeeklyPlanEntryRow) => boolean = isActiveTrainingPlanEntry,
 ): WeeklyPlanEntryRow | null {
-  return entries.find((entry) => isGuidedEngineEntry(entry)) ?? null;
+  const ranked = entries
+    .filter((entry) => isActiveTrainingEntry(entry) || planEntryActiveTrainingRank(entry) === 3)
+    .map((entry) => ({ entry, rank: planEntryActiveTrainingRank(entry) ?? 99 }))
+    .sort((left, right) => {
+      const rankDelta = left.rank - right.rank;
+      if (rankDelta !== 0) return rankDelta;
+      return comparePlanEntriesByTrainingWeight(left.entry, right.entry);
+    });
+
+  return ranked[0]?.entry ?? null;
 }
+
+export const pickPrimaryEnginePlanEntry = pickPrimaryTrainingPlanEntry;
 
 export function pickPrimaryScheduledActivity(activities: ScheduledActivityRow[]): ScheduledActivityRow | null {
   const activeActivities = activities.filter((activity) => activity.status !== 'skipped');
@@ -152,10 +172,16 @@ export async function resolveDailyPlanSelection(
     dependencies.loadPlanEntriesForRange(input.userId, input.weekStart, input.weekEnd),
   ]);
 
+  const primaryTrainingPlanEntry = pickPrimaryTrainingPlanEntry(
+    weeklyPlanEntries,
+    dependencies.isActiveTrainingPlanEntry,
+  );
+
   return {
     weeklyPlanEntries,
     weeklyEntries,
     primaryPlanEntry: pickPrimaryPlanEntry(weeklyPlanEntries),
-    primaryEnginePlanEntry: pickPrimaryEnginePlanEntry(weeklyPlanEntries, dependencies.isActiveGuidedEnginePlanEntry),
+    primaryTrainingPlanEntry,
+    primaryEnginePlanEntry: primaryTrainingPlanEntry,
   };
 }

@@ -10,7 +10,7 @@ import {
 } from '../../lib/api/weeklyPlanService';
 import { getExerciseLibrary } from '../../lib/api/scService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
-import { getErrorMessage } from '../../lib/utils/logger';
+import { getErrorMessage, logError } from '../../lib/utils/logger';
 import {
     generatedWorkoutCompletionOptionsForUser,
     generatedWorkoutFlowUserId,
@@ -298,7 +298,16 @@ export function useWorkoutDetail() {
             );
             const completionLinkId = result.workoutCompletionId ?? boxingSnapshot?.generatedWorkoutId ?? generatedWorkout.templateId;
             if (entry?.id) {
-                await markDayCompleted(entry.id, completionLinkId);
+                try {
+                    await markDayCompleted(entry.id, completionLinkId);
+                } catch (completionError) {
+                    logError('useWorkoutDetail.completeGeneratedWorkout.markDayCompleted', completionError, {
+                        weeklyPlanEntryId: entry.id,
+                        generatedWorkoutId: boxingSnapshot?.generatedWorkoutId ?? null,
+                        workoutCompletionId: result.workoutCompletionId ?? null,
+                    });
+                    throw completionError;
+                }
             }
             if (userId && boxingSnapshot?.userProgramId) {
                 try {
@@ -312,7 +321,12 @@ export function useWorkoutDetail() {
                         },
                         { useSupabase: true },
                     );
-                } catch {
+                } catch (programSyncError) {
+                    logError('useWorkoutDetail.completeGeneratedWorkout.programSessionSync', programSyncError, {
+                        weeklyPlanEntryId: entry?.id ?? null,
+                        userProgramId: boxingSnapshot.userProgramId,
+                        generatedProgramSessionId: boxingSnapshot.sessionId,
+                    });
                     // Weekly plan completion is the source of truth in the app. Program-session sync is best-effort for older rows.
                 }
             }

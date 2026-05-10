@@ -51,6 +51,11 @@ type DayActivity = {
   boxing_session_family?: string | null | undefined;
   support_domain_label?: string | null | undefined;
   fuel_priority?: FuelPriority | null | undefined;
+  carb_demand_class?: 'baseline' | 'low' | 'moderate' | 'high' | null | undefined;
+  recovery_demand_class?: 'baseline' | 'low' | 'moderate' | 'high' | null | undefined;
+  hydration_demand_class?: 'baseline' | 'low' | 'moderate' | 'high' | null | undefined;
+  energy_demand_score?: number | null | undefined;
+  recovery_demand_score?: number | null | undefined;
 };
 
 type NutritionResolutionOptions = {
@@ -251,7 +256,7 @@ function toComposedSessions(activities: DayActivity[], date: string): ComposedSe
         confidence: ENGINE_CONFIDENCE,
       }),
       startsAt: activity.start_time ? `${date}T${activity.start_time.length === 5 ? `${activity.start_time}:00` : activity.start_time}` : null,
-      stressScore: Math.round((duration * intensity) / 10),
+      stressScore: activity.energy_demand_score ?? activity.recovery_demand_score ?? Math.round((duration * intensity) / 10),
       tissueLoads: family === 'strength'
         ? ['strength']
         : priority === 'durability'
@@ -261,6 +266,17 @@ function toComposedSessions(activities: DayActivity[], date: string): ComposedSe
             : family === 'sparring'
               ? ['impact', 'neural']
               : [],
+      supportMetadata: {
+        athleticDevelopmentDomain: activity.athletic_development_domain ?? null,
+        boxingSessionFamily: activity.boxing_session_family ?? null,
+        supportDomainLabel: activity.support_domain_label ?? null,
+        expectedFuelPriority: activity.fuel_priority ?? null,
+        expectedCarbDemandClass: activity.carb_demand_class ?? null,
+        expectedRecoveryDemandClass: activity.recovery_demand_class ?? null,
+        expectedHydrationDemandClass: activity.hydration_demand_class ?? null,
+        sessionEnergyDemandScore: activity.energy_demand_score ?? null,
+        sessionRecoveryDemandScore: activity.recovery_demand_score ?? null,
+      },
       confidence: ENGINE_CONFIDENCE,
     });
   });
@@ -474,15 +490,20 @@ function activeActivities(activities: DayActivity[]): DayActivity[] {
 }
 
 function activityPriorityScore(activity: DayActivity): number {
+  const directScore = Math.max(
+    activity.energy_demand_score ?? 0,
+    activity.recovery_demand_score ?? 0,
+  );
   const base = activity.expected_intensity * 10 + Math.round(activity.estimated_duration_min / 5);
   const priority = inferredFuelPriority(activity);
-  if (activity.activity_type === 'sparring') return base + 35;
-  if (activity.activity_type === 'boxing_practice') return base + 20;
-  if (priority === 'strength_power' || priority === 'power') return base + 18;
-  if (priority === 'conditioning_intervals' || activity.activity_type === 'conditioning') return base + 16;
-  if (priority === 'roadwork_tempo') return base + 14;
-  if (activity.activity_type === 'sc') return base + 15;
-  return base;
+  const sourceScore = directScore > 0 ? Math.max(base, directScore) : base;
+  if (activity.activity_type === 'sparring') return sourceScore + 35;
+  if (activity.activity_type === 'boxing_practice') return sourceScore + 20;
+  if (priority === 'strength_power' || priority === 'power') return sourceScore + 18;
+  if (priority === 'conditioning_intervals' || activity.activity_type === 'conditioning') return sourceScore + 16;
+  if (priority === 'roadwork_tempo') return sourceScore + 14;
+  if (activity.activity_type === 'sc') return sourceScore + 15;
+  return sourceScore;
 }
 
 function getPrioritySession(activities: DayActivity[], trainingIntensityCap?: number | null): {
@@ -608,6 +629,7 @@ function hydrationPlan(input: {
   priority: FuelPriority;
   recoveryFocus: RecoveryNutritionFocus;
   hydrationBoostOz: number;
+  hydrationDemandClass?: DayActivity['hydration_demand_class'];
 }): DailyHydrationPlan {
   const sodiumTargetValue = targetValue(input.target.sodiumElectrolyteGuidance?.sodiumTargetRange ?? { target: null, min: null, max: null }, 0);
   const sodiumTarget = sodiumTargetValue || null;
@@ -622,7 +644,9 @@ function hydrationPlan(input: {
   return {
     dailyTargetOz: targetValue(input.target.hydrationTarget ?? { target: 96, min: null, max: null }, 96),
     sodiumTargetMg: sodiumTarget,
-    emphasis: input.recoveryFocus === 'hydration_restore'
+    emphasis: input.hydrationDemandClass === 'high' || input.hydrationDemandClass === 'moderate'
+        ? 'performance'
+        : input.recoveryFocus === 'hydration_restore'
         ? 'recovery'
         : input.priority === 'sparring' || input.priority === 'double_session' || input.priority === 'boxing_practice'
           || input.priority === 'strength_power' || input.priority === 'power'
@@ -756,6 +780,11 @@ function resolveFromTarget(input: {
   const recovery = recoveryFocus(input.target, priority.priority);
   const hydrationTargetOz = targetValue(input.target.hydrationTarget ?? { target: 96, min: null, max: null }, 96);
   const hydrationBoostOz = clamp(hydrationTargetOz - 80, 0, 72);
+  const directDemandScore = input.activities.reduce((max, activity) => Math.max(
+    max,
+    activity.energy_demand_score ?? 0,
+    activity.recovery_demand_score ?? 0,
+  ), 0);
   const floorResult = input.floorResult;
   const macros = input.adjustedMacros ?? {
     calories: targetValue(input.target.energyTarget, input.baseTargets.adjustedCalories),
@@ -790,13 +819,16 @@ function resolveFromTarget(input: {
     prioritySession: priority.priority,
     deficitClass: deficitClass(input.baseTargets),
     recoveryNutritionFocus: recovery,
-    sessionDemandScore: clamp(Math.round(estimateTrainingExpenditure(input.activities) / 5), activeCount > 0 ? 15 : 0, 95),
+    sessionDemandScore: directDemandScore > 0
+      ? clamp(Math.round(directDemandScore), activeCount > 0 ? 15 : 0, 95)
+      : clamp(Math.round(estimateTrainingExpenditure(input.activities) / 5), activeCount > 0 ? 15 : 0, 95),
     hydrationBoostOz,
     hydrationPlan: hydrationPlan({
       target: input.target,
       priority: priority.priority,
       recoveryFocus: recovery,
       hydrationBoostOz,
+      hydrationDemandClass: priority.activity?.hydration_demand_class ?? null,
     }),
     sessionFuelingPlan: sessionFuelingPlanFromDirective({
       priority: priority.priority,

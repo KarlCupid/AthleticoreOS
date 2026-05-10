@@ -76,6 +76,8 @@ const program = await workoutProgrammingService.generateWeeklyProgramForUser(use
 
 After weekly generation, app/API code should project the program into `weekly_plan_entries` with `generatedProgramToWeeklyPlanEntries`. Do not call `generateAdaptiveSmartWeekPlan` or `calculateSC` as a fallback.
 
+If compatibility code must exercise old generation APIs, import them from `lib/engine/legacyWorkoutGeneration.ts`. Do not expose them through `lib/engine/index.ts` or call them from product workout-generation flows.
+
 ## How to Add a New Exercise
 
 1. Add the exercise to the right content pack under `lib/performance-engine/workout-programming/content/exercises/`.
@@ -250,6 +252,20 @@ Current product UI path:
 The Athleticore support flow supports generate, inspect, start, completion logging, workout feedback, exercise preferences, and next progression recommendation. When a Supabase user is available it persists generated workouts, completions, feedback, and progression decisions. Without an authenticated user, it stays in local in-memory mode.
 
 Train shows Athlete Support This Week when an active generated week exists. Protected boxing anchors are separated from Athleticore support sessions, and domain tags show Strength, Power, Roadwork, Conditioning, Durability, Mobility, Recovery, or Skill support.
+
+Today's active support session is selected from `weekly_plan_entries` by reading the `BoxingGeneratedPlanEntrySnapshot` directly. Planned generated support snapshots open `WorkoutDetail`, not `GuidedWorkout`; old guided-prescription rows remain readable through compatibility routing only.
+
+Daily performance and nutrition should consume snapshot metadata directly:
+
+- `athleticDevelopmentDomain`
+- `expectedFuelPriority`
+- `expectedCarbDemandClass`
+- `expectedRecoveryDemandClass`
+- `expectedHydrationDemandClass`
+- `sessionEnergyDemandScore`
+- `sessionRecoveryDemandScore`
+
+Title and family string inference is only a fallback for archived rows.
 
 Internal diagnostics are not rendered in the normal Train screen, do not persist, and should not be treated as a production rollout path.
 

@@ -100,6 +100,24 @@ function nutritionSafetyWarningFromRisks(flags: RiskFlag[]): NutritionFuelingTar
 }
 
 function priorityFromSession(session: ComposedSession | null): NutritionFuelingTarget['prioritySession'] {
+  const direct = session?.supportMetadata?.expectedFuelPriority;
+  if (
+    direct === 'sparring'
+    || direct === 'boxing_practice'
+    || direct === 'strength_power'
+    || direct === 'power'
+    || direct === 'roadwork_aerobic'
+    || direct === 'roadwork_tempo'
+    || direct === 'conditioning_intervals'
+    || direct === 'durability'
+    || direct === 'mobility'
+    || direct === 'recovery'
+    || direct === 'double_session'
+    || direct === 'body_mass_protect'
+  ) {
+    return direct;
+  }
+
   const title = `${session?.title ?? ''} ${(session?.explanation?.summary ?? '')}`.toLowerCase();
   if (title.includes('roadwork tempo')) return 'roadwork_tempo';
   if (title.includes('roadwork') || session?.family === 'roadwork') return 'roadwork_aerobic';
@@ -129,6 +147,26 @@ function fuelStateFromUnified(target: NutritionTarget, session: ComposedSession 
   if (session?.family === 'recovery' || session?.family === 'rest') return 'active_recovery';
   if (!session) return 'rest';
   return 'aerobic';
+}
+
+function sessionDemandScore(session: ComposedSession | null): number {
+  const direct = session?.supportMetadata?.sessionEnergyDemandScore
+    ?? session?.supportMetadata?.sessionRecoveryDemandScore
+    ?? null;
+  if (typeof direct === 'number' && Number.isFinite(direct)) {
+    return Math.max(0, Math.min(95, Math.round(direct)));
+  }
+  return Math.max(0, Math.min(95, Math.round(((session?.durationMinutes.target ?? 0) * (session?.intensityRpe.target ?? 0)) / 6)));
+}
+
+function hydrationEmphasisForSession(
+  session: ComposedSession | null,
+  priority: NutritionFuelingTarget['prioritySession'],
+): NutritionFuelingTarget['hydrationPlan']['emphasis'] {
+  const directHydration = session?.supportMetadata?.expectedHydrationDemandClass;
+  if (directHydration === 'high' || directHydration === 'moderate') return 'performance';
+  if (priority === 'recovery' || priority === 'mobility' || priority === 'durability') return 'baseline';
+  return 'performance';
 }
 
 function fuelingWindowFromDirective(
@@ -166,6 +204,8 @@ function sessionFuelingPlanFromUnified(input: {
         return 'Recovery reset day: stay consistent, hit protein, and hydrate.';
       case 'sparring':
         return 'Sparring already drives high stress today; do not under-fuel recovery.';
+      case 'boxing_practice':
+        return 'Boxing skill support is lower load, but arrive hydrated and keep normal meals consistent.';
       default:
         return input.directive?.explanation?.summary ?? 'Session fueling came from the Nutrition and Fueling Engine.';
     }
@@ -243,12 +283,12 @@ function nutritionFuelingTargetFromUnified(input: {
     recoveryNutritionFocus: target?.recoveryDirectives[0]?.focus === 'tissue_repair'
       ? 'impact_recovery'
       : target?.recoveryDirectives[0]?.focus ?? 'none',
-    sessionDemandScore: Math.max(0, Math.min(95, Math.round(((session?.durationMinutes.target ?? 0) * (session?.intensityRpe.target ?? 0)) / 6))),
+    sessionDemandScore: sessionDemandScore(session),
     hydrationBoostOz: Math.max(0, hydrationOz - 80),
     hydrationPlan: {
       dailyTargetOz: hydrationOz,
       sodiumTargetMg: sodiumTarget,
-      emphasis: priority === 'recovery' || priority === 'mobility' || priority === 'durability' ? 'baseline' : 'performance',
+      emphasis: hydrationEmphasisForSession(session, priority),
       notes: [
         ...(target?.sodiumElectrolyteGuidance?.electrolyteNotes ?? []),
         input.hydration.message,

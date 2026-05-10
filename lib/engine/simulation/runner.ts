@@ -12,10 +12,10 @@ import {
   deriveStimulusConstraintSet,
   getGlobalReadinessState,
   generateCampPlan,
-  generateSmartWeekPlan,
   prescribeConditioning,
   toCampEnginePhase
 } from '../index.ts';
+import { generateSmartWeekPlan } from '../legacyWorkoutGeneration.ts';
 import {
   evaluateWeightClassPlan,
   getBodyMassSupportPhase,
@@ -934,6 +934,7 @@ export async function runSimulation(config: SimulationConfig): Promise<Simulatio
         weeklyPlanEntries: todaysPlanEntries as any,
         primaryScheduledActivity: scheduledActivities[0] ?? null,
         primaryPlanEntry: primaryPlanEntry as any,
+        primaryTrainingPlanEntry: primaryEnginePlanEntry as any,
         primaryEnginePlanEntry: primaryEnginePlanEntry as any,
         workoutPrescription: mission.trainingDirective.prescription ?? null,
         mission,

@@ -256,6 +256,7 @@ export interface DailyEngineState {
   weeklyPlanEntries: WeeklyPlanEntryRow[];
   primaryScheduledActivity: ScheduledActivityRow | null;
   primaryPlanEntry: WeeklyPlanEntryRow | null;
+  primaryTrainingPlanEntry: WeeklyPlanEntryRow | null;
   primaryEnginePlanEntry: WeeklyPlanEntryRow | null;
   workoutPrescription: WorkoutPrescriptionV2 | null;
   mission: DailyAthleteSummary;

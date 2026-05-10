@@ -98,7 +98,20 @@ function range<TUnit extends 'kcal' | 'g' | 'oz' | 'mg' | 'minute' | 'rpe'>(
 function sessionStress(session: ComposedSession): number {
   const duration = session.durationMinutes.target ?? 0;
   const intensity = session.intensityRpe.target ?? 0;
-  return session.stressScore ?? Math.round((duration * intensity) / 10);
+  return session.supportMetadata?.sessionEnergyDemandScore
+    ?? session.supportMetadata?.sessionRecoveryDemandScore
+    ?? session.stressScore
+    ?? Math.round((duration * intensity) / 10);
+}
+
+function demandClassValue(
+  demandClass: string | null | undefined,
+  values: Record<'baseline' | 'low' | 'moderate' | 'high', number>,
+): number | null {
+  if (demandClass === 'baseline' || demandClass === 'low' || demandClass === 'moderate' || demandClass === 'high') {
+    return values[demandClass];
+  }
+  return null;
 }
 
 function bodyWeightLbs(state: PerformanceState): number | null {
@@ -164,6 +177,25 @@ function sessionsForDate(state: PerformanceState, date: ISODateString): Composed
 }
 
 function adaptationForSession(session: ComposedSession): PrimaryNutritionAdaptation {
+  switch (session.supportMetadata?.athleticDevelopmentDomain) {
+    case 'boxing_skill_support':
+      return 'boxing_skill';
+    case 'strength':
+      return 'strength';
+    case 'power':
+    case 'speed_agility':
+      return 'power';
+    case 'roadwork':
+    case 'conditioning':
+      return 'conditioning';
+    case 'durability':
+    case 'mobility':
+    case 'recovery':
+      return 'recovery';
+    default:
+      break;
+  }
+
   if (session.family === 'sparring') return 'sparring';
   if (session.family === 'boxing_skill') return 'boxing_skill';
   if (session.family === 'strength') {
@@ -189,11 +221,36 @@ function carbohydrateDemand(session: ComposedSession, phase: AthleticorePhase): 
   const sparringBonus = session.family === 'sparring' ? 25 : session.family === 'boxing_skill' ? 12 : 0;
   const campBonus = phase === 'camp' || phase === 'short_notice_camp' ? 15 : 0;
   const competitionBonus = phase === 'competition_week' && session.family === 'assessment' ? 20 : 0;
-  return clamp(Math.round(base + sparringBonus + campBonus + competitionBonus), 0, 110);
+  const inferred = Math.round(base + sparringBonus + campBonus + competitionBonus);
+  const directFloor = demandClassValue(session.supportMetadata?.expectedCarbDemandClass, {
+    baseline: 0,
+    low: 15,
+    moderate: 38,
+    high: 68,
+  });
+  return clamp(Math.max(inferred, directFloor ?? 0), 0, 110);
 }
 
 function proteinDemand(session: ComposedSession): number {
   const intensity = session.intensityRpe.target ?? 0;
+  const directFloor = demandClassValue(session.supportMetadata?.expectedRecoveryDemandClass, {
+    baseline: 18,
+    low: 22,
+    moderate: 30,
+    high: 38,
+  });
+  if (directFloor != null) {
+    const inferred = session.family === 'strength'
+      ? intensity >= 7 ? 38 : 30
+      : session.family === 'sparring'
+        ? 34
+        : session.family === 'conditioning' || session.family === 'roadwork'
+          ? 26
+          : session.family === 'assessment'
+            ? 32
+            : 20;
+    return Math.max(inferred, directFloor);
+  }
   if (session.family === 'strength') return intensity >= 7 ? 38 : 30;
   if (session.family === 'sparring') return 34;
   if (session.family === 'conditioning' || session.family === 'roadwork') return 26;
@@ -204,10 +261,46 @@ function proteinDemand(session: ComposedSession): number {
 function hydrationDemand(session: ComposedSession): number {
   const duration = session.durationMinutes.target ?? 0;
   const intensity = session.intensityRpe.target ?? 0;
-  return clamp(Math.round((duration / 15) * 4 + (intensity >= 7 ? 12 : intensity >= 5 ? 6 : 2)), 8, 56);
+  const inferred = Math.round((duration / 15) * 4 + (intensity >= 7 ? 12 : intensity >= 5 ? 6 : 2));
+  const directFloor = demandClassValue(session.supportMetadata?.expectedHydrationDemandClass, {
+    baseline: 10,
+    low: 14,
+    moderate: 24,
+    high: 38,
+  });
+  return clamp(Math.max(inferred, directFloor ?? 0), 8, 56);
 }
 
 function fuelingPriority(session: ComposedSession): 'low' | 'medium' | 'high' {
+  const directClass = [
+    session.supportMetadata?.expectedCarbDemandClass,
+    session.supportMetadata?.expectedRecoveryDemandClass,
+    session.supportMetadata?.expectedHydrationDemandClass,
+  ];
+  if (directClass.includes('high')) return 'high';
+  if (session.supportMetadata?.expectedFuelPriority) {
+    switch (session.supportMetadata.expectedFuelPriority) {
+      case 'sparring':
+      case 'roadwork_tempo':
+      case 'conditioning_intervals':
+      case 'double_session':
+      case 'body_mass_protect':
+        return 'high';
+      case 'strength_power':
+      case 'power':
+      case 'boxing_practice':
+      case 'roadwork_aerobic':
+      case 'durability':
+        return 'medium';
+      case 'mobility':
+      case 'recovery':
+        return 'low';
+      default:
+        break;
+    }
+  }
+  if (directClass.includes('moderate')) return 'medium';
+  if (directClass.includes('low') || directClass.includes('baseline')) return 'low';
   if (session.family === 'sparring' || session.family === 'assessment') return 'high';
   if ((session.intensityRpe.target ?? 0) >= 7 || (session.durationMinutes.target ?? 0) >= 75) return 'high';
   if ((session.intensityRpe.target ?? 0) >= 5 || (session.durationMinutes.target ?? 0) >= 45) return 'medium';

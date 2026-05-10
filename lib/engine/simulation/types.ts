@@ -41,6 +41,7 @@ export interface DailyEngineState {
   weeklyPlanEntries: any[];
   primaryScheduledActivity: any;
   primaryPlanEntry: any;
+  primaryTrainingPlanEntry: any;
   primaryEnginePlanEntry: any;
   workoutPrescription: any;
   mission: DailyAthleteSummary;

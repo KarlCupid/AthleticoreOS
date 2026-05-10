@@ -107,7 +107,7 @@ async function computeDailyEngineState(
     fitnessLevel: athleteContext.fitnessLevel,
     trainingAge: athleteContext.trainingAge,
     performanceGoalType: athleteContext.performanceGoalType,
-    weeklyPlanEntry: planSelection.primaryEnginePlanEntry,
+    weeklyPlanEntry: planSelection.primaryTrainingPlanEntry,
     objectiveContext,
     medStatus,
   });
@@ -155,6 +155,7 @@ async function computeDailyEngineState(
     weeklyPlanEntries: planSelection.weeklyPlanEntries,
     primaryScheduledActivity: pickPrimaryScheduledActivity(scheduledActivities),
     primaryPlanEntry: planSelection.primaryPlanEntry,
+    primaryTrainingPlanEntry: planSelection.primaryTrainingPlanEntry,
     primaryEnginePlanEntry: planSelection.primaryEnginePlanEntry,
     workoutPrescription: workoutPrescription ?? null,
     mission,
