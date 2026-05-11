@@ -2,6 +2,38 @@
 
 Use this as the final pre-release hands-on pass for Athleticore boxer S&C support. Each scenario should be checked on Today, Week/Plan, WorkoutDetail, Fuel, completion/history, and analytics when applicable.
 
+## Pass/Fail Result Template
+
+Use `Pass`, `Fail`, or `N/A with reason`. Every `Fail` needs a screenshot or screen recording, device/platform, account type, timestamp, and a short note about whether it is a blocker or a deferred issue.
+
+| Flow | iOS result | Android result | Evidence | Notes / issue |
+| --- | --- | --- | --- | --- |
+| Fresh onboarding | TBD | TBD | TBD | Confirm sign-up, first-run questions, safe-area layout, keyboard behavior, and final navigation into the app. |
+| Generate weekly plan | TBD | TBD | TBD | Confirm protected anchors remain fixed and generated support fills gaps without duplicate planners. |
+| Today planned support session | TBD | TBD | TBD | Confirm Today shows the planned support session as the active execution surface and keeps the CTA reachable. |
+| WorkoutDetail lazy build | TBD | TBD | TBD | Open a planned support row without attached details and confirm full session build/inspect happens from WorkoutDetail. |
+| Complete generated support session | TBD | TBD | TBD | Start, pause/resume if available, log work, complete, and verify progression copy appears. |
+| Fuel quick after training | TBD | TBD | TBD | Confirm fuel guidance follows the completed or upcoming training demand and does not contradict session intensity. |
+| Weight-class high-risk safety flow | TBD | TBD | TBD | Confirm safety guidance and safer action appear before scale metrics and remain visible on small screens. |
+| History/analytics after completion | TBD | TBD | TBD | Confirm the completed support session appears as support/logged work without developer language. |
+| Engine flag off behavior | TBD | TBD | TBD | Confirm generated support UI hides or falls back cleanly without old generation paths appearing. |
+| Old row compatibility | TBD | TBD | TBD | Confirm older rows remain readable and do not trigger new unsafe generation automatically. |
+| Missing media/text fallback | TBD | TBD | TBD | Confirm exercise rows remain usable with text instructions when media is missing. |
+| Small phone scroll/CTA reachability | TBD | TBD | TBD | Confirm primary CTAs can be reached without layout overlap, clipped text, or hidden safety copy. |
+
+## Stop Conditions
+
+Stop the smoke pass, capture evidence, and file/triage the issue before continuing if any of these appear:
+
+- App crash, blank screen, or unrecoverable loading state.
+- Impossible to reach the primary CTA on a normal or small phone viewport.
+- Safety warning hidden below scale numbers or lower-priority metrics.
+- Generated support routes to old GuidedWorkout instead of WorkoutDetail.
+- Sparring generated instead of appearing only as a protected anchor.
+- Fuel advice contradicts training demand or under-fuels hard work.
+- Completion saves but plan status does not update or explain the pending state.
+- Developer terms visible in normal UI, including `GeneratedWorkout`, `snapshot`, `payload`, `validation`, `legacy`, `beta`, `dev preview`, `protocol`, `compliance`, `adherence`, `classification`, `intervention`, `directive`, `invalid`, or `failure`.
+
 ## 1. Aspiring Boxer, No Anchors
 
 - UI behavior: Today shows one Athleticore support session or a clear plan setup state, never a standalone extra generator by default.
