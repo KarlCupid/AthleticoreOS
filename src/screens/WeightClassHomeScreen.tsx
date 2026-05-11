@@ -190,6 +190,10 @@ export function WeightClassHomeScreen() {
     && /weight|body|fuel|professional|unsafe|rapid/i.test(`${flag.label} ${flag.message}`)
   )) || performanceContext.bodyMass?.safetyLabel === 'Blocked for safety'
     || performanceContext.bodyMass?.safetyLabel === 'Professional review required';
+  const bodyMassNeedsSafetyPriority = bodyMassPlanBlocked
+    || guidedBodyMass.status === 'high_risk'
+    || guidedBodyMass.statusTone === 'blocked'
+    || phase === 'high_risk_review';
   const bodyMassBlockReason = guidedBodyMass.available ? guidedBodyMass.primaryMessage
     : performanceContext.riskFlags.find((flag) => flag.blocksPlan)?.message
       ?? performanceContext.bodyMass?.explanation
@@ -229,7 +233,7 @@ export function WeightClassHomeScreen() {
           </View>
         </View>
 
-        {bodyMassPlanBlocked ? (
+        {bodyMassNeedsSafetyPriority ? (
           <View style={styles.heroSafetyBanner}>
             <Text style={styles.heroSafetyTitle}>{weightCoachCopy.headline}</Text>
             <Text style={styles.heroSafetyBody}>
@@ -247,7 +251,7 @@ export function WeightClassHomeScreen() {
           </View>
         ) : null}
 
-        {bodyMassPlanBlocked ? (
+        {bodyMassNeedsSafetyPriority ? (
           <Text style={styles.heroNumbersContext}>Scale numbers are secondary until the safety review is clear.</Text>
         ) : null}
         <View style={styles.heroNumbers}>
@@ -281,7 +285,7 @@ export function WeightClassHomeScreen() {
       </LinearGradient>
       <Card
         style={[styles.guidedCard, { borderLeftColor: statusColor(guidedBodyMass.statusTone) }]}
-        backgroundTone={guidedBodyMass.planBlocked ? 'risk' : 'bodyMassSupport'}
+        backgroundTone={bodyMassNeedsSafetyPriority ? 'risk' : 'bodyMassSupport'}
         backgroundScrimColor="rgba(10, 10, 10, 0.76)"
       >
         <View style={styles.guidedHeader}>
@@ -349,7 +353,7 @@ export function WeightClassHomeScreen() {
         showBodyMass={Boolean(performanceContext.bodyMass)}
       />
 
-      {bodyMassPlanBlocked ? (
+      {bodyMassNeedsSafetyPriority ? (
         <Card
           style={styles.card}
           backgroundTone="risk"

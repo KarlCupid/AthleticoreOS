@@ -27,6 +27,7 @@ function isGeneratedEntry(log: UnifiedWorkoutHistoryEntry): log is GeneratedWork
 
 function formatFocusLabel(log: UnifiedWorkoutHistoryEntry) {
   if (isGeneratedEntry(log)) return generatedHistoryDisplayTitle(log);
+  if (log.workout_type === 'practice' || log.focus === 'sport_specific') return 'Protected boxing';
   return String(log.focus ?? log.workout_type ?? 'training')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase());
@@ -34,7 +35,7 @@ function formatFocusLabel(log: UnifiedWorkoutHistoryEntry) {
 
 function formatSourceBadge(log: UnifiedWorkoutHistoryEntry) {
   if (!isGeneratedEntry(log)) return 'Logged workout';
-  if (!log.sourceLabel || log.sourceLabel === 'Athleticore support') return generatedHistoryDisplayTitle(log);
+  if (!log.sourceLabel || log.sourceLabel === 'Athleticore support') return 'Support session';
   return log.sourceLabel;
 }
 

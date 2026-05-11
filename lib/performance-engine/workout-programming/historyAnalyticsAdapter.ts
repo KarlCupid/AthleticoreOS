@@ -100,7 +100,7 @@ function boxingGeneratedLabel(workoutTypeId: string | undefined, goalId: string 
   if (normalized.includes('hip') || normalized.includes('ankle') || normalized.includes('mobility')) return 'Durability support';
   if (normalized.includes('recovery')) return 'Recovery support';
   if (normalized.includes('boxing_skill')) return 'Skill support';
-  return 'Athleticore support';
+  return 'Support session';
 }
 
 function legacyWorkoutType(workoutTypeId: string | undefined): WorkoutLogRow['workout_type'] {
@@ -309,5 +309,5 @@ export function mergeWorkoutAnalyticsSessions<T extends UnifiedWorkoutAnalyticsS
 }
 
 export function generatedHistoryDisplayTitle(entry: GeneratedWorkoutHistoryEntry): string {
-  return boxingGeneratedLabel(entry.workoutTypeId, entry.goalId) || titleToken(entry.focus ?? 'Athleticore support');
+  return boxingGeneratedLabel(entry.workoutTypeId, entry.goalId) || titleToken(entry.focus ?? 'Support session');
 }

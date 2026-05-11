@@ -294,10 +294,16 @@ export function GeneratedWorkoutPreviewCard({
     ]),
   ].map(sanitizeAthleteFacingCopy);
   const nonDefaultSafetyNotes = primarySafetyNotes.filter((note) => !defaultSafetyNotes.includes(note));
-  const showSafetyDetails = workout.blocked || safety.tone !== 'ok' || nonDefaultSafetyNotes.length > 0;
+  const hasSafetyDetails = primarySafetyNotes.length > 0;
+  const showSafetyDetailsBeforeToggle = workout.blocked || safety.tone !== 'ok' || nonDefaultSafetyNotes.length > 0;
   const trackingMetrics = workout.trackingMetrics ?? workout.trackingMetricIds;
   const obviousTrackingMetrics = new Set(['session_rpe', 'duration_minutes', 'completion_status']);
   const showTrackingDetails = trackingMetrics.some((metric) => !obviousTrackingMetrics.has(metric));
+  const detailsHint = showDetails
+    ? 'Full coaching notes are visible.'
+    : showSafetyDetailsBeforeToggle
+      ? 'Scaling, logging, and review notes are tucked away until needed.'
+      : 'Safety, scaling, logging, and review notes are tucked away until needed.';
 
   return (
     <View testID="generated-workout-preview-card">
@@ -392,8 +398,14 @@ export function GeneratedWorkoutPreviewCard({
           </View>
         </CopySection>
 
+        {showSafetyDetailsBeforeToggle ? (
+          <CopySection title="Safety details" testID="generated-workout-preview-safety">
+            <BulletList items={primarySafetyNotes} />
+          </CopySection>
+        ) : null}
+
         <View style={styles.detailsToggleRow}>
-          <Text style={styles.detailsHint}>{showDetails ? 'Full coaching notes are visible.' : 'Safety, scaling, logging, and review notes are tucked away until needed.'}</Text>
+          <Text style={styles.detailsHint}>{detailsHint}</Text>
           <Text
             accessibilityRole="button"
             accessibilityLabel={showDetails ? 'Hide workout details' : 'Show workout details'}
@@ -423,7 +435,7 @@ export function GeneratedWorkoutPreviewCard({
               </View>
             </CopySection>
 
-            {showSafetyDetails ? (
+            {!showSafetyDetailsBeforeToggle && hasSafetyDetails ? (
               <CopySection title="Safety details" testID="generated-workout-preview-safety">
                 <BulletList items={primarySafetyNotes} />
               </CopySection>

@@ -53,7 +53,13 @@ function getToneStyles(tone: 'neutral' | 'success' | 'warning') {
 
 function normalizeSupportLabel(label: string | null | undefined) {
   if (!label || label === 'Athleticore support') return 'Support session';
-  return label;
+  return label
+    .replace(/\bgenerated workout\b/gi, 'Support session')
+    .replace(/\bgenerated session\b/gi, 'Support session')
+    .replace(/\bgenerated\b/gi, 'Support')
+    .replace(/\blegacy\b/gi, 'Older')
+    .replace(/\bsnapshot\b/gi, 'Saved context')
+    .replace(/\bmodel\b/gi, 'Plan');
 }
 
 export function WorkoutAnalyticsTab({
