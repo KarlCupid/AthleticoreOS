@@ -30,12 +30,19 @@ test.describe('Onboarding smoke', () => {
       await expectNoDeveloperCopy(page);
 
       await page.getByRole('button', { name: /Continue/i }).click();
-      await expect(page.getByText(/Start with where you are now/i)).toBeVisible();
-      await expect(page.getByText(/Use male-based defaults/i)).toBeVisible();
-      await expect(page.getByText(/Use female-based defaults/i)).toBeVisible();
-      await expect(page.getByText(/Protect boxing practice/i)).toBeVisible();
+      await expect(page.getByText(/Your boxing baseline/i)).toBeVisible();
+      await expect(page.getByText(/^Sport$/i)).toHaveCount(0);
+      await expect(page.getByText(/Optional baseline details/i)).toBeVisible();
+      await expect(page.getByText(/^Age$/i)).toBeVisible();
+      await expect(page.getByText(/^Current weight$/i)).toBeVisible();
+      await expect(page.getByText(/Biological profile/i)).toBeVisible();
+      await expect(page.getByText(/^Male$/i)).toBeVisible();
+      await expect(page.getByText(/^Female$/i)).toBeVisible();
+      await expect(page.getByText(/Use male-based defaults/i)).toHaveCount(0);
+      await expect(page.getByText(/Use female-based defaults/i)).toHaveCount(0);
+      await expect(page.getByText(/Support boxing practice/i)).toBeVisible();
 
-      await page.getByPlaceholder('25').focus();
+      await page.getByLabel(/Age optional/i).focus();
       await expect(page.getByRole('button', { name: /Continue/i })).toBeVisible();
       await expectNoDeveloperCopy(page);
 

@@ -50,8 +50,8 @@ const STEP_META = [
     },
     {
         eyebrow: 'Step 2',
-        title: 'Starting point',
-        description: 'Give Athleticore enough context to coach the first stretch.',
+        title: 'Boxing baseline',
+        description: 'Give Athleticore enough boxing context to coach the first stretch.',
     },
     {
         eyebrow: 'Step 3',
@@ -76,8 +76,8 @@ const STEP_META = [
 ] as const;
 
 const BIO_SEX_OPTIONS = [
-    { value: 'male', label: 'Use male-based defaults', descriptor: 'Starting recovery and fueling assumptions until your logs sharpen them.' },
-    { value: 'female', label: 'Use female-based defaults', descriptor: 'Starting recovery and fueling assumptions until your logs sharpen them.' },
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
 ] as const;
 
 const TRAINING_BACKGROUND_OPTIONS: Array<{
@@ -85,9 +85,9 @@ const TRAINING_BACKGROUND_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'new', label: 'New to structure', descriptor: 'Start lighter while Athleticore learns how you respond.' },
-    { value: 'some', label: 'Some experience', descriptor: 'Build from a steady base with room for guided progression.' },
-    { value: 'advanced', label: 'Advanced', descriptor: 'Use more structured history while still protecting recovery.' },
+    { value: 'new', label: 'New / learning structure', descriptor: "You're newer to planned training or still building consistency." },
+    { value: 'some', label: 'Intermediate / consistent', descriptor: 'You train regularly and can handle structured progressions.' },
+    { value: 'advanced', label: 'Advanced / competitive', descriptor: 'You have serious training history, sparring/fight experience, or higher weekly load.' },
 ];
 
 const TRAINING_STATUS_OPTIONS: Array<{
@@ -95,10 +95,10 @@ const TRAINING_STATUS_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'consistent', label: 'Consistent now', descriptor: 'Training has a current rhythm Athleticore can build around.' },
-    { value: 'inconsistent', label: 'Inconsistent lately', descriptor: 'The first mission should stay realistic while rhythm returns.' },
-    { value: 'returning', label: 'Returning', descriptor: 'Build back carefully and let readiness guide the load.' },
-    { value: 'new_rhythm', label: 'New routine', descriptor: 'Start simple and let check-ins sharpen the plan.' },
+    { value: 'consistent', label: 'In rhythm', descriptor: "You've been training consistently for the last few weeks." },
+    { value: 'inconsistent', label: 'On and off', descriptor: "You're training, but the schedule has been inconsistent." },
+    { value: 'returning', label: 'Coming back', descriptor: "You're returning after time off, injury, illness, or a lighter stretch." },
+    { value: 'new_rhythm', label: 'Starting a new routine', descriptor: 'Your training setup is changing and the app should start carefully.' },
 ];
 
 type MainGoal = BuildPhaseGoalType;
@@ -108,10 +108,10 @@ const MAIN_GOAL_OPTIONS: Array<{
     label: string;
     descriptor: string;
 }> = [
-    { value: 'conditioning', label: 'Conditioning', descriptor: 'Improve pace, output, and repeatability.' },
-    { value: 'strength', label: 'Strength', descriptor: 'Build strength while managing total load.' },
-    { value: 'boxing_skill', label: 'Protect boxing practice', descriptor: 'Keep coach-led boxing protected and build support around it.' },
-    { value: 'weight_class_prep', label: 'Weight-class context', descriptor: 'Keep body-mass guidance safety-first and gradual.' },
+    { value: 'conditioning', label: 'Conditioning', descriptor: 'Build the gas tank: better pace, repeat efforts, and round-to-round output.' },
+    { value: 'strength', label: 'Strength & power', descriptor: 'Get stronger and more explosive without burying your boxing work.' },
+    { value: 'boxing_skill', label: 'Support boxing practice', descriptor: 'Keep boxing sessions as the priority and build supporting work around them.' },
+    { value: 'weight_class_prep', label: 'Weight-class support', descriptor: 'Track body-mass context carefully with safety-first guidance.' },
 ];
 
 const JOURNEY_STATE_OPTIONS: Array<{
@@ -732,46 +732,58 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 1:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Start with where you are now</Text>
+                        <Text style={styles.stepTitle}>Your boxing baseline</Text>
                         <Text style={styles.stepSubtitle}>
-                            Athleticore uses this to shape the first mission without pretending it knows your full history yet.
+                            Set the first plan around your real boxing rhythm, not a generic fitness profile.
                         </Text>
 
-                        <Text style={styles.inputLabel}>Sport</Text>
-                        <View style={styles.pillRow}>
-                            <View style={[styles.pill, styles.pillActive]}>
-                                <Text style={[styles.pillText, styles.pillTextActive]}>Boxing</Text>
+                        <View style={styles.baselineDetailsCard}>
+                            <Text style={styles.baselineDetailsTitle}>Optional baseline details</Text>
+                            <Text style={styles.baselineDetailsCopy}>
+                                Age and current weight help with safer starting guidance. Skipped fields stay unknown; Athleticore will not guess them.
+                            </Text>
+
+                            <View style={styles.baselineFieldStack}>
+                                <View style={styles.baselineField}>
+                                    <View style={styles.baselineLabelRow}>
+                                        <Text style={styles.baselineFieldLabel}>Age</Text>
+                                        <Text style={styles.baselineFieldMeta}>Optional</Text>
+                                    </View>
+                                    <TextInput
+                                        style={styles.baselineInput}
+                                        placeholder="25"
+                                        placeholderTextColor={COLORS.text.tertiary}
+                                        keyboardType="numeric"
+                                        returnKeyType="done"
+                                        value={age}
+                                        onChangeText={setAge}
+                                        accessibilityLabel="Age optional"
+                                    />
+                                </View>
+
+                                <View style={styles.baselineField}>
+                                    <View style={styles.baselineLabelRow}>
+                                        <Text style={styles.baselineFieldLabel}>Current weight</Text>
+                                        <Text style={styles.baselineFieldMeta}>Optional, lb</Text>
+                                    </View>
+                                    <TextInput
+                                        style={styles.baselineInput}
+                                        placeholder="155"
+                                        placeholderTextColor={COLORS.text.tertiary}
+                                        keyboardType="decimal-pad"
+                                        returnKeyType="done"
+                                        value={weight}
+                                        onChangeText={setWeight}
+                                        accessibilityLabel="Current weight optional"
+                                    />
+                                </View>
                             </View>
                         </View>
-                        <Text style={styles.helperText}>This setup is boxing-first so the first mission can be specific.</Text>
 
-                        <View style={styles.inputRow}>
-                            <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>Age (optional)</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="25"
-                                    placeholderTextColor={COLORS.text.tertiary}
-                                    keyboardType="numeric"
-                                    value={age}
-                                    onChangeText={setAge}
-                                />
-                            </View>
-                            <View style={{ width: SPACING.md }} />
-                            <View style={[styles.inputGroup, { flex: 1 }]}>
-                                <Text style={styles.inputLabel}>Current weight (optional)</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="155"
-                                    placeholderTextColor={COLORS.text.tertiary}
-                                    keyboardType="decimal-pad"
-                                    value={weight}
-                                    onChangeText={setWeight}
-                                />
-                            </View>
-                        </View>
-
-                        <Text style={styles.inputLabel}>Recovery and fueling defaults</Text>
+                        <Text style={styles.inputLabel}>Biological profile</Text>
+                        <Text style={styles.helperText}>
+                            Used only for safer starting assumptions around recovery, fueling, and body-mass guidance. Your check-ins will personalize this over time.
+                        </Text>
                         <View style={styles.activityOptionsList}>
                             {BIO_SEX_OPTIONS.map((option) => renderOptionCard(
                                 bioSex === option.value,
@@ -779,9 +791,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 setBioSex,
                             ))}
                         </View>
-                        <Text style={styles.helperText}>These are starting assumptions only. Your logs will matter more over time.</Text>
 
                         <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Experience level</Text>
+                        <Text style={styles.helperText}>Pick the closest match so the first progressions start at the right speed.</Text>
                         <View style={styles.activityOptionsList}>
                             {TRAINING_BACKGROUND_OPTIONS.map((option) => renderOptionCard(
                                 trainingBackground === option.value,
@@ -791,6 +803,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         </View>
 
                         <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Current goal</Text>
+                        <Text style={styles.helperText}>This tells Athleticore what to emphasize first while boxing sessions stay the priority.</Text>
                         <View style={styles.activityOptionsList}>
                             {MAIN_GOAL_OPTIONS.map((option) => renderOptionCard(
                                 mainGoal === option.value,
@@ -799,7 +812,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             ))}
                         </View>
 
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Training status</Text>
+                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Training lately</Text>
+                        <Text style={styles.helperText}>Think about the last few weeks, not your all-time best week.</Text>
                         <View style={styles.activityOptionsList}>
                             {TRAINING_STATUS_OPTIONS.map((option) => renderOptionCard(
                                 trainingStatus === option.value,
