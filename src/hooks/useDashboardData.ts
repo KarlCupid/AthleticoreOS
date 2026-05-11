@@ -170,7 +170,7 @@ class DashboardLoadFailure extends Error {
     readonly kind: DashboardLoadErrorKind,
     readonly originalError: unknown,
   ) {
-    super(originalError instanceof Error ? originalError.message : 'Dashboard load failed');
+    super(originalError instanceof Error ? originalError.message : 'Dashboard load could not complete');
     this.name = 'DashboardLoadFailure';
   }
 }

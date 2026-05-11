@@ -238,7 +238,7 @@ export function WeightClassPlanSetupScreen() {
 
       nav.navigate('WeightClassHome');
     } catch (error: any) {
-      Alert.alert('Error', error?.message ?? 'Failed to create plan.');
+      Alert.alert('Could not create plan', error?.message ?? 'Review the details and try again.');
     } finally {
       setLoading(false);
     }

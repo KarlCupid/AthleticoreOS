@@ -158,7 +158,7 @@ export function getSupabaseAuthErrorCopy(error: unknown, operation: AuthOperatio
   }
 
   if (lowerMessage.includes('signup') && lowerMessage.includes('disabled')) {
-    return 'Account creation is currently unavailable. Contact support if you need access.';
+    return 'Account creation is not ready right now. Contact support if you need access.';
   }
 
   if (lowerMessage.includes('token') && (lowerMessage.includes('expired') || lowerMessage.includes('invalid'))) {
@@ -170,7 +170,7 @@ export function getSupabaseAuthErrorCopy(error: unknown, operation: AuthOperatio
     || lowerMessage.includes('fetch failed')
     || lowerMessage.includes('failed to fetch')
   ) {
-    return 'We could not reach AthletiCore right now. Check your connection and try again.';
+    return 'We could not reach Athleticore right now. Check your connection and try again.';
   }
 
   switch (operation) {

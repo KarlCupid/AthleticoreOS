@@ -1,4 +1,4 @@
-# AthletiCore OS App Review Notes
+# Athleticore OS App Review Notes
 
 Fill the `TBD` values below before submission. This file is the working source for the Review Notes field in App Store Connect.
 

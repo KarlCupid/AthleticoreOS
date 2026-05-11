@@ -123,7 +123,7 @@ export function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, pro
         metric,
         targetValue,
         targetHorizonWeeks,
-        reason: 'We bias toward repeatable technical reps first so the engine can build cleaner skill exposure before it guesses sparring volume.',
+        reason: 'We bias toward repeatable technical reps first so Athleticore can build cleaner skill exposure before it guesses sparring volume.',
         goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
         secondaryConstraint: 'skill_frequency',
       };
@@ -137,7 +137,7 @@ export function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, pro
           metric,
           targetValue,
           targetHorizonWeeks,
-          reason: 'You already have a target weight on file, so the engine can anchor this block to a clear bodyweight objective.',
+          reason: 'You already have a target weight on file, so Athleticore can anchor this phase to a clear bodyweight objective.',
           goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
           secondaryConstraint: 'weight_trajectory',
         };
@@ -150,7 +150,7 @@ export function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, pro
         metric,
         targetValue,
         targetHorizonWeeks,
-        reason: 'Without a target weight on file, the engine starts with nutrition consistency instead of guessing a bodyweight deadline.',
+        reason: 'Without a target weight on file, Athleticore starts with nutrition consistency instead of guessing a bodyweight deadline.',
         goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
         secondaryConstraint: 'weight_trajectory',
       };
@@ -164,7 +164,7 @@ export function createBuildPhaseRecommendation(goalType: BuildPhaseGoalType, pro
         metric,
         targetValue,
         targetHorizonWeeks,
-        reason: 'We default to a sustainable conditioning dose first so the engine can progress workload without overcommitting the week.',
+        reason: 'We default to a sustainable conditioning dose first so Athleticore can progress workload without overcommitting the week.',
         goalStatement: createGuidedGoalStatement(goalType, metric, targetValue, targetHorizonWeeks),
         secondaryConstraint: 'protect_recovery',
       };

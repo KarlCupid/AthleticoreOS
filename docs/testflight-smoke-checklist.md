@@ -1,4 +1,4 @@
-# AthletiCore OS TestFlight Smoke Checklist
+# Athleticore OS TestFlight Smoke Checklist
 
 Run this checklist against the exact production/TestFlight build intended for release.
 

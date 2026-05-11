@@ -94,27 +94,27 @@ export function useWorkoutDetailController({
   const handleOptionsPress = useCallback(() => {
     if (!entry) return;
 
-    Alert.alert('Workout Options', '', [
+    Alert.alert('Workout options', '', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Regenerate Workout',
+        text: 'Rebuild workout',
         onPress: () => {
           Alert.alert(
-            'Regenerate?',
-            'This will replace the current workout with a newly generated one.',
+            'Rebuild workout?',
+            'This will replace the current workout with a newly built one.',
             [
               { text: 'Cancel', style: 'cancel' },
-              { text: 'Regenerate', onPress: () => void regenerate() },
+              { text: 'Rebuild', onPress: () => void regenerate() },
             ],
           );
         },
       },
       {
-        text: 'Change Focus',
+        text: 'Change focus',
         onPress: showFocusPicker,
       },
       {
-        text: 'Mark as Rest Day',
+        text: 'Mark as rest day',
         style: 'destructive',
         onPress: handleSkipDay,
       },

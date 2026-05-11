@@ -46,7 +46,7 @@ function buildWhatImproved(
     .sort((a, b) => report[b].pct - report[a].pct)[0];
 
   if (best && report[best].pct >= 80) {
-    return `${SPORT_LABELS[best]} compliance led the week at ${Math.round(report[best].pct)}%.`;
+    return `${SPORT_LABELS[best]} consistency led the week at ${Math.round(report[best].pct)}%.`;
   }
 
   if (report.streak > 0) {

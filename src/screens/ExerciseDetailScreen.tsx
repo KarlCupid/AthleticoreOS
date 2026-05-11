@@ -44,7 +44,7 @@ export function ExerciseDetailScreen() {
                     >
                         <IconChevronLeft size={24} color={COLORS.text.primary} />
                     </AnimatedPressable>
-                    <Text style={styles.title} numberOfLines={1}>Exercise unavailable</Text>
+                    <Text style={styles.title} numberOfLines={1}>Exercise needs a refresh</Text>
                 </View>
                 <View style={styles.invalidState}>
                     <Text style={styles.invalidTitle}>This exercise link can&apos;t be opened.</Text>

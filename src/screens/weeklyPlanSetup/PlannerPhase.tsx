@@ -15,11 +15,11 @@ export function PlannerPhase({
   setAutoDeloadInterval,
 }: PlannerPhaseProps) {
   return (
-    <Section label="Weekly Planner" description="These settings shape the recovery rhythm for the optimizer.">
+    <Section label="Weekly planner" description="These settings shape the recovery rhythm for Athleticore.">
       <Text style={styles.subLabel}>Planner behavior</Text>
       <FieldNote>Guided sessions are now composed day by day from the best strength, conditioning, durability, and recovery mix.</FieldNote>
-      <FieldNote>The engine can build multi-module blocks when it needs to close weekly dose targets, and session length is derived from the work itself instead of a setup cap.</FieldNote>
-      <Text style={styles.subLabel}>Auto Deload</Text>
+      <FieldNote>Athleticore can build multi-part sessions when it needs to close weekly dose targets, and session length is derived from the work itself instead of a setup cap.</FieldNote>
+      <Text style={styles.subLabel}>Auto deload</Text>
       <FieldNote>Choose how often the planner should reduce loading to manage fatigue over time.</FieldNote>
       <View style={styles.pillRow}>
         {DELOAD_OPTIONS.map((weeks) => (

@@ -51,6 +51,11 @@ function getToneStyles(tone: 'neutral' | 'success' | 'warning') {
   };
 }
 
+function normalizeSupportLabel(label: string | null | undefined) {
+  if (!label || label === 'Athleticore support') return 'Support session';
+  return label;
+}
+
 export function WorkoutAnalyticsTab({
   userId,
   trainingLoadData,
@@ -73,7 +78,7 @@ export function WorkoutAnalyticsTab({
     const generated = trainingLoadData.filter((point) => point.source === 'generated');
     const legacy = trainingLoadData.filter((point) => point.source !== 'generated');
     const generatedByLabel = generated.reduce<Record<string, { count: number; load: number }>>((acc, point) => {
-      const label = point.sourceLabel ?? 'Athleticore support';
+      const label = normalizeSupportLabel(point.sourceLabel);
       const current = acc[label] ?? { count: 0, load: 0 };
       acc[label] = { count: current.count + 1, load: current.load + point.y };
       return acc;
@@ -124,15 +129,15 @@ export function WorkoutAnalyticsTab({
         <Card style={styles.sourceCard}>
           <View style={styles.sourceHeader}>
             <Text style={styles.sourceTitle}>Session sources</Text>
-            <Text style={styles.sourceBadge}>Athleticore support included</Text>
+            <Text style={styles.sourceBadge}>Support work included</Text>
           </View>
           <View style={styles.sourceRows}>
             <View style={styles.sourceRow}>
-              <Text style={styles.sourceLabel}>Logged sessions</Text>
+              <Text style={styles.sourceLabel}>Logged workouts</Text>
               <Text style={styles.sourceValue}>{sourceSummary.legacyCount} | Load {sourceSummary.legacyLoad}</Text>
             </View>
             <View style={styles.sourceRow}>
-              <Text style={styles.sourceLabel}>Athleticore support sessions</Text>
+              <Text style={styles.sourceLabel}>Support sessions</Text>
               <Text style={styles.sourceValue}>{sourceSummary.generatedCount} | Load {sourceSummary.generatedLoad}</Text>
             </View>
             {Object.entries(sourceSummary.generatedByLabel).slice(0, 5).map(([label, summary]) => (

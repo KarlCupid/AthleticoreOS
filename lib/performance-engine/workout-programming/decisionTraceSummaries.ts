@@ -180,7 +180,7 @@ export function summarizeWorkoutDecisionForUser(workout: GeneratedWorkout): User
     ? 'Safety-first recommendation'
     : recoveryFallback
       ? 'Recovery-first recommendation'
-      : workout.sessionIntent ?? workout.description?.sessionIntent ?? 'Generated workout recommendation';
+      : workout.sessionIntent ?? workout.description?.sessionIntent ?? 'Support session recommendation';
 
   return {
     headline,
@@ -201,7 +201,7 @@ export function summarizeExerciseSelectionForUser(
     return {
       exerciseId,
       exerciseName: labelize(exerciseId),
-      whyThisExercise: ['This exercise is not part of the generated workout.'],
+      whyThisExercise: ['This exercise is not part of this support session.'],
       intensity: [],
       safety: [],
       substitutions: [],

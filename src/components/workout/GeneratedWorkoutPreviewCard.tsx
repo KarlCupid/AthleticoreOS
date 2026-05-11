@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import {
   GENERATED_WORKOUT_SAFETY_COPY,
@@ -258,6 +258,7 @@ export function GeneratedWorkoutPreviewCard({
   title = 'Athleticore support session',
   subtitle = 'Strength, conditioning, roadwork, durability, and recovery support for boxing',
 }: GeneratedWorkoutPreviewCardProps) {
+  const [showDetails, setShowDetails] = useState(false);
   const description = workout.description;
   const coachCopy = buildGeneratedWorkoutPreviewCopy(workout);
   const allSubstitutions = workout.blocks
@@ -284,13 +285,19 @@ export function GeneratedWorkoutPreviewCard({
     ...decisionSummary.intensityAdjustments.slice(0, 1),
     ...decisionSummary.safety.slice(0, 1),
   ].filter((item): item is string => Boolean(item)))).slice(0, 4);
+  const defaultSafetyNotes = generatedWorkoutDefaultSafetyNotes();
   const primarySafetyNotes = [
     ...new Set([
       ...(workout.safetyNotes ?? []),
       ...(description?.safetyNotes ?? []),
-      ...generatedWorkoutDefaultSafetyNotes(),
+      ...defaultSafetyNotes,
     ]),
-  ];
+  ].map(sanitizeAthleteFacingCopy);
+  const nonDefaultSafetyNotes = primarySafetyNotes.filter((note) => !defaultSafetyNotes.includes(note));
+  const showSafetyDetails = workout.blocked || safety.tone !== 'ok' || nonDefaultSafetyNotes.length > 0;
+  const trackingMetrics = workout.trackingMetrics ?? workout.trackingMetricIds;
+  const obviousTrackingMetrics = new Set(['session_rpe', 'duration_minutes', 'completion_status']);
+  const showTrackingDetails = trackingMetrics.some((metric) => !obviousTrackingMetrics.has(metric));
 
   return (
     <View testID="generated-workout-preview-card">
@@ -303,14 +310,6 @@ export function GeneratedWorkoutPreviewCard({
         style={styles.card}
       >
         <View style={styles.headerCopy}>
-          <View style={styles.metaRow}>
-            <MetaPill label={labelize(workout.workoutTypeId)} />
-            {workout.athleticDevelopmentDomain ? <MetaPill label={supportDomainLabel(workout.athleticDevelopmentDomain)} /> : null}
-            <MetaPill label={labelize(workout.goalId)} />
-            <MetaPill label={`${workout.estimatedDurationMinutes} min`} />
-            <MetaPill label={`${workout.blocks.length} part${workout.blocks.length === 1 ? '' : 's'}`} />
-            <MetaPill label={safety.label} tone={safety.tone} />
-          </View>
           <Text testID="generated-workout-preview-intent" accessibilityRole="header" style={styles.intent}>
             {coachCopy.headline}
           </Text>
@@ -325,12 +324,6 @@ export function GeneratedWorkoutPreviewCard({
         <CopySection title="Coach brief" testID="generated-workout-preview-brief">
           {description?.effortExplanation ? <Text style={styles.bodyText}>{description.effortExplanation}</Text> : null}
           <BulletList items={workout.successCriteria.slice(0, 3)} />
-        </CopySection>
-
-        <CopySection title="Why this session" testID="generated-workout-preview-why">
-          {workout.sAndCRationale || workout.athleticDevelopmentRationale ? <Text style={styles.bodyText}>{workout.sAndCRationale ?? workout.athleticDevelopmentRationale}</Text> : null}
-          <Text style={styles.bodyText}>{decisionSummary.headline}</Text>
-          <BulletList items={whySummaryBullets} />
         </CopySection>
 
         {workout.blocked ? (
@@ -354,39 +347,43 @@ export function GeneratedWorkoutPreviewCard({
                 {block.exercises.map((exercise) => (
                   <View key={`${block.id}:${exercise.exerciseId}`} style={styles.exerciseRow}>
                     <Text accessibilityRole="header" style={styles.exerciseName}>{exercise.name}</Text>
+                    <Text style={styles.exercisePrescription}>{formatPrescription(exercise)}</Text>
                     <Text style={styles.exerciseWhy}>{exercise.explanation}</Text>
-                    <ExerciseMediaPanel exercise={exercise} />
-                    <View style={styles.detailPanel}>
-                      <DetailLine label="Dose" value={formatPrescription(exercise)} />
-                      <DetailLine label="Intensity" value={`Effort ${exercise.prescription.targetRpe}/10. ${exercise.prescription.intensityCue}`} />
-                      <DetailLine label="Rest" value={formatRestGuidance(exercise)} />
-                      <DetailLine label="Tempo" value={formatTempoGuidance(exercise)} />
-                      <DetailLine label="How to do it" value={formatPayloadDetail(exercise.prescription.payload)} />
-                    </View>
-                    {exercise.coachingCues && exercise.coachingCues.length > 0 ? (
-                      <View style={styles.exerciseSubsection}>
-                        <Text style={styles.exerciseSubsectionTitle}>Cues</Text>
-                        <BulletList items={exercise.coachingCues.slice(0, 3)} />
-                      </View>
-                    ) : null}
-                    {exercise.commonMistakes && exercise.commonMistakes.length > 0 ? (
-                      <View style={styles.exerciseSubsection}>
-                        <Text style={styles.exerciseSubsectionTitle}>Watch</Text>
-                        <BulletList items={exercise.commonMistakes.slice(0, 2)} />
-                      </View>
-                    ) : null}
-                    {exercise.scalingOptions ? (
-                      <View style={styles.exerciseSubsection}>
-                        <Text style={styles.exerciseSubsectionTitle}>Scale</Text>
-                        <Text style={styles.exerciseDetail}>Down: {exercise.scalingOptions.down}</Text>
-                        <Text style={styles.exerciseDetail}>Up: {exercise.scalingOptions.up}</Text>
-                      </View>
-                    ) : null}
-                    {exercise.substitutions && exercise.substitutions.length > 0 ? (
-                      <View style={styles.exerciseSubsection}>
-                        <Text style={styles.exerciseSubsectionTitle}>Substitutions</Text>
-                        <BulletList items={exercise.substitutions.slice(0, 2).map((substitution) => `${substitution.name}: ${substitution.rationale}`)} />
-                      </View>
+                    {showDetails ? (
+                      <>
+                        <ExerciseMediaPanel exercise={exercise} />
+                        <View style={styles.detailPanel}>
+                          <DetailLine label="Intensity" value={`Effort ${exercise.prescription.targetRpe}/10. ${exercise.prescription.intensityCue}`} />
+                          <DetailLine label="Rest" value={formatRestGuidance(exercise)} />
+                          <DetailLine label="Tempo" value={formatTempoGuidance(exercise)} />
+                          <DetailLine label="How to do it" value={formatPayloadDetail(exercise.prescription.payload)} />
+                        </View>
+                        {exercise.coachingCues && exercise.coachingCues.length > 0 ? (
+                          <View style={styles.exerciseSubsection}>
+                            <Text style={styles.exerciseSubsectionTitle}>Cues</Text>
+                            <BulletList items={exercise.coachingCues.slice(0, 3)} />
+                          </View>
+                        ) : null}
+                        {exercise.commonMistakes && exercise.commonMistakes.length > 0 ? (
+                          <View style={styles.exerciseSubsection}>
+                            <Text style={styles.exerciseSubsectionTitle}>Watch</Text>
+                            <BulletList items={exercise.commonMistakes.slice(0, 2)} />
+                          </View>
+                        ) : null}
+                        {exercise.scalingOptions ? (
+                          <View style={styles.exerciseSubsection}>
+                            <Text style={styles.exerciseSubsectionTitle}>Scale</Text>
+                            <Text style={styles.exerciseDetail}>Down: {exercise.scalingOptions.down}</Text>
+                            <Text style={styles.exerciseDetail}>Up: {exercise.scalingOptions.up}</Text>
+                          </View>
+                        ) : null}
+                        {exercise.substitutions && exercise.substitutions.length > 0 ? (
+                          <View style={styles.exerciseSubsection}>
+                            <Text style={styles.exerciseSubsectionTitle}>Substitutions</Text>
+                            <BulletList items={exercise.substitutions.slice(0, 2).map((substitution) => `${substitution.name}: ${substitution.rationale}`)} />
+                          </View>
+                        ) : null}
+                      </>
                     ) : null}
                   </View>
                 ))}
@@ -395,39 +392,76 @@ export function GeneratedWorkoutPreviewCard({
           </View>
         </CopySection>
 
-        <CopySection title="Safety" testID="generated-workout-preview-safety">
-          <BulletList items={primarySafetyNotes} />
-        </CopySection>
+        <View style={styles.detailsToggleRow}>
+          <Text style={styles.detailsHint}>{showDetails ? 'Full coaching notes are visible.' : 'Safety, scaling, logging, and review notes are tucked away until needed.'}</Text>
+          <Text
+            accessibilityRole="button"
+            accessibilityLabel={showDetails ? 'Hide workout details' : 'Show workout details'}
+            style={styles.detailsToggle}
+            onPress={() => setShowDetails((value) => !value)}
+          >
+            {showDetails ? 'Hide details' : 'Show details'}
+          </Text>
+        </View>
 
-        {scalingNotes.length > 0 || allSubstitutions.length > 0 ? (
-          <CopySection title="Substitutions / scaling" testID="generated-workout-preview-substitutions">
-            <BulletList items={[
-              ...scalingNotes,
-              ...allSubstitutions.map((item) => `${item.name}: ${item.rationale}`),
-            ]} />
-          </CopySection>
-        ) : null}
+        {showDetails ? (
+          <>
+            <CopySection title="Why this session" testID="generated-workout-preview-why">
+              {workout.sAndCRationale || workout.athleticDevelopmentRationale ? <Text style={styles.bodyText}>{workout.sAndCRationale ?? workout.athleticDevelopmentRationale}</Text> : null}
+              <Text style={styles.bodyText}>{decisionSummary.headline}</Text>
+              <BulletList items={whySummaryBullets} />
+            </CopySection>
 
-        {validationMessages.length > 0 ? (
-          <CopySection title="Review notes" testID="generated-workout-preview-validation">
-            <BulletList items={validationMessages} />
-          </CopySection>
-        ) : null}
-
-        <CopySection title="What to log" testID="generated-workout-preview-tracking">
-          <View style={styles.tagRow}>
-            {(workout.trackingMetrics ?? workout.trackingMetricIds).map((metric) => (
-              <View key={metric} style={styles.metricTag}>
-                <Text style={styles.metricTagText}>{labelize(metric)}</Text>
+            <CopySection title="Session tags">
+              <View style={styles.metaRow}>
+                <MetaPill label={labelize(workout.workoutTypeId)} />
+                {workout.athleticDevelopmentDomain ? <MetaPill label={supportDomainLabel(workout.athleticDevelopmentDomain)} /> : null}
+                <MetaPill label={labelize(workout.goalId)} />
+                <MetaPill label={`${workout.estimatedDurationMinutes} min`} />
+                <MetaPill label={`${workout.blocks.length} part${workout.blocks.length === 1 ? '' : 's'}`} />
+                <MetaPill label={safety.label} tone={safety.tone} />
               </View>
-            ))}
-          </View>
-        </CopySection>
+            </CopySection>
 
-        {description?.completionMessage ? (
-          <CopySection title="After you finish" testID="generated-workout-preview-completion">
-            <Text style={styles.bodyText}>{description.completionMessage}</Text>
-          </CopySection>
+            {showSafetyDetails ? (
+              <CopySection title="Safety details" testID="generated-workout-preview-safety">
+                <BulletList items={primarySafetyNotes} />
+              </CopySection>
+            ) : null}
+
+            {scalingNotes.length > 0 || allSubstitutions.length > 0 ? (
+              <CopySection title="Substitutions / scaling" testID="generated-workout-preview-substitutions">
+                <BulletList items={[
+                  ...scalingNotes,
+                  ...allSubstitutions.map((item) => `${item.name}: ${item.rationale}`),
+                ]} />
+              </CopySection>
+            ) : null}
+
+            {validationMessages.length > 0 ? (
+              <CopySection title="Review notes" testID="generated-workout-preview-validation">
+                <BulletList items={validationMessages} />
+              </CopySection>
+            ) : null}
+
+            {showTrackingDetails ? (
+              <CopySection title="What to log" testID="generated-workout-preview-tracking">
+                <View style={styles.tagRow}>
+                  {trackingMetrics.map((metric) => (
+                    <View key={metric} style={styles.metricTag}>
+                      <Text style={styles.metricTagText}>{labelize(metric)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </CopySection>
+            ) : null}
+
+            {description?.completionMessage ? (
+              <CopySection title="After you finish" testID="generated-workout-preview-completion">
+                <Text style={styles.bodyText}>{description.completionMessage}</Text>
+              </CopySection>
+            ) : null}
+          </>
         ) : null}
       </Card>
     </View>
@@ -703,6 +737,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.xs,
+  },
+  detailsToggleRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.borderLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.md,
+  },
+  detailsHint: {
+    flex: 1,
+    color: COLORS.text.tertiary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  detailsToggle: {
+    color: COLORS.accent,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 13,
+    minHeight: 44,
+    textAlignVertical: 'center',
   },
   metricTag: {
     borderRadius: RADIUS.sm,

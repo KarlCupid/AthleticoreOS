@@ -706,7 +706,7 @@ export function DashboardScreen() {
                     source={BRAND_LOGO}
                     style={styles.brandMarkImage}
                     resizeMode="cover"
-                    accessibilityLabel="AthletiCore OS logo"
+                    accessibilityLabel="Athleticore logo"
                   />
                 </View>
                 <View style={styles.heroTitleBlock}>

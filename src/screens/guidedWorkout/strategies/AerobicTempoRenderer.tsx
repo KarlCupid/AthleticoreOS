@@ -107,7 +107,7 @@ export function AerobicTempoRenderer(props: StrategyRendererProps) {
             disabled={selectedRPE === null}
             activeOpacity={0.82}
           >
-            <Text style={styles.primaryText}>Block Done</Text>
+            <Text style={styles.primaryText}>Work done</Text>
           </TouchableOpacity>
         </>
       ) : (

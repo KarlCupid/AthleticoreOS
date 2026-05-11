@@ -42,7 +42,7 @@ export function DensityRenderer(props: StrategyRendererProps) {
             mode="countdown"
             totalSeconds={timeCap}
             running={true}
-            label="Density Block"
+            label="Density work"
             size="prominent"
             onComplete={() => setFinished(true)}
           />
@@ -58,7 +58,7 @@ export function DensityRenderer(props: StrategyRendererProps) {
             mistake={coachCopy.mistake}
             metrics={[
               { label: 'Sets', value: setsLogged, tone: 'accent' },
-              { label: 'Block', value: formatSecondsForCoach(timeCap) ?? '-' },
+              { label: 'Window', value: formatSecondsForCoach(timeCap) ?? '-' },
             ]}
             compact
           />
@@ -80,7 +80,7 @@ export function DensityRenderer(props: StrategyRendererProps) {
         </>
       ) : (
         <View style={styles.finishSection}>
-          <Text style={styles.doneTitle}>Block Complete</Text>
+          <Text style={styles.doneTitle}>Work complete</Text>
           <Text style={styles.doneSubtitle}>{setsLogged} sets in {Math.round(timeCap / 60)} minutes</Text>
           <RPESelector value={selectedRPE} onChange={onSelectRPE} />
           <TouchableOpacity

@@ -72,7 +72,7 @@ type NutritionResolutionOptions = {
 const ENGINE_VERSION = 'nutrition_fueling_engine_v1' as const;
 const ADAPTER_DATE = '2026-01-01';
 const ENGINE_CONFIDENCE = confidenceFromLevel('medium', [
-  'Nutrition targets are resolved by the Nutrition and Fueling Engine.',
+  'Athleticore fueling resolved the nutrition target.',
 ]);
 
 function clamp(value: number, min: number, max: number): number {
@@ -296,7 +296,7 @@ function createBodyMassState(weightLbs: number | null, date: string) {
     ...createUnknownBodyMassState('lb'),
     current,
     missingFields: current ? [] : [{ field: 'current_body_mass', reason: 'invalid' as const }],
-    confidence: current ? ENGINE_CONFIDENCE : confidenceFromLevel('low', ['Body mass was unavailable or invalid.']),
+    confidence: current ? ENGINE_CONFIDENCE : confidenceFromLevel('low', ['Body mass needs a fresh entry.']),
   };
 }
 
@@ -453,7 +453,7 @@ function nutritionTargetToEstimate(input: NutritionProfileInput): NutritionTarge
     Math.round(reconciled.calories / Math.max(0.72, 1 + phaseMultiplier)),
   );
   const messageParts = [
-    'Nutrition and Fueling Engine target resolved from athlete profile, phase, body mass, and safety floors.',
+    'Athleticore fueling target resolved from athlete profile, phase, body mass, and safety floors.',
     input.nutritionGoal === 'cut' ? 'Body-composition support is gradual and cannot cross under-fueling floors.' : null,
     input.nutritionGoal === 'bulk' ? 'Lean-gain support uses training-aware ranges instead of fixed macro tables.' : null,
     input.coachCaloriesOverride != null && input.coachCaloriesOverride < floor ? 'Unsafe low calorie override was raised to the safety floor.' : null,
@@ -721,7 +721,7 @@ function sessionFuelingPlanFromDirective(input: {
       case 'sparring':
         return 'Sparring day: do not under-fuel high-stress work.';
       default:
-        return 'Nutrition and Fueling Engine generated session fueling guidance.';
+        return 'Athleticore built session fueling guidance.';
     }
   })();
 
@@ -750,7 +750,7 @@ function sessionFuelingPlanFromDirective(input: {
     hydrationNotes: directive?.duringSessionGuidance ?? [],
     coachingNotes: [
       supportNote,
-      directive?.explanation?.summary ?? 'Session fueling came from the Nutrition and Fueling Engine.',
+      directive?.explanation?.summary ?? 'Session fueling came from Athleticore fueling.',
     ].filter((line): line is string => Boolean(line)),
   };
 }
@@ -793,11 +793,11 @@ function resolveFromTarget(input: {
     fat: targetValue(input.target.fatTarget, input.baseTargets.fat),
   };
   const reasonLines = input.reasonLines ?? [
-    input.target.explanation?.summary ?? 'Nutrition and Fueling Engine resolved the target.',
+    input.target.explanation?.summary ?? 'Athleticore resolved the fuel target.',
     ...(input.target.explanation?.reasons ?? []),
   ];
   const traceLines = [
-    'Canonical Nutrition and Fueling Engine generated this daily target.',
+    'Athleticore built this daily target.',
     ...reasonLines,
     ...(floorResult?.traceLines ?? []),
     ...input.target.riskFlags.map((risk) => risk.message),

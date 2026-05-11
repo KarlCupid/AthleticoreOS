@@ -1,7 +1,7 @@
 export const APP_SUPPORT_EMAIL =
   process.env.EXPO_PUBLIC_SUPPORT_EMAIL?.trim() || 'support@athleticore.app';
 
-export const APP_SUPPORT_MAILTO = `mailto:${APP_SUPPORT_EMAIL}?subject=${encodeURIComponent('AthletiCore Support')}`;
+export const APP_SUPPORT_MAILTO = `mailto:${APP_SUPPORT_EMAIL}?subject=${encodeURIComponent('Athleticore Support')}`;
 
 function getOptionalPublicUrl(name: 'EXPO_PUBLIC_SUPPORT_URL' | 'EXPO_PUBLIC_PRIVACY_POLICY_URL' | 'EXPO_PUBLIC_MARKETING_URL') {
   const value = process.env[name]?.trim();
@@ -16,7 +16,7 @@ export const PRIVACY_POLICY_SECTIONS = [
   {
     title: 'What the app stores',
     body:
-      'AthletiCore stores the account details, training logs, readiness check-ins, nutrition entries, weight data, and planning inputs you add so the app can personalize guidance and keep your history available across sessions.',
+      'Athleticore stores the account details, training logs, readiness check-ins, nutrition entries, weight data, and planning inputs you add so the app can personalize guidance and keep your history available across sessions.',
   },
   {
     title: 'How the data is used',

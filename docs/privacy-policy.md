@@ -1,14 +1,14 @@
-# AthletiCore OS Privacy Policy
+# Athleticore OS Privacy Policy
 
 Last updated: `2026-04-08`
 
 ## Overview
 
-AthletiCore OS helps athletes manage training, recovery, nutrition, hydration, and fight-prep workflows. This Privacy Policy explains what information the app stores, how it is used, and what controls are available to users.
+Athleticore OS helps athletes manage training, recovery, nutrition, hydration, and fight-prep workflows. This Privacy Policy explains what information the app stores, how it is used, and what controls are available to users.
 
 ## Information We Store
 
-AthletiCore OS may store:
+Athleticore OS may store:
 
 - account details used for sign-in
 - athlete profile inputs such as age, height, weight targets, and planning preferences
@@ -27,7 +27,7 @@ We use stored information to:
 
 ## What We Do Not Claim
 
-AthletiCore OS provides coaching-oriented educational guidance. It does not provide licensed medical care, diagnosis, or emergency services.
+Athleticore OS provides coaching-oriented educational guidance. It does not provide licensed medical care, diagnosis, or emergency services.
 
 ## Sharing
 

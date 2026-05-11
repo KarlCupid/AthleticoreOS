@@ -178,7 +178,7 @@ export function WorkoutDetailScreen() {
     const effortSummary = intensity != null ? `Effort ${intensity}/10` : 'Coach-paced effort';
     const whatToExpect = `${blockCount} part${blockCount === 1 ? '' : 's'}, ${movementCount} movement${movementCount === 1 ? '' : 's'}, about ${durationMin} min. ${effortSummary}.`;
     const linkErrorCopy = buildErrorStateCoachCopy({
-        title: 'This session link is unavailable',
+        title: 'This session link needs a refresh',
         body: 'Open this session from Train or Plan to review it safely.',
         action: 'Try again',
     });
@@ -212,7 +212,7 @@ export function WorkoutDetailScreen() {
                 </View>
                 <View style={styles.loadingCenter}>
                     <ActivityIndicator size="large" color={COLORS.accent} />
-                    <Text style={styles.loadingText}>Loading workout…</Text>
+                    <Text style={styles.loadingText}>Loading session...</Text>
                 </View>
             </View>
         );
@@ -287,7 +287,7 @@ export function WorkoutDetailScreen() {
                 {/* Session intent */}
                 {sessionGoal != null && (
                     <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.intentCard}>
-                        <Text style={styles.intentLabel}>COACH BRIEF</Text>
+                        <Text style={styles.intentLabel}>Session brief</Text>
                         <Text style={styles.intentText}>{sessionGoal}</Text>
                         <Text style={styles.intentSubText}>{whatToExpect}</Text>
                         {boxingMeta?.sourceLabel ? <Text style={styles.intentSubText}>{boxingMeta.sourceLabel}</Text> : null}
@@ -300,11 +300,11 @@ export function WorkoutDetailScreen() {
                     <Animated.View entering={FadeInDown.delay(120).duration(300)} style={styles.actionPanel}>
                         <Text style={styles.actionLabel}>Protected boxing anchor</Text>
                         <Text style={styles.intentText}>
-                            This is coach-led or protected boxing work. Athleticore will not generate sparring or replace it; the week plan builds S&C, roadwork, durability, mobility, and recovery around the anchor.
+                            This is coach-led or protected boxing work. Athleticore will not replace sparring or practice; the week plan builds S&C, roadwork, durability, mobility, and recovery around the anchor.
                         </Text>
                         {status === 'skipped' ? (
                             <TouchableOpacity style={styles.startBtn} onPress={handleRestore}>
-                                <Text style={styles.startBtnText}>Restore Anchor</Text>
+                                <Text style={styles.startBtnText}>Restore anchor</Text>
                             </TouchableOpacity>
                         ) : null}
                     </Animated.View>
@@ -348,7 +348,7 @@ export function WorkoutDetailScreen() {
                         <Text style={styles.actionLabel}>Session plan</Text>
                         <Text style={styles.intentText}>The plan is set. Build the full session when you are ready and Athleticore will use today's support plan.</Text>
                         <TouchableOpacity style={styles.startBtn} disabled={isRegenerating} onPress={() => void regenerate()}>
-                            <Text style={styles.startBtnText}>{isRegenerating ? 'Building session...' : 'Build full session'}</Text>
+                            <Text style={styles.startBtnText}>{isRegenerating ? 'Building session...' : "Build today's session"}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 ) : null}
@@ -369,10 +369,10 @@ export function WorkoutDetailScreen() {
                     {status === 'planned' || status === 'rescheduled' ? (
                         <View style={styles.ctaRow}>
                             <TouchableOpacity style={styles.skipBtn} onPress={handleSkipDay}>
-                                <Text style={styles.skipBtnText}>Skip Day</Text>
+                                <Text style={styles.skipBtnText}>Skip day</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.startBtn} onPress={handleStartWorkout}>
-                                <Text style={styles.startBtnText}>Start Session</Text>
+                                <Text style={styles.startBtnText}>Start session</Text>
                             </TouchableOpacity>
                         </View>
                     ) : status === 'completed' ? (
@@ -456,10 +456,10 @@ export function WorkoutDetailScreen() {
                 {status === 'planned' || status === 'rescheduled' ? (
                     <View style={styles.ctaRow}>
                         <TouchableOpacity style={styles.skipBtn} onPress={handleSkipDay}>
-                            <Text style={styles.skipBtnText}>Skip Day</Text>
+                            <Text style={styles.skipBtnText}>Skip day</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.startBtn} onPress={handleStartWorkout}>
-                            <Text style={styles.startBtnText}>Start Session</Text>
+                            <Text style={styles.startBtnText}>Start session</Text>
                         </TouchableOpacity>
                     </View>
                 ) : status === 'completed' ? (
@@ -632,7 +632,7 @@ function ExerciseRow({
                     )}
                     {substitutions && substitutions.length > 0 && (
                         <View style={styles.subsBlock}>
-                            <Text style={styles.detailLabel}>{isMandatoryRecovery ? 'SUBSTITUTIONS UNAVAILABLE TODAY' : 'SUBSTITUTIONS'}</Text>
+                            <Text style={styles.detailLabel}>{isMandatoryRecovery ? 'Substitutions are paused today' : 'Substitutions'}</Text>
                             {isMandatoryRecovery ? (
                                 <View style={styles.lockoutCard}>
                                     <Text style={styles.lockoutText}>{mandatoryRecoveryReason}</Text>

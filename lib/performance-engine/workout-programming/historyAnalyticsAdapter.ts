@@ -84,21 +84,21 @@ function titleToken(value: string | undefined | null): string {
 
 function boxingGeneratedLabel(workoutTypeId: string | undefined, goalId: string | undefined): string {
   const normalized = `${goalId ?? ''} ${workoutTypeId ?? ''}`.toLowerCase();
-  if (normalized.includes('footwork')) return 'Speed & agility support';
+  if (normalized.includes('footwork')) return 'Skill support';
   if (normalized.includes('shadowboxing')) return 'Skill support';
-  if (normalized.includes('roadwork_aerobic') || normalized.includes('roadwork_zone2') || normalized.includes('zone2')) return 'Roadwork base';
-  if (normalized.includes('roadwork_tempo')) return 'Roadwork tempo';
-  if (normalized.includes('roadwork_intervals')) return 'Roadwork intervals';
+  if (normalized.includes('roadwork_aerobic') || normalized.includes('roadwork_zone2') || normalized.includes('zone2')) return 'Roadwork support';
+  if (normalized.includes('roadwork_tempo')) return 'Roadwork support';
+  if (normalized.includes('roadwork_intervals')) return 'Conditioning support';
   if (normalized.includes('alactic')) return 'Conditioning support';
   if (normalized.includes('glycolytic') || normalized.includes('round_tolerance')) return 'Conditioning support';
-  if (normalized.includes('rotational')) return 'Power support';
-  if (normalized.includes('explosive')) return 'Power support';
+  if (normalized.includes('rotational')) return 'Strength support';
+  if (normalized.includes('explosive')) return 'Strength support';
   if (normalized.includes('strength')) return 'Strength support';
-  if (normalized.includes('trunk')) return 'Trunk durability';
-  if (normalized.includes('shoulder') || normalized.includes('scap')) return 'Shoulder durability';
-  if (normalized.includes('neck') || normalized.includes('trap')) return 'Neck and trap durability';
-  if (normalized.includes('hip') || normalized.includes('ankle') || normalized.includes('mobility')) return 'Hip and ankle mobility';
-  if (normalized.includes('recovery')) return 'Recovery reset';
+  if (normalized.includes('trunk')) return 'Durability support';
+  if (normalized.includes('shoulder') || normalized.includes('scap')) return 'Durability support';
+  if (normalized.includes('neck') || normalized.includes('trap')) return 'Durability support';
+  if (normalized.includes('hip') || normalized.includes('ankle') || normalized.includes('mobility')) return 'Durability support';
+  if (normalized.includes('recovery')) return 'Recovery support';
   if (normalized.includes('boxing_skill')) return 'Skill support';
   return 'Athleticore support';
 }

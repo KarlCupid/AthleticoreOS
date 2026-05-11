@@ -98,11 +98,11 @@ function formatTitleCase(value: string | null | undefined, fallback = '--') {
 }
 
 function formatGoalMode(value: 'fight_camp' | 'build_phase' | null | undefined) {
-  return value === 'fight_camp' ? 'Fight Camp' : 'Build Phase';
+  return value === 'fight_camp' ? 'Fight camp' : 'Build phase';
 }
 
 function formatCampPhase(value: FightCampStatus['campPhase']) {
-  return value ? `${formatTitleCase(value)} Phase` : '--';
+  return value ? `${formatTitleCase(value)} phase` : '--';
 }
 
 function formatDateLabel(value: string | null | undefined) {
@@ -273,7 +273,7 @@ export function ProfileSettingsScreen() {
       : 'Add a weigh-in from Log to personalize training';
   const profileTargetsNote = getManagedSourceLabel(
     snapshot?.activeWeightClassPlan ?? null,
-    snapshot?.fightCampStatus ?? { camp: null, campPhase: null, daysOut: null, label: 'Build Phase', weightClassState: 'none' },
+    snapshot?.fightCampStatus ?? { camp: null, campPhase: null, daysOut: null, label: 'Build phase', weightClassState: 'none' },
   );
   const setupSummary = formatAvailabilitySummary(snapshot?.weeklyPlanConfig ?? null);
   const guideProgress = snapshot?.guidanceState.progress.completedCount ?? 0;
@@ -289,7 +289,7 @@ export function ProfileSettingsScreen() {
       .eq('user_id', session.user.id);
 
     if (updateError) {
-      Alert.alert('Update failed', 'Could not save that change right now.');
+      Alert.alert('Could not save change', 'Try saving that change again.');
       throw updateError;
     }
   }
@@ -378,7 +378,7 @@ export function ProfileSettingsScreen() {
               Alert.alert('Training programming reset', 'Your tester account is ready for a clean planning setup.');
             } catch (resetError) {
               logError('ProfileSettingsScreen.handleResetTrainingProgramming', resetError);
-              Alert.alert('Reset failed', 'Could not reset training programming right now.');
+              Alert.alert('Could not reset training setup', 'Try the reset again.');
             } finally {
               setResettingProgramming(false);
             }
@@ -439,7 +439,7 @@ export function ProfileSettingsScreen() {
       await signOutCurrentUser();
     } catch (signOutError) {
       logError('ProfileSettingsScreen.handleSignOut', signOutError);
-      Alert.alert('Sign out failed', getSupabaseAuthErrorCopy(signOutError, 'signOut'));
+      Alert.alert('Could not sign out', getSupabaseAuthErrorCopy(signOutError, 'signOut'));
       setSigningOut(false);
     }
   }
@@ -526,7 +526,7 @@ export function ProfileSettingsScreen() {
                   </View>
                   {snapshot.activeWeightClassPlan ? (
                     <View style={[styles.badge, styles.badgeMuted]}>
-                      <Text style={styles.badgeMutedText}>Active Class Plan</Text>
+                      <Text style={styles.badgeMutedText}>Active class plan</Text>
                     </View>
                   ) : null}
                 </View>
@@ -560,7 +560,7 @@ export function ProfileSettingsScreen() {
           >
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{snapshot.totalSessions}</Text>
-              <Text style={styles.statLabel}>SESSIONS</Text>
+              <Text style={styles.statLabel}>Sessions</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
@@ -570,7 +570,7 @@ export function ProfileSettingsScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{snapshot.weeklyPlanConfig?.available_days?.length ?? 0}</Text>
-              <Text style={styles.statLabel}>PLAN DAYS</Text>
+              <Text style={styles.statLabel}>Plan days</Text>
             </View>
           </Card>
         </Animated.View>
@@ -587,19 +587,19 @@ export function ProfileSettingsScreen() {
             <DetailRow icon={<IconBarChart size={18} color={themeColor} />} label="Phase" value={phaseLabel} />
             <DetailRow
               icon={<IconCalendar size={18} color={themeColor} />}
-              label="Fight Date"
+              label="Fight date"
               value={formatDateLabel(resolvedFightDate)}
               note={profileTargetsNote}
             />
             <DetailRow
               icon={<IconScale size={18} color={themeColor} />}
-              label="Target Weight"
+              label="Target weight"
               value={formatWeightLabel(resolvedTargetWeight)}
               note={profileTargetsNote}
             />
             <DetailRow
               icon={<IconTrendUp size={18} color={themeColor} />}
-              label="Weight Context"
+              label="Weight context"
               value={formatWeightLabel(latestWeight?.weight ?? profile?.base_weight ?? null)}
               note={latestWeightNote}
               isLast
@@ -622,18 +622,18 @@ export function ProfileSettingsScreen() {
             backgroundScrimColor="rgba(10, 10, 10, 0.74)"
           >
             <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Plan" value={setupSummary} />
-            <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Default Gym" value={snapshot.defaultGymProfile?.name ?? 'Not set'} />
+            <DetailRow icon={<IconSettings size={18} color={themeColor} />} label="Default gym" value={snapshot.defaultGymProfile?.name ?? 'Not set'} />
             <DetailRow
               icon={<IconShieldCheck size={18} color={themeColor} />}
-              label="Planning Setup"
+              label="Planning setup"
               value={snapshot.planningStatus.isComplete ? 'Connected' : 'Needs attention'}
               note={snapshot.planningStatus.isComplete ? 'Plan inputs are connected.' : 'Finish setup to personalize scheduling.'}
               isLast
             />
 
             <View style={styles.actionRow}>
-              <ActionButton label="Gym Profiles" onPress={openGymProfiles} />
-              <ActionButton label="Adjust Journey" onPress={openWeeklySetup} variant="secondary" />
+              <ActionButton label="Gym profiles" onPress={openGymProfiles} />
+              <ActionButton label="Adjust journey" onPress={openWeeklySetup} variant="secondary" />
             </View>
             {internalDevSurfacesEnabled ? (
               <AnimatedPressable
@@ -645,7 +645,7 @@ export function ProfileSettingsScreen() {
                   <ActivityIndicator size="small" color={COLORS.readiness.depleted} />
                 ) : null}
                 <Text style={styles.resetProgrammingButtonText}>
-                  {resettingProgramming ? 'Resetting programming...' : 'Reset Training Programming'}
+                  {resettingProgramming ? 'Resetting programming...' : 'Reset training programming'}
                 </Text>
               </AnimatedPressable>
             ) : null}
@@ -661,11 +661,11 @@ export function ProfileSettingsScreen() {
               backgroundTone="profile"
               backgroundScrimColor="rgba(10, 10, 10, 0.78)"
             >
-              <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Fight Status" value={formatTitleCase(profile.fight_status)} />
-              <DetailRow icon={<IconPerson size={18} color={themeColor} />} label="Biological Sex" value={formatTitleCase(profile.biological_sex)} />
+              <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Fight status" value={formatTitleCase(profile.fight_status)} />
+              <DetailRow icon={<IconPerson size={18} color={themeColor} />} label="Biological sex" value={formatTitleCase(profile.biological_sex)} />
               <EditableRow
                 icon={<IconScale size={18} color={themeColor} />}
-                label="Base Weight"
+                label="Base weight"
                 value={formatWeightLabel(profile.base_weight)}
                 isEditing={editingField === 'base_weight'}
                 editValue={editValue}
@@ -684,14 +684,14 @@ export function ProfileSettingsScreen() {
               {isTargetWeightManaged ? (
                 <DetailRow
                   icon={<IconTarget size={18} color={themeColor} />}
-                  label="Target Weight"
+                  label="Target weight"
                   value={formatWeightLabel(resolvedTargetWeight)}
                   note={profileTargetsNote}
                 />
               ) : (
                 <EditableRow
                   icon={<IconTarget size={18} color={themeColor} />}
-                  label="Target Weight"
+                  label="Target weight"
                   value={formatWeightLabel(profile.target_weight)}
                   isEditing={editingField === 'target_weight'}
                   editValue={editValue}
@@ -711,7 +711,7 @@ export function ProfileSettingsScreen() {
               {isFightDateManaged ? (
                 <DetailRow
                   icon={<IconCalendar size={18} color={themeColor} />}
-                  label="Fight Date"
+                  label="Fight date"
                   value={formatDateLabel(resolvedFightDate)}
                   note={profileTargetsNote}
                 />
@@ -751,12 +751,12 @@ export function ProfileSettingsScreen() {
               backgroundTone="fuelQuiet"
               backgroundScrimColor="rgba(10, 10, 10, 0.76)"
             >
-              <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Activity Level" value={formatTitleCase(profile.activity_level, 'Moderate')} />
-              <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Nutrition Goal" value={formatTitleCase(profile.nutrition_goal, 'Maintain')} />
+              <DetailRow icon={<IconActivity size={18} color={themeColor} />} label="Activity level" value={formatTitleCase(profile.activity_level, 'Moderate')} />
+              <DetailRow icon={<IconTarget size={18} color={themeColor} />} label="Nutrition goal" value={formatTitleCase(profile.nutrition_goal, 'Maintain')} />
               <View style={[styles.settingRow, styles.detailRowLast]}>
                 <View style={styles.settingLabelGroup}>
                   <IconSettings size={18} color={themeColor} />
-                  <Text style={styles.settingLabel}>Cycle Tracking</Text>
+                  <Text style={styles.settingLabel}>Cycle tracking</Text>
                 </View>
                 <Switch
                   accessibilityRole="switch"
@@ -780,7 +780,7 @@ export function ProfileSettingsScreen() {
             backgroundTone="planning"
             backgroundScrimColor="rgba(10, 10, 10, 0.74)"
           >
-            <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Guide Status" value={formatGuidanceStatus(snapshot.guidanceState)} />
+            <DetailRow icon={<IconShieldCheck size={18} color={themeColor} />} label="Guide status" value={formatGuidanceStatus(snapshot.guidanceState)} />
             <DetailRow
               icon={<IconCheck size={18} color={themeColor} />}
               label="Milestones"
@@ -823,7 +823,7 @@ export function ProfileSettingsScreen() {
               disabled={signingOut}
             >
               {signingOut ? <ActivityIndicator size="small" color={COLORS.readiness.depleted} /> : <IconClose size={18} color={COLORS.readiness.depleted} />}
-              <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign Out'}</Text>
+              <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign out'}</Text>
             </AnimatedPressable>
           </Card>
         </Animated.View>

@@ -96,7 +96,7 @@ export function CustomExerciseScreen() {
                 { text: 'OK', onPress: () => navigation.goBack() },
             ]);
         } catch (err: any) {
-            Alert.alert('Error', err.message ?? 'Failed to create exercise');
+            Alert.alert('Could not create exercise', err.message ?? 'Try saving it again.');
         } finally {
             setSaving(false);
         }

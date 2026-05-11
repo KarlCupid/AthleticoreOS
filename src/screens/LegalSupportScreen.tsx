@@ -134,8 +134,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   policyBody: {
     marginTop: SPACING.xs,

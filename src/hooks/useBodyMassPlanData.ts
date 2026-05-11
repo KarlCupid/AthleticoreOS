@@ -62,7 +62,7 @@ export function useBodyMassPlanData(userId: string | null) {
     } catch (err: any) {
       setState({
         loading: false,
-        error: err.message ?? 'Failed to load weight-class data',
+        error: err.message ?? 'Could not load weight-class data',
         data: null,
         performanceContext: buildUnifiedPerformanceViewModel(null),
         guidedBodyMass: buildGuidedBodyMassViewModel(null),

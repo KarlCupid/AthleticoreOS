@@ -58,18 +58,18 @@ export const BUILD_METRIC_OPTIONS: Record<BuildPhaseGoalType, BuildMetricOption[
   ],
   conditioning: [
     { value: 'hard_conditioning_sessions_per_week', label: 'Hard Conditioning Sessions / Week', description: 'How many hard conditioning sessions you want to sustain each week.', unit: 'sessions / week', placeholder: '3' },
-    { value: 'conditioning_minutes_per_week', label: 'Conditioning Minutes / Week', description: 'Total weekly conditioning volume you want to reach.', unit: 'minutes / week', placeholder: '90' },
-    { value: 'quality_rounds_completed', label: 'Quality Rounds Completed', description: 'Number of strong, on-pace rounds you want to be able to complete.', unit: 'rounds', placeholder: '8' },
+    { value: 'conditioning_minutes_per_week', label: 'Conditioning minutes / week', description: 'Total weekly conditioning volume you want to reach.', unit: 'minutes / week', placeholder: '90' },
+    { value: 'quality_rounds_completed', label: 'Quality rounds completed', description: 'Number of strong, on-pace rounds you want to be able to complete.', unit: 'rounds', placeholder: '8' },
   ],
   boxing_skill: [
-    { value: 'boxing_sessions_per_week', label: 'Technical Boxing Sessions / Week', description: 'How many focused boxing sessions you want to consistently hit each week.', unit: 'sessions / week', placeholder: '4' },
-    { value: 'sparring_rounds_per_week', label: 'Sparring Rounds / Week', description: 'How many productive sparring rounds you want to handle in a week.', unit: 'rounds / week', placeholder: '12' },
-    { value: 'pad_rounds_per_session', label: 'Pad Rounds Per Session', description: 'How many high-quality pad rounds you want to own in a single session.', unit: 'rounds / session', placeholder: '6' },
+    { value: 'boxing_sessions_per_week', label: 'Technical boxing sessions / week', description: 'How many focused boxing sessions you want to consistently hit each week.', unit: 'sessions / week', placeholder: '4' },
+    { value: 'sparring_rounds_per_week', label: 'Sparring rounds / week', description: 'How many productive sparring rounds you want to handle in a week.', unit: 'rounds / week', placeholder: '12' },
+    { value: 'pad_rounds_per_session', label: 'Pad rounds per session', description: 'How many high-quality pad rounds you want to own in a single session.', unit: 'rounds / session', placeholder: '6' },
   ],
   weight_class_prep: [
-    { value: 'body_weight_lbs', label: 'Body Weight', description: 'Target bodyweight you want to reach before camp pressure sets in.', unit: 'lbs', placeholder: '155' },
-    { value: 'weekly_weight_change_lbs', label: 'Weekly Weight Change', description: 'How much weight you want to lose or gain each week on average.', unit: 'lbs / week', placeholder: '1.5' },
-    { value: 'nutrition_compliance_days_per_week', label: 'Fueling Target Days / Week', description: 'How many days per week you want fueling to match the work on the plan.', unit: 'days / week', placeholder: '6' },
+    { value: 'body_weight_lbs', label: 'Body weight', description: 'Target bodyweight you want to reach before camp pressure sets in.', unit: 'lbs', placeholder: '155' },
+    { value: 'weekly_weight_change_lbs', label: 'Weekly weight change', description: 'How much weight you want to lose or gain each week on average.', unit: 'lbs / week', placeholder: '1.5' },
+    { value: 'nutrition_compliance_days_per_week', label: 'Fueling target days / week', description: 'How many days per week you want fueling to match the work on the plan.', unit: 'days / week', placeholder: '6' },
   ],
 };
 

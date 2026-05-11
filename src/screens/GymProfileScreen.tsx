@@ -119,7 +119,7 @@ export function GymProfileScreen() {
             closeForm();
         } catch (err) {
             logError('GymProfileScreen.saveProfile', err, { mode: formMode });
-            Alert.alert('Save failed', 'Could not save the profile. Please try again.');
+            Alert.alert('Could not save profile', 'Try saving the profile again.');
         } finally {
             setSaving(false);
         }

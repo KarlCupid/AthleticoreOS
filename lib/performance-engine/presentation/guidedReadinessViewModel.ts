@@ -96,7 +96,7 @@ const QUICK_INPUTS: GuidedReadinessQuickInput[] = [
   },
   {
     id: 'fueling_confidence',
-    label: 'Fueling confidence',
+    label: 'Fueling context',
     prompt: 'Does recent food and hydration feel reliable enough for the work?',
     priority: 'supporting',
   },
@@ -116,8 +116,8 @@ const UNAVAILABLE_GUIDED_READINESS: GuidedReadinessViewModel = {
   whyItChanged: 'Some key readiness context is missing. A quick check-in helps Athleticore guide the plan with more care.',
   confidence: {
     level: 'unknown',
-    label: 'Unknown confidence',
-    summary: "Confidence is unknown because today's readiness context is unavailable.",
+    label: 'Context unknown',
+    summary: "Athleticore needs today's readiness context before it can guide the plan.",
     missingData: ['Readiness context'],
   },
   trainingAdjustment: "Training guidance is pending until today's context is available.",
@@ -235,7 +235,7 @@ function buildWhyItChanged(
     return humanizeSentence(readiness.explanation.reasons[0]);
   }
   if (missingData.length > 0) {
-    return `Confidence is lower because ${joinList(missingData.map((item) => item.toLowerCase()).slice(0, 3))} is still missing.`;
+    return `Context is limited because ${joinList(missingData.map((item) => item.toLowerCase()).slice(0, 3))} is still missing.`;
   }
   return 'Readiness is being resolved from check-in, sleep, soreness, stress, fueling, recent training, and risk context together.';
 }
@@ -249,15 +249,15 @@ function buildConfidence(
       level: confidence.level,
       label: confidenceLabel(confidence),
       summary: missingData.length > 0
-        ? `Confidence is limited because ${joinList(missingData.map((item) => item.toLowerCase()).slice(0, 3))} is missing. That is not a problem, but Athleticore will be more cautious.`
-        : 'Confidence is limited because the readiness trend is not established yet.',
+        ? `Context is limited because ${joinList(missingData.map((item) => item.toLowerCase()).slice(0, 3))} is missing. That is not a problem, but Athleticore will be more cautious.`
+        : 'Context is limited because the readiness trend is not established yet.',
       missingData,
     };
   }
   return {
     level: confidence.level,
     label: confidenceLabel(confidence),
-    summary: 'Confidence is strong enough for Athleticore to guide today from the current readiness context.',
+    summary: 'Athleticore has enough readiness context to guide today.',
     missingData,
   };
 }
@@ -342,7 +342,7 @@ function riskCopy(risk: RiskFlag): string {
     return 'Fuel has been light for the work, so Athleticore is protecting energy availability.';
   }
   if (risk.code === 'missing_data') {
-    return 'Important readiness data is missing, so confidence is lower instead of assumed safe.';
+    return 'Important readiness data is missing, so Athleticore stays cautious instead of assuming the day is safe.';
   }
   return humanizeSentence(risk.message);
 }
@@ -369,8 +369,8 @@ function sourcePerformanceStateId(performanceState: unknown): string | null {
 }
 
 function confidenceLabel(confidence: ConfidenceValue): string {
-  if (confidence.level === 'unknown') return 'Unknown confidence';
-  return `${humanize(confidence.level)} confidence`;
+  if (confidence.level === 'unknown') return 'Context unknown';
+  return `${humanize(confidence.level)} context`;
 }
 
 function joinList(values: string[]): string {

@@ -125,7 +125,7 @@ export function useWeeklyPlanSetupController({
     [availabilityWindows],
   );
   const buildGoalTypeLabel = useMemo(
-    () => BUILD_GOAL_OPTIONS.find((option) => option.value === buildGoalType)?.label ?? 'Build Phase',
+    () => BUILD_GOAL_OPTIONS.find((option) => option.value === buildGoalType)?.label ?? 'Build phase',
     [buildGoalType],
   );
   const buildRecommendation = useMemo(
@@ -401,14 +401,14 @@ export function useWeeklyPlanSetupController({
 
     if (!goalStatement.trim() || !targetMetric.trim()) {
       if (showAlerts) {
-        Alert.alert('Build Phase incomplete', 'Advanced override needs a clear objective and a measurable success metric.');
+        Alert.alert('Build phase incomplete', 'Advanced override needs a clear objective and a measurable success metric.');
       }
       return false;
     }
 
     if (!primaryOutcome.trim()) {
       if (showAlerts) {
-        Alert.alert('Build Phase incomplete', 'Add a clear primary objective so the daily athlete summary knows what this block is trying to achieve.');
+        Alert.alert('Build phase incomplete', 'Add a clear primary objective so the daily athlete summary knows what this phase is trying to achieve.');
       }
       return false;
     }
@@ -416,14 +416,14 @@ export function useWeeklyPlanSetupController({
     const parsedTargetValue = parseNumberInput(targetValue);
     if (targetValue.trim() === '' || parsedTargetValue == null || parsedTargetValue <= 0) {
       if (showAlerts) {
-        Alert.alert('Build Phase incomplete', 'Enter a concrete target number so the override is measurable.');
+        Alert.alert('Build phase incomplete', 'Enter a concrete target number so the override is measurable.');
       }
       return false;
     }
 
     if (!targetDate.trim() && !targetHorizonWeeks.trim()) {
       if (showAlerts) {
-        Alert.alert('Build Phase incomplete', 'Add either a target date or a target horizon in weeks so the override has a clear time frame.');
+        Alert.alert('Build phase incomplete', 'Add either a target date or a target horizon in weeks so the override has a clear time frame.');
       }
       return false;
     }
@@ -594,7 +594,7 @@ export function useWeeklyPlanSetupController({
           'Create a default gym profile so the workout plan can match your available equipment.',
           [
             { text: 'Not now', style: 'cancel' },
-            { text: 'Create Gym Profile', onPress: openGymProfiles },
+            { text: 'Create gym profile', onPress: openGymProfiles },
           ],
         );
         return;
@@ -625,7 +625,7 @@ export function useWeeklyPlanSetupController({
       }
     } catch (error) {
       logError('WeeklyPlanSetupScreen.saveSetup', error);
-      Alert.alert('Save failed', 'Could not save setup. Please try again.');
+      Alert.alert('Could not save setup', 'Try saving the setup again.');
     } finally {
       setSaving(false);
     }

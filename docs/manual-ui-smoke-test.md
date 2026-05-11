@@ -39,6 +39,25 @@ Run this checklist when automated browser or simulator UI testing is unavailable
 - Does the screen avoid shame, hype, and generic dashboard language?
 - Does the screen still work on a small phone without reading five cards?
 
+## First-Screen Hierarchy
+
+- Today: primary mission or planned support session first, one why line, one next action, then optional week context behind a toggle or below the fold.
+- Train Plan: week/day decision first, current session or setup gap second, broader plan context after the action.
+- WorkoutDetail: protected anchor or support-session decision first, session brief second, start/build action third, detailed exercise notes behind disclosure.
+- Fuel quick: fuel focus first, around-training cue second, log-next action third, hydration fourth, macros and known-context details behind Show details.
+- Weight Class: safety guidance first whenever risk is high or blocked, safer-options CTA next, number grid secondary.
+- Onboarding: one question per step, one obvious continue action, helper copy under the input rather than extra cards above it.
+
+## Manual Failure Signs
+
+- More than one primary CTA competes in the first screenful.
+- A developer term is visible in normal UI.
+- Five cards appear before the first meaningful action.
+- Safety copy sits below metrics or scale numbers in high-risk body-mass states.
+- Macros appear before the athlete sees the fuel decision in quick mode.
+- Scale numbers overpower safety guidance.
+- A generated workout preview reads like a debug report instead of a workout card.
+
 ## Test Data
 
 - Long athlete name: "Alexandria Montgomery-Santos Championship Camp".

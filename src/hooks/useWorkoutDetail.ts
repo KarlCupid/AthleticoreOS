@@ -179,7 +179,7 @@ export function useWorkoutDetail() {
         } catch (_err) {
             // Revert on failure
             setPrescription(prescription);
-            Alert.alert('Save failed', 'Could not save the exercise swap. Please try again.');
+            Alert.alert('Could not save swap', 'Try the exercise swap again.');
         }
     }, [prescription, entry, isMandatoryRecovery, mandatoryRecoveryReason]);
 
@@ -385,7 +385,7 @@ export function useWorkoutDetail() {
             }
         } catch (_err) {
             if (!mountedRef.current) return;
-            Alert.alert('Completion failed', getErrorMessage(_err));
+            Alert.alert('Could not save completion', getErrorMessage(_err));
         } finally {
             if (mountedRef.current) setGeneratedCompleting(false);
         }

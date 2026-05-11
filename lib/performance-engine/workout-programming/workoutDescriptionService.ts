@@ -60,7 +60,7 @@ const shameOrFearFragments = [
   'crushed',
   'survival task',
   'forced shutdown',
-  'redline symptoms',
+  'severe symptoms',
 ];
 const unexplainedTechnicalTerms = [
   { term: /\bRPE\b/i, explanation: /effort rating|effort.*1-?10|1-?10.*effort/i, label: 'RPE' },

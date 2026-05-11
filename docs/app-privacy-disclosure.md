@@ -1,4 +1,4 @@
-# AthletiCore OS App Privacy Disclosure Draft
+# Athleticore OS App Privacy Disclosure Draft
 
 This draft maps the current product behavior to the App Privacy questionnaire in App Store Connect. Confirm final answers against the production backend and analytics setup before submission.
 

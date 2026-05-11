@@ -57,7 +57,7 @@ export function PostWeighInRecoveryScreen() {
           >
             <IconChevronLeft size={24} color={COLORS.text.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Recovery support unavailable</Text>
+          <Text style={styles.headerTitle}>Recovery support needs a refresh</Text>
           <Text style={styles.headerSub}>Open post weigh-in recovery from the weight-class flow after a valid weigh-in.</Text>
         </LinearGradient>
       </View>

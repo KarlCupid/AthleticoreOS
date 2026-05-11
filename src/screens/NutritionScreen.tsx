@@ -59,7 +59,7 @@ function renderFuelWindow(window: SessionFuelingWindow | null | undefined, empty
         <Text style={inline.windowTiming}>{window.timing}</Text>
       </View>
       <Text style={inline.copyMuted} numberOfLines={1}>
-        {window.carbsG}g carbs · {window.proteinG}g protein
+        {window.carbsG}g carbs - {window.proteinG}g protein
       </Text>
       {window.notes.slice(0, 1).map((note) => (
         <Text key={`${window.label}-${note}`} style={inline.noteLine} numberOfLines={1}>
@@ -104,7 +104,7 @@ function FuelRail({
               {item.brand ?? item.serving_label}
             </Text>
             <Text style={inline.quickFoodMeta}>
-              {Math.round(item.calories_per_serving)} cal · P{Math.round(item.protein_per_serving)}
+              {Math.round(item.calories_per_serving)} cal - P{Math.round(item.protein_per_serving)}
             </Text>
           </AnimatedPressable>
         ))}
@@ -205,7 +205,7 @@ export function NutritionScreen() {
         backgroundTone="risk"
         backgroundScrimColor="rgba(10, 10, 10, 0.72)"
       >
-        <Text style={inline.errorTitle}>Fuel is temporarily unavailable</Text>
+        <Text style={inline.errorTitle}>Fuel needs a refresh</Text>
         <Text style={inline.copyMuted}>{error}</Text>
         <AnimatedPressable accessibilityRole="button" accessibilityLabel="Retry fuel refresh" style={inline.secondaryButton} onPress={() => void reload(true)} testID="fuel-error-retry">
           <Text style={inline.secondaryButtonText}>Try again</Text>
@@ -372,7 +372,7 @@ export function NutritionScreen() {
           <Text style={inline.copyMuted}>{confidence.summary}</Text>
           {confidence.missingData.length > 0 ? (
             <Text style={inline.noteLine}>
-              Missing: {confidence.missingData.slice(0, 4).join(', ')}. Athleticore treats that as unknown, not zero.
+              Still needed: {confidence.missingData.slice(0, 4).join(', ')}. Athleticore treats that as unknown, not zero.
             </Text>
           ) : null}
           <Text style={[inline.copyMuted, { marginTop: SPACING.sm }]}>
@@ -414,37 +414,56 @@ export function NutritionScreen() {
     </Animated.View>
   );
 
-  const renderQuickMode = () => {
+  const renderQuickFuelFocusCard = (delay: number = STAGGER_DELAY) => {
+    const guided = viewModel.guidedFueling;
+    const fuelCopy = buildFuelCoachCopy(guided);
     const betweenSessions = viewModel.targets?.sessionFuelingPlan.betweenSessions ?? null;
+    const trainingCues = [quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
+      .filter((cue): cue is string => Boolean(cue));
 
     return (
-      <>
-        {renderGuidedFuelingCard(STAGGER_DELAY)}
-
-        <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.normal)}>
-          <Card
-            style={{ marginBottom: SPACING.md }}
-            backgroundTone="fuelQuiet"
-            backgroundScrimColor="rgba(10, 10, 10, 0.66)"
-          >
-            <Text style={inline.cardHeadline}>{quickVM.fuelDirectiveHeadline}</Text>
-            {[quickVM.preSessionCue, quickVM.intraSessionCue, quickVM.postSessionCue]
-              .filter(Boolean)
-              .map((cue, index) => (
-                <Text key={`${cue}-${index}`} style={inline.noteLine} numberOfLines={1}>
+      <Animated.View entering={FadeInDown.delay(delay).duration(ANIMATION.normal)}>
+        <Card
+          style={{ marginBottom: SPACING.md }}
+          backgroundTone="fuelQuiet"
+          backgroundScrimColor="rgba(10, 10, 10, 0.66)"
+        >
+          <Text style={inline.sectionEyebrow}>Fuel focus</Text>
+          <Text style={inline.cardHeadline}>{fuelCopy.headline}</Text>
+          <Text style={inline.copyMuted}>{fuelCopy.body}</Text>
+          {guided.riskHighlights.length > 0 ? (
+            <View style={inline.warningBanner}>
+              {guided.riskHighlights.slice(0, 2).map((risk, index) => (
+                <Text key={`${risk}-${index}`} style={inline.warningText}>
+                  {risk}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          {trainingCues.length > 0 || betweenSessions ? (
+            <View style={inline.guidanceBlock}>
+              <Text style={inline.guidanceLabel}>Around training</Text>
+              {trainingCues.slice(0, 3).map((cue, index) => (
+                <Text key={`${cue}-${index}`} style={inline.noteLine} numberOfLines={2}>
                   {humanizeCoachSentence(cue)}
                 </Text>
               ))}
-            {betweenSessions ? (
-              <Text style={inline.noteLine} numberOfLines={1}>
-                Between: {betweenSessions.carbsG}g carbs, {betweenSessions.proteinG}g protein.
-              </Text>
-            ) : null}
-            <Text style={[inline.copyMuted, { marginTop: SPACING.sm }]} numberOfLines={1}>
-              Meals logged: {viewModel.historySummary.mealCount} · Water logged: {viewModel.historySummary.waterOz} oz
-            </Text>
-          </Card>
-        </Animated.View>
+              {betweenSessions ? (
+                <Text style={inline.noteLine} numberOfLines={2}>
+                  Between sessions: {betweenSessions.carbsG}g carbs, {betweenSessions.proteinG}g protein.
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </Card>
+      </Animated.View>
+    );
+  };
+
+  const renderQuickMode = () => {
+    return (
+      <>
+        {renderQuickFuelFocusCard(STAGGER_DELAY)}
 
         {quickVM.quickIntentOptions.length > 0 ? (
           <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.normal)}>
@@ -466,7 +485,7 @@ export function NutritionScreen() {
                   <Text style={inline.intentTitle}>{intent.label}</Text>
                   <Text style={inline.intentMacro}>~{intent.calTarget} cal</Text>
                   <Text style={inline.copyMuted} numberOfLines={1}>
-                    P {intent.proteinTarget}g · C {intent.carbTarget}g · F {intent.fatTarget}g
+                    P {intent.proteinTarget}g - C {intent.carbTarget}g - F {intent.fatTarget}g
                   </Text>
                 </AnimatedPressable>
               ))}
@@ -533,11 +552,15 @@ export function NutritionScreen() {
       ) : null}
 
       {renderSessionFuelingCard(STAGGER_DELAY * 3)}
-      {renderMissionCards()}
       {renderMacroTargetsCard(STAGGER_DELAY * 4)}
       {renderFoodLogConfidenceCard(STAGGER_DELAY * 5)}
       {renderFuelDetailsToggle(STAGGER_DELAY * 6)}
-      {showFuelDetails ? renderFuelDetailsCard(STAGGER_DELAY * 7) : null}
+      {showFuelDetails ? (
+        <>
+          {renderMissionCards()}
+          {renderFuelDetailsCard(STAGGER_DELAY * 7)}
+        </>
+      ) : null}
 
       <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 7).duration(ANIMATION.normal)}>
         <HydrationTracker

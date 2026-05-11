@@ -233,7 +233,7 @@ export function WeeklyPlanScreen() {
         return (
             <ScreenWrapper useSafeArea={true}>
                 <View style={styles.header}>
-                    <ScreenHeader kicker="Plan" title="Journey plan pending" subtitle="Update your current block." />
+                    <ScreenHeader kicker="Plan" title="Journey plan pending" subtitle="Update your current phase." />
                 </View>
                 <View style={styles.scrollContent}>
                     <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()} style={{ width: '100%' }}>

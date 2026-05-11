@@ -16,7 +16,7 @@ export function DeleteAccountScreen() {
   const handleDelete = () => {
     Alert.alert(
       'Delete account permanently?',
-      'This removes your AthletiCore account, profile, logs, plans, and history. This cannot be undone.',
+      'This removes your Athleticore account, profile, logs, plans, and history. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -27,7 +27,7 @@ export function DeleteAccountScreen() {
               setDeleting(true);
               await deleteMyAccount();
             } catch (error) {
-              Alert.alert('Delete failed', getSupabaseAuthErrorCopy(error, 'deleteAccount'));
+              Alert.alert('Could not delete account', getSupabaseAuthErrorCopy(error, 'deleteAccount'));
               setDeleting(false);
             }
           },
@@ -43,7 +43,7 @@ export function DeleteAccountScreen() {
         <ScreenHeader
           kicker="Account"
           title="Delete account"
-          subtitle="Use this if you want to permanently remove your AthletiCore account and stored app data."
+          subtitle="Use this if you want to permanently remove your Athleticore account and stored app data."
         />
       </View>
 

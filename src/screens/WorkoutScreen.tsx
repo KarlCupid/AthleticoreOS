@@ -93,6 +93,26 @@ function getChipStyles(tone: 'success' | 'warning' | 'accent' | 'neutral') {
   return { backgroundColor: COLORS.surfaceSecondary, color: COLORS.text.secondary };
 }
 
+function formatQualityGapLabel(gap: { quality: string; priority?: string | null | undefined }) {
+  const normalized = String(gap.quality).replace(/[_-]+/g, ' ').toLowerCase();
+  if (/aerobic|roadwork|zone ?2/.test(normalized)) return 'roadwork base';
+  if (/shoulder|scap/.test(normalized)) return 'shoulder durability';
+  if (/neck|trap/.test(normalized)) return 'neck and trap durability';
+  if (/trunk|core|rotation/.test(normalized)) return 'trunk durability';
+  if (/conditioning|interval|round/.test(normalized)) return 'conditioning support';
+  if (/strength/.test(normalized)) return 'strength support';
+  if (/power/.test(normalized)) return 'power support';
+  if (/mobility|hip|ankle/.test(normalized)) return 'mobility support';
+  if (/skill|footwork|boxing/.test(normalized)) return 'skill support';
+  return normalized;
+}
+
+function joinReadableList(items: string[]) {
+  if (items.length <= 1) return items[0] ?? '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 
 function StateCard({
   title,
@@ -126,7 +146,7 @@ function EmptyPlanCard({ onPress }: { onPress: () => void }) {
     <StateCard
       title="Update your journey plan"
       body="Training will adapt from your current phase, anchors, readiness, and goals."
-      actionLabel="Update Journey Plan"
+      actionLabel="Update journey plan"
       onPress={onPress}
     />
   );
@@ -197,11 +217,11 @@ function AthleteSupportWeekCard({ snapshot, compact = false }: { snapshot: Boxin
     compact ? null : week.nextBestAction,
   ].filter((item): item is string => Boolean(item)).map(sanitizeAthleteFacingCopy);
   const visibleBullets = compact ? bullets.slice(0, 2) : bullets;
-  const qualityGaps = week.qualityGaps.map((gap) => `${String(gap.quality).replace(/_/g, ' ')} (${gap.priority})`).slice(0, compact ? 1 : 2);
+  const qualityGaps = Array.from(new Set(week.qualityGaps.map(formatQualityGapLabel))).slice(0, compact ? 1 : 2);
   return (
     <Card
       title={week.weeklyAthleticDevelopmentHeadline ?? week.weeklyBoxingHeadline ?? 'Athlete support this week'}
-      subtitle={compact ? 'Week shape around your boxing anchors.' : week.weeklyAthleticDevelopmentSummary ?? week.weeklyBoxingSummary ?? 'Athleticore builds the S&C support around your boxing anchors.'}
+      subtitle={compact ? 'This week is built around your boxing anchors.' : week.weeklyAthleticDevelopmentSummary ?? week.weeklyBoxingSummary ?? 'Athleticore builds the S&C support around your boxing anchors.'}
       subtitleLines={compact ? 1 : 3}
       backgroundTone="workoutFloor"
       backgroundScrimColor="rgba(10, 10, 10, 0.72)"
@@ -221,7 +241,7 @@ function AthleteSupportWeekCard({ snapshot, compact = false }: { snapshot: Boxin
           {week.generatedDurabilityCount != null ? <Text style={styles.intelligenceMeta}>Durability {week.generatedDurabilityCount}</Text> : null}
           {week.generatedSkillSupportCount != null ? <Text style={styles.intelligenceMeta}>Skill support {week.generatedSkillSupportCount}</Text> : null}
         </View>
-        {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Watch next: {qualityGaps.join(', ')}</Text> : null}
+        {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Watch next: {joinReadableList(qualityGaps)}</Text> : null}
         {!compact && week.variancePlan?.reason ? <Text style={styles.intelligenceNote}>{week.variancePlan.reason}</Text> : null}
       </View>
     </Card>
@@ -234,6 +254,7 @@ export function WorkoutScreen() {
   const { themeColor, currentLevel } = useReadinessTheme();
   const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
+  const [showWeekContext, setShowWeekContext] = useState(false);
   const {
     loading, refreshing, loadData, onRefresh, prescription, todayActivities, workoutHistory,
     checkins, sessions, userId, dailyAthleteSummary, todayPlanEntry, weeklyEntries,
@@ -245,7 +266,10 @@ export function WorkoutScreen() {
   useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
   useEffect(() => { if (activeTab === 'history' && !historyLoaded && !historyLoading) void loadHistoryData(); }, [activeTab, historyLoaded, historyLoading, loadHistoryData]);
   useEffect(() => { if (activeTab === 'analytics' && !analyticsLoaded && !analyticsLoading) void loadAnalyticsData(); }, [activeTab, analyticsLoaded, analyticsLoading, loadAnalyticsData]);
-  useEffect(() => { setShowWorkoutDetails(false); }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
+  useEffect(() => {
+    setShowWorkoutDetails(false);
+    setShowWeekContext(false);
+  }, [activeTab, todayPlanEntry?.id, prescription?.sessionGoal]);
 
   const openLegacyGuidedWorkout = useCallback(async (entry?: WeeklyPlanEntryRow | null) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -475,7 +499,19 @@ export function WorkoutScreen() {
                 </Card>
               </Animated.View>
             )}
-            {!initialLoadError ? (
+            {!initialLoadError && weekBoxingSnapshot ? (
+              <Animated.View entering={FadeInDown.delay(90).duration(260).springify()}>
+                <AnimatedPressable
+                  accessibilityRole="button"
+                  accessibilityLabel={showWeekContext ? 'Hide week context' : 'Show week context'}
+                  style={styles.weekContextToggle}
+                  onPress={() => setShowWeekContext((value) => !value)}
+                >
+                  <Text style={styles.weekContextToggleText}>{showWeekContext ? 'Hide week context' : 'Show week context'}</Text>
+                </AnimatedPressable>
+              </Animated.View>
+            ) : null}
+            {!initialLoadError && (!hasPlannedSupportSession || showWeekContext) ? (
               <Animated.View entering={FadeInDown.delay(100).duration(280).springify()}>
                 <UnifiedJourneySummaryCard
                   summary={performanceContext}
@@ -484,7 +520,7 @@ export function WorkoutScreen() {
                 />
               </Animated.View>
             ) : null}
-            {!initialLoadError && weekBoxingSnapshot ? (
+            {!initialLoadError && weekBoxingSnapshot && showWeekContext ? (
               <Animated.View entering={FadeInDown.delay(120).duration(280).springify()}>
                 <AthleteSupportWeekCard snapshot={weekBoxingSnapshot} compact={hasPlannedSupportSession} />
               </Animated.View>
@@ -538,7 +574,7 @@ export function WorkoutScreen() {
                     </Animated.View>
                   );
                 })}
-                <AnimatedPressable accessibilityRole="button" accessibilityLabel="Adjust plan" style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust Plan</Text></AnimatedPressable>
+                <AnimatedPressable accessibilityRole="button" accessibilityLabel="Adjust plan" style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust plan</Text></AnimatedPressable>
               </>
             )}
           </View>
@@ -619,6 +655,8 @@ const styles = StyleSheet.create({
   intelligenceMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginTop: SPACING.xs },
   intelligenceMeta: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.sm, paddingVertical: 5, fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   intelligenceNote: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 17 },
+  weekContextToggle: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: 'rgba(10, 10, 10, 0.34)' },
+  weekContextToggleText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
   primaryButton: { minHeight: 52, backgroundColor: COLORS.accent, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.md, marginTop: SPACING.md },
   primaryButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
   secondaryLink: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.xs },

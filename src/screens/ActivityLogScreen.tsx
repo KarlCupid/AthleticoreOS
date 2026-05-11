@@ -114,7 +114,7 @@ export function ActivityLogScreen() {
             });
             navigation.goBack();
         } catch (e: any) {
-            Alert.alert('Error', e.message ?? 'Failed to save');
+            Alert.alert('Could not save activity', e.message ?? 'Try saving again.');
         }
         setSaving(false);
     };

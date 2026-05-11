@@ -108,8 +108,8 @@ const UNAVAILABLE_TODAY_MISSION: TodayMissionViewModel = {
   nextActions: [action('review-plan', 'Review plan', 'review_plan', 'primary')],
   confidence: {
     level: 'unknown',
-    label: 'Unknown confidence',
-    summary: "Confidence is unknown because today's connected planning context is unavailable.",
+    label: 'Context unknown',
+    summary: "Athleticore needs today's connected planning context before it can guide the day.",
     missingData: ['Training, readiness, and fuel context'],
   },
   explanations: [],
@@ -313,7 +313,7 @@ function buildWhyTodayMatters(input: {
     return 'Recovery is the productive work today because it helps the next build window land better.';
   }
   if (input.phase === 'build') {
-    return "You're in build phase, and today's work supports the quality this block is trying to grow.";
+    return "You're in build phase, and today's work supports the quality this phase is trying to grow.";
   }
   if (input.phase === 'camp' || input.phase === 'short_notice_camp') {
     return "You're in camp, so today should build fight readiness without stacking stress that does not help.";
@@ -567,15 +567,15 @@ function buildConfidence(input: {
       level: confidence.level,
       label: confidenceLabel(confidence),
       summary: input.missingData.length > 0
-        ? 'Confidence is limited because some important context is still unknown.'
-        : confidence.reasons[0] ?? 'Confidence is limited because the trend is not fully established.',
+        ? 'Context is limited because some important inputs are still unknown.'
+        : confidence.reasons[0] ?? 'Context is limited because the trend is not fully established.',
       missingData: input.missingData,
     };
   }
   return {
     level: confidence.level,
     label: confidenceLabel(confidence),
-    summary: "Confidence is strong enough to guide the day from today's connected training, fuel, and readiness context.",
+    summary: "Athleticore has enough connected training, fuel, and readiness context to guide the day.",
     missingData: [],
   };
 }
@@ -636,7 +636,7 @@ function missingDataLabels(
     ...performanceState.journey.missingFields.map((field) => humanize(field.field)),
     ...readiness.missingData.map((field) => humanize(field.field)),
     ...nutritionTarget.dataQuality.missingFields.map((field) => humanize(field.field)),
-    ...(weightClassPlan?.confidence.level === 'unknown' ? ['Weight-class confidence'] : []),
+    ...(weightClassPlan?.confidence.level === 'unknown' ? ['Weight-class context'] : []),
   ]).slice(0, 6);
 }
 
@@ -651,7 +651,7 @@ function safetyRelevantMissingDataLabels(
       .filter((field) => isCoreReadinessSafetyField(field.field))
       .map((field) => humanize(field.field)),
     ...(weightClassPlan?.feasibilityStatus === 'insufficient_data' ? ['Weight-class feasibility'] : []),
-    ...(weightClassPlan?.confidence.level === 'unknown' ? ['Weight-class confidence'] : []),
+    ...(weightClassPlan?.confidence.level === 'unknown' ? ['Weight-class context'] : []),
   ]).slice(0, 6);
 }
 
@@ -704,7 +704,7 @@ function safetyCopyForRisk(risk: RiskFlag): string {
     return 'Readiness is low enough that recovery should lead the plan today.';
   }
   if (risk.code === 'missing_data') {
-    return 'Important data is missing, so Athleticore is lowering confidence instead of assuming the day is safe.';
+    return 'Important data is missing, so Athleticore stays cautious instead of assuming the day is safe.';
   }
   return humanizeSentence(risk.message);
 }
@@ -797,8 +797,8 @@ function confidenceScore(confidence: ConfidenceValue): number {
 }
 
 function confidenceLabel(confidence: ConfidenceValue): string {
-  if (confidence.level === 'unknown') return 'Unknown confidence';
-  return `${humanize(confidence.level)} confidence`;
+  if (confidence.level === 'unknown') return 'Context unknown';
+  return `${humanize(confidence.level)} context`;
 }
 
 function rangeTarget(range: MeasurementRange<string> | null | undefined): number {

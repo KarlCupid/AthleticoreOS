@@ -1,10 +1,10 @@
-# AthletiCore OS App Store Metadata
+# Athleticore OS App Store Metadata
 
 Use this as the working draft for the App Store Connect listing.
 
 ## Core Listing
 
-- App name: `AthletiCore OS`
+- App name: `Athleticore OS`
 - Subtitle: `Daily training and fight prep`
 - Primary category: `Health & Fitness`
 - Secondary category: `Sports`
@@ -13,11 +13,11 @@ Use this as the working draft for the App Store Connect listing.
 
 ## Description
 
-AthletiCore OS helps combat-sports athletes manage training, recovery, nutrition, hydration, and weight-class planning in one guided daily system.
+Athleticore OS helps combat-sports athletes manage training, recovery, nutrition, hydration, and weight-class planning in one guided daily system.
 
 Plan your week, check in each day, follow guided training, track meals and hydration, and keep your fight-camp work organized around the demands of the day. The app combines readiness, workload, and training context so athletes can see what to push, what to protect, and what to log next.
 
-AthletiCore OS is built for coaching-oriented training support. Weight-class and rehydration features include in-app safety framing and are intended for educational guidance, not emergency or licensed medical care.
+Athleticore OS is built for coaching-oriented training support. Weight-class and rehydration features include in-app safety framing and are intended for educational guidance, not emergency or licensed medical care.
 
 ## Keywords
 

@@ -64,7 +64,7 @@ export function SettingsScreen() {
 
         if (error) {
             setProfile((current) => current ? { ...current, cycle_tracking: previous } : current);
-            Alert.alert('Update failed', 'Could not save cycle tracking right now.');
+            Alert.alert('Could not save cycle tracking', 'Try saving that setting again.');
         }
     }
 
@@ -75,7 +75,7 @@ export function SettingsScreen() {
         try {
             await signOutCurrentUser();
         } catch (signOutError) {
-            Alert.alert('Sign out failed', getSupabaseAuthErrorCopy(signOutError, 'signOut'));
+            Alert.alert('Could not sign out', getSupabaseAuthErrorCopy(signOutError, 'signOut'));
             setSigningOut(false);
         }
     }
@@ -104,7 +104,7 @@ export function SettingsScreen() {
                 {/* Athletic Profile Card */}
                 {profile && (
                     <View style={{ marginTop: SPACING.md }}>
-                        <Card title="Athletic Profile">
+                        <Card title="Athletic profile">
                             <View style={styles.settingRow}>
                                 <Text style={styles.settingLabel}>Phase</Text>
                                 <Text style={styles.settingValue}>{formatPhase(profile.phase)}</Text>
@@ -120,14 +120,14 @@ export function SettingsScreen() {
                                 <>
                                     <View style={styles.divider} />
                                     <View style={styles.settingRow}>
-                                        <Text style={styles.settingLabel}>Target Weight</Text>
+                                        <Text style={styles.settingLabel}>Target weight</Text>
                                         <Text style={styles.settingValue}>{profile.target_weight} lbs</Text>
                                     </View>
                                 </>
                             )}
                             <View style={styles.divider} />
                             <View style={styles.settingRow}>
-                                <Text style={styles.settingLabel}>Biological Sex</Text>
+                                <Text style={styles.settingLabel}>Biological sex</Text>
                                 <Text style={styles.settingValue}>
                                     {profile.biological_sex.charAt(0).toUpperCase() + profile.biological_sex.slice(1)}
                                 </Text>
@@ -141,7 +141,7 @@ export function SettingsScreen() {
                     <Card title="Preferences">
                         {profile && (
                             <View style={styles.settingRow}>
-                                <Text style={styles.settingLabel}>Cycle Tracking</Text>
+                                <Text style={styles.settingLabel}>Cycle tracking</Text>
                                 <Switch
                                     value={profile.cycle_tracking}
                                     onValueChange={(value) => void updateCycleTracking(value)}
@@ -163,7 +163,7 @@ export function SettingsScreen() {
                     disabled={signingOut}
                 >
                     {signingOut ? <ActivityIndicator size="small" color={COLORS.readiness.depleted} /> : null}
-                    <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign Out'}</Text>
+                    <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign out'}</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.version}>v1.0.0</Text>

@@ -167,7 +167,7 @@ export function FoodSearchScreen() {
         if (!hasPartialResults) {
           setAllSections([]);
         }
-        setErrorMessage('Search is unavailable right now. Check your connection and try again.');
+        setErrorMessage('Search needs a connection right now. Check your connection and try again.');
         setLoading(false);
       }
     },

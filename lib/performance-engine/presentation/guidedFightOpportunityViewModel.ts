@@ -306,7 +306,7 @@ function transitionCopy(opportunity: FightOpportunity): string {
 
 function trainingAdjustmentCopy(status: FightOpportunityStatus): string {
   if (status === 'tentative') {
-    return 'Training can keep building while nudging sport specificity up. Athleticore should not fully override the current block yet.';
+    return 'Training can keep building while nudging sport specificity up. Athleticore should not fully override the current phase yet.';
   }
   if (status === 'short_notice') {
     return 'Training tightens around the time available. Key boxing work stays protected and lower-value extras come out.';
@@ -325,7 +325,7 @@ function fuelingAdjustmentCopy(status: FightOpportunityStatus, bodyMassLevel: 'n
     return 'Fueling stays safety-first. Scale pressure does not override training demand, readiness, hydration, or recovery.';
   }
   if (status === 'canceled') {
-    return 'Fueling can return to supporting the next build block instead of fight-week pressure.';
+    return 'Fueling can return to supporting the next build phase instead of fight-week pressure.';
   }
   if (status === 'short_notice') {
     return 'Fueling needs to support high-output work and recovery quickly. Carbs matter around the key sessions.';
@@ -381,7 +381,7 @@ function nextSteps(
   shouldTransition: boolean,
 ): string[] {
   if (status === 'canceled') {
-    return ['Return the plan toward build', 'Keep training history attached', 'Review the next useful block'];
+    return ['Return the plan toward build', 'Keep training history attached', 'Review the next useful phase'];
   }
   if (bodyMassLevel === 'aggressive') {
     return ['Review safer options', 'Keep fueling connected to training', 'Confirm fight details'];

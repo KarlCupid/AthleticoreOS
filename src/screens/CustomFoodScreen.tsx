@@ -135,7 +135,7 @@ export function CustomFoodScreen() {
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to save');
+      Alert.alert('Could not save food', err.message ?? 'Try saving it again.');
     } finally {
       setSaving(false);
     }

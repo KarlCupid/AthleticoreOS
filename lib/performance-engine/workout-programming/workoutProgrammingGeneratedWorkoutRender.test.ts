@@ -388,14 +388,25 @@ async function run(): Promise<void> {
   assert('preview card renders session intent', preview.getAllByText(validWorkout.sessionIntent).length > 0);
   assert('preview card renders blocks', validWorkout.blocks.every((block) => Boolean(preview.getByText(block.title))));
   assert('preview card renders exercises', Boolean(exercise && preview.getByText(exercise.name)));
-  assert('preview card renders prescriptions', hasRenderedText(preview, /Dose/i) && hasRenderedText(preview, /Effort \d+\/10/i));
+  assert('preview card renders prescriptions', hasRenderedText(preview, /Effort \d+\/10/i));
   assert('preview card renders coach brief', Boolean(preview.getByTestId('generated-workout-preview-brief')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.description?.effortExplanation ?? ''), 'i')));
-  assert('preview card renders safety notes', Boolean(preview.getByTestId('generated-workout-preview-safety')) && hasRenderedText(preview, /Pause if pain becomes sharp/i));
   assert('preview card renders success criteria in coach brief', Boolean(preview.getByTestId('generated-workout-preview-brief')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.successCriteria[0]))));
-  assert('preview card renders substitutions and scaling together', Boolean(preview.getByTestId('generated-workout-preview-substitutions')) && hasRenderedText(preview, /Substitutions \/ scaling/i) && hasRenderedText(preview, /Down:/i));
-  assert('preview card renders tracking metrics', Boolean(preview.getByTestId('generated-workout-preview-tracking')) && hasRenderedText(preview, new RegExp(escapeRegExp((validWorkout.trackingMetrics ?? validWorkout.trackingMetricIds)[0]), 'i')));
-  assert('preview card renders completion message', Boolean(preview.getByTestId('generated-workout-preview-completion')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.description?.completionMessage ?? ''), 'i')));
-  assert('preview card renders user-safe decision summary', Boolean(preview.getByTestId('generated-workout-preview-why')) && hasRenderedText(preview, /Why this session/i));
+  assert('preview card keeps details hidden by default', preview.queryByTestId('generated-workout-preview-why') === null && preview.queryByTestId('generated-workout-preview-substitutions') === null);
+  assert('preview card exposes details disclosure', Boolean(preview.getByText('Show details')));
+  fireEvent.press(preview.getByText('Show details'));
+  assert('preview card renders safety fact tile by default', hasRenderedText(preview, /Safety/i));
+  assert('preview card renders safety details after disclosure when session has specific notes', Boolean(preview.getByTestId('generated-workout-preview-safety')));
+  assert('preview card renders substitutions and scaling together after disclosure', Boolean(preview.getByTestId('generated-workout-preview-substitutions')) && hasRenderedText(preview, /Substitutions \/ scaling/i) && hasRenderedText(preview, /Down:/i));
+  const previewTrackingMetrics = validWorkout.trackingMetrics ?? validWorkout.trackingMetricIds;
+  const hasNonObviousTracking = previewTrackingMetrics.some((metric) => !['session_rpe', 'duration_minutes', 'completion_status'].includes(metric));
+  assert(
+    'preview card renders non-obvious tracking metrics only after disclosure',
+    hasNonObviousTracking
+      ? Boolean(preview.getByTestId('generated-workout-preview-tracking'))
+      : preview.queryByTestId('generated-workout-preview-tracking') === null,
+  );
+  assert('preview card renders completion message after disclosure', Boolean(preview.getByTestId('generated-workout-preview-completion')) && hasRenderedText(preview, new RegExp(escapeRegExp(validWorkout.description?.completionMessage ?? ''), 'i')));
+  assert('preview card renders user-safe decision summary after disclosure', Boolean(preview.getByTestId('generated-workout-preview-why')) && hasRenderedText(preview, /Why this session/i));
   assert('preview card omits media panel when no reviewed media asset exists', preview.queryByTestId(`generated-workout-exercise-media-${exercise.exerciseId}`) === null);
   preview.unmount();
 
@@ -419,6 +430,7 @@ async function run(): Promise<void> {
     })),
   };
   const mediaPreview = render(React.createElement(GeneratedWorkoutPreviewCard, { workout: workoutWithReviewedMedia }));
+  fireEvent.press(mediaPreview.getByText('Show details'));
   assert('preview card exposes reviewed media safely when present', Boolean(
     mediaPreview.getByTestId(`generated-workout-exercise-media-${exercise.exerciseId}`)
       && mediaPreview.getByText('Demo thumbnail')

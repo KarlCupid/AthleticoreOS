@@ -316,8 +316,8 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
     });
     const sections = Array.isArray(prescription.sections) ? prescription.sections : [];
     const exerciseCount = prescription.exercises?.length ?? 0;
-    const blockCount = sections.length > 0 ? sections.length : exerciseCount > 0 ? 1 : 0;
-    const whatToExpect = `${blockCount} block${blockCount === 1 ? '' : 's'} - ${exerciseCount} movement${exerciseCount === 1 ? '' : 's'} - about ${prescription.estimatedDurationMin} min.`;
+    const sectionCount = sections.length > 0 ? sections.length : exerciseCount > 0 ? 1 : 0;
+    const whatToExpect = `${sectionCount} section${sectionCount === 1 ? '' : 's'} - ${exerciseCount} movement${exerciseCount === 1 ? '' : 's'} - about ${prescription.estimatedDurationMin} min.`;
     const goal = prescription.sessionGoal ?? prescription.sessionIntent ?? prescription.message ?? 'Follow the plan. Keep the reps clean.';
 
     return (
@@ -339,7 +339,7 @@ export function PrescriptionPreview({ prescription, gymProfile, onBegin }: Presc
                 </View>
                 <View style={ppStyles.metaBadge}>
                     <Text style={ppStyles.metaText}>
-                        {blockCount} blocks
+                        {sectionCount} sections
                     </Text>
                 </View>
                 <View style={ppStyles.metaBadge}>

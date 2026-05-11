@@ -31,7 +31,7 @@ function formatLoadingStrategy(strategy: string | null | undefined) {
   const labels: Record<string, string> = {
     straight_sets: 'Straight sets',
     top_set_backoff: 'Top set + backoff',
-    density_block: 'Density block',
+    density_block: 'Density work',
     intervals: 'Intervals',
     recovery_flow: 'Recovery flow',
     emom: 'EMOM',

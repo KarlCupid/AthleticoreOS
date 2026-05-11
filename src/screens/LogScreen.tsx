@@ -76,9 +76,9 @@ const CHECK_SCALES: CheckScale[] = [
   },
   {
     key: 'confidence',
-    label: 'Training confidence',
+    label: 'Training control',
     question: 'Can you train with control today?',
-    tooltip: 'Rate confidence to complete the planned work with control. This is not a toughness score.',
+    tooltip: 'Rate how prepared you feel to complete the planned work with control. This is not a toughness score.',
     values: ['Very low', 'Low', 'Moderate', 'High', 'Very high'],
   },
 ];

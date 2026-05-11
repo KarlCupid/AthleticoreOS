@@ -691,7 +691,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                         source={BRAND_LOGO}
                                         style={styles.welcomeLogo}
                                         resizeMode="cover"
-                                        accessibilityLabel="Athleticore OS logo"
+                                        accessibilityLabel="Athleticore logo"
                                     />
                                 </View>
                                 <View style={styles.welcomeHeaderCopy}>
@@ -1104,7 +1104,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             source={BRAND_LOGO}
                             style={styles.brandMarkImage}
                             resizeMode="cover"
-                            accessibilityLabel="Athleticore OS logo"
+                            accessibilityLabel="Athleticore logo"
                         />
                         <View style={styles.brandTitleBlock}>
                             <Text style={styles.brandEyebrow}>ATHLETICORE OS</Text>

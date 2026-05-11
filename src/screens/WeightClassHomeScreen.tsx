@@ -24,13 +24,13 @@ import { todayLocalDate } from '../../lib/utils/date';
 type NavProp = NativeStackNavigationProp<FuelStackParamList, 'WeightClassHome'>;
 
 const PHASE_LABELS: Record<BodyMassSupportPhase, string> = {
-  unknown: 'Body-Mass Context',
-  long_term_body_composition: 'Long-Term Management',
-  gradual_weight_class_preparation: 'Weight-Class Prep',
-  competition_week_body_mass_monitoring: 'Competition Week Monitoring',
-  weigh_in_logistics: 'Weigh-in Day',
-  post_weigh_in_recovery_tracking: 'Post Weigh-In Recovery',
-  high_risk_review: 'Safety Review',
+  unknown: 'Body-mass context',
+  long_term_body_composition: 'Long-term management',
+  gradual_weight_class_preparation: 'Weight-class prep',
+  competition_week_body_mass_monitoring: 'Competition week monitoring',
+  weigh_in_logistics: 'Weigh-in day',
+  post_weigh_in_recovery_tracking: 'Post weigh-in recovery',
+  high_risk_review: 'Safety review',
 };
 
 const PHASE_COLORS: Record<BodyMassSupportPhase, [string, string]> = {
@@ -146,7 +146,7 @@ export function WeightClassHomeScreen() {
       <View style={styles.noPlanContainer}>
         <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(212, 175, 55, 0.20)']} style={styles.noPlanGradient}>
           <IconScale size={64} color={COLORS.accent} />
-          <Text style={styles.noPlanTitle}>Weight-Class Context</Text>
+          <Text style={styles.noPlanTitle}>Weight-class context</Text>
           <Text style={styles.noPlanSubtitle}>
             Check whether a target can be reached safely while maintaining performance.
           </Text>
@@ -172,7 +172,7 @@ export function WeightClassHomeScreen() {
               onPress={() => nav.navigate('WeightClassHistory')}
               testID="weight-class-view-history-empty"
             >
-              <Text style={styles.historyLinkText}>View Past Class Plans ({weightClassHistory.length})</Text>
+              <Text style={styles.historyLinkText}>View past class plans ({weightClassHistory.length})</Text>
             </TouchableOpacity>
           )}
         </LinearGradient>
@@ -220,7 +220,7 @@ export function WeightClassHomeScreen() {
           <View>
             <Text style={styles.phaseLabel}>{PHASE_LABELS[phase]}</Text>
             <Text style={styles.countdownText}>
-              {daysOut === 0 ? 'WEIGH-IN TODAY' : `${daysOut} days to weigh-in`}
+              {daysOut === 0 ? 'Weigh-in today' : `${daysOut} days to weigh-in`}
             </Text>
           </View>
           <View style={styles.adherenceBadge}>
@@ -235,9 +235,21 @@ export function WeightClassHomeScreen() {
             <Text style={styles.heroSafetyBody}>
               {weightCoachCopy.safetyLines[0] ?? bodyMassBlockReason}
             </Text>
+            <TouchableOpacity
+              style={styles.heroSafetyButton}
+              onPress={() => nav.navigate('WeightClassPlanSetup')}
+              accessibilityRole="button"
+              accessibilityLabel="Review safer options"
+              testID="weight-class-review-safer-options"
+            >
+              <Text style={styles.heroSafetyButtonText}>Review safer options</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
+        {bodyMassPlanBlocked ? (
+          <Text style={styles.heroNumbersContext}>Scale numbers are secondary until the safety review is clear.</Text>
+        ) : null}
         <View style={styles.heroNumbers}>
           <View style={styles.heroStat}>
             <Text style={styles.heroStatValue}>{currentWeight.toFixed(1)}</Text>
@@ -262,7 +274,7 @@ export function WeightClassHomeScreen() {
           <View style={styles.projectionBanner}>
             <Text style={styles.projectionText}>
               Projected weigh-in: {projectedWeightByWeighIn.toFixed(1)} lbs
-              {projectedWeightByWeighIn <= activePlan.target_weight ? ' — within target context' : ' — review needed'}
+              {projectedWeightByWeighIn <= activePlan.target_weight ? ' - within target context' : ' - review needed'}
             </Text>
           </View>
         )}
@@ -374,7 +386,7 @@ export function WeightClassHomeScreen() {
         backgroundTone="bodyTrend"
         backgroundScrimColor="rgba(10, 10, 10, 0.80)"
       >
-        <Text style={styles.sectionTitle}>Weight Trend</Text>
+        <Text style={styles.sectionTitle}>Body-mass trend</Text>
         <BodyMassTrendChart
           weightHistory={weightHistory}
           targetWeight={activePlan.target_weight}
@@ -388,7 +400,7 @@ export function WeightClassHomeScreen() {
         backgroundTone="bodyMassSupport"
         backgroundScrimColor="rgba(10, 10, 10, 0.78)"
       >
-        <Text style={styles.sectionTitle}>Body-Mass Timeline</Text>
+        <Text style={styles.sectionTitle}>Body-mass timeline</Text>
         <BodyMassSupportTimeline plan={activePlan} currentPhase={phase} />
       </Card>
       {/* Quick actions */}
@@ -401,7 +413,7 @@ export function WeightClassHomeScreen() {
             accessibilityLabel="Open weight-class context"
             testID="weight-class-fight-week-support"
           >
-            <Text style={styles.actionButtonText}>Fight Week Support</Text>
+            <Text style={styles.actionButtonText}>Fight week support</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />
           </TouchableOpacity>
         ) : null}
@@ -417,7 +429,7 @@ export function WeightClassHomeScreen() {
             accessibilityLabel="Open post weigh-in recovery"
             testID="weight-class-post-weigh-in-recovery"
           >
-            <Text style={styles.actionButtonText}>Post Weigh-In Recovery</Text>
+            <Text style={styles.actionButtonText}>Post weigh-in recovery</Text>
             <IconChevronRight size={18} color={COLORS.text.inverse} />
           </TouchableOpacity>
         ) : null}
@@ -429,7 +441,7 @@ export function WeightClassHomeScreen() {
           accessibilityLabel="Open weight-class history"
           testID="weight-class-past-plans"
         >
-          <Text style={[styles.actionButtonText, { color: COLORS.text.primary }]}>Past Class Plans</Text>
+          <Text style={[styles.actionButtonText, { color: COLORS.text.primary }]}>Past class plans</Text>
           <IconChevronRight size={18} color={COLORS.text.secondary} />
         </TouchableOpacity>
 
@@ -505,6 +517,26 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
     lineHeight: 19,
+  },
+  heroSafetyButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.text.primary,
+    justifyContent: 'center',
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  heroSafetyButtonText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.inverse,
+  },
+  heroNumbersContext: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    lineHeight: 17,
   },
   heroNumbers: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroStat: { flex: 1, alignItems: 'center' },

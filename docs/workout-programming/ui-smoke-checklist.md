@@ -24,6 +24,25 @@ The render test uses `@testing-library/react-native/pure` with a small Node-comp
 - Does the screen avoid shame, hype, and generic dashboard language?
 - Does the screen still work on a small phone without reading five cards?
 
+## First-Screen Hierarchy
+
+- Today: planned Athleticore support session is the primary surface; week summary is compact or disclosed behind Show week context.
+- Train Plan: the active week and next workout decision appear before analytics, history, or setup explanation.
+- WorkoutDetail: session brief, protected-anchor status, and Start/Build action come before review notes, substitutions, and logging details.
+- Fuel quick: fuel focus, around-training cue, Log next, Hydration, then Show details.
+- Weight Class: high-risk states lead with safety guidance and Review safer options; scale metrics are secondary.
+- Onboarding: each step asks one athlete-facing question and keeps Continue visible above the keyboard.
+
+## Manual Failure Signs
+
+- More than one primary CTA in the first screenful.
+- Developer terms such as internal type names, saved records, or builder status words appear in normal UI.
+- Five cards appear before the athlete reaches an action.
+- Safety copy is hidden below metrics.
+- Macros show before the quick fuel decision.
+- Scale numbers overpower safety guidance in blocked or high-risk weight-class states.
+- Generated workout detail shows safety notes, substitutions, review notes, logging notes, and completion notes all open by default.
+
 ## Feature Flags
 
 - Boxing engine on: set `EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED=1`.

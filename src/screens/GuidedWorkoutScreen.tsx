@@ -211,7 +211,7 @@ export function GuidedWorkoutScreen() {
             });
         } catch (_error) {
             summaryNavigationTriggeredRef.current = false;
-            Alert.alert('Error', 'Failed to finish the workout. Please try again.');
+            Alert.alert('Could not finish workout', 'Try saving the workout again.');
         }
     }, [finishWorkout, navigation]);
 
@@ -344,7 +344,7 @@ export function GuidedWorkoutScreen() {
             );
             setSelectedRPE(null);
         } catch (_error) {
-            Alert.alert('Error', 'Failed to log set. Please try again.');
+            Alert.alert('Could not log set', 'Try logging the set again.');
         } finally {
             setIsLoggingSet(false);
         }

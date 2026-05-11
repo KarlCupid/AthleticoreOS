@@ -34,11 +34,19 @@ const TERM_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\bredline\b/gi, 'overreach'],
   [/\binvalid\b/gi, 'needs review'],
   [/\bfailure\b/gi, 'could not complete'],
+  [/\bfailed\b/gi, 'could not complete'],
   [/\bConfidence is unknown\b/gi, 'Athleticore needs more context'],
   [/\bUnknown confidence\b/gi, 'Context unknown'],
   [/\bLow confidence\b/gi, 'Limited context'],
   [/\bFood log confidence\b/gi, 'How much Athleticore knows'],
   [/\bmission unavailable\b/gi, 'mission needs context'],
+  [/\binsufficient data\b/gi, 'needs more context'],
+  [/\bdata quality\b/gi, 'context'],
+  [/\bNutrition and Fueling Engine\b/g, 'Athleticore fueling'],
+  [/\bengine generated\b/gi, 'Athleticore built'],
+  [/\bgenerated session\b/gi, 'support session'],
+  [/\bunavailable\b/gi, 'needs a refresh'],
+  [/\bconfidence\b/gi, 'context'],
 ];
 
 export function sanitizeAthleteFacingCopy(value: string | null | undefined): string {
@@ -110,7 +118,7 @@ export function buildSupportSessionCoachCopy(input: {
     headline: sanitizeAthleteFacingCopy(headline),
     body: sanitizeAthleteFacingCopy(body),
     primaryAction: 'Open support session',
-    secondaryAction: snapshot.generatedWorkout ? 'Workout details are ready' : 'Open to build the full session',
+    secondaryAction: snapshot.generatedWorkout ? 'Workout details are ready' : "Open to build today's session",
     detailLines,
     safetyLines,
   };

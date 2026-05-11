@@ -69,8 +69,8 @@ const UNAVAILABLE_PHASE_TRANSITION: GuidedPhaseTransitionViewModel = {
   ctaLabel: 'Review plan',
   confidence: {
     level: 'unknown',
-    label: 'Unknown confidence',
-    summary: "Confidence is unknown because today's journey context is unavailable.",
+    label: 'Context unknown',
+    summary: "Athleticore needs today's journey context before it can explain the phase change.",
   },
   explanations: [],
   sourcePerformanceStateId: null,
@@ -160,7 +160,7 @@ function buildTransitionSummary(
     return 'This week is about showing up sharp. Athleticore is protecting freshness, keeping training specific, and avoiding unnecessary hard work.';
   }
   if (to === 'recovery') {
-    return 'Recovery is part of the journey. Athleticore is reducing load so you can absorb the work and come back ready for the next block.';
+    return 'Recovery is part of the journey. Athleticore is reducing load so you can absorb the work and come back ready for the next phase.';
   }
   if (reason === 'fight_canceled') {
     return `The fight context changed, so Athleticore is moving you back into ${humanize(to)} while keeping your camp work, logs, and anchors attached.`;
@@ -183,7 +183,7 @@ function buildWhyChanging(
     return 'The fight is close, so freshness, specific work, and fueling need to lead.';
   }
   if (reason === 'recovery_started' || to === 'recovery') {
-    return 'The last block created enough stress that the next step is absorbing the work.';
+    return 'The last phase created enough stress that the next step is absorbing the work.';
   }
   if (reason === 'fight_canceled') {
     return 'The fight context changed, so the plan can return toward build work while keeping the work already done.';
@@ -253,9 +253,9 @@ function buildChangedFocus(
 
   if (to === 'recovery') {
     return [
-      'Training load comes down so the work from the last block can settle.',
+      'Training load comes down so the recent work can settle.',
       'Recovery, food, hydration, and sleep become the main job.',
-      'The next block should build from this history, not ignore it.',
+      'The next phase should build from this history, not ignore it.',
     ];
   }
 
@@ -366,7 +366,7 @@ function buildNextFocus(to: AthleticorePhase): string {
   if (to === 'short_notice_camp') return 'Protect freshness first, then do the highest-value fight work.';
   if (to === 'camp') return 'Show up fresh for the key sport sessions and let the support work serve the fight.';
   if (to === 'competition_week') return 'Stay sharp, fuel well, and avoid adding fatigue.';
-  if (to === 'recovery') return 'Absorb the work, restore rhythm, and prepare for the next block.';
+  if (to === 'recovery') return 'Absorb the work, restore rhythm, and prepare for the next phase.';
   return 'Follow the new phase focus while keeping the journey context connected.';
 }
 
@@ -381,10 +381,10 @@ function buildConfidence(performanceState: PerformanceState): GuidedPhaseTransit
   const level = confidence.level;
   return {
     level,
-    label: level === 'unknown' ? 'Unknown confidence' : `${humanize(level)} confidence`,
+    label: level === 'unknown' ? 'Context unknown' : `${humanize(level)} context`,
     summary: level === 'unknown' || level === 'low'
       ? 'Athleticore has limited context for this phase change, so the plan should stay conservative until more data comes in.'
-      : 'Confidence is strong enough to explain this phase change from the current journey context.',
+      : 'Athleticore has enough context to explain this phase change.',
   };
 }
 

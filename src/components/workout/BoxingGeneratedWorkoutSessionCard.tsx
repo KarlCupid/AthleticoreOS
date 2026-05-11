@@ -872,7 +872,7 @@ export function BoxingGeneratedWorkoutSessionCard({
         {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
         {readinessBlocked && mode === 'configure' ? (
           <Text accessibilityRole="alert" style={styles.errorText}>
-            Choose recovery reset or a low-dose skill support option today. This support session is unavailable for {labelize(readinessBand)} readiness.
+            Choose recovery reset or a low-dose skill support option today. This support session is not a good fit for {labelize(readinessBand)} readiness.
           </Text>
         ) : null}
         <Text style={styles.safetyReminder}>{generatedWorkoutSafetyReminder()}</Text>
@@ -908,7 +908,7 @@ export function BoxingGeneratedWorkoutSessionCard({
         {workout ? (
           <View testID="boxing-generated-workout-status" style={styles.statusPanel}>
             <Text style={styles.statusHeadline}>{workoutSafetyLine(workout)}</Text>
-            <Text style={styles.statusText}>{persisted && generatedWorkoutId ? 'Session saved.' : 'Completion will stay on this device until saving is available.'}</Text>
+            <Text style={styles.statusText}>{persisted && generatedWorkoutId ? 'Session saved.' : 'Completion will stay on this device until saving is ready.'}</Text>
             {lifecycleStatus ? (
               <Text testID="boxing-generated-workout-lifecycle" style={styles.statusText}>Session status: {labelize(lifecycleStatus)}</Text>
             ) : null}

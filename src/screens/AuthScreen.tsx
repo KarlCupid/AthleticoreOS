@@ -287,7 +287,7 @@ export function AuthScreen({
     }
 
     const isResetRequest = mode === 'resetRequest';
-    const title = passwordRecovery ? 'Set a new password' : isResetRequest ? 'Reset password' : 'AthletiCore';
+    const title = passwordRecovery ? 'Set a new password' : isResetRequest ? 'Reset password' : 'Athleticore';
     const subtitle = passwordRecovery
         ? 'Choose a new password to finish recovery.'
         : isResetRequest
@@ -546,7 +546,7 @@ export function AuthScreen({
                                     <View style={styles.buttonContent}>
                                         {activeSubmit === 'signIn' ? <ActivityIndicator size="small" color={COLORS.text.inverse} /> : null}
                                         <Text style={styles.primaryButtonText}>
-                                            {activeSubmit === 'signIn' ? 'Signing in...' : 'Sign In'}
+                                            {activeSubmit === 'signIn' ? 'Signing in...' : 'Sign in'}
                                         </Text>
                                     </View>
                                 </LinearGradient>
@@ -566,7 +566,7 @@ export function AuthScreen({
                             disabled={busy}
                         >
                             <Text style={[styles.footerLink, busy && styles.linkDisabled]}>
-                                {activeSubmit === 'signUp' ? 'Creating...' : 'Create Account'}
+                                {activeSubmit === 'signUp' ? 'Creating...' : 'Create account'}
                             </Text>
                         </AnimatedPressable>
                     </Animated.View>

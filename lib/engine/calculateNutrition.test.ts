@@ -108,7 +108,7 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
 
   assert('no activities remains base source', resolved.source === 'base');
   assert('rest day has rest fuel state', resolved.fuelState === 'rest');
-  assert('canonical trace is present', resolved.traceLines.some((line) => line.includes('Canonical Nutrition and Fueling Engine')));
+  assert('canonical trace is present', resolved.traceLines.some((line) => line.includes('Athleticore built this daily target')));
 })();
 
 (() => {
@@ -219,7 +219,7 @@ console.log('\n-- resolveDailyNutritionTargetEstimate via Nutrition and Fueling 
 
   assert('double session keeps two-a-day priority', resolved.prioritySession === 'double_session');
   assert('double session has between-session fueling', resolved.sessionFuelingPlan.betweenSessions != null);
-  assert('daily target is not a shallow macro-only calculation', resolved.sessionFuelingPlan.coachingNotes.some((line) => line.includes('Nutrition and Fueling Engine')));
+  assert('daily target is not a shallow macro-only calculation', resolved.sessionFuelingPlan.coachingNotes.some((line) => line.includes('Athleticore built session fueling guidance')));
 })();
 
 (() => {

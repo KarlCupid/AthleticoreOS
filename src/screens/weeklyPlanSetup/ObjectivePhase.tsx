@@ -191,15 +191,15 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
         </ScrollView>
       </Section>
 
-      <Section label="Training Goal" description="Choose the adjustment that matches your next block.">
+      <Section label="Training goal" description="Choose the adjustment that matches your next phase.">
         <View style={styles.optionList}>
-          <OptionPill selected={goalMode === 'fight_camp'} label="Fight Camp" onPress={() => setGoalMode('fight_camp')} />
-          <OptionPill selected={goalMode === 'build_phase'} label="Build Phase" onPress={() => setGoalMode('build_phase')} />
+          <OptionPill selected={goalMode === 'fight_camp'} label="Fight camp" onPress={() => setGoalMode('fight_camp')} />
+          <OptionPill selected={goalMode === 'build_phase'} label="Build phase" onPress={() => setGoalMode('build_phase')} />
         </View>
 
         {goalMode === 'build_phase' ? (
           <>
-            <Text style={styles.subLabel}>Main Focus</Text>
+            <Text style={styles.subLabel}>Main focus</Text>
             <FieldNote>Pick the quality your ongoing journey should build first.</FieldNote>
             <View style={styles.optionList}>
               {BUILD_GOAL_OPTIONS.map((option) => (
@@ -221,7 +221,7 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
             </View>
 
             <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Plan Target</Text>
+              <Text style={styles.previewTitle}>Plan target</Text>
               <Text style={styles.previewLine}>Focus: {buildGoalTypeLabel}.</Text>
               <Text style={styles.previewLine}>Measure: {buildRecommendation.metric.label}.</Text>
               <Text style={styles.previewLine}>Target: {String(buildRecommendation.targetValue)} {buildRecommendation.metric.unit} in {buildRecommendation.targetHorizonWeeks} weeks.</Text>
@@ -230,7 +230,7 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
 
             <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvancedOverride((current) => !current)} activeOpacity={0.8}>
               <View style={styles.advancedToggleTextWrap}>
-                <Text style={styles.advancedToggleTitle}>Custom Target</Text>
+                <Text style={styles.advancedToggleTitle}>Custom target</Text>
                 <Text style={styles.advancedToggleDescription}>Use this if you want exact metrics, numbers, or dates.</Text>
               </View>
               <Text style={styles.advancedToggleAction}>{showAdvancedOverride ? 'Hide' : 'Open'}</Text>
@@ -238,14 +238,14 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
 
             {showAdvancedOverride ? (
               <>
-                <Text style={styles.subLabel}>Block Name (optional)</Text>
-                <TextInput style={styles.input} value={goalLabel} onChangeText={setGoalLabel} placeholder="Explosive strength block" placeholderTextColor={COLORS.text.tertiary} />
+                <Text style={styles.subLabel}>Phase name (optional)</Text>
+                <TextInput style={styles.input} value={goalLabel} onChangeText={setGoalLabel} placeholder="Explosive strength phase" placeholderTextColor={COLORS.text.tertiary} />
 
                 <Text style={styles.subLabel}>Goal Sentence</Text>
-                <FieldNote>Say what this block should accomplish.</FieldNote>
+                <FieldNote>Say what this phase should accomplish.</FieldNote>
                 <TextInput style={[styles.input, styles.multilineInput]} value={goalStatement} onChangeText={setGoalStatement} placeholder={BUILD_GOAL_OBJECTIVE_PLACEHOLDERS[buildGoalType]} placeholderTextColor={COLORS.text.tertiary} multiline />
 
-                <Text style={styles.subLabel}>Mission Focus</Text>
+                <Text style={styles.subLabel}>Mission focus</Text>
                 <FieldNote>Short version shown in daily guidance.</FieldNote>
                 <TextInput style={[styles.input, styles.multilineInput]} value={primaryOutcome} onChangeText={setPrimaryOutcome} placeholder={BUILD_GOAL_OBJECTIVE_PLACEHOLDERS[buildGoalType]} placeholderTextColor={COLORS.text.tertiary} multiline />
 

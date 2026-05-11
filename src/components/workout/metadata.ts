@@ -21,7 +21,7 @@ type LoadingStrategyEducation = {
 const LOADING_STRATEGY_LABELS: Record<LoadingStrategy, LabelMeta> = {
   top_set_backoff: { label: 'Top Set + Backoff' },
   straight_sets: { label: 'Straight Sets' },
-  density_block: { label: 'Density Block' },
+  density_block: { label: 'Density work' },
   intervals: { label: 'Intervals' },
   recovery_flow: { label: 'Recovery Flow' },
   emom: { label: 'EMOM' },
@@ -46,7 +46,7 @@ const LOADING_STRATEGY_EDUCATION: Record<LoadingStrategy, LoadingStrategyEducati
     example: null,
   },
   density_block: {
-    summary: 'Keep moving with short transitions and stack quality work inside the block.',
+    summary: 'Keep moving with short transitions and stack quality work inside the window.',
     details: 'Density work builds output by keeping the pace honest without turning the session messy. Smooth transitions matter more than racing.',
     loggingInstruction: null,
     example: null,
@@ -70,8 +70,8 @@ const LOADING_STRATEGY_EDUCATION: Record<LoadingStrategy, LoadingStrategyEducati
     example: null,
   },
   amrap: {
-    summary: 'Accumulate quality rounds or reps for the full block without rushing sloppy work.',
-    details: 'AMRAP is about sustainable output, not panic pacing. Keep every round repeatable so your technique stays clean deep into the block.',
+    summary: 'Accumulate quality rounds or reps for the full window without rushing sloppy work.',
+    details: 'AMRAP is about sustainable output, not panic pacing. Keep every round repeatable so your technique stays clean deep into the set.',
     loggingInstruction: null,
     example: null,
   },

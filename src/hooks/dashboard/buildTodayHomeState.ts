@@ -83,9 +83,9 @@ function buildWorkloadDetail(acwr: ACWRResult | null): string {
 
 function getConfidenceLabel(acwr: ACWRResult | null): string {
   if (!acwr || acwr.daysOfData === 0) return 'No history yet';
-  if (acwr.thresholds.confidence === 'high') return 'High confidence';
-  if (acwr.thresholds.confidence === 'medium') return 'Building confidence';
-  return 'Low confidence';
+  if (acwr.thresholds.confidence === 'high') return 'Strong context';
+  if (acwr.thresholds.confidence === 'medium') return 'Building context';
+  return 'Needs more context';
 }
 
 export function buildDashboardWorkloadGuidance(acwr: ACWRResult | null): DashboardWorkloadGuidance {

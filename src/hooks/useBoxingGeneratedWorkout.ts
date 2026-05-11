@@ -224,8 +224,8 @@ export function useBoxingGeneratedWorkout({
           setPersisted(false);
           setStage('inspect');
           setLifecycleStatus('inspected');
-          setLifecycleMessage('Generated Athleticore support session locally. Sign in or reconnect to save it.');
-          setError(formatGeneratedWorkoutPersistenceFallbackMessage('generatedLocallyPersistenceUnavailable', persistError, 'Unable to save generated workout.'));
+          setLifecycleMessage('Athleticore built this support session locally. Sign in or reconnect to save it.');
+          setError(formatGeneratedWorkoutPersistenceFallbackMessage('generatedLocallyPersistenceUnavailable', persistError, 'Could not save support session.'));
           addMonitoringBreadcrumb('generated_workout', 'generate_local_fallback_succeeded', {
             goalId: config.goalId,
           });
@@ -242,7 +242,7 @@ export function useBoxingGeneratedWorkout({
       setPersisted(false);
       setStage('inspect');
       setLifecycleStatus('inspected');
-        setLifecycleMessage('Generated Athleticore support session locally. Sign in to save completions and progression.');
+        setLifecycleMessage('Athleticore built this support session locally. Sign in to save completions and progression.');
       addMonitoringBreadcrumb('generated_workout', 'generate_local_succeeded', {
         goalId: config.goalId,
       });
@@ -397,7 +397,7 @@ export function useBoxingGeneratedWorkout({
         logError('useBoxingGeneratedWorkout.completePersisted', persistError, {
           generatedWorkoutIdPresent: Boolean(generatedWorkoutId),
         });
-        setError(normalizeGeneratedWorkoutError(persistError, 'Generated workout completion failed.'));
+        setError(normalizeGeneratedWorkoutError(persistError, 'Could not save support session completion.'));
         return;
       }
       logError('useBoxingGeneratedWorkout.completePersistedFallback', persistError, {
@@ -412,7 +412,7 @@ export function useBoxingGeneratedWorkout({
         setStage('completed');
         setLifecycleStatus(result.lifecycle?.lifecycle.status ?? 'completed');
         setLifecycleMessage(formatGeneratedWorkoutLocalCompletionMessage(result.lifecycleFallbackMessage));
-        setError(formatGeneratedWorkoutPersistenceFallbackMessage('completedLocallyPersistenceUnavailable', persistError, 'Unable to save completion.'));
+        setError(formatGeneratedWorkoutPersistenceFallbackMessage('completedLocallyPersistenceUnavailable', persistError, 'Could not save completion.'));
         if (historyLoaded) void loadHistoryData(userId);
         if (analyticsLoaded) void loadAnalyticsData(userId);
         addMonitoringBreadcrumb('generated_workout', 'complete_local_fallback_succeeded', {
@@ -422,7 +422,7 @@ export function useBoxingGeneratedWorkout({
         logError('useBoxingGeneratedWorkout.completeLocalFallback', localError, {
           generatedWorkoutIdPresent: Boolean(generatedWorkoutId),
         });
-        setError(normalizeGeneratedWorkoutError(localError, 'Generated workout completion failed.'));
+        setError(normalizeGeneratedWorkoutError(localError, 'Could not save support session completion.'));
       }
     } finally {
       setCompleting(false);

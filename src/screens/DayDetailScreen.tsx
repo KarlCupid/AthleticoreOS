@@ -298,7 +298,7 @@ export function DayDetailScreen() {
                         {/* Nutrition Adjustment Info */}
                         {fuelDirectiveMessage && (
                             <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()} style={styles.nutritionBanner}>
-                                <Text style={styles.nutritionBannerTitle}>Fuel Directive</Text>
+                                <Text style={styles.nutritionBannerTitle}>Fuel guidance</Text>
                                 <Text style={styles.nutritionBannerText}>{fuelDirectiveMessage}</Text>
                             </Animated.View>
                         )}

@@ -72,7 +72,7 @@ const INVALID_FOOD_ROUTE_FALLBACK: FoodSearchResult = {
   verified: false,
   searchRank: 0,
   off_barcode: null,
-  name: 'Food unavailable',
+  name: 'Food needs a refresh',
   brand: null,
   image_url: null,
   baseAmount: 100,
@@ -211,7 +211,7 @@ export function FoodDetailScreen() {
 
       navigation.navigate('NutritionHome');
     } catch (error: any) {
-      Alert.alert('Error', error?.message ?? 'Failed to add food');
+      Alert.alert('Could not add food', error?.message ?? 'Try adding it again.');
     } finally {
       setSaving(false);
     }
@@ -231,7 +231,7 @@ export function FoodDetailScreen() {
           >
             <IconChevronLeft size={24} color={COLORS.text.primary} />
           </AnimatedPressable>
-          <Text style={styles.title} numberOfLines={1}>Food unavailable</Text>
+          <Text style={styles.title} numberOfLines={1}>Food needs a refresh</Text>
         </View>
         <View style={styles.invalidState}>
           <Text style={styles.invalidTitle}>This food link can&apos;t be opened.</Text>

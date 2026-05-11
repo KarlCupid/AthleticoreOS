@@ -32,6 +32,12 @@ function formatFocusLabel(log: UnifiedWorkoutHistoryEntry) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function formatSourceBadge(log: UnifiedWorkoutHistoryEntry) {
+  if (!isGeneratedEntry(log)) return 'Logged workout';
+  if (!log.sourceLabel || log.sourceLabel === 'Athleticore support') return generatedHistoryDisplayTitle(log);
+  return log.sourceLabel;
+}
+
 function formatRecapLine(log: UnifiedWorkoutHistoryEntry) {
   const parts: string[] = [];
 
@@ -99,7 +105,7 @@ export function WorkoutHistoryTab({ workoutHistory }: WorkoutHistoryTabProps) {
                 ) : null}
               </View>
               <View style={styles.doneBadge}>
-                <Text style={styles.doneBadgeText}>{isGeneratedEntry(log) ? log.sourceLabel : 'Logged'}</Text>
+                <Text style={styles.doneBadgeText}>{formatSourceBadge(log)}</Text>
               </View>
             </View>
           </Card>

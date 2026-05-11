@@ -28,7 +28,7 @@ export function WeightClassHistoryScreen() {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyIcon}>🏆</Text>
-        <Text style={styles.emptyTitle}>No Completed Class Plans</Text>
+        <Text style={styles.emptyTitle}>No completed class plans</Text>
         <Text style={styles.emptySubtitle}>
           Your weight-class records will appear here once a plan is completed.
         </Text>
@@ -42,7 +42,7 @@ export function WeightClassHistoryScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Body-Mass History</Text>
+      <Text style={styles.sectionTitle}>Body-mass history</Text>
       <Text style={styles.sectionSubtitle}>{weightClassHistory.length} completed class plan{weightClassHistory.length !== 1 ? 's' : ''}</Text>
       {weightClassHistory.map((record) => (
         <WeightClassHistoryCard key={record.id} record={record} />
@@ -94,7 +94,7 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
       {/* Stats row */}
       <View style={styles.statsRow}>
         <StatPill
-          label="Total Change"
+          label="Total change"
           value={`${totalLbs.toFixed(1)} lbs`}
           color={COLORS.chart.fitness}
         />

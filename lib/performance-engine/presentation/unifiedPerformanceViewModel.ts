@@ -140,7 +140,7 @@ const UNAVAILABLE_MODEL: UnifiedPerformanceViewModel = {
     band: 'unknown',
     bandLabel: 'Unknown',
     scoreLabel: 'Unknown',
-    confidenceLabel: 'Unknown confidence',
+    confidenceLabel: 'Context unknown',
     explanation: 'Readiness is unknown until check-in and recent context are available.',
     missingDataLabels: ['Training, readiness, and fuel context'],
     recommendedTrainingAdjustmentLabel: null,
@@ -155,7 +155,7 @@ const UNAVAILABLE_MODEL: UnifiedPerformanceViewModel = {
       hydrationOz: null,
     },
     targetLabel: 'Targets pending',
-    confidenceLabel: 'Unknown confidence',
+    confidenceLabel: 'Context unknown',
     explanation: 'Fuel targets will resolve from training, phase, readiness, and body-mass context.',
     sessionFuelingSummary: null,
   },
@@ -165,7 +165,7 @@ const UNAVAILABLE_MODEL: UnifiedPerformanceViewModel = {
   blockingRiskSummary: null,
   explanations: [],
   lowConfidence: true,
-  confidenceSummary: "Confidence is unknown because today's connected planning context is unavailable.",
+  confidenceSummary: "Athleticore needs today's connected planning context before it can guide the day.",
 };
 
 export function buildUnifiedPerformanceViewModel(
@@ -451,7 +451,7 @@ function phaseChangeSummary(transition: PhaseTransition): string {
     return 'Competition week is active, so Athleticore is protecting freshness, keeping work specific, and avoiding unnecessary hard work.';
   }
   if (transition.to === 'recovery') {
-    return 'Recovery is part of the journey. Athleticore is reducing load so the previous block can settle.';
+    return 'Recovery is part of the journey. Athleticore is reducing load so the previous phase can settle.';
   }
   if (transition.reason === 'fight_canceled') {
     return `The fight context changed, so Athleticore is moving toward ${humanize(transition.to)} while keeping the work already logged.`;
@@ -470,7 +470,7 @@ function phaseReasonSummary(transition: PhaseTransition): string {
     return 'The fight is close, so freshness, specific training, and fueling need to lead.';
   }
   if (transition.reason === 'recovery_started' || transition.to === 'recovery') {
-    return 'Recovery follows the last phase so the athlete can absorb the work and return ready for the next block.';
+    return 'Recovery follows the last phase so the athlete can absorb the work and return ready for the next phase.';
   }
   return phaseChangeSummary(transition);
 }
@@ -498,7 +498,7 @@ function readinessBandLabel(band: ReadinessState['readinessBand']): string {
 function confidenceLabel(confidence: ConfidenceValue | null | undefined): string {
   const level = confidence?.level ?? 'unknown';
   const score = confidence?.score;
-  return score == null ? `${humanize(level)} confidence` : `${humanize(level)} confidence (${Math.round(score * 100)}%)`;
+  return score == null ? `${humanize(level)} context` : `${humanize(level)} context (${Math.round(score * 100)}%)`;
 }
 
 function hasLowConfidence(confidences: Array<ConfidenceValue | null | undefined>): boolean {
@@ -511,7 +511,7 @@ function lowConfidenceSummary(items: Array<{ confidence?: ConfidenceValue; missi
   const reasons = items
     .flatMap((item) => item?.confidence?.reasons ?? [])
     .filter(Boolean);
-  return reasons[0] ?? 'Confidence is limited because some readiness, nutrition, or body-mass data is missing.';
+  return reasons[0] ?? 'Context is limited because some readiness, nutrition, or body-mass data is missing.';
 }
 
 function rangeTarget(range: MeasurementRange<string> | null | undefined): number | null {

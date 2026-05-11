@@ -145,7 +145,7 @@ assert('dashboard view model uses unified output', buildVm.available && buildVm.
 assert('phase context is exposed', buildVm.phase.label === 'Build' && buildVm.phase.reason.length > 0);
 assert('protected workouts are visible as anchors', buildVm.protectedAnchors.some((item) => item.label === 'Team sparring'));
 assert('nutrition screen can read canonical target numbers', buildVm.nutrition.numbers.calories != null && buildVm.nutrition.numbers.proteinG != null);
-assert('readiness explanation is surfaced', buildVm.readiness.explanation.length > 0 && buildVm.readiness.confidenceLabel.includes('confidence'));
+assert('readiness explanation is surfaced', buildVm.readiness.explanation.length > 0 && buildVm.readiness.confidenceLabel.includes('context'));
 
 const fight = createFightOpportunity({
   id: 'fight-short-notice',

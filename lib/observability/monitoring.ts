@@ -288,7 +288,7 @@ export function initializeMonitoring(): void {
     appVersion,
     buildProfile,
     buildNumber,
-    appName: Constants.expoConfig?.name ?? 'AthletiCore OS',
+    appName: Constants.expoConfig?.name ?? 'Athleticore OS',
     appSlug: Constants.expoConfig?.slug ?? 'athleticore-os',
   }));
   Sentry.setUser(null);

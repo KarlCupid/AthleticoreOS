@@ -107,7 +107,7 @@ export function FitnessQuestionnaireScreen() {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.title}>Fitness Assessment</Text>
-                <Text style={styles.subtitle}>Set your baseline parameters for the Athleticore OS engine.</Text>
+                <Text style={styles.subtitle}>Set your baseline so Athleticore can coach the first plan with care.</Text>
             </View>
 
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>

@@ -388,7 +388,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
                 resetPrescriptionState(
                     mission,
-                    mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
+                    mission.trainingDirective.reason || mission.summary || 'This session needs a guided S&C plan before you can start it.',
                 );
                 return;
             }
@@ -410,13 +410,13 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
                 if (matchingActivity && isGuidedEngineScheduledActivity(matchingActivity) && !matchingActivity.weekly_plan_entry_id) {
                     resetPrescriptionState(
                         mission,
-                        'This engine-managed session is not linked to a canonical plan entry. Regenerate today\'s plan before starting it.',
+                        'This session needs a current plan entry. Build today\'s plan before starting it.',
                     );
                     return;
                 }
                 resetPrescriptionState(
                     mission,
-                    mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
+                    mission.trainingDirective.reason || mission.summary || 'This session needs a guided S&C plan before you can start it.',
                 );
                 return;
             }
@@ -430,7 +430,7 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
 
             resetPrescriptionState(
                 mission,
-                mission.trainingDirective.reason || mission.summary || 'This session does not have a guided S&C prescription from the engine.',
+                mission.trainingDirective.reason || mission.summary || 'This session needs a guided S&C plan before you can start it.',
             );
         } catch (error) {
             logError('useGuidedWorkout.loadAndGenerate', error, {
