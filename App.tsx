@@ -1,7 +1,7 @@
 import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -28,6 +28,8 @@ import { addMonitoringBreadcrumb, setCurrentMonitoringRoute } from './lib/observ
 import { capturePreviewMonitoringTestError } from './lib/observability/monitoring';
 import { AuroraBackground, type AuroraBackgroundMood } from './src/components/AuroraBackground';
 import { OceanLoader } from './src/components/OceanLoader';
+
+const BRAND_LOGO = require('./assets/images/athleticore-logo.png');
 
 const myTheme = {
   ...DefaultTheme,
@@ -324,9 +326,7 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <OceanLoader color={COLORS.text.primary} />
-      </View>
+      <AppLoadingScreen copy="Preparing Athleticore OS" />
     );
   }
 
@@ -348,15 +348,11 @@ export default function App() {
       }}
     />
   ) : checkingAuth ? (
-    <View style={[styles.container, styles.centered]}>
-      <OceanLoader color={COLORS.readiness.prime} />
-    </View>
+    <AppLoadingScreen />
   ) : !session ? (
     <AuthScreen notice={passwordRecoveryNotice} />
   ) : checkingJourney || entryStatus === null ? (
-    <View style={[styles.container, styles.centered]}>
-      <OceanLoader color={COLORS.readiness.prime} />
-    </View>
+    <AppLoadingScreen />
   ) : entryStatus === 'needs_onboarding' ? (
     <OnboardingScreen onComplete={() => { void refreshJourneyEntryState(); }} />
   ) : entryStatus === 'needs_training_setup' ? (
@@ -396,6 +392,21 @@ export default function App() {
   );
 }
 
+function AppLoadingScreen({ copy = 'Connecting athlete profile.' }: { copy?: string }) {
+  return (
+    <View style={[styles.container, styles.centered, styles.loadingScreen]}>
+      <View style={styles.loadingMarkShell}>
+        <Image source={BRAND_LOGO} style={styles.loadingMark} resizeMode="cover" />
+      </View>
+      <Text style={styles.loadingWordmark}>ATHLETICORE OS</Text>
+      <View style={styles.loadingRing}>
+        <OceanLoader color={COLORS.readiness.prime} />
+      </View>
+      <Text style={styles.loadingCopy}>{copy}</Text>
+    </View>
+  );
+}
+
 function AppLoadErrorScreen({
   loading,
   onRetry,
@@ -408,6 +419,9 @@ function AppLoadErrorScreen({
   return (
     <View style={[styles.container, styles.centered, styles.errorScreen]}>
       <View style={styles.errorPanel}>
+        <View style={styles.errorIcon}>
+          <Text style={styles.errorIconText}>!</Text>
+        </View>
         <Text style={styles.errorTitle}>We couldn&apos;t load your athlete profile</Text>
         <Text style={styles.errorBody}>Your data is safe. Check your connection and try again.</Text>
 
@@ -469,6 +483,23 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     ...SHADOWS.card,
   },
+  errorIcon: {
+    alignSelf: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.readiness.depleted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+    backgroundColor: `${COLORS.error}18`,
+  },
+  errorIconText: {
+    color: COLORS.readiness.depleted,
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 18,
+  },
   errorTitle: {
     color: COLORS.text.primary,
     fontFamily: FONT_FAMILY.extraBold,
@@ -518,5 +549,41 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.65,
+  },
+  loadingScreen: {
+    paddingHorizontal: SPACING.xl,
+  },
+  loadingMarkShell: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 10, 10, 0.62)',
+    ...SHADOWS.colored.accent,
+  },
+  loadingMark: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+  },
+  loadingWordmark: {
+    marginTop: SPACING.lg,
+    color: COLORS.text.primary,
+    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 18,
+    letterSpacing: 4,
+  },
+  loadingRing: {
+    marginTop: SPACING.lg,
+  },
+  loadingCopy: {
+    marginTop: SPACING.md,
+    color: COLORS.text.secondary,
+    fontFamily: FONT_FAMILY.regular,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

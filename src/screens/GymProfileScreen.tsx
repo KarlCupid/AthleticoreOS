@@ -205,7 +205,7 @@ export function GymProfileScreen() {
                         <>
                             {profiles.length === 0 ? (
                                 <View style={styles.emptyState}>
-                                    <Text style={styles.emptyIcon}>ðŸ‹ï¸</Text>
+                                    <Text style={styles.emptyIcon}>GYM</Text>
                                     <Text style={styles.emptyTitle}>No gym profiles yet</Text>
                                     <Text style={styles.emptySubtitle}>
                                         Add one to get equipment-aware workouts.
@@ -262,7 +262,12 @@ interface ProfileCardProps {
 
 function ProfileCard({ profile, onSetDefault, onEdit, onDelete }: ProfileCardProps) {
     return (
-        <Card style={styles.profileCard}>
+        <Card
+            variant="glass"
+            style={styles.profileCard}
+            backgroundTone="workoutFloor"
+            backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+        >
             {/* Top row */}
             <View style={styles.profileCardHeader}>
                 <View style={styles.profileCardLeft}>
@@ -382,7 +387,7 @@ function ProfileForm({
                     disabled={saving}
                 >
                     {saving ? (
-                        <ActivityIndicator size="small" color="#F5F5F0" />
+                        <ActivityIndicator size="small" color={COLORS.text.inverse} />
                     ) : (
                         <Text style={styles.saveButtonText}>Save Profile</Text>
                     )}
@@ -420,10 +425,11 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     headerTitle: {
-        fontSize: 26,
+        fontSize: 24,
         fontFamily: FONT_FAMILY.extraBold,
         color: COLORS.text.primary,
-        letterSpacing: 0,
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
     },
     addButton: {
         backgroundColor: COLORS.accent,
@@ -434,7 +440,7 @@ const styles = StyleSheet.create({
     addButtonText: {
         fontFamily: FONT_FAMILY.semiBold,
         fontSize: 14,
-        color: '#F5F5F0',
+        color: COLORS.text.inverse,
     },
 
     // Scroll
@@ -521,7 +527,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
     },
     emptyIcon: {
-        fontSize: 48,
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: COLORS.accentLight,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.38)',
+        color: COLORS.accent,
+        fontSize: 15,
+        fontFamily: FONT_FAMILY.extraBold,
+        textAlign: 'center',
+        textAlignVertical: 'center',
+        paddingTop: 25,
         marginBottom: SPACING.md,
     },
     emptyTitle: {
@@ -548,14 +565,16 @@ const styles = StyleSheet.create({
     emptyAddButtonText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#F5F5F0',
+        color: COLORS.text.inverse,
     },
 
     // Form
     formContainer: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.76)',
         borderRadius: RADIUS.xl,
         padding: SPACING.lg,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         ...SHADOWS.card,
     },
     formTitle: {
@@ -631,6 +650,6 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontSize: 15,
         fontFamily: FONT_FAMILY.semiBold,
-        color: '#F5F5F0',
+        color: COLORS.text.inverse,
     },
 });

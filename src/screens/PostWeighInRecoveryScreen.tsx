@@ -114,7 +114,7 @@ export function PostWeighInRecoveryScreen() {
         >
           <Text style={styles.goalTitle}>Target Weight by Fight</Text>
           <Text style={styles.goalValue}>{protocol.targetWeightByFight.toFixed(1)} lbs</Text>
-          <Text style={styles.goalSub}>Approx. 6% body weight regain</Text>
+          <Text style={styles.goalSub}>Recovery target from the active plan</Text>
         </Card>
 
         <Card
@@ -235,7 +235,7 @@ export function PostWeighInRecoveryScreen() {
               nav.goBack();
             }}
           >
-            <Text style={styles.completeButtonText}>Complete and Archive</Text>
+            <Text style={styles.completeButtonText}>Log Recovery Update</Text>
           </TouchableOpacity>
         )}
 
@@ -277,6 +277,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.black,
     color: COLORS.text.primary,
     letterSpacing: 0,
+    textTransform: 'uppercase',
   },
   headerSub: {
     fontSize: 13,

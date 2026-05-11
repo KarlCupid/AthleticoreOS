@@ -79,7 +79,14 @@ export function ExerciseDetailScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>
                     {/* Exercise Info Card */}
-                    <Card>
+                    <Card
+                        variant="glass"
+                        backgroundTone="workoutFloor"
+                        backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+                    >
+                        <Text style={styles.heroKicker}>{exercise.type.replace(/_/g, ' ')}</Text>
+                        <Text style={styles.heroTitle}>{exercise.name}</Text>
+                        <Text style={styles.heroSubtitle}>Coaching notes, equipment, and demand for boxing support work.</Text>
                         <View style={styles.infoGrid}>
                             <InfoBox label="Type" value={exercise.type.replace(/_/g, ' ')} />
                             <InfoBox label="Muscle" value={exercise.muscle_group.replace(/_/g, ' ')} />
@@ -89,7 +96,7 @@ export function ExerciseDetailScreen() {
                     </Card>
 
                     {/* CNS Load Meter */}
-                    <Card style={{ marginTop: SPACING.md }}>
+                    <Card variant="glass" style={{ marginTop: SPACING.md }}>
                         <Text style={styles.sectionTitle}>CNS Demand</Text>
                         <View style={styles.cnsMeter}>
                             {Array.from({ length: 10 }).map((_, i) => (
@@ -114,7 +121,7 @@ export function ExerciseDetailScreen() {
 
                     {/* Description */}
                     {exercise.description ? (
-                        <Card style={{ marginTop: SPACING.md }}>
+                        <Card variant="glass" style={{ marginTop: SPACING.md }}>
                             <Text style={styles.sectionTitle}>Description</Text>
                             <Text style={styles.descriptionText}>{exercise.description}</Text>
                         </Card>
@@ -122,7 +129,7 @@ export function ExerciseDetailScreen() {
 
                     {/* Cues */}
                     {exercise.cues ? (
-                        <Card style={{ marginTop: SPACING.md }}>
+                        <Card variant="glass" style={{ marginTop: SPACING.md }}>
                             <Text style={styles.sectionTitle}>Coaching Cues</Text>
                             <Text style={styles.cuesText}>{exercise.cues}</Text>
                         </Card>
@@ -130,7 +137,7 @@ export function ExerciseDetailScreen() {
 
                     {/* Sport Tags */}
                     {exercise.sport_tags.length > 0 && (
-                        <Card style={{ marginTop: SPACING.md }}>
+                        <Card variant="glass" style={{ marginTop: SPACING.md }}>
                             <Text style={styles.sectionTitle}>Sport Tags</Text>
                             <View style={styles.tagRow}>
                                 {exercise.sport_tags.map(tag => (
@@ -160,7 +167,7 @@ export function ExerciseDetailScreen() {
                         style={styles.addButton}
                     >
                         <Text style={styles.addButtonText}>
-                            Done
+                            Use Exercise
                         </Text>
                     </LinearGradient>
                 </AnimatedPressable>
@@ -189,9 +196,11 @@ const styles = StyleSheet.create({
     backButton: { minWidth: 44, minHeight: 44, marginRight: SPACING.sm, alignItems: 'center', justifyContent: 'center' },
     title: {
         flex: 1,
-        fontSize: 20,
-        fontFamily: FONT_FAMILY.extraBold,
+        fontSize: 18,
+        fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
     },
     content: { padding: SPACING.lg },
     invalidState: {
@@ -217,11 +226,35 @@ const styles = StyleSheet.create({
     infoGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
+        marginTop: SPACING.md,
+    },
+    heroKicker: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: COLORS.accent,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    heroTitle: {
+        marginTop: 4,
+        fontSize: 28,
+        lineHeight: 34,
+        fontFamily: FONT_FAMILY.black,
+        color: COLORS.text.primary,
+    },
+    heroSubtitle: {
+        marginTop: SPACING.xs,
+        fontSize: 13,
+        lineHeight: 19,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.secondary,
     },
     infoBox: {
         width: '50%',
         paddingVertical: SPACING.sm,
         alignItems: 'center',
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: COLORS.borderLight,
     },
     infoLabel: {
         fontSize: 11,

@@ -266,7 +266,7 @@ export function WeeklyPlanScreen() {
                             
                             <View style={{ flexDirection: 'row', marginTop: SPACING.xl, gap: SPACING.xl }}>
                                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Previous week" onPress={goToPrevWeek}>
-                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>« Prev Week</Text>
+                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>Prev Week</Text>
                                 </TouchableOpacity>
                                 {!isCurrentWeek && (
                                     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to current week" onPress={handleTodayPress}>
@@ -274,7 +274,7 @@ export function WeeklyPlanScreen() {
                                     </TouchableOpacity>
                                 )}
                                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next week" onPress={goToNextWeek}>
-                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>Next Week »</Text>
+                                    <Text style={{ fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary }}>Next Week</Text>
                                 </TouchableOpacity>
                             </View>
                         </Card>
@@ -460,7 +460,7 @@ export function WeeklyPlanScreen() {
                                     <MaterialCommunityIcons name="alert" size={14} color={COLORS.text.primary} />
                                     </View>
                                     <Text style={styles.cautionBannerText}>
-                                        {missedEntries.length} missed session{missedEntries.length > 1 ? 's' : ''} — tap to reschedule
+                                        {missedEntries.length} missed session{missedEntries.length > 1 ? 's' : ''} - tap to reschedule
                                     </Text>
                                     <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.warning} />
                                 </View>

@@ -24,10 +24,10 @@ const MEAL_LABELS: Record<MealType, string> = {
 };
 
 const MEAL_ICONS: Record<MealType, string> = {
-  breakfast: '\u2600\uFE0F',
-  lunch: '\uD83C\uDF5C',
-  dinner: '\uD83C\uDF19',
-  snacks: '\uD83C\uDF4E',
+  breakfast: 'BR',
+  lunch: 'LU',
+  dinner: 'DN',
+  snacks: 'SN',
 };
 
 export function MealSection({
@@ -96,7 +96,7 @@ export function MealSection({
                 </Text>
                 <Text style={styles.foodDetail}>
                   {food.amountLabel}
-                  {food.foodBrand ? ` \u2022 ${food.foodBrand}` : ''}
+                  {food.foodBrand ? ` - ${food.foodBrand}` : ''}
                 </Text>
               </View>
               <Text style={styles.foodCalories}>{Math.round(food.loggedCalories)}</Text>
@@ -135,7 +135,9 @@ export function MealSection({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(10, 10, 10, 0.72)',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     borderRadius: RADIUS.xl,
     marginBottom: SPACING.sm + 4,
     ...SHADOWS.card,
@@ -153,7 +155,18 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   mealIcon: {
-    fontSize: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.30)',
+    backgroundColor: COLORS.accentLight,
+    color: COLORS.accent,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 10,
+    lineHeight: 26,
+    fontFamily: FONT_FAMILY.extraBold,
   },
   mealLabel: {
     fontSize: 16,

@@ -64,17 +64,17 @@ export const DailyAthleteSummaryCard = memo(function DailyAthleteSummaryCard({ s
             <Text style={styles.sectionTitle}>Training</Text>
             <Text style={styles.sectionLine}>{summary.trainingDirective.intent}</Text>
             <Text style={styles.metaLine}>
-              {sessionLabel} Â· {roleLabel} Â· {summary.trainingDirective.volumeTarget}
+              {sessionLabel} - {roleLabel} - {summary.trainingDirective.volumeTarget}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Fuel</Text>
             <Text style={styles.sectionLine}>
-              {summaryCalories} kcal Â· P {summary.fuelDirective.protein} Â· C {summary.fuelDirective.carbs} Â· F {summary.fuelDirective.fat}
+              {summaryCalories} kcal - P {summary.fuelDirective.protein} - C {summary.fuelDirective.carbs} - F {summary.fuelDirective.fat}
             </Text>
             <Text style={styles.metaLine}>
-              Pre {summary.fuelDirective.preSessionCarbsG}g carbs Â· Post {summary.fuelDirective.postSessionProteinG}g protein Â· Water {summary.hydrationDirective.waterTargetOz} oz
+              Pre {summary.fuelDirective.preSessionCarbsG}g carbs - Post {summary.fuelDirective.postSessionProteinG}g protein - Water {summary.hydrationDirective.waterTargetOz} oz
             </Text>
           </View>
 

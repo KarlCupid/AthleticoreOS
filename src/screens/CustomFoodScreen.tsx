@@ -156,7 +156,7 @@ export function CustomFoodScreen() {
         >
           <IconChevronLeft size={24} color={COLORS.text.primary} />
         </AnimatedPressable>
-        <Text style={styles.title}>Create Custom Food</Text>
+        <Text style={styles.title}>Custom Food</Text>
       </View>
 
       <ScrollView
@@ -170,7 +170,11 @@ export function CustomFoodScreen() {
         keyboardDismissMode="on-drag"
       >
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY).duration(ANIMATION.slow).springify()}>
-          <Card>
+          <Card
+            variant="glass"
+            backgroundTone="fuelQuiet"
+            backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+          >
             <Field label="Name *" value={name} onChangeText={setName} placeholder="e.g. Protein shake" />
             <Field label="Brand" value={brand} onChangeText={setBrand} placeholder="Optional" />
             <View style={styles.row}>
@@ -195,7 +199,7 @@ export function CustomFoodScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 2).duration(ANIMATION.slow).springify()}>
-          <Card style={{ marginTop: SPACING.md }}>
+          <Card variant="glass" style={{ marginTop: SPACING.md }}>
             <Text style={styles.sectionTitle}>Nutrition per serving</Text>
             <Field
               label="Calories *"
@@ -237,7 +241,7 @@ export function CustomFoodScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 3).duration(ANIMATION.slow).springify()}>
-          <Card style={{ marginTop: SPACING.md }}>
+          <Card variant="glass" style={{ marginTop: SPACING.md }}>
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>This is a supplement</Text>
               <Switch
@@ -362,9 +366,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
-    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 18,
+    fontFamily: FONT_FAMILY.black,
     color: COLORS.text.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   content: {
     padding: SPACING.lg,

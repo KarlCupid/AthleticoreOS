@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md,
     },
     headerTitle: {
-        fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary,
+        fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, letterSpacing: 0.4,
     },
     daySection: { paddingHorizontal: SPACING.lg, marginTop: SPACING.md },
     daySectionHeader: {
@@ -245,11 +245,13 @@ const styles = StyleSheet.create({
         borderRadius: RADIUS.sm,
     },
     addButtonText: {
-        fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: '#F5F5F0',
+        fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse,
     },
     emptyDay: {
         alignItems: 'center', paddingVertical: SPACING.xl,
-        backgroundColor: COLORS.surface, borderRadius: RADIUS.lg,
+        backgroundColor: 'rgba(10, 10, 10, 0.74)', borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         ...SHADOWS.card,
     },
     emptyDayText: {
@@ -259,4 +261,3 @@ const styles = StyleSheet.create({
         fontSize: 14, fontFamily: FONT_FAMILY.semiBold, marginTop: SPACING.sm,
     },
 });
-

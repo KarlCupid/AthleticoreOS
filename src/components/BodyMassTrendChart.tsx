@@ -121,8 +121,8 @@ export function BodyMassTrendChart({
       {projectedWeight != null && (
         <Text style={[styles.projectionNote, { color: onTrack ? COLORS.readiness.prime : COLORS.readiness.caution }]}>
           {onTrack
-            ? `On track — projected ${projectedWeight.toFixed(1)} lbs at weigh-in`
-            : `Projected ${projectedWeight.toFixed(1)} lbs — review body-mass support`}
+            ? `On track - projected ${projectedWeight.toFixed(1)} lbs at weigh-in`
+            : `Projected ${projectedWeight.toFixed(1)} lbs - review body-mass support`}
         </Text>
       )}
     </View>

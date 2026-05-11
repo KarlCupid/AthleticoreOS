@@ -19,6 +19,7 @@ import { sanitizeAthleteFacingCopy } from '../../lib/performance-engine/presenta
 import type { FightWeekDayViewModel } from '../hooks/fuel/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
+import { BodyMassTrendChart } from '../components/BodyMassTrendChart';
 import { IconChevronLeft, IconDroplets } from '../components/icons';
 import { UrineColorPicker } from '../components/UrineColorPicker';
 import { CognitiveTestCard } from '../components/CognitiveTestCard';
@@ -120,6 +121,8 @@ export function CompetitionBodyMassScreen() {
   const {
     activePlan,
     loading,
+    weightHistory,
+    projectedWeightByWeighIn,
     logSafetyCheck,
     performanceContext,
     guidedBodyMass,
@@ -224,6 +227,56 @@ export function CompetitionBodyMassScreen() {
             ) : null}
           </View>
           {blocked ? <Text style={styles.statusBadge}>SAFETY REVIEW</Text> : null}
+        </Card>
+
+        <Card
+          style={styles.countdownCard}
+          backgroundTone="bodyMassSupport"
+          backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+        >
+          <View style={styles.countdownRow}>
+            <View>
+              <Text style={styles.metricEyebrow}>Weigh-in countdown</Text>
+              <Text style={styles.countdownValue}>
+                {selectedDayView?.daysToWeighIn === 0 ? 'Today' : `${selectedDayView?.daysToWeighIn ?? 0} days`}
+              </Text>
+            </View>
+            <View style={styles.metricPill}>
+              <Text style={styles.metricPillText}>{activePlan.weigh_in_date}</Text>
+            </View>
+          </View>
+          <Text style={styles.briefText}>Body-mass context supports planning. Safety flags override performance goals.</Text>
+        </Card>
+
+        <Card
+          style={styles.trendCard}
+          backgroundTone="bodyTrend"
+          backgroundScrimColor="rgba(10, 10, 10, 0.80)"
+        >
+          <Text style={styles.metricEyebrow}>Trend</Text>
+          <BodyMassTrendChart
+            weightHistory={weightHistory}
+            targetWeight={activePlan.target_weight}
+            projectedWeight={projectedWeightByWeighIn}
+            weighInDate={activePlan.weigh_in_date}
+          />
+        </Card>
+
+        <Card
+          style={styles.logCard}
+          backgroundTone="default"
+          backgroundScrimColor="rgba(10, 10, 10, 0.76)"
+        >
+          <Text style={styles.metricEyebrow}>Daily weigh-in log</Text>
+          {weightHistory.slice(-4).reverse().map((entry) => (
+            <View key={`${entry.date}-${entry.weight}`} style={styles.logRow}>
+              <Text style={styles.logDate}>{entry.date}</Text>
+              <Text style={styles.logValue}>{entry.weight.toFixed(1)} lbs</Text>
+            </View>
+          ))}
+          {weightHistory.length === 0 ? (
+            <Text style={styles.briefText}>No body-mass logs yet. Missing data stays unknown, not safe.</Text>
+          ) : null}
         </Card>
 
         <Card
@@ -459,6 +512,69 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.primary,
     lineHeight: 22,
+  },
+  countdownCard: {
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  countdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  metricEyebrow: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: SPACING.xs,
+  },
+  countdownValue: {
+    fontSize: 26,
+    fontFamily: FONT_FAMILY.black,
+    color: COLORS.text.primary,
+  },
+  metricPill: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+  },
+  metricPillText: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  trendCard: {
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  logCard: {
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  logRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.borderLight,
+  },
+  logDate: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  logValue: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
   },
   sectionCard: {
     backgroundColor: COLORS.surface,

@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { WeightClassHistoryRow } from '../../lib/engine/types';
 
 export function WeightClassHistoryScreen() {
+  const insets = useSafeAreaInsets();
   const [userId, setUserId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -27,7 +29,7 @@ export function WeightClassHistoryScreen() {
   if (weightClassHistory.length === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyIcon}>🏆</Text>
+        <Text style={styles.emptyIcon}>WC</Text>
         <Text style={styles.emptyTitle}>No completed class plans</Text>
         <Text style={styles.emptySubtitle}>
           Your weight-class records will appear here once a plan is completed.
@@ -39,11 +41,22 @@ export function WeightClassHistoryScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + SPACING.lg }]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Body-mass history</Text>
+      <Text style={styles.sectionTitle}>Weight Class History</Text>
       <Text style={styles.sectionSubtitle}>{weightClassHistory.length} completed class plan{weightClassHistory.length !== 1 ? 's' : ''}</Text>
+      <View style={styles.summaryCard}>
+        <View>
+          <Text style={styles.summaryLabel}>Past class plans</Text>
+          <Text style={styles.summaryValue}>{weightClassHistory.length}</Text>
+        </View>
+        <View style={styles.filterRow}>
+          <Text style={[styles.filterPill, styles.filterPillActive]}>All</Text>
+          <Text style={styles.filterPill}>Met</Text>
+          <Text style={styles.filterPill}>Review</Text>
+        </View>
+      </View>
       {weightClassHistory.map((record) => (
         <WeightClassHistoryCard key={record.id} record={record} />
       ))}
@@ -64,7 +77,7 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
 
   const completedDate = record.completed_at
     ? new Date(record.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    : '—';
+    : '--';
 
   return (
     <TouchableOpacity
@@ -75,7 +88,7 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
       {/* Header */}
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleBlock}>
-          <Text style={styles.planTitle}>{record.start_weight} → {record.target_weight} lbs</Text>
+          <Text style={styles.planTitle}>{record.start_weight} to {record.target_weight} lbs</Text>
           <Text style={styles.planDate}>{completedDate}</Text>
         </View>
         <View style={[
@@ -86,7 +99,7 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
           },
         ]}>
           <Text style={[styles.madeWeightText, { color: madeWeight ? COLORS.success : COLORS.error }]}>
-            {madeWeight ? '✓ MADE WEIGHT' : '✗ MISSED'}
+            {madeWeight ? 'MET' : 'REVIEW'}
           </Text>
         </View>
       </View>
@@ -105,7 +118,7 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
         />
         <StatPill
           label="Weigh-in"
-          value={record.final_weigh_in_weight ? `${record.final_weigh_in_weight} lbs` : '—'}
+          value={record.final_weigh_in_weight ? `${record.final_weigh_in_weight} lbs` : '--'}
           color={COLORS.text.secondary}
         />
       </View>
@@ -117,9 +130,9 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
           <View style={styles.detailGrid}>
             <DetailRow label="Gradual loss" value={`${(record.gradual_body_mass_change_lbs ?? 0).toFixed(1)} lbs`} />
             <DetailRow label="Fight-week change" value={`${(record.competition_week_body_mass_change_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Post weigh-in regain" value={record.rehydration_weight_regained ? `${record.rehydration_weight_regained.toFixed(1)} lbs` : '—'} />
-            <DetailRow label="Avg weekly loss" value={record.avg_weekly_loss_rate ? `${record.avg_weekly_loss_rate.toFixed(2)} lbs/wk` : '—'} />
-            <DetailRow label="Fight day weight" value={record.fight_day_weight ? `${record.fight_day_weight} lbs` : '—'} />
+            <DetailRow label="Post weigh-in regain" value={record.rehydration_weight_regained ? `${record.rehydration_weight_regained.toFixed(1)} lbs` : '--'} />
+            <DetailRow label="Avg weekly loss" value={record.avg_weekly_loss_rate ? `${record.avg_weekly_loss_rate.toFixed(2)} lbs/wk` : '--'} />
+            <DetailRow label="Fight day weight" value={record.fight_day_weight ? `${record.fight_day_weight} lbs` : '--'} />
             {(record.safety_flags_triggered?.length ?? 0) > 0 && (
               <DetailRow
                 label="Safety flags triggered"
@@ -131,7 +144,7 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
         </View>
       )}
 
-      <Text style={styles.expandHint}>{expanded ? '▲ Show less' : '▼ Show details'}</Text>
+      <Text style={styles.expandHint}>{expanded ? 'Show less' : 'Show details'}</Text>
     </TouchableOpacity>
   );
 }
@@ -159,13 +172,70 @@ const styles = StyleSheet.create({
   content: { padding: SPACING.md, paddingBottom: 48 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-  emptyIcon: { fontSize: 48, marginBottom: SPACING.md },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentLight,
+    color: COLORS.accent,
+    fontFamily: FONT_FAMILY.black,
+    fontSize: 22,
+    lineHeight: 62,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
   emptyTitle: { fontFamily: FONT_FAMILY.semiBold, fontSize: 20, color: COLORS.text.primary, marginBottom: SPACING.xs },
   emptySubtitle: { fontFamily: FONT_FAMILY.regular, fontSize: 14, color: COLORS.text.secondary, textAlign: 'center' },
-  sectionTitle: { fontFamily: FONT_FAMILY.semiBold, fontSize: 22, color: COLORS.text.primary },
+  sectionTitle: { fontFamily: FONT_FAMILY.black, fontSize: 26, color: COLORS.accent, textTransform: 'uppercase', letterSpacing: 0.8 },
   sectionSubtitle: { fontFamily: FONT_FAMILY.regular, fontSize: 14, color: COLORS.text.secondary, marginBottom: SPACING.md, marginTop: 2 },
+  summaryCard: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: 'rgba(10, 10, 10, 0.72)',
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOWS.card,
+  },
+  summaryLabel: {
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 12,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  summaryValue: {
+    marginTop: 2,
+    fontFamily: FONT_FAMILY.black,
+    fontSize: 28,
+    color: COLORS.text.primary,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  filterPill: {
+    overflow: 'hidden',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 7,
+    fontFamily: FONT_FAMILY.semiBold,
+    fontSize: 12,
+    color: COLORS.text.secondary,
+  },
+  filterPillActive: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+    color: COLORS.text.inverse,
+  },
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(10, 10, 10, 0.74)',
     borderRadius: RADIUS.xl,
     padding: SPACING.md,
     marginBottom: SPACING.md,

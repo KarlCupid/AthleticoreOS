@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
@@ -13,8 +14,10 @@ import {
   PRIVACY_POLICY_SECTIONS,
 } from '../config/appReview';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
+import { IconChevronLeft } from '../components/icons';
 
 export function LegalSupportScreen() {
+  const navigation = useNavigation();
   const openUrl = async (url: string, fallbackTitle: string, fallbackBody: string) => {
     try {
       const supported = await Linking.canOpenURL(url);
@@ -34,8 +37,16 @@ export function LegalSupportScreen() {
   };
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper useSafeArea>
       <View style={styles.header}>
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <IconChevronLeft size={22} color={COLORS.text.primary} />
+        </AnimatedPressable>
         <ScreenHeader
           kicker="Support"
           title="Privacy & support"
@@ -112,6 +123,17 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.md,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: 'rgba(10, 10, 10, 0.54)',
+    marginBottom: SPACING.sm,
   },
   content: {
     paddingHorizontal: SPACING.lg,

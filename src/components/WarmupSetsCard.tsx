@@ -64,7 +64,7 @@ function SetRow({
       activeOpacity={0.7}
     >
       <Animated.View style={[styles.checkbox, checkboxAnimatedStyle]}>
-        {set.isCompleted && <Text style={styles.checkmark}>{'âœ“'}</Text>}
+        {set.isCompleted && <Text style={styles.checkmark}>OK</Text>}
       </Animated.View>
 
       <View style={styles.setInfo}>
@@ -74,7 +74,7 @@ function SetRow({
             set.isCompleted && styles.completedText,
           ]}
         >
-          {set.weight} lbs Ã— {set.reps}
+          {set.weight} lbs x {set.reps}
         </Text>
         <Text
           style={[
@@ -105,7 +105,7 @@ export default function WarmupSetsCard({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{exerciseName ? `Warmup Â· ${exerciseName}` : 'Warmup'}</Text>
+        <Text style={styles.title}>{exerciseName ? `Warmup - ${exerciseName}` : 'Warmup'}</Text>
         <Text style={styles.counter}>
           {completedCount}/{totalCount}
         </Text>
@@ -174,9 +174,9 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: COLORS.text.inverse,
-    fontSize: 14,
+    fontSize: 9,
     fontFamily: FONT_FAMILY.semiBold,
-    lineHeight: 17,
+    lineHeight: 12,
   },
   setInfo: {
     flex: 1,

@@ -186,9 +186,24 @@ export function BarcodeScanScreen() {
                 {/* Bottom section */}
                 <View style={[styles.overlayBottom, { paddingBottom: insets.bottom + SPACING.xxl }]}>
                     {scanState === 'scanning' && (
-                        <Text style={styles.instructionText}>
-                            Align the barcode within the frame
-                        </Text>
+                        <>
+                            <Text style={styles.instructionText}>
+                                Align the barcode inside the frame
+                            </Text>
+                            <View style={styles.scanDividerRow}>
+                                <View style={styles.scanDivider} />
+                                <Text style={styles.scanDividerText}>OR</Text>
+                                <View style={styles.scanDivider} />
+                            </View>
+                            <View style={styles.scanFallbackRow}>
+                                <AnimatedPressable style={styles.scanFallbackButton} onPress={handleManualSearch}>
+                                    <Text style={styles.scanFallbackText}>Manual Search</Text>
+                                </AnimatedPressable>
+                                <AnimatedPressable style={styles.scanFallbackButton} onPress={handleTryCustom}>
+                                    <Text style={styles.scanFallbackText}>Custom Food</Text>
+                                </AnimatedPressable>
+                            </View>
+                        </>
                     )}
 
                     {scanState === 'loading' && (
@@ -270,8 +285,10 @@ const styles = StyleSheet.create({
     },
     overlayTitle: {
         fontSize: 18,
-        fontFamily: FONT_FAMILY.semiBold,
+        fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
     },
     overlayMiddle: {
         flexDirection: 'row',
@@ -290,7 +307,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         width: 28,
         height: 28,
-        borderColor: COLORS.text.primary,
+        borderColor: COLORS.accent,
     },
     cornerTL: {
         top: 0,
@@ -333,6 +350,47 @@ const styles = StyleSheet.create({
         fontFamily: FONT_FAMILY.regular,
         color: COLORS.text.secondary,
         textAlign: 'center',
+    },
+    scanDividerRow: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.md,
+        marginTop: SPACING.xl,
+        marginBottom: SPACING.lg,
+    },
+    scanDivider: {
+        flex: 1,
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: COLORS.borderLight,
+    },
+    scanDividerText: {
+        fontSize: 11,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+    },
+    scanFallbackRow: {
+        flexDirection: 'row',
+        gap: SPACING.sm,
+        width: '100%',
+    },
+    scanFallbackButton: {
+        flex: 1,
+        minHeight: 56,
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
+        backgroundColor: 'rgba(245,245,240,0.07)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: SPACING.sm,
+    },
+    scanFallbackText: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: COLORS.accent,
+        textAlign: 'center',
+        textTransform: 'uppercase',
     },
     statusContainer: {
         flexDirection: 'row',

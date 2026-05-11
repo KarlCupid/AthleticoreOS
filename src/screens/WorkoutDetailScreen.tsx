@@ -38,17 +38,6 @@ type RouteProp = import('@react-navigation/native').RouteProp<TrainStackParamLis
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SECTION_ICONS: Record<string, string> = {
-    activation: '⚡',
-    power: '💥',
-    main_strength: '🏋',
-    secondary_strength: '🔁',
-    accessory: '＋',
-    durability: '🛡',
-    finisher: '🔥',
-    cooldown: '🌀',
-};
-
 const STATUS_COLORS: Record<string, string> = {
     planned: COLORS.text.tertiary,
     completed: COLORS.success,
@@ -68,6 +57,20 @@ const READINESS_COLORS: Record<string, string> = {
     Caution: COLORS.readiness.caution,
     Depleted: COLORS.readiness.depleted,
 };
+
+function getSectionBadge(template: string): string {
+    const badges: Record<string, string> = {
+        activation: 'ACT',
+        power: 'PWR',
+        main_strength: 'STR',
+        secondary_strength: 'SUP',
+        accessory: 'ACC',
+        durability: 'DUR',
+        finisher: 'FIN',
+        cooldown: 'CDN',
+    };
+    return badges[template] ?? 'BLK';
+}
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
@@ -191,7 +194,7 @@ export function WorkoutDetailScreen() {
             <View style={[styles.container, { paddingTop: insets.top }]}>
                 <View style={styles.loadingHeader}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Text style={styles.backText}>‹</Text>
+                        <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
                 </View>
                 <View style={styles.loadingCenter}>
@@ -207,7 +210,7 @@ export function WorkoutDetailScreen() {
             <View style={[styles.container, { paddingTop: insets.top }]}>
                 <View style={styles.loadingHeader}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Text style={styles.backText}>‹</Text>
+                        <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
                 </View>
                 <View style={styles.loadingCenter}>
@@ -223,7 +226,7 @@ export function WorkoutDetailScreen() {
             <View style={[styles.container, { paddingTop: insets.top }]}>
                 <View style={styles.loadingHeader}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Text style={styles.backText}>‹</Text>
+                        <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
                 </View>
                 <View style={styles.loadingCenter}>
@@ -242,7 +245,7 @@ export function WorkoutDetailScreen() {
             {/* ── Header ── */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Text style={styles.backText}>‹</Text>
+                    <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
                     <Text style={styles.headerTitle} numberOfLines={1}>{displayTitle} - {dayLabel}</Text>
@@ -251,7 +254,7 @@ export function WorkoutDetailScreen() {
                     </View>
                 </View>
                 <TouchableOpacity onPress={() => void handleOptionsPress()} style={styles.optionsBtn}>
-                    <Text style={styles.optionsText}>⋮</Text>
+                    <Text style={styles.optionsText}>...</Text>
                 </TouchableOpacity>
             </View>
 
@@ -517,7 +520,7 @@ function SectionBlock({
     onSwapExercise,
     delay,
 }: SectionBlockProps) {
-    const icon = SECTION_ICONS[section.template] ?? '•';
+    const icon = getSectionBadge(section.template);
 
     return (
         <Animated.View entering={FadeInDown.delay(delay).duration(300)} style={styles.section}>
@@ -610,7 +613,7 @@ function ExerciseRow({
                     {focusCue ? <Text style={styles.quickCue} numberOfLines={1}>Focus: {focusCue}</Text> : null}
                 </View>
                 {hasDetails && (
-                    <Text style={[styles.chevron, isExpanded && styles.chevronOpen]}>›</Text>
+                    <Text style={[styles.chevron, isExpanded && styles.chevronOpen]}>&gt;</Text>
                 )}
             </TouchableOpacity>
 
@@ -626,7 +629,7 @@ function ExerciseRow({
                         <View style={styles.cuesBlock}>
                             <Text style={styles.detailLabel}>COACHING CUES</Text>
                             {coachingCues.map((cue, i) => (
-                                <Text key={i} style={styles.cueText}>• {cue}</Text>
+                                <Text key={i} style={styles.cueText}>- {cue}</Text>
                             ))}
                         </View>
                     )}
@@ -680,15 +683,16 @@ const styles = StyleSheet.create({
         borderBottomColor: COLORS.borderLight,
     },
     backBtn: {
-        width: 40,
+        width: 54,
         height: 40,
         alignItems: 'center',
         justifyContent: 'center',
     },
     backText: {
-        fontSize: 28,
-        color: COLORS.text.primary,
-        fontFamily: FONT_FAMILY.regular,
+        fontSize: 13,
+        color: COLORS.accent,
+        fontFamily: FONT_FAMILY.semiBold,
+        textTransform: 'uppercase',
     },
     headerCenter: {
         flex: 1,
@@ -721,7 +725,8 @@ const styles = StyleSheet.create({
     },
     optionsText: {
         fontSize: 22,
-        color: COLORS.text.secondary,
+        color: COLORS.accent,
+        fontFamily: FONT_FAMILY.semiBold,
     },
 
     // Regen overlay
@@ -813,10 +818,12 @@ const styles = StyleSheet.create({
 
     // Intent card
     intentCard: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.74)',
         borderRadius: RADIUS.lg,
         padding: SPACING.md,
         marginBottom: SPACING.sm,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         ...SHADOWS.sm,
     },
     intentLabel: {
@@ -842,10 +849,12 @@ const styles = StyleSheet.create({
 
     // Session actions
     actionPanel: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.74)',
         borderRadius: RADIUS.lg,
         padding: SPACING.md,
         marginBottom: SPACING.sm,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         ...SHADOWS.sm,
     },
     generatedSessionWrapper: {
@@ -862,10 +871,12 @@ const styles = StyleSheet.create({
 
     // Section
     section: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.74)',
         borderRadius: RADIUS.lg,
         padding: SPACING.md,
         marginBottom: SPACING.sm,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         ...SHADOWS.sm,
     },
     sectionHeader: {
@@ -875,8 +886,17 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.xs,
     },
     sectionIcon: {
-        fontSize: 18,
-        lineHeight: 24,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.34)',
+        backgroundColor: COLORS.accentLight,
+        color: COLORS.accent,
+        fontSize: 10,
+        fontFamily: FONT_FAMILY.extraBold,
+        lineHeight: 32,
+        textAlign: 'center',
     },
     sectionHeaderText: {
         flex: 1,

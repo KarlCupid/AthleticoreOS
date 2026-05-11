@@ -47,6 +47,15 @@ const MANUAL_ACTIVITY_OPTIONS = ACTIVITY_OPTIONS.filter(
     (option) => option.type !== 'sc' && option.type !== 'conditioning',
 );
 
+function getActivityBadge(label: string): string {
+    return label
+        .split(/\s+/)
+        .map((word) => word.charAt(0))
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+}
+
 export function DayDetailScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -268,7 +277,7 @@ export function DayDetailScreen() {
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <AnimatedPressable onPress={() => navigation.goBack()} testID="day-detail-back">
-                    <Text style={styles.backButton}>← Back</Text>
+                    <Text style={styles.backButton}>Back</Text>
                 </AnimatedPressable>
                 <Text style={styles.headerTitle}>{formatDateLabel(dateParam)}</Text>
                 <AnimatedPressable onPress={() => setShowAddPicker(true)} testID="day-detail-add-activity">
@@ -291,7 +300,7 @@ export function DayDetailScreen() {
                         {/* Day Load Status */}
                         <Animated.View entering={FadeInDown.delay(50).duration(ANIMATION.normal).springify()} style={[styles.loadBanner, { backgroundColor: dayValidation.safe ? COLORS.readiness.primeLight : COLORS.readiness.depletedLight }]}>
                             <Text style={styles.loadBannerText}>
-                                {dayValidation.safe ? '✓' : '⚠'} {dayValidation.message}
+                                {dayValidation.safe ? 'OK' : 'Review'} - {dayValidation.message}
                             </Text>
                         </Animated.View>
 
@@ -349,7 +358,7 @@ export function DayDetailScreen() {
                                 onPress={() => handleAddActivity(opt.type)}
                                 testID={`day-detail-add-${opt.type}`}
                             >
-                                <Text style={styles.pickerOptionIcon}>{opt.icon}</Text>
+                                <Text style={styles.pickerOptionIcon}>{getActivityBadge(opt.label)}</Text>
                                 <Text style={styles.pickerOptionLabel}>{opt.label}</Text>
                             </TouchableOpacity>
                         ))}

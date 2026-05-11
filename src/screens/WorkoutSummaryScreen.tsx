@@ -117,11 +117,13 @@ function StatPill({ label, value, delay = 0 }: StatPillProps) {
 const statPillStyles = StyleSheet.create({
     wrapper: {
         flex: 1,
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.70)',
         borderRadius: RADIUS.md,
         paddingVertical: SPACING.md,
         paddingHorizontal: SPACING.sm,
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         ...SHADOWS.card,
     },
     value: {
@@ -186,7 +188,7 @@ export function WorkoutSummaryScreen() {
                 {/* â”€â”€ Checkmark hero â”€â”€ */}
                 <Animated.View entering={ZoomIn.delay(50).duration(500)} style={styles.heroCenter}>
                     <View style={styles.checkCircle}>
-                        <Text style={styles.checkMark}>âœ“</Text>
+                        <Text style={styles.checkMark}>OK</Text>
                     </View>
                     <Text style={styles.heroTitle}>Session Complete</Text>
                     <Text style={styles.heroSubtitle}>
@@ -229,7 +231,7 @@ export function WorkoutSummaryScreen() {
                 {hadPR && prExerciseName && (
                     <Animated.View entering={FadeInDown.delay(520).duration(450)}>
                         <View style={styles.prCard}>
-                            <Text style={styles.prIcon}>ðŸ†</Text>
+                            <Text style={styles.prIcon}>PR</Text>
                             <View style={styles.prTextBlock}>
                                 <Text style={styles.prTitle}>New Personal Record!</Text>
                                 <Text style={styles.prExercise}>{prExerciseName}</Text>
@@ -301,17 +303,17 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: COLORS.success + '20',
+        backgroundColor: COLORS.accentLight,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: SPACING.md,
         borderWidth: 2,
-        borderColor: COLORS.success + '40',
+        borderColor: 'rgba(212, 175, 55, 0.42)',
     },
     checkMark: {
         fontFamily: FONT_FAMILY.black,
-        fontSize: 28,
-        color: COLORS.success,
+        fontSize: 16,
+        color: COLORS.accent,
         lineHeight: 34,
     },
     heroTitle: {
@@ -394,7 +396,9 @@ const styles = StyleSheet.create({
         ...SHADOWS.card,
     },
     prIcon: {
-        fontSize: 32,
+        fontSize: 17,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: COLORS.accent,
     },
     prTextBlock: {
         flex: 1,
@@ -413,10 +417,12 @@ const styles = StyleSheet.create({
 
     // Fatigue / coach message card
     messageCard: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.74)',
         borderRadius: RADIUS.lg,
         padding: SPACING.md,
         marginBottom: SPACING.md,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         ...SHADOWS.card,
     },
     messageLabel: {

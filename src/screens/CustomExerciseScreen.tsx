@@ -117,7 +117,7 @@ export function CustomExerciseScreen() {
                 >
                     <IconChevronLeft size={24} color={COLORS.text.primary} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Custom Exercise</Text>
+                <Text style={styles.title}>Add Custom Exercise</Text>
             </View>
 
             <ScrollView
@@ -130,13 +130,17 @@ export function CustomExerciseScreen() {
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
             >
-                <Card>
+                <Card
+                    variant="glass"
+                    backgroundTone="workoutFloor"
+                    backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+                >
                     <Field label="Exercise Name" value={name} onChangeText={setName} placeholder="e.g. Band Face Pull" />
                     <Field label="Description" value={description} onChangeText={setDescription} placeholder="What is this exercise?" />
                     <Field label="Coaching Cues" value={cues} onChangeText={setCues} placeholder="Key form cues..." />
                     <Field label="CNS Load (1-10)" value={cnsLoad} onChangeText={setCnsLoad} keyboardType="decimal-pad" />
 
-                    <Text style={styles.pickerLabel}>Type</Text>
+                    <Text style={styles.pickerLabel}>Category</Text>
                     <View style={styles.chipRow}>
                         {TYPES.map(t => (
                             <TouchableOpacity
@@ -197,7 +201,7 @@ export function CustomExerciseScreen() {
                     disabled={saving}
                     activeOpacity={0.8}
                 >
-                    <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Create Exercise'}</Text>
+                    <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Exercise'}</Text>
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
@@ -234,13 +238,14 @@ const fieldStyles = StyleSheet.create({
     },
     input: {
         borderWidth: 1,
-        borderColor: COLORS.border,
         borderRadius: RADIUS.md,
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.sm + 2,
         fontSize: 15,
         fontFamily: FONT_FAMILY.regular,
-        color: COLORS.text.inverse,
+        color: COLORS.text.primary,
+        backgroundColor: 'rgba(245,245,240,0.06)',
+        borderColor: COLORS.borderLight,
     },
 });
 
@@ -261,9 +266,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     title: {
-        fontSize: 20,
-        fontFamily: FONT_FAMILY.extraBold,
+        fontSize: 18,
+        fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
     },
     content: { padding: SPACING.lg },
     pickerLabel: {
@@ -285,7 +292,8 @@ const styles = StyleSheet.create({
         paddingVertical: SPACING.xs + 2,
         borderRadius: RADIUS.full,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS.borderLight,
+        backgroundColor: 'rgba(10, 10, 10, 0.56)',
     },
     chipText: {
         fontSize: 12,
@@ -309,6 +317,6 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontSize: 16,
         fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
+        color: COLORS.text.inverse,
     },
 });

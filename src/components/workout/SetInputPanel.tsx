@@ -19,7 +19,7 @@ import {
 import { AnimatedPressable } from '../AnimatedPressable';
 
 // ---------------------------------------------------------------------------
-// RollingValue â€” digit slides out/in on value change
+// RollingValue digit slides out/in on value change
 // ---------------------------------------------------------------------------
 
 function RollingValue({
@@ -62,7 +62,7 @@ function RollingValue({
 }
 
 // ---------------------------------------------------------------------------
-// NumberStepper â€” weight or reps input with +/- buttons
+// NumberStepper weight or reps input with +/- buttons
 // ---------------------------------------------------------------------------
 
 interface NumberStepperProps {
@@ -106,7 +106,7 @@ export function NumberStepper({
           accessibilityLabel={`Decrease ${label}`}
           accessibilityRole="button"
         >
-          <Text style={[stepStyles.btnText, isFocus && stepStyles.btnTextFocus]}>âˆ’</Text>
+          <Text style={[stepStyles.btnText, isFocus && stepStyles.btnTextFocus]}>-</Text>
         </AnimatedPressable>
 
         <View style={stepStyles.display}>
@@ -197,7 +197,7 @@ const stepStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// InputRow â€” standard weight + reps input row
+// InputRow standard weight + reps input row
 // ---------------------------------------------------------------------------
 
 interface InputRowProps {

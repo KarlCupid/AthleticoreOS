@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 import { deleteMyAccount } from '../../lib/api/accountService';
 import { getSupabaseAuthErrorCopy } from '../../lib/api/authUx';
@@ -8,8 +9,10 @@ import { Card } from '../components/Card';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
+import { IconChevronLeft } from '../components/icons';
 
 export function DeleteAccountScreen() {
+  const navigation = useNavigation();
   const [confirmed, setConfirmed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -40,6 +43,14 @@ export function DeleteAccountScreen() {
   return (
     <ScreenWrapper useSafeArea>
       <View style={styles.header}>
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <IconChevronLeft size={22} color={COLORS.text.primary} />
+        </AnimatedPressable>
         <ScreenHeader
           kicker="Account"
           title="Delete account"
@@ -100,6 +111,17 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.md,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: 'rgba(10, 10, 10, 0.54)',
+    marginBottom: SPACING.sm,
   },
   content: {
     paddingHorizontal: SPACING.lg,

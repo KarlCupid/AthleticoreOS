@@ -45,6 +45,16 @@ interface LoggedComponent {
     notes?: string | undefined;
 }
 
+function getComponentBadge(label: string | undefined): string {
+    if (!label) return 'OT';
+    return label
+        .split(/\s+/)
+        .map((word) => word.charAt(0))
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+}
+
 export function ActivityLogScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation();
@@ -126,9 +136,9 @@ export function ActivityLogScreen() {
         >
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Text style={styles.backButton}>← Back</Text>
+                    <Text style={styles.backButton}>Back</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Log Activity</Text>
+                <Text style={styles.headerTitle}>Activity Log</Text>
                 <View style={{ width: 50 }} />
             </View>
 
@@ -197,10 +207,10 @@ export function ActivityLogScreen() {
                             return (
                                 <View key={i} style={styles.componentCard}>
                                     <View style={styles.componentHeader}>
-                                        <Text style={styles.componentIcon}>{option?.icon ?? '📝'}</Text>
+                                        <Text style={styles.componentIcon}>{getComponentBadge(option?.label)}</Text>
                                         <Text style={styles.componentLabel}>{option?.label ?? comp.component_type}</Text>
                                         <TouchableOpacity onPress={() => removeComponent(i)}>
-                                            <Text style={styles.removeText}>✕</Text>
+                                            <Text style={styles.removeText}>Remove</Text>
                                         </TouchableOpacity>
                                     </View>
 

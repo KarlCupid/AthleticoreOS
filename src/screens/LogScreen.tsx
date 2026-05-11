@@ -271,7 +271,7 @@ export function LogScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
         <View>
-          <Text style={styles.headerTitle}>Quick Check-In</Text>
+          <Text style={styles.headerTitle}>Check-In</Text>
           <Text style={styles.headerSubtitle}>Tell Athleticore how you are doing so today's plan can adapt.</Text>
         </View>
       </View>
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderLight,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(10, 10, 10, 0.74)',
     color: COLORS.text.primary,
     textAlign: 'center',
     fontSize: 18,
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
   },
   primaryButtonText: {
-    color: '#F5F5F0',
+    color: COLORS.text.inverse,
     fontSize: 15,
     fontFamily: FONT_FAMILY.semiBold,
   },
@@ -740,7 +740,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.52)',
   },
   tooltipSheet: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(10, 10, 10, 0.96)',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     padding: SPACING.lg,

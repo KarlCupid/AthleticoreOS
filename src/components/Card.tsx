@@ -6,7 +6,7 @@ import Animated, {
     useAnimatedStyle,
     withSpring,
 } from 'react-native-reanimated';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, BORDERS, ANIMATION } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { CARD_BACKGROUNDS, type CardBackgroundKey } from '../theme/cardBackgrounds';
 
 type CardVariant = 'default' | 'elevated' | 'outlined' | 'filled' | 'glass';
@@ -138,17 +138,19 @@ export const Card = memo(function Card({
 
 const variantMap: Record<CardVariant, ViewStyle> = {
     default: {
-        backgroundColor: 'rgba(10, 10, 10, 0.68)',
+        backgroundColor: 'rgba(10, 10, 10, 0.74)',
         ...SHADOWS.card,
-        ...BORDERS.card,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 245, 240, 0.16)',
     },
     elevated: {
-        backgroundColor: 'rgba(10, 10, 10, 0.86)',
+        backgroundColor: 'rgba(10, 10, 10, 0.88)',
         ...SHADOWS.cardElevated,
-        ...BORDERS.elevated,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.28)',
     },
     outlined: {
-        backgroundColor: 'rgba(10, 10, 10, 0.56)',
+        backgroundColor: 'rgba(10, 10, 10, 0.62)',
         borderWidth: 1,
         borderColor: COLORS.border,
     },
@@ -156,9 +158,10 @@ const variantMap: Record<CardVariant, ViewStyle> = {
         backgroundColor: COLORS.surfaceSecondary,
     },
     glass: {
-        backgroundColor: 'rgba(10, 10, 10, 0.58)',
+        backgroundColor: 'rgba(10, 10, 10, 0.66)',
         borderWidth: 1,
-        borderColor: 'rgba(245, 245, 240, 0.14)',
+        borderColor: 'rgba(245, 245, 240, 0.16)',
+        ...SHADOWS.card,
     },
 };
 

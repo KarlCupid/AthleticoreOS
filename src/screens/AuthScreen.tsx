@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     KeyboardAvoidingView,
     Linking,
     Platform,
@@ -34,7 +35,6 @@ import {
     PRIVACY_POLICY_SECTIONS,
 } from '../config/appReview';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
-import { IconShieldCheck } from '../components/icons';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 
 type AuthMode = 'signIn' | 'resetRequest';
@@ -46,6 +46,8 @@ interface AuthScreenProps {
     notice?: string | null;
     onPasswordRecoveryCompleted?: () => void;
 }
+
+const BRAND_LOGO = require('../../assets/images/athleticore-logo.png');
 
 export function AuthScreen({
     passwordRecovery = false,
@@ -312,19 +314,19 @@ export function AuthScreen({
                 showsVerticalScrollIndicator={false}
             >
                 <Animated.View entering={ZoomIn.duration(ANIMATION.normal).springify()} style={styles.logoContainer}>
-                    <LinearGradient
-                        colors={[...GRADIENTS.prime]}
-                        style={styles.logoCircle}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                    >
-                        <IconShieldCheck size={32} color={COLORS.text.primary} strokeWidth={2} />
-                    </LinearGradient>
+                    <View style={styles.logoCircle}>
+                        <Image
+                            source={BRAND_LOGO}
+                            style={styles.logoImage}
+                            resizeMode="cover"
+                            accessibilityLabel="Athleticore logo"
+                        />
+                    </View>
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()}>
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.subtitle}>{subtitle}</Text>
+                    <Text style={[styles.title, !passwordRecovery && !isResetRequest && styles.brandTitle]}>{title}</Text>
+                    <Text style={[styles.subtitle, !passwordRecovery && !isResetRequest && styles.brandSubtitle]}>{subtitle}</Text>
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(200).duration(ANIMATION.normal).springify()} style={styles.form}>
@@ -597,6 +599,9 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         paddingHorizontal: SPACING.xl,
+        maxWidth: 440,
+        width: '100%',
+        alignSelf: 'center',
     },
     logoContainer: {
         alignItems: 'center',
@@ -608,7 +613,15 @@ const styles = StyleSheet.create({
         borderRadius: 36,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(10, 10, 10, 0.78)',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.34)',
+        overflow: 'hidden',
         ...SHADOWS.colored.prime,
+    },
+    logoImage: {
+        width: 72,
+        height: 72,
     },
     title: {
         fontSize: 32,
@@ -616,6 +629,10 @@ const styles = StyleSheet.create({
         color: COLORS.text.primary,
         textAlign: 'center',
         letterSpacing: 0,
+    },
+    brandTitle: {
+        textTransform: 'uppercase',
+        letterSpacing: 5,
     },
     subtitle: {
         fontSize: 16,
@@ -626,14 +643,26 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.xxl,
         lineHeight: 22,
     },
+    brandSubtitle: {
+        color: COLORS.accent,
+        fontFamily: FONT_FAMILY.semiBold,
+        fontSize: 12,
+        letterSpacing: 2,
+        textTransform: 'uppercase',
+    },
     form: {
         gap: SPACING.sm,
+        padding: SPACING.md,
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
+        backgroundColor: 'rgba(10, 10, 10, 0.46)',
     },
     input: {
         backgroundColor: COLORS.surface,
         borderRadius: RADIUS.md,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS.borderLight,
         padding: SPACING.md + 2,
         minHeight: 52,
         fontSize: 16,

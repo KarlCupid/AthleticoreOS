@@ -297,7 +297,7 @@ export function FoodDetailScreen() {
               </View>
               <Text style={styles.foodName}>{foodItem.name}</Text>
               <Text style={styles.foodBrand}>
-                {foodItem.brand ? `${foodItem.brand} • ` : ''}
+                {foodItem.brand ? `${foodItem.brand} - ` : ''}
                 {foodItem.serving_label}
               </Text>
             </View>
@@ -311,7 +311,7 @@ export function FoodDetailScreen() {
             portionOptions={foodItem.portionOptions}
           />
 
-          <Card style={{ marginTop: SPACING.md }}>
+          <Card variant="glass" style={{ marginTop: SPACING.md }}>
             <Text style={styles.previewTitle}>Nutrition for this amount</Text>
 
             <View style={styles.calorieRow}>
@@ -357,7 +357,7 @@ export function FoodDetailScreen() {
             </View>
           </Card>
 
-          <Card style={{ marginTop: SPACING.md }}>
+          <Card variant="glass" style={{ marginTop: SPACING.md }}>
             <Text style={styles.favoriteTitle}>Quick access</Text>
             <AnimatedPressable
               testID="food-detail-save-favorite"
@@ -415,9 +415,11 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 20,
-    fontFamily: FONT_FAMILY.extraBold,
+    fontSize: 18,
+    fontFamily: FONT_FAMILY.black,
     color: COLORS.text.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   content: {
     padding: SPACING.lg,
@@ -460,10 +462,16 @@ const styles = StyleSheet.create({
   foodInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: 'rgba(10, 10, 10, 0.72)',
+    padding: SPACING.md,
+    ...SHADOWS.card,
   },
   foodImage: {
-    width: 64,
-    height: 64,
+    width: 92,
+    height: 92,
     borderRadius: RADIUS.lg,
     marginRight: SPACING.md,
   },

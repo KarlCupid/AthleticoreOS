@@ -41,9 +41,9 @@ export function FoodSearchItem({ item, onSelect }: FoodSearchItemProps) {
           {item.name}
         </Text>
         <Text style={styles.detail} numberOfLines={1}>
-          {item.brand ? `${item.brand} • ` : ''}
+          {item.brand ? `${item.brand} - ` : ''}
           {item.serving_label}
-          {!hasNutrition ? ' • No nutrition data' : ''}
+          {!hasNutrition ? ' - No nutrition data' : ''}
         </Text>
       </View>
 

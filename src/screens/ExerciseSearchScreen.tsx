@@ -135,7 +135,7 @@ export function ExerciseSearchScreen() {
                 >
                     <IconChevronLeft size={24} color={COLORS.text.primary} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Exercise Library</Text>
+                <Text style={styles.title}>Search Exercises</Text>
                 <TouchableOpacity
                     accessibilityRole="button"
                     accessibilityLabel="Create custom exercise"
@@ -181,7 +181,7 @@ export function ExerciseSearchScreen() {
                     >
                         <Text style={[
                             styles.filterChipText,
-                            typeFilter === item.value && { color: COLORS.text.primary },
+                            typeFilter === item.value && { color: COLORS.text.inverse },
                         ]}>{item.label}</Text>
                     </TouchableOpacity>
                 )}
@@ -204,7 +204,7 @@ export function ExerciseSearchScreen() {
                     >
                         <Text style={[
                             styles.filterChipText,
-                            muscleFilter === item.value && { color: COLORS.text.primary },
+                            muscleFilter === item.value && { color: COLORS.text.inverse },
                         ]}>{item.label}</Text>
                     </TouchableOpacity>
                 )}
@@ -237,6 +237,16 @@ export function ExerciseSearchScreen() {
                             <Text style={styles.emptyText}>No exercises found</Text>
                         </View>
                     }
+                    ListFooterComponent={
+                        <AnimatedPressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Add custom exercise"
+                            style={styles.customExerciseButton}
+                            onPress={() => navigation.navigate('CustomExercise')}
+                        >
+                            <Text style={styles.customExerciseButtonText}>+ Add custom exercise</Text>
+                        </AnimatedPressable>
+                    }
                 />
             )}
         </View>
@@ -254,9 +264,11 @@ const styles = StyleSheet.create({
     backButton: { minWidth: 44, minHeight: 44, marginRight: SPACING.sm, alignItems: 'center', justifyContent: 'center' },
     title: {
         flex: 1,
-        fontSize: 20,
-        fontFamily: FONT_FAMILY.extraBold,
+        fontSize: 18,
+        fontFamily: FONT_FAMILY.black,
         color: COLORS.text.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     addButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
     searchContainer: {
@@ -264,15 +276,15 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.sm,
     },
     searchInput: {
-        backgroundColor: COLORS.surface,
-        borderRadius: RADIUS.md,
+        backgroundColor: 'rgba(245,245,240,0.07)',
+        borderRadius: RADIUS.lg,
         paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm + 2,
+        paddingVertical: SPACING.md - 2,
         fontSize: 15,
         fontFamily: FONT_FAMILY.regular,
         color: COLORS.text.primary,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS.borderLight,
     },
     filterRow: {
         paddingHorizontal: SPACING.lg,
@@ -283,9 +295,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingVertical: SPACING.xs + 2,
         borderRadius: RADIUS.full,
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.68)',
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS.borderLight,
     },
     filterChipText: {
         fontSize: 12,
@@ -297,7 +309,9 @@ const styles = StyleSheet.create({
         paddingTop: SPACING.md,
     },
     exerciseItem: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: 'rgba(10, 10, 10, 0.72)',
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         borderRadius: RADIUS.lg,
         padding: SPACING.md,
         marginBottom: SPACING.sm,
@@ -351,5 +365,23 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: FONT_FAMILY.regular,
         color: COLORS.text.tertiary,
+    },
+    customExerciseButton: {
+        minHeight: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: RADIUS.full,
+        borderWidth: 1,
+        borderColor: COLORS.accent,
+        backgroundColor: COLORS.accentLight,
+        marginTop: SPACING.sm,
+        marginBottom: SPACING.xl,
+    },
+    customExerciseButtonText: {
+        fontSize: 13,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: COLORS.accent,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
     },
 });

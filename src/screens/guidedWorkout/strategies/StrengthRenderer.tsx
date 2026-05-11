@@ -25,7 +25,7 @@ import { SetCompletionFlash } from '../../../components/workout/SetCompletionFla
 import type { StrategyRendererProps } from './StrategyRendererProps';
 
 // ---------------------------------------------------------------------------
-// StrengthRenderer â€” handles straight_sets and top_set_backoff
+// StrengthRenderer handles straight_sets and top_set_backoff
 // ---------------------------------------------------------------------------
 
 export function StrengthRenderer(props: StrategyRendererProps) {
@@ -120,7 +120,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         </ExerciseCard>
       </Animated.View>
 
-      {/* Set tracker â€” tight to exercise */}
+      {/* Set tracker tight to exercise */}
       <Animated.View
         style={styles.setRow}
         entering={FadeInDown.delay(60).duration(280).springify().damping(16)}
@@ -231,7 +231,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
         </TouchableOpacity>
       )}
 
-      {/* Footer links â€” skip / finish early */}
+      {/* Footer links skip / finish early */}
       {!allTargetSetsLogged && (
         <View style={styles.footerLinks}>
           <TouchableOpacity
@@ -246,7 +246,7 @@ export function StrengthRenderer(props: StrategyRendererProps) {
           </TouchableOpacity>
           {workingSetsLogged > 0 && (
             <>
-              <Text style={styles.footerDivider}>Â·</Text>
+              <Text style={styles.footerDivider}>/</Text>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="End session early"
