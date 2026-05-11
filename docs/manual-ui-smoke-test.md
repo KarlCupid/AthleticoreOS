@@ -2,7 +2,13 @@
 
 Use this checklist when validating UI interactions, responsive layout, keyboard behavior, and safe-area coverage. Preserve the existing Athleticore visual style; this pass is only for reachability, clipping, blocked controls, and broken interactions.
 
-Run this checklist when automated browser or simulator UI testing is unavailable. The current repo has source-level UI guards, engine tests, linting, type checks, and Expo web export, but does not include Playwright, Cypress, Detox, React Native Testing Library, or another tap/click-capable UI runner.
+Run the preliminary Expo web smoke before the manual pass when Playwright is available:
+
+```bash
+npm run e2e:web
+```
+
+Use this checklist for the native and hands-on coverage that Playwright web smoke cannot replace. The current repo has source-level UI guards, engine tests, linting, type checks, Expo web export, and a lightweight Playwright web smoke suite, but still needs manual device validation for native behavior.
 
 ## Viewports
 

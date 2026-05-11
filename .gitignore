@@ -41,6 +41,9 @@ yarn-error.*
 /android
 
 # local diagnostics
+.e2e/
+playwright-report/
+test-results/
 compile.log
 compile_errors.txt
 tsc_output*.txt

@@ -4,6 +4,8 @@ Athleticore support-session programming has both source/fixture smoke guards and
 
 - `lib/performance-engine/workout-programming/workoutProgrammingUiSmoke.test.ts`
 - `lib/performance-engine/workout-programming/workoutProgrammingGeneratedWorkoutRender.test.ts`
+- `e2e/train.spec.ts`
+- `e2e/workout-detail.spec.ts`
 - `src/components/workout/GeneratedWorkoutPreviewCard.tsx`
 - `src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx`
 - `src/components/workout/BoxingGeneratedWorkoutContainer.tsx`
@@ -80,6 +82,9 @@ Run the automated smoke layer with:
 
 ```bash
 npm run test:engine
+npm run e2e:web
 ```
 
 The render test verifies valid support-session preview card content, blocked preview card content, boxing configure/review/started/completed states, disabled blocked starts, completion controls, progression recommendations, Today planned-support card rendering, absence of the standalone builder by default, one planned-support CTA, and WorkoutDetail routing from that CTA.
+
+The Playwright web smoke verifies the Expo web shell can sign in with a real test account, open Train, move through Today/Week/Recent/Progress, catch visible developer copy, and inspect WorkoutDetail support-session preview behavior when the account has suitable data.

@@ -13,6 +13,12 @@
     "test:engine": "node scripts/run-engine-tests.js",
     "test:account-deletion": "node scripts/test-account-deletion-coverage.js",
     "test:account-deletion-live": "node scripts/test-account-deletion-live.js",
+    "e2e:install": "playwright install chromium",
+    "e2e:web": "playwright test",
+    "e2e:web:headed": "playwright test --headed",
+    "e2e:web:debug": "playwright test --debug",
+    "e2e:report": "playwright show-report",
+    "e2e:smoke": "npm run audit:ui-copy && npm run e2e:web",
     "audit:ui-copy": "node scripts/audit-ui-copy.js",
     "test:rls": "node scripts/test-workout-programming-rls.js",
     "test:workout-db": "node scripts/test-workout-programming-db.js",
@@ -62,6 +68,7 @@
     "victory-native": "^41.20.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@testing-library/react-native": "^13.3.3",
     "@types/react": "~19.1.10",
     "@typescript-eslint/eslint-plugin": "^8.56.1",

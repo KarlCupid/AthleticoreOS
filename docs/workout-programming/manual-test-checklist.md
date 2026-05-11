@@ -2,6 +2,14 @@
 
 Use this as the final pre-release hands-on pass for Athleticore boxer S&C support. Each scenario should be checked on Today, Week/Plan, WorkoutDetail, Fuel, completion/history, and analytics when applicable.
 
+Before the manual device pass, run the preliminary Expo web smoke when credentials and browser dependencies are available:
+
+```bash
+npm run e2e:web
+```
+
+Review any Playwright skips before starting native testing. Skips usually mean the configured test account does not have the data required for that web smoke path.
+
 ## Pass/Fail Result Template
 
 Use `Pass`, `Fail`, or `N/A with reason`. Every `Fail` needs a screenshot or screen recording, device/platform, account type, timestamp, and a short note about whether it is a blocker or a deferred issue.
