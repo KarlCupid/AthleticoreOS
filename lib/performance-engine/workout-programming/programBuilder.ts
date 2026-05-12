@@ -396,6 +396,17 @@ function allowSameDaySupportSessions(input: ProgramBuilderInput): boolean {
     || input.combatSportContext?.allowSameDaySupportSessions === true;
 }
 
+function placementPriorityForIntent(intent: PlannedSessionIntent): number {
+  if (intent.doseCategory === 'full_session') return 60;
+  if (intent.athleticDevelopmentDomain === 'roadwork' || intent.athleticDevelopmentDomain === 'conditioning') return 50;
+  if (['roadwork_zone2', 'roadwork_tempo', 'roadwork_intervals', 'alactic_repeat_power', 'glycolytic_round_tolerance', 'boxing_conditioning_support'].includes(intent.family)) return 50;
+  if (intent.athleticDevelopmentDomain === 'strength' || intent.athleticDevelopmentDomain === 'power') return 45;
+  if (intent.doseCategory === 'support_session') return 35;
+  if (intent.doseCategory === 'microdose') return 25;
+  if (intent.doseCategory === 'recovery_reset') return 10;
+  return 20;
+}
+
 function movementPatternCounts(sessions: GeneratedProgramSession[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const session of sessions) {
@@ -578,6 +589,22 @@ function existingSessionDates(
     .map((session) => session.scheduledDate as string));
 }
 
+function sessionDefaultDate(startDate: string, session: GeneratedProgramSession): string {
+  return session.scheduledDate ?? dateForProgramDay(startDate, session.weekIndex, session.dayIndex);
+}
+
+function hasPlannedSameDayStack(input: {
+  session: GeneratedProgramSession;
+  weekSessions: readonly GeneratedProgramSession[];
+  startDate: string;
+  defaultDate: string;
+}): boolean {
+  return input.weekSessions.some((other) => (
+    other.id !== input.session.id
+    && sessionDefaultDate(input.startDate, other) === input.defaultDate
+  ));
+}
+
 function openDateForSession(input: {
   session: GeneratedProgramSession;
   weekSessions: GeneratedProgramSession[];
@@ -689,7 +716,7 @@ export function integrateProgramWithCalendar(
     const occupiedDates = new Set(events.map((event) => event.date));
     const nextSessions: GeneratedProgramSession[] = [];
     for (const session of week.sessions) {
-      const defaultDate = session.scheduledDate ?? dateForProgramDay(startDate, session.weekIndex, session.dayIndex);
+      const defaultDate = sessionDefaultDate(startDate, session);
       const conflicts = conflictEventsFor(defaultDate, events);
       if (session.protectedAnchor) {
         if (conflicts.length > 0) {
@@ -705,7 +732,13 @@ export function integrateProgramWithCalendar(
         continue;
       }
 
-      if (conflicts.length === 0 && !occupiedDates.has(defaultDate)) {
+      const plannedSameDayStack = hasPlannedSameDayStack({
+        session,
+        weekSessions: week.sessions,
+        startDate,
+        defaultDate,
+      });
+      if (conflicts.length === 0 && (!occupiedDates.has(defaultDate) || plannedSameDayStack)) {
         const scheduledSession: GeneratedProgramSession = {
           ...session,
           scheduledDate: defaultDate,
@@ -1050,8 +1083,9 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
     const scheduledIntents = [...weeklyDose.intents].sort((a, b) => {
       const hardDelta = Number(intentCountsAsHard(b)) - Number(intentCountsAsHard(a));
       if (hardDelta !== 0) return hardDelta;
-      const doseRank = { full_session: 3, microdose: 2, support_session: 1, recovery_reset: 0 };
-      return doseRank[b.doseCategory] - doseRank[a.doseCategory];
+      const priorityDelta = placementPriorityForIntent(b) - placementPriorityForIntent(a);
+      if (priorityDelta !== 0) return priorityDelta;
+      return a.goalId.localeCompare(b.goalId);
     });
     for (const sessionIntent of scheduledIntents) {
       const durationMinutes = requestedDurationForIntent(input, phase, sessionIntent);

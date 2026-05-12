@@ -22,10 +22,19 @@ function getSessionIcon(sessionType: string): keyof typeof MaterialCommunityIcon
   return 'flash';
 }
 
-function getIntensityConfig(intensity: number | null): { label: string; color: string; bg: string } {
+function isRecoverySession(session: Pick<Session, 'sessionType' | 'focus'>): boolean {
+  const type = session.sessionType.toLowerCase();
+  return type === 'active_recovery' || type === 'rest' || session.focus === 'recovery';
+}
+
+function getIntensityConfig(intensity: number | null, session: Pick<Session, 'sessionType' | 'focus'>): { label: string; color: string; bg: string } {
   if (intensity === null) return { label: 'Unrated', color: COLORS.text.tertiary, bg: 'transparent' };
   
-  if (intensity <= 3) return { label: 'Recovery', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' };
+  if (intensity <= 3) {
+    return isRecoverySession(session)
+      ? { label: 'Recovery', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' }
+      : { label: 'Low', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.14)' };
+  }
   if (intensity <= 6) return { label: 'Moderate', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
   if (intensity <= 8) return { label: 'Hard', color: '#D4AF37', bg: 'rgba(245, 158, 11, 0.15)' };
   return { label: 'Max Effort', color: '#D9827E', bg: 'rgba(239, 68, 68, 0.15)' };
@@ -64,9 +73,10 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function IntensityBadge({ intensity }: { intensity: number | null }) {
+function IntensityBadge({ session }: { session: Session }) {
+  const { intensity } = session;
   if (intensity === null) return null;
-  const config = getIntensityConfig(intensity);
+  const config = getIntensityConfig(intensity, session);
   return (
     <View style={[styles.intensityBadge, { backgroundColor: config.bg, borderColor: config.color + '30', borderWidth: 1 }]}>
       <Text style={[styles.intensityText, { color: config.color }]}>{config.label}</Text>
@@ -138,7 +148,7 @@ function SessionRow({ session }: { session: Session }) {
               {formatDuration(session.duration)}
             </Text>
             <View style={styles.metaDot} />
-            <IntensityBadge intensity={session.intensity} />
+            <IntensityBadge session={session} />
           </View>
         </View>
       </View>

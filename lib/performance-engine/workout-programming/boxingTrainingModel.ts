@@ -1444,6 +1444,49 @@ function rationaleForTrack(track: BoxingTrainingTrack, protectedCount: number): 
   return base;
 }
 
+function applyBuildPhaseGoalBias(input: {
+  dose: BoxingDoseTemplate;
+  goalType?: BoxingTrainingContext['buildPhaseGoalType'] | undefined;
+  secondaryConstraint?: BoxingTrainingContext['buildPhaseSecondaryConstraint'] | undefined;
+  protectedCounts: ReturnType<typeof protectedCounts>;
+  track: BoxingTrainingTrack;
+}): void {
+  const { dose, goalType, protectedCounts: counts } = input;
+  if (!goalType) return;
+
+  switch (goalType) {
+    case 'conditioning':
+      dose.roadworkAerobicTarget = Math.max(
+        dose.roadworkAerobicTarget,
+        counts.protectedRoadworkCount > 0 ? 0 : counts.protectedSparringCount >= 2 ? 2 : 1,
+      );
+      dose.conditioningTarget = Math.max(dose.conditioningTarget, counts.protectedSparringCount >= 2 ? 0 : 1);
+      dose.strengthPowerTarget = Math.max(dose.strengthPowerTarget, 1);
+      dose.mobilityPrehabTarget = Math.max(dose.mobilityPrehabTarget, 1);
+      dose.generatedSessionTarget = Math.max(dose.generatedSessionTarget, Math.min(6, dose.roadworkAerobicTarget + dose.strengthPowerTarget + dose.mobilityPrehabTarget + 2));
+      break;
+    case 'strength':
+      dose.strengthPowerTarget = Math.max(dose.strengthPowerTarget, 2);
+      dose.mobilityPrehabTarget = Math.max(dose.mobilityPrehabTarget, 1);
+      break;
+    case 'boxing_skill':
+      dose.boxingSkillTarget = Math.max(dose.boxingSkillTarget, 3);
+      dose.footworkAgilityTarget = Math.max(dose.footworkAgilityTarget, 2);
+      dose.mobilityPrehabTarget = Math.max(dose.mobilityPrehabTarget, 1);
+      break;
+    case 'weight_class_prep':
+      dose.roadworkAerobicTarget = Math.max(dose.roadworkAerobicTarget, counts.protectedRoadworkCount > 0 ? 0 : 2);
+      dose.recoveryTarget = Math.max(dose.recoveryTarget, 1);
+      dose.mobilityPrehabTarget = Math.max(dose.mobilityPrehabTarget, 1);
+      break;
+  }
+
+  if (input.secondaryConstraint === 'protect_recovery' || input.secondaryConstraint === 'injury_risk') {
+    dose.recoveryTarget = Math.max(dose.recoveryTarget, counts.protectedSparringCount >= 1 ? 1 : dose.recoveryTarget);
+    dose.mobilityPrehabTarget = Math.max(dose.mobilityPrehabTarget, 1);
+  }
+}
+
 function consecutiveHardDayCount(days: readonly number[]): number {
   const sorted = unique(days.map((day) => Math.max(1, Math.min(7, Math.round(day))))).sort((a, b) => a - b);
   let longest = 0;
@@ -1526,6 +1569,13 @@ export function planWeeklyTrainingDose(input: {
       adjustedDose.strengthPowerTarget = Math.max(adjustedDose.strengthPowerTarget, track.startsWith('pro') ? 1 : adjustedDose.strengthPowerTarget);
     }
   }
+  applyBuildPhaseGoalBias({
+    dose: adjustedDose,
+    goalType: input.boxingTrainingContext?.buildPhaseGoalType,
+    secondaryConstraint: input.boxingTrainingContext?.buildPhaseSecondaryConstraint,
+    protectedCounts: counts,
+    track,
+  });
 
   const completionFamilies = progressionFamilies({
     completions: input.recentWorkoutCompletions ?? [],

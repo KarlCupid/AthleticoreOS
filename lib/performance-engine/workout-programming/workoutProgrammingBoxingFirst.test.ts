@@ -274,6 +274,44 @@ console.log('\n-- workout programming boxing-first planner --');
 })();
 
 (() => {
+  const program = generateWeeklyWorkoutProgram({
+    goalId: 'boxing_support',
+    durationMinutes: 60,
+    preferredDurationMinutes: 60,
+    equipmentIds: ['bodyweight', 'dumbbells', 'barbell', 'kettlebell', 'resistance_band', 'medicine_ball', 'sled', 'battle_rope', 'assault_bike', 'rowing_machine', 'jump_rope', 'mat', 'track_or_road', 'open_space'],
+    experienceLevel: 'advanced',
+    readinessBand: 'green',
+    workoutEnvironment: 'gym',
+    desiredProgramLengthWeeks: 4,
+    sessionsPerWeek: 6,
+    availableDays: [2, 3, 4, 5, 6, 7],
+    protectedWorkouts: [
+      { id: 'sparring-wed', label: 'Sparring', dayIndex: 2, durationMinutes: 60, protectedDurationMinutes: 60, intensity: 'hard', estimatedRpe: 7, countsAsHardDay: true, modality: 'sparring' },
+      { id: 'sparring-sat', label: 'Sparring', dayIndex: 5, durationMinutes: 60, protectedDurationMinutes: 60, intensity: 'hard', estimatedRpe: 7, countsAsHardDay: true, modality: 'sparring' },
+    ],
+    boxingTrainingContext: {
+      track: 'amateur_open',
+      buildPhaseGoalType: 'conditioning',
+      buildPhaseSecondaryConstraint: 'protect_recovery',
+      allowSameDaySupportSessions: false,
+      sparringSessionsPerWeek: 2,
+      roundCount: 3,
+      roundMinutes: 3,
+      restSeconds: 60,
+    },
+    startDate: '2026-05-12',
+    deloadStrategy: 'none',
+  });
+  const firstWeek = week(program);
+  const families = generatedFamilies(program);
+  assert('B2 conditioning build with Tuesday unavailable does not generate Tuesday training', !firstWeek.sessions.some((session) => !session.protectedAnchor && session.dayIndex === 1));
+  assert('B2 conditioning build keeps protected Wednesday and Saturday sparring anchored', firstWeek.sessions.filter((session) => session.protectedAnchor && session.protectedWorkoutModality === 'sparring').map((session) => session.dayIndex).join(',') === '2,5');
+  assert('B2 conditioning build includes low-load roadwork instead of recovery-only support', families.includes('roadwork_zone2') && generatedDomainCount(program, 'roadwork') >= 1);
+  assert('B2 conditioning build creates future weeks for plan look-ahead', program.weeks.length === 4 && program.sessions.some((session) => session.weekIndex === 4));
+  assert('B2 conditioning build validates', validateGeneratedProgram(program).valid);
+})();
+
+(() => {
   const program = baseProgram({ track: 'aspiring_boxer', readinessBand: 'unknown' });
   const families = generatedFamilies(program);
   assert('C beginner generated exposures are at least three', week(program).weeklyVolumeSummary.generatedSessionCount >= 3);

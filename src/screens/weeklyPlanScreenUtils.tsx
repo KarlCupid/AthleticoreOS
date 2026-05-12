@@ -26,13 +26,6 @@ function dayNameFromDate(dateStr: string): string {
   return DAY_NAMES[date.getDay()];
 }
 
-function getSundayOfDate(dateStr: string): string {
-  const date = new Date(`${dateStr}T00:00:00`);
-  const sunday = new Date(date);
-  sunday.setDate(date.getDate() - date.getDay());
-  return sunday.toISOString().split('T')[0];
-}
-
 function getWeekDates(startDate: string): string[] {
   const dates: string[] = [];
   const start = new Date(`${startDate}T00:00:00`);
@@ -54,7 +47,7 @@ export function buildWeeklyPlanGroups(
 ): WeeklyPlanGroup[] {
   if (!activeWeekStart) return [];
 
-  const weekDates = getWeekDates(getSundayOfDate(activeWeekStart));
+  const weekDates = getWeekDates(activeWeekStart);
   const entryMap = new Map<string, WeeklyPlanEntryRow[]>();
 
   for (const entry of entries) {

@@ -498,8 +498,8 @@ export function WeeklyPlanScreen() {
                                 data={lineData}
                                 width={chartLayout.chartWidth}
                                 height={150}
-                                initialSpacing={15} // Sunday as leftmost
-                                endSpacing={15} // Saturday as rightmost
+                                initialSpacing={15}
+                                endSpacing={15}
                                 spacing={chartLayout.pointSpacing}
                                 color={COLORS.accent}
                                 thickness={3}

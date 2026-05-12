@@ -532,6 +532,8 @@ export interface BoxingRulesetProfile {
 
 export interface BoxingTrainingContext {
   track?: BoxingTrainingTrack | undefined;
+  buildPhaseGoalType?: 'strength' | 'conditioning' | 'boxing_skill' | 'weight_class_prep' | undefined;
+  buildPhaseSecondaryConstraint?: 'protect_recovery' | 'weight_trajectory' | 'skill_frequency' | 'schedule_reliability' | 'injury_risk' | 'none' | undefined;
   roundCount?: number | undefined;
   roundMinutes?: number | undefined;
   restSeconds?: number | undefined;

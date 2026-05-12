@@ -252,7 +252,7 @@ export async function cancelActivePlan(userId: string): Promise<void> {
             .from('weekly_plan_entries')
             .delete()
             .eq('user_id', userId)
-            .eq('week_start_date', weekStart)
+            .gte('date', today())
             .neq('status', 'completed');
 
         await supabase
@@ -268,24 +268,40 @@ export async function cancelActivePlan(userId: string): Promise<void> {
 // --- Weekly Plan Entries -----------------------------------
 
 /**
- * Get the active week plan (entries for the current week).
- * Finds the most recent plan and returns it if it is less than 7 days old.
+ * Get the active week plan (entries for the current generated week).
+ * Multi-week plans are stored ahead of time, so pick the latest week that has started.
  */
 export async function getActiveWeekPlan(userId: string): Promise<WeeklyPlanEntryRow[]> {
-    const { data: latestEntry, error: latestErr } = await supabase
+    const todayDate = today();
+    const { data: startedEntry, error: startedErr } = await supabase
         .from('weekly_plan_entries')
         .select('week_start_date')
         .eq('user_id', userId)
+        .lte('week_start_date', todayDate)
         .order('week_start_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-    if (latestErr) throw latestErr;
-    if (!latestEntry) return [];
+    if (startedErr) throw startedErr;
 
-    const weekStart = latestEntry.week_start_date;
+    const { data: nextEntry, error: nextErr } = startedEntry
+        ? { data: null, error: null }
+        : await supabase
+        .from('weekly_plan_entries')
+        .select('week_start_date')
+        .eq('user_id', userId)
+        .gte('date', todayDate)
+        .order('date', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+    if (nextErr) throw nextErr;
+    if (!startedEntry && !nextEntry) return [];
+
+    const weekStart = (startedEntry ?? nextEntry)?.week_start_date;
+    if (!weekStart) return [];
     const weekStartDateObj = new Date(`${weekStart}T00:00:00`);
-    const todayObj = new Date(`${today()}T00:00:00`);
+    const todayObj = new Date(`${todayDate}T00:00:00`);
 
     const daysOld = (todayObj.getTime() - weekStartDateObj.getTime()) / (1000 * 3600 * 24);
     if (daysOld >= 7) {
@@ -305,7 +321,7 @@ export async function getActiveWeekPlan(userId: string): Promise<WeeklyPlanEntry
 }
 
 /**
- * Save a batch of weekly plan entries (replaces existing for the same week).
+ * Save a batch of weekly plan entries, replacing the generated range they cover.
  */
 export async function saveWeekPlan(
     userId: string,
@@ -313,46 +329,217 @@ export async function saveWeekPlan(
 ): Promise<WeeklyPlanEntryRow[]> {
     if (entries.length === 0) return [];
 
-    const weekStart = entries[0].week_start_date;
-    const endDate = new Date(`${weekStart}T00:00:00`);
+    const weekStarts = entries.map((entry) => entry.week_start_date).sort();
+    const weekStart = weekStarts[0] ?? entries[0].week_start_date;
+    const lastWeekStart = weekStarts[weekStarts.length - 1] ?? weekStart;
+    const endDate = new Date(`${lastWeekStart}T00:00:00`);
     endDate.setDate(endDate.getDate() + 6);
     const weekEnd = formatLocalDate(endDate);
 
     return withEngineInvalidation({ userId, weekStart, reason: 'weekly_plan_save' }, async () => {
-    const { data: preservedCompletedEntries, error: preservedCompletedError } = await supabase
-        .from('weekly_plan_entries')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('date', weekStart)
-        .lte('date', weekEnd)
-        .eq('status', 'completed');
+        const { data: preservedCompletedEntries, error: preservedCompletedError } = await supabase
+            .from('weekly_plan_entries')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('date', weekStart)
+            .lte('date', weekEnd)
+            .eq('status', 'completed');
 
-    if (preservedCompletedError) throw preservedCompletedError;
+        if (preservedCompletedError) throw preservedCompletedError;
 
-    const preservedKeys = new Set(
-        ((preservedCompletedEntries ?? []) as WeeklyPlanEntryRow[]).map((entry) => `${entry.date}::${entry.slot}`),
-    );
+        const preservedKeys = new Set(
+            ((preservedCompletedEntries ?? []) as WeeklyPlanEntryRow[]).map((entry) => `${entry.date}::${entry.slot}`),
+        );
 
-    await supabase
-        .from('weekly_plan_entries')
-        .delete()
-        .eq('user_id', userId)
-        .gte('date', weekStart)
-        .lte('date', weekEnd)
-        .neq('status', 'completed');
+        await supabase
+            .from('weekly_plan_entries')
+            .delete()
+            .eq('user_id', userId)
+            .gte('date', weekStart)
+            .lte('date', weekEnd)
+            .neq('status', 'completed');
 
-    await supabase
-        .from('scheduled_activities')
-        .delete()
-        .eq('user_id', userId)
-        .eq('source', 'engine')
-        .gte('date', weekStart)
-        .lte('date', weekEnd)
-        .eq('status', 'scheduled');
+        await supabase
+            .from('scheduled_activities')
+            .delete()
+            .eq('user_id', userId)
+            .eq('source', 'engine')
+            .gte('date', weekStart)
+            .lte('date', weekEnd)
+            .eq('status', 'scheduled');
 
-    const entriesToInsert = entries.filter((entry) => !preservedKeys.has(`${entry.date}::${entry.slot}`));
-    if (entriesToInsert.length === 0) {
-        const { data: finalCompletedOnly, error: finalCompletedOnlyError } = await supabase
+        const entriesToInsert = entries.filter((entry) => !preservedKeys.has(`${entry.date}::${entry.slot}`));
+        if (entriesToInsert.length === 0) {
+            const { data: finalCompletedOnly, error: finalCompletedOnlyError } = await supabase
+                .from('weekly_plan_entries')
+                .select('*')
+                .eq('user_id', userId)
+                .gte('date', weekStart)
+                .lte('date', weekEnd)
+                .order('date')
+                .order('slot');
+
+            if (finalCompletedOnlyError) throw finalCompletedOnlyError;
+            return (finalCompletedOnly ?? []) as WeeklyPlanEntryRow[];
+        }
+
+        const baseInsertPayload = entriesToInsert.map((entry) => buildWeeklyPlanEntryInsertPayload(userId, entry));
+
+        const withScheduledActivityPayload = entriesToInsert.map((e, index) => ({
+            ...applyWeeklyPlanColumnCompatibility(baseInsertPayload[index]),
+            scheduled_activity_id: e.scheduled_activity_id ?? null,
+        }));
+
+        let generatedEntries: WeeklyPlanEntryRow[] | null = null;
+
+        if (hasScheduledActivityIdColumn !== false) {
+            const { data, error } = await supabase
+                .from('weekly_plan_entries')
+                .insert(withScheduledActivityPayload)
+                .select();
+
+            if (error) {
+                const missingScheduledActivityId = isMissingScheduledActivityIdColumnError(error);
+                const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
+
+                if (missingScheduledActivityId || missingWeeklyPlanMetadata) {
+                    if (missingScheduledActivityId) {
+                        hasScheduledActivityIdColumn = false;
+                    }
+                    if (missingWeeklyPlanMetadata) {
+                        hasWeeklyPlanMetadataColumns = false;
+                    }
+                } else {
+                    throw error;
+                }
+            } else {
+                generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
+                hasScheduledActivityIdColumn = true;
+                hasWeeklyPlanMetadataColumns = true;
+            }
+        }
+
+        if (!generatedEntries) {
+            const payload = baseInsertPayload.map(applyWeeklyPlanColumnCompatibility);
+            const { data, error } = await supabase
+                .from('weekly_plan_entries')
+                .insert(payload)
+                .select();
+
+            if (error) {
+                const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
+
+                if (missingWeeklyPlanMetadata) {
+                    if (missingWeeklyPlanMetadata) hasWeeklyPlanMetadataColumns = false;
+                    const retry = await supabase
+                        .from('weekly_plan_entries')
+                        .insert(baseInsertPayload.map(applyWeeklyPlanColumnCompatibility))
+                        .select();
+                    if (retry.error) throw retry.error;
+                    generatedEntries = (retry.data ?? []) as WeeklyPlanEntryRow[];
+                } else {
+                    throw error;
+                }
+            } else {
+                hasWeeklyPlanMetadataColumns = true;
+                generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
+            }
+        }
+
+        const insertedEntries = generatedEntries;
+
+        let scheduledByEntryId = new Map<string, string>();
+        const { data: existingScheduledActivities, error: existingScheduledActivitiesError } = await supabase
+            .from('scheduled_activities')
+            .select('id, date, activity_type')
+            .eq('user_id', userId)
+            .gte('date', weekStart)
+            .lte('date', weekEnd)
+            .neq('source', 'engine')
+            .eq('status', 'scheduled');
+
+        if (existingScheduledActivitiesError) throw existingScheduledActivitiesError;
+
+        const anchorActivityQueues = new Map<string, string[]>();
+        for (const activity of (existingScheduledActivities ?? []) as Array<{
+            id: string;
+            date: string;
+            activity_type: string;
+        }>) {
+            const key = `${activity.date}::${activity.activity_type}`;
+            const current = anchorActivityQueues.get(key) ?? [];
+            current.push(activity.id);
+            anchorActivityQueues.set(key, current);
+        }
+
+        const entriesNeedingScheduledInsert: WeeklyPlanEntryRow[] = [];
+        for (const entry of insertedEntries) {
+            const anchorKey = `${entry.date}::${entry.session_type}`;
+            const matchingAnchorId = anchorActivityQueues.get(anchorKey)?.shift();
+            if (matchingAnchorId) {
+                scheduledByEntryId.set(entry.id, matchingAnchorId);
+                continue;
+            }
+            entriesNeedingScheduledInsert.push(entry);
+        }
+
+        if (hasScheduledActivitiesWeeklyPlanEntryIdColumn !== false && entriesNeedingScheduledInsert.length > 0) {
+            const { data: scheduledActivities, error: scheduledError } = await supabase
+                .from('scheduled_activities')
+                .insert(entriesNeedingScheduledInsert.map((entry) => toScheduledActivityPayload(userId, entry)))
+                .select('id, weekly_plan_entry_id');
+
+            if (scheduledError) {
+                if (isMissingScheduledActivitiesWeeklyPlanEntryIdColumnError(scheduledError)) {
+                    hasScheduledActivitiesWeeklyPlanEntryIdColumn = false;
+                } else {
+                    throw scheduledError;
+                }
+            } else {
+                hasScheduledActivitiesWeeklyPlanEntryIdColumn = true;
+                scheduledByEntryId = new Map([
+                    ...scheduledByEntryId,
+                    ...((scheduledActivities ?? []) as Array<{ id: string; weekly_plan_entry_id: string | null }>).
+                        filter((activity) => Boolean(activity.weekly_plan_entry_id)).
+                        map((activity) => [activity.weekly_plan_entry_id as string, activity.id] as const),
+                ]);
+            }
+        }
+
+        if (hasScheduledActivitiesWeeklyPlanEntryIdColumn === false && entriesNeedingScheduledInsert.length > 0) {
+            const { error: scheduledFallbackError } = await supabase
+                .from('scheduled_activities')
+                .insert(
+                    entriesNeedingScheduledInsert.map((entry) =>
+                        toScheduledActivityPayload(userId, entry, { includeWeeklyPlanEntryId: false }),
+                    ),
+                )
+                .select('id');
+
+            if (scheduledFallbackError) throw scheduledFallbackError;
+        }
+
+        if (hasScheduledActivityIdColumn !== false) {
+            try {
+                await Promise.all(
+                    insertedEntries
+                        .filter((entry) => scheduledByEntryId.has(entry.id))
+                        .map((entry) => supabase
+                            .from('weekly_plan_entries')
+                            .update({ scheduled_activity_id: scheduledByEntryId.get(entry.id) })
+                            .eq('id', entry.id)),
+                );
+                hasScheduledActivityIdColumn = true;
+            } catch (error) {
+                if (isMissingScheduledActivityIdColumnError(error)) {
+                    hasScheduledActivityIdColumn = false;
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        const { data: finalEntries, error: finalEntriesError } = await supabase
             .from('weekly_plan_entries')
             .select('*')
             .eq('user_id', userId)
@@ -361,176 +548,8 @@ export async function saveWeekPlan(
             .order('date')
             .order('slot');
 
-        if (finalCompletedOnlyError) throw finalCompletedOnlyError;
-        return (finalCompletedOnly ?? []) as WeeklyPlanEntryRow[];
-    }
-
-    const baseInsertPayload = entriesToInsert.map((entry) => buildWeeklyPlanEntryInsertPayload(userId, entry));
-
-    const withScheduledActivityPayload = entriesToInsert.map((e, index) => ({
-        ...applyWeeklyPlanColumnCompatibility(baseInsertPayload[index]),
-        scheduled_activity_id: e.scheduled_activity_id ?? null,
-    }));
-
-    let generatedEntries: WeeklyPlanEntryRow[] | null = null;
-
-    if (hasScheduledActivityIdColumn !== false) {
-        const { data, error } = await supabase
-            .from('weekly_plan_entries')
-            .insert(withScheduledActivityPayload)
-            .select();
-
-        if (error) {
-            const missingScheduledActivityId = isMissingScheduledActivityIdColumnError(error);
-            const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
-
-            if (missingScheduledActivityId || missingWeeklyPlanMetadata) {
-                if (missingScheduledActivityId) {
-                    hasScheduledActivityIdColumn = false;
-                }
-                if (missingWeeklyPlanMetadata) {
-                    hasWeeklyPlanMetadataColumns = false;
-                }
-            } else {
-                throw error;
-            }
-        } else {
-            generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
-            hasScheduledActivityIdColumn = true;
-            hasWeeklyPlanMetadataColumns = true;
-        }
-    }
-
-    if (!generatedEntries) {
-        const payload = baseInsertPayload.map(applyWeeklyPlanColumnCompatibility);
-        const { data, error } = await supabase
-            .from('weekly_plan_entries')
-            .insert(payload)
-            .select();
-
-        if (error) {
-            const missingWeeklyPlanMetadata = isMissingWeeklyPlanMetadataColumnError(error);
-
-            if (missingWeeklyPlanMetadata) {
-                if (missingWeeklyPlanMetadata) hasWeeklyPlanMetadataColumns = false;
-                const retry = await supabase
-                    .from('weekly_plan_entries')
-                    .insert(baseInsertPayload.map(applyWeeklyPlanColumnCompatibility))
-                    .select();
-                if (retry.error) throw retry.error;
-                generatedEntries = (retry.data ?? []) as WeeklyPlanEntryRow[];
-            } else {
-                throw error;
-            }
-        } else {
-            hasWeeklyPlanMetadataColumns = true;
-            generatedEntries = (data ?? []) as WeeklyPlanEntryRow[];
-        }
-    }
-
-    const insertedEntries = generatedEntries;
-
-    let scheduledByEntryId = new Map<string, string>();
-    const { data: existingScheduledActivities, error: existingScheduledActivitiesError } = await supabase
-        .from('scheduled_activities')
-        .select('id, date, activity_type')
-        .eq('user_id', userId)
-        .gte('date', weekStart)
-        .lte('date', weekEnd)
-        .neq('source', 'engine')
-        .eq('status', 'scheduled');
-
-    if (existingScheduledActivitiesError) throw existingScheduledActivitiesError;
-
-    const anchorActivityQueues = new Map<string, string[]>();
-    for (const activity of (existingScheduledActivities ?? []) as Array<{
-        id: string;
-        date: string;
-        activity_type: string;
-    }>) {
-        const key = `${activity.date}::${activity.activity_type}`;
-        const current = anchorActivityQueues.get(key) ?? [];
-        current.push(activity.id);
-        anchorActivityQueues.set(key, current);
-    }
-
-    const entriesNeedingScheduledInsert: WeeklyPlanEntryRow[] = [];
-    for (const entry of insertedEntries) {
-        const anchorKey = `${entry.date}::${entry.session_type}`;
-        const matchingAnchorId = anchorActivityQueues.get(anchorKey)?.shift();
-        if (matchingAnchorId) {
-            scheduledByEntryId.set(entry.id, matchingAnchorId);
-            continue;
-        }
-        entriesNeedingScheduledInsert.push(entry);
-    }
-
-    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn !== false && entriesNeedingScheduledInsert.length > 0) {
-        const { data: scheduledActivities, error: scheduledError } = await supabase
-            .from('scheduled_activities')
-            .insert(entriesNeedingScheduledInsert.map((entry) => toScheduledActivityPayload(userId, entry)))
-            .select('id, weekly_plan_entry_id');
-
-        if (scheduledError) {
-            if (isMissingScheduledActivitiesWeeklyPlanEntryIdColumnError(scheduledError)) {
-                hasScheduledActivitiesWeeklyPlanEntryIdColumn = false;
-            } else {
-                throw scheduledError;
-            }
-        } else {
-            hasScheduledActivitiesWeeklyPlanEntryIdColumn = true;
-            scheduledByEntryId = new Map(
-                ((scheduledActivities ?? []) as Array<{ id: string; weekly_plan_entry_id: string | null }>).
-                    filter((activity) => Boolean(activity.weekly_plan_entry_id)).
-                    map((activity) => [activity.weekly_plan_entry_id as string, activity.id]),
-            );
-        }
-    }
-
-    if (hasScheduledActivitiesWeeklyPlanEntryIdColumn === false && entriesNeedingScheduledInsert.length > 0) {
-        const { error: scheduledFallbackError } = await supabase
-            .from('scheduled_activities')
-            .insert(
-                entriesNeedingScheduledInsert.map((entry) =>
-                    toScheduledActivityPayload(userId, entry, { includeWeeklyPlanEntryId: false }),
-                ),
-            )
-            .select('id');
-
-        if (scheduledFallbackError) throw scheduledFallbackError;
-    }
-
-    if (hasScheduledActivityIdColumn !== false) {
-        try {
-            await Promise.all(
-                insertedEntries
-                    .filter((entry) => scheduledByEntryId.has(entry.id))
-                    .map((entry) => supabase
-                        .from('weekly_plan_entries')
-                        .update({ scheduled_activity_id: scheduledByEntryId.get(entry.id) })
-                        .eq('id', entry.id)),
-            );
-            hasScheduledActivityIdColumn = true;
-        } catch (error) {
-            if (isMissingScheduledActivityIdColumnError(error)) {
-                hasScheduledActivityIdColumn = false;
-            } else {
-                throw error;
-            }
-        }
-    }
-
-    const { data: finalEntries, error: finalEntriesError } = await supabase
-        .from('weekly_plan_entries')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('date', weekStart)
-        .lte('date', weekEnd)
-        .order('date')
-        .order('slot');
-
-    if (finalEntriesError) throw finalEntriesError;
-    return (finalEntries ?? []) as WeeklyPlanEntryRow[];
+        if (finalEntriesError) throw finalEntriesError;
+        return (finalEntries ?? []) as WeeklyPlanEntryRow[];
     });
 }
 

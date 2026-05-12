@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import type {
   ActivityType,
+  BuildPhaseGoalRow,
   CampConfig,
   CampPlanRow,
   FitnessLevel,
@@ -19,6 +20,7 @@ import { getAthleteContext } from './athleteContextService';
 import { getDailyEngineState, getWeeklyAthleteSummary } from './dailyPerformanceService';
 import { saveWeekPlan, updatePlanEntryBoxingGeneratedWorkout } from './weeklyPlanService';
 import { getRecurringActivities } from './scheduleService';
+import { getActiveBuildPhaseGoal } from './buildPhaseService';
 import {
   generatedProgramToWeeklyPlanEntries,
   getBoxingSnapshotFromWeeklyPlanEntry,
@@ -223,6 +225,7 @@ function boxingTrainingContext(input: {
   config: WeeklyPlanConfigRow;
   protectedWorkouts: ProtectedWorkoutInput[];
   campConfig?: CampConfig | null;
+  activeBuildGoal?: BuildPhaseGoalRow | null;
   weekStart: string;
   fightStatus?: 'amateur' | 'pro' | null;
 }): BoxingTrainingContext {
@@ -255,9 +258,25 @@ function boxingTrainingContext(input: {
     roundMinutes: 3,
     restSeconds: 60,
   };
+  if (input.activeBuildGoal?.goal_type) {
+    context.buildPhaseGoalType = input.activeBuildGoal.goal_type;
+  }
+  if (input.activeBuildGoal?.secondary_constraint) {
+    context.buildPhaseSecondaryConstraint = input.activeBuildGoal.secondary_constraint;
+  }
   const weeksOut = fightCampWeeksOut(input.campConfig?.fightDate, input.weekStart);
   if (weeksOut != null) context.fightCampWeeksOut = weeksOut;
   return context;
+}
+
+function generatedProgramWeekCount(input: {
+  activeBuildGoal?: BuildPhaseGoalRow | null;
+  campConfig?: CampConfig | null;
+  weekStart: string;
+}): number {
+  const weeksUntilFight = fightCampWeeksOut(input.campConfig?.fightDate, input.weekStart);
+  if (weeksUntilFight != null) return Math.max(1, Math.min(4, weeksUntilFight));
+  return Math.max(4, Math.min(8, input.activeBuildGoal?.target_horizon_weeks ?? 4));
 }
 
 function mapDoseBucketToFamily(bucket: WorkoutDoseBucket): TrainingSessionFamily {
@@ -361,10 +380,11 @@ export async function generateAndSaveBoxingWeeklyPlan(
     throw new Error('Create a gym profile before generating a boxing S&C support plan.');
   }
 
-  const [athleteContext, engineState, recurringActivities, campResult] = await Promise.all([
+  const [athleteContext, engineState, recurringActivities, activeBuildGoal, campResult] = await Promise.all([
     getAthleteContext(userId),
     getDailyEngineState(userId, todayStr(), { forceRefresh: true }),
     getRecurringActivities(userId),
+    getActiveBuildPhaseGoal(userId),
     supabase
       .from('fight_camps')
       .select('*')
@@ -388,12 +408,14 @@ export async function generateAndSaveBoxingWeeklyPlan(
     config: planConfig,
     protectedWorkouts,
     campConfig,
+    activeBuildGoal,
     weekStart,
     fightStatus,
   });
   const readinessBand = engineState.unifiedPerformance?.canonicalOutputs.readiness.readinessBand
     ?? readinessBandFromLevel(engineState.readinessState as ReadinessState);
 
+  const weekCount = generatedProgramWeekCount({ activeBuildGoal, campConfig, weekStart });
   const program = await workoutProgrammingService.generateWeeklyProgramForUser(userId, {
     goalId: 'boxing_support',
     durationMinutes: planConfig.session_duration_min,
@@ -403,8 +425,8 @@ export async function generateAndSaveBoxingWeeklyPlan(
     readinessBand,
     workoutEnvironment: 'gym',
     preferredToneVariant: 'coach_like',
-    weekCount: 1,
-    desiredProgramLengthWeeks: 1,
+    weekCount,
+    desiredProgramLengthWeeks: weekCount,
     sessionsPerWeek: planConfig.available_days.length,
     availableDays: availableProgramDays(planConfig, weekStart),
     protectedWorkouts,
@@ -430,8 +452,7 @@ export async function generateAndSaveBoxingWeeklyPlan(
     throw new Error('The boxing engine could not place any sessions for this week. Check availability, protected anchors, and readiness data.');
   }
 
-  await saveWeekPlan(userId, adapted.entries);
-  const initialWeeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: true });
+  const savedPlanEntries = await saveWeekPlan(userId, adapted.entries);
   let userProgramId: string | null = null;
   try {
     userProgramId = await workoutProgrammingService.saveGeneratedProgramForUser(userId, program, {
@@ -442,7 +463,7 @@ export async function generateAndSaveBoxingWeeklyPlan(
     });
     if (userProgramId) {
       program.persistenceId = userProgramId;
-      for (const entry of initialWeeklyAthleteSummary.entries) {
+      for (const entry of savedPlanEntries) {
         const snapshot = getBoxingSnapshotFromWeeklyPlanEntry(entry);
         if (!snapshot || snapshot.protectedAnchor || !snapshot.generatedWorkout) continue;
         await updatePlanEntryBoxingGeneratedWorkout(

@@ -194,6 +194,47 @@ function testGeneratedProgramAdapter(): void {
   assert('adapter maps dayIndex to date and legacy day_of_week', generatedEntry.date === '2026-05-06' && generatedEntry.day_of_week === 3);
   assert('adapter persists GeneratedProgram snapshot metadata', generatedSnapshot?.sourceOfTruth === 'GeneratedProgram' && generatedSnapshot.boxingSessionFamily === 'footwork_agility');
   assert('adapter persists dose and coach rationale metadata', Boolean(generatedEntry.dose_summary) && Boolean(generatedSnapshot?.weekSummary.coachSummaryBullets.includes('No generated sparring.')));
+
+  const multiWeek = program();
+  const weekTwoSession = {
+    id: 'generated-footwork-week-2',
+    generatedWorkoutId: 'generated-workout-2',
+    dayIndex: 1,
+    weekIndex: 2,
+    protectedAnchor: false,
+    label: 'Footwork agility',
+    workout: workout(),
+    plannedIntensity: 'low',
+    boxingSessionFamily: 'footwork_agility',
+    boxingSessionRole: 'footwork_agility',
+    sessionDoseCategory: 'support_session',
+    estimatedLoadScore: 22,
+    rationale: ['Footwork quality repeats next week.'],
+  };
+  multiWeek.weekCount = 2;
+  multiWeek.sessions = [...multiWeek.sessions, weekTwoSession] as GeneratedProgram['sessions'];
+  multiWeek.weeks = [
+    ...multiWeek.weeks,
+    {
+      ...multiWeek.weeks[0]!,
+      weekIndex: 2,
+      sessions: [weekTwoSession],
+      weeklyVolumeSummary: {
+        ...multiWeek.weeks[0]!.weeklyVolumeSummary,
+        weekIndex: 2,
+        generatedSessionCount: 1,
+        protectedSessionCount: 0,
+      },
+    },
+  ] as GeneratedProgram['weeks'];
+  const multiWeekAdapted = generatedProgramToWeeklyPlanEntries({
+    userId: 'user-1',
+    weekStart: '2026-05-04',
+    program: multiWeek,
+  });
+  const weekTwoEntry = multiWeekAdapted.entries.find((entry) => entry.week_start_date === '2026-05-11');
+  const weekTwoSnapshot = getBoxingSnapshotFromWeeklyPlanEntry(weekTwoEntry as WeeklyPlanEntryRow);
+  assert('adapter persists future generated weeks for look-ahead plans', weekTwoEntry?.date === '2026-05-11' && weekTwoSnapshot?.weekIndex === 2);
 }
 
 function testRequestBuilder(): void {

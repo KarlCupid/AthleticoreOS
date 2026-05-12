@@ -645,15 +645,24 @@ export function generatedProgramToWeeklyPlanEntries(input: {
   planConfig?: WeeklyPlanConfigRow | null;
 }): GeneratedProgramWeeklyPlanAdapterResult {
   const firstWeek = input.program.weeks.find((week) => week.weekIndex === 1) ?? input.program.weeks[0];
-  const sessions = (firstWeek?.sessions ?? input.program.sessions.filter((session) => session.weekIndex === 1))
+  const weeksByIndex = new Map(input.program.weeks.map((week) => [week.weekIndex, week]));
+  const sessions = (input.program.sessions.length > 0 ? input.program.sessions : firstWeek?.sessions ?? [])
     .slice()
     .sort((a, b) => sessionSortKey(a, input.weekStart).localeCompare(sessionSortKey(b, input.weekStart)));
   const slots = slotMapForSessions(sessions, input.weekStart);
-  const warnings = [...(firstWeek?.validationWarnings ?? []), ...(input.program.validationWarnings ?? [])];
+  const warnings = [
+    ...input.program.weeks.flatMap((week) => week.validationWarnings ?? []),
+    ...(input.program.validationWarnings ?? []),
+  ];
+  const weekOrder = new Map<number, number>();
 
-  const entries: PersistableWeeklyPlanEntry[] = sessions.map((session, index) => {
+  const entries: PersistableWeeklyPlanEntry[] = sessions.map((session) => {
+    const week = weeksByIndex.get(session.weekIndex) ?? firstWeek;
+    const currentOrder = (weekOrder.get(session.weekIndex) ?? 0) + 1;
+    weekOrder.set(session.weekIndex, currentOrder);
     const scheduledDate = dateForSession(input.weekStart, session);
-    const snapshot = snapshotForSession(input.program, session, firstWeek, scheduledDate);
+    const sessionWeekStart = addDays(input.weekStart, (Math.max(1, session.weekIndex) - 1) * 7);
+    const snapshot = snapshotForSession(input.program, session, week, scheduledDate);
     const doseSummary = doseSummaryForSession(session);
     const doseBucket = bucketForFamily(session.boxingSessionFamily);
     const sourceLabel = session.protectedAnchor
@@ -661,11 +670,11 @@ export function generatedProgramToWeeklyPlanEntries(input: {
       : supportDomainSourceLabel(snapshot.athleticDevelopmentDomain);
     const entry: PersistableWeeklyPlanEntry = {
       user_id: input.userId,
-      week_start_date: input.weekStart,
+      week_start_date: sessionWeekStart,
       day_of_week: legacyDayOfWeek(scheduledDate),
       date: scheduledDate,
       slot: slots.get(session.id) ?? 'single',
-      day_order: index + 1,
+      day_order: currentOrder,
       session_type: session.protectedAnchor
         ? activityTypeForProtected(session.protectedWorkoutModality)
         : activityTypeForFamily(session.boxingSessionFamily),
@@ -696,12 +705,17 @@ export function generatedProgramToWeeklyPlanEntries(input: {
       scheduled_activity_id: session.calendarEventId ?? null,
       prescription_snapshot: snapshot as unknown as WorkoutPrescriptionV2,
       engine_notes: snapshot.rationale[0] ?? snapshot.weekSummary.nextBestAction ?? null,
-      is_deload: firstWeek?.phase === 'deload',
+      is_deload: week?.phase === 'deload',
     };
     return entry;
   });
 
+  const summaries = input.program.weeks.map((week) => week.weeklyVolumeSummary);
   const summary = firstWeek?.weeklyVolumeSummary;
+  const sumSummary = (key: keyof NonNullable<typeof summary>): number => summaries.reduce((sum, item) => {
+    const value = item?.[key];
+    return typeof value === 'number' ? sum + value : sum;
+  }, 0);
   return {
     entries,
     warnings,
@@ -712,18 +726,18 @@ export function generatedProgramToWeeklyPlanEntries(input: {
       weekStart: input.weekStart,
       generatedSessionCount: entries.filter((entry) => entry.placement_source === 'generated').length,
       protectedAnchorCount: entries.filter((entry) => entry.placement_source === 'locked').length,
-      generatedFullSessionCount: summary?.generatedFullSessionCount ?? 0,
-      generatedSupportSessionCount: summary?.generatedSupportSessionCount ?? 0,
-      generatedMicrodoseCount: summary?.generatedMicrodoseCount ?? 0,
-      protectedBoxingSessionCount: summary?.protectedBoxingSessionCount ?? 0,
-      protectedSparringCount: summary?.protectedSparringCount ?? 0,
-      protectedRoadworkCount: summary?.protectedRoadworkCount ?? 0,
-      generatedSAndCSessionCount: summary?.generatedSAndCSessionCount ?? 0,
-      generatedSkillSupportCount: summary?.generatedSkillSupportCount ?? 0,
-      generatedRoadworkCount: summary?.generatedRoadworkCount ?? 0,
-      generatedStrengthPowerCount: summary?.generatedStrengthPowerCount ?? 0,
-      generatedDurabilityCount: summary?.generatedDurabilityCount ?? 0,
-      generatedRecoveryCount: summary?.generatedRecoveryCount ?? 0,
+      generatedFullSessionCount: sumSummary('generatedFullSessionCount'),
+      generatedSupportSessionCount: sumSummary('generatedSupportSessionCount'),
+      generatedMicrodoseCount: sumSummary('generatedMicrodoseCount'),
+      protectedBoxingSessionCount: sumSummary('protectedBoxingSessionCount'),
+      protectedSparringCount: sumSummary('protectedSparringCount'),
+      protectedRoadworkCount: sumSummary('protectedRoadworkCount'),
+      generatedSAndCSessionCount: sumSummary('generatedSAndCSessionCount'),
+      generatedSkillSupportCount: sumSummary('generatedSkillSupportCount'),
+      generatedRoadworkCount: sumSummary('generatedRoadworkCount'),
+      generatedStrengthPowerCount: sumSummary('generatedStrengthPowerCount'),
+      generatedDurabilityCount: sumSummary('generatedDurabilityCount'),
+      generatedRecoveryCount: sumSummary('generatedRecoveryCount'),
       supportDomainSummary: summary?.supportDomainSummary,
     },
   };
