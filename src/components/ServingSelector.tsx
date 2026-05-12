@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { FoodPortionOption } from '../../lib/engine/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { CustomNumericInput } from './CustomNumericInput';
 
 interface ServingSelectorProps {
   amountValue: number;
@@ -74,7 +75,8 @@ export function ServingSelector({
         <Text style={styles.customLabel}>
           {selectedPortion.unit === 'g' ? 'Custom grams' : 'Custom quantity'}
         </Text>
-        <TextInput
+        <CustomNumericInput
+          title={selectedPortion.unit === 'g' ? 'Custom grams' : 'Custom quantity'}
           style={styles.input}
           value={String(amountValue)}
           onChangeText={(text) => {
@@ -83,8 +85,7 @@ export function ServingSelector({
               setAmountValue(parsed);
             }
           }}
-          keyboardType="decimal-pad"
-          selectTextOnFocus
+          placeholder="1"
         />
       </View>
     </View>

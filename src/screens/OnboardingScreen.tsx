@@ -12,6 +12,7 @@ import { IconChevronLeft, IconChevronRight, IconCheckCircle } from '../component
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DatePickerField } from '../components/DatePickerField';
 import { TimePickerField } from '../components/TimePickerField';
+import { CustomNumericInput, useCustomNumericPad } from '../components/CustomNumericInput';
 import { DAY_OPTIONS } from './weeklyPlanSetup/constants';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
 import type { AthleteGoalMode, BuildPhaseGoalType } from '../../lib/engine/types';
@@ -289,8 +290,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [saving, setSaving] = useState(false);
     const scrollViewRef = React.useRef<ScrollView | null>(null);
     const recentSessionTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const { isOpen: numericPadOpen, close: closeNumericPad } = useCustomNumericPad();
 
     const currentStepMeta = STEP_META[step];
+    const editingActive = keyboardVisible || numericPadOpen;
     const shouldAskBodyMassContext = mainGoal === 'weight_class_prep'
         || fightStatus !== 'none'
         || Boolean(targetWeight.trim() || targetWeightClassName.trim());
@@ -343,6 +346,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         setFixedSessions((current) => current.map((session) => (
             session.id === id ? { ...session, ...patch } : session
         )));
+    };
+
+    const closeEditingControls = () => {
+        closeNumericPad();
+        Keyboard.dismiss();
     };
 
     const handleAddFixedSession = () => {
@@ -688,6 +696,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         placeholderTextColor={COLORS.text.tertiary}
                         value={session.label}
                         onChangeText={(value) => updateFixedSession(session.id, { label: value })}
+                        onFocus={closeNumericPad}
                     />
                 </View>
             </View>
@@ -827,32 +836,35 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             <View style={styles.baselineFieldStack}>
                                 <View style={styles.baselineField}>
                                     <View style={styles.baselineLabelRow}>
-                                        <Text style={styles.baselineFieldLabel}>Age</Text>
-                                        <Text style={styles.baselineFieldMeta}>Optional</Text>
+                                        <Text style={styles.baselineFieldLabel} numberOfLines={1}>Age</Text>
+                                        <Text style={styles.baselineFieldMeta} numberOfLines={1}>Optional</Text>
                                     </View>
-                                    <TextInput
-                                        style={styles.baselineInput}
-                                        placeholder="25"
-                                        placeholderTextColor={COLORS.text.tertiary}
-                                        keyboardType="numeric"
+                                    <CustomNumericInput
+                                        title="Age"
                                         value={age}
                                         onChangeText={setAge}
+                                        placeholder="25"
+                                        allowDecimal={false}
+                                        maxLength={3}
+                                        style={styles.baselineInput}
+                                        textStyle={styles.baselineNumericText}
                                         accessibilityLabel="Age optional"
                                     />
                                 </View>
 
                                 <View style={styles.baselineField}>
                                     <View style={styles.baselineLabelRow}>
-                                        <Text style={styles.baselineFieldLabel}>Current weight</Text>
-                                        <Text style={styles.baselineFieldMeta}>Optional, lb</Text>
+                                        <Text style={styles.baselineFieldLabel} numberOfLines={1}>Current weight</Text>
+                                        <Text style={styles.baselineFieldMeta} numberOfLines={1}>Optional, lb</Text>
                                     </View>
-                                    <TextInput
-                                        style={styles.baselineInput}
-                                        placeholder="155"
-                                        placeholderTextColor={COLORS.text.tertiary}
-                                        keyboardType="decimal-pad"
+                                    <CustomNumericInput
+                                        title="Current weight"
                                         value={weight}
                                         onChangeText={setWeight}
+                                        placeholder="155"
+                                        maxLength={6}
+                                        style={styles.baselineInput}
+                                        textStyle={styles.baselineNumericText}
                                         accessibilityLabel="Current weight optional"
                                     />
                                 </View>
@@ -965,18 +977,20 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                             placeholderTextColor={COLORS.text.tertiary}
                                             value={targetWeightClassName}
                                             onChangeText={setTargetWeightClassName}
+                                            onFocus={closeNumericPad}
                                         />
                                     </View>
                                     <View style={{ width: SPACING.md }} />
                                     <View style={[styles.inputGroup, { flex: 1 }]}>
                                         <Text style={styles.inputLabel}>Target body mass</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="145"
-                                            placeholderTextColor={COLORS.text.tertiary}
-                                            keyboardType="decimal-pad"
+                                        <CustomNumericInput
+                                            title="Target body mass"
                                             value={targetWeight}
                                             onChangeText={setTargetWeight}
+                                            placeholder="145"
+                                            maxLength={6}
+                                            style={styles.input}
+                                            accessibilityLabel="Target body mass optional"
                                         />
                                     </View>
                                 </View>
@@ -1019,6 +1033,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                             placeholderTextColor={COLORS.text.tertiary}
                                             value={opponentName}
                                             onChangeText={setOpponentName}
+                                            onFocus={closeNumericPad}
                                         />
                                     </View>
                                     <View style={{ width: SPACING.md }} />
@@ -1030,6 +1045,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                             placeholderTextColor={COLORS.text.tertiary}
                                             value={eventName}
                                             onChangeText={setEventName}
+                                            onFocus={closeNumericPad}
                                         />
                                     </View>
                                 </View>
@@ -1105,6 +1121,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 placeholderTextColor={COLORS.text.tertiary}
                                 value={dietaryNotes}
                                 onChangeText={setDietaryNotes}
+                                onFocus={closeNumericPad}
                                 multiline
                             />
                         </View>
@@ -1145,6 +1162,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 placeholderTextColor={COLORS.text.tertiary}
                                 value={injuryNotes}
                                 onChangeText={setInjuryNotes}
+                                onFocus={closeNumericPad}
                                 multiline
                             />
                         </View>
@@ -1201,7 +1219,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 <View style={styles.backdropGoldWash} />
                 <View style={styles.backdropPearlWash} />
             </View>
-            <View style={[styles.inner, { paddingTop: insets.top + (keyboardVisible ? SPACING.sm : SPACING.lg) }]}>
+            <View style={[styles.inner, { paddingTop: insets.top + (editingActive ? SPACING.sm : SPACING.lg) }]}>
                 <View style={styles.topNav}>
                     <View style={styles.brandHeader}>
                         <Image
@@ -1238,7 +1256,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
                 <ImageBackground
                     source={phaseBackground}
-                    style={[styles.phaseCard, keyboardVisible && styles.phaseCardKeyboard]}
+                    style={[styles.phaseCard, editingActive && styles.phaseCardKeyboard]}
                     imageStyle={styles.phaseCardImage}
                     resizeMode="cover"
                 >
@@ -1263,10 +1281,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
                 <ScrollView
                     ref={scrollViewRef}
-                    contentContainerStyle={[styles.scrollContent, keyboardVisible && styles.scrollContentKeyboard]}
+                    contentContainerStyle={[styles.scrollContent, editingActive && styles.scrollContentKeyboard]}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                    keyboardDismissMode="none"
                 >
                     <Animated.View key={step} entering={FadeInRight.duration(ANIMATION.normal).springify()} style={{ flex: 1 }}>
                         {renderStep()}
@@ -1279,7 +1297,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             accessibilityRole="button"
                             accessibilityLabel="Done editing onboarding field"
                             style={styles.keyboardDoneButton}
-                            onPress={Keyboard.dismiss}
+                            onPress={closeEditingControls}
                             activeOpacity={0.86}
                         >
                             <Text style={styles.keyboardDoneText}>Done</Text>
@@ -1287,7 +1305,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     </View>
                 ) : null}
 
-                {!keyboardVisible ? (
+                {!editingActive ? (
                     <View
                         style={[
                             styles.navRow,

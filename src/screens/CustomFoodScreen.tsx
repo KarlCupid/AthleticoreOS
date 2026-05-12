@@ -18,6 +18,7 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } f
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { IconChevronLeft } from '../components/icons';
+import { CustomNumericInput } from '../components/CustomNumericInput';
 import { createCustomFood } from '../../lib/api/nutritionService';
 import { supabase } from '../../lib/supabase';
 import type { FoodItemRow, FoodPortionOption, FoodSearchResult, MealType } from '../../lib/engine/types';
@@ -183,7 +184,7 @@ export function CustomFoodScreen() {
                   label="Serving size (g)"
                   value={servingSize}
                   onChangeText={setServingSize}
-                  keyboardType="decimal-pad"
+                  numeric
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -205,7 +206,7 @@ export function CustomFoodScreen() {
               label="Calories *"
               value={calories}
               onChangeText={setCalories}
-              keyboardType="decimal-pad"
+              numeric
               placeholder="0"
             />
             <View style={styles.row}>
@@ -214,7 +215,7 @@ export function CustomFoodScreen() {
                   label="Protein (g)"
                   value={protein}
                   onChangeText={setProtein}
-                  keyboardType="decimal-pad"
+                  numeric
                   placeholder="0"
                 />
               </View>
@@ -223,7 +224,7 @@ export function CustomFoodScreen() {
                   label="Carbs (g)"
                   value={carbs}
                   onChangeText={setCarbs}
-                  keyboardType="decimal-pad"
+                  numeric
                   placeholder="0"
                 />
               </View>
@@ -232,7 +233,7 @@ export function CustomFoodScreen() {
                   label="Fat (g)"
                   value={fat}
                   onChangeText={setFat}
-                  keyboardType="decimal-pad"
+                  numeric
                   placeholder="0"
                 />
               </View>
@@ -291,33 +292,46 @@ function Field({
   value,
   onChangeText,
   placeholder,
-  keyboardType,
+  numeric = false,
 }: {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
-  keyboardType?: 'default' | 'decimal-pad';
+  numeric?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
 
   return (
     <View style={fieldStyles.container}>
       <Text style={fieldStyles.label}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label.replace(' *', '')}
-        style={[
-          fieldStyles.input,
-          focused && { borderColor: COLORS.accent, ...SHADOWS.sm },
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.text.tertiary}
-        keyboardType={keyboardType ?? 'default'}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-      />
+      {numeric ? (
+        <CustomNumericInput
+          title={label.replace(' *', '')}
+          accessibilityLabel={label.replace(' *', '')}
+          style={fieldStyles.input}
+          activeStyle={{ borderColor: COLORS.accent, ...SHADOWS.sm }}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={COLORS.text.tertiary}
+          maxLength={7}
+        />
+      ) : (
+        <TextInput
+          accessibilityLabel={label.replace(' *', '')}
+          style={[
+            fieldStyles.input,
+            focused && { borderColor: COLORS.accent, ...SHADOWS.sm },
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={COLORS.text.tertiary}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
+      )}
     </View>
   );
 }

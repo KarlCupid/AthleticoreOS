@@ -17,6 +17,7 @@ import {
   type WorkoutReadinessBand,
 } from '../../../lib/performance-engine/workout-programming';
 import { Card } from '../Card';
+import { CustomNumericInput } from '../CustomNumericInput';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
 import { GeneratedWorkoutPreviewCard } from './GeneratedWorkoutPreviewCard';
 
@@ -607,15 +608,18 @@ function NumericLogInput({
   return (
     <View style={styles.logInputGroup}>
       <Text style={styles.logInputLabel}>{label}</Text>
-      <TextInput
+      <CustomNumericInput
+        title={label}
         accessibilityLabel={accessibilityLabel ?? label}
-        editable={editable}
-        keyboardType="numeric"
+        disabled={!editable}
         style={[styles.logInput, !editable && styles.logInputDisabled]}
         value={value}
         onChangeText={(nextValue) => onChangeText(cleanNumberInput(nextValue))}
         placeholder="-"
         placeholderTextColor={COLORS.text.tertiary}
+        textStyle={styles.logInputText}
+        allowDecimal={false}
+        maxLength={3}
       />
     </View>
   );
@@ -1294,11 +1298,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     backgroundColor: COLORS.surface,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  logInputText: {
     color: COLORS.text.primary,
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 14,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
   },
   logInputDisabled: {
     opacity: 0.65,

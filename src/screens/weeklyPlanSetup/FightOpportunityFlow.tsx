@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { CustomNumericInput } from '../../components/CustomNumericInput';
 import { DatePickerField } from '../../components/DatePickerField';
 import { COLORS } from '../../theme/theme';
 import type {
@@ -172,13 +173,14 @@ export function FightOpportunityFlow({
             placeholder="Welterweight"
             placeholderTextColor={COLORS.text.tertiary}
           />
-          <TextInput
+          <CustomNumericInput
+            title="Target scale weight"
             style={styles.input}
             value={targetWeight}
             onChangeText={setTargetWeight}
-            keyboardType="decimal-pad"
             placeholder="Target scale weight, if known"
             placeholderTextColor={COLORS.text.tertiary}
+            maxLength={6}
           />
 
           <Text style={styles.subLabel}>Weigh-in</Text>

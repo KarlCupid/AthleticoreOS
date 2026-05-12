@@ -30,6 +30,7 @@ import type { WeightClassSport, FightStatus } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { WeightClassEvaluationPreviewStep } from '../components/WeightClassEvaluationPreviewStep';
 import { Card } from '../components/Card';
+import { CustomNumericInput } from '../components/CustomNumericInput';
 import { DatePickerField } from '../components/DatePickerField';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';
 import { APP_IMPACTS, BODY_MASS_PHASES } from '../constants/weightClassPlanSetup';
@@ -317,14 +318,15 @@ export function WeightClassPlanSetupScreen() {
       <Text style={styles.heading}>Weights and class</Text>
 
       <Text style={styles.label}>Current weight (lbs)</Text>
-      <TextInput
-        style={[styles.input, { fontSize: 24, paddingVertical: SPACING.lg, textAlign: 'center', fontFamily: FONT_FAMILY.black }]}
-        keyboardType="numeric"
+      <CustomNumericInput
+        title="Current weight"
+        style={[styles.input, { paddingVertical: SPACING.lg }]}
+        textStyle={{ fontSize: 24, textAlign: 'center', fontFamily: FONT_FAMILY.black }}
         value={form.startWeightStr}
         onChangeText={(value) => setForm((current) => ({ ...current, startWeightStr: value, weightClassName: '' }))}
         placeholder="175"
         placeholderTextColor={COLORS.text.tertiary}
-        returnKeyType="done"
+        maxLength={6}
       />
 
       <Text style={[styles.label, { marginTop: SPACING.md }]}>Sport</Text>
@@ -342,14 +344,15 @@ export function WeightClassPlanSetupScreen() {
       </View>
 
       <Text style={[styles.label, { marginTop: SPACING.md }]}>Target weigh-in weight (lbs)</Text>
-      <TextInput
-        style={[styles.input, { fontSize: 24, paddingVertical: SPACING.lg, textAlign: 'center', fontFamily: FONT_FAMILY.black }]}
-        keyboardType="numeric"
+      <CustomNumericInput
+        title="Target weigh-in weight"
+        style={[styles.input, { paddingVertical: SPACING.lg }]}
+        textStyle={{ fontSize: 24, textAlign: 'center', fontFamily: FONT_FAMILY.black }}
         value={form.targetWeight}
         onChangeText={(value) => setForm((current) => ({ ...current, targetWeight: value, weightClassName: '' }))}
         placeholder="170"
         placeholderTextColor={COLORS.text.tertiary}
-        returnKeyType="done"
+        maxLength={6}
       />
 
       <View style={styles.infoBox}>

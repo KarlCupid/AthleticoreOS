@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { CustomNumericInput } from '../../components/CustomNumericInput';
 import { DatePickerField } from '../../components/DatePickerField';
 import { COLORS } from '../../theme/theme';
 import type {
@@ -262,13 +263,13 @@ export function ObjectivePhase(props: ObjectivePhaseProps) {
                 </View>
 
                 <Text style={styles.subLabel}>Target {selectedBuildMetric.label}</Text>
-                <TextInput style={styles.input} value={targetValue} onChangeText={setTargetValue} keyboardType="decimal-pad" placeholder={selectedBuildMetric.placeholder} placeholderTextColor={COLORS.text.tertiary} />
+                <CustomNumericInput title={`Target ${selectedBuildMetric.label}`} style={styles.input} value={targetValue} onChangeText={setTargetValue} placeholder={selectedBuildMetric.placeholder} placeholderTextColor={COLORS.text.tertiary} maxLength={7} />
 
                 <Text style={styles.subLabel}>Deadline (optional)</Text>
                 <DatePickerField label="Goal Deadline" value={targetDate} onChange={setTargetDate} />
 
                 <Text style={styles.subLabel}>Weeks (optional)</Text>
-                <TextInput style={styles.input} value={targetHorizonWeeks} onChangeText={setTargetHorizonWeeks} keyboardType="number-pad" placeholder="8" placeholderTextColor={COLORS.text.tertiary} />
+                <CustomNumericInput title="Weeks" style={styles.input} value={targetHorizonWeeks} onChangeText={setTargetHorizonWeeks} allowDecimal={false} placeholder="8" placeholderTextColor={COLORS.text.tertiary} maxLength={3} />
               </>
             ) : null}
           </>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   COLORS,
   FONT_FAMILY,
@@ -9,6 +9,7 @@ import {
   TYPOGRAPHY_V2,
   TAP_TARGETS,
 } from '../../../theme/theme';
+import { CustomNumericInput } from '../../../components/CustomNumericInput';
 import RPESelector from '../../../components/RPESelector';
 import { TrainingCard } from '../../../components/workout/TrainingCard';
 import { buildTrainingCoachCopy } from '../../../components/workout/trainingCopy';
@@ -79,22 +80,26 @@ export function AerobicTempoRenderer(props: StrategyRendererProps) {
           <View style={styles.inputGrid}>
             <View style={styles.inputBlock}>
               <Text style={styles.inputLabel}>Duration</Text>
-              <TextInput
+              <CustomNumericInput
+                title="Duration"
                 value={durationMin}
                 onChangeText={setDurationMin}
-                keyboardType="decimal-pad"
                 style={styles.input}
+                textStyle={styles.inputText}
+                maxLength={4}
               />
             </View>
             <View style={styles.inputBlock}>
               <Text style={styles.inputLabel}>Distance</Text>
-              <TextInput
+              <CustomNumericInput
+                title="Distance"
                 value={distance}
                 onChangeText={setDistance}
-                keyboardType="decimal-pad"
                 placeholder="optional"
                 placeholderTextColor={COLORS.text.tertiary}
                 style={styles.input}
+                textStyle={styles.inputText}
+                maxLength={6}
               />
             </View>
           </View>
@@ -149,6 +154,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.surfaceSecondary,
     paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inputText: {
     color: COLORS.text.primary,
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 18,

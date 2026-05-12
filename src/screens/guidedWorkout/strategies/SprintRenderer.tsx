@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   COLORS,
   FONT_FAMILY,
@@ -9,6 +9,7 @@ import {
   TYPOGRAPHY_V2,
   TAP_TARGETS,
 } from '../../../theme/theme';
+import { CustomNumericInput } from '../../../components/CustomNumericInput';
 import { TrainingCard } from '../../../components/workout/TrainingCard';
 import { buildTrainingCoachCopy, formatDisplayLabel } from '../../../components/workout/trainingCopy';
 import type { StrategyRendererProps } from './StrategyRendererProps';
@@ -81,13 +82,15 @@ export function SprintRenderer(props: StrategyRendererProps) {
         <>
           <View style={styles.inputRow}>
             <Text style={styles.inputLabel}>Rep time</Text>
-            <TextInput
+            <CustomNumericInput
+              title="Rep time"
               value={timeSec}
               onChangeText={setTimeSec}
-              keyboardType="decimal-pad"
               placeholder="optional"
               placeholderTextColor={COLORS.text.tertiary}
               style={styles.input}
+              textStyle={styles.inputText}
+              maxLength={6}
             />
           </View>
 
@@ -156,6 +159,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.surfaceSecondary,
     paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inputText: {
     color: COLORS.text.primary,
     fontFamily: FONT_FAMILY.semiBold,
     fontSize: 18,

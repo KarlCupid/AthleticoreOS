@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
+import { CustomNumericInput } from './CustomNumericInput';
 
 interface SessionLoggerProps {
     intensity: number;
@@ -70,14 +71,15 @@ export function SessionLogger({ intensity, setIntensity, minutes, setMinutes }: 
 
             <View style={styles.inputGroup}>
                 <Text style={styles.label}>Duration (Minutes)</Text>
-                <TextInput
+                <CustomNumericInput
+                    title="Duration"
                     style={styles.input}
-                    keyboardType="numeric"
                     value={minutes}
                     onChangeText={setMinutes}
                     placeholder="60"
                     placeholderTextColor={COLORS.text.tertiary}
-                    selectionColor={themeColor}
+                    allowDecimal={false}
+                    maxLength={4}
                 />
             </View>
         </View>

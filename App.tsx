@@ -28,6 +28,7 @@ import { addMonitoringBreadcrumb, setCurrentMonitoringRoute } from './lib/observ
 import { capturePreviewMonitoringTestError } from './lib/observability/monitoring';
 import { AuroraBackground, type AuroraBackgroundMood } from './src/components/AuroraBackground';
 import { OceanLoader } from './src/components/OceanLoader';
+import { CustomNumericPadProvider } from './src/components/CustomNumericInput';
 
 const BRAND_LOGO = require('./assets/images/athleticore-logo.png');
 
@@ -375,15 +376,17 @@ export default function App() {
               onStateChange={handleNavigationStateChange}
               {...(navigationLinking ? { linking: navigationLinking } : {})}
             >
-              <View style={styles.container}>
-                <AuroraBackground mood={backgroundMood} />
-                <StatusBar
-                  style="light"
-                  backgroundColor={APP_CHROME.background}
-                  translucent={false}
-                />
-                {content}
-              </View>
+              <CustomNumericPadProvider>
+                <View style={styles.container}>
+                  <AuroraBackground mood={backgroundMood} />
+                  <StatusBar
+                    style="light"
+                    backgroundColor={APP_CHROME.background}
+                    translucent={false}
+                  />
+                  {content}
+                </View>
+              </CustomNumericPadProvider>
             </NavigationContainer>
           </InteractionModeProvider>
         </ReadinessThemeProvider>

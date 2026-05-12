@@ -81,6 +81,10 @@ function installRenderMocks(): void {
       OS: 'ios',
       select: (options: Record<string, unknown>) => options.ios ?? options.default,
     },
+    Keyboard: {
+      dismiss: () => undefined,
+      addListener: () => ({ remove: () => undefined }),
+    },
   };
 
   const animationChain = {
@@ -252,6 +256,12 @@ function installRenderMocks(): void {
 
   Module._load = function loadWithRenderMocks(request: string, parent: unknown, isMain: boolean) {
     if (request === 'react-native') return reactNativeMock;
+    if (request === 'react-native-safe-area-context') {
+      return {
+        SafeAreaProvider: View,
+        useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+      };
+    }
     if (request === 'react-native-reanimated') return reanimatedMock;
     if (request === '@react-navigation/native') {
       return {
@@ -272,6 +282,16 @@ function installRenderMocks(): void {
       };
     }
     if (request === '../AnimatedPressable') return { AnimatedPressable: View };
+    if (request === '../CustomNumericInput') {
+      return {
+        CustomNumericInput: (props: Record<string, unknown>) => React.createElement(TextInput, {
+          ...props,
+          editable: !(props as { disabled?: boolean }).disabled,
+        }),
+        CustomNumericPadProvider: View,
+        useCustomNumericPad: () => ({ isOpen: false, close: noop }),
+      };
+    }
     if (request === '../components/AnimatedPressable') return { AnimatedPressable: View };
     if (request === '../components/ScreenHeader') return screenHeaderMock;
     if (request === '../components/ScreenWrapper') return { ScreenWrapper: simpleComponent() };

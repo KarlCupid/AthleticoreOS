@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
+import { CustomNumericInput } from './CustomNumericInput';
 
 interface MorningCheckInProps {
     weight: string;
@@ -43,14 +44,13 @@ export function MorningCheckIn({ weight, setWeight, sleep, setSleep, readiness, 
         <View>
             <View style={styles.inputGroup}>
                 <Text style={styles.label}>Morning Weight (lbs)</Text>
-                <TextInput
+                <CustomNumericInput
+                    title="Morning weight"
                     style={styles.input}
-                    keyboardType="numeric"
                     value={weight}
                     onChangeText={setWeight}
                     placeholder="155.0"
                     placeholderTextColor={COLORS.text.tertiary}
-                    selectionColor={themeColor}
                 />
             </View>
 

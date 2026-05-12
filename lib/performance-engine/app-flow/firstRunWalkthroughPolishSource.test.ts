@@ -34,21 +34,22 @@ const lowerUiSource = walkthroughUiSource.toLowerCase();
 
 assert(
   'welcome copy is warm and journey-connected',
-  onboarding.includes('Welcome to Athleticore.')
-    && onboarding.includes("We'll help you train, fuel, recover, and adapt around your real fight timeline.")
-    && onboarding.includes('Start from where you are and keep the work connected.'),
+  onboarding.includes("title: 'Welcome'")
+    && onboarding.includes('Start from where you are and keep the work connected.')
+    && onboarding.includes("Today's Mission shows what matters, why it matters, what changed, and what to do next."),
 );
 
 assert(
   'protected workout copy is coach-like',
-  onboarding.includes('These sessions stay locked in. Athleticore will build around them.')
+  onboarding.includes('These sessions stay locked in. Athleticore will move the supporting work around them.')
     && dashboard.includes('need to stay locked in')
     && existingIntroCard.includes('Protected workouts stay anchored while the supporting work adapts.'),
 );
 
 assert(
   'fueling and readiness copy is clear',
-  onboarding.includes("We'll use this to guide fueling around your training, recovery, and fight timeline.")
+  onboarding.includes("We'll use this around training, recovery, and fight timeline context.")
+    && onboarding.includes('Overall readiness')
     && dashboard.includes('Fueling targets move with your training load, recovery needs, and fight timeline.')
     && dashboard.includes("Log today's check-in so readiness can shape the work safely."),
 );
@@ -62,7 +63,8 @@ assert(
 
 assert(
   'Today Mission intro copy leads with daily guidance',
-  onboarding.includes('Each day, Athleticore gives you a mission: what matters today, why it matters, what changed, and what to do next.')
+  onboarding.includes("Today's Mission shows what matters, why it matters, what changed, and what to do next.")
+    && onboarding.includes('The first mission starts conservative, then sharpens as your check-ins and protected anchors come in.')
     && dashboard.includes('Start here. Athleticore shows what matters today, why it matters, what changed, and what to do next.')
     && existingIntroCard.includes("Today's Mission now brings the key pieces together so you know what to do and why."),
 );

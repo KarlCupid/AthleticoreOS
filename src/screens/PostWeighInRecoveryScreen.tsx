@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
+import { CustomNumericInput } from '../components/CustomNumericInput';
 import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 import { resolvePostWeighInRecoveryParams } from '../navigation/routeValidation';
 
@@ -171,13 +171,15 @@ export function PostWeighInRecoveryScreen() {
           <Text style={styles.trackTitle}>Current Regained Weight</Text>
           <Text style={styles.trackSub}>Weigh yourself every 1-2 hours</Text>
           <View style={styles.trackRow}>
-            <TextInput
+            <CustomNumericInput
+              title="Current regained weight"
               style={styles.trackInput}
-              keyboardType="numeric"
               value={currentRegainLbs}
               onChangeText={setCurrentRegainLbs}
               placeholder={`${(weighInWeightLbs + 1).toFixed(1)}`}
               placeholderTextColor={COLORS.text.tertiary}
+              textStyle={styles.trackInputText}
+              maxLength={6}
             />
             <Text style={styles.trackUnit}>lbs</Text>
           </View>
@@ -436,6 +438,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSecondary,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  trackInputText: {
     fontSize: 22,
     fontFamily: FONT_FAMILY.black,
     color: COLORS.text.primary,

@@ -16,6 +16,7 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/them
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { Card } from '../components/Card';
 import { IconChevronLeft } from '../components/icons';
+import { CustomNumericInput } from '../components/CustomNumericInput';
 import { createCustomExercise } from '../../lib/api/scService';
 import { supabase } from '../../lib/supabase';
 import { ExerciseType, MuscleGroup, Equipment } from '../../lib/engine/types';
@@ -138,7 +139,7 @@ export function CustomExerciseScreen() {
                     <Field label="Exercise Name" value={name} onChangeText={setName} placeholder="e.g. Band Face Pull" />
                     <Field label="Description" value={description} onChangeText={setDescription} placeholder="What is this exercise?" />
                     <Field label="Coaching Cues" value={cues} onChangeText={setCues} placeholder="Key form cues..." />
-                    <Field label="CNS Load (1-10)" value={cnsLoad} onChangeText={setCnsLoad} keyboardType="decimal-pad" />
+                    <Field label="CNS Load (1-10)" value={cnsLoad} onChangeText={setCnsLoad} numeric />
 
                     <Text style={styles.pickerLabel}>Category</Text>
                     <View style={styles.chipRow}>
@@ -208,22 +209,34 @@ export function CustomExerciseScreen() {
     );
 }
 
-function Field({ label, value, onChangeText, placeholder, keyboardType }: {
+function Field({ label, value, onChangeText, placeholder, numeric = false }: {
     label: string; value: string; onChangeText: (t: string) => void;
-    placeholder?: string; keyboardType?: 'default' | 'decimal-pad';
+    placeholder?: string; numeric?: boolean;
 }) {
     return (
         <View style={fieldStyles.container}>
             <Text style={fieldStyles.label}>{label}</Text>
-            <TextInput
-                accessibilityLabel={label}
-                style={fieldStyles.input}
-                value={value}
-                onChangeText={onChangeText}
-                placeholder={placeholder}
-                placeholderTextColor={COLORS.text.tertiary}
-                keyboardType={keyboardType ?? 'default'}
-            />
+            {numeric ? (
+                <CustomNumericInput
+                    title={label}
+                    accessibilityLabel={label}
+                    style={fieldStyles.input}
+                    value={value}
+                    onChangeText={onChangeText}
+                    placeholder={placeholder}
+                    placeholderTextColor={COLORS.text.tertiary}
+                    maxLength={4}
+                />
+            ) : (
+                <TextInput
+                    accessibilityLabel={label}
+                    style={fieldStyles.input}
+                    value={value}
+                    onChangeText={onChangeText}
+                    placeholder={placeholder}
+                    placeholderTextColor={COLORS.text.tertiary}
+                />
+            )}
         </View>
     );
 }

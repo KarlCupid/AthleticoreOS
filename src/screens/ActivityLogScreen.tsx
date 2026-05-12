@@ -19,6 +19,7 @@ import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { completeActivity } from '../../lib/api/scheduleService';
 import type { ComponentType } from '../../lib/engine/types';
 import { resolveActivityLogParams } from '../navigation/routeValidation';
+import { CustomNumericInput } from '../components/CustomNumericInput';
 
 const COMPONENT_OPTIONS: { type: ComponentType; label: string; icon: string }[] = [
     { type: 'sparring', label: 'Sparring', icon: '🥊' },
@@ -156,11 +157,14 @@ export function ActivityLogScreen() {
 
                     <View style={styles.fieldRow}>
                         <Text style={styles.fieldLabel}>Duration (min)</Text>
-                        <TextInput
+                        <CustomNumericInput
+                            title="Duration"
                             style={styles.fieldInput}
                             value={sessionDuration}
                             onChangeText={setSessionDuration}
-                            keyboardType="numeric"
+                            allowDecimal={false}
+                            maxLength={4}
+                            placeholder="60"
                             placeholderTextColor={COLORS.text.tertiary}
                         />
                     </View>
@@ -217,22 +221,28 @@ export function ActivityLogScreen() {
                                     <View style={styles.componentFields}>
                                         <View style={styles.miniField}>
                                             <Text style={styles.miniLabel}>Duration</Text>
-                                            <TextInput
+                                            <CustomNumericInput
+                                                title="Component duration"
                                                 style={styles.miniInput}
                                                 value={String(comp.duration_min)}
                                                 onChangeText={v => updateComponent(i, { duration_min: parseInt(v) || 0 })}
-                                                keyboardType="numeric"
+                                                allowDecimal={false}
+                                                maxLength={4}
+                                                placeholder="0"
                                                 placeholderTextColor={COLORS.text.tertiary}
                                             />
                                         </View>
 
                                         <View style={styles.miniField}>
                                             <Text style={styles.miniLabel}>Intensity</Text>
-                                            <TextInput
+                                            <CustomNumericInput
+                                                title="Component intensity"
                                                 style={styles.miniInput}
                                                 value={String(comp.intensity)}
                                                 onChangeText={v => updateComponent(i, { intensity: Math.min(10, parseInt(v) || 0) })}
-                                                keyboardType="numeric"
+                                                allowDecimal={false}
+                                                maxLength={2}
+                                                placeholder="5"
                                                 placeholderTextColor={COLORS.text.tertiary}
                                             />
                                         </View>
@@ -240,11 +250,11 @@ export function ActivityLogScreen() {
                                         {comp.component_type === 'running' && (
                                             <View style={styles.miniField}>
                                                 <Text style={styles.miniLabel}>Miles</Text>
-                                                <TextInput
+                                                <CustomNumericInput
+                                                    title="Running miles"
                                                     style={styles.miniInput}
                                                     value={comp.distance_miles ? String(comp.distance_miles) : ''}
                                                     onChangeText={v => updateComponent(i, { distance_miles: parseFloat(v) || undefined })}
-                                                    keyboardType="decimal-pad"
                                                     placeholder="0.0"
                                                     placeholderTextColor={COLORS.text.tertiary}
                                                 />
@@ -254,11 +264,13 @@ export function ActivityLogScreen() {
                                         {(comp.component_type === 'sparring' || comp.component_type === 'bag_work' || comp.component_type === 'pad_work') && (
                                             <View style={styles.miniField}>
                                                 <Text style={styles.miniLabel}>Rounds</Text>
-                                                <TextInput
+                                                <CustomNumericInput
+                                                    title="Rounds"
                                                     style={styles.miniInput}
                                                     value={comp.rounds ? String(comp.rounds) : ''}
                                                     onChangeText={v => updateComponent(i, { rounds: parseInt(v) || undefined })}
-                                                    keyboardType="numeric"
+                                                    allowDecimal={false}
+                                                    maxLength={3}
                                                     placeholder="0"
                                                     placeholderTextColor={COLORS.text.tertiary}
                                                 />

@@ -32,6 +32,7 @@ import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
 import { classifyPlanEntryRuntimeSurface } from '../../lib/performance-engine/workout-programming';
 import { logError } from '../../lib/utils/logger';
 import { resolveDayDetailParams } from '../navigation/routeValidation';
+import { CustomNumericInput } from '../components/CustomNumericInput';
 
 const ACTIVITY_OPTIONS: { type: string; label: string; icon: string }[] = [
     { type: 'boxing_practice', label: 'Boxing Practice', icon: '🥊' },
@@ -390,19 +391,25 @@ export function DayDetailScreen() {
                         />
 
                         <Text style={styles.inputLabel}>Duration (mins)</Text>
-                        <TextInput
+                        <CustomNumericInput
+                            title="Duration"
                             style={styles.textInput}
                             value={editDuration}
                             onChangeText={setEditDuration}
-                            keyboardType="numeric"
+                            allowDecimal={false}
+                            maxLength={4}
+                            placeholder="60"
                         />
 
                         <Text style={styles.inputLabel}>Intensity (RPE 1-10)</Text>
-                        <TextInput
+                        <CustomNumericInput
+                            title="Intensity"
                             style={styles.textInput}
                             value={editIntensity}
                             onChangeText={setEditIntensity}
-                            keyboardType="numeric"
+                            allowDecimal={false}
+                            maxLength={2}
+                            placeholder="5"
                         />
 
                         <TouchableOpacity style={[styles.applyButton, { backgroundColor: themeColor }]} onPress={() => handleSaveEdit('single')} testID="day-detail-edit-save-single">

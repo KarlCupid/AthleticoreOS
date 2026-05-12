@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,6 +21,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { IconInfo } from '../components/icons';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
+import { CustomNumericInput } from '../components/CustomNumericInput';
 import { useLogScreenData } from '../hooks/useLogScreenData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
@@ -331,14 +331,13 @@ export function LogScreen() {
 
         <View style={styles.weightGroup}>
           <Text style={styles.fieldLabel}>Morning Weight (optional)</Text>
-            <TextInput
+            <CustomNumericInput
+              title="Morning weight"
               style={styles.weightInput}
               value={weight}
               onChangeText={(next) => setWeight(sanitizeNumericInput(next))}
-              keyboardType="decimal-pad"
               placeholder="155.0"
               placeholderTextColor={COLORS.text.tertiary}
-              returnKeyType="done"
               testID="check-in-weight-input"
             />
         </View>

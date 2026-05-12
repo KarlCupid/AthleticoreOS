@@ -27,7 +27,7 @@ const unifiedDailyPerformance = read('lib/api/dailyPerformance/unifiedDailyPerfo
 
 console.log('\n-- guided readiness source --');
 
-assert('check-in flow renders as a quick athlete check-in', screen.includes('Quick Check-In') && screen.includes("Tell Athleticore how you are doing so today's plan can adapt"));
+assert('check-in flow renders as an athlete check-in', screen.includes('Check-In') && screen.includes("Tell Athleticore how you are doing so today's plan can adapt."));
 assert('check-in screen leads with readiness guidance', screen.includes('READINESS GUIDANCE') && screen.includes('draftGuidance.title'));
 assert('check-in screen includes recovery feeling input', screen.includes("label: 'Recovery feeling'") && screen.includes('How ready does your body feel'));
 assert('check-in screen includes soreness and sleep inputs', screen.includes("label: 'Soreness'") && screen.includes("label: 'Sleep'"));
