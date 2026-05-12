@@ -58,7 +58,9 @@ console.log('\n-- firstRunSignupWalkthrough --');
   assert(
     'new sign-up enters walkthrough through no-profile onboarding route',
     app.includes("entryStatus === 'needs_onboarding'")
-      && app.includes('<OnboardingScreen onComplete={() => { void refreshJourneyEntryState(); }} />')
+      && app.includes('<OnboardingScreen onComplete={handleOnboardingComplete} />')
+      && app.includes('entry_state_ready_from_onboarding')
+      && app.includes('writeReadyJourneyEntryCache')
       && onboarding.includes("title: 'Welcome'")
       && onboarding.includes('Start from where you are and keep the work connected.'),
   );
@@ -93,7 +95,7 @@ console.log('\n-- firstRunSignupWalkthrough --');
     onboarding.includes("Today's Mission shows what matters, why it matters, what changed, and what to do next.")
       && onboarding.includes('The first mission starts conservative, then sharpens as your check-ins and protected anchors come in.')
       && onboarding.includes('Build my first mission')
-      && onboarding.includes('onComplete()'),
+      && onboarding.includes('onComplete(result)'),
   );
 })();
 

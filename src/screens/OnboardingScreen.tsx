@@ -19,6 +19,7 @@ import { addDays, todayLocalDate } from '../../lib/utils/date';
 import type { AthleteGoalMode, BuildPhaseGoalType, EquipmentItem } from '../../lib/engine/types';
 import {
     completeCoachIntake,
+    type CoachIntakeResult,
     type IntakeFightStatus,
     type IntakeFixedSession,
     type IntakeFixedSessionType,
@@ -32,7 +33,7 @@ import {
 import { styles } from './OnboardingScreen.styles';
 
 interface OnboardingScreenProps {
-    onComplete: () => void;
+    onComplete: (result: CoachIntakeResult) => void;
 }
 
 const TOTAL_STEPS = 6;
@@ -537,7 +538,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
         setSaving(true);
         try {
-            await completeCoachIntake({
+            const result = await completeCoachIntake({
                 age: parsedAge,
                 currentWeightLbs: parsedWeight,
                 biologicalSex: bioSex,
@@ -562,7 +563,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 readinessBaseline,
                 equipmentAccess,
             });
-            onComplete();
+            onComplete(result);
         } catch (err: any) {
             Alert.alert("We couldn't build your first mission", err.message || 'Please try again.');
         } finally {

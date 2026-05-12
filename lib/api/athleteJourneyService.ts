@@ -4,7 +4,7 @@ import {
   type AthleteJourneyState,
   type PerformanceState,
 } from '../performance-engine';
-import { getAthleteProfile } from './athleteContextService';
+import { supabase } from '../supabase';
 
 export interface AthleteJourneyAppEntryState {
   status: JourneyAppEntryStatus;
@@ -14,8 +14,37 @@ export interface AthleteJourneyAppEntryState {
   performanceState: PerformanceState | null;
 }
 
-export async function getAthleteJourneyAppEntryState(userId: string): Promise<AthleteJourneyAppEntryState> {
-  const profile = await getAthleteProfile(userId);
+export function createReadyAthleteJourneyAppEntryState(input: {
+  journey?: AthleteJourneyState | null;
+  performanceState?: PerformanceState | null;
+} = {}): AthleteJourneyAppEntryState {
+  return {
+    status: 'ready',
+    hasProfile: true,
+    needsTrainingSetup: false,
+    journey: input.journey ?? null,
+    performanceState: input.performanceState ?? null,
+  };
+}
+
+export async function getAthleteJourneyAppEntryState(
+  userId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<AthleteJourneyAppEntryState> {
+  let profileQuery = supabase
+    .from('athlete_profiles')
+    .select('user_id, planning_setup_version')
+    .eq('user_id', userId);
+
+  if (options.signal) {
+    profileQuery = profileQuery.abortSignal(options.signal);
+  }
+
+  const { data: profile, error } = await profileQuery.maybeSingle();
+
+  if (error) {
+    throw error;
+  }
 
   if (!profile) {
     return {
@@ -35,10 +64,14 @@ export async function getAthleteJourneyAppEntryState(userId: string): Promise<At
     hasActiveObjective: false,
   });
 
+  if (status === 'ready') {
+    return createReadyAthleteJourneyAppEntryState();
+  }
+
   return {
     status,
     hasProfile: true,
-    needsTrainingSetup: false,
+    needsTrainingSetup: status === 'needs_training_setup',
     journey: null,
     performanceState: null,
   };

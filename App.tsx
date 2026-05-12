@@ -2,6 +2,7 @@ import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@r
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,7 +15,12 @@ import {
 } from '@expo-google-fonts/outfit';
 import { supabase } from './lib/supabase';
 import { getSupabaseAuthErrorCopy, parsePasswordRecoveryLink } from './lib/api/authUx';
-import { getAthleteJourneyAppEntryState, type AthleteJourneyAppEntryState } from './lib/api/athleteJourneyService';
+import {
+  createReadyAthleteJourneyAppEntryState,
+  getAthleteJourneyAppEntryState,
+  type AthleteJourneyAppEntryState,
+} from './lib/api/athleteJourneyService';
+import type { CoachIntakeResult } from './src/screens/onboarding/completeCoachIntake';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { TabNavigator } from './src/navigation/TabNavigator';
@@ -22,7 +28,7 @@ import { appLinking } from './src/navigation/linking';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
 import { APP_CHROME, COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from './src/theme/theme';
-import { logError } from './lib/utils/logger';
+import { logError, logWarn } from './lib/utils/logger';
 import { addMonitoringBreadcrumb, setCurrentMonitoringRoute } from './lib/observability/breadcrumbs';
 import { capturePreviewMonitoringTestError } from './lib/observability/monitoring';
 import { AuroraBackground, type AuroraBackgroundMood } from './src/components/AuroraBackground';
@@ -30,6 +36,9 @@ import { OceanLoader } from './src/components/OceanLoader';
 import { CustomNumericPadProvider } from './src/components/CustomNumericInput';
 
 const BRAND_LOGO = require('./assets/images/athleticore-logo.png');
+const JOURNEY_ENTRY_LOOKUP_TIMEOUT_MS = 15000;
+const JOURNEY_ENTRY_CACHE_VERSION = 1;
+const JOURNEY_ENTRY_CACHE_PREFIX = 'athleticore:journey-entry:';
 
 const myTheme = {
   ...DefaultTheme,
@@ -43,17 +52,75 @@ function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+function withTimeout<T>(
+  operation: (signal?: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  const controller = typeof AbortController === 'undefined' ? null : new AbortController();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
 
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+  return new Promise<T>((resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      controller?.abort();
+      reject(new Error(message));
+    }, timeoutMs);
+
+    operation(controller?.signal).then(resolve, reject).finally(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    });
   });
+}
+
+function journeyEntryCacheKey(userId: string): string {
+  return `${JOURNEY_ENTRY_CACHE_PREFIX}${userId}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+async function readReadyJourneyEntryCache(userId: string): Promise<AthleteJourneyAppEntryState | null> {
+  try {
+    const rawCache = await AsyncStorage.getItem(journeyEntryCacheKey(userId));
+    if (!rawCache) return null;
+
+    const parsed = JSON.parse(rawCache) as unknown;
+    if (!isRecord(parsed) || parsed.version !== JOURNEY_ENTRY_CACHE_VERSION || parsed.userId !== userId) {
+      return null;
+    }
+
+    const state = parsed.state;
+    if (!isRecord(state) || state.status !== 'ready' || state.hasProfile !== true) {
+      return null;
+    }
+
+    return createReadyAthleteJourneyAppEntryState();
+  } catch (error) {
+    logWarn('App.journeyEntryCacheRead', error, { journeyOperation: 'readReadyEntryCache' });
+    return null;
+  }
+}
+
+async function writeReadyJourneyEntryCache(userId: string, entryState: AthleteJourneyAppEntryState): Promise<void> {
+  try {
+    const cacheKey = journeyEntryCacheKey(userId);
+    if (entryState.status !== 'ready' || !entryState.hasProfile) {
+      await AsyncStorage.removeItem(cacheKey);
+      return;
+    }
+
+    await AsyncStorage.setItem(cacheKey, JSON.stringify({
+      version: JOURNEY_ENTRY_CACHE_VERSION,
+      userId,
+      savedAt: new Date().toISOString(),
+      state: createReadyAthleteJourneyAppEntryState(),
+    }));
+  } catch (error) {
+    logWarn('App.journeyEntryCacheWrite', error, { journeyOperation: 'writeReadyEntryCache' });
+  }
 }
 
 export default function App() {
@@ -279,19 +346,63 @@ export default function App() {
     setJourneyLoadError(null);
     addMonitoringBreadcrumb('journey', 'entry_lookup_started', { hasUserId: Boolean(userId) });
     try {
+      const cachedEntryState = await readReadyJourneyEntryCache(userId);
+      if (cachedEntryState && sessionUserIdRef.current === userId) {
+        setJourneyEntryState(cachedEntryState);
+        addMonitoringBreadcrumb('journey', 'entry_lookup_cache_warmed', { status: cachedEntryState.status });
+      }
+
       const entryState = await withTimeout(
-        getAthleteJourneyAppEntryState(userId),
-        15000,
+        (signal) => getAthleteJourneyAppEntryState(userId, signal ? { signal } : {}),
+        JOURNEY_ENTRY_LOOKUP_TIMEOUT_MS,
         'Athlete profile lookup timed out. Check your connection and try again.',
       );
+
+      if (sessionUserIdRef.current !== userId) {
+        return;
+      }
+
       setJourneyEntryState(entryState);
+      void writeReadyJourneyEntryCache(userId, entryState);
       addMonitoringBreadcrumb('journey', 'entry_lookup_succeeded', { status: entryState.status });
     } catch (error) {
+      if (sessionUserIdRef.current !== userId) {
+        return;
+      }
+
+      const cachedEntryState = await readReadyJourneyEntryCache(userId);
+      if (cachedEntryState) {
+        logWarn('App.journeyEntryLookup.cacheFallback', error, { journeyOperation: 'getAppEntryState' });
+        setJourneyEntryState(cachedEntryState);
+        setJourneyLoadError(null);
+        addMonitoringBreadcrumb('journey', 'entry_lookup_cache_fallback', { status: cachedEntryState.status });
+        return;
+      }
+
       logError('App.journeyEntryLookup', error, { journeyOperation: 'getAppEntryState' });
       setJourneyLoadError(toError(error));
     } finally {
       setCheckingJourney(false);
     }
+  }, [userId]);
+
+  const handleOnboardingComplete = useCallback((result: CoachIntakeResult) => {
+    const entryState = createReadyAthleteJourneyAppEntryState({
+      journey: result.journey,
+      performanceState: result.performanceState,
+    });
+
+    setJourneyLoadError(null);
+    setCheckingJourney(false);
+    setJourneyEntryState(entryState);
+
+    if (userId) {
+      void writeReadyJourneyEntryCache(userId, entryState);
+    }
+
+    addMonitoringBreadcrumb('journey', 'entry_state_ready_from_onboarding', {
+      generatedPlan: result.generatedPlan,
+    });
   }, [userId]);
 
   useEffect(() => {
@@ -368,10 +479,10 @@ export default function App() {
     <AppLoadingScreen />
   ) : !session ? (
     <AuthScreen notice={passwordRecoveryNotice} />
-  ) : checkingJourney || entryStatus === null ? (
+  ) : entryStatus === null ? (
     <AppLoadingScreen />
   ) : entryStatus === 'needs_onboarding' ? (
-    <OnboardingScreen onComplete={() => { void refreshJourneyEntryState(); }} />
+    <OnboardingScreen onComplete={handleOnboardingComplete} />
   ) : (
     <TabNavigator />
   );
