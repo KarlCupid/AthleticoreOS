@@ -416,26 +416,35 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
 
     const gym = await upsertDefaultGymProfile(userId, input.equipmentAccess);
 
-    const generatedWeek = await generateAndSaveWeeklyPlan(userId, config as never, gym, todayLocalDate());
-    if (generatedWeek.entries.length === 0) {
-      throw new Error('Your first week could not be built. Try choosing more training days.');
+    let generatedPlan = false;
+    let generatedWeekStart: string | undefined;
+    try {
+      const generatedWeek = await generateAndSaveWeeklyPlan(userId, config as never, gym, asOfDate);
+      generatedPlan = generatedWeek.entries.length > 0;
+      generatedWeekStart = generatedWeek.entries[0]?.week_start_date;
+      if (!generatedPlan) {
+        logWarn(
+          'completeCoachIntake.firstPlanEmpty',
+          new Error('First mission generation returned no weekly entries.'),
+          { userId, asOfDate },
+        );
+      }
+    } catch (planError) {
+      logWarn('completeCoachIntake.firstPlanGeneration', planError, { userId, asOfDate });
     }
 
     await withEngineInvalidation({
       userId,
-      weekStart: generatedWeek.entries[0]?.week_start_date,
+      weekStart: generatedWeekStart ?? asOfDate,
       reason: 'onboarding_complete',
     }, async () => undefined);
     return {
-      generatedPlan: true,
+      generatedPlan,
       journey: journeyInitialization.journey,
       performanceState: journeyInitialization.performanceState,
     };
   } catch (error) {
-    await supabase
-      .from('athlete_profiles')
-      .update({ planning_setup_version: 0 })
-      .eq('user_id', userId);
+    logWarn('completeCoachIntake.failed', error, { userId, asOfDate });
     throw error;
   }
 }

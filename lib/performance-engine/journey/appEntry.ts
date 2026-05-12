@@ -13,13 +13,5 @@ export function resolveJourneyAppEntryStatus(input: JourneyAppEntryInput): Journ
     return 'needs_onboarding';
   }
 
-  if (
-    input.planningSetupVersion < input.requiredPlanningSetupVersion ||
-    !input.hasTrainingAvailability ||
-    !input.hasActiveObjective
-  ) {
-    return 'needs_training_setup';
-  }
-
   return 'ready';
 }

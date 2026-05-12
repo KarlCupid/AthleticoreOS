@@ -17,8 +17,8 @@ function assert(label: string, condition: boolean): void {
 console.log('\n-- planningSetupLogic --');
 
 assert(
-  'legacy usage with version 1 still needs setup',
-  !isPlanningSetupComplete({
+  'stale setup version with availability and active objective is complete',
+  isPlanningSetupComplete({
     planningSetupVersion: PLANNING_SETUP_VERSION - 1,
     hasAvailabilityWindows: true,
     hasActiveModeRecord: true,
@@ -44,7 +44,7 @@ assert(
 );
 
 assert(
-  'version 2 with availability and active objective is complete',
+  'current setup version with availability and active objective is complete',
   isPlanningSetupComplete({
     planningSetupVersion: PLANNING_SETUP_VERSION,
     hasAvailabilityWindows: true,

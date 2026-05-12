@@ -64,6 +64,12 @@ console.log('\n-- firstRunSignupWalkthrough --');
   );
 
   assert(
+    'signed-in profiles do not enter the legacy planning setup gate',
+    !app.includes('PlanningSetupStackNavigator')
+      && app.includes('<TabNavigator />'),
+  );
+
+  assert(
     'walkthrough keeps current theme and component language',
     onboarding.includes("from '../theme/theme'")
       && onboarding.includes('styles.phaseCard')

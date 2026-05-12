@@ -175,20 +175,40 @@ console.log('\n-- initializeAthleteJourney --');
     }) === 'needs_onboarding',
   );
   assert(
-    'profile without active objective needs training setup',
+    'profile without active objective enters app instead of legacy setup gate',
     resolveJourneyAppEntryStatus({
       hasProfile: true,
       planningSetupVersion: 2,
       requiredPlanningSetupVersion: 2,
       hasTrainingAvailability: true,
       hasActiveObjective: false,
-    }) === 'needs_training_setup',
+    }) === 'ready',
+  );
+  assert(
+    'profile without availability enters app for in-app prompts',
+    resolveJourneyAppEntryStatus({
+      hasProfile: true,
+      planningSetupVersion: 2,
+      requiredPlanningSetupVersion: 2,
+      hasTrainingAvailability: false,
+      hasActiveObjective: true,
+    }) === 'ready',
   );
   assert(
     'profile with journey prerequisites is ready',
     resolveJourneyAppEntryStatus({
       hasProfile: true,
       planningSetupVersion: 2,
+      requiredPlanningSetupVersion: 2,
+      hasTrainingAvailability: true,
+      hasActiveObjective: true,
+    }) === 'ready',
+  );
+  assert(
+    'stale planning version with journey prerequisites is ready',
+    resolveJourneyAppEntryStatus({
+      hasProfile: true,
+      planningSetupVersion: 0,
       requiredPlanningSetupVersion: 2,
       hasTrainingAvailability: true,
       hasActiveObjective: true,

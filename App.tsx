@@ -18,7 +18,6 @@ import { getAthleteJourneyAppEntryState, type AthleteJourneyAppEntryState } from
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { TabNavigator } from './src/navigation/TabNavigator';
-import { PlanningSetupStackNavigator } from './src/navigation/PlanningSetupStack';
 import { appLinking } from './src/navigation/linking';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
@@ -42,6 +41,19 @@ const myTheme = {
 
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
 }
 
 export default function App() {
@@ -267,7 +279,11 @@ export default function App() {
     setJourneyLoadError(null);
     addMonitoringBreadcrumb('journey', 'entry_lookup_started', { hasUserId: Boolean(userId) });
     try {
-      const entryState = await getAthleteJourneyAppEntryState(userId);
+      const entryState = await withTimeout(
+        getAthleteJourneyAppEntryState(userId),
+        15000,
+        'Athlete profile lookup timed out. Check your connection and try again.',
+      );
       setJourneyEntryState(entryState);
       addMonitoringBreadcrumb('journey', 'entry_lookup_succeeded', { status: entryState.status });
     } catch (error) {
@@ -356,8 +372,6 @@ export default function App() {
     <AppLoadingScreen />
   ) : entryStatus === 'needs_onboarding' ? (
     <OnboardingScreen onComplete={() => { void refreshJourneyEntryState(); }} />
-  ) : entryStatus === 'needs_training_setup' ? (
-    <PlanningSetupStackNavigator onComplete={() => { void refreshJourneyEntryState(); }} />
   ) : (
     <TabNavigator />
   );

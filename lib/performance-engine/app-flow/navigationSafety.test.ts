@@ -198,14 +198,14 @@ console.log('\n-- navigation safety and preview surface guards --');
   const app = read('App.tsx');
   const profile = read('src/screens/ProfileSettingsScreen.tsx');
 
-  assert('root navigation is scoped by auth and journey gate state', (
+  assert('root navigation is scoped by auth and resolved app-entry state', (
     app.includes('navigationScopeKey')
     && app.includes("entryStatus === 'ready'")
     && app.includes('{...(navigationLinking ? { linking: navigationLinking } : {})}')
     && app.includes('key={navigationScopeKey}')
   ));
 
-  assert('external links are disabled until auth, onboarding, and planning gates are ready', (
+  assert('external links are disabled until auth and app-entry lookup are ready', (
     app.includes("session && entryStatus === 'ready' && !passwordRecoveryActive ? appLinking : undefined")
   ));
 
