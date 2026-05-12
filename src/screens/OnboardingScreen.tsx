@@ -8,7 +8,7 @@ import Animated, { FadeInRight, withTiming, useAnimatedStyle } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, ANIMATION } from '../theme/theme';
 import { supabase } from '../../lib/supabase';
-import { IconChevronLeft, IconChevronRight, IconCheckCircle } from '../components/icons';
+import { IconChevronLeft, IconChevronRight, IconCheckCircle, IconPlus } from '../components/icons';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DatePickerField } from '../components/DatePickerField';
 import { TimePickerField } from '../components/TimePickerField';
@@ -290,6 +290,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [saving, setSaving] = useState(false);
     const scrollViewRef = React.useRef<ScrollView | null>(null);
     const recentSessionTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const protectedWorkoutSectionYRef = React.useRef(0);
+    const fixedSessionStackYRef = React.useRef(0);
+    const fixedSessionYByIdRef = React.useRef<Record<string, number>>({});
     const { isOpen: numericPadOpen, close: closeNumericPad } = useCustomNumericPad();
 
     const currentStepMeta = STEP_META[step];
@@ -361,6 +364,31 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         Keyboard.dismiss();
     };
 
+    const scrollToFixedSessionSetup = (sessionId: string, attempt = 0) => {
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                const cardOffsetY = fixedSessionYByIdRef.current[sessionId];
+
+                if (typeof cardOffsetY === 'number') {
+                    const targetY = protectedWorkoutSectionYRef.current + fixedSessionStackYRef.current + cardOffsetY;
+                    scrollViewRef.current?.scrollTo({ x: 0, y: Math.max(targetY - SPACING.sm, 0), animated: true });
+                    return;
+                }
+
+                if (attempt < 3) {
+                    scrollToFixedSessionSetup(sessionId, attempt + 1);
+                    return;
+                }
+
+                scrollViewRef.current?.scrollTo({
+                    x: 0,
+                    y: Math.max(protectedWorkoutSectionYRef.current - SPACING.sm, 0),
+                    animated: true,
+                });
+            }, 80);
+        });
+    };
+
     const handleAddFixedSession = () => {
         const nextSession = createFixedSession(availableDays[0] ?? 1);
 
@@ -375,11 +403,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             setRecentlyAddedSessionId(null);
         }, 1800);
 
-        requestAnimationFrame(() => {
-            setTimeout(() => {
-                scrollViewRef.current?.scrollToEnd({ animated: true });
-            }, 80);
-        });
+        scrollToFixedSessionSetup(nextSession.id);
+    };
+
+    const handleRemoveFixedSession = (sessionId: string) => {
+        delete fixedSessionYByIdRef.current[sessionId];
+        setFixedSessions((current) => current.filter((item) => item.id !== sessionId));
     };
 
     const renderDayGrid = (
@@ -630,7 +659,13 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         const sessionTitle = session.label.trim() || defaultSessionLabel(session.activityType);
 
         return (
-        <View key={session.id} style={[styles.fixedSessionCard, isRecentlyAdded && styles.fixedSessionCardNew]}>
+        <View
+            key={session.id}
+            style={[styles.fixedSessionCard, isRecentlyAdded && styles.fixedSessionCardNew]}
+            onLayout={(event) => {
+                fixedSessionYByIdRef.current[session.id] = event.nativeEvent.layout.y;
+            }}
+        >
             <View style={styles.fixedSessionHeader}>
                 <View style={styles.fixedSessionTitleBlock}>
                     <View style={styles.fixedSessionEyebrowRow}>
@@ -640,7 +675,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     <Text style={styles.fixedSessionTitle}>{sessionTitle}</Text>
                 </View>
                 <TouchableOpacity
-                    onPress={() => setFixedSessions((current) => current.filter((item) => item.id !== session.id))}
+                    onPress={() => handleRemoveFixedSession(session.id)}
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${sessionTitle}`}
                 >
@@ -774,6 +809,20 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     </View>
                 ) : null;
             })}
+            {index === fixedSessions.length - 1 ? (
+                <TouchableOpacity
+                    style={styles.addAnotherSessionButton}
+                    onPress={handleAddFixedSession}
+                    activeOpacity={0.86}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add another protected workout"
+                    accessibilityHint="Creates another protected workout setup below this one."
+                    testID="onboarding-add-another-protected-workout"
+                >
+                    <IconPlus size={18} color={COLORS.accent} />
+                    <Text style={styles.addAnotherSessionText}>Add another protected workout</Text>
+                </TouchableOpacity>
+            ) : null}
         </View>
         );
     };
@@ -1078,7 +1127,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             {renderDayGrid(availableDays, toggleAvailableDay, 'multi')}
                         </View>
 
-                        <View style={styles.formGlassSection}>
+                        <View
+                            style={styles.formGlassSection}
+                            onLayout={(event) => {
+                                protectedWorkoutSectionYRef.current = event.nativeEvent.layout.y;
+                            }}
+                        >
                             <View style={styles.optionalHeader}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.inputLabel}>Protected workouts</Text>
@@ -1099,7 +1153,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <Text style={styles.helperText}>Optional. Skip this if nothing is fixed yet. Athleticore can ask again later.</Text>
                             ) : null}
                             {fixedSessions.length > 0 ? (
-                                <View style={styles.fixedSessionStack}>
+                                <View
+                                    style={styles.fixedSessionStack}
+                                    onLayout={(event) => {
+                                        fixedSessionStackYRef.current = event.nativeEvent.layout.y;
+                                    }}
+                                >
                                     {fixedSessions.map(renderFixedSession)}
                                 </View>
                             ) : null}
@@ -1205,7 +1264,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Limited-context guidance</Text>
                                 <Text style={styles.coachPointText}>
-                                    If data is limited, Athleticore will ask for the smallest useful check-in and avoid treating unknowns as safe.
+                                    Guidance will remain simple until you select equipment. If other data is limited, Athleticore will ask for the smallest useful check-in and avoid treating unknowns as safe.
                                 </Text>
                             </View>
                         </View>

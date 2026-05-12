@@ -117,6 +117,18 @@ assert('onboarding step changes reset scroll position to the top', hasAll(onboar
   'scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false })',
 ]));
 
+assert('onboarding final screen explains equipment-limited guidance before submit', hasAll(onboarding, [
+  'Limited-context guidance',
+  'Guidance will remain simple until you select equipment.',
+]));
+
+assert('protected workout add flow scrolls to the new setup and exposes a bottom add control', hasAll(onboarding, [
+  'scrollToFixedSessionSetup(nextSession.id)',
+  'fixedSessionYByIdRef',
+  'testID="onboarding-add-another-protected-workout"',
+  'Add another protected workout',
+]) && !onboarding.includes('scrollToEnd({ animated: true })'));
+
 assert('phase transition continue CTA is stable and preserves journey language', hasAll(phaseCard, [
   'testID="phase-transition-primary-cta"',
   'onPress={onContinue}',
