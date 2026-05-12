@@ -112,6 +112,11 @@ assert('onboarding continue and submit controls initialize the athlete journey',
   'onboarding-back',
 ]));
 
+assert('onboarding step changes reset scroll position to the top', hasAll(onboarding, [
+  '[step]',
+  'scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false })',
+]));
+
 assert('phase transition continue CTA is stable and preserves journey language', hasAll(phaseCard, [
   'testID="phase-transition-primary-cta"',
   'onPress={onContinue}',

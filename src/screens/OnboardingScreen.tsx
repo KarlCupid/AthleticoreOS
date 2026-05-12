@@ -315,6 +315,14 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         };
     }, []);
 
+    React.useEffect(() => {
+        const frame = requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [step]);
+
     const canProceed = () => {
         switch (step) {
             case 2:
