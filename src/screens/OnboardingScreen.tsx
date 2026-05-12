@@ -545,6 +545,43 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         </View>
     );
 
+    const renderSegmentedOptions = <T extends string>(
+        options: ReadonlyArray<{ value: T; label: string; descriptor?: string }>,
+        selectedValue: T,
+        onPress: (value: T) => void,
+        compact: boolean = false,
+    ) => (
+        <View style={[styles.segmentGrid, compact && styles.segmentGridCompact]}>
+            {options.map((option) => {
+                const selected = selectedValue === option.value;
+                return (
+                    <TouchableOpacity
+                        key={option.value}
+                        style={[
+                            styles.segmentButton,
+                            compact && styles.segmentButtonCompact,
+                            selected && styles.segmentButtonActive,
+                        ]}
+                        onPress={() => onPress(option.value)}
+                        activeOpacity={0.86}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={option.label}
+                    >
+                        <Text style={[styles.segmentTitle, selected && styles.segmentTitleActive]}>
+                            {option.label}
+                        </Text>
+                        {option.descriptor && !compact ? (
+                            <Text style={[styles.segmentDescription, selected && styles.segmentDescriptionActive]}>
+                                {option.descriptor}
+                            </Text>
+                        ) : null}
+                    </TouchableOpacity>
+                );
+            })}
+        </View>
+    );
+
     const renderFixedSession = (session: IntakeFixedSession) => (
         <View key={session.id} style={styles.fixedSessionCard}>
             <View style={styles.fixedSessionHeader}>
@@ -678,32 +715,23 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 0:
                 return (
                     <View style={styles.stepContent}>
-                        <ImageBackground
-                            source={ONBOARDING_BACKGROUNDS.welcome}
-                            style={styles.welcomePanel}
-                            imageStyle={styles.welcomePanelImage}
-                            resizeMode="cover"
-                        >
-                            <View style={styles.welcomePanelScrim} />
-                            <View style={styles.welcomeHeaderRow}>
-                                <View style={styles.welcomeIcon}>
-                                    <Image
-                                        source={BRAND_LOGO}
-                                        style={styles.welcomeLogo}
-                                        resizeMode="cover"
-                                        accessibilityLabel="Athleticore logo"
-                                    />
-                                </View>
-                                <View style={styles.welcomeHeaderCopy}>
-                                    <Text style={styles.welcomeKicker}>ATHLETE JOURNEY</Text>
-                                    <Text style={styles.welcomeSignal}>Coach in your corner</Text>
-                                </View>
+                        <View style={styles.signalStrip}>
+                            <View style={styles.signalMetric}>
+                                <Text style={styles.signalMetricValue}>01</Text>
+                                <Text style={styles.signalMetricLabel}>Start</Text>
                             </View>
-                            <Text style={styles.welcomeTitle}>Welcome to Athleticore.</Text>
-                            <Text style={styles.welcomeSubtitle}>
-                                We'll help you train, fuel, recover, and adapt around your real fight timeline.
-                            </Text>
-                        </ImageBackground>
+                            <View style={styles.signalMetricDivider} />
+                            <View style={styles.signalMetric}>
+                                <Text style={styles.signalMetricValue}>BOX</Text>
+                                <Text style={styles.signalMetricLabel}>Sport</Text>
+                            </View>
+                            <View style={styles.signalMetricDivider} />
+                            <View style={styles.signalMetric}>
+                                <Text style={styles.signalMetricValue}>LIVE</Text>
+                                <Text style={styles.signalMetricLabel}>Journey</Text>
+                            </View>
+                        </View>
+
                         <View style={styles.coachPointList}>
                             <View style={styles.coachPoint}>
                                 <View style={styles.coachPointRail} />
@@ -716,7 +744,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Protected anchors</Text>
                                 <Text style={styles.coachPointText}>
-                                    These sessions stay locked in. Athleticore will build around them.
+                                    Boxing practice, sparring, and coach-led work stay locked in while support work adapts.
                                 </Text>
                             </View>
                             <View style={styles.coachPoint}>
@@ -727,16 +755,18 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 </Text>
                             </View>
                         </View>
+
+                        <View style={styles.safetyCard}>
+                            <Text style={styles.safetyKicker}>SAFETY FIRST</Text>
+                            <Text style={styles.safetyText}>
+                                Unknown data stays unknown. Athleticore will ask for context before making confident calls.
+                            </Text>
+                        </View>
                     </View>
                 );
             case 1:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Your boxing baseline</Text>
-                        <Text style={styles.stepSubtitle}>
-                            Set the first plan around your real boxing rhythm, not a generic fitness profile.
-                        </Text>
-
                         <View style={styles.baselineDetailsCard}>
                             <Text style={styles.baselineDetailsTitle}>Optional baseline details</Text>
                             <Text style={styles.baselineDetailsCopy}>
@@ -780,77 +810,79 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             </View>
                         </View>
 
-                        <Text style={styles.inputLabel}>Biological profile</Text>
-                        <Text style={styles.helperText}>
-                            Used only for safer starting assumptions around recovery, fueling, and body-mass guidance. Your check-ins will personalize this over time.
-                        </Text>
-                        <View style={styles.activityOptionsList}>
-                            {BIO_SEX_OPTIONS.map((option) => renderOptionCard(
-                                bioSex === option.value,
-                                option,
-                                setBioSex,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Biological profile</Text>
+                            <Text style={styles.helperText}>
+                                Used for safer starting assumptions. Check-ins personalize this over time.
+                            </Text>
+                            {renderSegmentedOptions(BIO_SEX_OPTIONS, bioSex, setBioSex, true)}
                         </View>
 
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Experience level</Text>
-                        <Text style={styles.helperText}>Pick the closest match so the first progressions start at the right speed.</Text>
-                        <View style={styles.activityOptionsList}>
-                            {TRAINING_BACKGROUND_OPTIONS.map((option) => renderOptionCard(
-                                trainingBackground === option.value,
-                                option,
-                                setTrainingBackground,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Experience level</Text>
+                            <Text style={styles.helperText}>Pick the closest match so first progressions start at the right speed.</Text>
+                            <View style={styles.activityOptionsList}>
+                                {TRAINING_BACKGROUND_OPTIONS.map((option) => renderOptionCard(
+                                    trainingBackground === option.value,
+                                    option,
+                                    setTrainingBackground,
+                                ))}
+                            </View>
                         </View>
 
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Current goal</Text>
-                        <Text style={styles.helperText}>This tells Athleticore what to emphasize first while boxing sessions stay the priority.</Text>
-                        <View style={styles.activityOptionsList}>
-                            {MAIN_GOAL_OPTIONS.map((option) => renderOptionCard(
-                                mainGoal === option.value,
-                                option,
-                                setMainGoal,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Current goal</Text>
+                            <Text style={styles.helperText}>This tells Athleticore what to emphasize while boxing stays the priority.</Text>
+                            <View style={styles.activityOptionsList}>
+                                {MAIN_GOAL_OPTIONS.map((option) => renderOptionCard(
+                                    mainGoal === option.value,
+                                    option,
+                                    setMainGoal,
+                                ))}
+                            </View>
                         </View>
 
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Training lately</Text>
-                        <Text style={styles.helperText}>Think about the last few weeks, not your all-time best week.</Text>
-                        <View style={styles.activityOptionsList}>
-                            {TRAINING_STATUS_OPTIONS.map((option) => renderOptionCard(
-                                trainingStatus === option.value,
-                                option,
-                                setTrainingStatus,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Training lately</Text>
+                            <Text style={styles.helperText}>Think about the last few weeks, not your all-time best week.</Text>
+                            <View style={styles.activityOptionsList}>
+                                {TRAINING_STATUS_OPTIONS.map((option) => renderOptionCard(
+                                    trainingStatus === option.value,
+                                    option,
+                                    setTrainingStatus,
+                                ))}
+                            </View>
                         </View>
                     </View>
                 );
             case 2:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Where are you in the journey?</Text>
-                        <Text style={styles.stepSubtitle}>
-                            Phase changes are transitions, not restarts. If you are not sure, Athleticore can start conservatively.
-                        </Text>
-
-                        <Text style={styles.inputLabel}>Current journey state</Text>
-                        <View style={styles.activityOptionsList}>
-                            {JOURNEY_STATE_OPTIONS.map((option) => renderOptionCard(
-                                journeyState === option.value,
-                                option,
-                                setJourneyState,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Current journey state</Text>
+                            <Text style={styles.helperText}>Phase changes are transitions, not restarts.</Text>
+                            <View style={styles.activityOptionsList}>
+                                {JOURNEY_STATE_OPTIONS.map((option) => renderOptionCard(
+                                    journeyState === option.value,
+                                    option,
+                                    setJourneyState,
+                                ))}
+                            </View>
                         </View>
 
-                        <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Fight context</Text>
-                        <View style={styles.activityOptionsList}>
-                            {FIGHT_STATUS_OPTIONS.map((option) => renderOptionCard(
-                                fightStatus === option.value,
-                                option,
-                                handleFightStatusChange,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Fight context</Text>
+                            <View style={styles.activityOptionsList}>
+                                {FIGHT_STATUS_OPTIONS.map((option) => renderOptionCard(
+                                    fightStatus === option.value,
+                                    option,
+                                    handleFightStatusChange,
+                                ))}
+                            </View>
                         </View>
 
                         {fightStatus !== 'none' ? (
-                            <View style={styles.optionalBlock}>
+                            <View style={styles.formGlassSection}>
                                 <Text style={styles.inputLabel}>Fight details</Text>
                                 <Text style={styles.helperText}>
                                     Fight details can change. Athleticore will adapt training, fuel, recovery, and body-mass context without throwing away what it already knows.
@@ -954,7 +986,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 </View>
                             </View>
                         ) : (
-                            <View style={styles.coachPoint}>
+                            <View style={[styles.coachPoint, styles.standaloneCoachPoint]}>
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>No fight yet</Text>
                                 <Text style={styles.coachPointText}>
@@ -967,16 +999,13 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 3:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Protect the work that cannot move</Text>
-                        <Text style={styles.stepSubtitle}>
-                            Some sessions are non-negotiable. Add sparring, team training, or fixed sessions here, and Athleticore will build around them.
-                        </Text>
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Realistic training days</Text>
+                            <Text style={styles.helperText}>Pick the days the plan can actually use. Honest availability beats an ideal week you cannot repeat.</Text>
+                            {renderDayGrid(availableDays, toggleAvailableDay, 'multi')}
+                        </View>
 
-                        <Text style={styles.inputLabel}>Realistic training days</Text>
-                        <Text style={styles.helperText}>Pick the days the plan can actually use. Honest availability beats an ideal week you cannot repeat.</Text>
-                        {renderDayGrid(availableDays, toggleAvailableDay, 'multi')}
-
-                        <View style={styles.optionalBlock}>
+                        <View style={styles.formGlassSection}>
                             <View style={styles.optionalHeader}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.inputLabel}>Protected workouts</Text>
@@ -1004,22 +1033,19 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 4:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Fuel and readiness baseline</Text>
-                        <Text style={styles.stepSubtitle}>
-                            Recovery is part of the work. Athleticore will help you know when to push and when to absorb the training.
-                        </Text>
-
-                        <Text style={styles.inputLabel}>Fueling basics</Text>
-                        <Text style={styles.helperText}>We'll use this to guide fueling around your training, recovery, and fight timeline.</Text>
-                        <View style={styles.activityOptionsList}>
-                            {FUELING_OPTIONS.map((option) => renderOptionCard(
-                                fuelingPreference === option.value,
-                                option,
-                                setFuelingPreference,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Fueling basics</Text>
+                            <Text style={styles.helperText}>We'll use this around training, recovery, and fight timeline context.</Text>
+                            <View style={styles.activityOptionsList}>
+                                {FUELING_OPTIONS.map((option) => renderOptionCard(
+                                    fuelingPreference === option.value,
+                                    option,
+                                    setFuelingPreference,
+                                ))}
+                            </View>
                         </View>
 
-                        <View style={[styles.inputGroup, { marginTop: SPACING.lg }]}>
+                        <View style={styles.formGlassSection}>
                             <Text style={styles.inputLabel}>Dietary preferences or restrictions (optional)</Text>
                             <TextInput
                                 style={[styles.input, { minHeight: 84, textAlignVertical: 'top' }]}
@@ -1032,7 +1058,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         </View>
 
                         {shouldAskBodyMassContext ? (
-                            <View style={styles.coachPoint}>
+                            <View style={[styles.coachPoint, styles.standaloneCoachPoint]}>
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Body-mass safety</Text>
                                 <Text style={styles.coachPointText}>
@@ -1041,21 +1067,25 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                             </View>
                         ) : null}
 
-                        {renderScale('Sleep/recovery', sleepQuality, setSleepQuality)}
-                        {renderScale('Overall readiness', recoveryBaseline, setRecoveryBaseline)}
-                        {renderScale('Soreness', sorenessBaseline, setSorenessBaseline)}
-                        {renderScale('Fatigue', fatigueBaseline, setFatigueBaseline)}
-
-                        <Text style={styles.inputLabel}>Pain or injury concern</Text>
-                        <View style={styles.activityOptionsList}>
-                            {PAIN_OPTIONS.map((option) => renderOptionCard(
-                                painConcern === option.value,
-                                option,
-                                setPainConcern,
-                            ))}
+                        <View style={styles.formGlassSection}>
+                            {renderScale('Sleep/recovery', sleepQuality, setSleepQuality)}
+                            {renderScale('Overall readiness', recoveryBaseline, setRecoveryBaseline)}
+                            {renderScale('Soreness', sorenessBaseline, setSorenessBaseline)}
+                            {renderScale('Fatigue', fatigueBaseline, setFatigueBaseline)}
                         </View>
 
-                        <View style={[styles.inputGroup, { marginTop: SPACING.lg }]}>
+                        <View style={styles.formGlassSection}>
+                            <Text style={styles.inputLabel}>Pain or injury concern</Text>
+                            <View style={styles.activityOptionsList}>
+                                {PAIN_OPTIONS.map((option) => renderOptionCard(
+                                    painConcern === option.value,
+                                    option,
+                                    setPainConcern,
+                                ))}
+                            </View>
+                        </View>
+
+                        <View style={styles.formGlassSection}>
                             <Text style={styles.inputLabel}>Notes for Athleticore (optional)</Text>
                             <TextInput
                                 style={[styles.input, { minHeight: 84, textAlignVertical: 'top' }]}
@@ -1071,11 +1101,13 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             case 5:
                 return (
                     <View style={styles.stepContent}>
-                        <Text style={styles.stepTitle}>Build your first mission</Text>
-                        <Text style={styles.stepSubtitle}>
-                            Each day, Athleticore gives you a mission: what matters today, why it matters, what changed, and what to do next.
-                        </Text>
-
+                        <View style={styles.missionPreviewCard}>
+                            <Text style={styles.missionPreviewKicker}>TODAY'S MISSION</Text>
+                            <Text style={styles.missionPreviewTitle}>What matters. Why it matters. What changed.</Text>
+                            <Text style={styles.missionPreviewText}>
+                                The first mission starts conservative, then sharpens as your check-ins and protected anchors come in.
+                            </Text>
+                        </View>
                         <View style={styles.coachPointList}>
                             <View style={styles.coachPoint}>
                                 <View style={styles.coachPointRail} />
@@ -1106,11 +1138,17 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         }
     };
 
+    const phaseBackground = step === 0 ? ONBOARDING_BACKGROUNDS.welcome : ONBOARDING_BACKGROUNDS.phase;
+
     return (
         <KeyboardAvoidingView
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+            <View pointerEvents="none" style={styles.appBackdrop}>
+                <View style={styles.backdropGoldWash} />
+                <View style={styles.backdropPearlWash} />
+            </View>
             <View style={[styles.inner, { paddingTop: insets.top + (keyboardVisible ? SPACING.sm : SPACING.lg) }]}>
                 <View style={styles.topNav}>
                     <View style={styles.brandHeader}>
@@ -1147,12 +1185,13 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 </View>
 
                 <ImageBackground
-                    source={ONBOARDING_BACKGROUNDS.phase}
+                    source={phaseBackground}
                     style={[styles.phaseCard, keyboardVisible && styles.phaseCardKeyboard]}
                     imageStyle={styles.phaseCardImage}
                     resizeMode="cover"
                 >
                     <View style={styles.phaseCardScrim} />
+                    <View style={styles.phaseMetalLine} />
                     <View style={styles.phaseHeaderRow}>
                         <View style={styles.phaseStepBadge}>
                             <Text style={styles.phaseStepBadgeText}>{step + 1}</Text>
@@ -1164,6 +1203,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         <Text style={styles.phaseStepPill}>{step + 1}/{TOTAL_STEPS}</Text>
                     </View>
                     <Text style={styles.phaseDescription}>{currentStepMeta.description}</Text>
+                    <View style={styles.phaseMetaRow}>
+                        <Text style={styles.phaseMetaPill}>BOXING-FIRST</Text>
+                        <Text style={styles.phaseMetaPill}>COACH INTAKE</Text>
+                    </View>
                 </ImageBackground>
 
                 <ScrollView
