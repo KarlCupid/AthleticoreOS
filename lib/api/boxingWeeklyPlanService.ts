@@ -16,14 +16,14 @@ import type {
   WorkoutDoseBucket,
 } from '../engine/types';
 import { formatLocalDate, todayLocalDate } from '../utils/date';
+import { logWarn } from '../utils/logger';
 import { getAthleteContext } from './athleteContextService';
 import { getDailyEngineState, getWeeklyAthleteSummary } from './dailyPerformanceService';
-import { saveWeekPlan, updatePlanEntryBoxingGeneratedWorkout } from './weeklyPlanService';
+import { saveWeekPlan } from './weeklyPlanService';
 import { getRecurringActivities } from './scheduleService';
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
 import {
   generatedProgramToWeeklyPlanEntries,
-  getBoxingSnapshotFromWeeklyPlanEntry,
   inferProtectedWorkoutModality,
   readinessBandFromLevel,
   resolveBoxingSAndCEngineFlags,
@@ -446,6 +446,7 @@ export async function generateAndSaveBoxingWeeklyPlan(
     weekStart,
     program,
     planConfig,
+    includeGeneratedWorkoutForSession: (session) => session.weekIndex === 1,
   });
 
   if (adapted.entries.length === 0) {
@@ -453,33 +454,23 @@ export async function generateAndSaveBoxingWeeklyPlan(
   }
 
   const savedPlanEntries = await saveWeekPlan(userId, adapted.entries);
-  let userProgramId: string | null = null;
-  try {
-    userProgramId = await workoutProgrammingService.saveGeneratedProgramForUser(userId, program, {
-      useSupabase: true,
-      catalogFallback: 'safe',
-      contentReviewMode: 'production',
-      allowDraftContent: false,
+  void workoutProgrammingService.saveGeneratedProgramForUser(userId, program, {
+    useSupabase: true,
+    catalogFallback: 'safe',
+    contentReviewMode: 'production',
+    allowDraftContent: false,
+  })
+    .then((userProgramId) => {
+      if (userProgramId) program.persistenceId = userProgramId;
+    })
+    .catch((persistError) => {
+      logWarn('generateAndSaveBoxingWeeklyPlan.programPersistence', persistError, {
+        userId,
+        weekStart,
+        savedEntryCount: savedPlanEntries.length,
+      });
     });
-    if (userProgramId) {
-      program.persistenceId = userProgramId;
-      for (const entry of savedPlanEntries) {
-        const snapshot = getBoxingSnapshotFromWeeklyPlanEntry(entry);
-        if (!snapshot || snapshot.protectedAnchor || !snapshot.generatedWorkout) continue;
-        await updatePlanEntryBoxingGeneratedWorkout(
-          entry.id,
-          { ...snapshot, userProgramId },
-          snapshot.generatedWorkout,
-          snapshot.generatedWorkoutId ?? null,
-        );
-      }
-    }
-  } catch (persistOrLinkError) {
-    if (userProgramId) {
-      await workoutProgrammingService.archiveGeneratedProgramForUser(userId, userProgramId, { useSupabase: true }).catch(() => null);
-    }
-    throw persistOrLinkError;
-  }
+
   const weeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: true });
   const savedEntries = weeklyAthleteSummary.entries;
   const firstWeek = program.weeks[0];

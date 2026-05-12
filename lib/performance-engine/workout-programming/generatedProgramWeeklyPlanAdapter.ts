@@ -548,7 +548,20 @@ function weekSnapshot(week: GeneratedProgramWeek | undefined): BoxingGeneratedPr
   return snapshot;
 }
 
-function snapshotForSession(program: GeneratedProgram, session: GeneratedProgramSession, week: GeneratedProgramWeek | undefined, scheduledDate: string): BoxingGeneratedPlanEntrySnapshot {
+function snapshotForSession(input: {
+  program: GeneratedProgram;
+  session: GeneratedProgramSession;
+  week: GeneratedProgramWeek | undefined;
+  scheduledDate: string;
+  includeGeneratedWorkout: boolean;
+}): BoxingGeneratedPlanEntrySnapshot {
+  const {
+    program,
+    session,
+    week,
+    scheduledDate,
+    includeGeneratedWorkout,
+  } = input;
   const family = session.boxingSessionFamily;
   const supportMeta = supportSessionMetadata({
     family,
@@ -592,7 +605,7 @@ function snapshotForSession(program: GeneratedProgram, session: GeneratedProgram
     sessionEnergyDemandScore: session.sessionEnergyDemandScore ?? supportMeta.sessionEnergyDemandScore,
     sessionRecoveryDemandScore: session.sessionRecoveryDemandScore ?? supportMeta.sessionRecoveryDemandScore,
     rationale: session.rationale ?? [],
-    generatedWorkout: session.workout ?? null,
+    generatedWorkout: includeGeneratedWorkout ? session.workout ?? null : null,
     weekSummary: weekSnapshot(week),
   };
   snapshot.userProgramId = program.persistenceId ?? session.userProgramId ?? null;
@@ -643,6 +656,7 @@ export function generatedProgramToWeeklyPlanEntries(input: {
   weekStart: string;
   program: GeneratedProgram;
   planConfig?: WeeklyPlanConfigRow | null;
+  includeGeneratedWorkoutForSession?: ((session: GeneratedProgramSession) => boolean) | undefined;
 }): GeneratedProgramWeeklyPlanAdapterResult {
   const firstWeek = input.program.weeks.find((week) => week.weekIndex === 1) ?? input.program.weeks[0];
   const weeksByIndex = new Map(input.program.weeks.map((week) => [week.weekIndex, week]));
@@ -662,7 +676,13 @@ export function generatedProgramToWeeklyPlanEntries(input: {
     weekOrder.set(session.weekIndex, currentOrder);
     const scheduledDate = dateForSession(input.weekStart, session);
     const sessionWeekStart = addDays(input.weekStart, (Math.max(1, session.weekIndex) - 1) * 7);
-    const snapshot = snapshotForSession(input.program, session, week, scheduledDate);
+    const snapshot = snapshotForSession({
+      program: input.program,
+      session,
+      week,
+      scheduledDate,
+      includeGeneratedWorkout: input.includeGeneratedWorkoutForSession?.(session) ?? true,
+    });
     const doseSummary = doseSummaryForSession(session);
     const doseBucket = bucketForFamily(session.boxingSessionFamily);
     const sourceLabel = session.protectedAnchor

@@ -231,10 +231,12 @@ function testGeneratedProgramAdapter(): void {
     userId: 'user-1',
     weekStart: '2026-05-04',
     program: multiWeek,
+    includeGeneratedWorkoutForSession: (session) => session.weekIndex === 1,
   });
   const weekTwoEntry = multiWeekAdapted.entries.find((entry) => entry.week_start_date === '2026-05-11');
   const weekTwoSnapshot = getBoxingSnapshotFromWeeklyPlanEntry(weekTwoEntry as WeeklyPlanEntryRow);
   assert('adapter persists future generated weeks for look-ahead plans', weekTwoEntry?.date === '2026-05-11' && weekTwoSnapshot?.weekIndex === 2);
+  assert('adapter can keep future look-ahead entries lightweight', weekTwoSnapshot?.generatedWorkout === null);
 }
 
 function testRequestBuilder(): void {
