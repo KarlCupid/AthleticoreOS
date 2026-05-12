@@ -1,6 +1,8 @@
 import { StyleSheet } from 'react-native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 
+const SCREEN_HORIZONTAL_PADDING = 18;
+
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -30,7 +32,7 @@ export const styles = StyleSheet.create({
     },
     inner: {
         flex: 1,
-        paddingHorizontal: 18,
+        paddingHorizontal: SCREEN_HORIZONTAL_PADDING,
     },
     topNav: {
         flexDirection: 'row',
@@ -1035,27 +1037,30 @@ export const styles = StyleSheet.create({
         color: COLORS.text.inverse,
     },
     keyboardAccessory: {
-        minHeight: 72,
+        alignSelf: 'stretch',
+        minHeight: 58,
+        marginHorizontal: -SCREEN_HORIZONTAL_PADDING,
         marginTop: SPACING.sm,
-        paddingHorizontal: SPACING.lg,
-        paddingTop: SPACING.sm,
-        paddingBottom: SPACING.md,
+        paddingHorizontal: SCREEN_HORIZONTAL_PADDING,
+        paddingVertical: SPACING.xs,
         alignItems: 'flex-end',
         justifyContent: 'center',
-        backgroundColor: 'rgba(10, 10, 10, 0.96)',
+        backgroundColor: 'rgba(245, 245, 240, 0.10)',
         borderTopWidth: 1,
-        borderTopColor: 'rgba(245, 245, 240, 0.14)',
+        borderBottomWidth: 1,
+        borderColor: 'rgba(245, 245, 240, 0.14)',
+        ...SHADOWS.card,
     },
     keyboardDoneButton: {
         minHeight: 44,
         minWidth: 92,
-        paddingHorizontal: SPACING.lg,
+        paddingHorizontal: SPACING.md + SPACING.sm,
         borderRadius: RADIUS.full,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: COLORS.accent,
         borderWidth: 1,
-        borderColor: 'rgba(245, 245, 240, 0.22)',
+        borderColor: 'rgba(245, 245, 240, 0.28)',
         ...SHADOWS.colored.accent,
     },
     keyboardDoneText: {

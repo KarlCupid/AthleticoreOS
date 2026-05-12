@@ -835,7 +835,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                         placeholder="25"
                                         placeholderTextColor={COLORS.text.tertiary}
                                         keyboardType="numeric"
-                                        returnKeyType="done"
                                         value={age}
                                         onChangeText={setAge}
                                         accessibilityLabel="Age optional"
@@ -852,7 +851,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                         placeholder="155"
                                         placeholderTextColor={COLORS.text.tertiary}
                                         keyboardType="decimal-pad"
-                                        returnKeyType="done"
                                         value={weight}
                                         onChangeText={setWeight}
                                         accessibilityLabel="Current weight optional"
