@@ -5,7 +5,7 @@ import {
   type AthleteJourneyAppEntryState,
 } from './athleteJourneyService';
 
-const JOURNEY_ENTRY_CACHE_VERSION = 1;
+const JOURNEY_ENTRY_CACHE_VERSION = 2;
 const JOURNEY_ENTRY_CACHE_PREFIX = 'athleticore:journey-entry:';
 
 function journeyEntryCacheKey(userId: string): string {

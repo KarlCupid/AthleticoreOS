@@ -23,6 +23,7 @@ import {
   readReadyAthleteJourneyEntryCache,
   writeReadyAthleteJourneyEntryCache,
 } from './lib/api/athleteJourneyEntryCache';
+import { setActiveAuthUserId } from './lib/api/athleteContextService';
 import type { CoachIntakeResult } from './src/screens/onboarding/completeCoachIntake';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
@@ -201,7 +202,9 @@ export default function App() {
           throw error;
         }
 
-        sessionUserIdRef.current = currentSession?.user.id ?? null;
+        const nextUserId = currentSession?.user.id ?? null;
+        sessionUserIdRef.current = nextUserId;
+        setActiveAuthUserId(nextUserId);
         setSession(currentSession);
         addMonitoringBreadcrumb('auth', 'session_lookup_succeeded', {
           sessionPresent: Boolean(currentSession),
@@ -238,6 +241,7 @@ export default function App() {
       const nextUserId = nextSession?.user.id ?? null;
 
       sessionUserIdRef.current = nextUserId;
+      setActiveAuthUserId(nextUserId);
       setSession(nextSession);
       addMonitoringBreadcrumb('auth', 'auth_state_changed', {
         authEvent: event,
@@ -331,8 +335,13 @@ export default function App() {
         return;
       }
 
-      logError('App.journeyEntryLookup', error, { journeyOperation: 'getAppEntryState' });
-      setJourneyLoadError(toError(error));
+      logWarn('App.journeyEntryLookup.nonBlockingFallback', error, { journeyOperation: 'getAppEntryState' });
+      const fallbackEntryState = createReadyAthleteJourneyAppEntryState();
+      setJourneyEntryState(fallbackEntryState);
+      setJourneyLoadError(null);
+      addMonitoringBreadcrumb('journey', 'entry_lookup_non_blocking_fallback', {
+        status: fallbackEntryState.status,
+      }, 'warning');
     } finally {
       setCheckingJourney(false);
     }
@@ -393,6 +402,7 @@ export default function App() {
 
     setSession(null);
     sessionUserIdRef.current = null;
+    setActiveAuthUserId(null);
     addMonitoringBreadcrumb('auth', 'sign_out_succeeded');
   }, []);
 

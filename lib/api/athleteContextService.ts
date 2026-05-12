@@ -120,11 +120,26 @@ export function normalizeCycleDay(value: unknown): number | null {
     : null;
 }
 
+let activeAuthUserId: string | null = null;
+
+export function setActiveAuthUserId(userId: string | null): void {
+  activeAuthUserId = userId;
+}
+
+export function getActiveAuthUserIdSnapshot(): string | null {
+  return activeAuthUserId;
+}
+
 export async function getActiveUserId(): Promise<string | null> {
+  if (activeAuthUserId) {
+    return activeAuthUserId;
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  return session?.user?.id ?? null;
+  activeAuthUserId = session?.user?.id ?? null;
+  return activeAuthUserId;
 }
 
 export async function getAthleteProfile(userId: string): Promise<AthleteProfileRow | null> {

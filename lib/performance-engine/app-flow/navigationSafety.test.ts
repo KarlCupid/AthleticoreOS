@@ -196,6 +196,7 @@ console.log('\n-- navigation safety and preview surface guards --');
 
 (() => {
   const app = read('App.tsx');
+  const athleteContext = read('lib/api/athleteContextService.ts');
   const profile = read('src/screens/ProfileSettingsScreen.tsx');
 
   assert('root navigation is scoped by auth and resolved app-entry state', (
@@ -209,11 +210,26 @@ console.log('\n-- navigation safety and preview surface guards --');
     app.includes("session && entryStatus === 'ready' && !passwordRecoveryActive ? appLinking : undefined")
   ));
 
+  assert('signed-in journey lookup failures fall forward instead of trapping root navigation', (
+    app.includes('entry_lookup_non_blocking_fallback')
+    && app.includes('createReadyAthleteJourneyAppEntryState()')
+    && app.includes('setJourneyLoadError(null)')
+    && !app.includes('writeReadyAthleteJourneyEntryCache(userId, fallbackEntryState)')
+  ));
+
+  assert('screen data hooks reuse root auth user id before consulting Supabase session storage', (
+    app.includes('setActiveAuthUserId(nextUserId)')
+    && app.includes('setActiveAuthUserId(null)')
+    && athleteContext.includes('activeAuthUserId')
+    && athleteContext.includes('if (activeAuthUserId)')
+  ));
+
   assert('sign-out and expired sessions clear journey state before remounting navigation', (
     app.includes("if (!nextSession)")
     && app.includes('setJourneyEntryState(null)')
     && app.includes('setSession(null)')
     && app.includes("sessionUserIdRef.current = null")
+    && app.includes('setActiveAuthUserId(null)')
   ));
 
   assert('Profile version tap and tester reset use centralized dev-surface gate', (
