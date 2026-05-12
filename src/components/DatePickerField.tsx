@@ -144,6 +144,10 @@ const styles = StyleSheet.create({
     },
     pickerHeaderAction: {
         minHeight: 44,
+        minWidth: 74,
+        paddingHorizontal: SPACING.md,
+        borderRadius: RADIUS.full,
+        alignItems: 'center',
         justifyContent: 'center',
     },
     pickerCancel: { fontSize: 16, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary },

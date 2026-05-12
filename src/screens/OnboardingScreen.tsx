@@ -285,7 +285,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [painConcern, setPainConcern] = useState<IntakePainConcern>('unknown');
     const [injuryNotes, setInjuryNotes] = useState('');
     const [effortTooltipBySessionId, setEffortTooltipBySessionId] = useState<Record<string, number>>({});
+    const [recentlyAddedSessionId, setRecentlyAddedSessionId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const scrollViewRef = React.useRef<ScrollView | null>(null);
+    const recentSessionTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const currentStepMeta = STEP_META[step];
     const shouldAskBodyMassContext = mainGoal === 'weight_class_prep'
@@ -303,6 +306,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         return () => {
             showSub.remove();
             hideSub.remove();
+            if (recentSessionTimeoutRef.current) {
+                clearTimeout(recentSessionTimeoutRef.current);
+            }
         };
     }, []);
 
@@ -337,6 +343,27 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         setFixedSessions((current) => current.map((session) => (
             session.id === id ? { ...session, ...patch } : session
         )));
+    };
+
+    const handleAddFixedSession = () => {
+        const nextSession = createFixedSession(availableDays[0] ?? 1);
+
+        setFixedSessions((current) => [...current, nextSession]);
+        setRecentlyAddedSessionId(nextSession.id);
+
+        if (recentSessionTimeoutRef.current) {
+            clearTimeout(recentSessionTimeoutRef.current);
+        }
+
+        recentSessionTimeoutRef.current = setTimeout(() => {
+            setRecentlyAddedSessionId(null);
+        }, 1800);
+
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 80);
+        });
     };
 
     const renderDayGrid = (
@@ -582,35 +609,58 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         </View>
     );
 
-    const renderFixedSession = (session: IntakeFixedSession) => (
-        <View key={session.id} style={styles.fixedSessionCard}>
+    const renderFixedSession = (session: IntakeFixedSession, index: number) => {
+        const isRecentlyAdded = recentlyAddedSessionId === session.id;
+        const sessionTitle = session.label.trim() || defaultSessionLabel(session.activityType);
+
+        return (
+        <View key={session.id} style={[styles.fixedSessionCard, isRecentlyAdded && styles.fixedSessionCardNew]}>
             <View style={styles.fixedSessionHeader}>
-                <Text style={styles.fixedSessionTitle}>{session.label || defaultSessionLabel(session.activityType)}</Text>
+                <View style={styles.fixedSessionTitleBlock}>
+                    <View style={styles.fixedSessionEyebrowRow}>
+                        <Text style={styles.fixedSessionEyebrow}>Protected workout {index + 1}</Text>
+                        {isRecentlyAdded ? <Text style={styles.newSessionBadge}>Added</Text> : null}
+                    </View>
+                    <Text style={styles.fixedSessionTitle}>{sessionTitle}</Text>
+                </View>
                 <TouchableOpacity
                     onPress={() => setFixedSessions((current) => current.filter((item) => item.id !== session.id))}
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${session.label || defaultSessionLabel(session.activityType)}`}
+                    accessibilityLabel={`Remove ${sessionTitle}`}
                 >
                     <Text style={styles.removeText}>Remove</Text>
                 </TouchableOpacity>
             </View>
 
             <Text style={styles.inputLabel}>Type</Text>
-            <View style={styles.pillRow}>
-                {SESSION_TYPE_OPTIONS.map((option) => (
-                    <TouchableOpacity
-                        key={option.value}
-                        style={[styles.pill, session.activityType === option.value && styles.pillActive]}
-                        onPress={() => updateFixedSession(session.id, { activityType: option.value })}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: session.activityType === option.value }}
-                        accessibilityLabel={`Set protected workout type to ${option.label}`}
-                    >
-                        <Text style={[styles.pillText, session.activityType === option.value && styles.pillTextActive]}>
-                            {option.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+            <View style={styles.sessionTypeGrid}>
+                {SESSION_TYPE_OPTIONS.map((option, index) => {
+                    const selected = session.activityType === option.value;
+                    const isLastOddItem = SESSION_TYPE_OPTIONS.length % 2 === 1 && index === SESSION_TYPE_OPTIONS.length - 1;
+
+                    return (
+                        <TouchableOpacity
+                            key={option.value}
+                            style={[
+                                styles.sessionTypeButton,
+                                isLastOddItem && styles.sessionTypeButtonFull,
+                                selected && styles.sessionTypeButtonActive,
+                            ]}
+                            onPress={() => updateFixedSession(session.id, { activityType: option.value })}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            accessibilityLabel={`Set protected workout type to ${option.label}`}
+                        >
+                            <Text
+                                style={[styles.sessionTypeText, selected && styles.sessionTypeTextActive]}
+                                numberOfLines={1}
+                                adjustsFontSizeToFit
+                            >
+                                {option.label}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
             </View>
 
             <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>Day</Text>
@@ -708,7 +758,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 ) : null;
             })}
         </View>
-    );
+        );
+    };
 
     const renderStep = () => {
         switch (step) {
@@ -1012,21 +1063,24 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                     <Text style={styles.helperText}>These sessions stay locked in. Athleticore will move the supporting work around them.</Text>
                                 </View>
                                 <TouchableOpacity
-                                    style={styles.addSmallButton}
-                                    onPress={() => setFixedSessions((current) => [
-                                        ...current,
-                                        createFixedSession(availableDays[0] ?? 1),
-                                    ])}
+                                    style={[styles.addSmallButton, recentlyAddedSessionId && styles.addSmallButtonActive]}
+                                    onPress={handleAddFixedSession}
                                     accessibilityRole="button"
-                                    accessibilityLabel="Add protected workout"
+                                    accessibilityLabel="Add protected workout. New workout will appear below."
                                 >
-                                    <Text style={styles.addSmallButtonText}>Add</Text>
+                                    <Text style={[styles.addSmallButtonText, recentlyAddedSessionId && styles.addSmallButtonTextActive]}>
+                                        {recentlyAddedSessionId ? 'Added' : 'Add'}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                             {fixedSessions.length === 0 ? (
                                 <Text style={styles.helperText}>Optional. Skip this if nothing is fixed yet. Athleticore can ask again later.</Text>
                             ) : null}
-                            {fixedSessions.map(renderFixedSession)}
+                            {fixedSessions.length > 0 ? (
+                                <View style={styles.fixedSessionStack}>
+                                    {fixedSessions.map(renderFixedSession)}
+                                </View>
+                            ) : null}
                         </View>
                     </View>
                 );
@@ -1210,55 +1264,71 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 </ImageBackground>
 
                 <ScrollView
+                    ref={scrollViewRef}
                     contentContainerStyle={[styles.scrollContent, keyboardVisible && styles.scrollContentKeyboard]}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
+                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 >
                     <Animated.View key={step} entering={FadeInRight.duration(ANIMATION.normal).springify()} style={{ flex: 1 }}>
                         {renderStep()}
                     </Animated.View>
                 </ScrollView>
 
-                <View
-                    style={[
-                        styles.navRow,
-                        keyboardVisible && styles.navRowKeyboard,
-                        { paddingBottom: keyboardVisible ? SPACING.xs : insets.bottom + SPACING.md },
-                    ]}
-                >
-                    {step > 0 ? (
+                {keyboardVisible ? (
+                    <View style={styles.keyboardAccessory}>
                         <TouchableOpacity
                             accessibilityRole="button"
-                            accessibilityLabel="Back"
-                            accessibilityHint="Returns to the previous onboarding step."
-                            style={styles.backButton}
-                            onPress={handleBack}
-                            testID="onboarding-back"
+                            accessibilityLabel="Done editing onboarding field"
+                            style={styles.keyboardDoneButton}
+                            onPress={Keyboard.dismiss}
+                            activeOpacity={0.86}
                         >
-                            <IconChevronLeft size={20} color={COLORS.text.secondary} />
-                            <Text style={styles.backText}>Back</Text>
+                            <Text style={styles.keyboardDoneText}>Done</Text>
                         </TouchableOpacity>
-                    ) : (
-                        <View />
-                    )}
+                    </View>
+                ) : null}
 
-                    <AnimatedPressable
-                        accessibilityRole="button"
-                        accessibilityLabel={saving ? 'Building first mission' : step === TOTAL_STEPS - 1 ? 'Build my first mission' : 'Continue'}
-                        accessibilityHint={step === TOTAL_STEPS - 1 ? 'Completes onboarding and creates your first mission.' : 'Moves to the next onboarding step.'}
-                        accessibilityState={{ disabled: !canProceed() || saving, busy: saving }}
-                        testID={step === TOTAL_STEPS - 1 ? 'onboarding-submit' : 'onboarding-continue'}
-                        style={[styles.nextButton, (!canProceed() || saving) && styles.nextButtonDisabled]}
-                        onPress={handleNext}
-                        disabled={!canProceed() || saving}
+                {!keyboardVisible ? (
+                    <View
+                        style={[
+                            styles.navRow,
+                            { paddingBottom: insets.bottom + SPACING.md },
+                        ]}
                     >
-                        <Text style={styles.nextText}>
-                            {saving ? 'Building your mission...' : step === TOTAL_STEPS - 1 ? 'Build my first mission' : 'Continue'}
-                        </Text>
-                        {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color={COLORS.text.inverse} /> : null}
-                    </AnimatedPressable>
-                </View>
+                        {step > 0 ? (
+                            <TouchableOpacity
+                                accessibilityRole="button"
+                                accessibilityLabel="Back"
+                                accessibilityHint="Returns to the previous onboarding step."
+                                style={styles.backButton}
+                                onPress={handleBack}
+                                testID="onboarding-back"
+                            >
+                                <IconChevronLeft size={20} color={COLORS.text.secondary} />
+                                <Text style={styles.backText}>Back</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <View />
+                        )}
+
+                        <AnimatedPressable
+                            accessibilityRole="button"
+                            accessibilityLabel={saving ? 'Building first mission' : step === TOTAL_STEPS - 1 ? 'Build my first mission' : 'Continue'}
+                            accessibilityHint={step === TOTAL_STEPS - 1 ? 'Completes onboarding and creates your first mission.' : 'Moves to the next onboarding step.'}
+                            accessibilityState={{ disabled: !canProceed() || saving, busy: saving }}
+                            testID={step === TOTAL_STEPS - 1 ? 'onboarding-submit' : 'onboarding-continue'}
+                            style={[styles.nextButton, (!canProceed() || saving) && styles.nextButtonDisabled]}
+                            onPress={handleNext}
+                            disabled={!canProceed() || saving}
+                        >
+                            <Text style={styles.nextText}>
+                                {saving ? 'Building your mission...' : step === TOTAL_STEPS - 1 ? 'Build my first mission' : 'Continue'}
+                            </Text>
+                            {step < TOTAL_STEPS - 1 ? <IconChevronRight size={18} color={COLORS.text.inverse} /> : null}
+                        </AnimatedPressable>
+                    </View>
+                ) : null}
             </View>
         </KeyboardAvoidingView>
     );
