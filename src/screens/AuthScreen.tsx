@@ -37,7 +37,7 @@ import {
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 
-type AuthMode = 'signIn' | 'resetRequest';
+type AuthMode = 'signIn' | 'signUp' | 'resetRequest';
 type SubmitAction = 'signIn' | 'signUp' | 'resetRequest' | 'passwordUpdate';
 type FormMessage = { tone: 'error' | 'success'; text: string };
 
@@ -156,9 +156,16 @@ export function AuthScreen({
         if (submitInFlightRef.current) return;
 
         const validation = validateEmailAndPassword(email, password);
+        const errors: AuthFieldErrors = { ...validation.errors };
+        if (!confirmPassword) {
+            errors.confirmPassword = 'Confirm your password.';
+        } else if (password !== confirmPassword) {
+            errors.confirmPassword = 'Passwords do not match.';
+        }
+
         setEmail(validation.normalizedEmail);
-        setFieldErrors(validation.errors);
-        if (!validation.valid || !beginSubmit('signUp')) return;
+        setFieldErrors(errors);
+        if (errors.email || errors.password || errors.confirmPassword || !beginSubmit('signUp')) return;
 
         addMonitoringBreadcrumb('auth', 'sign_up_started');
         try {
@@ -172,6 +179,9 @@ export function AuthScreen({
             } else {
                 const successCopy = 'Check your email for the confirmation link, then return here to sign in.';
                 addMonitoringBreadcrumb('auth', 'sign_up_succeeded');
+                setMode('signIn');
+                setPassword('');
+                setConfirmPassword('');
                 setFormMessage({ tone: 'success', text: successCopy });
                 Alert.alert('Confirm your email', successCopy);
             }
@@ -277,6 +287,7 @@ export function AuthScreen({
     function switchToResetRequest() {
         setMode('resetRequest');
         setPassword('');
+        setConfirmPassword('');
         setFieldErrors({});
         setFormMessage(null);
         setEmail(normalizeEmail(email));
@@ -284,17 +295,32 @@ export function AuthScreen({
 
     function switchToSignIn() {
         setMode('signIn');
+        setPassword('');
+        setConfirmPassword('');
         setFieldErrors({});
         setFormMessage(null);
+        setEmail(normalizeEmail(email));
+    }
+
+    function switchToSignUp() {
+        setMode('signUp');
+        setPassword('');
+        setConfirmPassword('');
+        setFieldErrors({});
+        setFormMessage(null);
+        setEmail(normalizeEmail(email));
     }
 
     const isResetRequest = mode === 'resetRequest';
-    const title = passwordRecovery ? 'Set a new password' : isResetRequest ? 'Reset password' : 'Athleticore';
+    const isSignUp = mode === 'signUp';
+    const title = passwordRecovery ? 'Set a new password' : isResetRequest ? 'Reset password' : isSignUp ? 'Create account' : 'Athleticore';
     const subtitle = passwordRecovery
         ? 'Choose a new password to finish recovery.'
         : isResetRequest
             ? 'Enter your email and we will send a reset link.'
-            : 'Track. Train. Perform.';
+            : isSignUp
+                ? 'Create your login, then Athleticore will take you into setup.'
+                : 'Track. Train. Perform.';
 
     return (
         <KeyboardAvoidingView
@@ -325,8 +351,8 @@ export function AuthScreen({
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(100).duration(ANIMATION.normal).springify()}>
-                    <Text style={[styles.title, !passwordRecovery && !isResetRequest && styles.brandTitle]}>{title}</Text>
-                    <Text style={[styles.subtitle, !passwordRecovery && !isResetRequest && styles.brandSubtitle]}>{subtitle}</Text>
+                    <Text style={[styles.title, !passwordRecovery && !isResetRequest && !isSignUp && styles.brandTitle]}>{title}</Text>
+                    <Text style={[styles.subtitle, !passwordRecovery && !isResetRequest && !isSignUp && styles.brandSubtitle]}>{subtitle}</Text>
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(200).duration(ANIMATION.normal).springify()} style={styles.form}>
@@ -470,6 +496,100 @@ export function AuthScreen({
                                 <Text style={styles.secondaryButtonText}>Back to sign in</Text>
                             </AnimatedPressable>
                         </>
+                    ) : isSignUp ? (
+                        <>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    emailFocused && styles.inputFocused,
+                                    fieldErrors.email && styles.inputInvalid,
+                                ]}
+                                placeholder="Email"
+                                placeholderTextColor={COLORS.text.tertiary}
+                                value={email}
+                                onChangeText={setEmailInput}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                keyboardType="email-address"
+                                editable={!busy}
+                                textContentType="emailAddress"
+                                autoComplete="email"
+                                accessibilityLabel="Email"
+                                onFocus={() => setEmailFocused(true)}
+                                onBlur={() => {
+                                    setEmailFocused(false);
+                                    setEmail((current) => normalizeEmail(current));
+                                }}
+                            />
+                            {fieldErrors.email ? <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.email}</Text> : null}
+
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    passwordFocused && styles.inputFocused,
+                                    fieldErrors.password && styles.inputInvalid,
+                                ]}
+                                placeholder="Create password"
+                                placeholderTextColor={COLORS.text.tertiary}
+                                value={password}
+                                onChangeText={setPasswordInput}
+                                secureTextEntry
+                                editable={!busy}
+                                textContentType="newPassword"
+                                autoComplete="password-new"
+                                accessibilityLabel="Create password"
+                                onFocus={() => setPasswordFocused(true)}
+                                onBlur={() => setPasswordFocused(false)}
+                            />
+                            <Text style={[styles.requirementText, fieldErrors.password && styles.fieldError]} accessibilityLiveRegion="polite">
+                                {fieldErrors.password ?? PASSWORD_REQUIREMENT_COPY}
+                            </Text>
+
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    confirmPasswordFocused && styles.inputFocused,
+                                    fieldErrors.confirmPassword && styles.inputInvalid,
+                                ]}
+                                placeholder="Confirm password"
+                                placeholderTextColor={COLORS.text.tertiary}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPasswordInput}
+                                secureTextEntry
+                                editable={!busy}
+                                textContentType="newPassword"
+                                autoComplete="password-new"
+                                accessibilityLabel="Confirm password"
+                                onFocus={() => setConfirmPasswordFocused(true)}
+                                onBlur={() => setConfirmPasswordFocused(false)}
+                            />
+                            {fieldErrors.confirmPassword ? (
+                                <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.confirmPassword}</Text>
+                            ) : null}
+
+                            <AnimatedPressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Create account"
+                                accessibilityState={{ disabled: busy, busy: activeSubmit === 'signUp' }}
+                                style={[styles.primaryButtonWrapper, busy && styles.buttonDisabled]}
+                                onPress={signUpWithEmail}
+                                disabled={busy}
+                            >
+                                <LinearGradient
+                                    colors={[...GRADIENTS.accent]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.primaryButton}
+                                >
+                                    <View style={styles.buttonContent}>
+                                        {activeSubmit === 'signUp' ? <ActivityIndicator size="small" color={COLORS.text.inverse} /> : null}
+                                        <Text style={styles.primaryButtonText}>
+                                            {activeSubmit === 'signUp' ? 'Creating account...' : 'Create account'}
+                                        </Text>
+                                    </View>
+                                </LinearGradient>
+                            </AnimatedPressable>
+                        </>
                     ) : (
                         <>
                             <TextInput
@@ -515,9 +635,9 @@ export function AuthScreen({
                                 onFocus={() => setPasswordFocused(true)}
                                 onBlur={() => setPasswordFocused(false)}
                             />
-                            <Text style={[styles.requirementText, fieldErrors.password && styles.fieldError]} accessibilityLiveRegion="polite">
-                                {fieldErrors.password ?? PASSWORD_REQUIREMENT_COPY}
-                            </Text>
+                            {fieldErrors.password ? (
+                                <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.password}</Text>
+                            ) : null}
 
                             <View style={styles.forgotRow}>
                                 <AnimatedPressable
@@ -559,16 +679,16 @@ export function AuthScreen({
 
                 {!passwordRecovery && !isResetRequest ? (
                     <Animated.View entering={FadeInDown.delay(300).duration(ANIMATION.normal).springify()} style={styles.footer}>
-                        <Text style={styles.footerText}>Don't have an account? </Text>
+                        <Text style={styles.footerText}>{isSignUp ? 'Already have an account? ' : "Don't have an account? "}</Text>
                         <AnimatedPressable
                             accessibilityRole="button"
-                            accessibilityLabel="Create account"
-                            accessibilityState={{ disabled: busy, busy: activeSubmit === 'signUp' }}
-                            onPress={signUpWithEmail}
+                            accessibilityLabel={isSignUp ? 'Sign in instead' : 'Create account'}
+                            accessibilityState={{ disabled: busy }}
+                            onPress={isSignUp ? switchToSignIn : switchToSignUp}
                             disabled={busy}
                         >
                             <Text style={[styles.footerLink, busy && styles.linkDisabled]}>
-                                {activeSubmit === 'signUp' ? 'Creating...' : 'Create account'}
+                                {isSignUp ? 'Sign in' : 'Create account'}
                             </Text>
                         </AnimatedPressable>
                     </Animated.View>

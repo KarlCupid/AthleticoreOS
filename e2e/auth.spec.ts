@@ -15,12 +15,31 @@ test.describe('Auth smoke', () => {
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Password', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Sign in$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Create account$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Forgot password/i })).toBeVisible();
     await expectNoDeveloperCopy(page);
 
     if (isSmallViewport(page)) {
       await expectNoImpossibleHorizontalOverflow(page);
     }
+  });
+
+  test('create account opens a dedicated signup form', async ({ page }) => {
+    await gotoApp(page);
+
+    await page.getByRole('button', { name: /^Create account$/i }).click();
+    await expect(page.getByText(/^Create account$/i).first()).toBeVisible();
+    await expect(page.getByText(/Create your login/i)).toBeVisible();
+    await expect(page.getByLabel('Email')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Create password', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Confirm password', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Create account$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Sign in instead/i })).toBeVisible();
+    await expectNoDeveloperCopy(page);
+
+    await page.getByRole('button', { name: /Sign in instead/i }).click();
+    await expect(page.getByRole('button', { name: /^Sign in$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Forgot password/i })).toBeVisible();
   });
 
   test('forgot password flow returns to sign in', async ({ page }) => {
