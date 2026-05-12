@@ -2,7 +2,6 @@ import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@r
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -20,6 +19,10 @@ import {
   getAthleteJourneyAppEntryState,
   type AthleteJourneyAppEntryState,
 } from './lib/api/athleteJourneyService';
+import {
+  readReadyAthleteJourneyEntryCache,
+  writeReadyAthleteJourneyEntryCache,
+} from './lib/api/athleteJourneyEntryCache';
 import type { CoachIntakeResult } from './src/screens/onboarding/completeCoachIntake';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
@@ -37,8 +40,6 @@ import { CustomNumericPadProvider } from './src/components/CustomNumericInput';
 
 const BRAND_LOGO = require('./assets/images/athleticore-logo.png');
 const JOURNEY_ENTRY_LOOKUP_TIMEOUT_MS = 15000;
-const JOURNEY_ENTRY_CACHE_VERSION = 1;
-const JOURNEY_ENTRY_CACHE_PREFIX = 'athleticore:journey-entry:';
 
 const myTheme = {
   ...DefaultTheme,
@@ -72,55 +73,6 @@ function withTimeout<T>(
       }
     });
   });
-}
-
-function journeyEntryCacheKey(userId: string): string {
-  return `${JOURNEY_ENTRY_CACHE_PREFIX}${userId}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-async function readReadyJourneyEntryCache(userId: string): Promise<AthleteJourneyAppEntryState | null> {
-  try {
-    const rawCache = await AsyncStorage.getItem(journeyEntryCacheKey(userId));
-    if (!rawCache) return null;
-
-    const parsed = JSON.parse(rawCache) as unknown;
-    if (!isRecord(parsed) || parsed.version !== JOURNEY_ENTRY_CACHE_VERSION || parsed.userId !== userId) {
-      return null;
-    }
-
-    const state = parsed.state;
-    if (!isRecord(state) || state.status !== 'ready' || state.hasProfile !== true) {
-      return null;
-    }
-
-    return createReadyAthleteJourneyAppEntryState();
-  } catch (error) {
-    logWarn('App.journeyEntryCacheRead', error, { journeyOperation: 'readReadyEntryCache' });
-    return null;
-  }
-}
-
-async function writeReadyJourneyEntryCache(userId: string, entryState: AthleteJourneyAppEntryState): Promise<void> {
-  try {
-    const cacheKey = journeyEntryCacheKey(userId);
-    if (entryState.status !== 'ready' || !entryState.hasProfile) {
-      await AsyncStorage.removeItem(cacheKey);
-      return;
-    }
-
-    await AsyncStorage.setItem(cacheKey, JSON.stringify({
-      version: JOURNEY_ENTRY_CACHE_VERSION,
-      userId,
-      savedAt: new Date().toISOString(),
-      state: createReadyAthleteJourneyAppEntryState(),
-    }));
-  } catch (error) {
-    logWarn('App.journeyEntryCacheWrite', error, { journeyOperation: 'writeReadyEntryCache' });
-  }
 }
 
 export default function App() {
@@ -346,7 +298,7 @@ export default function App() {
     setJourneyLoadError(null);
     addMonitoringBreadcrumb('journey', 'entry_lookup_started', { hasUserId: Boolean(userId) });
     try {
-      const cachedEntryState = await readReadyJourneyEntryCache(userId);
+      const cachedEntryState = await readReadyAthleteJourneyEntryCache(userId);
       if (cachedEntryState && sessionUserIdRef.current === userId) {
         setJourneyEntryState(cachedEntryState);
         addMonitoringBreadcrumb('journey', 'entry_lookup_cache_warmed', { status: cachedEntryState.status });
@@ -363,14 +315,14 @@ export default function App() {
       }
 
       setJourneyEntryState(entryState);
-      void writeReadyJourneyEntryCache(userId, entryState);
+      void writeReadyAthleteJourneyEntryCache(userId, entryState);
       addMonitoringBreadcrumb('journey', 'entry_lookup_succeeded', { status: entryState.status });
     } catch (error) {
       if (sessionUserIdRef.current !== userId) {
         return;
       }
 
-      const cachedEntryState = await readReadyJourneyEntryCache(userId);
+      const cachedEntryState = await readReadyAthleteJourneyEntryCache(userId);
       if (cachedEntryState) {
         logWarn('App.journeyEntryLookup.cacheFallback', error, { journeyOperation: 'getAppEntryState' });
         setJourneyEntryState(cachedEntryState);
@@ -397,7 +349,7 @@ export default function App() {
     setJourneyEntryState(entryState);
 
     if (userId) {
-      void writeReadyJourneyEntryCache(userId, entryState);
+      void writeReadyAthleteJourneyEntryCache(userId, entryState);
     }
 
     addMonitoringBreadcrumb('journey', 'entry_state_ready_from_onboarding', {

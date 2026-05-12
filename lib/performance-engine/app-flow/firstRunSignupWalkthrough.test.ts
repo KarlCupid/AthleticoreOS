@@ -60,7 +60,7 @@ console.log('\n-- firstRunSignupWalkthrough --');
     app.includes("entryStatus === 'needs_onboarding'")
       && app.includes('<OnboardingScreen onComplete={handleOnboardingComplete} />')
       && app.includes('entry_state_ready_from_onboarding')
-      && app.includes('writeReadyJourneyEntryCache')
+      && app.includes('writeReadyAthleteJourneyEntryCache')
       && onboarding.includes("title: 'Welcome'")
       && onboarding.includes('Start from where you are and keep the work connected.'),
   );
@@ -137,6 +137,14 @@ console.log('\n-- firstRunSignupWalkthrough --');
       && intake.includes("appliesTo: 'new_signup'")
       && intake.includes("step: 'today_mission_intro'")
       && !intake.includes('completeFirstRunWalkthrough'),
+  );
+
+  assert(
+    'initial workout generation is queued after onboarding save',
+    intake.includes('void generateInitialPlanAfterOnboarding(userId, config, gym, asOfDate)')
+      && intake.includes('writeReadyAthleteJourneyEntryCache')
+      && intake.includes('withInitialPlanGenerationTimeout')
+      && intake.includes('generatedPlan: false'),
   );
 })();
 

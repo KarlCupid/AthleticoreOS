@@ -249,7 +249,9 @@ export function useDashboardData() {
           await ensureRollingScheduleFresh(userId, todayStr, 4);
         } catch (error) {
           logError('useDashboardData.ensureRollingScheduleFresh', error, { userId });
-          failDashboardLoad('schedule', error);
+          addMonitoringBreadcrumb('dashboard', 'rolling_schedule_refresh_failed', {
+            date: todayStr,
+          }, 'warning');
         }
       }
 

@@ -1,6 +1,8 @@
 import { supabase } from '../../../lib/supabase';
 import { createGymProfile, getDefaultGymProfile, updateGymProfile } from '../../../lib/api/gymProfileService';
 import { getActiveUserId } from '../../../lib/api/athleteContextService';
+import { writeReadyAthleteJourneyEntryCache } from '../../../lib/api/athleteJourneyEntryCache';
+import { createReadyAthleteJourneyAppEntryState } from '../../../lib/api/athleteJourneyService';
 import { setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { setupFightCamp } from '../../../lib/api/fightCampService';
 import { withEngineInvalidation } from '../../../lib/api/engineInvalidation';
@@ -89,6 +91,53 @@ export type CoachIntakeResult = {
   journey: AthleteJourneyState;
   performanceState: PerformanceState;
 };
+
+const INITIAL_PLAN_GENERATION_TIMEOUT_MS = 30000;
+
+function withInitialPlanGenerationTimeout<T>(promise: Promise<T>, timeoutMs = INITIAL_PLAN_GENERATION_TIMEOUT_MS): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error('Initial workout generation is taking longer than expected and will continue later.'));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
+}
+
+async function generateInitialPlanAfterOnboarding(
+  userId: string,
+  config: Awaited<ReturnType<typeof saveWeeklyPlanConfig>>,
+  gym: Awaited<ReturnType<typeof upsertDefaultGymProfile>>,
+  asOfDate: string,
+): Promise<void> {
+  try {
+    const generatedWeek = await withInitialPlanGenerationTimeout(
+      generateAndSaveWeeklyPlan(userId, config as never, gym, asOfDate),
+    );
+    const generatedPlan = generatedWeek.entries.length > 0;
+    const generatedWeekStart = generatedWeek.entries[0]?.week_start_date;
+    if (!generatedPlan) {
+      logWarn(
+        'completeCoachIntake.firstPlanEmpty',
+        new Error('First mission generation returned no weekly entries.'),
+        { userId, asOfDate },
+      );
+    }
+
+    await withEngineInvalidation({
+      userId,
+      weekStart: generatedWeekStart ?? asOfDate,
+      reason: 'onboarding_complete',
+    }, async () => undefined);
+  } catch (planError) {
+    logWarn('completeCoachIntake.firstPlanGeneration', planError, { userId, asOfDate });
+  }
+}
 
 function resolveTrainingBackground(background: IntakeTrainingBackground): {
   fitnessLevel: 'beginner' | 'intermediate' | 'advanced';
@@ -415,31 +464,19 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
     }
 
     const gym = await upsertDefaultGymProfile(userId, input.equipmentAccess);
-
-    let generatedPlan = false;
-    let generatedWeekStart: string | undefined;
-    try {
-      const generatedWeek = await generateAndSaveWeeklyPlan(userId, config as never, gym, asOfDate);
-      generatedPlan = generatedWeek.entries.length > 0;
-      generatedWeekStart = generatedWeek.entries[0]?.week_start_date;
-      if (!generatedPlan) {
-        logWarn(
-          'completeCoachIntake.firstPlanEmpty',
-          new Error('First mission generation returned no weekly entries.'),
-          { userId, asOfDate },
-        );
-      }
-    } catch (planError) {
-      logWarn('completeCoachIntake.firstPlanGeneration', planError, { userId, asOfDate });
-    }
+    await writeReadyAthleteJourneyEntryCache(userId, createReadyAthleteJourneyAppEntryState({
+      journey: journeyInitialization.journey,
+      performanceState: journeyInitialization.performanceState,
+    }));
+    void generateInitialPlanAfterOnboarding(userId, config, gym, asOfDate);
 
     await withEngineInvalidation({
       userId,
-      weekStart: generatedWeekStart ?? asOfDate,
+      weekStart: asOfDate,
       reason: 'onboarding_complete',
     }, async () => undefined);
     return {
-      generatedPlan,
+      generatedPlan: false,
       journey: journeyInitialization.journey,
       performanceState: journeyInitialization.performanceState,
     };

@@ -38,6 +38,8 @@ assert('Dashboard hook does not reference legacy daily mission snapshot', !/dail
 assert('Dashboard hook waits for rolling schedule before daily engine on initial load or refresh', dashboardData.includes('firstDashboardLoadRef')
   && dashboardData.includes('if (forceRefresh || firstDashboardLoadRef.current)')
   && dashboardData.indexOf('await ensureRollingScheduleFresh(userId, todayStr, 4)') < dashboardData.indexOf('getDailyEngineState(userId, todayStr, { forceRefresh })'));
+assert('Dashboard hook treats rolling schedule refresh failure as non-fatal', dashboardData.includes('rolling_schedule_refresh_failed')
+  && !dashboardData.includes("failDashboardLoad('schedule', error)"));
 assert('Dashboard hook does not fire-and-forget rolling schedule generation', !dashboardData.includes('void generateRollingSchedule'));
 
 const requiredMissionFields = [
