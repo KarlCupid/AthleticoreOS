@@ -7,6 +7,7 @@ import {
   supportDomainLabel,
   supportSessionMetadata,
 } from './athleteSupportDomains.ts';
+import { buildWorkoutProgrammingSeedRows } from './seedLoader.ts';
 import { workoutProgrammingCatalog } from './seedData.ts';
 import type {
   AthleteSupportFuelPriority,
@@ -245,6 +246,18 @@ assert('generated training goals and workout types do not create sparring', [
 
 const boxingSnapshotSessions = read('lib/api/dailyPerformance/boxingSnapshotSessions.ts');
 const summaryMapping = read('lib/api/dailyPerformance/summaryMapping.ts');
+const taxonomySeedMigration = read('supabase/migrations/045_workout_programming_taxonomy_goal_seed.sql');
+const taxonomySeedRows = buildWorkoutProgrammingSeedRows(workoutProgrammingCatalog);
+
+assert('taxonomy migration upserts workout types', taxonomySeedMigration.includes('INSERT INTO public.workout_types') && taxonomySeedMigration.includes('ON CONFLICT (id) DO UPDATE'));
+assert('taxonomy migration upserts training goals', taxonomySeedMigration.includes('INSERT INTO public.training_goals') && taxonomySeedMigration.includes('default_workout_type_id = EXCLUDED.default_workout_type_id'));
+for (const workoutType of taxonomySeedRows.workout_types) {
+  assert(`taxonomy migration seeds workout type ${workoutType.id}`, taxonomySeedMigration.includes(`'${workoutType.id}'`));
+}
+for (const goal of taxonomySeedRows.training_goals) {
+  assert(`taxonomy migration seeds training goal ${goal.id}`, taxonomySeedMigration.includes(`'${goal.id}'`));
+}
+
 for (const field of SNAPSHOT_METADATA_FIELDS) {
   assert(`snapshot path carries ${field}`, boxingSnapshotSessions.includes(field));
   assert(`daily summary/fuel path carries ${field}`, summaryMapping.includes(field));
