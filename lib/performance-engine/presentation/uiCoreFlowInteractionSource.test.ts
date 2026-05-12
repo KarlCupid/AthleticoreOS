@@ -36,6 +36,7 @@ const packageJson = read('package.json');
 const dashboard = read('src/screens/DashboardScreen.tsx');
 const todayMissionPanel = read('src/components/dashboard/TodayMissionPanel.tsx');
 const onboarding = read('src/screens/OnboardingScreen.tsx');
+const coachIntake = read('src/screens/onboarding/completeCoachIntake.ts');
 const phaseCard = read('src/components/phases/GuidedPhaseTransitionCard.tsx');
 const phaseViewModel = read('lib/performance-engine/presentation/guidedPhaseTransitionViewModel.ts');
 const weeklySetup = read('src/screens/WeeklyPlanSetupScreen.tsx');
@@ -117,9 +118,16 @@ assert('onboarding step changes reset scroll position to the top', hasAll(onboar
   'scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false })',
 ]));
 
-assert('onboarding final screen explains equipment-limited guidance before submit', hasAll(onboarding, [
-  'Limited-context guidance',
-  'Guidance will remain simple until you select equipment.',
+assert('onboarding final screen collects equipment before submit', hasAll(onboarding, [
+  'testID="onboarding-equipment-access"',
+  'testID="onboarding-equipment-bodyweight-only"',
+  'equipmentAccessConfirmed',
+  'equipmentAccess,',
+]) && hasAll(coachIntake, [
+  'upsertDefaultGymProfile',
+  'createGymProfile',
+  'updateGymProfile',
+  'input.equipmentAccess',
 ]));
 
 assert('protected workout add flow scrolls to the new setup and exposes a bottom add control', hasAll(onboarding, [

@@ -6,6 +6,8 @@ import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
 interface EquipmentSelectorProps {
   selected: string[];
   onChange: (items: string[]) => void;
+  scrollEnabled?: boolean;
+  testIDPrefix?: string;
 }
 
 interface EquipmentCategory {
@@ -52,16 +54,22 @@ function Chip({
   label,
   isSelected,
   onToggle,
+  testID,
 }: {
   label: string;
   isSelected: boolean;
   onToggle: () => void;
+  testID?: string;
 }) {
   return (
     <TouchableOpacity
       style={[styles.chip, isSelected && styles.chipSelected]}
       onPress={onToggle}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: isSelected }}
+      testID={testID}
     >
       <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
         {label}
@@ -73,6 +81,8 @@ function Chip({
 export default function EquipmentSelector({
   selected,
   onChange,
+  scrollEnabled = true,
+  testIDPrefix = 'equipment',
 }: EquipmentSelectorProps) {
   const handleToggle = useCallback(
     (item: string) => {
@@ -85,12 +95,8 @@ export default function EquipmentSelector({
     [selected, onChange]
   );
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+  const content = (
+    <>
       {EQUIPMENT_CATEGORIES.map((category, catIdx) => (
         <Animated.View
           key={category.title}
@@ -105,11 +111,26 @@ export default function EquipmentSelector({
                 label={formatLabel(item)}
                 isSelected={selected.includes(item)}
                 onToggle={() => handleToggle(item)}
+                testID={`${testIDPrefix}-${item}`}
               />
             ))}
           </View>
         </Animated.View>
       ))}
+    </>
+  );
+
+  if (!scrollEnabled) {
+    return <View style={styles.content}>{content}</View>;
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {content}
     </ScrollView>
   );
 }

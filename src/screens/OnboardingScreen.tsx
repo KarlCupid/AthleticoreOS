@@ -13,9 +13,10 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DatePickerField } from '../components/DatePickerField';
 import { TimePickerField } from '../components/TimePickerField';
 import { CustomNumericInput, useCustomNumericPad } from '../components/CustomNumericInput';
+import EquipmentSelector from '../components/EquipmentSelector';
 import { DAY_OPTIONS } from './weeklyPlanSetup/constants';
 import { addDays, todayLocalDate } from '../../lib/utils/date';
-import type { AthleteGoalMode, BuildPhaseGoalType } from '../../lib/engine/types';
+import type { AthleteGoalMode, BuildPhaseGoalType, EquipmentItem } from '../../lib/engine/types';
 import {
     completeCoachIntake,
     type IntakeFightStatus,
@@ -71,8 +72,8 @@ const STEP_META = [
     },
     {
         eyebrow: 'Step 6',
-        title: "Today's mission",
-        description: 'Land on the daily call: what matters, why, and what to do next.',
+        title: 'Equipment and mission',
+        description: 'Create your equipment profile so the first mission can match real access.',
     },
 ] as const;
 
@@ -285,6 +286,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const [fatigueBaseline, setFatigueBaseline] = useState<number | null>(null);
     const [painConcern, setPainConcern] = useState<IntakePainConcern>('unknown');
     const [injuryNotes, setInjuryNotes] = useState('');
+    const [equipmentAccess, setEquipmentAccess] = useState<EquipmentItem[]>([]);
+    const [equipmentAccessConfirmed, setEquipmentAccessConfirmed] = useState(false);
     const [effortTooltipBySessionId, setEffortTooltipBySessionId] = useState<Record<string, number>>({});
     const [recentlyAddedSessionId, setRecentlyAddedSessionId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -332,6 +335,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 return fightStatus !== 'confirmed' || Boolean(fightDate);
             case 3:
                 return availableDays.length > 0;
+            case 5:
+                return equipmentAccessConfirmed;
             default:
                 return true;
         }
@@ -409,6 +414,16 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     const handleRemoveFixedSession = (sessionId: string) => {
         delete fixedSessionYByIdRef.current[sessionId];
         setFixedSessions((current) => current.filter((item) => item.id !== sessionId));
+    };
+
+    const handleEquipmentAccessChange = (items: string[]) => {
+        setEquipmentAccess(items as EquipmentItem[]);
+        setEquipmentAccessConfirmed(true);
+    };
+
+    const handleBodyweightOnlyEquipment = () => {
+        setEquipmentAccess([]);
+        setEquipmentAccessConfirmed(true);
     };
 
     const renderDayGrid = (
@@ -522,7 +537,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
         setSaving(true);
         try {
-            const result = await completeCoachIntake({
+            await completeCoachIntake({
                 age: parsedAge,
                 currentWeightLbs: parsedWeight,
                 biologicalSex: bioSex,
@@ -545,16 +560,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 dietaryNotes: splitNotes(dietaryNotes),
                 fuelingPreference,
                 readinessBaseline,
+                equipmentAccess,
             });
-            if (!result.generatedPlan) {
-                setSaving(false);
-                Alert.alert(
-                    'Equipment context next',
-                    "Your athlete baseline is saved. Today's Mission will stay cautious until Athleticore knows what equipment you can use.",
-                    [{ text: "Open Today's Mission", onPress: onComplete }],
-                );
-                return;
-            }
             onComplete();
         } catch (err: any) {
             Alert.alert("We couldn't build your first mission", err.message || 'Please try again.');
@@ -1245,6 +1252,62 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 The first mission starts conservative, then sharpens as your check-ins and protected anchors come in.
                             </Text>
                         </View>
+                        <View style={styles.formGlassSection} testID="onboarding-equipment-access">
+                            <Text style={styles.inputLabel}>Equipment access</Text>
+                            <Text style={styles.helperText}>
+                                Select equipment you can reliably use. Bodyweight, floor work, roadwork, and open-space options stay available either way.
+                            </Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.bodyweightOnlyButton,
+                                    equipmentAccessConfirmed && equipmentAccess.length === 0 && styles.bodyweightOnlyButtonActive,
+                                ]}
+                                onPress={handleBodyweightOnlyEquipment}
+                                activeOpacity={0.86}
+                                accessibilityRole="button"
+                                accessibilityLabel="Use bodyweight only"
+                                accessibilityState={{ selected: equipmentAccessConfirmed && equipmentAccess.length === 0 }}
+                                testID="onboarding-equipment-bodyweight-only"
+                            >
+                                <View style={[
+                                    styles.bodyweightOnlyIcon,
+                                    equipmentAccessConfirmed && equipmentAccess.length === 0 && styles.bodyweightOnlyIconActive,
+                                ]}>
+                                    {equipmentAccessConfirmed && equipmentAccess.length === 0 ? (
+                                        <IconCheckCircle size={16} color={COLORS.text.inverse} />
+                                    ) : null}
+                                </View>
+                                <View style={styles.bodyweightOnlyCopy}>
+                                    <Text style={[
+                                        styles.bodyweightOnlyTitle,
+                                        equipmentAccessConfirmed && equipmentAccess.length === 0 && styles.bodyweightOnlyTitleActive,
+                                    ]}>
+                                        Bodyweight / no external equipment
+                                    </Text>
+                                    <Text style={styles.bodyweightOnlyText}>
+                                        Create a default profile for home, travel, or no-equipment training.
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                            <View style={styles.onboardingEquipmentSelector}>
+                                <EquipmentSelector
+                                    selected={equipmentAccess}
+                                    onChange={handleEquipmentAccessChange}
+                                    scrollEnabled={false}
+                                    testIDPrefix="onboarding-equipment"
+                                />
+                            </View>
+                            <Text style={[
+                                styles.equipmentSummaryText,
+                                !equipmentAccessConfirmed && styles.equipmentSummaryTextPrompt,
+                            ]}>
+                                {equipmentAccessConfirmed
+                                    ? equipmentAccess.length > 0
+                                        ? `${equipmentAccess.length} equipment item${equipmentAccess.length === 1 ? '' : 's'} will be saved to your default gym profile.`
+                                        : 'A bodyweight-only default gym profile will be created.'
+                                    : 'Choose bodyweight-only or select equipment before building your first mission.'}
+                            </Text>
+                        </View>
                         <View style={styles.coachPointList}>
                             <View style={styles.coachPoint}>
                                 <View style={styles.coachPointRail} />
@@ -1264,7 +1327,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                 <View style={styles.coachPointRail} />
                                 <Text style={styles.coachPointTitle}>Limited-context guidance</Text>
                                 <Text style={styles.coachPointText}>
-                                    Guidance will remain simple until you select equipment. If other data is limited, Athleticore will ask for the smallest useful check-in and avoid treating unknowns as safe.
+                                    Equipment from this screen creates the default gym profile. If other data is limited, Athleticore will ask for the smallest useful check-in and avoid treating unknowns as safe.
                                 </Text>
                             </View>
                         </View>

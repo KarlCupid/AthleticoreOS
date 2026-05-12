@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import { getDefaultGymProfile } from '../../../lib/api/gymProfileService';
+import { createGymProfile, getDefaultGymProfile, updateGymProfile } from '../../../lib/api/gymProfileService';
 import { getActiveUserId } from '../../../lib/api/athleteContextService';
 import { setupBuildPhaseGoal } from '../../../lib/api/buildPhaseService';
 import { setupFightCamp } from '../../../lib/api/fightCampService';
@@ -22,6 +22,7 @@ import type {
   ActivityLevel,
   AthleteGoalMode,
   BuildPhaseGoalType,
+  EquipmentItem,
   TrainingAge,
 } from '../../../lib/engine/types';
 import { todayLocalDate } from '../../../lib/utils/date';
@@ -80,6 +81,7 @@ export type CoachIntakeInput = {
   dietaryNotes: string[];
   fuelingPreference: IntakeFuelingPreference;
   readinessBaseline: IntakeReadinessBaseline;
+  equipmentAccess: EquipmentItem[];
 };
 
 export type CoachIntakeResult = {
@@ -141,6 +143,29 @@ function hasReadinessBaseline(input: IntakeReadinessBaseline): boolean {
     || input.fatigue != null
     || input.painConcern !== 'unknown'
     || Boolean(input.injuryNotes?.trim());
+}
+
+function uniqueEquipmentAccess(equipmentAccess: EquipmentItem[]): EquipmentItem[] {
+  return Array.from(new Set(equipmentAccess));
+}
+
+function defaultEquipmentProfileName(equipmentAccess: EquipmentItem[]): string {
+  return equipmentAccess.length > 0 ? 'Default training equipment' : 'Bodyweight only';
+}
+
+async function upsertDefaultGymProfile(userId: string, equipmentAccess: EquipmentItem[]) {
+  const equipment = uniqueEquipmentAccess(equipmentAccess);
+  const existingGym = await getDefaultGymProfile(userId);
+
+  if (existingGym) {
+    return updateGymProfile(existingGym.id, { equipment });
+  }
+
+  return createGymProfile(userId, {
+    name: defaultEquipmentProfileName(equipment),
+    equipment,
+    is_default: true,
+  });
 }
 
 function buildLimitationNotes(input: CoachIntakeInput): string[] {
@@ -389,15 +414,7 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
       logWarn('completeCoachIntake.persistFirstRunWalkthroughState', walkthroughError);
     }
 
-    const gym = await getDefaultGymProfile(userId);
-    if (!gym) {
-      await withEngineInvalidation({ userId, reason: 'onboarding_complete' }, async () => undefined);
-      return {
-        generatedPlan: false,
-        journey: journeyInitialization.journey,
-        performanceState: journeyInitialization.performanceState,
-      };
-    }
+    const gym = await upsertDefaultGymProfile(userId, input.equipmentAccess);
 
     const generatedWeek = await generateAndSaveWeeklyPlan(userId, config as never, gym, todayLocalDate());
     if (generatedWeek.entries.length === 0) {
