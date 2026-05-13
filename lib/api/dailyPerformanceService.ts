@@ -13,7 +13,7 @@ import {
   weeklyAthleteSummaryCache,
   weeklyAthleteSummaryInFlight,
 } from './engineInvalidation';
-import { getWeeklyPlanEntriesForWeek } from './weeklyPlanService';
+import { getWeeklyPlanEntriesForWeek } from './weeklyPlanReadService';
 import { getDailyEngineStateCacheKey, getWeeklyAthleteSummaryCacheKey } from './dailyPerformance/cacheKeys';
 import { getWeekWindow } from './dailyPerformance/dateWindow';
 import { addMonitoringBreadcrumb } from '../observability/breadcrumbs';

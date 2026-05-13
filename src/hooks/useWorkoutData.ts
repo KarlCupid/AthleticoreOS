@@ -7,7 +7,7 @@ import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { logError } from '../../lib/utils/logger';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
-import { getWeeklyPlanEntriesForWeek } from '../../lib/api/weeklyPlanService';
+import { getWeeklyPlanEntriesForWeek } from '../../lib/api/weeklyPlanReadService';
 import {
   buildUnifiedPerformanceViewModel,
   type UnifiedPerformanceViewModel,

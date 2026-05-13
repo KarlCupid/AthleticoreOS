@@ -320,22 +320,6 @@ export async function getActiveWeekPlan(userId: string): Promise<WeeklyPlanEntry
     return (data ?? []) as WeeklyPlanEntryRow[];
 }
 
-export async function getWeeklyPlanEntriesForWeek(
-    userId: string,
-    weekStart: string,
-): Promise<WeeklyPlanEntryRow[]> {
-    const { data, error } = await supabase
-        .from('weekly_plan_entries')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('week_start_date', weekStart)
-        .order('date')
-        .order('slot');
-
-    if (error) throw error;
-    return (data ?? []) as WeeklyPlanEntryRow[];
-}
-
 /**
  * Save a batch of weekly plan entries, replacing the generated range they cover.
  */

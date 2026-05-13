@@ -4,12 +4,12 @@ import { handleMissedDay } from '../../lib/engine/calculateSchedule';
 import {
   getWeeklyPlanConfig,
   getActiveWeekPlan,
-  getWeeklyPlanEntriesForWeek,
   markDayCompleted,
   markDaySkipped,
   rescheduleMissedDay,
   cancelActivePlan,
 } from '../../lib/api/weeklyPlanService';
+import { getWeeklyPlanEntriesForWeek } from '../../lib/api/weeklyPlanReadService';
 import { generateAndSaveBoxingWeeklyPlan } from '../../lib/api/boxingWeeklyPlanService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
