@@ -30,7 +30,7 @@ console.log('\n-- guided phase transition home source --');
 assert('Dashboard renders guided phase transition card', /<GuidedPhaseTransitionCard\s/.test(dashboard));
 assert('Dashboard passes canonical phaseTransition to card', dashboard.includes('transition={phaseTransition}'));
 assert('Dashboard gives the card one continue action', dashboard.includes('onContinue={openPlanningSurface}'));
-assert('Dashboard places phase transition between mission and readiness', dashboard.indexOf('styles.todayMissionWrap') < dashboard.indexOf('styles.phaseTransitionWrap') && dashboard.indexOf('styles.phaseTransitionWrap') < dashboard.indexOf('styles.readinessHeroWrap'));
+assert('Dashboard places phase transition between mission and readiness signals', dashboard.indexOf('styles.todayMissionWrap') < dashboard.indexOf('styles.phaseTransitionWrap') && dashboard.indexOf('styles.phaseTransitionWrap') < dashboard.indexOf('<TodaySignalGrid'));
 assert('Dashboard keeps Today Mission as primary home surface', dashboard.includes('<TodayMissionPanel') && dashboard.indexOf('<TodayMissionPanel') < dashboard.indexOf('<GuidedPhaseTransitionCard'));
 assert('Dashboard style uses existing spacing for transition wrapper', dashboardStyles.includes('phaseTransitionWrap') && dashboardStyles.includes('marginTop: SPACING.lg'));
 

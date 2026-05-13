@@ -18,6 +18,7 @@ interface WeightTrendCardProps {
     targetWeight?: number | null;
     history?: WeightDataPoint[];
     onPress?: () => void;
+    variant?: 'default' | 'todayCommand';
 }
 
 interface ChartPoint {
@@ -43,6 +44,7 @@ export const WeightTrendCard = memo(function WeightTrendCard({
     targetWeight,
     history,
     onPress,
+    variant = 'default',
 }: WeightTrendCardProps) {
     const statusConfig = STATUS_CONFIG[trend.status];
     const velocityText = formatSignedWeight(trend.weeklyVelocityLbs);
@@ -61,6 +63,105 @@ export const WeightTrendCard = memo(function WeightTrendCard({
     const progressPct = showProgress
         ? Math.min(1, Math.max(0, (baseWeight - trend.currentWeight) / (baseWeight - targetWeight)))
         : 0;
+
+    if (variant === 'todayCommand') {
+        const todayContent = (
+            <Card
+                style={styles.todayCard}
+                backgroundImage={null}
+            >
+                <View style={styles.todayHeaderRow}>
+                    <Text style={styles.todayKicker}>BODY TREND</Text>
+                    <Text style={[styles.todayStatusText, { color: statusConfig.color }]} numberOfLines={1}>
+                        {statusConfig.label}
+                    </Text>
+                </View>
+
+                <View style={styles.todayTrendBody}>
+                    <View style={styles.todayChartPanel}>
+                        <Svg
+                            width="100%"
+                            height={88}
+                            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                        >
+                            <Path
+                                d={`M 0 ${PLOT_BOTTOM} L ${CHART_WIDTH} ${PLOT_BOTTOM}`}
+                                stroke="rgba(245,245,240,0.12)"
+                                strokeWidth={1}
+                            />
+                            <Path
+                                d={`M 0 ${PLOT_TOP} L ${CHART_WIDTH} ${PLOT_TOP}`}
+                                stroke="rgba(245,245,240,0.08)"
+                                strokeWidth={1}
+                            />
+                            {chart.targetPath ? (
+                                <Path
+                                    d={chart.targetPath}
+                                    stroke="rgba(212,175,55,0.50)"
+                                    strokeWidth={1.4}
+                                    strokeDasharray="7 6"
+                                />
+                            ) : null}
+                            <Path d={chart.areaPath} fill={COLORS.accent} opacity={0.12} />
+                            <Path
+                                d={chart.linePath}
+                                fill="none"
+                                stroke={COLORS.accent}
+                                strokeWidth={3}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            {chart.points.map((point, index) => (
+                                <Circle
+                                    key={`${point.date}-today-${index}`}
+                                    cx={point.x}
+                                    cy={point.y}
+                                    r={point.isLatest ? 5.2 : 3.4}
+                                    fill={point.isLatest ? COLORS.accent : '#F5F5F0'}
+                                    opacity={point.isLatest ? 1 : 0.66}
+                                />
+                            ))}
+                        </Svg>
+                        <View style={styles.todayChartLabelRow}>
+                            <Text style={styles.todayChartLabel}>{chart.startLabel}</Text>
+                            <Text style={styles.todayChartLabel}>{chart.endLabel}</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.todayStatsColumn}>
+                        <TodayTrendMetric
+                            label="Change"
+                            value={formatSignedWeight(trend.totalChangeLbs)}
+                            suffix="lbs"
+                            color={velocityColor}
+                        />
+                        <TodayTrendMetric
+                            label="Lbs / week"
+                            value={velocityText}
+                            suffix="lbs"
+                            color={velocityColor}
+                        />
+                        <TodayTrendMetric
+                            label="Current"
+                            value={trend.currentWeight.toFixed(1)}
+                            suffix="lbs"
+                            color={COLORS.text.primary}
+                        />
+                    </View>
+                </View>
+            </Card>
+        );
+
+        if (onPress) {
+            return (
+                <AnimatedPressable onPress={onPress}>
+                    {todayContent}
+                </AnimatedPressable>
+            );
+        }
+
+        return todayContent;
+    }
 
     const content = (
         <Card
@@ -201,6 +302,35 @@ function MetricCell({ value, label, color = '#F5F5F0' }: { value: string; label:
     );
 }
 
+function TodayTrendMetric({
+    label,
+    value,
+    suffix,
+    color,
+}: {
+    label: string;
+    value: string;
+    suffix: string;
+    color: string;
+}) {
+    return (
+        <View style={styles.todayMetric}>
+            <Text style={styles.todayMetricLabel}>{label}</Text>
+            <View style={styles.todayMetricValueRow}>
+                <Text
+                    style={[styles.todayMetricValue, { color }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.78}
+                >
+                    {value}
+                </Text>
+                <Text style={styles.todayMetricSuffix}>{suffix}</Text>
+            </View>
+        </View>
+    );
+}
+
 function buildChartModel(
     history: WeightDataPoint[] | undefined,
     currentWeight: number,
@@ -273,6 +403,98 @@ function formatSignedWeight(value: number): string {
 }
 
 const styles = StyleSheet.create({
+    todayCard: {
+        padding: SPACING.md,
+        backgroundColor: 'rgba(10, 14, 16, 0.82)',
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 245, 240, 0.15)',
+        ...SHADOWS.md,
+    },
+    todayHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: SPACING.md,
+        marginBottom: SPACING.sm,
+    },
+    todayKicker: {
+        flex: 1,
+        minWidth: 0,
+        fontSize: 11,
+        lineHeight: 14,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: COLORS.accent,
+        letterSpacing: 1.8,
+    },
+    todayStatusText: {
+        maxWidth: 112,
+        fontSize: 12,
+        lineHeight: 15,
+        fontFamily: FONT_FAMILY.semiBold,
+    },
+    todayTrendBody: {
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        gap: SPACING.md,
+    },
+    todayChartPanel: {
+        flex: 1.1,
+        minWidth: 0,
+        justifyContent: 'flex-end',
+    },
+    todayChartLabelRow: {
+        marginTop: -4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    todayChartLabel: {
+        fontSize: 10,
+        lineHeight: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+    },
+    todayStatsColumn: {
+        flex: 0.9,
+        minWidth: 128,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        borderLeftWidth: StyleSheet.hairlineWidth,
+        borderLeftColor: 'rgba(245, 245, 240, 0.14)',
+        paddingLeft: SPACING.md,
+        gap: SPACING.sm,
+    },
+    todayMetric: {
+        flexBasis: '45%',
+        flexGrow: 1,
+        minWidth: 56,
+    },
+    todayMetricLabel: {
+        fontSize: 10,
+        lineHeight: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+    },
+    todayMetricValueRow: {
+        marginTop: 2,
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: 3,
+    },
+    todayMetricValue: {
+        fontSize: 22,
+        lineHeight: 27,
+        fontFamily: FONT_FAMILY.extraBold,
+    },
+    todayMetricSuffix: {
+        fontSize: 10,
+        lineHeight: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.secondary,
+    },
     card: {
         padding: SPACING.lg,
         backgroundColor: 'rgba(24, 24, 27, 0.9)',

@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Image,
+  ImageBackground,
   InteractionManager,
   Modal,
   RefreshControl,
@@ -22,9 +23,12 @@ import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
   IconAlertTriangle,
   IconBarbell,
-  IconCheckCircle,
+  IconBell,
   IconDroplets,
   IconCalendar,
+  IconChevronRight,
+  IconPerson,
+  IconShieldCheck,
 } from "../components/icons";
 import { TodayMissionPanel } from "../components/dashboard/TodayMissionPanel";
 import { GuidedPhaseTransitionCard } from "../components/phases/GuidedPhaseTransitionCard";
@@ -37,7 +41,6 @@ import { ExistingUserOverhaulIntroCard } from "../components/first-run/ExistingU
 import { ScreenWrapper } from "../components/ScreenWrapper";
 import type {
   TodayMissionAction,
-  TodayMissionStatus,
   UnifiedPerformanceViewModel,
 } from "../../lib/performance-engine";
 
@@ -66,6 +69,7 @@ import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
 import { classifyPlanEntryRuntimeSurface } from "../../lib/performance-engine/workout-programming";
 
 const BRAND_LOGO = require("../../assets/images/athleticore-logo.png");
+const TODAY_BACKGROUND = require("../../assets/images/dashboard/support-card-bg.png");
 
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -78,6 +82,7 @@ export function DashboardScreen() {
     React.useState<FirstRunWalkthroughState | null>(null);
   const [appTourIndex, setAppTourIndex] = React.useState(0);
   const [showFirstRunModal, setShowFirstRunModal] = React.useState(false);
+  const [athleteFirstName, setAthleteFirstName] = React.useState<string | null>(null);
 
   const loadFirstRunGuidance = React.useCallback(async () => {
     try {
@@ -120,6 +125,19 @@ export function DashboardScreen() {
     });
     return () => { isActive = false; };
   }, [loadFirstRunGuidance]);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!isActive) return;
+      setAthleteFirstName(getUserFirstName(data.user?.user_metadata));
+    }).catch((error) => {
+      logError("DashboardScreen.loadAthleteFirstName", error);
+    });
+
+    return () => { isActive = false; };
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -627,7 +645,14 @@ export function DashboardScreen() {
   }
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper style={styles.screenShell}>
+      <ImageBackground
+        source={TODAY_BACKGROUND}
+        resizeMode="cover"
+        style={styles.commandBackground}
+        imageStyle={styles.commandBackgroundImage}
+      >
+        <View style={styles.commandBackgroundOverlay} />
       <Modal
         visible={showFirstRunModal}
         transparent
@@ -701,19 +726,29 @@ export function DashboardScreen() {
             style={[styles.heroSection, { paddingTop: insets.top + SPACING.lg }]}
         >
             <View style={styles.heroGreetingRow}>
-                <View style={styles.brandMark}>
+                <View style={styles.heroBrandCluster}>
                   <Image
                     source={BRAND_LOGO}
                     style={styles.brandMarkImage}
                     resizeMode="cover"
                     accessibilityLabel="Athleticore logo"
                   />
+                  <Text style={styles.heroBrandText}>ATHLETICORE</Text>
                 </View>
-                <View style={styles.heroTitleBlock}>
-                  <Text style={styles.heroGreeting}>{getGreeting()}</Text>
-                  <Text style={styles.heroDate}>{formatDashboardDate(todayLocalDate())}</Text>
-                </View>
-                <View style={styles.headerSpacer} />
+                <AnimatedPressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Refresh today's context"
+                  style={styles.heroAlertButton}
+                  onPress={handleRefresh}
+                  disabled={refreshing}
+                >
+                  <IconBell size={21} color={COLORS.text.primary} />
+                </AnimatedPressable>
+            </View>
+
+            <View style={styles.heroTitleBlock}>
+              <Text style={styles.heroGreeting}>{getGreeting(athleteFirstName)}</Text>
+              <Text style={styles.heroDate}>{formatDashboardDate(todayLocalDate())}</Text>
             </View>
 
             {error ? (
@@ -758,6 +793,83 @@ export function DashboardScreen() {
               />
             </View>
 
+            <Animated.View
+              entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()}
+              style={styles.quickActionGrid}
+            >
+              <AnimatedPressable
+                testID="dashboard-quick-action-check-in"
+                style={[styles.quickActionBlock, checkinDone && styles.quickActionBlockDone]}
+                onPress={() => navigation.navigate("Log")}
+              >
+                <View style={[styles.quickActionIconContainer, checkinDone && styles.quickActionIconDone]}>
+                  <IconPerson size={28} color={checkinDone ? COLORS.success : COLORS.accent} />
+                </View>
+                <Text
+                  style={[styles.quickActionLabelBlock, checkinDone && styles.quickActionLabelDoneBlock]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.84}
+                >
+                  Check In
+                </Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                testID="dashboard-quick-action-train"
+                style={[styles.quickActionBlock, sessionDone && styles.quickActionBlockDone]}
+                onPress={() => void openTodayTraining()}
+              >
+                <View style={[styles.quickActionIconContainer, sessionDone && styles.quickActionIconDone]}>
+                  <IconBarbell size={23} color={sessionDone ? COLORS.success : COLORS.accent} />
+                </View>
+                <Text
+                  style={[styles.quickActionLabelBlock, sessionDone && styles.quickActionLabelDoneBlock]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.84}
+                >
+                  Train
+                </Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                testID="dashboard-quick-action-fuel"
+                style={styles.quickActionBlock}
+                onPress={() => openFuelScreen("NutritionHome")}
+              >
+                <View style={styles.quickActionIconContainer}>
+                  <IconDroplets size={23} color={COLORS.accent} />
+                </View>
+                <Text
+                  style={styles.quickActionLabelBlock}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.84}
+                >
+                  Fuel
+                </Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                testID="dashboard-quick-action-plan"
+                style={styles.quickActionBlock}
+                onPress={openPlanningSurface}
+              >
+                <View style={styles.quickActionIconContainer}>
+                  <IconCalendar size={23} color={COLORS.accent} />
+                </View>
+                <Text
+                  style={styles.quickActionLabelBlock}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.84}
+                >
+                  {hasLivePlanningState ? "Calendar" : "Setup"}
+                </Text>
+              </AnimatedPressable>
+            </Animated.View>
+
             {shouldShowExistingUserIntro ? (
               <ExistingUserOverhaulIntroCard
                 missingDataPrompts={existingUserMissingDataPrompts}
@@ -789,156 +901,25 @@ export function DashboardScreen() {
               </View>
             ) : null}
 
-            <View style={styles.readinessHeroWrap}>
-              <Card
-                style={[
-                  styles.readinessHeroCard,
-                  useCompactReadinessHero && styles.readinessHeroCardCompact,
-                  { borderColor: getReadinessBorderColor(currentLevel) },
-                ]}
-                backgroundTone="readiness"
-                backgroundScrimColor="rgba(10, 10, 10, 0.50)"
-              >
-                <View pointerEvents="none" style={styles.readinessHeroGlow} />
-                <View
-                  pointerEvents="none"
-                  style={[
-                    styles.readinessHeroAccentLine,
-                    { backgroundColor: getReadinessColor(currentLevel) },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.readinessHeroCopy,
-                    useCompactReadinessHero && styles.readinessHeroCopyCompact,
-                  ]}
-                >
-                  <Text style={styles.readinessHeroKicker}>TODAY'S READINESS</Text>
-                  <Text style={styles.readinessHeroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.82}>
-                    {getReadinessHeadline(currentLevel, getTodayMissionStatusLabel(todayMission.status))}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.readinessHeroBody,
-                      useCompactReadinessHero && styles.readinessHeroBodyCompact,
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {getReadinessCircleCopy(currentLevel)}
-                  </Text>
-                  <View
-                    style={[
-                      styles.readinessStatusPill,
-                      {
-                        borderColor: getReadinessBorderColor(currentLevel),
-                        backgroundColor: getReadinessPillBackground(currentLevel),
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.readinessStatusDot,
-                        { backgroundColor: getReadinessColor(currentLevel) },
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.readinessStatusText,
-                        { color: getReadinessColor(currentLevel) },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {getReadinessSignalLabel(currentLevel)}
-                    </Text>
-                  </View>
-                </View>
+            <TodaySignalGrid
+              summary={performanceContext}
+              readinessScore={readinessScore}
+              currentLevel={currentLevel}
+              compact={useCompactReadinessHero}
+              onOpenReadiness={() => navigation.navigate("Log")}
+              onOpenFuel={() => openFuelScreen("NutritionHome")}
+            />
 
-                <View
-                  style={[
-                    styles.readinessHeroRingShell,
-                    useCompactReadinessHero && styles.readinessHeroRingShellCompact,
-                  ]}
-                >
-                  <RadialProgress
-                    progress={getReadinessProgress(readinessScore, currentLevel)}
-                    size={useCompactReadinessHero ? 156 : 168}
-                    strokeWidth={13}
-                    color={getReadinessColor(currentLevel)}
-                    trackColor="rgba(245,245,240,0.13)"
-                    label={getReadinessCircleValue(readinessScore)}
-                    centerSublabel={getReadinessCenterSublabel(readinessScore)}
-                    textColor={COLORS.text.primary}
-                    glowColor={getReadinessGlowColor(currentLevel)}
-                    centerFillColor="rgba(10, 10, 10, 0.78)"
-                    centerBorderColor={getReadinessBorderColor(currentLevel)}
-                    labelStyle={styles.readinessHeroCircleLabel}
-                    centerSublabelStyle={styles.readinessHeroCircleSublabel}
-                  />
-                </View>
-              </Card>
-            </View>
-
-            <View style={styles.content}>
+            <View style={styles.journeySummaryWrap}>
               <UnifiedJourneySummaryCard
                 summary={performanceContext}
                 compact
                 showBodyMass={Boolean(performanceContext.bodyMass)}
+                variant="todayCommand"
+                onPress={openPlanningSurface}
+                style={styles.journeySummaryCard}
               />
             </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(D).duration(ANIMATION.slow).springify()} style={styles.quickActionGrid}>
-            <AnimatedPressable
-                testID="dashboard-quick-action-check-in"
-                style={[styles.quickActionBlock, checkinDone && styles.quickActionBlockDone]}
-                onPress={() => navigation.navigate("Log")}
-            >
-                <View style={styles.quickActionIconContainer}>
-                   <IconCheckCircle size={28} color={checkinDone ? COLORS.success : COLORS.accent} />
-                </View>
-                <Text style={[styles.quickActionLabelBlock, checkinDone && styles.quickActionLabelDoneBlock]}>
-                   Check In
-                </Text>
-            </AnimatedPressable>
-            
-            <AnimatedPressable
-                testID="dashboard-quick-action-train"
-                style={[styles.quickActionBlock, sessionDone && styles.quickActionBlockDone]}
-                onPress={() => void openTodayTraining()}
-            >
-                <View style={styles.quickActionIconContainer}>
-                   <IconBarbell size={28} color={sessionDone ? COLORS.success : COLORS.accent} />
-                </View>
-                <Text style={[styles.quickActionLabelBlock, sessionDone && styles.quickActionLabelDoneBlock]}>
-                   Train
-                </Text>
-            </AnimatedPressable>
-
-            <AnimatedPressable
-                testID="dashboard-quick-action-fuel"
-                style={styles.quickActionBlock}
-                onPress={() => openFuelScreen("NutritionHome")}
-            >
-                <View style={styles.quickActionIconContainer}>
-                   <IconDroplets size={28} color={COLORS.accent} />
-                </View>
-                <Text style={styles.quickActionLabelBlock}>
-                   Fuel
-                </Text>
-            </AnimatedPressable>
-
-            <AnimatedPressable
-                testID="dashboard-quick-action-plan"
-                style={styles.quickActionBlock}
-                onPress={openPlanningSurface}
-            >
-                <View style={styles.quickActionIconContainer}>
-                   <IconCalendar size={28} color={COLORS.accent} />
-                </View>
-                <Text style={styles.quickActionLabelBlock}>
-                   {hasLivePlanningState ? "Calendar" : "Setup"}
-                </Text>
-            </AnimatedPressable>
         </Animated.View>
 
         <View style={styles.content}>
@@ -947,9 +928,11 @@ export function DashboardScreen() {
               entering={FadeInDown.delay(D * 1.2)
                 .duration(ANIMATION.slow)
                 .springify()}
+              style={styles.bodyTrendWrap}
             >
               <WeightTrendCard
                 trend={weightTrend}
+                variant="todayCommand"
                 baseWeight={weightTrend.currentWeight - weightTrend.totalChangeLbs}
                 targetWeight={
                   weightTrend.remainingLbs > 0
@@ -1024,7 +1007,177 @@ export function DashboardScreen() {
           <View style={{ height: SPACING.xxl }} />
         </View>
       </ScrollView>
+      </ImageBackground>
     </ScreenWrapper>
+  );
+}
+
+interface TodaySignalGridProps {
+  summary: UnifiedPerformanceViewModel;
+  readinessScore: number | null;
+  currentLevel: string | null;
+  compact: boolean;
+  onOpenReadiness: () => void;
+  onOpenFuel: () => void;
+}
+
+function TodaySignalGrid({
+  summary,
+  readinessScore,
+  currentLevel,
+  compact,
+  onOpenReadiness,
+  onOpenFuel,
+}: TodaySignalGridProps) {
+  const primaryAnchor = summary.protectedAnchors[0] ?? null;
+  const readinessColor = getReadinessColor(currentLevel);
+  const readinessBorder = getReadinessBorderColor(currentLevel);
+  const calories = formatNutritionTarget(summary.nutrition.numbers.calories, "cal");
+  const protein = formatNutritionTarget(summary.nutrition.numbers.proteinG, "g protein");
+  const hydration = formatNutritionTarget(summary.nutrition.numbers.hydrationOz, "oz water");
+  const anchorDetail = primaryAnchor
+    ? [primaryAnchor.dateLabel, primaryAnchor.intensityLabel].filter(Boolean).join(" / ")
+    : "Add sparring, classes, or coach-led sessions so the plan works around them.";
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(80).duration(ANIMATION.slow).springify()}
+      style={[styles.signalGrid, compact && styles.signalGridCompact]}
+    >
+      <View style={[styles.signalCard, styles.readinessSignalCard, { borderColor: readinessBorder }]}>
+        <View style={styles.signalHeaderRow}>
+          <View style={styles.signalHeaderCopy}>
+            <Text style={styles.signalKicker}>TODAY'S READINESS</Text>
+            <Text style={styles.signalTitle} numberOfLines={1}>
+              {getReadinessSignalLabel(currentLevel)}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.miniStatusPill,
+              {
+                borderColor: readinessBorder,
+                backgroundColor: getReadinessPillBackground(currentLevel),
+              },
+            ]}
+          >
+            <Text style={[styles.miniStatusText, { color: readinessColor }]} numberOfLines={1}>
+              {summary.readiness.bandLabel}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.readinessSignalBody}>
+          <RadialProgress
+            progress={getReadinessProgress(readinessScore, currentLevel)}
+            size={compact ? 122 : 108}
+            strokeWidth={10}
+            color={readinessColor}
+            trackColor="rgba(245,245,240,0.13)"
+            label={getReadinessCircleValue(readinessScore)}
+            centerSublabel={getReadinessCenterSublabel(readinessScore)}
+            textColor={COLORS.text.primary}
+            glowColor={getReadinessGlowColor(currentLevel)}
+            centerFillColor="rgba(10, 10, 10, 0.76)"
+            centerBorderColor={readinessBorder}
+            labelStyle={styles.signalCircleLabel}
+            centerSublabelStyle={styles.signalCircleSublabel}
+          />
+          <View style={styles.readinessSignalCopy}>
+            <Text style={[styles.signalBodyStrong, { color: readinessColor }]} numberOfLines={1}>
+              {summary.readiness.bandLabel}
+            </Text>
+            <Text style={styles.signalBody} numberOfLines={2}>
+              {getReadinessCircleCopy(currentLevel)}
+            </Text>
+            <SignalStat
+              label="Score"
+              value={summary.readiness.scoreLabel}
+              toneColor={readinessColor}
+            />
+            <SignalStat
+              label="Context"
+              value={summary.readiness.confidenceLabel}
+              toneColor={summary.lowConfidence ? COLORS.warning : COLORS.text.secondary}
+            />
+          </View>
+        </View>
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="View full readiness"
+          style={styles.signalCta}
+          onPress={onOpenReadiness}
+        >
+          <Text style={styles.signalCtaText}>View full readiness</Text>
+          <IconChevronRight size={15} color={COLORS.accent} />
+        </AnimatedPressable>
+      </View>
+
+      <View style={styles.signalCard}>
+        <View style={styles.signalSection}>
+          <View style={styles.signalSectionHeader}>
+            <View style={styles.signalIconBubble}>
+              <IconShieldCheck size={16} color={COLORS.accent} />
+            </View>
+            <Text style={styles.signalKicker}>PROTECTED ANCHORS</Text>
+          </View>
+          <Text style={styles.signalTitle} numberOfLines={1}>
+            {primaryAnchor?.label ?? "No anchors logged"}
+          </Text>
+          <Text style={styles.signalBody} numberOfLines={2}>
+            {anchorDetail}
+          </Text>
+          {primaryAnchor ? (
+            <View style={styles.anchorProtectionPill}>
+              <Text style={styles.anchorProtectionText}>Protected / Non-negotiable</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.signalDivider} />
+
+        <View style={styles.signalSection}>
+          <View style={styles.signalSectionHeader}>
+            <View style={styles.signalIconBubble}>
+              <IconDroplets size={16} color={COLORS.accent} />
+            </View>
+            <Text style={styles.signalKicker}>FUEL SNAPSHOT</Text>
+          </View>
+          <SignalStat label="Calories" value={calories} toneColor={COLORS.success} />
+          <SignalStat label="Protein" value={protein} toneColor={COLORS.text.secondary} />
+          <SignalStat label="Hydration" value={hydration} toneColor={COLORS.chart.water} />
+        </View>
+
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="View nutrition"
+          style={styles.signalCta}
+          onPress={onOpenFuel}
+        >
+          <Text style={styles.signalCtaText}>View nutrition</Text>
+          <IconChevronRight size={15} color={COLORS.accent} />
+        </AnimatedPressable>
+      </View>
+    </Animated.View>
+  );
+}
+
+function SignalStat({
+  label,
+  value,
+  toneColor,
+}: {
+  label: string;
+  value: string;
+  toneColor: string;
+}) {
+  return (
+    <View style={styles.signalStatRow}>
+      <Text style={styles.signalStatLabel}>{label}</Text>
+      <Text style={[styles.signalStatValue, { color: toneColor }]} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -1183,13 +1336,6 @@ function getReadinessSignalLabel(level: string | null): string {
   return "Needs check-in";
 }
 
-function getReadinessHeadline(level: string | null, fallback: string): string {
-  if (level === "Prime") return "Ready to push";
-  if (level === "Caution") return "Train smart";
-  if (level === "Depleted") return "Pull back";
-  return fallback;
-}
-
 function getReadinessGlowColor(level: string | null): string {
   if (level === "Prime") return "rgba(183, 217, 168, 0.28)";
   if (level === "Caution") return "rgba(212, 175, 55, 0.30)";
@@ -1211,6 +1357,14 @@ function getReadinessCenterSublabel(score: number | null | undefined): string {
   return typeof score === "number" && Number.isFinite(score) ? "/100" : "check in";
 }
 
+function formatNutritionTarget(value: number | null | undefined, suffix: string): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "Target pending";
+  }
+
+  return `${Math.round(value).toLocaleString("en-US")} ${suffix}`;
+}
+
 function getReadinessCircleCopy(level: string | null): string {
   if (level === "Prime") return "Your body is ready for quality work.";
   if (level === "Caution") return "Train, but leave room in the tank.";
@@ -1218,19 +1372,30 @@ function getReadinessCircleCopy(level: string | null): string {
   return "Check in to sharpen this signal.";
 }
 
-function getTodayMissionStatusLabel(status: TodayMissionStatus): string {
-  if (status === "good_to_push") return "Ready";
-  if (status === "train_smart") return "Train smart";
-  if (status === "pull_back") return "Recovery first";
-  if (status === "blocked") return "Adjust first";
-  return "Needs context";
+function getGreeting(firstName: string | null): string {
+  const hour = new Date().getHours();
+  const salutation = hour < 12
+    ? "Good Morning"
+    : hour < 17
+      ? "Good Afternoon"
+      : "Good Evening";
+
+  return firstName ? `${salutation}, ${firstName}` : salutation;
 }
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
+function getUserFirstName(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const source = metadata as Record<string, unknown>;
+  const rawName =
+    source.first_name ??
+    source.firstName ??
+    source.name ??
+    source.full_name ??
+    source.fullName;
+
+  if (typeof rawName !== "string") return null;
+  const firstName = rawName.trim().split(/\s+/)[0];
+  return firstName.length > 0 ? firstName : null;
 }
 
 function formatDashboardDate(isoDate: string): string {

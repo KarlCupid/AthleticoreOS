@@ -20,11 +20,12 @@ import {
   IconChevronRight,
   IconDroplets,
   IconInfo,
+  IconPlay,
   IconScale,
   IconShieldCheck,
   IconTarget,
 } from '../icons';
-import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING, TYPOGRAPHY_V2 } from '../../theme/theme';
+import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../../theme/theme';
 
 interface TodayMissionPanelProps {
   mission: TodayMissionViewModel;
@@ -81,21 +82,10 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
   return (
     <Card
       style={[styles.card, { borderColor: status.border }]}
-      backgroundTone="mission"
-      backgroundScrimColor="rgba(10, 10, 10, 0.42)"
+      backgroundTone="none"
     >
       <View style={styles.topRow}>
-        <View style={styles.titleRow}>
-          <View style={[styles.iconBubble, { borderColor: status.border, backgroundColor: status.background }]}>
-            <IconTarget size={20} color={status.color} />
-          </View>
-          <View style={styles.titleCopy}>
-            <Text style={styles.kicker}>{mission.missionTitle.toUpperCase()}</Text>
-            <Text style={styles.phaseLabel} numberOfLines={1}>
-              {mission.phaseLabel}
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.kicker}>{mission.missionTitle.toUpperCase()}</Text>
         <View style={[styles.statusPill, { backgroundColor: status.background, borderColor: status.border }]}>
           <View style={[styles.statusDot, { backgroundColor: status.color }]} />
           <Text style={[styles.statusText, { color: status.color }]} numberOfLines={1}>
@@ -107,22 +97,30 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
       <Text style={styles.primaryFocus} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.86}>
         {coachCopy.headline}
       </Text>
+      <Text style={styles.phaseLabel} numberOfLines={1}>
+        {mission.phaseLabel}
+      </Text>
 
       <View style={styles.whyBlock}>
-        <Text style={styles.sectionLabel}>WHY TODAY MATTERS</Text>
+        <Text style={styles.sectionLabel}>Why today matters</Text>
         <Text style={styles.whyText}>{coachCopy.body}</Text>
       </View>
 
       <View style={styles.summaryGrid}>
-        {summaryRows.map((row) => (
-          <View key={row.id} style={styles.summaryRow}>
+        {summaryRows.map((row, index) => (
+          <View key={row.id} style={[styles.summaryRow, index === 0 && styles.summaryRowFirst]}>
             <View style={[styles.summaryIcon, row.emphasis === 'risk' && styles.summaryIconRisk]}>
               {renderRowIcon(row.id, row.emphasis === 'risk' ? COLORS.error : COLORS.accent)}
             </View>
+            <Text style={styles.summaryLabel} numberOfLines={1}>
+              {row.label}
+            </Text>
             <View style={styles.summaryCopy}>
-              <Text style={styles.summaryLabel}>{row.label}</Text>
-              <Text style={styles.summaryText}>{row.text}</Text>
+              <Text style={styles.summaryText} numberOfLines={2}>
+                {row.text}
+              </Text>
             </View>
+            <IconChevronRight size={16} color={COLORS.text.tertiary} />
           </View>
         ))}
       </View>
@@ -181,10 +179,10 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
           style={styles.primaryButton}
           onPress={() => onAction(primaryAction)}
         >
+          {renderActionIcon(primaryAction, COLORS.text.inverse)}
           <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
             {coachCopy.primaryAction}
           </Text>
-          <IconChevronRight size={18} color={COLORS.text.inverse} />
         </AnimatedPressable>
       ) : null}
 
@@ -197,6 +195,7 @@ export const TodayMissionPanel = memo(function TodayMissionPanel({
               style={styles.secondaryButton}
               onPress={() => onAction(action)}
             >
+              {renderActionIcon(action, COLORS.accent)}
               <Text style={styles.secondaryButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
                 {sanitizeAthleteFacingCopy(action.label)}
               </Text>
@@ -262,50 +261,54 @@ function renderRowIcon(id: SummaryRowId, color: string) {
   }
 }
 
+function renderActionIcon(action: TodayMissionAction, color: string) {
+  switch (action.intent) {
+    case 'start_training':
+      return <IconPlay size={18} color={color} />;
+    case 'review_fueling':
+      return <IconDroplets size={18} color={color} />;
+    case 'log_body_mass':
+    case 'review_body_mass':
+      return <IconScale size={18} color={color} />;
+    case 'log_checkin':
+      return <IconCheckCircle size={18} color={color} />;
+    case 'confirm_fight':
+      return <IconTarget size={18} color={color} />;
+    case 'review_plan':
+    case 'take_recovery':
+    default:
+      return <IconCalendar size={18} color={color} />;
+  }
+}
+
 const styles = StyleSheet.create({
   card: {
-    padding: SPACING.lg,
+    padding: SPACING.md,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    backgroundColor: 'rgba(10, 10, 10, 0.82)',
+    backgroundColor: 'rgba(8, 12, 14, 0.84)',
     ...SHADOWS.cardElevated,
   },
   topRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: SPACING.md,
-  },
-  titleRow: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: SPACING.sm,
   },
-  iconBubble: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  titleCopy: {
+  kicker: {
     flex: 1,
     minWidth: 0,
-  },
-  kicker: {
-    fontSize: 12,
-    lineHeight: 15,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.accent,
-    letterSpacing: 1,
-  },
-  phaseLabel: {
-    marginTop: 3,
     fontSize: 13,
     lineHeight: 17,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.accent,
+    letterSpacing: 1.8,
+  },
+  phaseLabel: {
+    marginTop: 2,
+    fontSize: 15,
+    lineHeight: 20,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.secondary,
   },
@@ -333,73 +336,76 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.semiBold,
   },
   primaryFocus: {
-    marginTop: SPACING.lg,
-    fontSize: 30,
-    lineHeight: 36,
-    fontFamily: FONT_FAMILY.extraBold,
+    marginTop: SPACING.sm + 2,
+    fontSize: 38,
+    lineHeight: 44,
+    fontFamily: FONT_FAMILY.black,
     color: COLORS.text.primary,
     letterSpacing: 0,
   },
   whyBlock: {
-    marginTop: SPACING.md,
-    paddingTop: SPACING.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(245, 245, 240, 0.16)',
+    marginTop: SPACING.md - 2,
     gap: SPACING.xs,
   },
   sectionLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.tertiary,
-    letterSpacing: 1,
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.accent,
+    letterSpacing: 0,
   },
   whyText: {
-    ...TYPOGRAPHY_V2.plan.body,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
   },
   summaryGrid: {
     marginTop: SPACING.md,
-    gap: SPACING.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(245, 245, 240, 0.12)',
+    borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(5, 8, 10, 0.46)',
+    overflow: 'hidden',
   },
   summaryRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: SPACING.sm,
-    paddingTop: SPACING.sm,
+    minHeight: 40,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(245, 245, 240, 0.10)',
+    borderTopColor: 'rgba(245, 245, 240, 0.09)',
+  },
+  summaryRowFirst: {
+    borderTopWidth: 0,
   },
   summaryIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.28)',
-    backgroundColor: 'rgba(212, 175, 55, 0.12)',
   },
   summaryIconRisk: {
-    borderColor: 'rgba(217, 130, 126, 0.34)',
-    backgroundColor: 'rgba(217, 130, 126, 0.14)',
+    backgroundColor: 'rgba(217, 130, 126, 0.10)',
   },
   summaryCopy: {
     flex: 1,
     minWidth: 0,
   },
   summaryLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontFamily: FONT_FAMILY.semiBold,
-    color: COLORS.text.tertiary,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    width: 86,
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+    letterSpacing: 0,
   },
   summaryText: {
-    marginTop: 2,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 18,
     fontFamily: FONT_FAMILY.regular,
     color: COLORS.text.secondary,
   },
@@ -445,9 +451,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(245, 245, 240, 0.12)',
-    paddingTop: SPACING.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(245, 245, 240, 0.13)',
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: 'rgba(10, 10, 10, 0.26)',
   },
   detailsToggleText: {
     flex: 1,
@@ -483,7 +491,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
   },
   primaryButton: {
-    marginTop: SPACING.lg,
+    marginTop: SPACING.md,
     minHeight: 56,
     backgroundColor: COLORS.accent,
     borderRadius: RADIUS.lg,
@@ -491,7 +499,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING.xs,
+    gap: SPACING.sm,
     ...SHADOWS.colored.accent,
   },
   primaryButtonText: {
@@ -504,17 +512,22 @@ const styles = StyleSheet.create({
   },
   secondaryActions: {
     marginTop: SPACING.sm,
+    flexDirection: 'row',
     gap: SPACING.sm,
   },
   secondaryButton: {
-    minHeight: 46,
-    borderRadius: RADIUS.full,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 48,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(212, 175, 55, 0.42)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: SPACING.lg,
-    backgroundColor: 'rgba(10, 10, 10, 0.30)',
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: 'rgba(5, 8, 10, 0.48)',
   },
   secondaryButtonText: {
     flexShrink: 1,

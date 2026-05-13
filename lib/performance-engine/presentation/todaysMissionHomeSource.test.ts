@@ -26,8 +26,8 @@ console.log('\n-- todays mission home source --');
 
 assert('Dashboard renders TodayMissionPanel', /<TodayMissionPanel\s/.test(dashboard));
 assert('Dashboard passes canonical todayMission to panel', dashboard.includes('mission={todayMission}'));
-assert('Dashboard puts mission before readiness hero', dashboard.indexOf('styles.todayMissionWrap') < dashboard.indexOf('styles.readinessHeroWrap'));
-assert('Dashboard still keeps readiness context available', dashboard.includes('readinessHeroWrap') && dashboard.includes("TODAY'S READINESS"));
+assert('Dashboard puts mission before readiness signals', dashboard.indexOf('styles.todayMissionWrap') < dashboard.indexOf('<TodaySignalGrid'));
+assert('Dashboard still keeps readiness context available', dashboard.includes('<TodaySignalGrid') && dashboard.includes("TODAY'S READINESS"));
 assert('Dashboard still keeps unified journey summary available', dashboard.includes('UnifiedJourneySummaryCard'));
 assert('Dashboard still keeps body-mass trend access available', dashboard.includes('WeightTrendCard'));
 assert('Dashboard no longer uses legacy mission panel as home source', !/MissionDashboardPanel|buildMissionDashboardViewModel|buildCompassViewModel/.test(dashboard));
@@ -66,7 +66,7 @@ for (const field of requiredMissionFields) {
 
 assert('TodayMissionPanel uses existing Card component', panel.includes("import { Card } from '../Card'"));
 assert('TodayMissionPanel uses existing AnimatedPressable component', panel.includes("import { AnimatedPressable } from '../AnimatedPressable'"));
-assert('TodayMissionPanel uses existing theme tokens', /COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING, TYPOGRAPHY_V2/.test(panel));
+assert('TodayMissionPanel uses existing theme tokens', /COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING/.test(panel));
 assert('TodayMissionPanel does not introduce a hex palette', !/#[0-9A-Fa-f]{3,8}/.test(panel));
 assert('TodayMissionPanel limits secondary actions', panel.includes('mission.nextActions.slice(1, 3)'));
 assert('TodayMissionPanel exposes expandable explanations', panel.includes('Show why it changed') && panel.includes('mission.explanations'));

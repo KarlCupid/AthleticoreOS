@@ -85,6 +85,10 @@ export const IconChevronLeft = ({ color = '#000', size = DEFAULT_SIZE, style }: 
     <Feather name="chevron-left" size={size} color={color} style={style} />
 );
 
+export const IconPlay = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
+    <Feather name="play" size={size} color={color} style={style} />
+);
+
 export const IconSettings = ({ color = '#000', size = DEFAULT_SIZE, style }: IconProps) => (
     <Feather name="settings" size={size} color={color} style={style} />
 );

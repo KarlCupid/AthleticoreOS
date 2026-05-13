@@ -3,7 +3,15 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-na
 
 import type { UnifiedPerformanceViewModel } from '../../../lib/performance-engine';
 import { sanitizeAthleteFacingCopy } from '../../../lib/performance-engine/presentation';
+import { AnimatedPressable } from '../AnimatedPressable';
 import { Card } from '../Card';
+import {
+  IconAlertTriangle,
+  IconBarChart,
+  IconChevronRight,
+  IconScale,
+  IconShieldCheck,
+} from '../icons';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../../theme/theme';
 
 interface UnifiedJourneySummaryCardProps {
@@ -12,6 +20,8 @@ interface UnifiedJourneySummaryCardProps {
   showProtectedAnchors?: boolean;
   showBodyMass?: boolean;
   style?: StyleProp<ViewStyle>;
+  variant?: 'default' | 'todayCommand';
+  onPress?: (() => void) | undefined;
 }
 
 export function UnifiedJourneySummaryCard({
@@ -20,6 +30,8 @@ export function UnifiedJourneySummaryCard({
   showProtectedAnchors = true,
   showBodyMass = true,
   style,
+  variant = 'default',
+  onPress,
 }: UnifiedJourneySummaryCardProps) {
   const riskTone = getRiskTone(summary.planStatusTone);
   const topRisks = summary.riskFlags.slice(0, compact ? 2 : 3);
@@ -28,6 +40,19 @@ export function UnifiedJourneySummaryCard({
     ? sanitizeAthleteFacingCopy(summary.explanations[0].summary)
     : null;
   const contextSummary = sanitizeAthleteFacingCopy(summary.confidenceSummary).replace(/\bconfidence\b/gi, 'context');
+
+  if (variant === 'todayCommand') {
+    return (
+      <TodayCommandJourneyCard
+        summary={summary}
+        riskTone={riskTone}
+        topRisk={topRisks[0] ?? null}
+        protectedAnchorCount={protectedAnchors.length}
+        style={style}
+        onPress={onPress}
+      />
+    );
+  }
 
   return (
     <Card
@@ -144,6 +169,149 @@ function Metric({
   );
 }
 
+function TodayCommandJourneyCard({
+  summary,
+  riskTone,
+  topRisk,
+  protectedAnchorCount,
+  style,
+  onPress,
+}: {
+  summary: UnifiedPerformanceViewModel;
+  riskTone: ReturnType<typeof getRiskTone>;
+  topRisk: UnifiedPerformanceViewModel['riskFlags'][number] | null;
+  protectedAnchorCount: number;
+  style?: StyleProp<ViewStyle>;
+  onPress?: (() => void) | undefined;
+}) {
+  const bodyMassLabel = summary.bodyMass
+    ? summary.bodyMass.feasibilityLabel ?? summary.bodyMass.trajectoryLabel
+    : summary.focus.bodyMass ?? 'Unknown';
+  const safetyLabel = summary.blockingRiskSummary
+    ?? summary.bodyMass?.safetyLabel
+    ?? topRisk?.message
+    ?? 'No alerts';
+  const safetyTone = topRisk?.blocksPlan
+    ? COLORS.error
+    : summary.lowConfidence
+      ? COLORS.warning
+      : COLORS.success;
+
+  return (
+    <Card
+      variant="glass"
+      style={[styles.todayCard, style]}
+      backgroundTone="none"
+    >
+      <View style={styles.todayHeaderRow}>
+        <View style={styles.todayHeaderCopy}>
+          <Text style={styles.todayKicker}>JOURNEY</Text>
+          <View style={styles.todayPhaseRow}>
+            <View style={styles.todayPhaseMark}>
+              <IconBarChart size={18} color={COLORS.accent} />
+            </View>
+            <View style={styles.todayPhaseCopy}>
+              <Text style={styles.todayPhaseTitle} numberOfLines={1}>
+                {summary.phase.label}
+              </Text>
+              <Text style={styles.todayPhaseSub} numberOfLines={1}>
+                {summary.journey.segmentLabel}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={[styles.todayStatusPill, { borderColor: riskTone.border, backgroundColor: riskTone.background }]}>
+          <Text style={[styles.todayStatusText, { color: riskTone.color }]} numberOfLines={1}>
+            {summary.planStatusLabel}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.todayMetricGrid}>
+        <TodayJourneyMetric label="Plan status" value={summary.planStatusLabel} tone={riskTone.color} />
+        <TodayJourneyMetric label="Training focus" value={sanitizeAthleteFacingCopy(summary.focus.training)} tone={COLORS.chart.fitness} />
+        <TodayJourneyMetric label="Fuel focus" value={sanitizeAthleteFacingCopy(summary.focus.nutrition)} tone={COLORS.chart.water} />
+        <TodayJourneyMetric label="Context" value={summary.readiness.confidenceLabel} tone={summary.lowConfidence ? COLORS.warning : COLORS.text.secondary} />
+      </View>
+
+      <View style={styles.todayContextRow}>
+        <TodayContextMetric
+          icon={<IconShieldCheck size={17} color={COLORS.accent} />}
+          label="Protected anchors"
+          value={`${protectedAnchorCount} today`}
+        />
+        <TodayContextMetric
+          icon={<IconScale size={17} color={COLORS.accent} />}
+          label="Body mass"
+          value={bodyMassLabel}
+          tone={summary.bodyMass ? COLORS.success : COLORS.warning}
+        />
+        <TodayContextMetric
+          icon={<IconAlertTriangle size={17} color={safetyTone} />}
+          label="Safety notes"
+          value={safetyLabel}
+          tone={safetyTone}
+        />
+      </View>
+
+      {onPress ? (
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="View journey"
+          style={styles.todayAction}
+          onPress={onPress}
+        >
+          <Text style={styles.todayActionText}>View journey</Text>
+          <IconChevronRight size={15} color={COLORS.accent} />
+        </AnimatedPressable>
+      ) : null}
+    </Card>
+  );
+}
+
+function TodayJourneyMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+}) {
+  return (
+    <View style={styles.todayMetricCell}>
+      <Text style={styles.todayMetricLabel}>{label}</Text>
+      <Text style={[styles.todayMetricValue, { color: tone }]} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function TodayContextMetric({
+  icon,
+  label,
+  value,
+  tone = COLORS.text.secondary,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <View style={styles.todayContextMetric}>
+      <View style={styles.todayContextIcon}>{icon}</View>
+      <View style={styles.todayContextCopy}>
+        <Text style={styles.todayMetricLabel} numberOfLines={1}>{label}</Text>
+        <Text style={[styles.todayContextValue, { color: tone }]} numberOfLines={1}>
+          {sanitizeAthleteFacingCopy(value)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function getRiskTone(tone: UnifiedPerformanceViewModel['planStatusTone']) {
   if (tone === 'blocked') {
     return {
@@ -174,6 +342,152 @@ function getRiskTone(tone: UnifiedPerformanceViewModel['planStatusTone']) {
 }
 
 const styles = StyleSheet.create({
+  todayCard: {
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 245, 240, 0.15)',
+    borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(10, 14, 16, 0.82)',
+    padding: SPACING.md,
+  },
+  todayHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  todayHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  todayKicker: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.accent,
+    letterSpacing: 1.8,
+  },
+  todayPhaseRow: {
+    marginTop: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  todayPhaseMark: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.42)',
+    backgroundColor: 'rgba(212, 175, 55, 0.10)',
+  },
+  todayPhaseCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  todayPhaseTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  todayPhaseSub: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  todayStatusPill: {
+    maxWidth: 116,
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+  },
+  todayStatusText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONT_FAMILY.extraBold,
+  },
+  todayMetricGrid: {
+    marginTop: SPACING.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(245, 245, 240, 0.11)',
+  },
+  todayMetricCell: {
+    flexBasis: '50%',
+    minWidth: 128,
+    paddingVertical: SPACING.sm,
+    paddingRight: SPACING.sm,
+  },
+  todayMetricLabel: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  todayMetricValue: {
+    marginTop: 3,
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  todayContextRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  todayContextMetric: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 104,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  todayContextIcon: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayContextCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  todayContextValue: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONT_FAMILY.semiBold,
+  },
+  todayAction: {
+    marginTop: SPACING.md,
+    minHeight: 38,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.34)',
+    backgroundColor: 'rgba(10, 10, 10, 0.28)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+  },
+  todayActionText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.accent,
+  },
   card: {
     marginBottom: SPACING.md,
     borderWidth: 1,

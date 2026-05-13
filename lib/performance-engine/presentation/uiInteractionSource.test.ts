@@ -43,7 +43,7 @@ assert('Today Mission primary CTA calls onAction', /onPress=\{\(\) => onAction\(
 assert('Today Mission secondary CTAs have stable selectors', todayMissionPanel.includes('today-mission-secondary-cta-'));
 assert('Today Mission secondary CTAs call onAction', /onPress=\{\(\) => onAction\(action\)\}/.test(todayMissionPanel));
 assert('Dashboard quick actions expose selectors', ['check-in', 'train', 'fuel', 'plan'].every((id) => dashboard.includes(`dashboard-quick-action-${id}`)));
-assert('Dashboard removed the fake notification affordance from render', !dashboard.includes('styles.notificationButton') && dashboard.includes('styles.headerSpacer'));
+assert('Dashboard header alert control is wired to a real refresh action', !dashboard.includes('styles.notificationButton') && dashboard.includes('styles.heroBrandCluster') && dashboard.includes('styles.heroAlertButton') && dashboard.includes('onPress={handleRefresh}'));
 
 assert('Phase transition CTA has a stable selector', phaseCard.includes('testID="phase-transition-primary-cta"'));
 assert('Phase transition CTA calls onContinue', phaseCard.includes('onPress={onContinue}'));
@@ -94,4 +94,3 @@ assert('No checked source leaves a coming soon placeholder interaction', !/comin
 
 console.log(`\n-- Results: ${passed} passed, ${failed} failed --\n`);
 process.exit(failed > 0 ? 1 : 0);
-
