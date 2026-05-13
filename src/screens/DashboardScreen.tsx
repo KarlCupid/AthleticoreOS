@@ -1068,28 +1068,33 @@ function TodaySignalGrid({
         </View>
 
         <View style={styles.readinessSignalBody}>
-          <RadialProgress
-            progress={getReadinessProgress(readinessScore, currentLevel)}
-            size={compact ? 122 : 108}
-            strokeWidth={10}
-            color={readinessColor}
-            trackColor="rgba(245,245,240,0.13)"
-            label={getReadinessCircleValue(readinessScore)}
-            centerSublabel={getReadinessCenterSublabel(readinessScore)}
-            textColor={COLORS.text.primary}
-            glowColor={getReadinessGlowColor(currentLevel)}
-            centerFillColor="rgba(10, 10, 10, 0.76)"
-            centerBorderColor={readinessBorder}
-            labelStyle={styles.signalCircleLabel}
-            centerSublabelStyle={styles.signalCircleSublabel}
-          />
-          <View style={styles.readinessSignalCopy}>
-            <Text style={[styles.signalBodyStrong, { color: readinessColor }]} numberOfLines={1}>
-              {summary.readiness.bandLabel}
-            </Text>
-            <Text style={styles.signalBody} numberOfLines={2}>
-              {getReadinessCircleCopy(currentLevel)}
-            </Text>
+          <View style={styles.readinessScorePanel}>
+            <RadialProgress
+              progress={getReadinessProgress(readinessScore, currentLevel)}
+              size={compact ? 112 : 92}
+              strokeWidth={9}
+              color={readinessColor}
+              trackColor="rgba(245,245,240,0.13)"
+              label={getReadinessCircleValue(readinessScore)}
+              centerSublabel={getReadinessCenterSublabel(readinessScore)}
+              textColor={COLORS.text.primary}
+              glowColor={getReadinessGlowColor(currentLevel)}
+              centerFillColor="rgba(10, 10, 10, 0.76)"
+              centerBorderColor={readinessBorder}
+              labelStyle={styles.signalCircleLabel}
+              centerSublabelStyle={styles.signalCircleSublabel}
+            />
+            <View style={styles.readinessSignalCopy}>
+              <Text style={[styles.signalBodyStrong, { color: readinessColor }]} numberOfLines={1}>
+                {summary.readiness.bandLabel}
+              </Text>
+              <Text style={styles.readinessSignalBodyText} numberOfLines={2}>
+                {getReadinessCircleCopy(currentLevel)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.readinessMetaList}>
             <SignalStat
               label="Score"
               value={summary.readiness.scoreLabel}
