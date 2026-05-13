@@ -157,6 +157,18 @@ export function getSupabaseAuthErrorCopy(error: unknown, operation: AuthOperatio
     return 'Enter a valid email address.';
   }
 
+  if (
+    status === 522
+    || (typeof status === 'number' && status >= 500)
+    || code.includes('auth_service_unavailable')
+    || lowerMessage.includes('auth service is temporarily unavailable')
+    || lowerMessage.includes('connection timed out')
+    || lowerMessage.includes('cloudflare')
+    || (lowerMessage.includes('json parse') && lowerMessage.includes('<'))
+  ) {
+    return 'Athleticore auth is temporarily unavailable. Try again in a few minutes.';
+  }
+
   if (lowerMessage.includes('signup') && lowerMessage.includes('disabled')) {
     return 'Account creation is not ready right now. Contact support if you need access.';
   }

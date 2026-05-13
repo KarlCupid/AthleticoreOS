@@ -53,6 +53,14 @@ console.log('\n-- auth ux error copy --');
     'expired reset token gets reset-specific copy',
     getSupabaseAuthErrorCopy({ message: 'Token has expired or is invalid' }, 'passwordUpdate') === 'That reset link expired. Request a new password reset email.',
   );
+  assert(
+    'auth outage gets service unavailable copy',
+    getSupabaseAuthErrorCopy({ message: 'Athleticore auth service is temporarily unavailable.', status: 522, code: 'auth_service_unavailable' }, 'signIn') === 'Athleticore auth is temporarily unavailable. Try again in a few minutes.',
+  );
+  assert(
+    'html auth outage parse failures get service unavailable copy',
+    getSupabaseAuthErrorCopy({ message: 'JSON Parse error: Unexpected character: <' }, 'signIn') === 'Athleticore auth is temporarily unavailable. Try again in a few minutes.',
+  );
 }
 
 console.log('\n-- password recovery link parsing --');
