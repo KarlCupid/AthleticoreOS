@@ -13,6 +13,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import Svg, { Circle, Line, Path, Polyline } from "react-native-svg";
 
 import { Card } from "../components/Card";
 import { AnimatedPressable } from "../components/AnimatedPressable";
@@ -22,13 +23,8 @@ import { WeightTrendCard } from "../components/WeightTrendCard";
 import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
 import {
   IconAlertTriangle,
-  IconBarbell,
   IconBell,
-  IconDroplets,
-  IconCalendar,
   IconChevronRight,
-  IconPerson,
-  IconShieldCheck,
 } from "../components/icons";
 import { TodayMissionPanel } from "../components/dashboard/TodayMissionPanel";
 import { GuidedPhaseTransitionCard } from "../components/phases/GuidedPhaseTransitionCard";
@@ -802,9 +798,7 @@ export function DashboardScreen() {
                 style={[styles.quickActionBlock, checkinDone && styles.quickActionBlockDone]}
                 onPress={() => navigation.navigate("Log")}
               >
-                <View style={[styles.quickActionIconContainer, checkinDone && styles.quickActionIconDone]}>
-                  <IconPerson size={28} color={checkinDone ? COLORS.success : COLORS.accent} />
-                </View>
+                <QuickActionIconTile kind="checkin" done={checkinDone} />
                 <Text
                   style={[styles.quickActionLabelBlock, checkinDone && styles.quickActionLabelDoneBlock]}
                   numberOfLines={1}
@@ -820,9 +814,7 @@ export function DashboardScreen() {
                 style={[styles.quickActionBlock, sessionDone && styles.quickActionBlockDone]}
                 onPress={() => void openTodayTraining()}
               >
-                <View style={[styles.quickActionIconContainer, sessionDone && styles.quickActionIconDone]}>
-                  <IconBarbell size={23} color={sessionDone ? COLORS.success : COLORS.accent} />
-                </View>
+                <QuickActionIconTile kind="train" done={sessionDone} />
                 <Text
                   style={[styles.quickActionLabelBlock, sessionDone && styles.quickActionLabelDoneBlock]}
                   numberOfLines={1}
@@ -838,9 +830,7 @@ export function DashboardScreen() {
                 style={styles.quickActionBlock}
                 onPress={() => openFuelScreen("NutritionHome")}
               >
-                <View style={styles.quickActionIconContainer}>
-                  <IconDroplets size={23} color={COLORS.accent} />
-                </View>
+                <QuickActionIconTile kind="fuel" />
                 <Text
                   style={styles.quickActionLabelBlock}
                   numberOfLines={1}
@@ -856,9 +846,7 @@ export function DashboardScreen() {
                 style={styles.quickActionBlock}
                 onPress={openPlanningSurface}
               >
-                <View style={styles.quickActionIconContainer}>
-                  <IconCalendar size={23} color={COLORS.accent} />
-                </View>
+                <QuickActionIconTile kind="plan" />
                 <Text
                   style={styles.quickActionLabelBlock}
                   numberOfLines={1}
@@ -1122,7 +1110,7 @@ function TodaySignalGrid({
         <View style={styles.signalSection}>
           <View style={styles.signalSectionHeader}>
             <View style={styles.signalIconBubble}>
-              <IconShieldCheck size={16} color={COLORS.accent} />
+              <SignalHeaderGlyph kind="anchor" />
             </View>
             <Text style={styles.signalKicker}>PROTECTED ANCHORS</Text>
           </View>
@@ -1144,7 +1132,7 @@ function TodaySignalGrid({
         <View style={styles.signalSection}>
           <View style={styles.signalSectionHeader}>
             <View style={styles.signalIconBubble}>
-              <IconDroplets size={16} color={COLORS.accent} />
+              <SignalHeaderGlyph kind="fuel" />
             </View>
             <Text style={styles.signalKicker}>FUEL SNAPSHOT</Text>
           </View>
@@ -1167,6 +1155,32 @@ function TodaySignalGrid({
   );
 }
 
+function SignalHeaderGlyph({ kind }: { kind: "anchor" | "fuel" }) {
+  if (kind === "anchor") {
+    return (
+      <Svg width={16} height={16} viewBox="0 0 24 24">
+        <Path
+          d="M12 4.5L18.5 8V13.8C17.2 16.3 15 18.2 12 19.5C9 18.2 6.8 16.3 5.5 13.8V8L12 4.5Z"
+          stroke={COLORS.accent}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <Line x1={9} y1={12} x2={15} y2={12} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
+      </Svg>
+    );
+  }
+
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24">
+      <Line x1={5.5} y1={8} x2={17} y2={8} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
+      <Line x1={5.5} y1={12} x2={14} y2={12} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
+      <Line x1={5.5} y1={16} x2={18.5} y2={16} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
+      <Circle cx={19.5} cy={8} r={1.5} fill={COLORS.accent} />
+    </Svg>
+  );
+}
+
 function SignalStat({
   label,
   value,
@@ -1183,6 +1197,124 @@ function SignalStat({
         {value}
       </Text>
     </View>
+  );
+}
+
+type QuickActionKind = "checkin" | "train" | "fuel" | "plan";
+
+function QuickActionIconTile({
+  kind,
+}: {
+  kind: QuickActionKind;
+  done?: boolean;
+}) {
+  return renderAthleticoreQuickGlyph(kind);
+}
+
+function renderAthleticoreQuickGlyph(kind: QuickActionKind) {
+  switch (kind) {
+    case "checkin":
+      return <CheckInGlyph />;
+    case "train":
+      return <TrainGlyph />;
+    case "fuel":
+      return <FuelGlyph />;
+    case "plan":
+    default:
+      return <PlanGlyph />;
+  }
+}
+
+function CheckInGlyph() {
+  return (
+    <Svg width={36} height={36} viewBox="0 0 36 36">
+      <Circle cx={9} cy={25} r={2.2} fill={COLORS.text.primary} />
+      <Circle cx={18} cy={18} r={2.4} fill={COLORS.accent} />
+      <Circle cx={27} cy={10} r={2.2} fill={COLORS.text.primary} />
+      <Path
+        d="M8 18C10.8 11.8 16.5 8.2 24 8"
+        stroke={COLORS.text.primary}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeDasharray="1 4"
+        fill="none"
+      />
+      <Polyline
+        points="6,25 12,25 15,20 19,24 23,14 30,14"
+        stroke={COLORS.accent}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
+function TrainGlyph() {
+  return (
+    <Svg width={36} height={36} viewBox="0 0 36 36">
+      <Path
+        d="M20 6L11 19H17L14 30L26 15H20L23 6Z"
+        stroke={COLORS.accent}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="rgba(212, 175, 55, 0.12)"
+      />
+      <Polyline
+        points="7,13 12,18 7,23"
+        stroke={COLORS.text.primary}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Polyline
+        points="27,13 32,18 27,23"
+        stroke={COLORS.text.primary}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
+function FuelGlyph() {
+  return (
+    <Svg width={36} height={36} viewBox="0 0 36 36">
+      <Line x1={8} y1={12} x2={25} y2={12} stroke={COLORS.accent} strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={8} y1={18} x2={21} y2={18} stroke={COLORS.text.primary} strokeWidth={2.2} strokeLinecap="round" />
+      <Line x1={8} y1={24} x2={27} y2={24} stroke={COLORS.accent} strokeWidth={2.4} strokeLinecap="round" />
+      <Circle cx={28.5} cy={12} r={2.2} fill={COLORS.text.primary} />
+      <Circle cx={24.5} cy={18} r={1.8} fill={COLORS.accent} />
+    </Svg>
+  );
+}
+
+function PlanGlyph() {
+  return (
+    <Svg width={36} height={36} viewBox="0 0 36 36">
+      <Path
+        d="M18 7L29 18L18 29L7 18L18 7Z"
+        stroke={COLORS.text.primary}
+        strokeWidth={1.9}
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Path
+        d="M13 21C15.3 15.8 20 14.1 24 12"
+        stroke={COLORS.accent}
+        strokeWidth={2}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Circle cx={12.5} cy={22} r={2} fill={COLORS.text.primary} />
+      <Circle cx={18} cy={17.2} r={2} fill={COLORS.accent} />
+      <Circle cx={24.5} cy={12} r={2} fill={COLORS.text.primary} />
+    </Svg>
   );
 }
 

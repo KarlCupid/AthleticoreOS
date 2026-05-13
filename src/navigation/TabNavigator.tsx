@@ -6,8 +6,7 @@ import { BlurView } from 'expo-blur';
 import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconActivity, IconBarChart, IconCalendar, IconPerson, IconRestaurant } from '../components/icons';
-import type { IconProps } from '../components/icons';
+import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 import { TodayStackNavigator } from './TodayStack';
 import { TrainStackNavigator } from './TrainStack';
 import { PlanStackNavigator } from './PlanStack';
@@ -29,10 +28,10 @@ function TabIcon(props: {
   focused: boolean;
   color: string;
   label: string;
-  IconComponent: React.ComponentType<IconProps>;
+  kind: NavGlyphKind;
   testID: string;
 }) {
-  const { focused, color, label, IconComponent, testID } = props;
+  const { focused, color, label, kind, testID } = props;
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(focused ? 1.05 : 1, { damping: 12, stiffness: 200 }) }],
     alignItems: 'center',
@@ -47,13 +46,77 @@ function TabIcon(props: {
   return (
     <Animated.View accessible={false} style={[animatedStyle, styles.tabIconWrap]} testID={testID}>
       <View style={[styles.iconChip, focused && { backgroundColor: `${APP_CHROME.accent}18` }]}>
-        <IconComponent size={20} color={color} focused={focused} />
+        <NavGlyph kind={kind} color={color} focused={focused} />
       </View>
       <Animated.Text style={[styles.label, { color }, dotStyle]}>
         {label}
       </Animated.Text>
     </Animated.View>
   );
+}
+
+type NavGlyphKind = 'today' | 'train' | 'plan' | 'fuel' | 'me';
+
+function NavGlyph({
+  kind,
+  color,
+  focused,
+}: {
+  kind: NavGlyphKind;
+  color: string;
+  focused: boolean;
+}) {
+  const strokeWidth = focused ? 2.3 : 2;
+
+  switch (kind) {
+    case 'today':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Line x1={6} y1={18} x2={6} y2={12} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Line x1={11} y1={18} x2={11} y2={7} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Line x1={16} y1={18} x2={16} y2={10} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Line x1={21} y1={18} x2={21} y2={5} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'train':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Polyline
+            points="3,13 6.5,13 8.5,8 12.5,18 15,12 21,12"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </Svg>
+      );
+    case 'plan':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Path d="M12 4.5L19.5 12L12 19.5L4.5 12L12 4.5Z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" fill="none" />
+          <Path d="M8.5 14.5C10.8 10.1 14.2 9.2 16.5 7.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" fill="none" />
+        </Svg>
+      );
+    case 'fuel':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Line x1={5} y1={8} x2={16.5} y2={8} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Line x1={5} y1={12} x2={13.5} y2={12} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Line x1={5} y1={16} x2={18.5} y2={16} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <Circle cx={19} cy={8} r={1.5} fill={color} />
+        </Svg>
+      );
+    case 'me':
+    default:
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Path d="M12 4.5L18 8V16L12 19.5L6 16V8L12 4.5Z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" fill="none" />
+          <Line x1={9} y1={11} x2={15} y2={11} stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+          <Line x1={9} y1={14.5} x2={13} y2={14.5} stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+        </Svg>
+      );
+  }
 }
 
 export function TabNavigator() {
@@ -144,7 +207,7 @@ export function TabNavigator() {
         name="Today"
         component={TodayStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Today" IconComponent={IconBarChart} testID="tab-today" />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Today" kind="today" testID="tab-today" />,
           tabBarAccessibilityLabel: 'Today tab',
           tabBarButtonTestID: 'tab-button-today',
         }}
@@ -153,7 +216,7 @@ export function TabNavigator() {
         name="Train"
         component={TrainStackNavigator}
         options={({ route }) => ({
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Train" IconComponent={IconActivity} testID="tab-train" />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Train" kind="train" testID="tab-train" />,
           tabBarAccessibilityLabel: 'Train tab',
           tabBarButtonTestID: 'tab-button-train',
           tabBarStyle: shouldHideTabBar(route)
@@ -165,7 +228,7 @@ export function TabNavigator() {
         name="Plan"
         component={PlanStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Plan" IconComponent={IconCalendar} testID="tab-plan" />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Plan" kind="plan" testID="tab-plan" />,
           tabBarAccessibilityLabel: 'Plan tab',
           tabBarButtonTestID: 'tab-button-plan',
         }}
@@ -174,7 +237,7 @@ export function TabNavigator() {
         name="Fuel"
         component={FuelStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Fuel" IconComponent={IconRestaurant} testID="tab-fuel" />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Fuel" kind="fuel" testID="tab-fuel" />,
           tabBarAccessibilityLabel: 'Fuel tab',
           tabBarButtonTestID: 'tab-button-fuel',
         }}
@@ -183,7 +246,7 @@ export function TabNavigator() {
         name="Me"
         component={MeStackNavigator}
         options={{
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Me" IconComponent={IconPerson} testID="tab-me" />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} label="Me" kind="me" testID="tab-me" />,
           tabBarAccessibilityLabel: 'Me tab',
           tabBarButtonTestID: 'tab-button-me',
         }}
