@@ -18,11 +18,8 @@ import {
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getPRsForExercises, savePR, saveOverloadHistory } from '../../lib/api/overloadService';
 import { todayLocalDate } from '../../lib/utils/date';
-import { markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
-import {
-    getDailyEngineState,
-    getWeeklyAthleteSummary,
-} from '../../lib/api/dailyPerformanceService';
+import { getWeeklyPlanEntryById, markRecommendationAccepted } from '../../lib/api/weeklyPlanService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { isGuidedEngineScheduledActivity } from '../../lib/engine/sessionOwnership';
 import type {
     DailyAthleteSummary,
@@ -358,24 +355,13 @@ export function useGuidedWorkout(weeklyPlanEntryId?: string, scheduledActivityId
             let mission = engineState.mission;
 
             if (weeklyPlanEntryId) {
-                const weekStart = engineState.primaryPlanEntry?.week_start_date
-                    ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)?.week_start_date
-                    ?? engineState.weeklyPlanEntries[0]?.week_start_date
-                    ?? null;
-                const weeklyAthleteSummary = weekStart
-                    ? await getWeeklyAthleteSummary(userId, weekStart)
-                    : null;
+                const matchingEntry = engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
+                    ?? await getWeeklyPlanEntryById(weeklyPlanEntryId);
                 if (!isCurrentRequest()) {
                     return;
                 }
-                const matchingEntry = weeklyAthleteSummary?.entries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
-                    ?? engineState.weeklyPlanEntries.find((entry: WeeklyPlanEntryRow) => entry.id === weeklyPlanEntryId)
-                    ?? null;
-                const entrySummary = (matchingEntry as { dailyAthleteSummary?: typeof engineState.mission | null } | null)?.dailyAthleteSummary ?? null;
 
-                mission = entrySummary ?? engineState.mission;
-
-                const entryPrescription = entrySummary?.trainingDirective.prescription
+                const entryPrescription = mission.trainingDirective.prescription
                     ?? matchingEntry?.prescription_snapshot
                     ?? null;
 

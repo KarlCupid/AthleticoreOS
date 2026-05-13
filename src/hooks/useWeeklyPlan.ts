@@ -4,6 +4,7 @@ import { handleMissedDay } from '../../lib/engine/calculateSchedule';
 import {
   getWeeklyPlanConfig,
   getActiveWeekPlan,
+  getWeeklyPlanEntriesForWeek,
   markDayCompleted,
   markDaySkipped,
   rescheduleMissedDay,
@@ -14,7 +15,7 @@ import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { getErrorMessage, logError } from '../../lib/utils/logger';
 import { todayLocalDate, addDays } from '../../lib/utils/date';
-import { getDailyEngineState, getWeeklyAthleteSummary } from '../../lib/api/dailyPerformanceService';
+import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { resolveWeeklyPlanWeekStart } from '../../lib/engine/weeklyPlanWeekStart';
 import {
   buildUnifiedPerformanceViewModel,
@@ -68,6 +69,7 @@ function emptyDoseSummary(): Required<SessionDoseSummary> {
 function buildWeeklyMixPlanFromSavedEntries(
   entries: WeeklyPlanEntryRow[],
   summary: string,
+  weekStart: string = entries[0]?.week_start_date ?? todayStr(),
 ): WeeklyTrainingMixPlan {
   const placementCounts = new Map<TrainingSessionFamily, number>();
   const realizedCounts = new Map<TrainingSessionFamily, number>();
@@ -124,7 +126,7 @@ function buildWeeklyMixPlanFromSavedEntries(
   });
 
   return {
-    weekStartDate: entries[0]?.week_start_date ?? todayStr(),
+    weekStartDate: weekStart,
     weekIntent: summary,
     sessionTargets,
     scDoseSummary,
@@ -159,6 +161,17 @@ function buildWeeklyMixPlanFromSavedEntries(
         status: 'deferred' as const,
       })),
   };
+}
+
+function buildWeeklyPlanLoadSummary(entries: WeeklyPlanEntryRow[]): string {
+  if (entries.length === 0) {
+    return 'There is no active weekly plan for this window.';
+  }
+
+  const trainingDays = new Set(entries.map((entry) => entry.date)).size;
+  const supportSessions = entries.filter((entry) => inferEntryFamily(entry) !== 'rest').length;
+
+  return `${supportSessions} scheduled session${supportSessions === 1 ? '' : 's'} across ${trainingDays} training day${trainingDays === 1 ? '' : 's'}.`;
 }
 
 function todayStr(): string {
@@ -255,26 +268,30 @@ export function useWeeklyPlan() {
   // Derive if the current active week is the "current" chronological week
   const isCurrentWeek = activeWeekStart != null && todayStr() >= activeWeekStart && todayStr() < addDays(activeWeekStart, 7);
 
-  const applyWeeklyAthleteSummary = useCallback((weeklyAthleteSummary: Awaited<ReturnType<typeof getWeeklyAthleteSummary>>) => {
-    const nextEntries = weeklyAthleteSummary.entries;
+  const applyWeeklyPlanEntries = useCallback((
+    nextEntries: WeeklyPlanEntryRow[],
+    summary: string,
+    weekStart?: string,
+  ) => {
     const nextIsDeload = nextEntries.some((entry) => entry.is_deload);
     const nextTodayEntry = nextEntries.find((entry) => entry.date === todayStr()) ?? null;
     const nextMissedEntries = nextEntries.filter((entry) => entry.status === 'planned' && entry.date < todayStr());
+    const nextWeekStart = nextEntries[0]?.week_start_date ?? weekStart ?? null;
 
     setEntries(nextEntries);
     setTodayEntry(nextTodayEntry);
     setMissedEntries(nextMissedEntries);
     setIsDeloadWeek(nextIsDeload);
-    setActiveWeekStart(nextEntries[0]?.week_start_date ?? null);
+    setActiveWeekStart(nextWeekStart);
     setWeekPlan({
       entries: nextEntries,
       isDeloadWeek: nextIsDeload,
       deloadReason: null,
       weeklyFocusSplit: {},
       weeklyMixPlan: {
-        ...buildWeeklyMixPlanFromSavedEntries(nextEntries, weeklyAthleteSummary.summary),
+        ...buildWeeklyMixPlanFromSavedEntries(nextEntries, summary, nextWeekStart ?? undefined),
       },
-      message: weeklyAthleteSummary.summary,
+      message: summary,
     });
   }, []);
 
@@ -330,19 +347,12 @@ export function useWeeklyPlan() {
         setIsDeloadWeek(false);
         setActiveWeekStart(null);
       } else {
-        const weeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: Boolean(forceStartDate) });
-        if (gym && shouldRepairUnderfilledWeek(weeklyAthleteSummary.entries, weekStart)) {
+        const weeklyEntries = await getWeeklyPlanEntriesForWeek(userId, weekStart);
+        if (gym && shouldRepairUnderfilledWeek(weeklyEntries, weekStart)) {
           const repairedWeek = await generateAndSaveBoxingWeeklyPlan(userId, planConfig, gym, weekStart);
-          applyWeeklyAthleteSummary({
-            entries: repairedWeek.entries.map((entry) => ({
-              ...entry,
-              dailyAthleteSummary: null,
-            })),
-            headline: 'Weekly athlete summary',
-            summary: repairedWeek.message,
-          });
+          applyWeeklyPlanEntries(repairedWeek.entries, repairedWeek.message, weekStart);
         } else {
-          applyWeeklyAthleteSummary(weeklyAthleteSummary);
+          applyWeeklyPlanEntries(weeklyEntries, buildWeeklyPlanLoadSummary(weeklyEntries), weekStart);
         }
       }
     } catch (err: unknown) {
@@ -351,7 +361,7 @@ export function useWeeklyPlan() {
     }
 
     setLoading(false);
-  }, [activeWeekStart, applyWeeklyAthleteSummary]);
+  }, [activeWeekStart, applyWeeklyPlanEntries]);
 
   const completeDay = useCallback(async (entryId: string, workoutLogId: string) => {
     try {

@@ -1,10 +1,8 @@
-import { supabase } from '../supabase';
 import {
   DAILY_ENGINE_VERSION,
   type DailyAthleteSummary,
   type DailyEngineState,
   type WeeklyAthleteSummaryPlan,
-  type WeeklyPlanEntryRow,
 } from '../engine/index.ts';
 import { getAthleteContext } from './athleteContextService';
 import { getScheduledActivities } from './scheduleService';
@@ -15,6 +13,7 @@ import {
   weeklyAthleteSummaryCache,
   weeklyAthleteSummaryInFlight,
 } from './engineInvalidation';
+import { getWeeklyPlanEntriesForWeek } from './weeklyPlanService';
 import { getDailyEngineStateCacheKey, getWeeklyAthleteSummaryCacheKey } from './dailyPerformance/cacheKeys';
 import { getWeekWindow } from './dailyPerformance/dateWindow';
 import { addMonitoringBreadcrumb } from '../observability/breadcrumbs';
@@ -185,18 +184,7 @@ async function computeWeeklyAthleteSummary(
   options: DailyPerformanceOptions = {},
 ): Promise<WeeklyAthleteSummaryPlan> {
   return resolveWeeklyAthleteSummaryWithDependencies(userId, weekStart, options, {
-    loadWeeklyPlanEntries: async (targetUserId, targetWeekStart) => {
-      const { data, error } = await supabase
-        .from('weekly_plan_entries')
-        .select('*')
-        .eq('user_id', targetUserId)
-        .eq('week_start_date', targetWeekStart)
-        .order('date')
-        .order('slot');
-
-      if (error) throw error;
-      return (data ?? []) as WeeklyPlanEntryRow[];
-    },
+    loadWeeklyPlanEntries: getWeeklyPlanEntriesForWeek,
     getDailyAthleteSummary,
   });
 }

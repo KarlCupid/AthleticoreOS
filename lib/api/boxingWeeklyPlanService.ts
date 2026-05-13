@@ -18,7 +18,7 @@ import type {
 import { formatLocalDate, todayLocalDate } from '../utils/date';
 import { logWarn } from '../utils/logger';
 import { getAthleteContext } from './athleteContextService';
-import { getDailyEngineState, getWeeklyAthleteSummary } from './dailyPerformanceService';
+import { getDailyEngineState } from './dailyPerformanceService';
 import { saveWeekPlan } from './weeklyPlanService';
 import { getRecurringActivities } from './scheduleService';
 import { getActiveBuildPhaseGoal } from './buildPhaseService';
@@ -471,8 +471,7 @@ export async function generateAndSaveBoxingWeeklyPlan(
       });
     });
 
-  const weeklyAthleteSummary = await getWeeklyAthleteSummary(userId, weekStart, { forceRefresh: true });
-  const savedEntries = weeklyAthleteSummary.entries;
+  const savedEntries = savedPlanEntries;
   const firstWeek = program.weeks[0];
   const message = firstWeek?.weeklyAthleticDevelopmentSummary
     ?? firstWeek?.weeklyBoxingSummary
