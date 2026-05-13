@@ -22,12 +22,10 @@ console.log('\n-- first-run walkthrough polish source --');
 
 const onboarding = read('src/screens/OnboardingScreen.tsx');
 const dashboard = read('src/screens/DashboardScreen.tsx');
-const firstLookCard = read('src/components/first-run/FirstSignInAppTourCard.tsx');
 const existingIntroCard = read('src/components/first-run/ExistingUserOverhaulIntroCard.tsx');
 const walkthroughUiSource = [
   onboarding,
   dashboard,
-  firstLookCard,
   existingIntroCard,
 ].join('\n');
 const lowerUiSource = walkthroughUiSource.toLowerCase();
@@ -50,7 +48,7 @@ assert(
   'fueling and readiness copy is clear',
   onboarding.includes("We'll use this around training, recovery, and fight timeline context.")
     && onboarding.includes('Overall readiness')
-    && dashboard.includes('Fueling targets move with your training load, recovery needs, and fight timeline.')
+    && onboarding.includes('Fueling targets move with the work. Athleticore uses training demand, recovery, and safety context to guide the day.')
     && dashboard.includes("Log today's check-in so readiness can shape the work safely."),
 );
 
@@ -65,36 +63,29 @@ assert(
   'Today Mission intro copy leads with daily guidance',
   onboarding.includes("Today's Mission shows what matters, why it matters, what changed, and what to do next.")
     && onboarding.includes('The first mission starts conservative, then sharpens as your check-ins and protected anchors come in.')
-    && dashboard.includes('Start here. Athleticore shows what matters today, why it matters, what changed, and what to do next.')
+    && !dashboard.includes('Start here. Athleticore shows what matters today, why it matters, what changed, and what to do next.')
     && existingIntroCard.includes("Today's Mission now brings the key pieces together so you know what to do and why."),
 );
 
 assert(
-  'skip resume and complete controls use accessible copy',
-  firstLookCard.includes('Save for later')
-    && firstLookCard.includes('Resume walkthrough')
-    && firstLookCard.includes('accessibilityLabel="Save walkthrough for later"')
-    && firstLookCard.includes('Finish first-run walkthrough')
+  'redundant bottom first-look card is retired',
+  !fs.existsSync(path.join(process.cwd(), 'src/components/first-run/FirstSignInAppTourCard.tsx'))
+    && !dashboard.includes('<FirstSignInAppTourCard')
+    && dashboard.includes('shouldResolveRedundantAppTourStep')
     && existingIntroCard.includes('accessibilityLabel="Dismiss guided journey intro"')
     && existingIntroCard.includes('Open Today\'s Mission'),
 );
 
 assert(
   'buttons remain visible and touchable on small screens',
-  firstLookCard.includes('minHeight: 48')
-    && firstLookCard.includes('minHeight: 44')
-    && firstLookCard.includes("flexWrap: 'wrap'")
-    && existingIntroCard.includes('minHeight: 48')
+  existingIntroCard.includes('minHeight: 48')
     && existingIntroCard.includes('minHeight: 44')
     && existingIntroCard.includes("flexWrap: 'wrap'"),
 );
 
 assert(
   'current theme and components are used',
-  firstLookCard.includes("from '../Card'")
-    && firstLookCard.includes("from '../AnimatedPressable'")
-    && firstLookCard.includes("from '../../theme/theme'")
-    && existingIntroCard.includes("from '../Card'")
+  existingIntroCard.includes("from '../Card'")
     && existingIntroCard.includes("from '../AnimatedPressable'")
     && existingIntroCard.includes("from '../../theme/theme'")
     && onboarding.includes("from '../theme/theme'"),
@@ -123,9 +114,9 @@ assert(
 
 assert(
   'old cold walkthrough labels are gone from user-facing cards',
-  !firstLookCard.includes('APP TOUR')
-    && !firstLookCard.includes('Resume tour')
-    && !firstLookCard.includes('Skip for now')
+  !dashboard.includes('APP TOUR')
+    && !dashboard.includes('Resume tour')
+    && !dashboard.includes('Skip for now')
     && !existingIntroCard.includes('No critical setup gaps found.')
     && !existingIntroCard.includes('Review missing context'),
 );

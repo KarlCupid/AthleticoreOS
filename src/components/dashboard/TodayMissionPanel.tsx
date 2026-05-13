@@ -1,6 +1,5 @@
 import React, { memo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import type {
   TodayMissionAction,
@@ -15,8 +14,16 @@ import { AnimatedPressable } from '../AnimatedPressable';
 import { Card } from '../Card';
 import {
   IconAlertTriangle,
+  IconBarbell,
+  IconCalendar,
+  IconCheckCircle,
   IconChevronRight,
+  IconDroplets,
   IconInfo,
+  IconPlay,
+  IconScale,
+  IconShieldCheck,
+  IconTarget,
 } from '../icons';
 import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from '../../theme/theme';
 
@@ -237,147 +244,40 @@ function buildSummaryRows(mission: TodayMissionViewModel): SummaryRow[] {
 function renderRowIcon(id: SummaryRowId, color: string) {
   switch (id) {
     case 'training':
-      return <TodayMissionGlyph kind="training" color={color} size={16} />;
+      return <IconBarbell size={16} color={color} />;
     case 'protected':
-      return <TodayMissionGlyph kind="protected" color={color} size={16} />;
+      return <IconShieldCheck size={16} color={color} />;
     case 'fuel':
-      return <TodayMissionGlyph kind="fuel" color={color} size={16} />;
+      return <IconDroplets size={16} color={color} />;
     case 'readiness':
-      return <TodayMissionGlyph kind="readiness" color={color} size={16} />;
+      return <IconCheckCircle size={16} color={color} />;
     case 'bodyMass':
-      return <TodayMissionGlyph kind="bodyMass" color={color} size={16} />;
+      return <IconScale size={16} color={color} />;
     case 'fight':
-      return <TodayMissionGlyph kind="fight" color={color} size={16} />;
+      return <IconTarget size={16} color={color} />;
     case 'recovery':
     default:
-      return <TodayMissionGlyph kind="recovery" color={color} size={16} />;
+      return <IconCalendar size={16} color={color} />;
   }
 }
 
 function renderActionIcon(action: TodayMissionAction, color: string) {
   switch (action.intent) {
     case 'start_training':
-      return <TodayMissionGlyph kind="training" color={color} size={18} />;
+      return <IconPlay size={18} color={color} />;
     case 'review_fueling':
-      return <TodayMissionGlyph kind="fuel" color={color} size={18} />;
+      return <IconDroplets size={18} color={color} />;
     case 'log_body_mass':
     case 'review_body_mass':
-      return <TodayMissionGlyph kind="bodyMass" color={color} size={18} />;
+      return <IconScale size={18} color={color} />;
     case 'log_checkin':
-      return <TodayMissionGlyph kind="readiness" color={color} size={18} />;
+      return <IconCheckCircle size={18} color={color} />;
     case 'confirm_fight':
-      return <TodayMissionGlyph kind="fight" color={color} size={18} />;
+      return <IconTarget size={18} color={color} />;
     case 'review_plan':
     case 'take_recovery':
     default:
-      return <TodayMissionGlyph kind={action.intent === 'take_recovery' ? 'recovery' : 'plan'} color={color} size={18} />;
-  }
-}
-
-type TodayMissionGlyphKind =
-  | 'training'
-  | 'protected'
-  | 'fuel'
-  | 'readiness'
-  | 'recovery'
-  | 'bodyMass'
-  | 'fight'
-  | 'plan';
-
-function TodayMissionGlyph({
-  kind,
-  color,
-  size,
-}: {
-  kind: TodayMissionGlyphKind;
-  color: string;
-  size: number;
-}) {
-  switch (kind) {
-    case 'training':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Path
-            d="M13.5 3.5L7 13H12L9.8 20.5L17.5 10.3H12.8L15.2 3.5Z"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </Svg>
-      );
-    case 'protected':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Path
-            d="M12 3.8L18 6.1V11.2C18 15.1 15.6 18.1 12 20.2C8.4 18.1 6 15.1 6 11.2V6.1L12 3.8Z"
-            stroke={color}
-            strokeWidth={1.9}
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <Path d="M9 12.3L11.1 14.4L15.3 9.7" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        </Svg>
-      );
-    case 'fuel':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Line x1={6} y1={8} x2={17.5} y2={8} stroke={color} strokeWidth={2} strokeLinecap="round" />
-          <Line x1={6} y1={12} x2={14.5} y2={12} stroke={color} strokeWidth={2} strokeLinecap="round" />
-          <Line x1={6} y1={16} x2={19} y2={16} stroke={color} strokeWidth={2} strokeLinecap="round" />
-          <Circle cx={19.5} cy={8} r={1.4} fill={color} />
-        </Svg>
-      );
-    case 'readiness':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Circle cx={6.2} cy={16.8} r={1.7} fill={color} />
-          <Circle cx={12} cy={12} r={1.9} fill={color} />
-          <Circle cx={17.8} cy={7.2} r={1.7} fill={color} />
-          <Path d="M6.2 16.8C8.1 12.6 11.8 9.2 17.8 7.2" stroke={color} strokeWidth={1.5} strokeLinecap="round" fill="none" />
-        </Svg>
-      );
-    case 'recovery':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Path d="M7 10.5C9.7 7.8 14.3 7.8 17 10.5" stroke={color} strokeWidth={2} strokeLinecap="round" fill="none" />
-          <Path d="M8.8 14C10.6 12.2 13.4 12.2 15.2 14" stroke={color} strokeWidth={2} strokeLinecap="round" fill="none" />
-          <Path d="M10.7 17.3C11.5 16.5 12.5 16.5 13.3 17.3" stroke={color} strokeWidth={2} strokeLinecap="round" fill="none" />
-        </Svg>
-      );
-    case 'bodyMass':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Line x1={7} y1={17} x2={7} y2={11.2} stroke={color} strokeWidth={2} strokeLinecap="round" />
-          <Line x1={12} y1={17} x2={12} y2={7} stroke={color} strokeWidth={2} strokeLinecap="round" />
-          <Line x1={17} y1={17} x2={17} y2={13.5} stroke={color} strokeWidth={2} strokeLinecap="round" />
-          <Line x1={5.8} y1={19} x2={18.2} y2={19} stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-        </Svg>
-      );
-    case 'fight':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Path d="M12 4.5L19.5 12L12 19.5L4.5 12L12 4.5Z" stroke={color} strokeWidth={1.9} strokeLinejoin="round" fill="none" />
-          <Circle cx={12} cy={12} r={2.1} fill={color} />
-        </Svg>
-      );
-    case 'plan':
-    default:
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Polyline
-            points="5.5,17 9,11 13,14 18.5,7"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <Circle cx={5.5} cy={17} r={1.5} fill={color} />
-          <Circle cx={18.5} cy={7} r={1.5} fill={color} />
-        </Svg>
-      );
+      return <IconCalendar size={18} color={color} />;
   }
 }
 

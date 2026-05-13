@@ -77,10 +77,12 @@ console.log('\n-- existing user overhaul intro source --');
   );
 
   assert(
-    'completion persists and moves into the app tour',
+    'completion persists and resolves the retired app tour',
     dashboard.includes('completeAndPersistFirstRunWalkthroughStep')
       && dashboard.includes('step: "today_mission_intro"')
-      && dashboard.includes('currentStep: "app_tour"'),
+      && dashboard.includes('step: "app_tour"')
+      && dashboard.includes('hasSeenAppTour: true')
+      && dashboard.includes('currentStep: null'),
   );
 
   assert(

@@ -13,7 +13,6 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import Svg, { Circle, Line, Path, Polyline } from "react-native-svg";
 
 import { Card } from "../components/Card";
 import { AnimatedPressable } from "../components/AnimatedPressable";
@@ -25,14 +24,12 @@ import {
   IconAlertTriangle,
   IconBell,
   IconChevronRight,
+  IconDroplets,
+  IconShieldCheck,
 } from "../components/icons";
 import { TodayMissionPanel } from "../components/dashboard/TodayMissionPanel";
 import { GuidedPhaseTransitionCard } from "../components/phases/GuidedPhaseTransitionCard";
 import { UnifiedJourneySummaryCard } from "../components/performance/UnifiedJourneySummaryCard";
-import {
-  FirstSignInAppTourCard,
-  type FirstSignInAppTourStep,
-} from "../components/first-run/FirstSignInAppTourCard";
 import { ExistingUserOverhaulIntroCard } from "../components/first-run/ExistingUserOverhaulIntroCard";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 import type {
@@ -50,8 +47,6 @@ import {
   completeAndPersistFirstRunWalkthroughStep,
   dismissAndPersistFirstRunWalkthrough,
   ensureFirstRunWalkthroughState,
-  pauseAndPersistFirstRunWalkthrough,
-  resumeAndPersistFirstRunWalkthrough,
   type FirstRunWalkthroughState,
 } from "../../lib/api/firstRunWalkthroughService";
 import { supabase } from "../../lib/supabase";
@@ -66,6 +61,12 @@ import { classifyPlanEntryRuntimeSurface } from "../../lib/performance-engine/wo
 
 const BRAND_LOGO = require("../../assets/images/athleticore-logo.png");
 const TODAY_BACKGROUND = require("../../assets/images/dashboard/support-card-bg.png");
+const QUICK_ACTION_IMAGES: Record<QuickActionKind, number> = {
+  checkin: require("../../assets/images/dashboard/quick-actions/today-quick-checkin.png"),
+  train: require("../../assets/images/dashboard/quick-actions/today-quick-train.png"),
+  fuel: require("../../assets/images/dashboard/quick-actions/today-quick-fuel.png"),
+  plan: require("../../assets/images/dashboard/quick-actions/today-quick-plan.png"),
+};
 
 export function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -76,7 +77,6 @@ export function DashboardScreen() {
     React.useState<FirstRunGuidanceState | null>(null);
   const [firstRunWalkthrough, setFirstRunWalkthrough] =
     React.useState<FirstRunWalkthroughState | null>(null);
-  const [appTourIndex, setAppTourIndex] = React.useState(0);
   const [showFirstRunModal, setShowFirstRunModal] = React.useState(false);
   const [athleteFirstName, setAthleteFirstName] = React.useState<string | null>(null);
 
@@ -99,13 +99,24 @@ export function DashboardScreen() {
           return null;
         }),
       ]);
+      let resolvedWalkthrough = walkthrough;
+      if (shouldResolveRedundantAppTourStep(walkthrough)) {
+        try {
+          resolvedWalkthrough = await completeAndPersistFirstRunWalkthroughStep({
+            userId,
+            step: "app_tour",
+          });
+        } catch (error) {
+          logError("DashboardScreen.resolveRedundantAppTourStep", error);
+        }
+      }
+
       setFirstRunGuidance(next);
-      setFirstRunWalkthrough(walkthrough);
+      setFirstRunWalkthrough(resolvedWalkthrough);
       setShowFirstRunModal(
         next.status === "pending" &&
         !next.introSeenAt &&
-        !shouldShowExistingUserOverhaulIntro(walkthrough) &&
-        !shouldShowFirstSignInAppTour(walkthrough),
+        !shouldShowExistingUserOverhaulIntro(resolvedWalkthrough),
       );
     } catch (error) {
       logError("DashboardScreen.loadFirstRunGuidance", error);
@@ -410,39 +421,36 @@ export function DashboardScreen() {
     : [];
 
   const shouldShowFirstRunChecklist = firstRunGuidance?.status === "pending";
-  const showFightHubTourStep = Boolean(
-    performanceContext.available ||
-    performanceContext.journey.nextEventLabel ||
-    todayMission.fightOrCompetitionContext,
-  );
   const existingUserMissingDataPrompts = React.useMemo(
     () => buildExistingUserMissingDataPrompts(performanceContext),
     [performanceContext],
   );
-  const appTourSteps = React.useMemo(
-    () => buildFirstSignInAppTourSteps(showFightHubTourStep),
-    [showFightHubTourStep],
-  );
   const shouldShowExistingUserIntro = shouldShowExistingUserOverhaulIntro(firstRunWalkthrough);
-  const shouldShowAppTour = !shouldShowExistingUserIntro && shouldShowFirstSignInAppTour(firstRunWalkthrough);
-  const appTourPaused = firstRunWalkthrough?.status === "skipped";
 
   const completeExistingUserIntro = React.useCallback(async () => {
     setFirstRunWalkthrough((current) => current ? {
       ...current,
-      status: "in_progress",
-      currentStep: "app_tour",
+      status: "completed",
+      currentStep: null,
+      canResume: false,
       hasSeenTodayMissionIntro: true,
-      completedSteps: Array.from(new Set([...current.completedSteps, "today_mission_intro"])),
+      hasSeenAppTour: true,
+      completedSteps: Array.from(new Set([...current.completedSteps, "today_mission_intro", "app_tour"])),
     } : current);
 
     try {
       const userId = await getActiveUserId();
       if (!userId) return;
-      const next = await completeAndPersistFirstRunWalkthroughStep({
+      const afterIntro = await completeAndPersistFirstRunWalkthroughStep({
         userId,
         step: "today_mission_intro",
       });
+      const next = afterIntro.completedSteps.includes("app_tour")
+        ? afterIntro
+        : await completeAndPersistFirstRunWalkthroughStep({
+            userId,
+            step: "app_tour",
+          });
       setFirstRunWalkthrough(next);
     } catch (error) {
       logError("DashboardScreen.completeExistingUserOverhaulIntro", error);
@@ -494,110 +502,6 @@ export function DashboardScreen() {
     openPlanScreen,
     performanceContext.phase.current,
   ]);
-
-  React.useEffect(() => {
-    setAppTourIndex((current) => Math.min(current, Math.max(appTourSteps.length - 1, 0)));
-  }, [appTourSteps.length]);
-
-  const handleAppTourBack = React.useCallback(() => {
-    setAppTourIndex((current) => Math.max(0, current - 1));
-  }, []);
-
-  const completeAppTour = React.useCallback(async () => {
-    setFirstRunWalkthrough((current) => current ? {
-      ...current,
-      status: "completed",
-      currentStep: null,
-      hasSeenAppTour: true,
-      completedSteps: Array.from(new Set([...current.completedSteps, "app_tour"])),
-    } : current);
-
-    try {
-      const userId = await getActiveUserId();
-      if (!userId) return;
-      const next = await completeAndPersistFirstRunWalkthroughStep({
-        userId,
-        step: "app_tour",
-      });
-      setFirstRunWalkthrough(next);
-    } catch (error) {
-      logError("DashboardScreen.completeFirstSignInAppTour", error);
-    }
-  }, []);
-
-  const handleAppTourNext = React.useCallback(() => {
-    if (appTourIndex >= appTourSteps.length - 1) {
-      void completeAppTour();
-      return;
-    }
-    setAppTourIndex((current) => Math.min(appTourSteps.length - 1, current + 1));
-  }, [appTourIndex, appTourSteps.length, completeAppTour]);
-
-  const handleAppTourSkip = React.useCallback(async () => {
-    setFirstRunWalkthrough((current) => current ? {
-      ...current,
-      status: "skipped",
-      currentStep: "app_tour",
-      canResume: true,
-    } : current);
-
-    try {
-      const userId = await getActiveUserId();
-      if (!userId) return;
-      const next = await pauseAndPersistFirstRunWalkthrough({
-        userId,
-        currentStep: "app_tour",
-      });
-      setFirstRunWalkthrough(next);
-    } catch (error) {
-      logError("DashboardScreen.pauseFirstSignInAppTour", error);
-    }
-  }, []);
-
-  const handleAppTourResume = React.useCallback(async () => {
-    setFirstRunWalkthrough((current) => current ? {
-      ...current,
-      status: "in_progress",
-      currentStep: "app_tour",
-      canResume: true,
-    } : current);
-
-    try {
-      const userId = await getActiveUserId();
-      if (!userId) return;
-      const next = await resumeAndPersistFirstRunWalkthrough({ userId });
-      setFirstRunWalkthrough(next);
-    } catch (error) {
-      logError("DashboardScreen.resumeFirstSignInAppTour", error);
-    }
-  }, []);
-
-  const handleOpenAppTourStep = React.useCallback((step: FirstSignInAppTourStep) => {
-    switch (step.id) {
-      case "training":
-        openTrainScreen("WorkoutHome");
-        break;
-      case "fueling":
-        openFuelScreen("NutritionHome");
-        break;
-      case "check_in":
-        navigation.navigate("Log");
-        break;
-      case "journey":
-        navigation.navigate("Plan");
-        break;
-      case "fight_hub":
-        openPlanScreen("WeeklyPlanSetup", {
-          initialGoalMode: "fight_camp",
-          initialPhaseKey: "objective",
-          source: "first_sign_in_tour",
-        });
-        break;
-      case "today_mission":
-      default:
-        break;
-    }
-  }, [navigation, openFuelScreen, openPlanScreen, openTrainScreen]);
 
   if (loading) {
     return (
@@ -867,19 +771,6 @@ export function DashboardScreen() {
               />
             ) : null}
 
-            {shouldShowAppTour ? (
-              <FirstSignInAppTourCard
-                steps={appTourSteps}
-                currentIndex={appTourIndex}
-                paused={appTourPaused}
-                onBack={handleAppTourBack}
-                onNext={handleAppTourNext}
-                onSkip={handleAppTourSkip}
-                onResume={handleAppTourResume}
-                onOpenStep={handleOpenAppTourStep}
-              />
-            ) : null}
-
             {phaseTransition.available ? (
               <View style={styles.phaseTransitionWrap}>
                 <GuidedPhaseTransitionCard
@@ -1110,7 +1001,7 @@ function TodaySignalGrid({
         <View style={styles.signalSection}>
           <View style={styles.signalSectionHeader}>
             <View style={styles.signalIconBubble}>
-              <SignalHeaderGlyph kind="anchor" />
+              <IconShieldCheck size={16} color={COLORS.accent} />
             </View>
             <Text style={styles.signalKicker}>PROTECTED ANCHORS</Text>
           </View>
@@ -1132,7 +1023,7 @@ function TodaySignalGrid({
         <View style={styles.signalSection}>
           <View style={styles.signalSectionHeader}>
             <View style={styles.signalIconBubble}>
-              <SignalHeaderGlyph kind="fuel" />
+              <IconDroplets size={16} color={COLORS.accent} />
             </View>
             <Text style={styles.signalKicker}>FUEL SNAPSHOT</Text>
           </View>
@@ -1152,32 +1043,6 @@ function TodaySignalGrid({
         </AnimatedPressable>
       </View>
     </Animated.View>
-  );
-}
-
-function SignalHeaderGlyph({ kind }: { kind: "anchor" | "fuel" }) {
-  if (kind === "anchor") {
-    return (
-      <Svg width={16} height={16} viewBox="0 0 24 24">
-        <Path
-          d="M12 4.5L18.5 8V13.8C17.2 16.3 15 18.2 12 19.5C9 18.2 6.8 16.3 5.5 13.8V8L12 4.5Z"
-          stroke={COLORS.accent}
-          strokeWidth={2}
-          strokeLinejoin="round"
-          fill="none"
-        />
-        <Line x1={9} y1={12} x2={15} y2={12} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
-      </Svg>
-    );
-  }
-
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24">
-      <Line x1={5.5} y1={8} x2={17} y2={8} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
-      <Line x1={5.5} y1={12} x2={14} y2={12} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
-      <Line x1={5.5} y1={16} x2={18.5} y2={16} stroke={COLORS.accent} strokeWidth={2} strokeLinecap="round" />
-      <Circle cx={19.5} cy={8} r={1.5} fill={COLORS.accent} />
-    </Svg>
   );
 }
 
@@ -1208,113 +1073,13 @@ function QuickActionIconTile({
   kind: QuickActionKind;
   done?: boolean;
 }) {
-  return renderAthleticoreQuickGlyph(kind);
-}
-
-function renderAthleticoreQuickGlyph(kind: QuickActionKind) {
-  switch (kind) {
-    case "checkin":
-      return <CheckInGlyph />;
-    case "train":
-      return <TrainGlyph />;
-    case "fuel":
-      return <FuelGlyph />;
-    case "plan":
-    default:
-      return <PlanGlyph />;
-  }
-}
-
-function CheckInGlyph() {
   return (
-    <Svg width={36} height={36} viewBox="0 0 36 36">
-      <Circle cx={9} cy={25} r={2.2} fill={COLORS.text.primary} />
-      <Circle cx={18} cy={18} r={2.4} fill={COLORS.accent} />
-      <Circle cx={27} cy={10} r={2.2} fill={COLORS.text.primary} />
-      <Path
-        d="M8 18C10.8 11.8 16.5 8.2 24 8"
-        stroke={COLORS.text.primary}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeDasharray="1 4"
-        fill="none"
-      />
-      <Polyline
-        points="6,25 12,25 15,20 19,24 23,14 30,14"
-        stroke={COLORS.accent}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  );
-}
-
-function TrainGlyph() {
-  return (
-    <Svg width={36} height={36} viewBox="0 0 36 36">
-      <Path
-        d="M20 6L11 19H17L14 30L26 15H20L23 6Z"
-        stroke={COLORS.accent}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="rgba(212, 175, 55, 0.12)"
-      />
-      <Polyline
-        points="7,13 12,18 7,23"
-        stroke={COLORS.text.primary}
-        strokeWidth={1.9}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <Polyline
-        points="27,13 32,18 27,23"
-        stroke={COLORS.text.primary}
-        strokeWidth={1.9}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  );
-}
-
-function FuelGlyph() {
-  return (
-    <Svg width={36} height={36} viewBox="0 0 36 36">
-      <Line x1={8} y1={12} x2={25} y2={12} stroke={COLORS.accent} strokeWidth={2.4} strokeLinecap="round" />
-      <Line x1={8} y1={18} x2={21} y2={18} stroke={COLORS.text.primary} strokeWidth={2.2} strokeLinecap="round" />
-      <Line x1={8} y1={24} x2={27} y2={24} stroke={COLORS.accent} strokeWidth={2.4} strokeLinecap="round" />
-      <Circle cx={28.5} cy={12} r={2.2} fill={COLORS.text.primary} />
-      <Circle cx={24.5} cy={18} r={1.8} fill={COLORS.accent} />
-    </Svg>
-  );
-}
-
-function PlanGlyph() {
-  return (
-    <Svg width={36} height={36} viewBox="0 0 36 36">
-      <Path
-        d="M18 7L29 18L18 29L7 18L18 7Z"
-        stroke={COLORS.text.primary}
-        strokeWidth={1.9}
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <Path
-        d="M13 21C15.3 15.8 20 14.1 24 12"
-        stroke={COLORS.accent}
-        strokeWidth={2}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Circle cx={12.5} cy={22} r={2} fill={COLORS.text.primary} />
-      <Circle cx={18} cy={17.2} r={2} fill={COLORS.accent} />
-      <Circle cx={24.5} cy={12} r={2} fill={COLORS.text.primary} />
-    </Svg>
+    <Image
+      source={QUICK_ACTION_IMAGES[kind]}
+      style={styles.quickActionImage}
+      resizeMode="contain"
+      accessibilityIgnoresInvertColors
+    />
   );
 }
 
@@ -1332,7 +1097,7 @@ function getReadinessProgress(
   return 0.18;
 }
 
-function shouldShowFirstSignInAppTour(state: FirstRunWalkthroughState | null): boolean {
+function shouldResolveRedundantAppTourStep(state: FirstRunWalkthroughState | null): boolean {
   if (!state) return false;
   if (state.hasSeenAppTour) return false;
   if (state.status === "completed" || state.status === "dismissed") return false;
@@ -1397,52 +1162,6 @@ function buildExistingUserMissingDataPrompts(
   }
 
   return prompts.slice(0, 3);
-}
-
-function buildFirstSignInAppTourSteps(includeFightHub: boolean): FirstSignInAppTourStep[] {
-  const steps: FirstSignInAppTourStep[] = [
-    {
-      id: "today_mission",
-      title: "Today's Mission",
-      body: "Start here. Athleticore shows what matters today, why it matters, what changed, and what to do next.",
-      actionLabel: "Stay on Today",
-    },
-    {
-      id: "training",
-      title: "Training",
-      body: "Your plan adapts around your phase, readiness, and protected workouts.",
-      actionLabel: "Open Train",
-    },
-    {
-      id: "fueling",
-      title: "Fueling",
-      body: "Fueling targets move with your training load, recovery needs, and fight timeline.",
-      actionLabel: "Open Fuel",
-    },
-    {
-      id: "check_in",
-      title: "Check-In / Readiness",
-      body: "A quick check-in helps Athleticore know when to push, trim extras, or protect recovery.",
-      actionLabel: "Log check-in",
-    },
-    {
-      id: "journey",
-      title: "Journey",
-      body: "Your phases, fights, recovery, and progress stay connected. The plan can change without the journey restarting.",
-      actionLabel: "Open Plan",
-    },
-  ];
-
-  if (includeFightHub) {
-    steps.push({
-      id: "fight_hub",
-      title: "Fight / Competition Hub",
-      body: "Add tentative or confirmed fights here. Athleticore will adjust training, fuel, and recovery around the time available.",
-      actionLabel: "Update fight details",
-    });
-  }
-
-  return steps;
 }
 
 function getReadinessColor(level: string | null): string {
