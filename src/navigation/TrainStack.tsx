@@ -1,7 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WorkoutScreen } from '../screens/WorkoutScreen';
-import { WeeklyPlanSetupScreen } from '../screens/WeeklyPlanSetupScreen';
 import { ExerciseSearchScreen } from '../screens/ExerciseSearchScreen';
 import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
 import { CustomExerciseScreen } from '../screens/CustomExerciseScreen';
@@ -18,7 +17,6 @@ export function TrainStackNavigator() {
   return (
     <Stack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <Stack.Screen name="WorkoutHome" component={WorkoutScreen} />
-      <Stack.Screen name="WeeklyPlanSetup" component={WeeklyPlanSetupScreen} />
       <Stack.Screen name="ExerciseSearch" component={ExerciseSearchScreen} />
       <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
       <Stack.Screen name="CustomExercise" component={CustomExerciseScreen} />

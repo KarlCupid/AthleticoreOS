@@ -29,8 +29,6 @@ export type TodayStackParamList = {
 
 export type TrainStackParamList = {
   WorkoutHome: undefined;
-  WeeklyPlanSetup: WeeklyPlanSetupParams;
-  PlanHome: undefined;
   ExerciseSearch: undefined;
   ExerciseDetail: { exercise: ExerciseLibraryRow };
   CustomExercise: undefined;

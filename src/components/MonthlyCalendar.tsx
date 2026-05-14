@@ -1,16 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS } from '../theme/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { todayLocalDate } from '../../lib/utils/date';
 
 const ACTIVITY_COLORS: Record<string, string> = {
     boxing_practice: '#FF6B35',
+    boxing_skill: '#FF6B35',
     sparring: '#FF4444',
     sc: '#4A90D9',
+    strength: '#4A90D9',
     running: '#4CAF50',
     conditioning: '#FFC107',
+    durability_core: '#8B5CF6',
     active_recovery: '#9C27B0',
+    recovery: '#9C27B0',
     rest: '#666',
     other: '#999',
 };
@@ -31,14 +36,13 @@ export function MonthlyCalendar({ currentMonth, selectedDate, activityDots, onSe
     const month = currentMonth.getMonth();
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // Build calendar grid
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const weeks: (number | null)[][] = [];
     let week: (number | null)[] = Array(firstDayOfMonth).fill(null);
 
-    for (let day = 1; day <= daysInMonth; day++) {
+    for (let day = 1; day <= daysInMonth; day += 1) {
         week.push(day);
         if (week.length === 7) {
             weeks.push(week);
@@ -55,28 +59,25 @@ export function MonthlyCalendar({ currentMonth, selectedDate, activityDots, onSe
 
     return (
         <View style={styles.container}>
-            {/* Month Navigation */}
             <View style={styles.monthHeader}>
-                <TouchableOpacity onPress={prevMonth} style={styles.navButton}>
-                    <Text style={styles.navText}>‹</Text>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Previous month" onPress={prevMonth} style={styles.navButton}>
+                    <MaterialCommunityIcons name="chevron-left" size={22} color={COLORS.text.secondary} />
                 </TouchableOpacity>
                 <Text style={styles.monthTitle}>{monthNames[month]} {year}</Text>
-                <TouchableOpacity onPress={nextMonth} style={styles.navButton}>
-                    <Text style={styles.navText}>›</Text>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next month" onPress={nextMonth} style={styles.navButton}>
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.text.secondary} />
                 </TouchableOpacity>
             </View>
 
-            {/* Day Headers */}
             <View style={styles.dayHeaders}>
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                    <Text key={i} style={styles.dayHeaderText}>{d}</Text>
+                    <Text key={`${d}-${i}`} style={styles.dayHeaderText}>{d}</Text>
                 ))}
             </View>
 
-            {/* Calendar Grid */}
-            {weeks.map((week, wi) => (
+            {weeks.map((weekRow, wi) => (
                 <View key={wi} style={styles.weekRow}>
-                    {week.map((day, di) => {
+                    {weekRow.map((day, di) => {
                         if (day === null) return <View key={di} style={styles.dayCell} />;
 
                         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -87,6 +88,8 @@ export function MonthlyCalendar({ currentMonth, selectedDate, activityDots, onSe
                         return (
                             <TouchableOpacity
                                 key={di}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Select ${dateStr}`}
                                 style={[
                                     styles.dayCell,
                                     isSelected && [styles.selectedDay, { backgroundColor: themeColor }],
@@ -106,7 +109,7 @@ export function MonthlyCalendar({ currentMonth, selectedDate, activityDots, onSe
                                     <View style={styles.dotsRow}>
                                         {[...dots].slice(0, 3).map((type, ti) => (
                                             <View
-                                                key={ti}
+                                                key={`${type}-${ti}`}
                                                 style={[styles.dot, { backgroundColor: ACTIVITY_COLORS[type] ?? '#999' }]}
                                             />
                                         ))}
@@ -123,26 +126,50 @@ export function MonthlyCalendar({ currentMonth, selectedDate, activityDots, onSe
 
 const styles = StyleSheet.create({
     container: {
-        marginHorizontal: SPACING.lg, marginTop: SPACING.sm,
-        backgroundColor: COLORS.surface, borderRadius: RADIUS.lg,
+        marginTop: SPACING.sm,
+        backgroundColor: 'rgba(10, 10, 10, 0.68)',
+        borderRadius: RADIUS.xl,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
         padding: SPACING.md,
     },
     monthHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: SPACING.md,
     },
-    navButton: { padding: SPACING.xs },
-    navText: { fontSize: 24, fontFamily: FONT_FAMILY.black, color: COLORS.text.secondary },
-    monthTitle: { fontSize: 18, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary },
+    navButton: {
+        width: TAP_TARGETS.plan.min,
+        height: TAP_TARGETS.plan.min,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: RADIUS.full,
+        backgroundColor: 'rgba(245, 245, 240, 0.06)',
+    },
+    monthTitle: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 18,
+        fontFamily: FONT_FAMILY.black,
+        color: COLORS.text.primary,
+    },
     dayHeaders: { flexDirection: 'row', marginBottom: SPACING.xs },
     dayHeaderText: {
-        flex: 1, textAlign: 'center', fontSize: 12,
-        fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary,
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
     },
     weekRow: { flexDirection: 'row' },
     dayCell: {
-        flex: 1, alignItems: 'center', paddingVertical: SPACING.xs + 2,
-        minHeight: 44, justifyContent: 'center', borderRadius: RADIUS.sm,
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: SPACING.xs + 2,
+        minHeight: 44,
+        justifyContent: 'center',
+        borderRadius: RADIUS.sm,
     },
     selectedDay: { borderRadius: RADIUS.md },
     todayDay: { borderWidth: 1, borderColor: COLORS.text.tertiary, borderRadius: RADIUS.md },
@@ -151,4 +178,3 @@ const styles = StyleSheet.create({
     dotsRow: { flexDirection: 'row', gap: 2, marginTop: 2 },
     dot: { width: 5, height: 5, borderRadius: 2.5 },
 });
-

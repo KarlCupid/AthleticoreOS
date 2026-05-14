@@ -1,8 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { WeeklyPlanScreen } from '../screens/WeeklyPlanScreen';
+import { PlanCalendarScreen } from '../screens/PlanCalendarScreen';
 import { WeeklyPlanSetupScreen } from '../screens/WeeklyPlanSetupScreen';
-import { CalendarScreen } from '../screens/CalendarScreen';
 import { DayDetailScreen } from '../screens/DayDetailScreen';
 import { ActivityLogScreen } from '../screens/ActivityLogScreen';
 import { WeeklyReviewScreen } from '../screens/WeeklyReviewScreen';
@@ -15,9 +14,9 @@ const Stack = createNativeStackNavigator<PlanStackParamList>();
 export function PlanStackNavigator() {
   return (
     <Stack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
-      <Stack.Screen name="PlanHome" component={WeeklyPlanScreen} />
+      <Stack.Screen name="PlanHome" component={PlanCalendarScreen} />
       <Stack.Screen name="WeeklyPlanSetup" component={WeeklyPlanSetupScreen} />
-      <Stack.Screen name="CalendarMain" component={CalendarScreen} />
+      <Stack.Screen name="CalendarMain" component={PlanCalendarScreen} />
       <Stack.Screen name="DayDetail" component={DayDetailScreen} />
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
       <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />

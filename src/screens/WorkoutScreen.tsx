@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable, ImageBackground } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,7 +14,7 @@ import { supabase } from '../../lib/supabase';
 import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
 import { isGuidedEngineActivityType } from '../../lib/engine/sessionOwnership';
 import type { ScheduledActivityRow, WeeklyPlanEntryRow } from '../../lib/engine/types';
-import type { TrainStackParamList } from '../navigation/types';
+import type { RootTabParamList, TrainStackParamList } from '../navigation/types';
 import { useWorkoutData, computeACWRTimeSeries } from '../hooks/useWorkoutData';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
@@ -48,20 +49,9 @@ import {
 } from './workout/utils';
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
+type RootNavProp = BottomTabNavigationProp<RootTabParamList>;
 
 const TRAIN_BACKGROUND = require('../../assets/images/cards/workout-floor-card-bg.png');
-
-function groupWeekEntries(entries: WeeklyPlanEntryRow[]) {
-  const groups = new Map<string, { date: string; dayOfWeek: number; sessions: WeeklyPlanEntryRow[] }>();
-  for (const entry of entries) {
-    const existing = groups.get(entry.date);
-    if (existing) existing.sessions.push(entry);
-    else groups.set(entry.date, { date: entry.date, dayOfWeek: entry.day_of_week, sessions: [entry] });
-  }
-  return Array.from(groups.values())
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((group) => ({ ...group, sessions: [...group.sessions].sort((a, b) => a.slot.localeCompare(b.slot)) }));
-}
 
 function formatActivityTime(time: string | null | undefined) {
   if (!time) return null;
@@ -80,22 +70,6 @@ function getHeroToneStyles(tone: 'calm' | 'steady' | 'push' | 'caution') {
   if (tone === 'push') return { borderColor: COLORS.accent, badgeBackground: COLORS.accentLight, badgeColor: COLORS.accent, effortBackground: `${COLORS.accent}14` };
   if (tone === 'calm') return { borderColor: COLORS.success, badgeBackground: `${COLORS.success}20`, badgeColor: COLORS.success, effortBackground: `${COLORS.success}14` };
   return { borderColor: COLORS.border, badgeBackground: COLORS.surfaceSecondary, badgeColor: COLORS.text.secondary, effortBackground: COLORS.surfaceSecondary };
-}
-
-function getWeekStatus(group: { date: string; sessions: WeeklyPlanEntryRow[] }) {
-  const allCompleted = group.sessions.every((session) => session.status === 'completed');
-  const allSkipped = group.sessions.every((session) => session.status === 'skipped');
-  if (allCompleted) return { label: 'Done', tone: 'success' as const };
-  if (allSkipped) return { label: 'Skipped', tone: 'warning' as const };
-  if (group.date === todayLocalDate()) return { label: 'Today', tone: 'accent' as const };
-  return { label: 'Planned', tone: 'neutral' as const };
-}
-
-function getChipStyles(tone: 'success' | 'warning' | 'accent' | 'neutral') {
-  if (tone === 'success') return { backgroundColor: `${COLORS.success}20`, color: COLORS.success };
-  if (tone === 'warning') return { backgroundColor: `${COLORS.warning}20`, color: COLORS.warning };
-  if (tone === 'accent') return { backgroundColor: COLORS.accentLight, color: COLORS.accent };
-  return { backgroundColor: COLORS.surfaceSecondary, color: COLORS.text.secondary };
 }
 
 function formatQualityGapLabel(gap: { quality: string; priority?: string | null | undefined }) {
@@ -275,7 +249,7 @@ function HeaderAction({
 
 export function WorkoutScreen() {
   const navigation = useNavigation<NavProp>();
-  const parentNavigation = navigation.getParent();
+  const parentNavigation = navigation.getParent<RootNavProp>();
   const insets = useSafeAreaInsets();
   const { themeColor, currentLevel } = useReadinessTheme();
   const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
@@ -285,7 +259,7 @@ export function WorkoutScreen() {
     loading, refreshing, loadData, onRefresh, prescription, todayActivities, workoutHistory,
     checkins, sessions, userId, dailyAthleteSummary, todayPlanEntry, weeklyEntries,
     historyLoaded, analyticsLoaded, historyLoading, analyticsLoading, initialLoadError,
-    historyError, analyticsError, loadHistoryData, loadAnalyticsData, handleStartWorkout,
+    historyError, analyticsError, loadHistoryData, loadAnalyticsData,
     performanceContext,
   } = useWorkoutData();
 
@@ -339,7 +313,6 @@ export function WorkoutScreen() {
     await openWorkoutDetail(entry);
   }, [openLegacyGuidedWorkout, openWorkoutDetail]);
 
-  const groupedWeeklyEntries = useMemo(() => groupWeekEntries(weeklyEntries), [weeklyEntries]);
   const todayBoxingSnapshot = useMemo(() => getBoxingSnapshotFromWeeklyPlanEntry(todayPlanEntry), [todayPlanEntry]);
   const todayBoxingMeta = useMemo(() => todayPlanEntry ? boxingEntryDisplayMeta(todayPlanEntry) : null, [todayPlanEntry]);
   const weekBoxingSnapshot = useMemo(
@@ -379,14 +352,14 @@ export function WorkoutScreen() {
   const hasStructuredToday = Boolean(todayPlanEntry || prescription);
   const hasPlannedSupportSession = Boolean(todayPlanEntry && todayBoxingSnapshot && !todayBoxingSnapshot.protectedAnchor);
   const showTodayHero = hasStructuredToday && !hasPlannedSupportSession;
-  const showEmptyPlan = !hasStructuredToday && contextualTodayActivities.length === 0 && groupedWeeklyEntries.length === 0;
+  const showEmptyPlan = !hasStructuredToday && contextualTodayActivities.length === 0 && weeklyEntries.length === 0;
   const primaryActionLabel = todayPlanEntry?.status === 'completed'
     ? 'View workout details'
     : todayPlanEntry?.status === 'skipped'
       ? 'Review today\'s plan'
       : hasStructuredToday
         ? 'Start session'
-        : groupedWeeklyEntries.length === 0
+        : weeklyEntries.length === 0
           ? 'Set up plan'
           : 'Open training';
 
@@ -404,9 +377,9 @@ export function WorkoutScreen() {
       void openTrainingEntry(todayPlanEntry); return;
     }
     if (prescription) { void openLegacyGuidedWorkout(null); return; }
-    if (groupedWeeklyEntries.length === 0) { navigation.navigate('WeeklyPlanSetup'); return; }
-    void handleStartWorkout(navigation);
-  }, [todayPlanEntry, prescription, groupedWeeklyEntries.length, navigation, handleStartWorkout, openLegacyGuidedWorkout, openTrainingEntry, openWorkoutDetail]);
+    if (weeklyEntries.length === 0) { parentNavigation?.navigate('Plan', { screen: 'WeeklyPlanSetup' }); return; }
+    parentNavigation?.navigate('Plan');
+  }, [todayPlanEntry, prescription, weeklyEntries.length, parentNavigation, openLegacyGuidedWorkout, openTrainingEntry, openWorkoutDetail]);
 
   const renderShell = (children: React.ReactNode) => (
     <ScreenWrapper style={styles.screenShell} useSafeArea={true}>
@@ -448,7 +421,7 @@ export function WorkoutScreen() {
           subtitle={activeTab === 'today' ? 'Start or review today\'s training' : 'Your week and progress'}
           rightAction={(
             <View style={styles.headerActions}>
-              <HeaderAction icon="calendar-week" label="Plan" onPress={() => parentNavigation?.navigate('Plan' as never)} />
+              <HeaderAction icon="calendar-week" label="Plan" onPress={() => parentNavigation?.navigate('Plan')} />
               <HeaderAction icon="dumbbell" label="Gym" onPress={() => navigation.navigate('GymProfiles')} />
             </View>
           )}
@@ -481,7 +454,11 @@ export function WorkoutScreen() {
         {activeTab === 'today' && (
           <View style={styles.tabStack}>
             {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}
-            {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
+            {!initialLoadError && showEmptyPlan ? (
+              <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}>
+                <EmptyPlanCard onPress={() => parentNavigation?.navigate('Plan', { screen: 'WeeklyPlanSetup' })} />
+              </Animated.View>
+            ) : null}
             {!initialLoadError ? (
               <Animated.View entering={FadeInDown.delay(45).duration(ANIMATION.slow).springify()}>
                 <UnifiedJourneySummaryCard
@@ -597,64 +574,6 @@ export function WorkoutScreen() {
                 <AthleteSupportWeekCard snapshot={weekBoxingSnapshot} compact={hasPlannedSupportSession} />
               </Animated.View>
             ) : null}
-          </View>
-        )}
-
-        {activeTab === 'plan' && (
-          <View style={styles.tabStack}>
-            {initialLoadError ? <StateCard title="We couldn't load your week" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : groupedWeeklyEntries.length === 0 ? <EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /> : (
-              <>
-                {groupedWeeklyEntries.map((group, index) => {
-                  const primaryEntry = group.sessions.find((session) => session.status !== 'completed') ?? group.sessions[0];
-                  const extraSessions = Math.max(0, group.sessions.length - 1);
-                  const status = getWeekStatus(group);
-                  const chipStyles = getChipStyles(status.tone);
-                  const boxingMeta = boxingEntryDisplayMeta(primaryEntry);
-                  const sessionLabel = boxingMeta.isCompatibilityOnly ? getWorkoutFocusLabel(
-                    primaryEntry.focus,
-                    primaryEntry.session_type,
-                    primaryEntry.prescription_snapshot,
-                    primaryEntry.sc_session_family,
-                  ) : boxingMeta.title;
-                  const handlePress = () => {
-                    void openTrainingEntry(primaryEntry);
-                  };
-                  return (
-                    <Animated.View key={group.date} entering={FadeInDown.delay(index * 45).duration(260).springify()}>
-                      <AnimatedPressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${sessionLabel}, ${status.label}, ${primaryEntry.estimated_duration_min} minutes`}
-                        accessibilityHint={group.date === todayLocalDate() && primaryEntry.status === 'planned' ? 'Starts this planned workout.' : 'Opens workout details.'}
-                        style={styles.weekCard}
-                        onPress={handlePress}
-                      >
-                        <View style={styles.weekCardLeft}>
-                          <Text style={styles.weekCardDay}>{new Date(`${group.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' })}</Text>
-                          <Text style={styles.weekCardDate}>{new Date(`${group.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
-                        </View>
-                        <View style={styles.weekCardCenter}>
-                          <View style={styles.weekCardTitleRow}>
-                            <Text style={styles.weekCardFocus} numberOfLines={1}>{sessionLabel}</Text>
-                            {extraSessions > 0 ? <Text style={styles.weekCardMore}>+{extraSessions} more</Text> : null}
-                          </View>
-                          <Text style={styles.weekCardMeta}>{primaryEntry.estimated_duration_min} min{primaryEntry.target_intensity ? ` / Effort ${primaryEntry.target_intensity}/10` : ''}</Text>
-                          <Text style={styles.weekCardNote} numberOfLines={2}>{sanitizeAthleteFacingCopy(boxingMeta.sourceLabel)}{boxingMeta.doseLabel ? ` / ${sanitizeAthleteFacingCopy(boxingMeta.doseLabel)}` : ''}</Text>
-                          {boxingMeta.why ? <Text style={styles.weekCardNote} numberOfLines={2}>{sanitizeAthleteFacingCopy(boxingMeta.why)}</Text> : null}
-                          {group.sessions.some((session) => session.is_deload) ? <Text style={styles.weekCardNote}>Keep this day lighter.</Text> : null}
-                        </View>
-                        <View style={[styles.weekStatusChip, { backgroundColor: chipStyles.backgroundColor }]}>
-                          <Text style={[styles.weekStatusChipText, { color: chipStyles.color }]}>{status.label}</Text>
-                        </View>
-                      </AnimatedPressable>
-                    </Animated.View>
-                  );
-                })}
-                <AnimatedPressable accessibilityRole="button" accessibilityLabel="Adjust plan" style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}>
-                  <MaterialCommunityIcons name="tune-variant" size={16} color={COLORS.accent} />
-                  <Text style={styles.planSettingsButtonText}>Adjust plan</Text>
-                </AnimatedPressable>
-              </>
-            )}
           </View>
         )}
 

@@ -47,10 +47,6 @@ export interface TrainingSession extends ACWRTrainingSession {
   generatedWorkoutId?: string | null;
 }
 
-interface WorkoutNavigation {
-  navigate: (screen: string, params: Record<string, unknown>) => void;
-}
-
 function resolveTodayPlanEntry(engineState: DailyEngineState | null): WeeklyPlanEntryRow | null {
   if (!engineState) return null;
   if (engineState.primaryTrainingPlanEntry) return engineState.primaryTrainingPlanEntry as WeeklyPlanEntryRow;
@@ -225,13 +221,6 @@ export function useWorkoutData() {
 
   const todayPlanEntry = resolveTodayPlanEntry(engineState);
 
-  const handleStartWorkout = async (navigation: WorkoutNavigation) => {
-    if (!prescription) return;
-    if (!todayPlanEntry) {
-      navigation.navigate('WeeklyPlanSetup', {});
-    }
-  };
-
   return {
     loading,
     refreshing,
@@ -258,7 +247,6 @@ export function useWorkoutData() {
     analyticsError,
     loadHistoryData,
     loadAnalyticsData,
-    handleStartWorkout,
   };
 }
 

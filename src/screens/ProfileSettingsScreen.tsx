@@ -406,7 +406,7 @@ export function ProfileSettingsScreen() {
   }
 
   function openWeeklySetup() {
-    navigation.getParent<ProfileSettingsParentNavigation>()?.navigate('Train', { screen: 'WeeklyPlanSetup' });
+    navigation.getParent<ProfileSettingsParentNavigation>()?.navigate('Plan', { screen: 'WeeklyPlanSetup' });
   }
 
   function openGymProfiles() {

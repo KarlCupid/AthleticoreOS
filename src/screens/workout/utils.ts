@@ -4,7 +4,7 @@ import type { TrainingFloorViewModel } from '../../../lib/engine/presentation/ty
 import type { BoxingGeneratedPlanEntrySnapshot } from '../../../lib/performance-engine/workout-programming';
 import { sanitizeAthleteFacingCopy } from '../../../lib/performance-engine/presentation/coachCopyViewModel';
 
-export const WORKOUT_TABS = ['today', 'plan', 'history', 'analytics'] as const;
+export const WORKOUT_TABS = ['today', 'history', 'analytics'] as const;
 
 export type WorkoutTabKey = typeof WORKOUT_TABS[number];
 
@@ -96,7 +96,6 @@ export function getWorkoutFocusLabel(
 }
 
 export function formatWorkoutTabLabel(tab: WorkoutTabKey): string {
-  if (tab === 'plan') return 'Week';
   if (tab === 'analytics') return 'Progress';
   if (tab === 'history') return 'Recent';
   return 'Today';
