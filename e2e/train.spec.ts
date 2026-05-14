@@ -54,15 +54,15 @@ test.describe('Train smoke', () => {
 
     await expectVisibleAny(
       [
-        page.getByText(/Today's support session/i),
-        page.getByText(/Update your journey plan/i),
+        page.getByText(/Today's support work/i),
+        page.getByText(/Set up your plan/i),
         page.getByText(/How hard to go/i),
-        page.getByRole('button', { name: /Start session|Set up weekly plan|Open training/i }),
+        page.getByRole('button', { name: /Start session|Set up plan|Open training/i }),
       ],
       'Train Today primary surface',
     );
 
-    if (await isVisible(page.getByText(/Today's support session/i), 750)) {
+    if (await isVisible(page.getByText(/Today's support work/i), 750)) {
       await expect(page.getByRole('button', { name: /Open support session/i })).toBeVisible();
       await expect(page.getByRole('button', { name: /Build support session/i })).toHaveCount(0);
       await page.getByRole('button', { name: /Open support session/i }).click();
@@ -91,7 +91,7 @@ test.describe('Train smoke', () => {
     await openTrainingTab(page, 'Week');
     await expectVisibleAny(
       [
-        page.getByText(/Update your journey plan/i),
+        page.getByText(/Set up your plan/i),
         page.getByRole('button', { name: /Adjust plan/i }),
         page.getByRole('button', { name: /minutes/i }),
       ],

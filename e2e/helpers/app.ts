@@ -46,7 +46,7 @@ export async function getAppEntryState(page: Page): Promise<AppEntryState> {
     return 'onboarding';
   }
 
-  if (await isVisible(page.getByText(/Update your journey plan|Training days|Weekly plan setup/i), 250)) {
+  if (await isVisible(page.getByText(/Set up your plan|Training days|Weekly plan setup/i), 250)) {
     return 'trainingSetup';
   }
 

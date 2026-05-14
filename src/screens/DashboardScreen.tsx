@@ -1025,7 +1025,7 @@ function TodaySignalGrid({
             <View style={styles.signalIconBubble}>
               <IconDroplets size={16} color={COLORS.accent} />
             </View>
-            <Text style={styles.signalKicker}>FUEL SNAPSHOT</Text>
+            <Text style={styles.signalKicker}>FUEL TODAY</Text>
           </View>
           <SignalStat label="Calories" value={calories} toneColor={COLORS.success} />
           <SignalStat label="Protein" value={protein} toneColor={COLORS.text.secondary} />

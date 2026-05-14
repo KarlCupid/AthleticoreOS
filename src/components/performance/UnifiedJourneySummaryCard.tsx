@@ -63,7 +63,7 @@ export function UnifiedJourneySummaryCard({
     >
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>Journey</Text>
+          <Text style={styles.kicker}>Plan</Text>
           <Text style={styles.title} numberOfLines={2}>
             {summary.phase.label}
           </Text>
@@ -84,7 +84,7 @@ export function UnifiedJourneySummaryCard({
       ) : null}
 
       <View style={styles.metricGrid}>
-        <Metric label="Segment" value={summary.journey.segmentLabel} />
+        <Metric label="Current stage" value={summary.journey.segmentLabel} />
         <Metric label="Readiness" value={summary.readiness.bandLabel} detail={summary.readiness.scoreLabel} />
         <Metric label="Training" value={sanitizeAthleteFacingCopy(summary.focus.training)} lines={compact ? 2 : 3} />
         <Metric label="Fuel" value={sanitizeAthleteFacingCopy(summary.focus.nutrition)} lines={compact ? 2 : 3} />
@@ -115,7 +115,7 @@ export function UnifiedJourneySummaryCard({
 
       {showProtectedAnchors && protectedAnchors.length > 0 ? (
         <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>Protected anchors</Text>
+          <Text style={styles.sectionLabel}>Fixed sessions</Text>
           {protectedAnchors.map((anchor) => (
             <View key={anchor.id} style={styles.anchorRow}>
               <View style={styles.anchorDot} />
@@ -191,6 +191,7 @@ function TodayCommandJourneyCard({
     ?? summary.bodyMass?.safetyLabel
     ?? topRisk?.message
     ?? 'No alerts';
+  const readinessInfoLabel = summary.readiness.confidenceLabel.replace(/\bcontext\b/gi, 'info');
   const safetyTone = topRisk?.blocksPlan
     ? COLORS.error
     : summary.lowConfidence
@@ -205,7 +206,7 @@ function TodayCommandJourneyCard({
     >
       <View style={styles.todayHeaderRow}>
         <View style={styles.todayHeaderCopy}>
-          <Text style={styles.todayKicker}>JOURNEY</Text>
+          <Text style={styles.todayKicker}>CURRENT PLAN</Text>
           <View style={styles.todayPhaseRow}>
             <View style={styles.todayPhaseMark}>
               <IconBarChart size={18} color={COLORS.accent} />
@@ -231,13 +232,13 @@ function TodayCommandJourneyCard({
         <TodayJourneyMetric label="Plan status" value={summary.planStatusLabel} tone={riskTone.color} />
         <TodayJourneyMetric label="Training focus" value={sanitizeAthleteFacingCopy(summary.focus.training)} tone={COLORS.chart.fitness} />
         <TodayJourneyMetric label="Fuel focus" value={sanitizeAthleteFacingCopy(summary.focus.nutrition)} tone={COLORS.chart.water} />
-        <TodayJourneyMetric label="Context" value={summary.readiness.confidenceLabel} tone={summary.lowConfidence ? COLORS.warning : COLORS.text.secondary} />
+        <TodayJourneyMetric label="Known info" value={readinessInfoLabel} tone={summary.lowConfidence ? COLORS.warning : COLORS.text.secondary} />
       </View>
 
       <View style={styles.todayContextRow}>
         <TodayContextMetric
           icon={<IconShieldCheck size={17} color={COLORS.accent} />}
-          label="Protected anchors"
+          label="Fixed sessions"
           value={`${protectedAnchorCount} today`}
         />
         <TodayContextMetric
@@ -257,11 +258,11 @@ function TodayCommandJourneyCard({
       {onPress ? (
         <AnimatedPressable
           accessibilityRole="button"
-          accessibilityLabel="View journey"
+          accessibilityLabel="View plan"
           style={styles.todayAction}
           onPress={onPress}
         >
-          <Text style={styles.todayActionText}>View journey</Text>
+          <Text style={styles.todayActionText}>View plan</Text>
           <IconChevronRight size={15} color={COLORS.accent} />
         </AnimatedPressable>
       ) : null}

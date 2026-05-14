@@ -55,11 +55,11 @@ console.log('\n-- auth ux error copy --');
   );
   assert(
     'auth outage gets service unavailable copy',
-    getSupabaseAuthErrorCopy({ message: 'Athleticore auth service is temporarily unavailable.', status: 522, code: 'auth_service_unavailable' }, 'signIn') === 'Athleticore auth is temporarily unavailable. Try again in a few minutes.',
+    getSupabaseAuthErrorCopy({ message: 'Athleticore auth service is temporarily unavailable.', status: 522, code: 'auth_service_unavailable' }, 'signIn') === 'Athleticore sign-in is not reachable right now. Try again in a few minutes.',
   );
   assert(
     'html auth outage parse failures get service unavailable copy',
-    getSupabaseAuthErrorCopy({ message: 'JSON Parse error: Unexpected character: <' }, 'signIn') === 'Athleticore auth is temporarily unavailable. Try again in a few minutes.',
+    getSupabaseAuthErrorCopy({ message: 'JSON Parse error: Unexpected character: <' }, 'signIn') === 'Athleticore sign-in is not reachable right now. Try again in a few minutes.',
   );
 }
 

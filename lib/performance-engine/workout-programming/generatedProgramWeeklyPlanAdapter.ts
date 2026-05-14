@@ -236,11 +236,11 @@ const ROLE_BY_FAMILY: Record<BoxingSessionFamily, BoxingPlannedSessionRole> = {
 };
 
 const FAMILY_LABELS: Record<BoxingSessionFamily, string> = {
-  boxing_skill_microdose: 'Boxing skill microdose',
-  footwork_agility: 'Speed & agility for boxing',
-  reaction_rhythm: 'Reaction and rhythm support',
-  shadowboxing_quality: 'Shadowboxing quality support',
-  bag_pad_support: 'Bag/pad support',
+  boxing_skill_microdose: 'Quick boxing skill',
+  footwork_agility: 'Footwork and agility',
+  reaction_rhythm: 'Reaction and rhythm',
+  shadowboxing_quality: 'Shadowboxing quality',
+  bag_pad_support: 'Bag and pad support',
   max_strength_lower: 'Lower-body strength',
   strength_power: 'Strength & power',
   explosive_power: 'Explosive power for boxing',
@@ -248,34 +248,34 @@ const FAMILY_LABELS: Record<BoxingSessionFamily, string> = {
   trunk_durability: 'Trunk durability',
   shoulder_scap_durability: 'Shoulder durability for boxing',
   neck_trap_durability: 'Neck/trap durability',
-  hip_ankle_mobility: 'Hip/ankle capacity',
+  hip_ankle_mobility: 'Hip and ankle mobility',
   roadwork_zone2: 'Roadwork base',
   roadwork_tempo: 'Roadwork tempo',
   roadwork_intervals: 'Roadwork intervals',
-  alactic_repeat_power: 'Alactic repeat power',
-  glycolytic_round_tolerance: 'Round tolerance',
+  alactic_repeat_power: 'Short-burst power',
+  glycolytic_round_tolerance: 'Fight-round conditioning',
   boxing_conditioning_support: 'Conditioning support for boxing',
-  mobility_prehab: 'Mobility/prehab',
+  mobility_prehab: 'Mobility prep',
   recovery_reset: 'Recovery reset',
 };
 
 const PROTECTED_MODALITY_LABELS: Partial<Record<ProtectedWorkoutModality, string>> = {
-  boxing_skill: 'Protected boxing skill',
-  shadowboxing: 'Protected shadowboxing',
-  footwork: 'Protected footwork',
-  bag_work: 'Protected bag work',
-  pad_work: 'Protected pads',
-  sparring: 'Protected sparring',
-  boxing_conditioning: 'Protected boxing conditioning',
-  roadwork_zone2: 'Protected roadwork base',
-  roadwork_tempo: 'Protected roadwork tempo',
-  roadwork_intervals: 'Protected roadwork intervals',
-  strength_power: 'Protected strength and power',
-  mobility_prehab: 'Protected mobility',
-  competition: 'Protected competition',
-  recovery: 'Protected recovery',
-  external_non_boxing_load: 'External non-boxing load',
-  unknown: 'Protected training anchor',
+  boxing_skill: 'Fixed boxing skill',
+  shadowboxing: 'Fixed shadowboxing',
+  footwork: 'Fixed footwork',
+  bag_work: 'Fixed bag work',
+  pad_work: 'Fixed pads',
+  sparring: 'Fixed sparring',
+  boxing_conditioning: 'Fixed boxing conditioning',
+  roadwork_zone2: 'Fixed roadwork base',
+  roadwork_tempo: 'Fixed roadwork tempo',
+  roadwork_intervals: 'Fixed roadwork intervals',
+  strength_power: 'Fixed strength and power',
+  mobility_prehab: 'Fixed mobility',
+  competition: 'Fixed competition',
+  recovery: 'Fixed recovery',
+  external_non_boxing_load: 'Other fixed training',
+  unknown: 'Fixed training',
 };
 
 export function boxingSessionFamilyLabel(family: BoxingSessionFamily | null | undefined): string {
@@ -283,11 +283,11 @@ export function boxingSessionFamilyLabel(family: BoxingSessionFamily | null | un
 }
 
 export function boxingDoseCategoryLabel(category: BoxingSessionDoseCategory | null | undefined): string {
-  if (category === 'full_session') return 'Athleticore-generated full session';
-  if (category === 'support_session') return 'Athleticore support session';
-  if (category === 'microdose') return 'Microdose';
+  if (category === 'full_session') return 'Full session';
+  if (category === 'support_session') return 'Support session';
+  if (category === 'microdose') return 'Short skill work';
   if (category === 'recovery_reset') return 'Recovery reset';
-  return 'Athleticore-generated support';
+  return 'Support session';
 }
 
 export function boxingProtectedModalityLabel(modality: ProtectedWorkoutModality | null | undefined): string {
@@ -587,7 +587,7 @@ function snapshotForSession(input: {
     estimatedDurationMinutes: estimatedMinutes(session),
     athleticDevelopmentDomain: supportMeta.athleticDevelopmentDomain,
     supportDomainLabel: session.protectedAnchor && supportMeta.athleticDevelopmentDomain === 'boxing_skill_support'
-      ? 'Protected boxing'
+      ? 'Fixed boxing'
       : supportMeta.supportDomainLabel,
     sAndCRationale: session.sAndCRationale ?? supportMeta.sAndCRationale,
     athleticDevelopmentRationale: session.athleticDevelopmentRationale ?? supportMeta.athleticDevelopmentRationale,
@@ -686,7 +686,7 @@ export function generatedProgramToWeeklyPlanEntries(input: {
     const doseSummary = doseSummaryForSession(session);
     const doseBucket = bucketForFamily(session.boxingSessionFamily);
     const sourceLabel = session.protectedAnchor
-      ? 'Protected boxing'
+      ? 'Fixed boxing'
       : supportDomainSourceLabel(snapshot.athleticDevelopmentDomain);
     const entry: PersistableWeeklyPlanEntry = {
       user_id: input.userId,
@@ -712,8 +712,8 @@ export function generatedProgramToWeeklyPlanEntries(input: {
         credit: session.protectedAnchor ? 0 : 1,
         preservedBySubstitution: false,
         reason: session.protectedAnchor
-          ? 'Protected boxing anchors are counted as schedule load, not generated support dose.'
-          : `${sourceLabel} contributes Athleticore support dose.`,
+          ? 'Fixed boxing sessions count toward the schedule, not support work.'
+          : `${sourceLabel} counts toward support work.`,
       }],
       dose_summary: doseSummary,
       realized_dose_buckets: session.protectedAnchor ? [] : [doseBucket],
@@ -791,7 +791,7 @@ export function migrateLegacyEntryToBoxingIntent(entry: WeeklyPlanEntryRow): Leg
   if (entry.session_type === 'sparring') {
     return {
       status: 'archived_compatibility',
-      reason: 'Sparring is a protected boxing anchor and is never regenerated.',
+      reason: 'Sparring is a fixed boxing session and is never replaced.',
     };
   }
   if (entry.session_type === 'boxing_practice' || entry.focus === 'sport_specific') {
@@ -857,7 +857,7 @@ export function buildGeneratedWorkoutRequestFromPlanEntry(input: {
     throw new Error('This archived workout can be viewed, but it does not have enough boxing intent to regenerate safely.');
   }
   if (snapshot?.protectedAnchor || input.entry.placement_source === 'locked') {
-    throw new Error('Protected boxing anchors are schedule commitments. Athleticore does not generate sparring or replace protected anchors.');
+    throw new Error('Fixed boxing sessions are schedule commitments. Athleticore does not generate sparring or replace coach-led work.');
   }
 
   const request: WorkoutProgrammingUserRequest = {
@@ -895,7 +895,7 @@ export function boxingEntryDisplayMeta(entry: WeeklyPlanEntryRow): {
       title: snapshot.protectedAnchor
         ? boxingProtectedModalityLabel(snapshot.protectedWorkoutModality)
         : boxingSessionFamilyLabel(snapshot.boxingSessionFamily),
-      sourceLabel: snapshot.protectedAnchor ? 'Protected boxing' : supportDomainSourceLabel(snapshot.athleticDevelopmentDomain),
+      sourceLabel: snapshot.protectedAnchor ? 'Fixed boxing' : supportDomainSourceLabel(snapshot.athleticDevelopmentDomain),
       familyLabel: snapshot.boxingSessionFamily ? boxingSessionFamilyLabel(snapshot.boxingSessionFamily) : null,
       modalityLabel: snapshot.protectedWorkoutModality ? boxingProtectedModalityLabel(snapshot.protectedWorkoutModality) : null,
       doseLabel: snapshot.sessionDoseCategory ? boxingDoseCategoryLabel(snapshot.sessionDoseCategory) : null,

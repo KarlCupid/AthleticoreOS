@@ -263,6 +263,7 @@ function installRenderMocks(): void {
       };
     }
     if (request === 'react-native-reanimated') return reanimatedMock;
+    if (request === '@expo/vector-icons') return { MaterialCommunityIcons: simpleComponent('Icon') };
     if (request === '@react-navigation/native') {
       return {
         useFocusEffect: noop,

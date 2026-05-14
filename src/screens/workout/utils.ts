@@ -118,7 +118,7 @@ function getEffortGuidance(input: {
   if (targetIntensity <= 4) {
     return {
       effortTitle: 'Keep it easy today',
-      effortDetail: `This is a lighter workout. Stay around RPE ${targetIntensity}/10 and focus on clean reps.`,
+      effortDetail: `This is a lighter workout. Stay around ${targetIntensity}/10 effort and focus on clean reps.`,
       effortTone: 'calm',
     };
   }
@@ -126,14 +126,14 @@ function getEffortGuidance(input: {
   if (targetIntensity <= 6) {
     return {
       effortTitle: 'Settle into good work',
-      effortDetail: `Aim for about RPE ${targetIntensity}/10. You should feel challenged, but never rushed or sloppy.`,
+      effortDetail: `Aim for about ${targetIntensity}/10 effort. You should feel challenged, but never rushed or sloppy.`,
       effortTone: 'steady',
     };
   }
 
   return {
     effortTitle: 'This is one of your harder sessions',
-    effortDetail: `You can work up to about RPE ${targetIntensity}/10 today. Push, but keep every rep clean.`,
+    effortDetail: `You can work up to about ${targetIntensity}/10 effort today. Push, but keep every rep clean.`,
     effortTone: 'push',
   };
 }
@@ -254,7 +254,7 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
   if (latestRatio == null || !Number.isFinite(latestRatio)) {
     return {
       key: 'load_balance',
-      title: 'Load Balance',
+      title: 'Workload',
       headline: 'Need a little more history',
       body: 'Once you log a bit more training, this will show whether your workload looks balanced or is climbing too fast.',
       tone: 'neutral',
@@ -264,9 +264,9 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
   if (latestRatio < 0.8) {
     return {
       key: 'load_balance',
-      title: 'Load Balance',
+      title: 'Workload',
       headline: 'Your load is lighter than your normal',
-      body: `Workload trend: ${latestRatio.toFixed(2)}. This can help recovery, but rebuild gradually if it lasts.`,
+      body: `Recent workload score: ${latestRatio.toFixed(2)}. This can help recovery, but rebuild gradually if it lasts.`,
       tone: 'neutral',
     };
   }
@@ -274,9 +274,9 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
   if (latestRatio <= 1.3) {
     return {
       key: 'load_balance',
-      title: 'Load Balance',
+      title: 'Workload',
       headline: 'Your load looks well balanced',
-      body: `Workload trend: ${latestRatio.toFixed(2)}. Keep building this way instead of forcing extra work.`,
+      body: `Recent workload score: ${latestRatio.toFixed(2)}. Keep building this way instead of forcing extra work.`,
       tone: 'success',
     };
   }
@@ -284,18 +284,18 @@ function buildLoadBalanceCard(acwrData: Array<{ x: number; y: number }>): Progre
   if (latestRatio <= 1.5) {
     return {
       key: 'load_balance',
-      title: 'Load Balance',
+      title: 'Workload',
       headline: 'Your load is climbing',
-      body: `Workload trend: ${latestRatio.toFixed(2)}. Push with control and pay attention to recovery this week.`,
+      body: `Recent workload score: ${latestRatio.toFixed(2)}. Push with control and pay attention to recovery this week.`,
       tone: 'warning',
     };
   }
 
   return {
     key: 'load_balance',
-    title: 'Load Balance',
+    title: 'Workload',
     headline: 'Your load is running hot',
-    body: `Workload trend: ${latestRatio.toFixed(2)}. This is a good time to respect caps, shorten workouts, or take the lighter option.`,
+    body: `Recent workload score: ${latestRatio.toFixed(2)}. This is a good time to respect caps, shorten workouts, or take the lighter option.`,
     tone: 'warning',
   };
 }
@@ -304,7 +304,7 @@ function buildRecoveryCard(sleepData: Array<{ x: number; y: number }>): Progress
   if (sleepData.length === 0) {
     return {
       key: 'recovery',
-      title: 'Recovery Trend',
+      title: 'Recovery',
       headline: 'No recovery trend yet',
       body: 'Log sleep quality after check-ins and this section will show whether recovery is holding up.',
       tone: 'neutral',
@@ -317,7 +317,7 @@ function buildRecoveryCard(sleepData: Array<{ x: number; y: number }>): Progress
   if (averageSleep >= 4) {
     return {
       key: 'recovery',
-      title: 'Recovery Trend',
+      title: 'Recovery',
       headline: 'Recovery looks solid',
       body: `Average sleep quality is ${averageSleep.toFixed(1)}/5 over your recent logs. Keep protecting that baseline.`,
       tone: 'success',
@@ -327,7 +327,7 @@ function buildRecoveryCard(sleepData: Array<{ x: number; y: number }>): Progress
   if (averageSleep >= 3) {
     return {
       key: 'recovery',
-      title: 'Recovery Trend',
+      title: 'Recovery',
       headline: 'Recovery is holding, but not great',
       body: `Average sleep quality is ${averageSleep.toFixed(1)}/5. A lighter day or earlier night would likely help.`,
       tone: 'neutral',
@@ -336,7 +336,7 @@ function buildRecoveryCard(sleepData: Array<{ x: number; y: number }>): Progress
 
   return {
     key: 'recovery',
-    title: 'Recovery Trend',
+    title: 'Recovery',
     headline: 'Recovery needs more help right now',
     body: `Average sleep quality is ${averageSleep.toFixed(1)}/5. Keep the work controlled until sleep starts to rebound.`,
     tone: 'warning',

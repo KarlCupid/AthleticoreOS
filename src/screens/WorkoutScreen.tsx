@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable, ImageBackground } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
 import { buildTrainingFloorViewModel } from '../../lib/engine/presentation';
 import { getGuidedWorkoutContext } from '../../lib/api/fightCampService';
 import { todayLocalDate } from '../../lib/utils/date';
@@ -21,7 +24,7 @@ import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
 import { WorkoutPrescriptionSection } from '../components/WorkoutPrescriptionSection';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, TAP_TARGETS, SHADOWS, ANIMATION } from '../theme/theme';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import {
   boxingEntryDisplayMeta,
@@ -46,6 +49,8 @@ import {
 
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 
+const TRAIN_BACKGROUND = require('../../assets/images/cards/workout-floor-card-bg.png');
+
 function groupWeekEntries(entries: WeeklyPlanEntryRow[]) {
   const groups = new Map<string, { date: string; dayOfWeek: number; sessions: WeeklyPlanEntryRow[] }>();
   for (const entry of entries) {
@@ -60,7 +65,7 @@ function groupWeekEntries(entries: WeeklyPlanEntryRow[]) {
 
 function formatActivityTime(time: string | null | undefined) {
   if (!time) return null;
-  const [hourRaw, minuteRaw] = time.split(':').map(Number);
+  const [hourRaw = 0, minuteRaw = 0] = time.split(':').map(Number);
   const suffix = hourRaw >= 12 ? 'PM' : 'AM';
   return `${hourRaw % 12 || 12}:${String(minuteRaw).padStart(2, '0')} ${suffix}`;
 }
@@ -98,12 +103,12 @@ function formatQualityGapLabel(gap: { quality: string; priority?: string | null 
   if (/aerobic|roadwork|zone ?2/.test(normalized)) return 'roadwork base';
   if (/shoulder|scap/.test(normalized)) return 'shoulder durability';
   if (/neck|trap/.test(normalized)) return 'neck and trap durability';
-  if (/trunk|core|rotation/.test(normalized)) return 'trunk durability';
-  if (/conditioning|interval|round/.test(normalized)) return 'conditioning support';
-  if (/strength/.test(normalized)) return 'strength support';
-  if (/power/.test(normalized)) return 'power support';
-  if (/mobility|hip|ankle/.test(normalized)) return 'mobility support';
-  if (/skill|footwork|boxing/.test(normalized)) return 'skill support';
+  if (/trunk|core|rotation/.test(normalized)) return 'core durability';
+  if (/conditioning|interval|round/.test(normalized)) return 'conditioning';
+  if (/strength/.test(normalized)) return 'strength';
+  if (/power/.test(normalized)) return 'power';
+  if (/mobility|hip|ankle/.test(normalized)) return 'mobility';
+  if (/skill|footwork|boxing/.test(normalized)) return 'skill work';
   return normalized;
 }
 
@@ -112,7 +117,6 @@ function joinReadableList(items: string[]) {
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
-
 
 function StateCard({
   title,
@@ -128,7 +132,8 @@ function StateCard({
   return (
     <Card
       backgroundTone="workoutFloor"
-      backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+      backgroundScrimColor="rgba(10, 10, 10, 0.74)"
+      style={styles.stateOuterCard}
     >
       <View style={styles.stateCard}>
         <Text style={styles.stateTitle}>{title}</Text>
@@ -144,9 +149,9 @@ function StateCard({
 function EmptyPlanCard({ onPress }: { onPress: () => void }) {
   return (
     <StateCard
-      title="Update your journey plan"
-      body="Training will adapt from your current phase, anchors, readiness, and goals."
-      actionLabel="Update journey plan"
+      title="Set up your plan"
+      body="Add your goals, fixed sessions, readiness, and equipment so training can adapt day by day."
+      actionLabel="Set up plan"
       onPress={onPress}
     />
   );
@@ -174,11 +179,12 @@ function PlannedSupportSessionCard({
 
   return (
     <Card
-      title="Today's support session"
+      title="Today's support work"
       subtitle={coachCopy.headline}
       subtitleLines={2}
       backgroundTone="workoutFloor"
-      backgroundScrimColor="rgba(10, 10, 10, 0.68)"
+      backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+      style={styles.supportOuterCard}
     >
       <View testID="planned-support-session-card" style={styles.supportSessionStack}>
         <Text style={styles.supportHeadline}>{supportHeadline}</Text>
@@ -209,7 +215,7 @@ function AthleteSupportWeekCard({ snapshot, compact = false }: { snapshot: Boxin
   if (!snapshot) return null;
   const week = snapshot.weekSummary;
   const bullets = [
-    week.sAndCFocus ? `S&C focus: ${week.sAndCFocus}` : week.primaryBoxingFocus ? `Focus: ${week.primaryBoxingFocus}` : null,
+    week.sAndCFocus ? `Strength focus: ${week.sAndCFocus}` : week.primaryBoxingFocus ? `Focus: ${week.primaryBoxingFocus}` : null,
     week.protectedBoxingPracticeSummary,
     week.hardDaySummary,
     week.protectedLoadSummary,
@@ -218,13 +224,15 @@ function AthleteSupportWeekCard({ snapshot, compact = false }: { snapshot: Boxin
   ].filter((item): item is string => Boolean(item)).map(sanitizeAthleteFacingCopy);
   const visibleBullets = compact ? bullets.slice(0, 2) : bullets;
   const qualityGaps = Array.from(new Set(week.qualityGaps.map(formatQualityGapLabel))).slice(0, compact ? 1 : 2);
+
   return (
     <Card
-      title={week.weeklyAthleticDevelopmentHeadline ?? week.weeklyBoxingHeadline ?? 'Athlete support this week'}
-      subtitle={compact ? 'This week is built around your boxing anchors.' : week.weeklyAthleticDevelopmentSummary ?? week.weeklyBoxingSummary ?? 'Athleticore builds the S&C support around your boxing anchors.'}
+      title={week.weeklyAthleticDevelopmentHeadline ?? week.weeklyBoxingHeadline ?? 'How this week supports you'}
+      subtitle={compact ? 'Built around your fixed boxing sessions.' : week.weeklyAthleticDevelopmentSummary ?? week.weeklyBoxingSummary ?? 'Athleticore builds strength, conditioning, and recovery work around fixed boxing sessions.'}
       subtitleLines={compact ? 1 : 3}
       backgroundTone="workoutFloor"
       backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+      style={styles.weekContextCard}
     >
       <View style={styles.intelligenceStack}>
         {visibleBullets.map((item) => (
@@ -235,22 +243,40 @@ function AthleteSupportWeekCard({ snapshot, compact = false }: { snapshot: Boxin
         ))}
         <View style={styles.intelligenceMetaRow}>
           <Text style={styles.intelligenceMeta}>Hard days {week.hardDayCount}{week.hardDayCap != null ? `/${week.hardDayCap}` : ''}</Text>
-          {week.protectedBoxingSessionCount != null ? <Text style={styles.intelligenceMeta}>Protected boxing {week.protectedBoxingSessionCount}</Text> : null}
-          {week.generatedSAndCSessionCount != null ? <Text style={styles.intelligenceMeta}>S&C support {week.generatedSAndCSessionCount}</Text> : null}
+          {week.protectedBoxingSessionCount != null ? <Text style={styles.intelligenceMeta}>Fixed boxing {week.protectedBoxingSessionCount}</Text> : null}
+          {week.generatedSAndCSessionCount != null ? <Text style={styles.intelligenceMeta}>Strength work {week.generatedSAndCSessionCount}</Text> : null}
           {week.generatedRoadworkCount != null ? <Text style={styles.intelligenceMeta}>Roadwork {week.generatedRoadworkCount}</Text> : null}
           {week.generatedDurabilityCount != null ? <Text style={styles.intelligenceMeta}>Durability {week.generatedDurabilityCount}</Text> : null}
-          {week.generatedSkillSupportCount != null ? <Text style={styles.intelligenceMeta}>Skill support {week.generatedSkillSupportCount}</Text> : null}
+          {week.generatedSkillSupportCount != null ? <Text style={styles.intelligenceMeta}>Skill work {week.generatedSkillSupportCount}</Text> : null}
         </View>
-        {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Watch next: {joinReadableList(qualityGaps)}</Text> : null}
+        {qualityGaps.length > 0 ? <Text style={styles.intelligenceNote}>Keep an eye on: {joinReadableList(qualityGaps)}</Text> : null}
         {!compact && week.variancePlan?.reason ? <Text style={styles.intelligenceNote}>{week.variancePlan.reason}</Text> : null}
       </View>
     </Card>
   );
 }
 
+function HeaderAction({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} style={styles.headerBtn} onPress={onPress}>
+      <MaterialCommunityIcons name={icon} size={15} color={COLORS.accent} />
+      <Text style={styles.headerBtnText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function WorkoutScreen() {
   const navigation = useNavigation<NavProp>();
   const parentNavigation = navigation.getParent();
+  const insets = useSafeAreaInsets();
   const { themeColor, currentLevel } = useReadinessTheme();
   const [activeTab, setActiveTab] = useState<WorkoutTabKey>('today');
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
@@ -361,8 +387,16 @@ export function WorkoutScreen() {
       : hasStructuredToday
         ? 'Start session'
         : groupedWeeklyEntries.length === 0
-          ? 'Set up weekly plan'
+          ? 'Set up plan'
           : 'Open training';
+
+  const heroBadgeLabel = todayPlanEntry?.status === 'completed'
+    ? 'Done today'
+    : floorVM.isDeload
+      ? 'Lighter day'
+      : todaySummary.effortTone === 'push'
+        ? 'Harder day'
+        : 'Today';
 
   const handlePrimaryAction = useCallback(() => {
     if (todayPlanEntry) {
@@ -374,69 +408,102 @@ export function WorkoutScreen() {
     void handleStartWorkout(navigation);
   }, [todayPlanEntry, prescription, groupedWeeklyEntries.length, navigation, handleStartWorkout, openLegacyGuidedWorkout, openTrainingEntry, openWorkoutDetail]);
 
+  const renderShell = (children: React.ReactNode) => (
+    <ScreenWrapper style={styles.screenShell} useSafeArea={true}>
+      <ImageBackground
+        source={TRAIN_BACKGROUND}
+        resizeMode="cover"
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+      >
+        <View style={styles.backgroundOverlay} />
+        {children}
+      </ImageBackground>
+    </ScreenWrapper>
+  );
+
   if (loading) {
-    return (
-      <View style={styles.loadingScreen}>
+    return renderShell(
+      <>
         <View style={styles.header}>
-          <SkeletonLoader width={70} height={20} shape="rect" style={{ borderRadius: RADIUS.sm }} />
-          <SkeletonLoader width="100%" height={42} shape="rect" style={{ marginTop: SPACING.md, borderRadius: RADIUS.lg }} />
+          <SkeletonLoader width={72} height={18} shape="rect" style={{ borderRadius: RADIUS.sm }} />
+          <SkeletonLoader width="68%" height={38} shape="rect" style={{ marginTop: SPACING.md, borderRadius: RADIUS.lg }} />
+          <SkeletonLoader width="100%" height={46} shape="rect" style={{ marginTop: SPACING.md, borderRadius: RADIUS.lg }} />
         </View>
         <View style={styles.content}>
-          <SkeletonLoader width="100%" height={260} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.md }} />
+          <SkeletonLoader width="100%" height={110} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.md }} />
+          <SkeletonLoader width="100%" height={280} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.md }} />
           <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.xl }} />
         </View>
-      </View>
+      </>,
     );
   }
 
-  return (
-    <ScreenWrapper useSafeArea={true}>
+  return renderShell(
+    <>
       <View style={styles.header}>
         <ScreenHeader
           kicker="Train"
-          title="Training"
-          subtitle="Today, week, progress."
+          title={activeTab === 'today' ? 'Today' : formatWorkoutTabLabel(activeTab)}
+          subtitle={activeTab === 'today' ? 'Start or review today\'s training' : 'Your week and progress'}
           rightAction={(
             <View style={styles.headerActions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Open plan tab" style={styles.headerBtn} onPress={() => parentNavigation?.navigate('Plan' as never)}><Text style={styles.headerBtnText}>Plan</Text></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="Open gym profiles" style={styles.headerBtn} onPress={() => navigation.navigate('GymProfiles')}><Text style={styles.headerBtnText}>Gym</Text></Pressable>
+              <HeaderAction icon="calendar-week" label="Plan" onPress={() => parentNavigation?.navigate('Plan' as never)} />
+              <HeaderAction icon="dumbbell" label="Gym" onPress={() => navigation.navigate('GymProfiles')} />
             </View>
           )}
         >
           <View style={styles.tabBar}>
-            {WORKOUT_TABS.map((tab) => (
-              <AnimatedPressable
-                key={tab}
-                accessibilityRole="button"
-                accessibilityLabel={`${formatWorkoutTabLabel(tab)} training tab`}
-                accessibilityState={{ selected: activeTab === tab }}
-                style={[styles.tab, activeTab === tab && styles.tabActive]}
-                onPress={() => setActiveTab(tab)}
-              >
-                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{formatWorkoutTabLabel(tab)}</Text>
-              </AnimatedPressable>
-            ))}
+            {WORKOUT_TABS.map((tab) => {
+              const active = activeTab === tab;
+              return (
+                <AnimatedPressable
+                  key={tab}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${formatWorkoutTabLabel(tab)} training tab`}
+                  accessibilityState={{ selected: active }}
+                  style={[styles.tab, active && styles.tabActive]}
+                  onPress={() => setActiveTab(tab)}
+                >
+                  <Text style={[styles.tabText, active && styles.tabTextActive]}>{formatWorkoutTabLabel(tab)}</Text>
+                </AnimatedPressable>
+              );
+            })}
           </View>
         </ScreenHeader>
       </View>
+
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.xxxl }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} colors={[themeColor]} />}
       >
         {activeTab === 'today' && (
           <View style={styles.tabStack}>
             {initialLoadError ? <StateCard title="We couldn't load Train right now" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : null}
             {!initialLoadError && showEmptyPlan ? <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}><EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /></Animated.View> : null}
+            {!initialLoadError ? (
+              <Animated.View entering={FadeInDown.delay(45).duration(ANIMATION.slow).springify()}>
+                <UnifiedJourneySummaryCard
+                  summary={performanceContext}
+                  compact
+                  showBodyMass={Boolean(performanceContext.bodyMass)}
+                  variant="todayCommand"
+                />
+              </Animated.View>
+            ) : null}
             {!initialLoadError && showTodayHero ? (
-              <Animated.View entering={FadeInDown.delay(40).duration(300).springify()}>
+              <Animated.View entering={FadeInDown.delay(70).duration(300).springify()}>
                 <Card
                   style={[styles.heroCard, { borderColor: heroToneStyles.borderColor }]}
                   backgroundTone="workoutFloor"
-                  backgroundScrimColor="rgba(10, 10, 10, 0.64)"
+                  backgroundScrimColor="rgba(10, 10, 10, 0.62)"
                 >
                   <View style={styles.heroTopRow}>
-                    <View style={[styles.heroBadge, { backgroundColor: heroToneStyles.badgeBackground }]}><Text style={[styles.heroBadgeText, { color: heroToneStyles.badgeColor }]}>{todayPlanEntry?.status === 'completed' ? 'Done today' : floorVM.isDeload ? 'Lighter day' : 'Today'}</Text></View>
+                    <View style={[styles.heroBadge, { backgroundColor: heroToneStyles.badgeBackground }]}>
+                      <MaterialCommunityIcons name="flash" size={13} color={heroToneStyles.badgeColor} />
+                      <Text style={[styles.heroBadgeText, { color: heroToneStyles.badgeColor }]}>{heroBadgeLabel}</Text>
+                    </View>
                     {todaySummary.durationLabel ? <Text style={styles.heroDuration}>{todaySummary.durationLabel}</Text> : null}
                   </View>
                   <Text style={styles.heroSessionLabel}>{todaySummary.sessionLabel}</Text>
@@ -447,7 +514,7 @@ export function WorkoutScreen() {
                     <Text style={styles.effortTitle}>{todaySummary.effortTitle}</Text>
                     <Text style={styles.effortBody}>{todaySummary.effortDetail}</Text>
                   </View>
-                  {todaySummary.guardrails.length > 0 && (
+                  {todaySummary.guardrails.length > 0 ? (
                     <View style={styles.guardrailsCard}>
                       <Text style={styles.guardrailsTitle}>Know before you train</Text>
                       {todaySummary.guardrails.map((item) => (
@@ -457,9 +524,21 @@ export function WorkoutScreen() {
                         </View>
                       ))}
                     </View>
-                  )}
-                  <AnimatedPressable accessibilityRole="button" accessibilityLabel={primaryActionLabel} style={styles.primaryButton} onPress={handlePrimaryAction}><Text style={styles.primaryButtonText}>{primaryActionLabel}</Text></AnimatedPressable>
-                  {prescription ? <AnimatedPressable accessibilityRole="button" accessibilityLabel={showWorkoutDetails ? 'Hide workout details' : 'View workout details'} style={styles.secondaryLink} onPress={() => setShowWorkoutDetails((value) => !value)}><Text style={styles.secondaryLinkText}>{showWorkoutDetails ? 'Hide workout details' : 'View workout details'}</Text></AnimatedPressable> : null}
+                  ) : null}
+                  <AnimatedPressable accessibilityRole="button" accessibilityLabel={primaryActionLabel} style={styles.primaryButton} onPress={handlePrimaryAction}>
+                    <MaterialCommunityIcons name="play" size={17} color={COLORS.text.inverse} />
+                    <Text style={styles.primaryButtonText}>{primaryActionLabel}</Text>
+                  </AnimatedPressable>
+                  {prescription ? (
+                    <AnimatedPressable
+                      accessibilityRole="button"
+                      accessibilityLabel={showWorkoutDetails ? 'Hide workout details' : 'View workout details'}
+                      style={styles.secondaryLink}
+                      onPress={() => setShowWorkoutDetails((value) => !value)}
+                    >
+                      <Text style={styles.secondaryLinkText}>{showWorkoutDetails ? 'Hide workout details' : 'View workout details'}</Text>
+                    </AnimatedPressable>
+                  ) : null}
                 </Card>
               </Animated.View>
             ) : null}
@@ -469,7 +548,7 @@ export function WorkoutScreen() {
               </Animated.View>
             ) : null}
             {!initialLoadError && todayPlanEntry && hasPlannedSupportSession && todayBoxingSnapshot ? (
-              <Animated.View entering={FadeInDown.delay(60).duration(280).springify()}>
+              <Animated.View entering={FadeInDown.delay(70).duration(280).springify()}>
                 <PlannedSupportSessionCard
                   entry={todayPlanEntry}
                   snapshot={todayBoxingSnapshot}
@@ -477,13 +556,14 @@ export function WorkoutScreen() {
                 />
               </Animated.View>
             ) : null}
-            {!initialLoadError && contextualTodayActivities.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(80).duration(280).springify()}>
+            {!initialLoadError && contextualTodayActivities.length > 0 ? (
+              <Animated.View entering={FadeInDown.delay(90).duration(280).springify()}>
                 <Card
-                  title="Other anchors today"
-                  subtitle="Also on the calendar"
+                  title="Other plans today"
+                  subtitle="Also on your calendar"
                   backgroundTone="schedule"
-                  backgroundScrimColor="rgba(10, 10, 10, 0.70)"
+                  backgroundScrimColor="rgba(10, 10, 10, 0.72)"
+                  style={styles.anchorsCard}
                 >
                   <View style={styles.alsoTodayList}>
                     {contextualTodayActivities.map((activity, index) => (
@@ -491,33 +571,25 @@ export function WorkoutScreen() {
                         <View style={styles.alsoTodayTimeColumn}><Text style={styles.alsoTodayTime}>{formatActivityTime(activity.start_time) ?? 'Any time'}</Text></View>
                         <View style={styles.alsoTodayCopy}>
                           <Text style={styles.alsoTodayLabel}>{formatActivityLabel(activity)}</Text>
-                          <Text style={styles.alsoTodayMeta}>{activity.estimated_duration_min} min{activity.actual_rpe ?? activity.expected_intensity ? `  |  Effort ${activity.actual_rpe ?? activity.expected_intensity}/10` : ''}</Text>
+                          <Text style={styles.alsoTodayMeta}>{activity.estimated_duration_min} min{activity.actual_rpe ?? activity.expected_intensity ? ` / Effort ${activity.actual_rpe ?? activity.expected_intensity}/10` : ''}</Text>
                         </View>
                       </View>
                     ))}
                   </View>
                 </Card>
               </Animated.View>
-            )}
+            ) : null}
             {!initialLoadError && weekBoxingSnapshot ? (
-              <Animated.View entering={FadeInDown.delay(90).duration(260).springify()}>
+              <Animated.View entering={FadeInDown.delay(105).duration(260).springify()}>
                 <AnimatedPressable
                   accessibilityRole="button"
-                  accessibilityLabel={showWeekContext ? 'Hide week context' : 'Show week context'}
+                  accessibilityLabel={showWeekContext ? 'Hide why this week' : 'Show why this week'}
                   style={styles.weekContextToggle}
                   onPress={() => setShowWeekContext((value) => !value)}
                 >
-                  <Text style={styles.weekContextToggleText}>{showWeekContext ? 'Hide week context' : 'Show week context'}</Text>
+                  <Text style={styles.weekContextToggleText}>{showWeekContext ? 'Hide why this week' : 'Show why this week'}</Text>
+                  <MaterialCommunityIcons name={showWeekContext ? 'chevron-up' : 'chevron-down'} size={17} color={COLORS.text.secondary} />
                 </AnimatedPressable>
-              </Animated.View>
-            ) : null}
-            {!initialLoadError && (!hasPlannedSupportSession || showWeekContext) ? (
-              <Animated.View entering={FadeInDown.delay(100).duration(280).springify()}>
-                <UnifiedJourneySummaryCard
-                  summary={performanceContext}
-                  compact
-                  showBodyMass={Boolean(performanceContext.bodyMass)}
-                />
               </Animated.View>
             ) : null}
             {!initialLoadError && weekBoxingSnapshot && showWeekContext ? (
@@ -527,6 +599,7 @@ export function WorkoutScreen() {
             ) : null}
           </View>
         )}
+
         {activeTab === 'plan' && (
           <View style={styles.tabStack}>
             {initialLoadError ? <StateCard title="We couldn't load your week" body={initialLoadError} actionLabel="Try again" onPress={() => { void loadData(true); }} /> : groupedWeeklyEntries.length === 0 ? <EmptyPlanCard onPress={() => navigation.navigate('WeeklyPlanSetup')} /> : (
@@ -561,24 +634,30 @@ export function WorkoutScreen() {
                         </View>
                         <View style={styles.weekCardCenter}>
                           <View style={styles.weekCardTitleRow}>
-                            <Text style={styles.weekCardFocus}>{sessionLabel}</Text>
+                            <Text style={styles.weekCardFocus} numberOfLines={1}>{sessionLabel}</Text>
                             {extraSessions > 0 ? <Text style={styles.weekCardMore}>+{extraSessions} more</Text> : null}
                           </View>
-                          <Text style={styles.weekCardMeta}>{primaryEntry.estimated_duration_min} min{primaryEntry.target_intensity ? `  |  Effort ${primaryEntry.target_intensity}/10` : ''}</Text>
-                          <Text style={styles.weekCardNote}>{boxingMeta.sourceLabel}{boxingMeta.doseLabel ? `  |  ${boxingMeta.doseLabel}` : ''}</Text>
-                          {boxingMeta.why ? <Text style={styles.weekCardNote}>{boxingMeta.why}</Text> : null}
-                          {group.sessions.some((session) => session.is_deload) ? <Text style={styles.weekCardNote}>Recovery emphasis this day.</Text> : null}
+                          <Text style={styles.weekCardMeta}>{primaryEntry.estimated_duration_min} min{primaryEntry.target_intensity ? ` / Effort ${primaryEntry.target_intensity}/10` : ''}</Text>
+                          <Text style={styles.weekCardNote} numberOfLines={2}>{sanitizeAthleteFacingCopy(boxingMeta.sourceLabel)}{boxingMeta.doseLabel ? ` / ${sanitizeAthleteFacingCopy(boxingMeta.doseLabel)}` : ''}</Text>
+                          {boxingMeta.why ? <Text style={styles.weekCardNote} numberOfLines={2}>{sanitizeAthleteFacingCopy(boxingMeta.why)}</Text> : null}
+                          {group.sessions.some((session) => session.is_deload) ? <Text style={styles.weekCardNote}>Keep this day lighter.</Text> : null}
                         </View>
-                        <View style={[styles.weekStatusChip, { backgroundColor: chipStyles.backgroundColor }]}><Text style={[styles.weekStatusChipText, { color: chipStyles.color }]}>{status.label}</Text></View>
+                        <View style={[styles.weekStatusChip, { backgroundColor: chipStyles.backgroundColor }]}>
+                          <Text style={[styles.weekStatusChipText, { color: chipStyles.color }]}>{status.label}</Text>
+                        </View>
                       </AnimatedPressable>
                     </Animated.View>
                   );
                 })}
-                <AnimatedPressable accessibilityRole="button" accessibilityLabel="Adjust plan" style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}><Text style={styles.planSettingsButtonText}>Adjust plan</Text></AnimatedPressable>
+                <AnimatedPressable accessibilityRole="button" accessibilityLabel="Adjust plan" style={styles.planSettingsButton} onPress={() => navigation.navigate('WeeklyPlanSetup')}>
+                  <MaterialCommunityIcons name="tune-variant" size={16} color={COLORS.accent} />
+                  <Text style={styles.planSettingsButtonText}>Adjust plan</Text>
+                </AnimatedPressable>
               </>
             )}
           </View>
         )}
+
         {activeTab === 'history' && (
           <View style={styles.tabStack}>
             {historyLoading && !historyLoaded ? (
@@ -591,6 +670,7 @@ export function WorkoutScreen() {
             ) : <WorkoutHistoryTab workoutHistory={workoutHistory} />}
           </View>
         )}
+
         {activeTab === 'analytics' && (
           <View style={styles.tabStack}>
             {analyticsLoading && !analyticsLoaded ? (
@@ -606,88 +686,497 @@ export function WorkoutScreen() {
             )}
           </View>
         )}
-        <View style={styles.bottomSpacer} />
       </ScrollView>
-    </ScreenWrapper>
+    </>,
   );
 }
 
 const styles = StyleSheet.create({
-  loadingScreen: { flex: 1, backgroundColor: 'transparent' },
-  header: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
-  headerActions: { flexDirection: 'row', gap: SPACING.sm },
-  headerBtn: { minHeight: TAP_TARGETS.plan.min, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
-  headerBtnText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  tabBar: { flexDirection: 'row', backgroundColor: 'rgba(10, 10, 10, 0.46)', borderRadius: RADIUS.lg, padding: 4, borderWidth: 1, borderColor: COLORS.borderLight },
-  tab: { flex: 1, minHeight: TAP_TARGETS.plan.min, paddingVertical: SPACING.sm, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
-  tabActive: { backgroundColor: COLORS.accent },
-  tabText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  tabTextActive: { color: COLORS.text.inverse },
-  content: { padding: SPACING.md, paddingTop: SPACING.xs },
-  tabStack: { gap: SPACING.md },
-  heroCard: { borderWidth: 1.5 },
-  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  heroBadge: { borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm + 2, paddingVertical: 5 },
-  heroBadgeText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  heroDuration: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  heroSessionLabel: { fontSize: 24, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, lineHeight: 30 },
-  heroGoal: { fontSize: 17, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 24, marginTop: SPACING.sm },
-  heroReason: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 20, marginTop: SPACING.xs },
-  effortCard: { borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
-  effortLabel: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
-  effortTitle: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-  effortBody: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19, marginTop: 4 },
-  guardrailsCard: { backgroundColor: COLORS.surfaceSecondary, borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md, gap: SPACING.sm },
-  guardrailsTitle: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.6 },
-  guardrailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
-  guardrailDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 6 },
-  guardrailText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
-  supportSessionStack: { gap: SPACING.sm },
-  supportMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
-  supportMetaPill: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.sm, paddingVertical: 5, fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  supportHeadline: { fontSize: 19, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, lineHeight: 25 },
-  supportBody: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
-  supportFuel: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary, lineHeight: 18 },
-  supportAttachedState: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 18 },
-  intelligenceStack: { gap: SPACING.sm },
-  intelligenceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
-  intelligenceText: { flex: 1, fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, lineHeight: 19 },
-  intelligenceMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginTop: SPACING.xs },
-  intelligenceMeta: { borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceSecondary, paddingHorizontal: SPACING.sm, paddingVertical: 5, fontSize: 11, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  intelligenceNote: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, lineHeight: 17 },
-  weekContextToggle: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: 'rgba(10, 10, 10, 0.34)' },
-  weekContextToggleText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  primaryButton: { minHeight: 52, backgroundColor: COLORS.accent, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.md, marginTop: SPACING.md },
-  primaryButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
-  secondaryLink: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.xs },
-  secondaryLinkText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
-  alsoTodayList: { marginTop: SPACING.xs },
-  alsoTodayRow: { flexDirection: 'row', gap: SPACING.md, paddingVertical: SPACING.sm + 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.borderLight },
-  alsoTodayRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
-  alsoTodayTimeColumn: { width: 74 },
-  alsoTodayTime: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
-  alsoTodayCopy: { flex: 1 },
-  alsoTodayLabel: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-  alsoTodayMeta: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 2 },
-  weekCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.borderLight },
-  weekCardLeft: { width: 64 },
-  weekCardDay: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  weekCardDate: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 2 },
-  weekCardCenter: { flex: 1 },
-  weekCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  weekCardFocus: { flex: 1, fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },
-  weekCardMore: { fontSize: 12, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
-  weekCardMeta: { fontSize: 13, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, marginTop: 3 },
-  weekCardNote: { fontSize: 12, fontFamily: FONT_FAMILY.regular, color: COLORS.text.tertiary, marginTop: 4 },
-  weekStatusChip: { borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm + 2, paddingVertical: 6 },
-  weekStatusChipText: { fontSize: 11, fontFamily: FONT_FAMILY.semiBold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  planSettingsButton: { minHeight: TAP_TARGETS.plan.min, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm },
-  planSettingsButtonText: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },
-  tabLoadingState: { gap: SPACING.md },
-  stateCard: { alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.sm },
-  stateTitle: { fontSize: 20, fontFamily: FONT_FAMILY.extraBold, color: COLORS.text.primary, textAlign: 'center', lineHeight: 26 },
-  stateBody: { fontSize: 14, fontFamily: FONT_FAMILY.regular, color: COLORS.text.secondary, textAlign: 'center', lineHeight: 20 },
-  stateActionButton: { backgroundColor: COLORS.accent, borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.sm },
-  stateActionButtonText: { fontSize: 15, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.inverse },
-  bottomSpacer: { height: SPACING.xxl },
+  screenShell: {
+    backgroundColor: COLORS.background,
+  },
+  background: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  backgroundImage: {
+    opacity: 0.72,
+  },
+  backgroundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(4, 8, 10, 0.75)',
+  },
+  header: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  headerBtn: {
+    minHeight: TAP_TARGETS.plan.min,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.30)',
+    backgroundColor: 'rgba(10, 10, 10, 0.46)',
+    paddingHorizontal: SPACING.sm + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 5,
+  },
+  headerBtnText: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(10, 10, 10, 0.54)',
+    borderRadius: RADIUS.lg,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    marginTop: SPACING.sm,
+  },
+  tab: {
+    flex: 1,
+    minHeight: TAP_TARGETS.plan.min,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabActive: {
+    backgroundColor: COLORS.accent,
+  },
+  tabText: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  tabTextActive: {
+    color: COLORS.text.inverse,
+  },
+  content: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.xs,
+  },
+  tabStack: {
+    gap: SPACING.md,
+  },
+  heroCard: {
+    borderWidth: 1.4,
+    backgroundColor: 'rgba(10, 10, 10, 0.66)',
+    ...SHADOWS.cardElevated,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  heroBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  heroBadgeText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONT_FAMILY.extraBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  heroDuration: {
+    flexShrink: 0,
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  heroSessionLabel: {
+    fontSize: 28,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+    lineHeight: 34,
+    letterSpacing: 0,
+  },
+  heroGoal: {
+    fontSize: 17,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    lineHeight: 24,
+    marginTop: SPACING.sm,
+  },
+  heroReason: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 20,
+    marginTop: SPACING.xs,
+  },
+  effortCard: {
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 245, 240, 0.09)',
+  },
+  effortLabel: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  effortTitle: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  effortBody: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  guardrailsCard: {
+    backgroundColor: 'rgba(245, 245, 240, 0.08)',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 245, 240, 0.10)',
+  },
+  guardrailsTitle: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  guardrailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  guardrailDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: COLORS.accent,
+    marginTop: 6,
+  },
+  guardrailText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+  },
+  primaryButton: {
+    minHeight: 54,
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    ...SHADOWS.colored.accent,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.inverse,
+  },
+  secondaryLink: {
+    minHeight: TAP_TARGETS.plan.min,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  secondaryLinkText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
+  },
+  supportOuterCard: {
+    borderColor: 'rgba(212, 175, 55, 0.24)',
+  },
+  supportSessionStack: {
+    gap: SPACING.sm,
+  },
+  supportMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  supportMetaPill: {
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  supportHeadline: {
+    fontSize: 19,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+    lineHeight: 25,
+  },
+  supportBody: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+  },
+  supportFuel: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+    lineHeight: 18,
+  },
+  supportAttachedState: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    lineHeight: 18,
+  },
+  anchorsCard: {
+    borderColor: 'rgba(245, 245, 240, 0.14)',
+  },
+  alsoTodayList: {
+    marginTop: SPACING.xs,
+  },
+  alsoTodayRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.borderLight,
+  },
+  alsoTodayRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
+  },
+  alsoTodayTimeColumn: {
+    width: 78,
+  },
+  alsoTodayTime: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+  },
+  alsoTodayCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  alsoTodayLabel: {
+    fontSize: 15,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.primary,
+  },
+  alsoTodayMeta: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    marginTop: 2,
+  },
+  weekContextToggle: {
+    minHeight: TAP_TARGETS.plan.min,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: 'rgba(10, 10, 10, 0.42)',
+  },
+  weekContextToggleText: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  weekContextCard: {
+    borderColor: COLORS.borderLight,
+  },
+  intelligenceStack: {
+    gap: SPACING.sm,
+  },
+  intelligenceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  intelligenceText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    lineHeight: 19,
+  },
+  intelligenceMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  intelligenceMeta: {
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surfaceSecondary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.secondary,
+  },
+  intelligenceNote: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    lineHeight: 17,
+  },
+  weekCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: 'rgba(10, 10, 10, 0.64)',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  weekCardLeft: {
+    width: 64,
+  },
+  weekCardDay: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  weekCardDate: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    marginTop: 2,
+  },
+  weekCardCenter: {
+    flex: 1,
+    minWidth: 0,
+  },
+  weekCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  weekCardFocus: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  weekCardMore: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+  },
+  weekCardMeta: {
+    fontSize: 13,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    marginTop: 3,
+  },
+  weekCardNote: {
+    fontSize: 12,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+    marginTop: 4,
+  },
+  weekStatusChip: {
+    maxWidth: 82,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 6,
+  },
+  weekStatusChipText: {
+    fontSize: 11,
+    fontFamily: FONT_FAMILY.extraBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  planSettingsButton: {
+    minHeight: TAP_TARGETS.plan.min,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.24)',
+    backgroundColor: 'rgba(10, 10, 10, 0.36)',
+  },
+  planSettingsButtonText: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
+  },
+  tabLoadingState: {
+    gap: SPACING.md,
+  },
+  stateOuterCard: {
+    borderColor: COLORS.borderLight,
+  },
+  stateCard: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xl,
+    gap: SPACING.sm,
+  },
+  stateTitle: {
+    fontSize: 20,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  stateBody: {
+    fontSize: 14,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  stateActionButton: {
+    minHeight: 48,
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.sm,
+  },
+  stateActionButtonText: {
+    fontSize: 15,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.inverse,
+  },
 });

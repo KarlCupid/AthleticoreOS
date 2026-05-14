@@ -166,7 +166,7 @@ export function getSupabaseAuthErrorCopy(error: unknown, operation: AuthOperatio
     || lowerMessage.includes('cloudflare')
     || (lowerMessage.includes('json parse') && lowerMessage.includes('<'))
   ) {
-    return 'Athleticore auth is temporarily unavailable. Try again in a few minutes.';
+    return 'Athleticore sign-in is not reachable right now. Try again in a few minutes.';
   }
 
   if (lowerMessage.includes('signup') && lowerMessage.includes('disabled')) {

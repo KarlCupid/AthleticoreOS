@@ -17,6 +17,18 @@ export interface CoachCopyViewModel {
 }
 
 const TERM_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bAthleticore-generated full session\b/gi, 'full session'],
+  [/\bAthleticore-generated support\b/gi, 'support session'],
+  [/\bAthleticore support session\b/gi, 'support session'],
+  [/\bAthleticore support week\b/gi, 'support week'],
+  [/\bprotected boxing anchors?\b/gi, 'fixed boxing sessions'],
+  [/\bboxing anchors?\b/gi, 'fixed boxing sessions'],
+  [/\bprotected anchors?\b/gi, 'fixed sessions'],
+  [/\bprotected boxing\b/gi, 'fixed boxing'],
+  [/\bS&C\b/g, 'strength and conditioning'],
+  [/\bmicrodose\b/gi, 'short skill work'],
+  [/\bvariance plan\b/gi, 'weekly adjustment'],
+  [/\bdeload\b/gi, 'lighter week'],
   [/\bGeneratedWorkout\b/g, 'support session'],
   [/\bworkout generation\b/gi, 'support session'],
   [/\bgenerated workout\b/gi, 'support session'],
