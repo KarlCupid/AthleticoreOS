@@ -98,6 +98,15 @@ assert('Today Mission action dispatcher routes all canonical intents', hasAll(da
   'case "confirm_fight":',
   'initialGoalMode: "fight_camp"',
 ]));
+assert('Today primary mission CTA reaches the route dispatcher with safe training fallback', hasAll(todayMissionPanel, [
+  'testID="today-mission-primary-cta"',
+  'onAction(primaryAction)',
+]) && hasAll(dashboard, [
+  'case "start_training":',
+  'void openTodayTraining()',
+  'openTrainScreen("WorkoutDetail"',
+  'navigation.navigate("DayDetail", { date: todayLocalDate() });',
+]));
 assert('first-run modal primary and dismiss actions are selectable and wired', hasAll(dashboard, [
   'testID="first-run-check-in"',
   'openFirstRunStep("checkin")',
@@ -226,6 +235,15 @@ assert('food detail and custom food submits remain guarded and selectable', hasA
   'onPress={handleSave}',
   'disabled={!canSave || saving}',
 ]));
+assert('fuel search to food detail to log food happy path is wired', hasAll(foodSearch, [
+  'const handleSelectFood = (item: FoodSearchResult) => {',
+  'Keyboard.dismiss()',
+  "navigation.navigate('FoodDetail', { foodItem: item, mealType, date })",
+]) && hasAll(foodDetail, [
+  'const savedItem = await upsertFoodItem(foodItem, { userIdForCustom: session.user.id })',
+  'await logFoodEntry(',
+  "navigation.navigate('NutritionHome')",
+]));
 
 assert('check-in fields, missing-data prompt action, tooltip close, and submit are selectable', hasAll(checkIn, [
   'testID="check-in-weight-input"',
@@ -256,6 +274,19 @@ assert('body-mass evaluation, safe navigation, and blocked-plan CTAs are stable'
   'saferAlternatives',
   'Review safer options',
   "won't build a risky plan",
+]));
+assert('unsafe weight-class target blocks activation while safe navigation stays available', hasAll(weightClassHome, [
+  'testID="weight-class-evaluate-class"',
+  'testID="weight-class-past-plans"',
+  'testID="weight-class-post-weigh-in-recovery"',
+]) && hasAll(weightClassSetup, [
+  'const isNextDisabled =',
+  '!weightClassEvaluation.shouldGenerateProtocol',
+  'weightClassEvaluation.plan.professionalReviewRequired',
+  'disabled={isNextDisabled}',
+  'Support paused for safety',
+  'throw new Error(guidedCopy.primaryMessage)',
+  'nav.goBack()',
 ]));
 
 assert('navigation tabs expose stable selectors for tab switching', ['tab-today', 'tab-train', 'tab-plan', 'tab-fuel', 'tab-me'].every((id) => tabs.includes(`testID="${id}"`)));

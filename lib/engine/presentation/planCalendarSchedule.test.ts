@@ -112,6 +112,29 @@ console.log('\n-- plan calendar schedule merge model --');
 }
 
 {
+  const items = buildPlanCalendarScheduleItems(
+    [makeEntry({ id: 'entry-normalized', scheduled_activity_id: 'activity-normalized', target_intensity: 6 })],
+    [
+      makeActivity({
+        id: 'activity-normalized',
+        weekly_plan_entry_id: 'entry-normalized',
+        start_time: '07:15',
+        expected_intensity: 9,
+      }),
+      makeActivity({
+        id: 'activity-duplicate-link',
+        weekly_plan_entry_id: 'entry-normalized',
+        start_time: '08:00',
+      }),
+    ],
+  );
+
+  assert('normalized linked entry/activity pair renders once even with duplicate plan links', items.length === 1);
+  assert('normalized merged item keeps the canonical generated workout id', items[0].id === 'entry:entry-normalized');
+  assert('normalized merged item keeps schedule timing without overriding generated intensity', items[0].startTime === '07:15' && items[0].intensity === 6);
+}
+
+{
   const item = buildPlanCalendarScheduleItems(
     [makeEntry({ focus: 'upper_push', session_type: 'sc', estimated_duration_min: 55, target_intensity: 7 })],
     [makeActivity({ custom_label: 'sc', estimated_duration_min: 35, expected_intensity: 4, weekly_plan_entry_id: 'entry-1' })],
@@ -197,10 +220,18 @@ console.log('\n-- plan screen display source smoke --');
   const projectRoot = process.cwd();
   const planScreen = fs.readFileSync(path.join(projectRoot, 'src', 'screens', 'PlanCalendarScreen.tsx'), 'utf8');
   const planHook = fs.readFileSync(path.join(projectRoot, 'src', 'hooks', 'usePlanCalendarData.ts'), 'utf8');
+  const planControls = fs.readFileSync(path.join(projectRoot, 'src', 'screens', 'plan-calendar', 'PlanCalendarControls.tsx'), 'utf8');
+  const planViews = fs.readFileSync(path.join(projectRoot, 'src', 'screens', 'plan-calendar', 'PlanCalendarViews.tsx'), 'utf8');
 
   assert('Plan screen uses the normalized calendar data hook', planScreen.includes('usePlanCalendarData'));
   assert('Plan screen no longer imports useWeeklyPlan', !planScreen.includes('useWeeklyPlan'));
   assert('Plan screen no longer imports syncEngineSchedule', !planScreen.includes('syncEngineSchedule'));
+  assert('Plan screen delegates local controls and schedule views', (
+    planScreen.includes("from './plan-calendar/PlanCalendarControls'")
+    && planScreen.includes("from './plan-calendar/PlanCalendarViews'")
+    && planControls.includes('export function SegmentedViews')
+    && planViews.includes('export function WeekView')
+  ));
   assert('Plan hook builds normalized schedule items', planHook.includes('buildPlanCalendarScheduleItems'));
   assert('Plan hook fetches weekly entries by date range', planHook.includes('getWeeklyPlanEntriesForRange'));
   assert('Plan hook does not passively sync engine schedule', !planHook.includes('syncEngineSchedule'));

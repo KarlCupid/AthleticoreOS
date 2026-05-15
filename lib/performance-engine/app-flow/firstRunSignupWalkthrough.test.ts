@@ -140,11 +140,14 @@ console.log('\n-- firstRunSignupWalkthrough --');
   );
 
   assert(
-    'initial workout generation is queued after onboarding save',
-    intake.includes('void generateInitialPlanAfterOnboarding(userId, config, gym, asOfDate)')
+    'initial workout generation is awaited before onboarding handoff',
+    intake.includes('const generatedPlan = await generateInitialPlanAfterOnboarding(userId, config, gym, asOfDate)')
       && intake.includes('writeReadyAthleteJourneyEntryCache')
       && intake.includes('withInitialPlanGenerationTimeout')
-      && intake.includes('generatedPlan: false'),
+      && intake.includes('return generatedPlan;')
+      && intake.includes('generatedPlan,')
+      && !intake.includes('generatedPlan: false')
+      && !intake.includes('void generateInitialPlanAfterOnboarding(userId, config, gym, asOfDate)'),
   );
 })();
 

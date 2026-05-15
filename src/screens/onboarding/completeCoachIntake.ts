@@ -114,7 +114,7 @@ async function generateInitialPlanAfterOnboarding(
   config: Awaited<ReturnType<typeof saveWeeklyPlanConfig>>,
   gym: Awaited<ReturnType<typeof upsertDefaultGymProfile>>,
   asOfDate: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const generatedWeek = await withInitialPlanGenerationTimeout(
       generateAndSaveWeeklyPlan(userId, config as never, gym, asOfDate),
@@ -134,8 +134,10 @@ async function generateInitialPlanAfterOnboarding(
       weekStart: generatedWeekStart ?? asOfDate,
       reason: 'onboarding_complete',
     }, async () => undefined);
+    return generatedPlan;
   } catch (planError) {
     logWarn('completeCoachIntake.firstPlanGeneration', planError, { userId, asOfDate });
+    return false;
   }
 }
 
@@ -468,7 +470,7 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
       journey: journeyInitialization.journey,
       performanceState: journeyInitialization.performanceState,
     }));
-    void generateInitialPlanAfterOnboarding(userId, config, gym, asOfDate);
+    const generatedPlan = await generateInitialPlanAfterOnboarding(userId, config, gym, asOfDate);
 
     await withEngineInvalidation({
       userId,
@@ -476,7 +478,7 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
       reason: 'onboarding_complete',
     }, async () => undefined);
     return {
-      generatedPlan: false,
+      generatedPlan,
       journey: journeyInitialization.journey,
       performanceState: journeyInitialization.performanceState,
     };

@@ -267,6 +267,7 @@ console.log('\n-- todays mission view model --');
   const mission = buildTodaysMissionViewModel(run({ protectedAnchors: [sparringAnchor()] }));
   assert('protected sparring is shown as anchor', mission.protectedWorkoutSummary?.toLowerCase().includes('protected') === true && mission.primaryFocus.toLowerCase().includes('sparring'));
   assert('protected sparring influences training summary', mission.trainingSummary.toLowerCase().includes('sparring is the anchor'));
+  assert('primary mission CTA routes to training when today has work', mission.nextActions[0]?.intent === 'start_training' && mission.nextActions[0]?.label === "Start today's training");
 }
 
 {
