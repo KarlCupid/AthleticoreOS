@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, ANIMATION, TAP_TARGETS } from '../theme/theme';
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { CommandScreen } from '../components/CommandScreen';
 import { IconChevronLeft, IconFlash, IconFlashOff } from '../components/icons';
 import { lookupBarcode } from '../../lib/api/openFoodFacts';
 import { MealType } from '../../lib/engine/types';
@@ -86,41 +87,45 @@ export function BarcodeScanScreen() {
     // Permission not yet determined
     if (!permission) {
         return (
-            <View style={[styles.permissionContainer, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.lg }]}>
-                <ActivityIndicator color={COLORS.text.tertiary} />
-            </View>
+            <CommandScreen tone="fuel">
+                <View style={[styles.permissionContainer, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.lg }]}>
+                    <ActivityIndicator color={COLORS.text.tertiary} />
+                </View>
+            </CommandScreen>
         );
     }
 
     // Permission denied
     if (!permission.granted) {
         return (
-            <View style={[styles.permissionContainer, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.lg }]}>
-                <Text style={styles.permissionTitle}>Camera Access Needed</Text>
-                <Text style={styles.permissionText}>
-                    Athleticore needs camera access to scan food barcodes and quickly find nutritional info.
-                </Text>
-                <AnimatedPressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Grant camera access"
-                    accessibilityHint="Opens the system permission prompt for barcode scanning."
-                    style={styles.permissionButton}
-                    onPress={requestPermission}
-                >
-                    <Text style={styles.permissionButtonText}>Grant Camera Access</Text>
-                </AnimatedPressable>
-                <AnimatedPressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Go back"
-                    accessibilityHint="Returns to the previous fuel screen."
-                    style={[styles.permissionButton, styles.permissionButtonSecondary]}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Text style={[styles.permissionButtonText, { color: COLORS.text.secondary }]}>
-                        Go Back
+            <CommandScreen tone="fuel">
+                <View style={[styles.permissionContainer, { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.lg }]}>
+                    <Text style={styles.permissionTitle}>Camera Access Needed</Text>
+                    <Text style={styles.permissionText}>
+                        Athleticore needs camera access to scan food barcodes and quickly find nutritional info.
                     </Text>
-                </AnimatedPressable>
-            </View>
+                    <AnimatedPressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Grant camera access"
+                        accessibilityHint="Opens the system permission prompt for barcode scanning."
+                        style={styles.permissionButton}
+                        onPress={requestPermission}
+                    >
+                        <Text style={styles.permissionButtonText}>Grant Camera Access</Text>
+                    </AnimatedPressable>
+                    <AnimatedPressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Go back"
+                        accessibilityHint="Returns to the previous fuel screen."
+                        style={[styles.permissionButton, styles.permissionButtonSecondary]}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Text style={[styles.permissionButtonText, { color: COLORS.text.secondary }]}>
+                            Go Back
+                        </Text>
+                    </AnimatedPressable>
+                </View>
+            </CommandScreen>
         );
     }
 
@@ -261,7 +266,7 @@ export function BarcodeScanScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'transparent',
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,

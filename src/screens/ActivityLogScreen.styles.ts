@@ -90,7 +90,7 @@ export const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
     },
     pickerCard: {
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.92)',
         borderTopLeftRadius: RADIUS.xl,
         borderTopRightRadius: RADIUS.xl,
         borderWidth: 1,

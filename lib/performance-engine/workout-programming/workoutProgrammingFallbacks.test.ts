@@ -5,7 +5,7 @@ import {
 } from './persistenceService.ts';
 import {
   GENERATED_WORKOUT_FALLBACK_COPY,
-  LOCAL_GENERATED_WORKOUT_BETA_USER_ID,
+  LOCAL_GENERATED_WORKOUT_USER_ID,
   canUseLocalCompletionFallback,
   canUseLocalGeneratedWorkoutFallback,
   formatGeneratedWorkoutPersistenceFallbackMessage,
@@ -14,8 +14,6 @@ import {
   generatedWorkoutFlowUserId,
   generatedWorkoutLifecycleOptionsForUser,
   normalizeGeneratedWorkoutError,
-  resolveGeneratedWorkoutContentReviewOptions,
-  resolveGeneratedWorkoutFeatureFlags,
 } from './workoutProgrammingFallbacks.ts';
 import { GENERATED_WORKOUT_SAFETY_COPY } from './workoutSafetyCopy.ts';
 
@@ -34,52 +32,6 @@ function assert(label: string, condition: boolean): void {
 
 function run() {
   console.log('\n-- workout programming generated workout fallbacks --');
-
-  assert('beta flag suppresses preview flag', (() => {
-    const flags = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', previewFlag: '1', dev: true });
-    return flags.betaEnabled === true && flags.previewEnabled === false;
-  })());
-
-  assert('beta flag requires dev mode', (() => {
-    const off = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: false });
-    const on = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true });
-    return off.betaEnabled === false && on.betaEnabled === true;
-  })());
-
-  assert('beta flag requires development build profile', (() => {
-    const preview = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true, buildProfile: 'preview' });
-    const production = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true, buildProfile: 'production' });
-    const development = resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', dev: true, buildProfile: 'development' });
-    return preview.betaEnabled === false && production.betaEnabled === false && development.betaEnabled === true;
-  })());
-
-  assert('developer preview flag requires dev mode', (() => {
-    const off = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: false });
-    const on = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true });
-    return off.previewEnabled === false && on.previewEnabled === true;
-  })());
-
-  assert('developer preview flag requires development build profile', (() => {
-    const preview = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true, buildProfile: 'preview' });
-    const production = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true, buildProfile: 'production' });
-    const development = resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true, buildProfile: 'development' });
-    return preview.previewEnabled === false && production.previewEnabled === false && development.previewEnabled === true;
-  })());
-
-  assert('beta persisted content review uses production-only approved content', (() => {
-    const options = resolveGeneratedWorkoutContentReviewOptions('beta-persisted');
-    return options.contentReviewMode === 'production' && options.allowDraftContent === false;
-  })());
-
-  assert('beta local fallback does not allow draft preview content', (() => {
-    const options = resolveGeneratedWorkoutContentReviewOptions('beta-local-fallback');
-    return options.contentReviewMode === 'production' && options.allowDraftContent === false;
-  })());
-
-  assert('developer preview can explicitly use preview draft content', (() => {
-    const options = resolveGeneratedWorkoutContentReviewOptions('dev-preview');
-    return options.contentReviewMode === 'preview' && options.allowDraftContent === true;
-  })());
 
   assert('unknown errors normalize to display-safe copy', normalizeGeneratedWorkoutError({ internal: true }, 'Generated workout failed.') === 'Generated workout failed.');
   assert('safety and validation errors are not hidden', normalizeGeneratedWorkoutError(new ValidationError(GENERATED_WORKOUT_SAFETY_COPY.persistence.noSafeGeneratedWorkoutFound), 'Generated workout failed.') === GENERATED_WORKOUT_SAFETY_COPY.persistence.noSafeGeneratedWorkoutFound);
@@ -120,7 +72,7 @@ function run() {
     return options.persistGeneratedWorkout === false && !('useSupabase' in options);
   })());
 
-  assert('local fallback user id is explicit and never used with Supabase options', generatedWorkoutFlowUserId(null) === LOCAL_GENERATED_WORKOUT_BETA_USER_ID);
+  assert('local fallback user id is explicit and never used with Supabase options', generatedWorkoutFlowUserId(null) === LOCAL_GENERATED_WORKOUT_USER_ID);
   assert('real user id is preserved for authenticated generated workout flows', generatedWorkoutFlowUserId('user-1') === 'user-1');
 }
 

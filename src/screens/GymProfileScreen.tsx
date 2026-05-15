@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: COLORS.background,
+        backgroundColor: 'transparent',
     },
 
     // Header
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
         paddingTop: SPACING.md,
         paddingBottom: SPACING.sm,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.64)',
     },
     headerTitle: {
         fontSize: 24,

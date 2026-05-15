@@ -17,6 +17,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, ANIMATION, GRADIENTS } from '../theme/theme';
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { CommandScreen } from '../components/CommandScreen';
 import { IconChevronLeft } from '../components/icons';
 import { CustomNumericInput } from '../components/CustomNumericInput';
 import { createCustomFood } from '../../lib/api/nutritionService';
@@ -143,10 +144,11 @@ export function CustomFoodScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <CommandScreen tone="fuel">
+      <KeyboardAvoidingView
+        style={[styles.container, { paddingTop: insets.top }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.header}>
         <AnimatedPressable
           accessibilityRole="button"
@@ -283,7 +285,8 @@ export function CustomFoodScreen() {
           </LinearGradient>
         </AnimatedPressable>
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </CommandScreen>
   );
 }
 

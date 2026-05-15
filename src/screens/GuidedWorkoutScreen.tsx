@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingTop: SPACING.sm,
         paddingBottom: SPACING.sm,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.72)',
     },
     backButton: {
         width: TAP_TARGETS.focus.min,
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         paddingTop: SPACING.xs,
         paddingBottom: SPACING.sm,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.72)',
     },
 
     // â”€â”€ Scroll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

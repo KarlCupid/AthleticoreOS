@@ -30,6 +30,7 @@ import type { WeightClassSport, FightStatus } from '../../lib/engine/types';
 import { formatLocalDate, todayLocalDate } from '../../lib/utils/date';
 import { WeightClassEvaluationPreviewStep } from '../components/WeightClassEvaluationPreviewStep';
 import { Card } from '../components/Card';
+import { CommandScreen } from '../components/CommandScreen';
 import { CustomNumericInput } from '../components/CustomNumericInput';
 import { DatePickerField } from '../components/DatePickerField';
 import { IconCheckCircle, IconChevronLeft } from '../components/icons';
@@ -450,10 +451,11 @@ export function WeightClassPlanSetupScreen() {
       || weightClassEvaluation.plan.professionalReviewRequired);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: 'transparent' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <CommandScreen tone="bodyMass">
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: 'transparent' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <LinearGradient
         colors={['rgba(10, 10, 10, 0.92)', 'rgba(212, 175, 55, 0.22)']}
         style={[styles.header, { paddingTop: insets.top + SPACING.lg }]}
@@ -526,6 +528,7 @@ export function WeightClassPlanSetupScreen() {
           </TouchableOpacity>
         )}
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </CommandScreen>
   );
 }

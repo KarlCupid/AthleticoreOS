@@ -45,7 +45,7 @@ export const Card = memo(function Card({
     enteringDelay = 0,
     subtitleLines = 1,
     backgroundImage,
-    backgroundTone = 'default',
+    backgroundTone = 'none',
     backgroundScrimColor,
 }: CardProps) {
     const scale = useSharedValue(1);
@@ -136,31 +136,38 @@ export const Card = memo(function Card({
     );
 });
 
+const CARD_SURFACE = 'rgba(10, 10, 10, 0.74)';
+const CARD_SURFACE_STRONG = 'rgba(10, 10, 10, 0.84)';
+const CARD_BORDER = 'rgba(245, 245, 240, 0.16)';
+const CARD_BORDER_ACCENT = 'rgba(212, 175, 55, 0.28)';
+
 const variantMap: Record<CardVariant, ViewStyle> = {
     default: {
-        backgroundColor: 'rgba(10, 10, 10, 0.74)',
+        backgroundColor: CARD_SURFACE,
         ...SHADOWS.card,
         borderWidth: 1,
-        borderColor: 'rgba(245, 245, 240, 0.16)',
+        borderColor: CARD_BORDER,
     },
     elevated: {
-        backgroundColor: 'rgba(10, 10, 10, 0.88)',
+        backgroundColor: CARD_SURFACE_STRONG,
         ...SHADOWS.cardElevated,
         borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.28)',
+        borderColor: CARD_BORDER_ACCENT,
     },
     outlined: {
-        backgroundColor: 'rgba(10, 10, 10, 0.62)',
+        backgroundColor: 'rgba(10, 10, 10, 0.64)',
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: CARD_BORDER,
     },
     filled: {
-        backgroundColor: COLORS.surfaceSecondary,
+        backgroundColor: 'rgba(18, 18, 18, 0.82)',
+        borderWidth: 1,
+        borderColor: CARD_BORDER,
     },
     glass: {
         backgroundColor: 'rgba(10, 10, 10, 0.66)',
         borderWidth: 1,
-        borderColor: 'rgba(245, 245, 240, 0.16)',
+        borderColor: CARD_BORDER,
         ...SHADOWS.card,
     },
 };

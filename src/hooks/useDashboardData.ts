@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { adjustForBiology } from '../../lib/engine/adjustForBiology';
 import { getDailyNutrition, ensureDailyLedger } from '../../lib/api/nutritionService';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
-import { ensureRollingScheduleFresh, getWeeklyReview } from '../../lib/api/scheduleService';
+import { ensureRollingScheduleFresh } from '../../lib/api/scheduleService';
 import {
   getAthleteContext,
   getActiveUserId,
@@ -25,12 +25,9 @@ import type {
   WorkoutPrescription,
   WeeklyPlanEntryRow,
   WeightDataPoint,
-  WeeklyComplianceReport,
 } from '../../lib/engine/types';
-import type { RecentTrainingSessionSummary } from '../../lib/engine/presentation/missionDashboard';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
-import { addDays, todayLocalDate } from '../../lib/utils/date';
-import { getFightCampStatus } from '../../lib/api/fightCampService';
+import { todayLocalDate } from '../../lib/utils/date';
 import {
   buildGuidedPhaseTransitionViewModel,
   buildTodaysMissionViewModel,
@@ -41,7 +38,6 @@ import {
   type TodayMissionViewModel,
   type UnifiedPerformanceViewModel,
 } from '../../lib/performance-engine';
-import type { CampRiskAssessment } from '../../lib/engine/calculateCampRisk';
 import {
   computeActualNutrition,
   type DashboardNutritionTotals,
@@ -52,12 +48,6 @@ interface DailyCheckinRow {
   sleep_quality: number;
   morning_weight: number | null;
   readiness: number;
-}
-
-interface RecentTrainingSessionRow {
-  date: string;
-  duration_minutes: number | null;
-  intensity_srpe: number | null;
 }
 
 const EMPTY_NUTRITION: DashboardNutritionTotals = {
@@ -105,13 +95,6 @@ interface DashboardDataState {
   todayPlanEntry: WeeklyPlanEntryRow | null;
   nutritionTargets: NutritionFuelingTarget | null;
   actualNutrition: DashboardNutritionTotals;
-  weeklyReview: WeeklyComplianceReport | null;
-  recentTrainingSessions: RecentTrainingSessionSummary[];
-  campStatusLabel: string;
-  campRisk: CampRiskAssessment | null;
-  goalMode: 'fight_camp' | 'build_phase';
-  hasActiveFightCamp: boolean;
-  hasActiveWeightClassPlan: boolean;
   performanceContext: UnifiedPerformanceViewModel;
   todayMission: TodayMissionViewModel;
   phaseTransition: GuidedPhaseTransitionViewModel;
@@ -140,24 +123,10 @@ const INITIAL_STATE: DashboardDataState = {
   todayPlanEntry: null,
   nutritionTargets: null,
   actualNutrition: EMPTY_NUTRITION,
-  weeklyReview: null,
-  recentTrainingSessions: [],
-  campStatusLabel: 'Build Phase',
-  campRisk: null,
-  goalMode: 'build_phase',
-  hasActiveFightCamp: false,
-  hasActiveWeightClassPlan: false,
   performanceContext: buildUnifiedPerformanceViewModel(null),
   todayMission: buildTodaysMissionViewModel(null),
   phaseTransition: buildGuidedPhaseTransitionViewModel(null),
 };
-
-function getWeekStart(dateStr: string): string {
-  const target = new Date(`${dateStr}T00:00:00`);
-  const day = target.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  return addDays(dateStr, mondayOffset);
-}
 
 function mapUnifiedReadinessToLegacy(band: ReadinessBand) {
   if (band === 'green') return 'Prime' as const;
@@ -264,16 +233,6 @@ export function useDashboardData() {
       }
       const profile = athleteContext.profile;
 
-      let hasActiveFightCamp = false;
-      let campStatusLabel = 'Build Phase';
-      try {
-        const campStatus = await getFightCampStatus(userId, todayStr);
-        hasActiveFightCamp = Boolean(campStatus.camp);
-        campStatusLabel = campStatus.label;
-      } catch (error) {
-        logError('useDashboardData.getFightCampStatus', error, { userId });
-      }
-
       addMonitoringBreadcrumb('daily_engine', 'dashboard_engine_load_started', {
         date: todayStr,
         forceRefresh,
@@ -285,8 +244,6 @@ export function useDashboardData() {
         ledgerResult,
         engineState,
         weightHistory,
-        weeklyReview,
-        recentTrainingResult,
       ] = await Promise.all([
         supabase
           .from('daily_checkins')
@@ -320,17 +277,6 @@ export function useDashboardData() {
             failDashboardLoad('engine_state', error);
           }),
         getWeightHistory(userId, 30),
-        getWeeklyReview(userId, getWeekStart(todayStr)).catch((error) => {
-          logError('useDashboardData.getWeeklyReview', error, { userId });
-          return null;
-        }),
-        supabase
-          .from('training_sessions')
-          .select('date,duration_minutes,intensity_srpe')
-          .eq('user_id', userId)
-          .gte('date', addDays(todayStr, -13))
-          .lte('date', todayStr)
-          .order('date', { ascending: true }),
       ]);
 
       if (!isCurrentRequest()) {
@@ -365,17 +311,6 @@ export function useDashboardData() {
       const ledger = ledgerResult.error ? null : ledgerResult.data;
       const checkin = (checkinData as DailyCheckinRow | null) ?? null;
       const cycleDay = normalizeCycleDay(checkin?.cycle_day ?? profile?.cycle_day ?? null);
-      if (recentTrainingResult.error) {
-        logError('useDashboardData.recentTrainingSessions', recentTrainingResult.error, { userId });
-      }
-      const recentTrainingSessions = recentTrainingResult.error
-        ? []
-        : ((recentTrainingResult.data ?? []) as RecentTrainingSessionRow[]).map((session) => ({
-          date: session.date,
-          total_volume: null,
-          session_rpe: session.intensity_srpe,
-          duration_minutes: session.duration_minutes,
-        }));
 
       let biology: BiologyResult | null = null;
       if (profile?.biological_sex === 'female' && profile.cycle_tracking && cycleDay != null) {
@@ -445,13 +380,6 @@ export function useDashboardData() {
           message: performanceContext.nutrition.explanation,
         },
         actualNutrition: EMPTY_NUTRITION,
-        weeklyReview,
-        recentTrainingSessions,
-        campStatusLabel,
-        campRisk: engineState.campRisk,
-        goalMode: athleteContext.goalMode,
-        hasActiveFightCamp,
-        hasActiveWeightClassPlan: Boolean(profile?.active_weight_class_plan_id),
         performanceContext,
         todayMission,
         phaseTransition,
@@ -526,7 +454,6 @@ export function useDashboardData() {
       setState((currentState) => ({
         ...currentState,
         error: createDashboardLoadError(error),
-        campRisk: null,
       }));
       setLoading(false);
       setRefreshing(false);

@@ -22,7 +22,6 @@ const dashboard = read('src/screens/DashboardScreen.tsx');
 const dashboardStyles = read('src/screens/DashboardScreen.styles.ts');
 const dashboardData = read('src/hooks/useDashboardData.ts');
 const card = read('src/components/phases/GuidedPhaseTransitionCard.tsx');
-const phaseTransition = read('src/components/phases/PhaseTransition.tsx');
 const viewModel = read('lib/performance-engine/presentation/guidedPhaseTransitionViewModel.ts');
 
 console.log('\n-- guided phase transition home source --');
@@ -49,8 +48,7 @@ assert('Guided phase card shows phase explanation', card.includes('WHY IT CHANGE
 assert('Guided phase card exposes exactly one primary CTA surface', card.includes('transition.ctaLabel') && !card.includes('secondaryButton'));
 assert('Guided phase card keeps protected work visible', card.includes('Protected work') && card.includes('transition.protectedWorkoutHandling'));
 
-assert('Old phase transition shell now delegates to guided card', phaseTransition.includes('GuidedPhaseTransitionCard as PhaseTransition'));
-assert('Old auto-advance phase shell is removed', !/displayMs|withDelay|runOnJS|tagline/.test(phaseTransition));
+assert('Old phase transition compatibility shell is removed', !fs.existsSync(path.join(process.cwd(), 'src/components/phases/PhaseTransition.tsx')));
 
 const athleteFacingSource = `${card}\n${viewModel}`.toLowerCase();
 assert('Guided phase UX avoids old reset language', !/start over|restart|reset|transition executed/.test(athleteFacingSource));

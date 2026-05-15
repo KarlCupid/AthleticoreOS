@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { CommandScreen } from '../components/CommandScreen';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { FoodSearchItem } from '../components/FoodSearchItem';
 import { FoodSearchMode, FoodSearchResult, MealType } from '../../lib/engine/types';
@@ -291,75 +292,77 @@ export function FoodSearchScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <AnimatedPressable
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          accessibilityHint="Returns to the previous food screen."
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          testID="food-search-back"
-        >
-          <IconChevronLeft size={24} color={COLORS.text.primary} />
-        </AnimatedPressable>
-        <Text style={styles.title}>Add to {MEAL_LABELS[mealType]}</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchRow}>
-          <TextInput
-            ref={searchInputRef}
-            style={[
-              styles.searchInput,
-              searchFocused && { borderColor: COLORS.accent, ...SHADOWS.sm },
-            ]}
-            placeholder="Search foods..."
-            placeholderTextColor={COLORS.text.tertiary}
-            value={query}
-            onChangeText={handleChangeQuery}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            testID="food-search-input"
-          />
+    <CommandScreen tone="fuel">
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
           <AnimatedPressable
             accessibilityRole="button"
-            accessibilityLabel="Scan barcode"
-            accessibilityHint="Opens the camera scanner for packaged foods."
-            style={styles.barcodeButton}
-            onPress={() => navigation.navigate('BarcodeScan', { mealType, date })}
-            testID="food-search-scan"
+            accessibilityLabel="Go back"
+            accessibilityHint="Returns to the previous food screen."
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            testID="food-search-back"
           >
-            <IconBarcode size={22} color={COLORS.text.primary} />
+            <IconChevronLeft size={24} color={COLORS.text.primary} />
           </AnimatedPressable>
+          <Text style={styles.title}>Add to {MEAL_LABELS[mealType]}</Text>
         </View>
 
-        <View style={styles.modeRow}>
-          {(['all', 'ingredients', 'packaged', 'recent'] as FoodSearchMode[]).map((mode) => {
-            const active = activeMode === mode;
-            return (
-              <AnimatedPressable
-                key={mode}
-                accessibilityRole="button"
-                accessibilityLabel={`${SEARCH_MODE_LABELS[mode]} food search mode`}
-                accessibilityState={{ selected: active }}
-                style={[styles.modeChip, active && styles.modeChipActive]}
-                onPress={() => handleSelectMode(mode)}
-                testID={`food-search-mode-${mode}`}
-              >
-                <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>
-                  {SEARCH_MODE_LABELS[mode]}
-                </Text>
-              </AnimatedPressable>
-            );
-          })}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchRow}>
+            <TextInput
+              ref={searchInputRef}
+              style={[
+                styles.searchInput,
+                searchFocused && { borderColor: COLORS.accent, ...SHADOWS.sm },
+              ]}
+              placeholder="Search foods..."
+              placeholderTextColor={COLORS.text.tertiary}
+              value={query}
+              onChangeText={handleChangeQuery}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              testID="food-search-input"
+            />
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Scan barcode"
+              accessibilityHint="Opens the camera scanner for packaged foods."
+              style={styles.barcodeButton}
+              onPress={() => navigation.navigate('BarcodeScan', { mealType, date })}
+              testID="food-search-scan"
+            >
+              <IconBarcode size={22} color={COLORS.text.primary} />
+            </AnimatedPressable>
+          </View>
+
+          <View style={styles.modeRow}>
+            {(['all', 'ingredients', 'packaged', 'recent'] as FoodSearchMode[]).map((mode) => {
+              const active = activeMode === mode;
+              return (
+                <AnimatedPressable
+                  key={mode}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${SEARCH_MODE_LABELS[mode]} food search mode`}
+                  accessibilityState={{ selected: active }}
+                  style={[styles.modeChip, active && styles.modeChipActive]}
+                  onPress={() => handleSelectMode(mode)}
+                  testID={`food-search-mode-${mode}`}
+                >
+                  <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>
+                    {SEARCH_MODE_LABELS[mode]}
+                  </Text>
+                </AnimatedPressable>
+              );
+            })}
+          </View>
         </View>
+
+        {renderSections()}
       </View>
-
-      {renderSections()}
-    </View>
+    </CommandScreen>
   );
 }
 

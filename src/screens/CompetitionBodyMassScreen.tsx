@@ -19,6 +19,7 @@ import { sanitizeAthleteFacingCopy } from '../../lib/performance-engine/presenta
 import type { FightWeekDayViewModel } from '../hooks/fuel/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
+import { CommandScreen } from '../components/CommandScreen';
 import { BodyMassTrendChart } from '../components/BodyMassTrendChart';
 import { IconChevronLeft, IconDroplets } from '../components/icons';
 import { UrineColorPicker } from '../components/UrineColorPicker';
@@ -144,9 +145,11 @@ export function CompetitionBodyMassScreen() {
 
   if (loading || !activePlan) {
     return (
-      <View style={styles.center}>
-        {loading ? <ActivityIndicator color={COLORS.accent} size="large" /> : <Text style={styles.emptyText}>No active weight-class plan.</Text>}
-      </View>
+      <CommandScreen tone="bodyMass">
+        <View style={styles.center}>
+          {loading ? <ActivityIndicator color={COLORS.accent} size="large" /> : <Text style={styles.emptyText}>No active weight-class plan.</Text>}
+        </View>
+      </CommandScreen>
     );
   }
 
@@ -161,7 +164,8 @@ export function CompetitionBodyMassScreen() {
   const blocked = guidedBodyMass.planBlocked || currentRiskFlags.some((flag) => flag.blocksPlan);
 
   return (
-    <View style={styles.container}>
+    <CommandScreen tone="bodyMass">
+      <View style={styles.container}>
       <LinearGradient colors={['rgba(10, 10, 10, 0.94)', `${phaseColors[0]}33`]} style={styles.header}>
         <TouchableOpacity
           accessibilityRole="button"
@@ -384,7 +388,8 @@ export function CompetitionBodyMassScreen() {
 
         <View style={{ height: 80 }} />
       </ScrollView>
-    </View>
+      </View>
+    </CommandScreen>
   );
 }
 

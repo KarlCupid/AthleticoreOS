@@ -50,6 +50,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { EngineReplayLab } from '../components/EngineReplayLab';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
+import { CommandScreen } from '../components/CommandScreen';
 import {
   IconActivity,
   IconBarChart,
@@ -65,7 +66,6 @@ import {
   IconTrendUp,
 } from '../components/icons';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { ScreenWrapper } from '../components/ScreenWrapper';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { ANIMATION, COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 
@@ -446,18 +446,18 @@ export function ProfileSettingsScreen() {
 
   if (loading && !snapshot) {
     return (
-      <ScreenWrapper>
+      <CommandScreen tone="profile">
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={themeColor} />
           <Text style={styles.loadingText}>Connecting your profile, planner, and weight-class data...</Text>
         </View>
-      </ScreenWrapper>
+      </CommandScreen>
     );
   }
 
   if (!snapshot) {
     return (
-      <ScreenWrapper>
+      <CommandScreen tone="profile">
         <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
           <ScreenHeader
             kicker="Me"
@@ -478,12 +478,12 @@ export function ProfileSettingsScreen() {
             </AnimatedPressable>
           </Card>
         </View>
-      </ScreenWrapper>
+      </CommandScreen>
     );
   }
 
   return (
-    <ScreenWrapper>
+    <CommandScreen tone="profile">
       <KeyboardAvoidingView
         style={styles.keyboardRoot}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -840,7 +840,7 @@ export function ProfileSettingsScreen() {
       </KeyboardAvoidingView>
 
       {internalDevSurfacesEnabled ? <EngineReplayLab visible={engineReplayVisible} onClose={() => setEngineReplayVisible(false)} /> : null}
-    </ScreenWrapper>
+    </CommandScreen>
   );
 }
 

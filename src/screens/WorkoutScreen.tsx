@@ -51,7 +51,7 @@ import {
 type NavProp = NativeStackNavigationProp<TrainStackParamList>;
 type RootNavProp = BottomTabNavigationProp<RootTabParamList>;
 
-const TRAIN_BACKGROUND = require('../../assets/images/cards/workout-floor-card-bg.png');
+const TRAIN_BACKGROUND = require('../../assets/images/universal-screen-background.png');
 
 function formatActivityTime(time: string | null | undefined) {
   if (!time) return null;
@@ -612,11 +612,11 @@ export function WorkoutScreen() {
 
 const styles = StyleSheet.create({
   screenShell: {
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   background: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   backgroundImage: {
     opacity: 0.72,

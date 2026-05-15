@@ -24,10 +24,11 @@ import { MacroProgressBar } from '../components/MacroProgressBar';
 import { MealSection } from '../components/MealSection';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { ScreenWrapper } from '../components/ScreenWrapper';
+import { CommandScreen } from '../components/CommandScreen';
 import { SkeletonLoader } from '../components/SkeletonLoader';
-import { IconBarcode } from '../components/icons';
+import { IconBarcode, IconScale } from '../components/icons';
 import { useFuelData } from '../hooks/useFuelData';
+import type { FuelHomeViewModel } from '../hooks/fuel/types';
 import type { FuelStackParamList } from '../navigation/types';
 import type { FoodSearchResult, MealType, SessionFuelingWindow } from '../../lib/engine/types';
 import type { GuidedFuelingMacroTarget } from '../../lib/performance-engine';
@@ -110,6 +111,131 @@ function FuelRail({
         ))}
       </ScrollView>
     </View>
+  );
+}
+
+function formatFuelNumber(value: number | null | undefined, fallback = '--') {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.round(value).toLocaleString('en-US');
+}
+
+function FuelMetricTile({
+  label,
+  value,
+  sublabel,
+}: {
+  label: string;
+  value: string;
+  sublabel: string;
+}) {
+  return (
+    <View style={inline.heroMetricTile}>
+      <Text style={inline.heroMetricLabel}>{label}</Text>
+      <Text style={inline.heroMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.76}>
+        {value}
+      </Text>
+      <Text style={inline.heroMetricSub}>{sublabel}</Text>
+    </View>
+  );
+}
+
+function FuelCommandHero({
+  viewModel,
+  onLogMeal,
+  onScan,
+  onBodyMass,
+}: {
+  viewModel: FuelHomeViewModel;
+  onLogMeal: () => void;
+  onScan: () => void;
+  onBodyMass: () => void;
+}) {
+  const guided = viewModel.guidedFueling;
+  const fuelCopy = buildFuelCoachCopy(guided);
+  const calorieTarget = viewModel.targets?.adjustedCalories ?? null;
+  const proteinTarget = viewModel.targets?.protein ?? null;
+  const waterTarget = viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? null;
+  const loggedCalories = viewModel.totals.calories;
+  const calorieDelta = typeof calorieTarget === 'number'
+    ? `${formatFuelNumber(Math.max(0, calorieTarget - loggedCalories))} left`
+    : 'target pending';
+  const loggedMeals = viewModel.historySummary.mealCount;
+  const hasBodyMassContext = Boolean(viewModel.performanceContext.bodyMass);
+
+  return (
+    <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.normal).springify()}>
+      <Card
+        variant="glass"
+        backgroundTone="fuelQuiet"
+        backgroundScrimColor="rgba(10, 10, 10, 0.62)"
+        style={styles.commandHero}
+      >
+        <View style={styles.commandHeroTopRow}>
+          <View style={styles.commandHeroCopy}>
+            <Text style={inline.heroEyebrow}>FUEL COMMAND</Text>
+            <Text style={inline.heroTitle}>{fuelCopy.headline}</Text>
+            <Text style={inline.heroBody} numberOfLines={3}>{fuelCopy.body}</Text>
+          </View>
+          <View style={styles.commandHeroBadge}>
+            <Text style={styles.commandHeroBadgeValue}>{loggedMeals}</Text>
+            <Text style={styles.commandHeroBadgeLabel}>meals</Text>
+          </View>
+        </View>
+
+        <View style={styles.commandMetricRow}>
+          <FuelMetricTile
+            label="Energy"
+            value={`${formatFuelNumber(loggedCalories)} cal`}
+            sublabel={calorieDelta}
+          />
+          <FuelMetricTile
+            label="Protein"
+            value={`${formatFuelNumber(viewModel.totals.protein)}g`}
+            sublabel={proteinTarget ? `of ${formatFuelNumber(proteinTarget)}g` : 'target pending'}
+          />
+          <FuelMetricTile
+            label="Water"
+            value={`${formatFuelNumber(viewModel.totals.water)} oz`}
+            sublabel={waterTarget ? `of ${formatFuelNumber(waterTarget)} oz` : 'target pending'}
+          />
+        </View>
+
+        <View style={styles.commandActionGrid}>
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="Log food"
+            style={[styles.commandAction, styles.commandActionPrimary]}
+            onPress={onLogMeal}
+            testID="fuel-command-log-food"
+          >
+            <Text style={[styles.commandActionText, styles.commandActionTextPrimary]}>Log food</Text>
+          </AnimatedPressable>
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="Scan barcode"
+            style={styles.commandAction}
+            onPress={onScan}
+            testID="fuel-command-scan"
+          >
+            <IconBarcode size={17} color={COLORS.accent} />
+            <Text style={styles.commandActionText}>Scan</Text>
+          </AnimatedPressable>
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel={hasBodyMassContext ? 'Open body-mass context' : 'Evaluate weight class'}
+            style={styles.commandAction}
+            onPress={onBodyMass}
+            testID="fuel-command-body-mass"
+          >
+            <IconScale size={17} color={COLORS.accent} />
+            <Text style={styles.commandActionText}>{hasBodyMassContext ? 'Body mass' : 'Weight class'}</Text>
+          </AnimatedPressable>
+        </View>
+      </Card>
+    </Animated.View>
   );
 }
 
@@ -622,7 +748,7 @@ export function NutritionScreen() {
   );
 
   return (
-    <ScreenWrapper useSafeArea={true}>
+    <CommandScreen tone="fuel" useSafeArea={true}>
       <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.normal)} style={styles.header}>
         <ScreenHeader kicker="Fuel" title="Today's fuel" subtitle={viewModel.formattedDate}>
           <View style={styles.modeSwitch}>
@@ -662,6 +788,18 @@ export function NutritionScreen() {
         {loading ? renderLoading() : (
           <>
             {renderErrorCard()}
+            <FuelCommandHero
+              viewModel={viewModel}
+              onLogMeal={() => navigation.navigate('FoodSearch', {
+                mealType: inferMealTypeForNow(),
+                date: viewModel.date,
+              })}
+              onScan={() => navigation.navigate('BarcodeScan', {
+                mealType: inferMealTypeForNow(),
+                date: viewModel.date,
+              })}
+              onBodyMass={() => navigation.navigate('WeightClassHome')}
+            />
             <UnifiedJourneySummaryCard
               summary={viewModel.performanceContext}
               compact
@@ -673,11 +811,62 @@ export function NutritionScreen() {
           </>
         )}
       </ScrollView>
-    </ScreenWrapper>
+    </CommandScreen>
   );
 }
 
 const inline = {
+  heroEyebrow: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.accent,
+    letterSpacing: 1,
+    textTransform: 'uppercase' as const,
+    marginBottom: 5,
+  },
+  heroTitle: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  heroBody: {
+    marginTop: SPACING.xs,
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.secondary,
+  },
+  heroMetricTile: {
+    flex: 1,
+    minHeight: 86,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: 'rgba(245, 245, 240, 0.06)',
+    padding: SPACING.sm,
+    justifyContent: 'space-between' as const,
+  },
+  heroMetricLabel: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontFamily: FONT_FAMILY.semiBold,
+    color: COLORS.text.tertiary,
+    textTransform: 'uppercase' as const,
+  },
+  heroMetricValue: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontFamily: FONT_FAMILY.extraBold,
+    color: COLORS.text.primary,
+  },
+  heroMetricSub: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONT_FAMILY.regular,
+    color: COLORS.text.tertiary,
+  },
   cardHeadline: {
     fontSize: 18,
     fontFamily: FONT_FAMILY.semiBold,

@@ -318,9 +318,9 @@ const styles = StyleSheet.create({
     bottomBar: {
         paddingHorizontal: SPACING.lg,
         paddingTop: SPACING.md,
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.86)',
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: COLORS.border,
+        borderTopColor: 'rgba(245, 245, 240, 0.16)',
     },
     addButtonWrapper: {
         borderRadius: RADIUS.lg,

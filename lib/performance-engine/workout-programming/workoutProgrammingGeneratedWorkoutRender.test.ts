@@ -357,12 +357,9 @@ function progressionDecision(): ProgressionDecision {
   };
 }
 
-function setWorkoutScreenFlags(flags: { beta?: boolean; preview?: boolean; dev?: boolean }) {
-  if (flags.beta) process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED = '1';
+function setWorkoutScreenFlags(flags: { engineEnabled?: boolean; dev?: boolean }) {
+  if (flags.engineEnabled) process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED = '1';
   else process.env.EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED = '0';
-
-  if (flags.preview) process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW = '1';
-  else delete process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW;
 
   global.__DEV__ = flags.dev ?? true;
 }
@@ -579,7 +576,7 @@ async function run(): Promise<void> {
   completed.unmount();
 
   setWorkoutScreenData({ boxingEntry: true });
-  setWorkoutScreenFlags({ beta: false, preview: false, dev: true });
+  setWorkoutScreenFlags({ engineEnabled: false, dev: true });
   const WorkoutScreenFlagsOff = loadWorkoutScreen();
   const flagsOff = render(React.createElement(WorkoutScreenFlagsOff));
   assert('boxing engine flag off still renders planned support session, not standalone generator or diagnostics flow', Boolean(
@@ -600,18 +597,18 @@ async function run(): Promise<void> {
   flagsOff.unmount();
 
   setWorkoutScreenData({ boxingEntry: true });
-  setWorkoutScreenFlags({ beta: true, preview: true, dev: true });
-  const WorkoutScreenBetaOn = loadWorkoutScreen();
-  const betaOn = render(React.createElement(WorkoutScreenBetaOn));
+  setWorkoutScreenFlags({ engineEnabled: true, dev: true });
+  const WorkoutScreenEngineOn = loadWorkoutScreen();
+  const engineOn = render(React.createElement(WorkoutScreenEngineOn));
   assert('boxing engine flag on keeps Today entry-bound and suppresses standalone generator', Boolean(
-    betaOn.getByTestId('planned-support-session-card')
-      && betaOn.queryByTestId('boxing-generated-workout-section') === null
-      && betaOn.queryByTestId('internal-workout-diagnostics-section') === null,
+    engineOn.getByTestId('planned-support-session-card')
+      && engineOn.queryByTestId('boxing-generated-workout-section') === null
+      && engineOn.queryByTestId('internal-workout-diagnostics-section') === null,
   ));
-  betaOn.unmount();
+  engineOn.unmount();
 
   setWorkoutScreenData({ boxingEntry: true });
-  setWorkoutScreenFlags({ beta: true, preview: true, dev: false });
+  setWorkoutScreenFlags({ engineEnabled: true, dev: false });
   const WorkoutScreenNonDevFlagsOn = loadWorkoutScreen();
   const nonDevFlagsOn = render(React.createElement(WorkoutScreenNonDevFlagsOn));
   assert('non-dev builds keep planned support entry-bound when rollout flag is enabled', Boolean(
@@ -621,7 +618,7 @@ async function run(): Promise<void> {
   ));
   nonDevFlagsOn.unmount();
 
-  setWorkoutScreenFlags({ beta: true, preview: true, dev: true });
+  setWorkoutScreenFlags({ engineEnabled: true, dev: true });
   setWorkoutScreenData({ boxingEntry: false });
   const WorkoutScreenPreviewOn = loadWorkoutScreen();
   const previewOn = render(React.createElement(WorkoutScreenPreviewOn));

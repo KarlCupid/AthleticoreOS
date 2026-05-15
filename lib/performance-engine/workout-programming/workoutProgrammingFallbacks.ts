@@ -1,4 +1,3 @@
-import type { ContentReviewMode } from './contentReview.ts';
 import {
   DatabaseUnavailableError,
   UnauthorizedError,
@@ -6,7 +5,7 @@ import {
 } from './persistenceService.ts';
 import { GENERATED_WORKOUT_SAFETY_COPY } from './workoutSafetyCopy.ts';
 
-export const LOCAL_GENERATED_WORKOUT_BETA_USER_ID = 'local-generated-workout-beta-user';
+export const LOCAL_GENERATED_WORKOUT_USER_ID = 'local-generated-workout-user';
 
 export const GENERATED_WORKOUT_FALLBACK_COPY = {
   generatedLocallyPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.generatedLocallyPersistenceUnavailable,
@@ -19,54 +18,6 @@ export const GENERATED_WORKOUT_FALLBACK_COPY = {
   sessionResumedLocalPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.sessionResumedLocalPersistenceUnavailable,
   sessionAbandonedLocalPersistenceUnavailable: GENERATED_WORKOUT_SAFETY_COPY.persistence.sessionAbandonedLocalPersistenceUnavailable,
 } as const;
-
-export type GeneratedWorkoutContentReviewSurface =
-  | 'beta-persisted'
-  | 'beta-local-fallback'
-  | 'dev-preview';
-
-export interface GeneratedWorkoutContentReviewOptions {
-  contentReviewMode: ContentReviewMode;
-  allowDraftContent: boolean;
-}
-
-export interface GeneratedWorkoutFeatureFlagInput {
-  betaFlag?: string;
-  previewFlag?: string;
-  dev?: boolean;
-  buildProfile?: string;
-}
-
-export function resolveGeneratedWorkoutFeatureFlags({
-  betaFlag,
-  previewFlag,
-  dev = false,
-  buildProfile,
-}: GeneratedWorkoutFeatureFlagInput) {
-  const normalizedBuildProfile = (buildProfile ?? (dev ? 'development' : 'production')).trim().toLowerCase();
-  const developerFlagEnvironment = dev && normalizedBuildProfile === 'development';
-  const betaEnabled = developerFlagEnvironment && betaFlag === '1';
-  return {
-    betaEnabled,
-    previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1',
-  };
-}
-
-export function resolveGeneratedWorkoutContentReviewOptions(
-  surface: GeneratedWorkoutContentReviewSurface,
-): GeneratedWorkoutContentReviewOptions {
-  if (surface === 'dev-preview') {
-    return {
-      contentReviewMode: 'preview',
-      allowDraftContent: true,
-    };
-  }
-
-  return {
-    contentReviewMode: 'production',
-    allowDraftContent: false,
-  };
-}
 
 function messageFromUnknown(error: unknown): string | null {
   if (error instanceof Error) return error.message;
@@ -129,7 +80,7 @@ export function generatedWorkoutCompletionOptionsForUser(
 }
 
 export function generatedWorkoutFlowUserId(userId: string | null | undefined): string {
-  return userId ?? LOCAL_GENERATED_WORKOUT_BETA_USER_ID;
+  return userId ?? LOCAL_GENERATED_WORKOUT_USER_ID;
 }
 
 export function formatGeneratedWorkoutPersistenceFallbackMessage(

@@ -14,6 +14,7 @@ import {
   IconTarget, IconChevronRight, IconTrendDown, IconScale,
 } from '../components/icons';
 import { Card } from '../components/Card';
+import { CommandScreen } from '../components/CommandScreen';
 import { BodyMassSupportTimeline } from '../components/BodyMassSupportTimeline';
 import { BodyMassTrendChart } from '../components/BodyMassTrendChart';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
@@ -122,61 +123,67 @@ export function WeightClassHomeScreen() {
   // Loading
   if (userId === null || loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      </View>
+      <CommandScreen tone="bodyMass">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+        </View>
+      </CommandScreen>
     );
   }
   // Error state
   if (error) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={{ fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: COLORS.error, textAlign: 'center', marginHorizontal: SPACING.xl }}>
-          {error}
-        </Text>
-        <TouchableOpacity onPress={refresh} style={{ marginTop: SPACING.md, padding: SPACING.md }} testID="weight-class-retry">
-          <Text style={{ fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: COLORS.accent }}>Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <CommandScreen tone="bodyMass">
+        <View style={styles.loadingContainer}>
+          <Text style={{ fontFamily: FONT_FAMILY.semiBold, fontSize: 15, color: COLORS.error, textAlign: 'center', marginHorizontal: SPACING.xl }}>
+            {error}
+          </Text>
+          <TouchableOpacity onPress={refresh} style={{ marginTop: SPACING.md, padding: SPACING.md }} testID="weight-class-retry">
+            <Text style={{ fontFamily: FONT_FAMILY.semiBold, fontSize: 14, color: COLORS.accent }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </CommandScreen>
     );
   }
   // No active weight-class plan
   if (!activePlan) {
     return (
-      <View style={styles.noPlanContainer}>
-        <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(212, 175, 55, 0.20)']} style={styles.noPlanGradient}>
-          <IconScale size={64} color={COLORS.accent} />
-          <Text style={styles.noPlanTitle}>Weight-class context</Text>
-          <Text style={styles.noPlanSubtitle}>
-            Check whether a target can be reached safely while maintaining performance.
-          </Text>
-          <UnifiedJourneySummaryCard
-            summary={performanceContext}
-            compact
-            showProtectedAnchors={false}
-            showBodyMass={Boolean(performanceContext.bodyMass)}
-            style={styles.noPlanJourneyCard}
-          />
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={() => nav.navigate('WeightClassPlanSetup')}
-            accessibilityRole="button"
-            accessibilityLabel="Evaluate weight class"
-            testID="weight-class-evaluate-class"
-          >
-            <Text style={styles.startButtonText}>Evaluate weight class</Text>
-          </TouchableOpacity>
-          {weightClassHistory.length > 0 && (
+      <CommandScreen tone="bodyMass">
+        <View style={styles.noPlanContainer}>
+          <LinearGradient colors={['rgba(10, 10, 10, 0.82)', 'rgba(212, 175, 55, 0.18)']} style={styles.noPlanGradient}>
+            <IconScale size={64} color={COLORS.accent} />
+            <Text style={styles.noPlanTitle}>Weight-class context</Text>
+            <Text style={styles.noPlanSubtitle}>
+              Check whether a target can be reached safely while maintaining performance.
+            </Text>
+            <UnifiedJourneySummaryCard
+              summary={performanceContext}
+              compact
+              showProtectedAnchors={false}
+              showBodyMass={Boolean(performanceContext.bodyMass)}
+              style={styles.noPlanJourneyCard}
+            />
             <TouchableOpacity
-              style={styles.historyLink}
-              onPress={() => nav.navigate('WeightClassHistory')}
-              testID="weight-class-view-history-empty"
+              style={styles.startButton}
+              onPress={() => nav.navigate('WeightClassPlanSetup')}
+              accessibilityRole="button"
+              accessibilityLabel="Evaluate weight class"
+              testID="weight-class-evaluate-class"
             >
-              <Text style={styles.historyLinkText}>View past class plans ({weightClassHistory.length})</Text>
+              <Text style={styles.startButtonText}>Evaluate weight class</Text>
             </TouchableOpacity>
-          )}
-        </LinearGradient>
-      </View>
+            {weightClassHistory.length > 0 && (
+              <TouchableOpacity
+                style={styles.historyLink}
+                onPress={() => nav.navigate('WeightClassHistory')}
+                testID="weight-class-view-history-empty"
+              >
+                <Text style={styles.historyLinkText}>View past class plans ({weightClassHistory.length})</Text>
+              </TouchableOpacity>
+            )}
+          </LinearGradient>
+        </View>
+      </CommandScreen>
     );
   }
 
@@ -212,12 +219,13 @@ export function WeightClassHomeScreen() {
   const weightCoachCopy = buildWeightClassCoachCopy(guidedBodyMass);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
-      showsVerticalScrollIndicator={false}
-    >
+    <CommandScreen tone="bodyMass">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Hero */}
       <LinearGradient colors={['rgba(10, 10, 10, 0.94)', `${phaseColors[0]}30`]} style={styles.hero}>
         <View style={styles.heroTop}>
@@ -474,7 +482,8 @@ export function WeightClassHomeScreen() {
       )}
 
       <View style={{ height: 100 }} />
-    </ScrollView>
+      </ScrollView>
+    </CommandScreen>
   );
 }
 

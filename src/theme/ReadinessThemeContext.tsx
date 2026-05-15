@@ -62,10 +62,3 @@ export const useReadinessTheme = () => {
     return context;
 };
 
-// Re-export for backward compatibility
-export type ReadinessColor = ReadinessLevel;
-export const THEME_COLORS = {
-    Prime: COLORS.readiness.prime,
-    Caution: COLORS.readiness.caution,
-    Depleted: COLORS.readiness.depleted,
-} as const;

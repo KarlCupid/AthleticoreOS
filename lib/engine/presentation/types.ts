@@ -1,35 +1,5 @@
 export type InteractionMode = 'standard' | 'focus' | 'gym-floor';
 
-export interface CompassViewModel {
-  headline: string;
-  summaryLine: string;
-  primaryCTALabel: string;
-  primaryCTATarget: 'training' | 'plan' | 'checkin' | 'nutrition';
-  secondaryCTALabel: string | null;
-  secondaryCTATarget: 'training' | 'plan' | 'checkin' | 'nutrition' | null;
-  reasonSentence: string;
-  riskLevel: 'low' | 'moderate' | 'high' | 'critical';
-  sessionLabel: string;
-  sessionRoleLabel: string;
-  hasPrescription: boolean;
-}
-
-export interface MorningFlowViewModel {
-  checkinDone: boolean;
-  sessionDone: boolean;
-  nutritionLogged: boolean;
-  nextStepLabel: string;
-  nextStepTarget: 'checkin' | 'training' | 'nutrition';
-  progressFraction: number;
-}
-
-export interface DecisionReasonViewModel {
-  subsystem: string;
-  title: string;
-  sentence: string;
-  impact: 'kept' | 'adjusted' | 'restricted' | 'escalated';
-}
-
 export interface QuickFuelIntent {
   id: string;
   label: string;

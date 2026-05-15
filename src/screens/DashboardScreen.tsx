@@ -60,7 +60,7 @@ import { isGuidedEngineActivityType } from "../../lib/engine/sessionOwnership";
 import { classifyPlanEntryRuntimeSurface } from "../../lib/performance-engine/workout-programming";
 
 const BRAND_LOGO = require("../../assets/images/athleticore-logo.png");
-const TODAY_BACKGROUND = require("../../assets/images/dashboard/support-card-bg.png");
+const TODAY_BACKGROUND = require("../../assets/images/universal-screen-background.png");
 const QUICK_ACTION_IMAGES: Record<QuickActionKind, number> = {
   checkin: require("../../assets/images/dashboard/quick-actions/today-quick-checkin.png"),
   train: require("../../assets/images/dashboard/quick-actions/today-quick-train.png"),

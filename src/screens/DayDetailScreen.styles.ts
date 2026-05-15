@@ -38,7 +38,7 @@ export const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
     },
     pickerCard: {
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.92)',
         borderTopLeftRadius: RADIUS.xl,
         borderTopRightRadius: RADIUS.xl,
         borderWidth: 1,
@@ -77,7 +77,7 @@ export const styles = StyleSheet.create({
     pickerCancelText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.tertiary },
     inputLabel: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary, marginTop: SPACING.sm, marginBottom: 4 },
     textInput: {
-        backgroundColor: COLORS.background, borderRadius: RADIUS.md, padding: SPACING.sm,
+        backgroundColor: 'rgba(245,245,240,0.06)', borderRadius: RADIUS.md, padding: SPACING.sm,
         fontSize: 15, fontFamily: FONT_FAMILY.regular, color: COLORS.text.primary,
         borderWidth: 1, borderColor: COLORS.borderLight, marginBottom: SPACING.md
     },

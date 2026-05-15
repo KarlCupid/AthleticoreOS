@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { ScreenWrapper } from '../components/ScreenWrapper';
+import { CommandScreen } from '../components/CommandScreen';
 import {
   APP_PRIVACY_POLICY_URL,
   APP_SUPPORT_EMAIL,
@@ -37,7 +37,7 @@ export function LegalSupportScreen() {
   };
 
   return (
-    <ScreenWrapper useSafeArea>
+    <CommandScreen tone="profile" useSafeArea>
       <View style={styles.header}>
         <AnimatedPressable
           accessibilityRole="button"
@@ -115,7 +115,7 @@ export function LegalSupportScreen() {
           </Text>
         </Card>
       </ScrollView>
-    </ScreenWrapper>
+    </CommandScreen>
   );
 }
 

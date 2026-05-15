@@ -6,29 +6,7 @@ const SCREEN_HORIZONTAL_PADDING = 18;
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    appBackdrop: {
-        ...StyleSheet.absoluteFillObject,
-        overflow: 'hidden',
-    },
-    backdropGoldWash: {
-        position: 'absolute',
-        top: -120,
-        right: -140,
-        width: 280,
-        height: 280,
-        borderRadius: 140,
-        backgroundColor: 'rgba(212, 175, 55, 0.13)',
-    },
-    backdropPearlWash: {
-        position: 'absolute',
-        bottom: 90,
-        left: -170,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: 'rgba(245, 245, 240, 0.045)',
+        backgroundColor: 'transparent',
     },
     inner: {
         flex: 1,
@@ -1141,7 +1119,7 @@ export const styles = StyleSheet.create({
         paddingVertical: SPACING.sm,
         alignItems: 'flex-end',
         justifyContent: 'center',
-        backgroundColor: '#202020',
+        backgroundColor: 'rgba(10, 10, 10, 0.92)',
         borderTopWidth: 1,
         borderTopColor: 'rgba(245, 245, 240, 0.16)',
         ...SHADOWS.card,

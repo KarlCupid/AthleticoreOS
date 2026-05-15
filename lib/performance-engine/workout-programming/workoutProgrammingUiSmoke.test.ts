@@ -28,6 +28,10 @@ function hasAll(source: string, needles: string[]): boolean {
   return needles.every((needle) => source.includes(needle));
 }
 
+function missing(filePath: string): boolean {
+  return !fs.existsSync(path.join(process.cwd(), filePath));
+}
+
 function exercises(workout: GeneratedWorkout) {
   return workout.blocks.flatMap((block) => block.exercises);
 }
@@ -42,10 +46,6 @@ async function run() {
   const workoutDetailController = read('src/hooks/useWorkoutDetailController.ts');
   const dashboardScreen = read('src/screens/DashboardScreen.tsx');
   const dayDetailScreen = read('src/screens/DayDetailScreen.tsx');
-  const supportHook = read('src/hooks/useBoxingGeneratedWorkout.ts');
-  const devPreviewHook = read('src/hooks/useGeneratedWorkoutDevPreview.ts');
-  const supportContainer = read('src/components/workout/BoxingGeneratedWorkoutContainer.tsx');
-  const devPreviewPanel = read('src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx');
   const safetyCopy = read('lib/performance-engine/workout-programming/workoutSafetyCopy.ts');
   const fallbacks = read('lib/performance-engine/workout-programming/workoutProgrammingFallbacks.ts');
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
@@ -62,42 +62,33 @@ async function run() {
       && renderTest.includes('BoxingGeneratedWorkoutSessionCard'),
   );
 
-  assert('Today uses an entry-bound planned support session while standalone generation remains explicit', hasAll(workoutScreen, [
+  assert('Today uses an entry-bound planned support session without standalone generation', hasAll(workoutScreen, [
     'PlannedSupportSessionCard',
     'testID="planned-support-session-card"',
     'buildSupportSessionCoachCopy',
     'coachCopy.primaryAction',
     'AthleteSupportWeekCard',
-  ]) && hasAll(supportHook, [
-    'resolveBoxingSAndCEngineFlags',
-    'if (!engineEnabled) return;',
-    'Ad hoc/diagnostic support generation only',
-  ]) && !supportHook.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW') && hasAll(devPreviewHook, [
-    'resolveGeneratedWorkoutFeatureFlags',
-    'process.env.EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW',
-    'process.env.EXPO_PUBLIC_BUILD_PROFILE',
-    'if (!previewEnabled) return;',
-    "resolveGeneratedWorkoutContentReviewOptions('dev-preview')",
   ]) && hasAll(fallbacks, [
-    'developerFlagEnvironment',
-    "const betaEnabled = developerFlagEnvironment && betaFlag === '1'",
-    "previewEnabled: !betaEnabled && developerFlagEnvironment && previewFlag === '1'",
-  ]) && hasAll(supportContainer, [
-    'testID="boxing-generated-workout-section"',
-    'Ad hoc Athleticore support session flow',
-    "mode = 'standalone'",
-  ]) && !workoutScreen.includes('BoxingGeneratedWorkoutContainer') && !workoutScreen.includes('showBoxingGeneratedFlow') && !supportContainer.includes('internal-workout-diagnostics-section') && hasAll(devPreviewPanel, [
-    'testID="internal-workout-diagnostics-section"',
-    'internal diagnostics section',
-  ]));
+    'generatedWorkoutFlowUserId',
+    'generatedWorkoutLifecycleOptionsForUser',
+    'generatedWorkoutCompletionOptionsForUser',
+  ]) && !workoutScreen.includes('BoxingGeneratedWorkoutContainer') && !workoutScreen.includes('showBoxingGeneratedFlow') && !workoutScreen.includes('internal-workout-diagnostics-section'));
 
-  assert('friend preview and production EAS profiles enable boxing engine while keeping diagnostics off', hasAll(easJson, [
+  assert('retired standalone generated-workout wrappers are removed', [
+    'src/hooks/useBoxingGeneratedWorkout.ts',
+    'src/hooks/useGeneratedWorkoutBeta.ts',
+    'src/hooks/useGeneratedWorkoutDevPreview.ts',
+    'src/components/workout/BoxingGeneratedWorkoutContainer.tsx',
+    'src/components/workout/GeneratedWorkoutBetaContainer.tsx',
+    'src/components/workout/GeneratedWorkoutBetaSessionCard.tsx',
+    'src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx',
+  ].every(missing));
+
+  assert('friend preview and production EAS profiles enable the boxing support engine without retired diagnostics flags', hasAll(easJson, [
     '"preview"',
     '"production"',
     '"EXPO_PUBLIC_BOXING_WORKOUT_ENGINE_ENABLED": "1"',
-    '"EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA": "0"',
-    '"EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"',
-  ]));
+  ]) && !easJson.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_BETA') && !easJson.includes('EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW'));
 
   assert('boxing generated path preserves execution, history, analytics, and guided fallback navigation', hasAll(workoutScreen, [
     'WorkoutPrescriptionSection',
@@ -170,15 +161,6 @@ async function run() {
 
   assert('preview and boxing generated error states surface service failures without crashing the screen', hasAll(workoutScreen, [
     'PlannedSupportSessionCard',
-  ]) && hasAll(supportHook, [
-    'setError',
-    'normalizeGeneratedWorkoutError',
-    'formatGeneratedWorkoutPersistenceFallbackMessage',
-    'canUseLocalGeneratedWorkoutFallback',
-    'canUseLocalCompletionFallback',
-  ]) && hasAll(devPreviewHook, [
-    'setError',
-    'normalizeGeneratedWorkoutError',
   ]) && hasAll(fallbacks, [
     'GENERATED_WORKOUT_SAFETY_COPY.persistence.generatedLocallyPersistenceUnavailable',
     'GENERATED_WORKOUT_SAFETY_COPY.persistence.completedLocallyPersistenceUnavailable',
@@ -189,8 +171,6 @@ async function run() {
     'redFlagSymptomMessage',
     'blockedWorkoutMessage',
     'professionalGuidance',
-  ]) && hasAll(devPreviewPanel, [
-    'Generated preview unavailable',
   ]) && supportCard.includes('{error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}'));
 
   assert('Athleticore support flow exposes generate, start, completion, feedback, and progression interaction states', hasAll(supportCard, [

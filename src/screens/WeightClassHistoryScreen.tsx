@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS } from '../theme/theme';
 import { WeightClassHistoryRow } from '../../lib/engine/types';
+import { CommandScreen } from '../components/CommandScreen';
 
 export function WeightClassHistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -20,47 +21,53 @@ export function WeightClassHistoryScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      </View>
+      <CommandScreen tone="bodyMass">
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+        </View>
+      </CommandScreen>
     );
   }
 
   if (weightClassHistory.length === 0) {
     return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyIcon}>WC</Text>
-        <Text style={styles.emptyTitle}>No completed class plans</Text>
-        <Text style={styles.emptySubtitle}>
-          Your weight-class records will appear here once a plan is completed.
-        </Text>
-      </View>
+      <CommandScreen tone="bodyMass">
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>WC</Text>
+          <Text style={styles.emptyTitle}>No completed class plans</Text>
+          <Text style={styles.emptySubtitle}>
+            Your weight-class records will appear here once a plan is completed.
+          </Text>
+        </View>
+      </CommandScreen>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + SPACING.lg }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.sectionTitle}>Weight Class History</Text>
-      <Text style={styles.sectionSubtitle}>{weightClassHistory.length} completed class plan{weightClassHistory.length !== 1 ? 's' : ''}</Text>
-      <View style={styles.summaryCard}>
-        <View>
-          <Text style={styles.summaryLabel}>Past class plans</Text>
-          <Text style={styles.summaryValue}>{weightClassHistory.length}</Text>
+    <CommandScreen tone="bodyMass">
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + SPACING.lg }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.sectionTitle}>Weight Class History</Text>
+        <Text style={styles.sectionSubtitle}>{weightClassHistory.length} completed class plan{weightClassHistory.length !== 1 ? 's' : ''}</Text>
+        <View style={styles.summaryCard}>
+          <View>
+            <Text style={styles.summaryLabel}>Past class plans</Text>
+            <Text style={styles.summaryValue}>{weightClassHistory.length}</Text>
+          </View>
+          <View style={styles.filterRow}>
+            <Text style={[styles.filterPill, styles.filterPillActive]}>All</Text>
+            <Text style={styles.filterPill}>Met</Text>
+            <Text style={styles.filterPill}>Review</Text>
+          </View>
         </View>
-        <View style={styles.filterRow}>
-          <Text style={[styles.filterPill, styles.filterPillActive]}>All</Text>
-          <Text style={styles.filterPill}>Met</Text>
-          <Text style={styles.filterPill}>Review</Text>
-        </View>
-      </View>
-      {weightClassHistory.map((record) => (
-        <WeightClassHistoryCard key={record.id} record={record} />
-      ))}
-    </ScrollView>
+        {weightClassHistory.map((record) => (
+          <WeightClassHistoryCard key={record.id} record={record} />
+        ))}
+      </ScrollView>
+    </CommandScreen>
   );
 }
 

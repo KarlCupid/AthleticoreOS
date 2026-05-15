@@ -161,7 +161,7 @@ const stepStyles = StyleSheet.create({
     height: TAP_TARGETS.plan.recommended + 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(10, 10, 10, 0.82)',
   },
   btnFocus: {
     width: TAP_TARGETS.focus.min,

@@ -3,11 +3,11 @@ import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING, TYPOGRAPHY_V2 } from '..
 
 export const styles = StyleSheet.create({
   screenShell: {
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   commandBackground: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   commandBackgroundImage: {
     opacity: 0.76,
@@ -931,7 +931,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
   },
   firstRunModalCard: {
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(10, 10, 10, 0.92)',
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.xxl,

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS, TYPOGRAPHY } from '../theme/theme';
+import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS, TYPOGRAPHY_V2 } from '../theme/theme';
 
 export const styles = StyleSheet.create({
     container: {
@@ -99,13 +99,93 @@ export const styles = StyleSheet.create({
     content: {
         padding: SPACING.md, // Reduced from lg
         paddingTop: SPACING.xs, // Tighter top gap
+        gap: SPACING.md,
+    },
+    commandHero: {
+        borderColor: 'rgba(212, 175, 55, 0.26)',
+        backgroundColor: 'rgba(10, 10, 10, 0.66)',
+        ...SHADOWS.cardElevated,
+    },
+    commandHeroTopRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: SPACING.md,
+    },
+    commandHeroCopy: {
+        flex: 1,
+        minWidth: 0,
+    },
+    commandHeroBadge: {
+        width: 62,
+        minHeight: 62,
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.34)',
+        backgroundColor: 'rgba(212, 175, 55, 0.14)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: SPACING.xs,
+    },
+    commandHeroBadgeValue: {
+        fontSize: 22,
+        lineHeight: 26,
+        fontFamily: FONT_FAMILY.extraBold,
+        color: COLORS.text.primary,
+    },
+    commandHeroBadgeLabel: {
+        fontSize: 10,
+        lineHeight: 13,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.accent,
+        textTransform: 'uppercase',
+    },
+    commandMetricRow: {
+        flexDirection: 'row',
+        gap: SPACING.sm,
+        marginTop: SPACING.md,
+    },
+    commandActionGrid: {
+        flexDirection: 'row',
+        gap: SPACING.sm,
+        marginTop: SPACING.md,
+    },
+    commandAction: {
+        flex: 1,
+        minHeight: TAP_TARGETS.plan.recommended,
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(212, 175, 55, 0.24)',
+        backgroundColor: 'rgba(10, 10, 10, 0.42)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: SPACING.xs,
+        paddingHorizontal: SPACING.sm,
+    },
+    commandActionPrimary: {
+        backgroundColor: COLORS.accent,
+        borderColor: COLORS.accent,
+        ...SHADOWS.colored.accent,
+    },
+    commandActionText: {
+        flexShrink: 1,
+        fontSize: 13,
+        lineHeight: 16,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.primary,
+        textAlign: 'center',
+    },
+    commandActionTextPrimary: {
+        color: COLORS.text.inverse,
     },
     calorieHero: {
         alignItems: 'center',
         marginBottom: SPACING.md, // Reduced from lg
     },
     calorieNumber: {
-        ...TYPOGRAPHY.display,
+        ...TYPOGRAPHY_V2.plan.display,
+        color: COLORS.text.primary,
         textAlign: 'center',
     },
     calorieLabel: {

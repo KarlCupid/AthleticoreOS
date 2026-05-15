@@ -91,7 +91,7 @@ function clamp(v: number, min: number, max: number): number {
  *
  * @ANTI-WIRING:
  * UI Parameters Expected:
- *   - input: FitnessAssessmentInput (from FitnessQuestionnaireScreen)
+ *   - input: FitnessAssessmentInput (from the onboarding fitness assessment)
  *
  * Returns: FitnessAssessmentResult
  *

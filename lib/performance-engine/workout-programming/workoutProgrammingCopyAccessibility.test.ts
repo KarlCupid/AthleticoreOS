@@ -151,8 +151,6 @@ async function run() {
 
   const previewCard = read('src/components/workout/GeneratedWorkoutPreviewCard.tsx');
   const supportCard = read('src/components/workout/BoxingGeneratedWorkoutSessionCard.tsx');
-  const supportContainer = read('src/components/workout/BoxingGeneratedWorkoutContainer.tsx');
-  const devPreviewPanel = read('src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx');
 
   assert('preview UI exposes screen-reader labels and section headings', [
     'accessibilityLabel={`${label}: ${value}',
@@ -172,13 +170,10 @@ async function run() {
     'Session effort rating',
   ].every((needle) => supportCard.includes(needle)));
 
-  assert('workout screen generated sections are labeled for assistive tech', [
-    'Ad hoc Athleticore support session flow',
-    'testID="boxing-generated-workout-section"',
-  ].every((needle) => supportContainer.includes(needle)) && [
-    'accessibilityLabel="Internal workout diagnostics section"',
-    'testID="internal-workout-diagnostics-section"',
-  ].every((needle) => devPreviewPanel.includes(needle)));
+  assert('retired standalone and diagnostics workout sections are removed', [
+    'src/components/workout/BoxingGeneratedWorkoutContainer.tsx',
+    'src/components/workout/GeneratedWorkoutDevPreviewPanel.tsx',
+  ].every((filePath) => !fs.existsSync(path.join(process.cwd(), filePath))));
 }
 
 run()

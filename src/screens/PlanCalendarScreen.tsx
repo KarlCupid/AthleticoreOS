@@ -39,7 +39,7 @@ type NavProp = NativeStackNavigationProp<PlanStackParamList>;
 type RootNavProp = BottomTabNavigationProp<RootTabParamList>;
 type PlanViewMode = 'day' | 'week' | 'month';
 
-const PLAN_BACKGROUND = require('../../assets/images/cards/planning-card-bg.png');
+const PLAN_BACKGROUND = require('../../assets/images/universal-screen-background.png');
 
 const VIEW_MODES: PlanViewMode[] = ['day', 'week', 'month'];
 
@@ -779,7 +779,7 @@ export function PlanCalendarScreen() {
         {calendarError ? (
           <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()}>
             <Card variant="glass" backgroundTone="planning" backgroundScrimColor="rgba(10, 10, 10, 0.78)">
-              <Text style={styles.errorTitle}>Planning calendar unavailable</Text>
+              <Text style={styles.errorTitle}>Planning calendar needs a refresh</Text>
               <Text style={styles.errorText}>{calendarError}</Text>
               <AnimatedPressable style={styles.openDayButton} onPress={() => { void loadData({ forceRefresh: true, refresh: true }); }}>
                 <MaterialCommunityIcons name="refresh" size={17} color={COLORS.accent} />
@@ -900,11 +900,11 @@ export function PlanCalendarScreen() {
 
 const styles = StyleSheet.create({
   screenShell: {
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   background: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   backgroundImage: {
     opacity: 0.72,

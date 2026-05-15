@@ -7,7 +7,7 @@ import { getSupabaseAuthErrorCopy } from '../../lib/api/authUx';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { ScreenWrapper } from '../components/ScreenWrapper';
+import { CommandScreen } from '../components/CommandScreen';
 import { COLORS, FONT_FAMILY, RADIUS, SPACING } from '../theme/theme';
 import { IconChevronLeft } from '../components/icons';
 
@@ -41,7 +41,7 @@ export function DeleteAccountScreen() {
   };
 
   return (
-    <ScreenWrapper useSafeArea>
+    <CommandScreen tone="risk" useSafeArea>
       <View style={styles.header}>
         <AnimatedPressable
           accessibilityRole="button"
@@ -103,7 +103,7 @@ export function DeleteAccountScreen() {
           <Text style={styles.deleteButtonText}>{deleting ? 'Deleting account...' : 'Delete my account'}</Text>
         </AnimatedPressable>
       </ScrollView>
-    </ScreenWrapper>
+    </CommandScreen>
   );
 }
 

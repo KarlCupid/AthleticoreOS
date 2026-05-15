@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { Card } from '../components/Card';
 import { AnimatedPressable } from '../components/AnimatedPressable';
+import { CommandScreen } from '../components/CommandScreen';
 import { ProgressRing } from '../components/ProgressRing';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { ServingSelector } from '../components/ServingSelector';
@@ -219,7 +220,39 @@ export function FoodDetailScreen() {
 
   if (!validatedParams) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <CommandScreen tone="fuel">
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          <View style={styles.header}>
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              accessibilityHint="Returns to the previous food screen."
+              testID="food-detail-back"
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+            >
+              <IconChevronLeft size={24} color={COLORS.text.primary} />
+            </AnimatedPressable>
+            <Text style={styles.title} numberOfLines={1}>Food needs a refresh</Text>
+          </View>
+          <View style={styles.invalidState}>
+            <Text style={styles.invalidTitle}>This food link can&apos;t be opened.</Text>
+            <Text style={styles.invalidBody}>Search again from Fuel to log a food safely.</Text>
+            <AnimatedPressable style={styles.invalidButton} onPress={() => navigation.navigate('NutritionHome')}>
+              <Text style={styles.invalidButtonText}>Back to Fuel</Text>
+            </AnimatedPressable>
+          </View>
+        </View>
+      </CommandScreen>
+    );
+  }
+
+  return (
+    <CommandScreen tone="fuel">
+      <KeyboardAvoidingView
+        style={[styles.container, { paddingTop: insets.top }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.header}>
           <AnimatedPressable
             accessibilityRole="button"
@@ -231,167 +264,139 @@ export function FoodDetailScreen() {
           >
             <IconChevronLeft size={24} color={COLORS.text.primary} />
           </AnimatedPressable>
-          <Text style={styles.title} numberOfLines={1}>Food needs a refresh</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {isEditingEntry ? 'Edit Food' : foodItem.name}
+          </Text>
         </View>
-        <View style={styles.invalidState}>
-          <Text style={styles.invalidTitle}>This food link can&apos;t be opened.</Text>
-          <Text style={styles.invalidBody}>Search again from Fuel to log a food safely.</Text>
-          <AnimatedPressable style={styles.invalidButton} onPress={() => navigation.navigate('NutritionHome')}>
-            <Text style={styles.invalidButtonText}>Back to Fuel</Text>
-          </AnimatedPressable>
-        </View>
-      </View>
-    );
-  }
 
-  return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.header}>
-        <AnimatedPressable
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          accessibilityHint="Returns to the previous food screen."
-          testID="food-detail-back"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + SPACING.xxxl + 72 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
-          <IconChevronLeft size={24} color={COLORS.text.primary} />
-        </AnimatedPressable>
-        <Text style={styles.title} numberOfLines={1}>
-          {isEditingEntry ? 'Edit Food' : foodItem.name}
-        </Text>
-      </View>
+          <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>
+            <View style={styles.foodInfoRow}>
+              {foodItem.image_url ? (
+                <Image source={{ uri: foodItem.image_url }} style={styles.foodImage} />
+              ) : (
+                <View style={[styles.foodImage, styles.imagePlaceholder]}>
+                  <Text style={styles.placeholderText}>
+                    {foodItem.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + SPACING.xxxl + 72 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        <Animated.View entering={FadeInDown.duration(ANIMATION.slow).springify()}>
-          <View style={styles.foodInfoRow}>
-            {foodItem.image_url ? (
-              <Image source={{ uri: foodItem.image_url }} style={styles.foodImage} />
-            ) : (
-              <View style={[styles.foodImage, styles.imagePlaceholder]}>
-                <Text style={styles.placeholderText}>
-                  {foodItem.name.charAt(0).toUpperCase()}
+              <View style={styles.foodInfo}>
+                <View style={styles.badgeRow}>
+                  {foodItem.badges.map((badge) => (
+                    <View key={badge} style={styles.badge}>
+                      <Text style={styles.badgeText}>{badge}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.foodName}>{foodItem.name}</Text>
+                <Text style={styles.foodBrand}>
+                  {foodItem.brand ? `${foodItem.brand} - ` : ''}
+                  {foodItem.serving_label}
                 </Text>
               </View>
-            )}
+            </View>
 
-            <View style={styles.foodInfo}>
-              <View style={styles.badgeRow}>
-                {foodItem.badges.map((badge) => (
-                  <View key={badge} style={styles.badge}>
-                    <Text style={styles.badgeText}>{badge}</Text>
-                  </View>
-                ))}
+            <ServingSelector
+              amountValue={amountValue}
+              setAmountValue={setAmountValue}
+              selectedPortion={selectedPortion}
+              setSelectedPortion={setSelectedPortion}
+              portionOptions={foodItem.portionOptions}
+            />
+
+            <Card variant="glass" style={{ marginTop: SPACING.md }}>
+              <Text style={styles.previewTitle}>Nutrition for this amount</Text>
+
+              <View style={styles.calorieRow}>
+                <AnimatedNumber value={calories} style={styles.calorieValue} />
+                <Text style={styles.calorieUnit}> cal</Text>
               </View>
-              <Text style={styles.foodName}>{foodItem.name}</Text>
-              <Text style={styles.foodBrand}>
-                {foodItem.brand ? `${foodItem.brand} - ` : ''}
-                {foodItem.serving_label}
+
+              <Text style={styles.gramCaption}>
+                {Math.round(selectedGrams)}g logged to {MEAL_LABELS[mealType].toLowerCase()}
               </Text>
-            </View>
-          </View>
 
-          <ServingSelector
-            amountValue={amountValue}
-            setAmountValue={setAmountValue}
-            selectedPortion={selectedPortion}
-            setSelectedPortion={setSelectedPortion}
-            portionOptions={foodItem.portionOptions}
-          />
-
-          <Card variant="glass" style={{ marginTop: SPACING.md }}>
-            <Text style={styles.previewTitle}>Nutrition for this amount</Text>
-
-            <View style={styles.calorieRow}>
-              <AnimatedNumber value={calories} style={styles.calorieValue} />
-              <Text style={styles.calorieUnit}> cal</Text>
-            </View>
-
-            <Text style={styles.gramCaption}>
-              {Math.round(selectedGrams)}g logged to {MEAL_LABELS[mealType].toLowerCase()}
-            </Text>
-
-            <View style={styles.macroRingGrid}>
-              <View style={styles.macroRingItem}>
-                <ProgressRing
-                  progress={proteinProgress}
-                  size={56}
-                  strokeWidth={5}
-                  color={COLORS.chart.protein}
-                  label={`${Math.round(protein)}`}
-                />
-                <Text style={styles.macroRingLabel}>Protein</Text>
+              <View style={styles.macroRingGrid}>
+                <View style={styles.macroRingItem}>
+                  <ProgressRing
+                    progress={proteinProgress}
+                    size={56}
+                    strokeWidth={5}
+                    color={COLORS.chart.protein}
+                    label={`${Math.round(protein)}`}
+                  />
+                  <Text style={styles.macroRingLabel}>Protein</Text>
+                </View>
+                <View style={styles.macroRingItem}>
+                  <ProgressRing
+                    progress={carbsProgress}
+                    size={56}
+                    strokeWidth={5}
+                    color={COLORS.chart.carbs}
+                    label={`${Math.round(carbs)}`}
+                  />
+                  <Text style={styles.macroRingLabel}>Carbs</Text>
+                </View>
+                <View style={styles.macroRingItem}>
+                  <ProgressRing
+                    progress={fatProgress}
+                    size={56}
+                    strokeWidth={5}
+                    color={COLORS.chart.fat}
+                    label={`${Math.round(fat)}`}
+                  />
+                  <Text style={styles.macroRingLabel}>Fat</Text>
+                </View>
               </View>
-              <View style={styles.macroRingItem}>
-                <ProgressRing
-                  progress={carbsProgress}
-                  size={56}
-                  strokeWidth={5}
-                  color={COLORS.chart.carbs}
-                  label={`${Math.round(carbs)}`}
-                />
-                <Text style={styles.macroRingLabel}>Carbs</Text>
-              </View>
-              <View style={styles.macroRingItem}>
-                <ProgressRing
-                  progress={fatProgress}
-                  size={56}
-                  strokeWidth={5}
-                  color={COLORS.chart.fat}
-                  label={`${Math.round(fat)}`}
-                />
-                <Text style={styles.macroRingLabel}>Fat</Text>
-              </View>
-            </View>
-          </Card>
+            </Card>
 
-          <Card variant="glass" style={{ marginTop: SPACING.md }}>
-            <Text style={styles.favoriteTitle}>Quick access</Text>
-            <AnimatedPressable
-              testID="food-detail-save-favorite"
-              style={[styles.favoriteChip, favoriteOnSave && styles.favoriteChipActive]}
-              onPress={() => setFavoriteOnSave((current) => !current)}
-            >
-              <Text style={[styles.favoriteChipText, favoriteOnSave && styles.favoriteChipTextActive]}>
-                {favoriteOnSave ? 'Will save to Favorites' : 'Save to Favorites'}
-              </Text>
-            </AnimatedPressable>
-          </Card>
-        </Animated.View>
-      </ScrollView>
+            <Card variant="glass" style={{ marginTop: SPACING.md }}>
+              <Text style={styles.favoriteTitle}>Quick access</Text>
+              <AnimatedPressable
+                testID="food-detail-save-favorite"
+                style={[styles.favoriteChip, favoriteOnSave && styles.favoriteChipActive]}
+                onPress={() => setFavoriteOnSave((current) => !current)}
+              >
+                <Text style={[styles.favoriteChipText, favoriteOnSave && styles.favoriteChipTextActive]}>
+                  {favoriteOnSave ? 'Will save to Favorites' : 'Save to Favorites'}
+                </Text>
+              </AnimatedPressable>
+            </Card>
+          </Animated.View>
+        </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
-        <AnimatedPressable
-          testID="food-detail-submit"
-          style={[styles.addButtonWrapper, saving && { opacity: 0.6 }]}
-          onPress={handleAdd}
-          disabled={saving}
-        >
-          <LinearGradient
-            colors={[...GRADIENTS.accent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.addButtonGradient}
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md }]}>
+          <AnimatedPressable
+            testID="food-detail-submit"
+            style={[styles.addButtonWrapper, saving && { opacity: 0.6 }]}
+            onPress={handleAdd}
+            disabled={saving}
           >
-            <Text style={styles.addButtonText}>
-              {saving ? 'Saving...' : isEditingEntry ? 'Save Changes' : `Add to ${MEAL_LABELS[mealType]}`}
-            </Text>
-          </LinearGradient>
-        </AnimatedPressable>
-      </View>
-    </KeyboardAvoidingView>
+            <LinearGradient
+              colors={[...GRADIENTS.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.addButtonGradient}
+            >
+              <Text style={styles.addButtonText}>
+                {saving ? 'Saving...' : isEditingEntry ? 'Save Changes' : `Add to ${MEAL_LABELS[mealType]}`}
+              </Text>
+            </LinearGradient>
+          </AnimatedPressable>
+        </View>
+      </KeyboardAvoidingView>
+    </CommandScreen>
   );
 }
 

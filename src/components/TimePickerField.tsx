@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(10, 10, 10, 0.92)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(212, 175, 55, 0.24)',
     borderTopLeftRadius: RADIUS.xl,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   wheels: {
     flexDirection: 'row',
     position: 'relative',
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(10, 10, 10, 0.88)',
   },
   highlight: {
     position: 'absolute',

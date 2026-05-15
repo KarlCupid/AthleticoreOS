@@ -19,7 +19,8 @@ import type {
 import { formatLocalDate, formatShortWeekdayMonthDay, todayLocalDate } from '../../lib/utils/date';
 import { logError, logWarn } from '../../lib/utils/logger';
 import { calculateCaloriesFromMacros } from '../../lib/utils/nutrition';
-import type { NutritionStatus } from '../components/NutritionCheckIn';
+
+export type NutritionStatus = 'Target Met' | 'Close Enough' | 'Missed It' | null;
 
 export interface NutritionTrackerState {
   targets: { calories: number; protein: number; carbs: number; fat: number } | null;

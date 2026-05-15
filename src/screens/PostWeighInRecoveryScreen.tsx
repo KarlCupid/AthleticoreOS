@@ -17,6 +17,7 @@ import { useBodyMassPlanData } from '../hooks/useBodyMassPlanData';
 import type { FuelStackParamList } from '../navigation/types';
 import { COLORS, FONT_FAMILY, SPACING, RADIUS, SHADOWS, TAP_TARGETS } from '../theme/theme';
 import { Card } from '../components/Card';
+import { CommandScreen } from '../components/CommandScreen';
 import { CustomNumericInput } from '../components/CustomNumericInput';
 import { IconChevronLeft, IconCheckCircle } from '../components/icons';
 import { resolvePostWeighInRecoveryParams } from '../navigation/routeValidation';
@@ -46,21 +47,23 @@ export function PostWeighInRecoveryScreen() {
 
   if (!routeParams) {
     return (
-      <View style={styles.container}>
-        <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(183, 217, 168, 0.14)']} style={styles.header}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            accessibilityHint="Returns to the weight-class screen."
-            onPress={() => nav.goBack()}
-            style={styles.backBtn}
-          >
-            <IconChevronLeft size={24} color={COLORS.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Recovery support needs a refresh</Text>
-          <Text style={styles.headerSub}>Open post weigh-in recovery from the weight-class flow after a valid weigh-in.</Text>
-        </LinearGradient>
-      </View>
+      <CommandScreen tone="bodyMass">
+        <View style={styles.container}>
+          <LinearGradient colors={['rgba(10, 10, 10, 0.82)', 'rgba(183, 217, 168, 0.14)']} style={styles.header}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              accessibilityHint="Returns to the weight-class screen."
+              onPress={() => nav.goBack()}
+              style={styles.backBtn}
+            >
+              <IconChevronLeft size={24} color={COLORS.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Recovery support needs a refresh</Text>
+            <Text style={styles.headerSub}>Open post weigh-in recovery from the weight-class flow after a valid weigh-in.</Text>
+          </LinearGradient>
+        </View>
+      </CommandScreen>
     );
   }
 
@@ -85,7 +88,8 @@ export function PostWeighInRecoveryScreen() {
     currentRegain !== null && Number.isFinite(currentRegain) && currentRegain >= protocol.targetWeightByFight;
 
   return (
-    <View style={styles.container}>
+    <CommandScreen tone="bodyMass">
+      <View style={styles.container}>
       <LinearGradient colors={['rgba(10, 10, 10, 0.94)', 'rgba(183, 217, 168, 0.22)']} style={styles.header}>
         <TouchableOpacity
           accessibilityRole="button"
@@ -243,7 +247,8 @@ export function PostWeighInRecoveryScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </View>
+      </View>
+    </CommandScreen>
   );
 }
 

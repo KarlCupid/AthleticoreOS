@@ -1,5 +1,6 @@
 import { calculateCaloriesFromMacros } from '../../utils/nutrition.ts';
-import { getAllDecisionReasons } from '../presentation/decisionReason.ts';
+import { humanizeCoachSentence } from '../presentation/coachCopy.ts';
+import type { DecisionTraceItem } from '../types/mission.ts';
 import { TheCoachablePro } from './personas.ts';
 import { runSimulation } from './runner.ts';
 import type {
@@ -285,6 +286,15 @@ export interface EngineReplayRun {
     scenarioPressureDays: number;
     findingCounts: Record<EngineReplayFindingSeverity, number>;
     findingOriginCounts: Record<EngineReplayFindingOrigin, number>;
+  };
+}
+
+function mapDecisionTraceItem(item: DecisionTraceItem): EngineReplayDecisionReason {
+  return {
+    subsystem: item.subsystem,
+    title: item.title,
+    sentence: humanizeCoachSentence(item.humanInterpretation ?? item.detail, 'This fits your plan today.'),
+    impact: item.impact,
   };
 }
 
@@ -658,12 +668,7 @@ function mapDailyLog(log: DailySimulationLog, index: number): EngineReplayDay {
     workoutBlueprint: personaAction.workoutBlueprint ?? 'Rest day',
     coachingInsight: personaAction.coachingInsight ?? '',
     athleteMonologue: personaAction.athleteMonologue ?? '',
-    decisionReasons: getAllDecisionReasons(mission.decisionTrace).map((reason) => ({
-      subsystem: reason.subsystem,
-      title: reason.title,
-      sentence: reason.sentence,
-      impact: reason.impact,
-    })),
+    decisionReasons: (mission.decisionTrace ?? []).map(mapDecisionTraceItem),
     workoutSession: prescription ? {
       estimatedDurationMin: prescription.estimatedDurationMin,
       sessionGoal: prescription.sessionGoal ?? null,

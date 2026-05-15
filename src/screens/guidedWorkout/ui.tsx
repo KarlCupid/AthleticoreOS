@@ -273,7 +273,7 @@ const stepStyles = StyleSheet.create({
         height: 56,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(10, 10, 10, 0.82)',
     },
     btnText: {
         fontFamily: FONT_FAMILY.extraBold,
@@ -523,7 +523,7 @@ const ppStyles = StyleSheet.create({
         marginTop: 2,
     },
     muscleBadge: {
-        backgroundColor: COLORS.background,
+        backgroundColor: 'rgba(245, 245, 240, 0.07)',
         borderRadius: RADIUS.sm,
         paddingHorizontal: SPACING.sm,
         paddingVertical: 3,

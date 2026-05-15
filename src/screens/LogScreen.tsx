@@ -710,9 +710,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.sm,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(10, 10, 10, 0.86)',
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
+    borderTopColor: 'rgba(245, 245, 240, 0.16)',
   },
   primaryWrap: {
     borderRadius: RADIUS.lg,

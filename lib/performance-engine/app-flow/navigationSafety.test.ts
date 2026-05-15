@@ -14,7 +14,6 @@ import {
   resolvePostWeighInRecoveryParams,
   resolveWorkoutDetailParams,
 } from '../../../src/navigation/routeValidation.ts';
-import { resolveGeneratedWorkoutFeatureFlags } from '../workout-programming/workoutProgrammingFallbacks.ts';
 import type { FoodSearchResult } from '../../engine/types.ts';
 
 let passed = 0;
@@ -86,10 +85,8 @@ console.log('\n-- navigation safety and preview surface guards --');
     && isEngineReplayLabEnabled({ dev: false, buildProfile: 'development' }) === false
   ));
 
-  assert('generated workout flags require development build profile even when set', (
-    resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', previewFlag: '1', dev: true, buildProfile: 'preview' }).betaEnabled === false
-    && resolveGeneratedWorkoutFeatureFlags({ previewFlag: '1', dev: true, buildProfile: 'production' }).previewEnabled === false
-    && resolveGeneratedWorkoutFeatureFlags({ betaFlag: '1', previewFlag: '1', dev: true, buildProfile: 'development' }).betaEnabled === true
+  assert('standalone generated workout preview flags are not part of app-flow routing', (
+    !read('lib/performance-engine/workout-programming/workoutProgrammingFallbacks.ts').includes('resolveGeneratedWorkoutFeatureFlags')
   ));
 })();
 

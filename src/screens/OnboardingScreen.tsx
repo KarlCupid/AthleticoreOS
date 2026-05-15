@@ -1346,10 +1346,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <View pointerEvents="none" style={styles.appBackdrop}>
-                <View style={styles.backdropGoldWash} />
-                <View style={styles.backdropPearlWash} />
-            </View>
             <View style={[styles.inner, { paddingTop: insets.top + (editingActive ? SPACING.sm : SPACING.lg) }]}>
                 <View style={styles.topNav}>
                     <View style={styles.brandHeader}>

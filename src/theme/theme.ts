@@ -74,72 +74,8 @@ export const FONT_FAMILY = {
     black: 'Outfit_900Black',
 } as const;
 
-// V1 — retained for backward compatibility during migration
-export const TYPOGRAPHY_LEGACY = {
-    // Legacy compat
-    sans: 'Outfit_400Regular',
-
-    display: {
-        fontSize: 36,
-        fontFamily: FONT_FAMILY.black,
-        letterSpacing: 0,
-        color: COLORS.text.primary,
-    },
-    heading1: {
-        fontSize: 30,
-        fontFamily: FONT_FAMILY.black,
-        letterSpacing: 0,
-        color: COLORS.text.primary,
-    },
-    heading2: {
-        fontSize: 22,
-        fontFamily: FONT_FAMILY.extraBold,
-        letterSpacing: 0,
-        color: COLORS.text.primary,
-    },
-    heading3: {
-        fontSize: 18,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-    },
-    bodyLarge: {
-        fontSize: 17,
-        fontFamily: FONT_FAMILY.regular,
-        lineHeight: 24,
-        color: COLORS.text.primary,
-    },
-    body: {
-        fontSize: 15,
-        fontFamily: FONT_FAMILY.regular,
-        lineHeight: 22,
-        color: COLORS.text.primary,
-    },
-    bodySmall: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.regular,
-        lineHeight: 18,
-        color: COLORS.text.secondary,
-    },
-    caption: {
-        fontSize: 11,
-        fontFamily: FONT_FAMILY.semiBold,
-        letterSpacing: 0.5,
-        color: COLORS.text.tertiary,
-    },
-    label: {
-        fontSize: 13,
-        fontFamily: FONT_FAMILY.semiBold,
-        color: COLORS.text.primary,
-    },
-} as const;
-
-/** @deprecated Use TYPOGRAPHY_V2 for all new components. */
-export const TYPOGRAPHY = TYPOGRAPHY_LEGACY;
-
-// V2 — sentence-first hierarchy. No 800/900 weights in plan mode.
-// All new components from the UX revamp must import from TYPOGRAPHY_V2.
 export const TYPOGRAPHY_V2 = {
-    // Plan mode: planning screens, Morning Flow, Compass, Nutrition
+    // Plan mode: planning screens, guided journey surfaces, and nutrition.
     plan: {
         display:  { fontSize: 32, fontWeight: '700' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 40 },
         title:    { fontSize: 26, fontWeight: '700' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 34 },
@@ -147,7 +83,7 @@ export const TYPOGRAPHY_V2 = {
         body:     { fontSize: 16, fontWeight: '400' as const, fontFamily: FONT_FAMILY.regular,   lineHeight: 24 },
         caption:  { fontSize: 12, fontWeight: '500' as const, fontFamily: FONT_FAMILY.semiBold,  lineHeight: 16 },
     },
-    // Focus mode: Training Floor, Gym Floor Mode — larger targets, arm's-length readability
+    // Focus mode: larger targets for training floor and gym use.
     focus: {
         display:  { fontSize: 28, fontWeight: '700' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 36 },
         target:   { fontSize: 36, fontWeight: '800' as const, fontFamily: FONT_FAMILY.extraBold, lineHeight: 44 },
@@ -272,8 +208,7 @@ export const APP_CHROME = {
     text:       '#F5F5F0', // Pearl text for the dark theme
 } as const;
 
-// Semantic palette for AttentionCards and coaching notes
-// Replaces the readiness palette in all UI contexts after Task 3
+// Semantic palette for coaching notes and decision surfaces.
 export const SEMANTIC_PALETTE = {
     positive: { edge: '#B7D9A8', tint: 'rgba(183, 217, 168, 0.16)' },
     caution:  { edge: '#D4AF37', tint: 'rgba(212, 175, 55, 0.16)' },

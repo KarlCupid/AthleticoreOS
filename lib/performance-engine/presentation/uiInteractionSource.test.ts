@@ -35,7 +35,7 @@ const foodDetail = read('src/screens/FoodDetailScreen.tsx');
 const customFood = read('src/screens/CustomFoodScreen.tsx');
 const activityLog = read('src/screens/ActivityLogScreen.tsx');
 const weightClassSetup = read('src/screens/WeightClassPlanSetupScreen.tsx');
-const settings = read('src/screens/SettingsScreen.tsx');
+const settings = read('src/screens/ProfileSettingsScreen.tsx');
 
 console.log('\n-- UI interaction source wiring --');
 
@@ -74,8 +74,8 @@ assert('Nutrition submit controls have stable selectors', foodDetail.includes('t
 assert('Activity log submit has a stable selector', activityLog.includes('testID="activity-log-submit"'));
 assert('Weight-class setup submit controls have stable selectors', weightClassSetup.includes('testID="weight-class-setup-next"') && weightClassSetup.includes('testID="weight-class-setup-activate"'));
 
-assert('Settings stale chevron affordance is removed', !settings.includes('IconChevronRight'));
-assert('Settings cycle tracking switch has a real persistence handler', settings.includes('onValueChange={(value) => void updateCycleTracking(value)}'));
+assert('Settings account links route to real screens', settings.includes('openLegalSupport') && settings.includes("navigation.navigate('LegalSupport'") && settings.includes('openDeleteAccount') && settings.includes("navigation.navigate('DeleteAccount'"));
+assert('Settings cycle tracking switch has a real persistence handler', settings.includes('onValueChange={(nextValue) => void handleCycleTrackingChange(nextValue)}'));
 
 const checkedSources = [
   dashboard,
