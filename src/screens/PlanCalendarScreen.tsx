@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ImageBackground,
   RefreshControl,
@@ -15,27 +15,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { getActiveUserId } from '../../lib/api/athleteContextService';
-import {
-  getScheduledActivities,
-  getTrainingStreakDays,
-  syncEngineSchedule,
-} from '../../lib/api/scheduleService';
-import { supabase } from '../../lib/supabase';
-import { detectOvertrainingRisk } from '../../lib/engine/calculateSchedule';
-import { getSessionFamilyLabel } from '../../lib/engine/sessionLabels';
-import type {
-  OvertrainingWarning,
-  ScheduledActivityRow,
-  WeeklyPlanEntryRow,
-} from '../../lib/engine/types';
+import type { PlanCalendarScheduleItem } from '../../lib/engine/presentation';
 import {
   addDays,
   formatLocalDate,
   formatShortMonthDay,
   todayLocalDate,
 } from '../../lib/utils/date';
-import { ActivityCard } from '../components/ActivityCard';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { MonthlyCalendar } from '../components/MonthlyCalendar';
@@ -44,7 +30,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
-import { useWeeklyPlan } from '../hooks/useWeeklyPlan';
+import { usePlanCalendarData } from '../hooks/usePlanCalendarData';
 import type { PlanStackParamList, RootTabParamList } from '../navigation/types';
 import { useReadinessTheme } from '../theme/ReadinessThemeContext';
 import { ANIMATION, COLORS, FONT_FAMILY, RADIUS, SPACING, TAP_TARGETS } from '../theme/theme';
@@ -65,19 +51,8 @@ function startOfWeek(dateStr: string): string {
   return formatLocalDate(date);
 }
 
-function monthBounds(date: Date): { start: string; end: string } {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1);
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  return { start: formatLocalDate(start), end: formatLocalDate(end) };
-}
-
 function weekDates(weekStart: string): string[] {
   return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-}
-
-function formatActivityLabel(activity: ScheduledActivityRow): string {
-  const label = activity.custom_label ?? activity.activity_type.replace(/_/g, ' ');
-  return label.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -103,32 +78,12 @@ function formatShortDay(dateStr: string): { day: string; date: string } {
   };
 }
 
-function formatSessionLabel(entry: WeeklyPlanEntryRow): string {
-  return getSessionFamilyLabel({
-    sessionType: entry.session_type,
-    focus: entry.focus,
-  });
-}
-
 function formatDuration(minutes: number | null | undefined): string {
   if (!minutes || minutes <= 0) return 'Time not set';
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
-}
-
-function isProtectedActivity(activity: ScheduledActivityRow): boolean {
-  return Boolean(activity.athlete_locked)
-    || activity.constraint_tier === 'mandatory'
-    || activity.activity_type === 'boxing_practice'
-    || activity.activity_type === 'sparring';
-}
-
-function isProtectedEntry(entry: WeeklyPlanEntryRow): boolean {
-  return entry.placement_source === 'locked'
-    || entry.session_type === 'boxing_practice'
-    || entry.session_type === 'sparring';
 }
 
 function HeaderIconButton({
@@ -264,30 +219,30 @@ function PlanSetupCard({
   );
 }
 
-function PlanEntryRow({ entry }: { entry: WeeklyPlanEntryRow }) {
-  const protectedEntry = isProtectedEntry(entry);
-  const intensity = entry.target_intensity ? ` / RPE ${entry.target_intensity}` : '';
+function ScheduleItemRow({ item }: { item: PlanCalendarScheduleItem }) {
+  const intensity = item.intensity ? ` / RPE ${item.intensity}` : '';
+  const time = item.startTime ? `${item.startTime} / ` : '';
   return (
     <View style={styles.planEntryRow}>
-      <View style={[styles.planEntryIcon, protectedEntry && styles.planEntryIconLocked]}>
+      <View style={[styles.planEntryIcon, item.protectedAnchor && styles.planEntryIconLocked]}>
         <MaterialCommunityIcons
-          name={protectedEntry ? 'lock-outline' : 'calendar-clock'}
+          name={item.protectedAnchor ? 'lock-outline' : item.generatedWorkout ? 'dumbbell' : 'calendar-clock'}
           size={16}
-          color={protectedEntry ? COLORS.accent : COLORS.text.secondary}
+          color={item.protectedAnchor ? COLORS.accent : COLORS.text.secondary}
         />
       </View>
       <View style={styles.planEntryCopy}>
-        <Text style={styles.planEntryTitle} numberOfLines={1}>{formatSessionLabel(entry)}</Text>
+        <Text style={styles.planEntryTitle} numberOfLines={1}>{item.label}</Text>
         <Text style={styles.planEntryMeta} numberOfLines={1}>
-          {formatDuration(entry.estimated_duration_min)}{intensity}
+          {time}{formatDuration(item.durationMin)}{intensity}
         </Text>
       </View>
       <Text style={[
         styles.planEntryStatus,
-        entry.status === 'completed' && styles.statusDone,
-        (entry.status === 'skipped' || entry.status === 'rescheduled') && styles.statusCaution,
+        item.status === 'completed' && styles.statusDone,
+        (item.status === 'skipped' || item.status === 'rescheduled' || item.status === 'modified') && styles.statusCaution,
       ]}>
-        {entry.status === 'completed' ? 'Done' : entry.status === 'planned' ? 'Planned' : 'Review'}
+        {item.statusLabel}
       </Text>
     </View>
   );
@@ -295,27 +250,19 @@ function PlanEntryRow({ entry }: { entry: WeeklyPlanEntryRow }) {
 
 function DayAgenda({
   selectedDate,
-  activities,
-  planEntries,
+  items,
   onOpenDay,
 }: {
   selectedDate: string;
-  activities: ScheduledActivityRow[];
-  planEntries: WeeklyPlanEntryRow[];
+  items: PlanCalendarScheduleItem[];
   onOpenDay: () => void;
 }) {
-  const linkedPlanEntryIds = new Set(
-    activities
-      .map((activity) => activity.weekly_plan_entry_id)
-      .filter((id): id is string => Boolean(id)),
-  );
-  const visiblePlanEntries = planEntries.filter((entry) => !linkedPlanEntryIds.has(entry.id));
-  const hasItems = activities.length > 0 || visiblePlanEntries.length > 0;
+  const hasItems = items.length > 0;
 
   return (
     <Card
       title={formatDateLabel(selectedDate)}
-      subtitle={`${activities.length + planEntries.length} item${activities.length + planEntries.length === 1 ? '' : 's'} on schedule`}
+      subtitle={`${items.length} item${items.length === 1 ? '' : 's'} on schedule`}
       backgroundTone="schedule"
       backgroundScrimColor="rgba(10, 10, 10, 0.72)"
       subtitleLines={1}
@@ -328,16 +275,8 @@ function DayAgenda({
         </View>
       ) : null}
 
-      {activities.map((activity) => (
-        <ActivityCard
-          key={activity.id}
-          activity={activity}
-          onPress={onOpenDay}
-        />
-      ))}
-
-      {visiblePlanEntries.map((entry) => (
-        <PlanEntryRow key={entry.id} entry={entry} />
+      {items.map((item) => (
+        <ScheduleItemRow key={item.id} item={item} />
       ))}
 
       <AnimatedPressable
@@ -355,27 +294,19 @@ function DayAgenda({
 
 function WeekDayCard({
   date,
-  entries,
-  activities,
+  items,
   onPress,
 }: {
   date: string;
-  entries: WeeklyPlanEntryRow[];
-  activities: ScheduledActivityRow[];
+  items: PlanCalendarScheduleItem[];
   onPress: () => void;
 }) {
   const label = formatShortDay(date);
   const isToday = date === todayLocalDate();
-  const plannedMinutes = entries.reduce((sum, entry) => sum + (entry.estimated_duration_min ?? 0), 0)
-    + activities
-      .filter((activity) => !activity.weekly_plan_entry_id)
-      .reduce((sum, activity) => sum + (activity.estimated_duration_min ?? 0), 0);
-  const protectedCount = entries.filter(isProtectedEntry).length + activities.filter(isProtectedActivity).length;
-  const itemCount = entries.length + activities.length;
-  const mainLabels = [
-    ...entries.map(formatSessionLabel),
-    ...activities.filter((activity) => !activity.weekly_plan_entry_id).map(formatActivityLabel),
-  ].slice(0, 3);
+  const plannedMinutes = items.reduce((sum, item) => sum + item.durationMin, 0);
+  const protectedCount = items.filter((item) => item.protectedAnchor).length;
+  const itemCount = items.length;
+  const mainLabels = items.map((item) => item.label).slice(0, 3);
 
   return (
     <AnimatedPressable
@@ -419,24 +350,22 @@ function WeekDayCard({
 
 function WeekView({
   weekStart,
-  entries,
-  activities,
+  items,
   onPrev,
   onToday,
   onNext,
   onOpenDate,
 }: {
   weekStart: string;
-  entries: WeeklyPlanEntryRow[];
-  activities: ScheduledActivityRow[];
+  items: PlanCalendarScheduleItem[];
   onPrev: () => void;
   onToday: () => void;
   onNext: () => void;
   onOpenDate: (date: string) => void;
 }) {
   const dates = weekDates(weekStart);
-  const totalMinutes = entries.reduce((sum, entry) => sum + (entry.estimated_duration_min ?? 0), 0);
-  const protectedCount = entries.filter(isProtectedEntry).length + activities.filter(isProtectedActivity).length;
+  const totalMinutes = items.reduce((sum, item) => sum + item.durationMin, 0);
+  const protectedCount = items.filter((item) => item.protectedAnchor).length;
 
   return (
     <View style={styles.viewStack}>
@@ -467,8 +396,7 @@ function WeekView({
             <WeekDayCard
               key={date}
               date={date}
-              entries={entries.filter((entry) => entry.date === date)}
-              activities={activities.filter((activity) => activity.date === date)}
+              items={items.filter((item) => item.date === date)}
               onPress={() => onOpenDate(date)}
             />
           ))}
@@ -482,8 +410,7 @@ function MonthView({
   currentMonth,
   selectedDate,
   activityDots,
-  activities,
-  planEntries,
+  items,
   onSelectDate,
   onChangeMonth,
   onOpenDay,
@@ -491,8 +418,7 @@ function MonthView({
   currentMonth: Date;
   selectedDate: string;
   activityDots: Map<string, Set<string>>;
-  activities: ScheduledActivityRow[];
-  planEntries: WeeklyPlanEntryRow[];
+  items: PlanCalendarScheduleItem[];
   onSelectDate: (date: string) => void;
   onChangeMonth: (date: Date) => void;
   onOpenDay: () => void;
@@ -508,8 +434,7 @@ function MonthView({
       />
       <DayAgenda
         selectedDate={selectedDate}
-        activities={activities}
-        planEntries={planEntries}
+        items={items}
         onOpenDay={onOpenDay}
       />
     </View>
@@ -525,126 +450,54 @@ export function PlanCalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(todayLocalDate());
   const [currentMonth, setCurrentMonth] = useState(() => new Date(`${todayLocalDate()}T12:00:00`));
   const [visibleWeekStart, setVisibleWeekStart] = useState(() => startOfWeek(todayLocalDate()));
-  const [activities, setActivities] = useState<ScheduledActivityRow[]>([]);
-  const [streak, setStreak] = useState(0);
-  const [warnings, setWarnings] = useState<OvertrainingWarning[]>([]);
-  const [calendarLoading, setCalendarLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [calendarError, setCalendarError] = useState<string | null>(null);
 
   const {
-    loading: planLoading,
+    items: scheduleItems,
+    selectedDayItems,
+    visibleWeekItems,
+    activityDots,
+    metrics,
+    loading: calendarLoading,
+    refreshing,
+    error: calendarError,
     config,
-    entries,
     hasDefaultGymProfile,
     missedEntries,
     performanceContext,
-    loadPlan,
-    rescheduleDay,
-  } = useWeeklyPlan();
-
-  const loadCalendar = useCallback(async (forceSync: boolean = false) => {
-    const userId = await getActiveUserId();
-    if (!userId) {
-      setActivities([]);
-      setWarnings([]);
-      setCalendarLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    const { start, end } = monthBounds(currentMonth);
-    const weekEnd = addDays(visibleWeekStart, 6);
-
-    try {
-      setCalendarError(null);
-      setCalendarLoading(true);
-      let monthActivities = await getScheduledActivities(userId, start, end);
-      const weekActivities = monthActivities.filter((activity) => (
-        activity.date >= visibleWeekStart && activity.date <= weekEnd
-      ));
-
-      const hasEngineItems = weekActivities.some((activity) => activity.source === 'engine');
-      if (forceSync && !hasEngineItems) {
-        try {
-          await syncEngineSchedule(userId, visibleWeekStart);
-          monthActivities = await getScheduledActivities(userId, start, end);
-        } catch {
-          // Calendar data should still render when plan setup is incomplete.
-        }
-      }
-
-      const [{ data: recentCheckins }, nextStreak] = await Promise.all([
-        supabase
-          .from('daily_checkins')
-          .select('sleep_quality')
-          .eq('user_id', userId)
-          .order('date', { ascending: false })
-          .limit(3),
-        getTrainingStreakDays(userId),
-      ]);
-
-      const sleepRows = (recentCheckins ?? []) as Array<{ sleep_quality: number | null }>;
-      const sleepAvg = sleepRows.length > 0
-        ? sleepRows.reduce((sum, row) => sum + (row.sleep_quality ?? 3), 0) / sleepRows.length
-        : 0;
-      const visibleWeekActivities = monthActivities.filter((activity) => (
-        activity.date >= visibleWeekStart && activity.date <= weekEnd
-      ));
-
-      setActivities(monthActivities);
-      setStreak(nextStreak);
-      setWarnings(detectOvertrainingRisk(visibleWeekActivities, 1.0, sleepAvg).slice(0, 3));
-    } catch {
-      setCalendarError('Could not load your planning calendar.');
-    } finally {
-      setCalendarLoading(false);
-      setRefreshing(false);
-    }
-  }, [currentMonth, visibleWeekStart]);
-
-  useEffect(() => {
-    void loadCalendar(false);
-  }, [loadCalendar]);
+    warnings,
+    streak,
+    loadData,
+    refresh,
+    dismissWarning,
+    rescheduleFirstMissedEntry,
+  } = usePlanCalendarData({ currentMonth, visibleWeekStart, selectedDate });
 
   useFocusEffect(
     useCallback(() => {
-      void loadPlan(visibleWeekStart);
-      void loadCalendar(true);
-    }, [loadCalendar, loadPlan, visibleWeekStart]),
+      void loadData({ forceRefresh: true });
+    }, [loadData]),
   );
-
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    void Promise.all([
-      loadPlan(visibleWeekStart),
-      loadCalendar(true),
-    ]);
-  }, [loadCalendar, loadPlan, visibleWeekStart]);
 
   const handleSelectDate = useCallback((date: string) => {
     const nextWeekStart = startOfWeek(date);
     setSelectedDate(date);
     setVisibleWeekStart(nextWeekStart);
     setCurrentMonth(new Date(`${date}T12:00:00`));
-    void loadPlan(nextWeekStart);
-  }, [loadPlan]);
+  }, []);
 
   const handleChangeMonth = useCallback((date: Date) => {
     setCurrentMonth(date);
     const selectedInMonth = formatLocalDate(new Date(date.getFullYear(), date.getMonth(), 1));
     setSelectedDate(selectedInMonth);
     setVisibleWeekStart(startOfWeek(selectedInMonth));
-    void loadPlan(startOfWeek(selectedInMonth));
-  }, [loadPlan]);
+  }, []);
 
   const navigateWeek = useCallback((deltaDays: number) => {
     const nextStart = addDays(visibleWeekStart, deltaDays);
     setVisibleWeekStart(nextStart);
     setSelectedDate(nextStart);
     setCurrentMonth(new Date(`${nextStart}T12:00:00`));
-    void loadPlan(nextStart);
-  }, [loadPlan, visibleWeekStart]);
+  }, [visibleWeekStart]);
 
   const handleToday = useCallback(() => {
     const today = todayLocalDate();
@@ -652,8 +505,7 @@ export function PlanCalendarScreen() {
     setSelectedDate(today);
     setVisibleWeekStart(weekStart);
     setCurrentMonth(new Date(`${today}T12:00:00`));
-    void loadPlan(weekStart);
-  }, [loadPlan]);
+  }, []);
 
   const handleOpenDay = useCallback((date: string = selectedDate) => {
     navigation.navigate('DayDetail', { date });
@@ -671,54 +523,10 @@ export function PlanCalendarScreen() {
   }, [parentNavigation]);
 
   const handleMissedPress = useCallback(() => {
-    if (missedEntries.length > 0) {
-      void rescheduleDay(missedEntries[0]);
-    }
-  }, [missedEntries, rescheduleDay]);
+    void rescheduleFirstMissedEntry();
+  }, [rescheduleFirstMissedEntry]);
 
-  const selectedActivities = useMemo(
-    () => activities.filter((activity) => activity.date === selectedDate),
-    [activities, selectedDate],
-  );
-
-  const selectedPlanEntries = useMemo(
-    () => entries.filter((entry) => entry.date === selectedDate),
-    [entries, selectedDate],
-  );
-
-  const visibleWeekActivities = useMemo(
-    () => activities.filter((activity) => (
-      activity.date >= visibleWeekStart && activity.date <= addDays(visibleWeekStart, 6)
-    )),
-    [activities, visibleWeekStart],
-  );
-
-  const activityDots = useMemo(() => {
-    const dots = new Map<string, Set<string>>();
-    for (const activity of activities) {
-      if (!dots.has(activity.date)) dots.set(activity.date, new Set());
-      dots.get(activity.date)!.add(activity.activity_type);
-    }
-    for (const entry of entries) {
-      if (!dots.has(entry.date)) dots.set(entry.date, new Set());
-      dots.get(entry.date)!.add(entry.session_type);
-    }
-    return dots;
-  }, [activities, entries]);
-
-  const monthlyTrainingDays = useMemo(() => {
-    const dates = new Set<string>();
-    for (const activity of activities) dates.add(activity.date);
-    for (const entry of entries) dates.add(entry.date);
-    return dates.size;
-  }, [activities, entries]);
-
-  const protectedAnchors = useMemo(
-    () => activities.filter(isProtectedActivity).length + entries.filter(isProtectedEntry).length,
-    [activities, entries],
-  );
-
-  const isInitialLoading = (calendarLoading || planLoading) && activities.length === 0 && entries.length === 0;
+  const isInitialLoading = calendarLoading && scheduleItems.length === 0;
 
   const renderShell = (children: React.ReactNode) => (
     <ScreenWrapper style={styles.screenShell} useSafeArea={true}>
@@ -774,14 +582,14 @@ export function PlanCalendarScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 176 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={themeColor} colors={[themeColor]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={themeColor} colors={[themeColor]} />}
       >
         {calendarError ? (
           <Animated.View entering={FadeInDown.duration(ANIMATION.normal).springify()}>
             <Card variant="glass" backgroundTone="planning" backgroundScrimColor="rgba(10, 10, 10, 0.78)">
               <Text style={styles.errorTitle}>Planning calendar unavailable</Text>
               <Text style={styles.errorText}>{calendarError}</Text>
-              <AnimatedPressable style={styles.openDayButton} onPress={() => { void loadCalendar(true); }}>
+              <AnimatedPressable style={styles.openDayButton} onPress={() => { void loadData({ forceRefresh: true, refresh: true }); }}>
                 <MaterialCommunityIcons name="refresh" size={17} color={COLORS.accent} />
                 <Text style={styles.openDayButtonText}>Try Again</Text>
               </AnimatedPressable>
@@ -815,8 +623,8 @@ export function PlanCalendarScreen() {
             backgroundScrimColor="rgba(10, 10, 10, 0.74)"
           >
             <View style={styles.metricsRow}>
-              <MetricTile icon="calendar-check-outline" label="Days" value={String(monthlyTrainingDays)} tone={COLORS.success} />
-              <MetricTile icon="lock-outline" label="Anchors" value={String(protectedAnchors)} />
+              <MetricTile icon="calendar-check-outline" label="Days" value={String(metrics.scheduledDays)} tone={COLORS.success} />
+              <MetricTile icon="lock-outline" label="Anchors" value={String(metrics.protectedAnchors)} />
               <MetricTile icon="fire" label="Streak" value={streak > 0 ? String(streak) : '--'} tone={COLORS.warning} />
             </View>
             <View style={styles.actionsGrid}>
@@ -849,7 +657,7 @@ export function PlanCalendarScreen() {
           <Animated.View key={`${warning.title}-${index}`} entering={FadeInDown.delay(70 + index * 35).duration(ANIMATION.slow).springify()}>
             <OvertrainingAlert
               warning={warning}
-              onDismiss={() => setWarnings((prev) => prev.filter((_, warningIndex) => warningIndex !== index))}
+              onDismiss={() => dismissWarning(index)}
             />
           </Animated.View>
         ))}
@@ -858,8 +666,7 @@ export function PlanCalendarScreen() {
           <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.slow).springify()}>
             <DayAgenda
               selectedDate={selectedDate}
-              activities={selectedActivities}
-              planEntries={selectedPlanEntries}
+              items={selectedDayItems}
               onOpenDay={() => handleOpenDay()}
             />
           </Animated.View>
@@ -869,8 +676,7 @@ export function PlanCalendarScreen() {
           <Animated.View entering={FadeInDown.delay(90).duration(ANIMATION.slow).springify()}>
             <WeekView
               weekStart={visibleWeekStart}
-              entries={entries}
-              activities={visibleWeekActivities}
+              items={visibleWeekItems}
               onPrev={() => navigateWeek(-7)}
               onToday={handleToday}
               onNext={() => navigateWeek(7)}
@@ -888,8 +694,7 @@ export function PlanCalendarScreen() {
               currentMonth={currentMonth}
               selectedDate={selectedDate}
               activityDots={activityDots}
-              activities={selectedActivities}
-              planEntries={selectedPlanEntries}
+              items={selectedDayItems}
               onSelectDate={handleSelectDate}
               onChangeMonth={handleChangeMonth}
               onOpenDay={() => handleOpenDay()}

@@ -24,7 +24,8 @@ const phaseCard = read('src/components/phases/GuidedPhaseTransitionCard.tsx');
 const fightFlow = read('src/screens/weeklyPlanSetup/FightOpportunityFlow.tsx');
 const setupShared = read('src/screens/weeklyPlanSetup/shared.tsx');
 const weeklySetup = read('src/screens/WeeklyPlanSetupScreen.tsx');
-const weeklyController = read('src/hooks/useWeeklyPlanScreenController.ts');
+const planCalendar = read('src/screens/PlanCalendarScreen.tsx');
+const planCalendarData = read('src/hooks/usePlanCalendarData.ts');
 const onboarding = read('src/screens/OnboardingScreen.tsx');
 const readinessGate = read('src/components/ReadinessGate.tsx');
 const dayDetail = read('src/screens/DayDetailScreen.tsx');
@@ -58,8 +59,9 @@ assert('Onboarding submit/continue exposes selectors', onboarding.includes('onbo
 assert('Onboarding submit remains disabled until intentional criteria pass', onboarding.includes('disabled={!canProceed() || saving}'));
 assert('Onboarding submits through canonical coach intake', onboarding.includes('completeCoachIntake'));
 
-assert('Weekly Plan quick log is not a placeholder alert', !weeklyController.includes('Coming Soon') && !weeklyController.includes('will open here'));
-assert('Weekly Plan quick log opens the current day detail surface', weeklyController.includes("navigation.navigate('DayDetail'") && weeklyController.includes('todayLocalDate()'));
+assert('Plan calendar actions are not placeholder alerts', !planCalendar.includes('Coming Soon') && !planCalendar.includes('will open here'));
+assert('Plan calendar Open Day opens the day detail surface', planCalendar.includes("navigation.navigate('DayDetail'") && planCalendar.includes('handleOpenDay'));
+assert('Plan calendar display uses the normalized data hook', planCalendar.includes('usePlanCalendarData') && planCalendarData.includes('buildPlanCalendarScheduleItems'));
 
 assert('Readiness gate avoids unsafe proceed copy', !readinessGate.includes('Proceed Anyway'));
 assert('Readiness gate adjustment passes the suggested alternative', readinessGate.includes('onSwitch(suggestion.alternative)'));
@@ -77,7 +79,8 @@ assert('Settings cycle tracking switch has a real persistence handler', settings
 
 const checkedSources = [
   dashboard,
-  weeklyController,
+  planCalendar,
+  planCalendarData,
   readinessGate,
   onboarding,
   weeklySetup,

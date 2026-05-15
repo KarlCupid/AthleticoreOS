@@ -38,6 +38,7 @@ async function run() {
   const packageJson = read('package.json');
   const easJson = read('eas.json');
   const workoutScreen = read('src/screens/WorkoutScreen.tsx');
+  const workoutUtils = read('src/screens/workout/utils.ts');
   const workoutDetailController = read('src/hooks/useWorkoutDetailController.ts');
   const dashboardScreen = read('src/screens/DashboardScreen.tsx');
   const dayDetailScreen = read('src/screens/DayDetailScreen.tsx');
@@ -98,17 +99,20 @@ async function run() {
     '"EXPO_PUBLIC_WORKOUT_PROGRAMMING_PREVIEW": "0"',
   ]));
 
-  assert('boxing generated path preserves plan, history, analytics, and guided fallback navigation', hasAll(workoutScreen, [
+  assert('boxing generated path preserves execution, history, analytics, and guided fallback navigation', hasAll(workoutScreen, [
     'WorkoutPrescriptionSection',
     'WorkoutHistoryTab',
     'WorkoutAnalyticsTab',
     "navigation.navigate('GuidedWorkout'",
     "navigation.navigate('WorkoutDetail'",
-    "navigation.navigate('WeeklyPlanSetup')",
+    "parentNavigation?.navigate('Plan'",
     "activeTab === 'history'",
     "activeTab === 'analytics'",
-    "activeTab === 'plan'",
-  ]));
+  ]) && hasAll(workoutUtils, [
+    "'today'",
+    "'history'",
+    "'analytics'",
+  ]) && !workoutScreen.includes("activeTab === 'plan'"));
 
   assert('WorkoutScreen routes generated support snapshots to WorkoutDetail before GuidedWorkout compatibility', hasAll(workoutScreen, [
     'classifyPlanEntryRuntimeSurface',
