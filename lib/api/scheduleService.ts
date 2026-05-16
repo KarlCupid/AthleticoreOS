@@ -227,6 +227,8 @@ export async function upsertRecurringActivity(
         rounds: entry.rounds ?? null,
         round_duration_sec: entry.round_duration_sec ?? null,
         rest_duration_sec: entry.rest_duration_sec ?? null,
+        athlete_locked: entry.athlete_locked ?? true,
+        intended_intensity: entry.intended_intensity ?? entry.expected_intensity ?? null,
         constraint_tier: entry.constraint_tier ?? 'mandatory',
         is_active: true,
         ...(entry.id ? { id: entry.id } : {}),

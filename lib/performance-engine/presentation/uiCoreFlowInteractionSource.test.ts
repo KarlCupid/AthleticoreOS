@@ -45,6 +45,9 @@ const fightViewModel = read('lib/performance-engine/presentation/guidedFightOppo
 const trainingPrescription = read('src/components/WorkoutPrescriptionSection.tsx');
 const guidedWorkout = read('src/screens/GuidedWorkoutScreen.tsx');
 const workoutSummary = read('src/screens/WorkoutSummaryScreen.tsx');
+const workoutDetail = read('src/screens/WorkoutDetailScreen.tsx');
+const workoutDetailController = read('src/hooks/useWorkoutDetailController.ts');
+const weeklyPlanService = read('lib/api/weeklyPlanService.ts');
 const nutrition = read('src/screens/NutritionScreen.tsx');
 const mealSection = read('src/components/MealSection.tsx');
 const foodSearch = read('src/screens/FoodSearchScreen.tsx');
@@ -93,6 +96,7 @@ assert('Today Mission action dispatcher routes all canonical intents', hasAll(da
   'case "review_fueling":',
   'openFuelScreen("NutritionHome")',
   'case "log_body_mass":',
+  'navigation.navigate("Log")',
   'case "review_body_mass":',
   'openFuelScreen("WeightClassHome")',
   'case "confirm_fight":',
@@ -195,6 +199,17 @@ assert('training entry, live workout, and summary CTAs are selectable and wired'
   'navigation.getParent()?.navigate',
   'testID="workout-summary-training-home"',
   "navigation.navigate('WorkoutHome')",
+]));
+assert('protected workout detail cannot expose rest-day skip options', hasAll(workoutDetail, [
+  'const isProtectedBoxingAnchor = Boolean(boxingSnapshot?.protectedAnchor)',
+  'isProtectedAnchor: isProtectedBoxingAnchor',
+  'isProtectedBoxingAnchor ?',
+]) && hasAll(workoutDetailController, [
+  'isProtectedAnchor',
+  'Coach-led boxing, sparring, and other protected sessions stay anchored',
+]) && hasAll(weeklyPlanService, [
+  'isProtectedPlanEntryContext',
+  'Protected boxing anchors cannot be marked as rest days',
 ]));
 
 assert('fueling mode, details, food add, and low-confidence controls are selectable', hasAll(nutrition, [

@@ -680,7 +680,7 @@ export function evaluateWeightClassPlan(input: WeightClassManagementInput): Weig
     plan,
     riskFlags: sortRiskFlagsBySeverity(finalRiskFlags),
     explanations: allExplanations,
-    shouldGenerateProtocol: status === 'feasible' || (status === 'aggressive' && !professionalReviewRequired),
+    shouldGenerateProtocol: !professionalReviewRequired && (status === 'feasible' || status === 'aggressive'),
   };
 }
 

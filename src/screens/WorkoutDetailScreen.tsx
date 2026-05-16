@@ -115,6 +115,7 @@ export function WorkoutDetailScreen() {
         markSkipped,
         restore,
     } = useWorkoutDetail();
+    const isProtectedBoxingAnchor = Boolean(boxingSnapshot?.protectedAnchor);
     const {
         handleStartWorkout,
         handleSkipDay,
@@ -130,6 +131,7 @@ export function WorkoutDetailScreen() {
         markSkipped,
         restore,
         regenerate,
+        isProtectedAnchor: isProtectedBoxingAnchor,
     });
 
     useFocusEffect(
@@ -153,7 +155,6 @@ export function WorkoutDetailScreen() {
     const focus = entry?.focus ?? null;
     const boxingMeta = entry ? boxingEntryDisplayMeta(entry) : null;
     const detailGeneratedWorkout = generatedWorkout ?? boxingSnapshot?.generatedWorkout ?? null;
-    const isProtectedBoxingAnchor = Boolean(boxingSnapshot?.protectedAnchor);
     const isArchivedCompatibility = Boolean(entry && !boxingSnapshot && !prescription);
     const focusLabel = getSessionFamilyLabel({
         sessionType: entry?.session_type ?? null,
@@ -253,9 +254,13 @@ export function WorkoutDetailScreen() {
                         <Text style={[styles.statusText, { color: STATUS_COLORS[status] }]}>{STATUS_LABELS[status]}</Text>
                     </View>
                 </View>
-                <TouchableOpacity onPress={() => void handleOptionsPress()} style={styles.optionsBtn}>
-                    <Text style={styles.optionsText}>...</Text>
-                </TouchableOpacity>
+                {isProtectedBoxingAnchor ? (
+                    <View style={styles.optionsBtn} />
+                ) : (
+                    <TouchableOpacity onPress={() => void handleOptionsPress()} style={styles.optionsBtn}>
+                        <Text style={styles.optionsText}>...</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* ── Regenerating overlay ── */}

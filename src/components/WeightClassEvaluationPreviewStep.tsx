@@ -81,15 +81,6 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
         </View>
       </Card>
 
-      <View style={styles.planSummaryGrid}>
-        <PlanStat label="Current" value={formatMass(plan.currentBodyMass?.value, plan.currentBodyMass?.unit)} />
-        <PlanStat label="Target" value={formatMass(plan.desiredScaleWeight?.value, plan.desiredScaleWeight?.unit)} />
-        <PlanStat label="Required" value={formatMass(plan.requiredChange.value, plan.requiredChange.unit)} />
-        <PlanStat label="Rate" value={formatRate(plan.requiredRateOfChange.value, plan.requiredRateOfChange.unit)} />
-        <PlanStat label="Feasibility" value={guidedCopy.statusLabel} />
-        <PlanStat label="Risk" value={titleize(plan.riskLevel)} />
-      </View>
-
       <Card
         style={styles.noteBox}
         backgroundTone="bodyMassSupport"
@@ -137,6 +128,15 @@ export function WeightClassEvaluationPreviewStep({ evaluation }: WeightClassEval
           color={COLORS.warning}
         />
       ) : null}
+
+      <View style={styles.planSummaryGrid}>
+        <PlanStat label="Current" value={formatMass(plan.currentBodyMass?.value, plan.currentBodyMass?.unit)} />
+        <PlanStat label="Target" value={formatMass(plan.desiredScaleWeight?.value, plan.desiredScaleWeight?.unit)} />
+        <PlanStat label="Required" value={formatMass(plan.requiredChange.value, plan.requiredChange.unit)} />
+        <PlanStat label="Rate" value={formatRate(plan.requiredRateOfChange.value, plan.requiredRateOfChange.unit)} />
+        <PlanStat label="Feasibility" value={guidedCopy.statusLabel} />
+        <PlanStat label="Risk" value={titleize(plan.riskLevel)} />
+      </View>
     </View>
   );
 }

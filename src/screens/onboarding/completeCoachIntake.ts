@@ -412,6 +412,8 @@ export async function completeCoachIntake(input: CoachIntakeInput): Promise<Coac
           days_of_week: [session.dayOfWeek],
         },
         session_kind: session.activityType,
+        athlete_locked: true,
+        intended_intensity: session.expectedIntensity,
         constraint_tier: 'mandatory',
       })),
     );

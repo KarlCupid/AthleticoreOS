@@ -175,6 +175,9 @@ export function ActivityLogScreen() {
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
                                 <TouchableOpacity
                                     key={n}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Set session RPE ${n}`}
+                                    accessibilityState={{ selected: n === sessionRPE }}
                                     style={[styles.rpeBubble, n === sessionRPE && { backgroundColor: themeColor }]}
                                     onPress={() => setSessionRPE(n)}
                                 >

@@ -335,12 +335,11 @@ export default function App() {
         return;
       }
 
-      logWarn('App.journeyEntryLookup.nonBlockingFallback', error, { journeyOperation: 'getAppEntryState' });
-      const fallbackEntryState = createReadyAthleteJourneyAppEntryState();
-      setJourneyEntryState(fallbackEntryState);
-      setJourneyLoadError(null);
-      addMonitoringBreadcrumb('journey', 'entry_lookup_non_blocking_fallback', {
-        status: fallbackEntryState.status,
+      logWarn('App.journeyEntryLookup.failed', error, { journeyOperation: 'getAppEntryState' });
+      setJourneyEntryState(null);
+      setJourneyLoadError(toError(error));
+      addMonitoringBreadcrumb('journey', 'entry_lookup_failed_without_cache', {
+        hasCache: false,
       }, 'warning');
     } finally {
       setCheckingJourney(false);

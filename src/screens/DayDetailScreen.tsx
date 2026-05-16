@@ -277,11 +277,23 @@ export function DayDetailScreen() {
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
-                <AnimatedPressable onPress={() => navigation.goBack()} testID="day-detail-back">
+                <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    style={styles.headerAction}
+                    onPress={() => navigation.goBack()}
+                    testID="day-detail-back"
+                >
                     <Text style={styles.backButton}>Back</Text>
                 </AnimatedPressable>
                 <Text style={styles.headerTitle}>{formatDateLabel(dateParam)}</Text>
-                <AnimatedPressable onPress={() => setShowAddPicker(true)} testID="day-detail-add-activity">
+                <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Add activity"
+                    style={styles.headerAction}
+                    onPress={() => setShowAddPicker(true)}
+                    testID="day-detail-add-activity"
+                >
                     <Text style={[styles.addIcon, { color: themeColor }]}>+</Text>
                 </AnimatedPressable>
             </View>

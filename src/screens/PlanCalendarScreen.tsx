@@ -86,6 +86,7 @@ export function PlanCalendarScreen() {
     streak,
     loadData,
     refresh,
+    cancelLoad,
     dismissWarning,
     rescheduleFirstMissedEntry,
   } = usePlanCalendarData({ currentMonth, visibleWeekStart, selectedDate });
@@ -93,7 +94,10 @@ export function PlanCalendarScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadData({ forceRefresh: true });
-    }, [loadData]),
+      return () => {
+        cancelLoad();
+      };
+    }, [cancelLoad, loadData]),
   );
 
   const handleSelectDate = useCallback((date: string) => {

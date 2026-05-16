@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getActiveUserId } from '../../lib/api/athleteContextService';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
@@ -142,8 +142,14 @@ export function usePlanCalendarData({
   selectedDate,
 }: UsePlanCalendarDataInput) {
   const [state, setState] = useState<PlanCalendarDataState>(() => initialState());
+  const loadRequestIdRef = useRef(0);
+
+  useEffect(() => () => {
+    loadRequestIdRef.current += 1;
+  }, []);
 
   const loadData = useCallback(async (options: LoadOptions = {}) => {
+    const requestId = ++loadRequestIdRef.current;
     setState((prev) => ({
       ...prev,
       loading: !options.refresh,
@@ -153,6 +159,7 @@ export function usePlanCalendarData({
 
     const userId = await getActiveUserId();
     if (!userId) {
+      if (requestId !== loadRequestIdRef.current) return;
       setState({
         ...initialState(),
         loading: false,
@@ -206,6 +213,7 @@ export function usePlanCalendarData({
         ? sleepRows.reduce((sum, row) => sum + (row.sleep_quality ?? 3), 0) / sleepRows.length
         : 0;
 
+      if (requestId !== loadRequestIdRef.current) return;
       setState({
         items,
         planEntries,
@@ -221,6 +229,7 @@ export function usePlanCalendarData({
       });
     } catch (error) {
       logError('usePlanCalendarData.loadData', error, { selectedDate, visibleWeekStart });
+      if (requestId !== loadRequestIdRef.current) return;
       setState((prev) => ({
         ...prev,
         loading: false,
@@ -233,6 +242,10 @@ export function usePlanCalendarData({
   const refresh = useCallback(() => {
     void loadData({ forceRefresh: true, refresh: true });
   }, [loadData]);
+
+  const cancelLoad = useCallback(() => {
+    loadRequestIdRef.current += 1;
+  }, []);
 
   const dismissWarning = useCallback((index: number) => {
     setState((prev) => ({
@@ -257,7 +270,18 @@ export function usePlanCalendarData({
         acwr: todayState.acwr.ratio,
       });
 
-      const rescheduledDate = result.updatedEntries[0]?.date;
+      const originalEntriesById = new Map(state.planEntries.map((entry) => [entry.id, entry]));
+      const rescheduledDate = result.updatedEntries.find((updatedEntry) => {
+        if (updatedEntry.id === missedEntry.id) return false;
+        const original = originalEntriesById.get(updatedEntry.id);
+        return original
+          && updatedEntry.date >= todayLocalDate()
+          && (
+            updatedEntry.estimated_duration_min !== original.estimated_duration_min
+            || updatedEntry.engine_notes !== original.engine_notes
+            || updatedEntry.prescription_snapshot !== original.prescription_snapshot
+          );
+      })?.date;
       if (result.redistributedExercises.length > 0 && rescheduledDate) {
         await rescheduleMissedDay(missedEntry.id, rescheduledDate);
         await loadData({ forceRefresh: true, refresh: true });
@@ -296,6 +320,7 @@ export function usePlanCalendarData({
     metrics,
     loadData,
     refresh,
+    cancelLoad,
     dismissWarning,
     rescheduleFirstMissedEntry,
   };

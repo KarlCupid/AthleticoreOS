@@ -174,6 +174,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: FONT_FAMILY.semiBold,
     color: COLORS.text.primary,
+    flexShrink: 1,
+    lineHeight: 22,
   },
   primaryButton: {
     marginTop: SPACING.md,

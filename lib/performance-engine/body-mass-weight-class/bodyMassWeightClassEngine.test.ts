@@ -97,6 +97,7 @@ console.log('\n-- body-mass-weight-class engine --');
 
   assert('minor athlete requires professional review', result.plan.professionalReviewRequired);
   assert('minor athlete creates review risk', result.riskFlags.some((risk) => risk.code === 'professional_review_required'));
+  assert('professional review blocks automatic protocol generation', result.shouldGenerateProtocol === false);
 })();
 
 (() => {

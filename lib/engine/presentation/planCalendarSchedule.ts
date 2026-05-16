@@ -119,7 +119,7 @@ function itemFromRows(
   entry: WeeklyPlanEntryRow | null,
   activity: ScheduledActivityRow | null,
 ): PlanCalendarScheduleItem {
-  const date = entry?.date ?? activity?.date;
+  const date = entry?.rescheduled_to ?? activity?.date ?? entry?.date;
   if (!date) {
     throw new Error('Plan calendar schedule item requires a weekly entry or scheduled activity date.');
   }
@@ -200,10 +200,11 @@ export function getPlanCalendarItemDots(
 export function getPlanCalendarItemMetrics(
   items: readonly PlanCalendarScheduleItem[],
 ): PlanCalendarItemMetrics {
+  const activeItems = items.filter((item) => item.status !== 'skipped');
   return {
-    scheduledDays: new Set(items.map((item) => item.date)).size,
-    plannedMinutes: items.reduce((sum, item) => sum + item.durationMin, 0),
-    protectedAnchors: items.filter((item) => item.protectedAnchor).length,
-    totalItems: items.length,
+    scheduledDays: new Set(activeItems.map((item) => item.date)).size,
+    plannedMinutes: activeItems.reduce((sum, item) => sum + item.durationMin, 0),
+    protectedAnchors: activeItems.filter((item) => item.protectedAnchor).length,
+    totalItems: activeItems.length,
   };
 }

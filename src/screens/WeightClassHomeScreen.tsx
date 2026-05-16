@@ -58,6 +58,7 @@ function daysBetween(start: string, end: string): number {
 export function WeightClassHomeScreen() {
   const nav = useNavigation<NavProp>();
   const [userId, setUserId] = React.useState<string | null>(null);
+  const hasHandledInitialFocusRef = React.useRef(false);
 
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -119,7 +120,14 @@ export function WeightClassHomeScreen() {
     );
   }, [abandon]);
 
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+  useFocusEffect(useCallback(() => {
+    if (!hasHandledInitialFocusRef.current) {
+      hasHandledInitialFocusRef.current = true;
+      return undefined;
+    }
+    refresh();
+    return undefined;
+  }, [refresh]));
   // Loading
   if (userId === null || loading) {
     return (
@@ -149,7 +157,11 @@ export function WeightClassHomeScreen() {
   if (!activePlan) {
     return (
       <CommandScreen tone="bodyMass">
-        <View style={styles.noPlanContainer}>
+        <ScrollView
+          style={styles.noPlanContainer}
+          contentContainerStyle={styles.noPlanContent}
+          showsVerticalScrollIndicator={false}
+        >
           <LinearGradient colors={['rgba(10, 10, 10, 0.82)', 'rgba(212, 175, 55, 0.18)']} style={styles.noPlanGradient}>
             <IconScale size={64} color={COLORS.accent} />
             <Text style={styles.noPlanTitle}>Weight-class context</Text>
@@ -182,15 +194,18 @@ export function WeightClassHomeScreen() {
               </TouchableOpacity>
             )}
           </LinearGradient>
-        </View>
+        </ScrollView>
       </CommandScreen>
     );
   }
 
   const phase = getBodyMassSupportPhase(activePlan, todayLocalDate());
   const daysOut = Math.max(0, daysBetween(todayLocalDate(), activePlan.weigh_in_date));
-  const currentWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : activePlan.start_weight;
+  const latestLoggedWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : null;
+  const currentWeight = latestLoggedWeight ?? activePlan.start_weight;
+  const currentWeightLabel = latestLoggedWeight == null ? 'Baseline (lbs)' : 'Current (lbs)';
   const remaining = Math.max(0, currentWeight - activePlan.target_weight).toFixed(1);
+  const hoursToFight = Math.max(1, Math.min(72, daysBetween(todayLocalDate(), activePlan.fight_date) * 24));
   const phaseColors = PHASE_COLORS[phase];
   const bodyMassPlanBlocked = guidedBodyMass.planBlocked || performanceContext.riskFlags.some((flag) => (
     flag.blocksPlan
@@ -198,6 +213,7 @@ export function WeightClassHomeScreen() {
   )) || performanceContext.bodyMass?.safetyLabel === 'Blocked for safety'
     || performanceContext.bodyMass?.safetyLabel === 'Professional review required';
   const bodyMassNeedsSafetyPriority = bodyMassPlanBlocked
+    || !guidedBodyMass.available
     || guidedBodyMass.status === 'high_risk'
     || guidedBodyMass.statusTone === 'blocked'
     || phase === 'high_risk_review';
@@ -265,7 +281,7 @@ export function WeightClassHomeScreen() {
         <View style={styles.heroNumbers}>
           <View style={styles.heroStat}>
             <Text style={styles.heroStatValue}>{currentWeight.toFixed(1)}</Text>
-            <Text style={styles.heroStatLabel}>Current (lbs)</Text>
+            <Text style={styles.heroStatLabel}>{currentWeightLabel}</Text>
           </View>
           <View style={styles.heroArrow}>
             <IconTrendDown size={28} color={COLORS.text.secondary} />
@@ -432,17 +448,36 @@ export function WeightClassHomeScreen() {
 
         {phase === 'post_weigh_in_recovery_tracking' ? (
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: COLORS.readiness.prime }]}
-            onPress={() => nav.navigate('PostWeighInRecovery', {
-              weighInWeightLbs: currentWeight,
-              hoursToFight: 24,
-            })}
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: latestLoggedWeight == null ? COLORS.surfaceSecondary : COLORS.readiness.prime,
+                opacity: latestLoggedWeight == null ? 0.85 : 1,
+              },
+            ]}
+            onPress={() => {
+              if (latestLoggedWeight == null) {
+                Alert.alert(
+                  'Log weigh-in first',
+                  'Post weigh-in recovery needs the actual weigh-in body mass from today before Athleticore can guide recovery.',
+                );
+                return;
+              }
+
+              nav.navigate('PostWeighInRecovery', {
+                weighInWeightLbs: latestLoggedWeight,
+                targetWeightLbs: activePlan.target_weight,
+                hoursToFight,
+              });
+            }}
             accessibilityRole="button"
-            accessibilityLabel="Open post weigh-in recovery"
+            accessibilityLabel={latestLoggedWeight == null ? 'Log weigh-in before recovery' : 'Open post weigh-in recovery'}
             testID="weight-class-post-weigh-in-recovery"
           >
-            <Text style={styles.actionButtonText}>Post weigh-in recovery</Text>
-            <IconChevronRight size={18} color={COLORS.text.inverse} />
+            <Text style={[styles.actionButtonText, latestLoggedWeight == null ? { color: COLORS.text.primary } : null]}>
+              {latestLoggedWeight == null ? 'Log weigh-in first' : 'Post weigh-in recovery'}
+            </Text>
+            <IconChevronRight size={18} color={latestLoggedWeight == null ? COLORS.text.secondary : COLORS.text.inverse} />
           </TouchableOpacity>
         ) : null}
 
@@ -492,6 +527,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: SPACING.xxl },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   noPlanContainer: { flex: 1 },
+  noPlanContent: { flexGrow: 1, paddingBottom: SPACING.xxxl },
   noPlanGradient: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, gap: SPACING.md },
   noPlanJourneyCard: { alignSelf: 'stretch', marginBottom: 0 },
   noPlanTitle: { fontSize: 28, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, textAlign: 'center', letterSpacing: 0 },

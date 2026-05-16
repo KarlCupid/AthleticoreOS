@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -33,6 +34,7 @@ export function PostWeighInRecoveryScreen() {
   const route = useRoute<RouteProps>();
   const routeParams = resolvePostWeighInRecoveryParams(route.params);
   const weighInWeightLbs = routeParams?.weighInWeightLbs ?? 0;
+  const targetWeightLbs = routeParams?.targetWeightLbs ?? 0;
   const hoursToFight = routeParams?.hoursToFight ?? 1;
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export function PostWeighInRecoveryScreen() {
 
   const protocol = buildPostWeighInRecoverySupport({
     weighInWeightLbs,
-    targetWeightLbs: weighInWeightLbs,
+    targetWeightLbs,
     currentWeightLbs: weighInWeightLbs,
     hoursToFight,
   });
@@ -83,9 +85,14 @@ export function PostWeighInRecoveryScreen() {
     });
   };
 
-  const currentRegain = currentRegainLbs === '' ? null : Number(currentRegainLbs);
+  const currentRecoveryWeight = currentRegainLbs === '' ? null : Number(currentRegainLbs);
+  const hasValidRecoveryWeight =
+    currentRecoveryWeight !== null
+    && Number.isFinite(currentRecoveryWeight)
+    && currentRecoveryWeight >= weighInWeightLbs
+    && currentRecoveryWeight <= weighInWeightLbs * 1.2;
   const targetReached =
-    currentRegain !== null && Number.isFinite(currentRegain) && currentRegain >= protocol.targetWeightByFight;
+    hasValidRecoveryWeight && currentRecoveryWeight >= protocol.targetWeightByFight;
 
   return (
     <CommandScreen tone="bodyMass">
@@ -188,26 +195,35 @@ export function PostWeighInRecoveryScreen() {
             <Text style={styles.trackUnit}>lbs</Text>
           </View>
 
-          {currentRegain !== null && Number.isFinite(currentRegain) && (
+          {currentRecoveryWeight !== null && Number.isFinite(currentRecoveryWeight) && (
             <Text
               style={[
                 styles.trackStatus,
-                { color: targetReached ? COLORS.readiness.prime : COLORS.readiness.caution },
+                { color: hasValidRecoveryWeight ? targetReached ? COLORS.readiness.prime : COLORS.readiness.caution : COLORS.readiness.depleted },
               ]}
             >
-              {targetReached
-                ? `Target reached. ${(currentRegain - weighInWeightLbs).toFixed(1)} lbs regained`
-                : `${(protocol.targetWeightByFight - currentRegain).toFixed(1)} lbs to go`}
+              {!hasValidRecoveryWeight
+                ? 'Enter a valid current body mass at or above the weigh-in value.'
+                : targetReached
+                  ? `Target reached. ${(currentRecoveryWeight - weighInWeightLbs).toFixed(1)} lbs regained`
+                  : `${(protocol.targetWeightByFight - currentRecoveryWeight).toFixed(1)} lbs to go`}
             </Text>
           )}
 
-          {currentRegain !== null && userId && (
+          {currentRecoveryWeight !== null && userId && (
             <TouchableOpacity
-              style={styles.logButton}
+              style={[styles.logButton, !hasValidRecoveryWeight && styles.logButtonDisabled]}
               onPress={async () => {
+                if (!hasValidRecoveryWeight) {
+                  Alert.alert(
+                    'Check the body-mass entry',
+                    'Post weigh-in recovery logging needs a valid current body mass at or above the weigh-in value.',
+                  );
+                  return;
+                }
                 await logSafetyCheck({
-                  postWeighInWeight: currentRegain,
-                  rehydrationWeightRegained: currentRegain - weighInWeightLbs,
+                  postWeighInWeight: currentRecoveryWeight,
+                  rehydrationWeightRegained: currentRecoveryWeight - weighInWeightLbs,
                 });
               }}
             >
@@ -232,10 +248,10 @@ export function PostWeighInRecoveryScreen() {
             onPress={() => {
               complete({
                 finalWeighInWeight: weighInWeightLbs,
-                madeWeight: weighInWeightLbs <= (routeParams.targetWeightLbs ?? weighInWeightLbs),
+                madeWeight: weighInWeightLbs <= targetWeightLbs,
                 rehydrationWeightRegained:
-                  currentRegain !== null && Number.isFinite(currentRegain)
-                    ? currentRegain - weighInWeightLbs
+                  hasValidRecoveryWeight
+                    ? currentRecoveryWeight - weighInWeightLbs
                     : undefined,
               });
               nav.goBack();
@@ -468,6 +484,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     padding: SPACING.sm,
     alignItems: 'center',
+  },
+  logButtonDisabled: {
+    opacity: 0.55,
   },
   logButtonText: {
     fontSize: 14,

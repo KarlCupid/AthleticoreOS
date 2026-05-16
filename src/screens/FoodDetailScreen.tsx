@@ -28,7 +28,7 @@ import {
 import type { FuelStackParamList } from '../navigation/types';
 import {
   logFoodEntry,
-  toggleFavorite,
+  ensureFavoriteFood,
   updateFoodEntry,
   upsertFoodItem,
 } from '../../lib/api/nutritionService';
@@ -112,6 +112,7 @@ export function FoodDetailScreen() {
   const isEditingEntry = Boolean(safeParams.foodLogId);
 
   const [foodItem] = useState(safeParams.foodItem);
+  const isAlreadyFavorite = foodItem.badges.includes('Favorite');
   const [selectedPortion, setSelectedPortion] = useState<FoodPortionOption>(() =>
     getDefaultPortion(safeParams.foodItem)
   );
@@ -206,8 +207,8 @@ export function FoodDetailScreen() {
         );
       }
 
-      if (favoriteOnSave && !safeParams.foodLogId) {
-        await toggleFavorite(session.user.id, savedItem.id);
+      if (favoriteOnSave && !safeParams.foodLogId && !isAlreadyFavorite) {
+        await ensureFavoriteFood(session.user.id, savedItem.id);
       }
 
       navigation.navigate('NutritionHome');
@@ -361,18 +362,24 @@ export function FoodDetailScreen() {
               </View>
             </Card>
 
-            <Card variant="glass" style={{ marginTop: SPACING.md }}>
-              <Text style={styles.favoriteTitle}>Quick access</Text>
-              <AnimatedPressable
-                testID="food-detail-save-favorite"
-                style={[styles.favoriteChip, favoriteOnSave && styles.favoriteChipActive]}
-                onPress={() => setFavoriteOnSave((current) => !current)}
-              >
-                <Text style={[styles.favoriteChipText, favoriteOnSave && styles.favoriteChipTextActive]}>
-                  {favoriteOnSave ? 'Will save to Favorites' : 'Save to Favorites'}
-                </Text>
-              </AnimatedPressable>
-            </Card>
+            {!isEditingEntry ? (
+              <Card variant="glass" style={{ marginTop: SPACING.md }}>
+                <Text style={styles.favoriteTitle}>Quick access</Text>
+                <AnimatedPressable
+                  testID="food-detail-save-favorite"
+                  accessibilityRole="button"
+                  accessibilityLabel={isAlreadyFavorite ? 'Already saved to favorites' : 'Save to favorites when logging'}
+                  accessibilityState={{ selected: favoriteOnSave || isAlreadyFavorite, disabled: isAlreadyFavorite }}
+                  style={[styles.favoriteChip, (favoriteOnSave || isAlreadyFavorite) && styles.favoriteChipActive]}
+                  disabled={isAlreadyFavorite}
+                  onPress={() => setFavoriteOnSave((current) => !current)}
+                >
+                  <Text style={[styles.favoriteChipText, (favoriteOnSave || isAlreadyFavorite) && styles.favoriteChipTextActive]}>
+                    {isAlreadyFavorite ? 'Saved to Favorites' : favoriteOnSave ? 'Will save to Favorites' : 'Save to Favorites'}
+                  </Text>
+                </AnimatedPressable>
+              </Card>
+            ) : null}
           </Animated.View>
         </ScrollView>
 

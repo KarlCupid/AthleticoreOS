@@ -104,7 +104,7 @@ export type FuelStackParamList = {
   PostWeighInRecovery: {
     weighInWeightLbs: number;
     hoursToFight: number;
-    targetWeightLbs?: number;
+    targetWeightLbs: number;
   };
   WeightClassHistory: undefined;
 };

@@ -159,7 +159,6 @@ export function DashboardScreen() {
     onRefresh,
     checkinDone,
     sessionDone,
-    todayActivities,
     primaryActivity,
     currentLevel,
     todayPlanEntry,
@@ -170,7 +169,6 @@ export function DashboardScreen() {
     todayMission,
     phaseTransition,
   } = useDashboardData();
-  const hasLivePlanningState = Boolean(todayPlanEntry) || todayActivities.length > 0;
   const D = 50;
   const openTrainScreen = React.useCallback(
     (screen: string, params?: Record<string, unknown>) => {
@@ -209,7 +207,7 @@ export function DashboardScreen() {
         openTrainScreen("WorkoutDetail", {
           weeklyPlanEntryId: todayPlanEntry.id,
           date: todayPlanEntry.date,
-          readinessState: currentLevel ?? "Prime",
+          readinessState: currentLevel ?? "Caution",
           phase: context.phase,
           fitnessLevel: context.fitnessLevel,
           isDeloadWeek: todayPlanEntry.is_deload,
@@ -221,7 +219,7 @@ export function DashboardScreen() {
         scheduledActivityId: todayPlanEntry.scheduled_activity_id ?? undefined,
         focus: todayPlanEntry.focus ?? undefined,
         availableMinutes: todayPlanEntry.estimated_duration_min,
-        readinessState: currentLevel ?? "Prime",
+        readinessState: currentLevel ?? "Caution",
         phase: context.phase,
         fitnessLevel: context.fitnessLevel,
         trainingDate: todayPlanEntry.date,
@@ -247,7 +245,7 @@ export function DashboardScreen() {
           openTrainScreen("WorkoutDetail", {
             weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
             date: linkedEntry?.date ?? primaryActivity.date,
-            readinessState: currentLevel ?? "Prime",
+            readinessState: currentLevel ?? "Caution",
             phase: context.phase,
             fitnessLevel: context.fitnessLevel,
             isDeloadWeek: linkedEntry?.is_deload,
@@ -261,7 +259,7 @@ export function DashboardScreen() {
         openTrainScreen("WorkoutDetail", {
           weeklyPlanEntryId: primaryActivity.weekly_plan_entry_id,
           date: primaryActivity.date,
-          readinessState: currentLevel ?? "Prime",
+          readinessState: currentLevel ?? "Caution",
           phase: context.phase,
           fitnessLevel: context.fitnessLevel,
         });
@@ -272,7 +270,7 @@ export function DashboardScreen() {
         scheduledActivityId: primaryActivity.id,
         focus: primaryActivity.custom_label ?? undefined,
         availableMinutes: primaryActivity.estimated_duration_min,
-        readinessState: currentLevel ?? "Prime",
+        readinessState: currentLevel ?? "Caution",
         phase: context.phase,
         fitnessLevel: context.fitnessLevel,
         trainingDate: primaryActivity.date,
@@ -291,26 +289,9 @@ export function DashboardScreen() {
     todayPlanEntry,
   ]);
 
-  const openBuildPhaseSetup = React.useCallback(() => {
-    openPlanScreen("WeeklyPlanSetup", {
-      initialGoalMode: "build_phase",
-      initialPhaseKey: "objective",
-      source: "dashboard",
-    });
-  }, [openPlanScreen]);
-
   const openPlanningSurface = React.useCallback(() => {
-    if (hasLivePlanningState) {
-      openPlanScreen("CalendarMain");
-      return;
-    }
-
-    openBuildPhaseSetup();
-  }, [
-    hasLivePlanningState,
-    openBuildPhaseSetup,
-    openPlanScreen,
-  ]);
+    openPlanScreen("CalendarMain");
+  }, [openPlanScreen]);
 
   const handleTodayMissionAction = React.useCallback((action: TodayMissionAction) => {
     switch (action.intent) {
@@ -324,6 +305,8 @@ export function DashboardScreen() {
         openFuelScreen("NutritionHome");
         break;
       case "log_body_mass":
+        navigation.navigate("Log");
+        break;
       case "review_body_mass":
         openFuelScreen("WeightClassHome");
         break;
@@ -488,11 +471,27 @@ export function DashboardScreen() {
       return;
     }
 
+    if (
+      joinedPrompts.includes("protected")
+      || joinedPrompts.includes("sparring")
+      || joinedPrompts.includes("coach-led")
+      || joinedPrompts.includes("classes")
+    ) {
+      openPlanScreen("WeeklyPlanSetup", {
+        initialGoalMode: performanceContext.phase.current === "camp" || performanceContext.phase.current === "competition_week"
+          ? "fight_camp"
+          : "build_phase",
+        initialPhaseKey: "commitments",
+        source: "existing_user_overhaul_intro",
+      });
+      return;
+    }
+
     openPlanScreen("WeeklyPlanSetup", {
       initialGoalMode: performanceContext.phase.current === "camp" || performanceContext.phase.current === "competition_week"
         ? "fight_camp"
         : "build_phase",
-      initialPhaseKey: joinedPrompts.includes("fight") ? "fight" : "objective",
+      initialPhaseKey: "objective",
       source: "existing_user_overhaul_intro",
     });
   }, [
@@ -757,7 +756,7 @@ export function DashboardScreen() {
                   adjustsFontSizeToFit
                   minimumFontScale={0.84}
                 >
-                  {hasLivePlanningState ? "Calendar" : "Setup"}
+                  Calendar
                 </Text>
               </AnimatedPressable>
             </Animated.View>

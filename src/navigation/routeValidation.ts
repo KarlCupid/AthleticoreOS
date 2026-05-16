@@ -104,7 +104,7 @@ export function sanitizeOptionalIdParam(value: unknown): string | undefined {
 export function sanitizeReadinessStateParam(value: unknown): ReadinessState {
   return typeof value === 'string' && READINESS_STATES.has(value as ReadinessState)
     ? value as ReadinessState
-    : 'Prime';
+    : 'Caution';
 }
 
 export function sanitizePhaseParam(value: unknown): Phase {
@@ -269,12 +269,41 @@ export function resolveFoodSearchParams(params: UnknownParams): FuelStackParamLi
 function isFoodSearchResult(value: unknown): value is FoodSearchResult {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<FoodSearchResult>;
+  const validSource = candidate.source === 'usda'
+    || candidate.source === 'open_food_facts'
+    || candidate.source === 'custom';
+  const validSourceType = candidate.sourceType === 'ingredient'
+    || candidate.sourceType === 'packaged'
+    || candidate.sourceType === 'custom';
+  const validNutrients = [
+    candidate.serving_size_g,
+    candidate.calories_per_serving,
+    candidate.protein_per_serving,
+    candidate.carbs_per_serving,
+    candidate.fat_per_serving,
+  ].every((item) => typeof item === 'number' && Number.isFinite(item) && item >= 0)
+    && typeof candidate.serving_size_g === 'number'
+    && candidate.serving_size_g > 0;
+  const validPortions = Array.isArray(candidate.portionOptions)
+    && candidate.portionOptions.length > 0
+    && candidate.portionOptions.every((option) => (
+      option
+      && typeof option.id === 'string'
+      && typeof option.label === 'string'
+      && typeof option.amount === 'number'
+      && Number.isFinite(option.amount)
+      && option.amount > 0
+      && typeof option.unit === 'string'
+      && typeof option.grams === 'number'
+      && Number.isFinite(option.grams)
+      && option.grams > 0
+    ));
   return typeof candidate.key === 'string'
     && typeof candidate.name === 'string'
-    && Array.isArray(candidate.portionOptions)
-    && candidate.portionOptions.length > 0
-    && typeof candidate.serving_size_g === 'number'
-    && Number.isFinite(candidate.serving_size_g);
+    && validSource
+    && validSourceType
+    && validPortions
+    && validNutrients;
 }
 
 export function resolveFoodDetailParams(params: UnknownParams): FuelStackParamList['FoodDetail'] | null {
@@ -323,12 +352,17 @@ export function resolvePostWeighInRecoveryParams(
   const raw = asRecord(params);
   const weighInWeightLbs = positiveNumberParam(raw.weighInWeightLbs);
   const hoursToFight = positiveNumberParam(raw.hoursToFight);
-  if (weighInWeightLbs == null || hoursToFight == null || hoursToFight > 72) return null;
-
   const targetWeightLbs = positiveNumberParam(raw.targetWeightLbs);
+  if (
+    weighInWeightLbs == null
+    || targetWeightLbs == null
+    || hoursToFight == null
+    || hoursToFight > 72
+  ) return null;
+
   return {
     weighInWeightLbs,
     hoursToFight,
-    ...(targetWeightLbs !== undefined ? { targetWeightLbs } : {}),
+    targetWeightLbs,
   };
 }

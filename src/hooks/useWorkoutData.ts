@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   getWorkoutHistory,
@@ -80,9 +80,28 @@ export function useWorkoutData() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [performanceContext, setPerformanceContext] = useState<UnifiedPerformanceViewModel>(() => buildUnifiedPerformanceViewModel(null));
+  const userIdRef = useRef('');
+  const historyLoadedRef = useRef(false);
+  const analyticsLoadedRef = useRef(false);
+  const mainLoadRequestIdRef = useRef(0);
+  const historyLoadRequestIdRef = useRef(0);
+  const analyticsLoadRequestIdRef = useRef(0);
+
+  useEffect(() => () => {
+    mainLoadRequestIdRef.current += 1;
+    historyLoadRequestIdRef.current += 1;
+    analyticsLoadRequestIdRef.current += 1;
+  }, []);
+
+  const setResolvedUserId = useCallback((nextUserId: string) => {
+    userIdRef.current = nextUserId;
+    setUserId(nextUserId);
+  }, []);
 
   const loadHistoryData = useCallback(async (resolvedUserId?: string) => {
-    const currentUserId = resolvedUserId ?? userId ?? await getActiveUserId();
+    const requestId = ++historyLoadRequestIdRef.current;
+    let currentUserId: string | null = resolvedUserId ?? userIdRef.current;
+    if (!currentUserId) currentUserId = await getActiveUserId();
     if (!currentUserId) {
       return;
     }
@@ -110,18 +129,24 @@ export function useWorkoutData() {
       }
 
       const generatedHistory = generatedCompletionSurfacesToHistoryEntries(generatedSurfaces);
+      if (requestId !== historyLoadRequestIdRef.current) return;
       setWorkoutHistory(mergeWorkoutHistoryEntries(historyResult.value, generatedHistory, 20));
+      historyLoadedRef.current = true;
       setHistoryLoaded(true);
     } catch (error) {
+      if (requestId !== historyLoadRequestIdRef.current) return;
       logError('useWorkoutData.loadHistoryData', error);
       setHistoryError('Could not load your recent sessions.');
     } finally {
+      if (requestId !== historyLoadRequestIdRef.current) return;
       setHistoryLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   const loadAnalyticsData = useCallback(async (resolvedUserId?: string) => {
-    const currentUserId = resolvedUserId ?? userId ?? await getActiveUserId();
+    const requestId = ++analyticsLoadRequestIdRef.current;
+    let currentUserId: string | null = resolvedUserId ?? userIdRef.current;
+    if (!currentUserId) currentUserId = await getActiveUserId();
     if (!currentUserId) {
       return;
     }
@@ -156,21 +181,28 @@ export function useWorkoutData() {
         }),
       ]);
 
+      if (requestId !== analyticsLoadRequestIdRef.current) return;
       if (checkinsRes) setCheckins(checkinsRes as DailyCheckin[]);
       const generatedSessions = generatedCompletionSurfacesToAnalyticsSessions(generatedSurfaces);
       setSessions(mergeWorkoutAnalyticsSessions((sessionsRes ?? []) as TrainingSession[], generatedSessions) as TrainingSession[]);
+      analyticsLoadedRef.current = true;
       setAnalyticsLoaded(true);
     } catch (error) {
+      if (requestId !== analyticsLoadRequestIdRef.current) return;
       logError('useWorkoutData.loadAnalyticsData', error, { todayStr });
       setAnalyticsError('Could not load your progress right now.');
     } finally {
+      if (requestId !== analyticsLoadRequestIdRef.current) return;
       setAnalyticsLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   const loadData = useCallback(async (forceRefresh: boolean = false) => {
+    const requestId = ++mainLoadRequestIdRef.current;
     const currentUserId = await getActiveUserId();
+    if (requestId !== mainLoadRequestIdRef.current) return;
     if (!currentUserId) {
+      setResolvedUserId('');
       setPerformanceContext(buildUnifiedPerformanceViewModel(null));
       setLoading(false);
       setRefreshing(false);
@@ -179,7 +211,7 @@ export function useWorkoutData() {
 
     try {
       setInitialLoadError(null);
-      setUserId(currentUserId);
+      setResolvedUserId(currentUserId);
       const todayStr = todayLocalDate();
       const engineState = await getDailyEngineState(currentUserId, todayStr, { forceRefresh });
       const weekStart = engineState.primaryPlanEntry?.week_start_date
@@ -187,6 +219,7 @@ export function useWorkoutData() {
         ?? todayStr;
       const weeklyEntries = await getWeeklyPlanEntriesForWeek(currentUserId, weekStart);
 
+      if (requestId !== mainLoadRequestIdRef.current) return;
       setEngineState(engineState);
       setPerformanceContext(buildUnifiedPerformanceViewModel(engineState.unifiedPerformance));
       setDailyAthleteSummary(engineState.mission);
@@ -196,23 +229,25 @@ export function useWorkoutData() {
       setPrescription((engineState.workoutPrescription as WorkoutPrescriptionV2 | null) ?? null);
 
       const backgroundLoads: Array<Promise<void>> = [];
-      if (historyLoaded) {
+      if (historyLoadedRef.current) {
         backgroundLoads.push(loadHistoryData(currentUserId));
       }
-      if (analyticsLoaded) {
+      if (analyticsLoadedRef.current) {
         backgroundLoads.push(loadAnalyticsData(currentUserId));
       }
       if (backgroundLoads.length > 0) {
         await Promise.all(backgroundLoads);
       }
     } catch (error) {
+      if (requestId !== mainLoadRequestIdRef.current) return;
       logError('useWorkoutData.loadData', error);
       setInitialLoadError('Could not load your training screen.');
+    } finally {
+      if (requestId !== mainLoadRequestIdRef.current) return;
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    setLoading(false);
-    setRefreshing(false);
-  }, [analyticsLoaded, historyLoaded, loadAnalyticsData, loadHistoryData]);
+  }, [loadAnalyticsData, loadHistoryData, setResolvedUserId]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

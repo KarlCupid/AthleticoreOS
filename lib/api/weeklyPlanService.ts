@@ -123,10 +123,13 @@ async function getPlanEntryMutationContext(entryId: string): Promise<{
     date: string;
     weekStart: string;
     scheduledActivityId: string | null;
+    placementSource: string | null;
+    sessionType: string | null;
+    sessionFamily: string | null;
 }> {
     const selectWithScheduled = hasScheduledActivityIdColumn === false
-        ? 'user_id,date,week_start_date'
-        : 'user_id,date,week_start_date,scheduled_activity_id';
+        ? 'user_id,date,week_start_date,placement_source,session_type,session_family'
+        : 'user_id,date,week_start_date,scheduled_activity_id,placement_source,session_type,session_family';
     const { data, error } = await supabase
         .from('weekly_plan_entries')
         .select(selectWithScheduled)
@@ -146,6 +149,9 @@ async function getPlanEntryMutationContext(entryId: string): Promise<{
         date: string;
         week_start_date: string;
         scheduled_activity_id?: string | null;
+        placement_source?: string | null;
+        session_type?: string | null;
+        session_family?: string | null;
     };
 
     if (hasScheduledActivityIdColumn !== false) {
@@ -157,7 +163,22 @@ async function getPlanEntryMutationContext(entryId: string): Promise<{
         date: row.date,
         weekStart: row.week_start_date,
         scheduledActivityId: row.scheduled_activity_id ?? null,
+        placementSource: row.placement_source ?? null,
+        sessionType: row.session_type ?? null,
+        sessionFamily: row.session_family ?? null,
     };
+}
+
+function isProtectedPlanEntryContext(context: {
+    placementSource: string | null;
+    sessionType: string | null;
+    sessionFamily: string | null;
+}): boolean {
+    return context.placementSource === 'locked'
+        || context.sessionType === 'boxing_practice'
+        || context.sessionType === 'sparring'
+        || context.sessionFamily === 'boxing_skill'
+        || context.sessionFamily === 'sparring';
 }
 // --- Weekly Plan Config -------------------------------------
 
@@ -585,6 +606,9 @@ export async function markDayCompleted(
  */
 export async function markDaySkipped(entryId: string): Promise<void> {
     const context = await getPlanEntryMutationContext(entryId);
+    if (isProtectedPlanEntryContext(context)) {
+        throw new Error('Protected boxing anchors cannot be marked as rest days. Athleticore keeps coach-led sessions anchored and adapts support work around them.');
+    }
 
     return withEngineInvalidation({ userId: context.userId, date: context.date, weekStart: context.weekStart, reason: 'weekly_plan_day_skip' }, async () => {
         const { error } = await supabase
@@ -612,6 +636,9 @@ export async function rescheduleMissedDay(
     newDate: string,
 ): Promise<void> {
     const context = await getPlanEntryMutationContext(entryId);
+    if (isProtectedPlanEntryContext(context)) {
+        throw new Error('Protected boxing anchors cannot be moved from the missed-session helper.');
+    }
 
     return withEngineInvalidation({ userId: context.userId, weekStart: context.weekStart, reason: 'weekly_plan_day_reschedule' }, async () => {
         const { error } = await supabase

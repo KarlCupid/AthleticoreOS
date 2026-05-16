@@ -74,10 +74,13 @@ export function WeightClassHistoryScreen() {
 function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
   const [expanded, setExpanded] = useState(false);
   const madeWeight = record.made_weight;
-  const totalLbs = (record.gradual_body_mass_change_lbs ?? 0) + (record.competition_week_body_mass_change_lbs ?? 0);
-  const adherence = record.adherence_pct ?? 0;
+  const totalLbs = record.gradual_body_mass_change_lbs != null && record.competition_week_body_mass_change_lbs != null
+    ? record.gradual_body_mass_change_lbs + record.competition_week_body_mass_change_lbs
+    : null;
+  const adherence = record.adherence_pct;
 
   const adherenceColor =
+    adherence == null ? COLORS.text.tertiary :
     adherence >= 80 ? COLORS.readiness.prime :
     adherence >= 60 ? COLORS.readiness.caution :
     COLORS.readiness.depleted;
@@ -101,12 +104,12 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
         <View style={[
           styles.madeWeightBadge,
           {
-            backgroundColor: madeWeight ? `${COLORS.success}18` : `${COLORS.error}18`,
-            borderColor: madeWeight ? `${COLORS.success}44` : `${COLORS.error}44`,
+            backgroundColor: madeWeight == null ? `${COLORS.text.tertiary}18` : madeWeight ? `${COLORS.success}18` : `${COLORS.error}18`,
+            borderColor: madeWeight == null ? `${COLORS.text.tertiary}44` : madeWeight ? `${COLORS.success}44` : `${COLORS.error}44`,
           },
         ]}>
-          <Text style={[styles.madeWeightText, { color: madeWeight ? COLORS.success : COLORS.error }]}>
-            {madeWeight ? 'MET' : 'REVIEW'}
+          <Text style={[styles.madeWeightText, { color: madeWeight == null ? COLORS.text.tertiary : madeWeight ? COLORS.success : COLORS.error }]}>
+            {madeWeight == null ? 'UNKNOWN' : madeWeight ? 'MET' : 'REVIEW'}
           </Text>
         </View>
       </View>
@@ -115,12 +118,12 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
       <View style={styles.statsRow}>
         <StatPill
           label="Total change"
-          value={`${totalLbs.toFixed(1)} lbs`}
+          value={formatLbs(totalLbs)}
           color={COLORS.chart.fitness}
         />
         <StatPill
           label="7d consistency"
-          value={`${adherence.toFixed(0)}%`}
+          value={adherence == null ? 'Unknown' : `${adherence.toFixed(0)}%`}
           color={adherenceColor}
         />
         <StatPill
@@ -135,11 +138,11 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
         <View style={styles.expanded}>
           <View style={styles.divider} />
           <View style={styles.detailGrid}>
-            <DetailRow label="Gradual loss" value={`${(record.gradual_body_mass_change_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Fight-week change" value={`${(record.competition_week_body_mass_change_lbs ?? 0).toFixed(1)} lbs`} />
-            <DetailRow label="Post weigh-in regain" value={record.rehydration_weight_regained ? `${record.rehydration_weight_regained.toFixed(1)} lbs` : '--'} />
-            <DetailRow label="Avg weekly loss" value={record.avg_weekly_loss_rate ? `${record.avg_weekly_loss_rate.toFixed(2)} lbs/wk` : '--'} />
-            <DetailRow label="Fight day weight" value={record.fight_day_weight ? `${record.fight_day_weight} lbs` : '--'} />
+            <DetailRow label="Gradual loss" value={formatLbs(record.gradual_body_mass_change_lbs)} />
+            <DetailRow label="Fight-week change" value={formatLbs(record.competition_week_body_mass_change_lbs)} />
+            <DetailRow label="Post weigh-in regain" value={formatLbs(record.rehydration_weight_regained)} />
+            <DetailRow label="Avg weekly loss" value={record.avg_weekly_loss_rate == null ? 'Unknown' : `${record.avg_weekly_loss_rate.toFixed(2)} lbs/wk`} />
+            <DetailRow label="Fight day weight" value={formatLbs(record.fight_day_weight)} />
             {(record.safety_flags_triggered?.length ?? 0) > 0 && (
               <DetailRow
                 label="Safety flags triggered"
@@ -154,6 +157,10 @@ function WeightClassHistoryCard({ record }: { record: WeightClassHistoryRow }) {
       <Text style={styles.expandHint}>{expanded ? 'Show less' : 'Show details'}</Text>
     </TouchableOpacity>
   );
+}
+
+function formatLbs(value: number | null | undefined): string {
+  return value == null ? 'Unknown' : `${value.toFixed(1)} lbs`;
 }
 
 function StatPill({ label, value, color }: { label: string; value: string; color: string }) {

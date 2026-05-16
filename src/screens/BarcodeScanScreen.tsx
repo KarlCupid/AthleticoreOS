@@ -28,7 +28,7 @@ type RouteParams = {
     BarcodeScan: { mealType: MealType; date?: string };
 };
 
-type ScanState = 'scanning' | 'loading' | 'not_found';
+type ScanState = 'scanning' | 'loading' | 'not_found' | 'lookup_error';
 
 export function BarcodeScanScreen() {
     const insets = useSafeAreaInsets();
@@ -64,7 +64,8 @@ export function BarcodeScanScreen() {
                 }
             } catch (error) {
                 logError('BarcodeScanScreen.lookupBarcode', error, safeScanContext);
-                setScanState('not_found');
+                addMonitoringBreadcrumb('barcode', 'lookup_failed', safeScanContext, 'warning');
+                setScanState('lookup_error');
             }
         },
         [navigation, mealType, date]
@@ -218,11 +219,15 @@ export function BarcodeScanScreen() {
                         </View>
                     )}
 
-                    {scanState === 'not_found' && (
+                    {(scanState === 'not_found' || scanState === 'lookup_error') && (
                         <View style={styles.notFoundContainer}>
-                            <Text style={styles.notFoundTitle}>Product Not Found</Text>
+                            <Text style={styles.notFoundTitle}>
+                                {scanState === 'lookup_error' ? 'Lookup needs a retry' : 'Product Not Found'}
+                            </Text>
                             <Text style={styles.notFoundBarcode}>
-                                Barcode: {scannedBarcode}
+                                {scanState === 'lookup_error'
+                                    ? 'The barcode service did not answer cleanly. You can search manually or create the food instead.'
+                                    : `Barcode: ${scannedBarcode}`}
                             </Text>
                             <View style={styles.notFoundActions}>
                                 <AnimatedPressable

@@ -33,7 +33,7 @@ export const styles = StyleSheet.create({
     },
     rpeRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
     rpeBubble: {
-        width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+        minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
         backgroundColor: COLORS.borderLight,
     },
     rpeBubbleText: { fontSize: 13, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.primary },

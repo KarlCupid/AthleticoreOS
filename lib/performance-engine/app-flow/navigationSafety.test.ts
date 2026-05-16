@@ -134,7 +134,7 @@ console.log('\n-- navigation safety and preview surface guards --');
       entrySource: 'train',
     });
 
-    return linked.readinessState === 'Prime'
+    return linked.readinessState === 'Caution'
       && linked.phase === 'off-season'
       && linked.fitnessLevel === 'intermediate'
       && linked.trainingDate === undefined
@@ -151,7 +151,7 @@ console.log('\n-- navigation safety and preview surface guards --');
   assert('Train workout detail params require canonical plan id and local date', (
     resolveWorkoutDetailParams({ weeklyPlanEntryId: '', date: '2026-05-04' }) === null
     && resolveWorkoutDetailParams({ weeklyPlanEntryId: 'entry-1', date: 'bad-date' }) === null
-    && resolveWorkoutDetailParams({ weeklyPlanEntryId: 'entry-1', date: '2026-05-04' })?.readinessState === 'Prime'
+    && resolveWorkoutDetailParams({ weeklyPlanEntryId: 'entry-1', date: '2026-05-04' })?.readinessState === 'Caution'
   ));
 
   assert('Train exercise detail params require an exercise payload from the library', (
@@ -177,8 +177,10 @@ console.log('\n-- navigation safety and preview surface guards --');
   assert('complex FoodDetail and post weigh-in recovery params are validated before screen use', (
     resolveFoodDetailParams({ foodItem: null, mealType: 'breakfast' }) === null
     && resolveFoodDetailParams({ foodItem: foodFixture(), mealType: 'dinner' })?.mealType === 'dinner'
+    && resolveFoodDetailParams({ foodItem: foodFixture({ calories_per_serving: Number.NaN }), mealType: 'dinner' }) === null
     && resolvePostWeighInRecoveryParams({ weighInWeightLbs: -1, hoursToFight: 12 }) === null
-    && resolvePostWeighInRecoveryParams({ weighInWeightLbs: 154.2, hoursToFight: 8 })?.hoursToFight === 8
+    && resolvePostWeighInRecoveryParams({ weighInWeightLbs: 154.2, hoursToFight: 8 }) === null
+    && resolvePostWeighInRecoveryParams({ weighInWeightLbs: 154.2, targetWeightLbs: 154, hoursToFight: 8 })?.targetWeightLbs === 154
   ));
 })();
 
@@ -207,10 +209,10 @@ console.log('\n-- navigation safety and preview surface guards --');
     app.includes("session && entryStatus === 'ready' && !passwordRecoveryActive ? appLinking : undefined")
   ));
 
-  assert('signed-in journey lookup failures fall forward instead of trapping root navigation', (
-    app.includes('entry_lookup_non_blocking_fallback')
-    && app.includes('createReadyAthleteJourneyAppEntryState()')
-    && app.includes('setJourneyLoadError(null)')
+  assert('signed-in journey lookup failures require retry when no verified cache exists', (
+    app.includes('entry_lookup_failed_without_cache')
+    && app.includes('setJourneyLoadError(toError(error))')
+    && !app.includes('createReadyAthleteJourneyAppEntryState()')
     && !app.includes('writeReadyAthleteJourneyEntryCache(userId, fallbackEntryState)')
   ));
 

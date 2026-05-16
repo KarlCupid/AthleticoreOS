@@ -140,7 +140,7 @@ export async function lookupBarcode(
   });
 
   if (!response.ok) {
-    return null;
+    throw new Error(`Open Food Facts barcode lookup failed: ${response.status}`);
   }
 
   const data = await response.json();

@@ -872,23 +872,47 @@ export async function toggleFavorite(
   userId: string,
   foodItemId: string
 ): Promise<boolean> {
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
+    .from('favorite_foods')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('food_item_id', foodItemId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  if (existing) {
+    const { error } = await supabase.from('favorite_foods').delete().eq('id', existing.id);
+    if (error) throw error;
+    return false;
+  }
+
+  const { error } = await supabase.from('favorite_foods').insert({
+    user_id: userId,
+    food_item_id: foodItemId,
+  });
+  if (error) throw error;
+  return true;
+}
+
+export async function ensureFavoriteFood(
+  userId: string,
+  foodItemId: string
+): Promise<void> {
+  const { data: existing, error: existingError } = await supabase
     .from('favorite_foods')
     .select('id')
     .eq('user_id', userId)
     .eq('food_item_id', foodItemId)
     .maybeSingle();
 
-  if (existing) {
-    await supabase.from('favorite_foods').delete().eq('id', existing.id);
-    return false;
-  }
+  if (existingError) throw existingError;
+  if (existing) return;
 
-  await supabase.from('favorite_foods').insert({
+  const { error } = await supabase.from('favorite_foods').insert({
     user_id: userId,
     food_item_id: foodItemId,
   });
-  return true;
+  if (error) throw error;
 }
 
 export async function getFavoriteFoods(userId: string): Promise<FoodItemRow[]> {

@@ -7,6 +7,12 @@ export const styles = StyleSheet.create({
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md,
     },
+    headerAction: {
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     backButton: { fontSize: 14, fontFamily: FONT_FAMILY.semiBold, color: COLORS.accent },
     headerTitle: { fontSize: 18, fontFamily: FONT_FAMILY.black, color: COLORS.text.primary, textTransform: 'uppercase', letterSpacing: 1 },
     addIcon: { fontSize: 28, fontFamily: FONT_FAMILY.black },

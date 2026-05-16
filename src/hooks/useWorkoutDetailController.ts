@@ -33,6 +33,7 @@ interface UseWorkoutDetailControllerParams {
   markSkipped: () => Promise<void>;
   restore: () => Promise<void>;
   regenerate: (newFocus?: WorkoutFocus) => Promise<void>;
+  isProtectedAnchor?: boolean;
 }
 
 export function useWorkoutDetailController({
@@ -44,6 +45,7 @@ export function useWorkoutDetailController({
   markSkipped,
   restore,
   regenerate,
+  isProtectedAnchor = false,
 }: UseWorkoutDetailControllerParams) {
   const handleStartWorkout = useCallback(() => {
     if (!entry) return;
@@ -62,11 +64,19 @@ export function useWorkoutDetailController({
   }, [entry, fitnessLevel, navigation, phase, readinessState]);
 
   const handleSkipDay = useCallback(() => {
+    if (isProtectedAnchor) {
+      Alert.alert(
+        'Protected anchor',
+        'Coach-led boxing, sparring, and other protected sessions stay anchored. Adjust the support work around it instead.',
+      );
+      return;
+    }
+
     Alert.alert('Skip Day?', 'This session will be marked as skipped.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Skip', style: 'destructive', onPress: () => void markSkipped() },
     ]);
-  }, [markSkipped]);
+  }, [isProtectedAnchor, markSkipped]);
 
   const handleRestore = useCallback(() => {
     void restore();
@@ -93,6 +103,13 @@ export function useWorkoutDetailController({
 
   const handleOptionsPress = useCallback(() => {
     if (!entry) return;
+    if (isProtectedAnchor) {
+      Alert.alert(
+        'Protected anchor',
+        'This session stays fixed. Athleticore will adapt support work around it instead of replacing, moving, or marking it as rest.',
+      );
+      return;
+    }
 
     Alert.alert('Workout options', '', [
       { text: 'Cancel', style: 'cancel' },
@@ -119,7 +136,7 @@ export function useWorkoutDetailController({
         onPress: handleSkipDay,
       },
     ]);
-  }, [entry, handleSkipDay, regenerate, showFocusPicker]);
+  }, [entry, handleSkipDay, isProtectedAnchor, regenerate, showFocusPicker]);
 
   return {
     handleStartWorkout,

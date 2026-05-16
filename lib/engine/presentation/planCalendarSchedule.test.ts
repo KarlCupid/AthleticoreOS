@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   buildPlanCalendarScheduleItems,
   getPlanCalendarItemDots,
+  getPlanCalendarItemMetrics,
 } from './planCalendarSchedule.ts';
 import type {
   ScheduledActivityRow,
@@ -183,6 +184,41 @@ console.log('\n-- plan calendar schedule merge model --');
 
   assert('completed status resolves from activity update', completed.status === 'completed');
   assert('skipped status resolves from entry update', skipped.status === 'skipped');
+}
+
+{
+  const items = buildPlanCalendarScheduleItems(
+    [makeEntry({
+      id: 'entry-rescheduled',
+      date: '2026-05-01',
+      status: 'rescheduled',
+      rescheduled_to: '2026-05-06',
+      scheduled_activity_id: 'activity-rescheduled',
+    })],
+    [makeActivity({
+      id: 'activity-rescheduled',
+      date: '2026-05-06',
+      weekly_plan_entry_id: 'entry-rescheduled',
+      start_time: '09:00',
+    })],
+  );
+
+  assert('rescheduled linked entries render on the effective activity date', items[0].date === '2026-05-06');
+}
+
+{
+  const metrics = getPlanCalendarItemMetrics([
+    buildPlanCalendarScheduleItems(
+      [makeEntry({ id: 'entry-planned', date: '2026-05-04', estimated_duration_min: 45 })],
+      [],
+    )[0],
+    buildPlanCalendarScheduleItems(
+      [makeEntry({ id: 'entry-skipped-metric', date: '2026-05-05', status: 'skipped', estimated_duration_min: 60 })],
+      [],
+    )[0],
+  ]);
+
+  assert('calendar metrics exclude skipped items from active totals', metrics.totalItems === 1 && metrics.plannedMinutes === 45 && metrics.scheduledDays === 1);
 }
 
 {

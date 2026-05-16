@@ -6,7 +6,7 @@ import { IconWaterDrop } from './icons';
 
 interface HydrationTrackerProps {
   currentOz: number;
-  targetOz: number;
+  targetOz: number | null;
   onQuickAdd: (oz: number) => void;
 }
 
@@ -17,7 +17,7 @@ export function HydrationTracker({
   targetOz,
   onQuickAdd,
 }: HydrationTrackerProps) {
-  const pct = targetOz > 0 ? Math.min(currentOz / targetOz, 1) : 0;
+  const pct = targetOz != null && targetOz > 0 ? Math.min(currentOz / targetOz, 1) : 0;
 
   return (
     <Card
@@ -32,7 +32,9 @@ export function HydrationTracker({
         </View>
         <Text style={styles.value}>
           {Math.round(currentOz)}{' '}
-          <Text style={styles.target}>/ {Math.round(targetOz)} oz</Text>
+          <Text style={styles.target}>
+            {targetOz != null && targetOz > 0 ? `/ ${Math.round(targetOz)} oz` : '/ target pending'}
+          </Text>
         </Text>
       </View>
 

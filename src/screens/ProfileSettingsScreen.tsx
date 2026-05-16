@@ -112,9 +112,48 @@ function formatDateLabel(value: string | null | undefined) {
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function isValidLocalDateInput(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(`${value}T00:00:00`);
+  return parsed.getFullYear() === year
+    && parsed.getMonth() + 1 === month
+    && parsed.getDate() === day;
+}
+
 function formatWeightLabel(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return '--';
   return `${Number(value).toFixed(1)} lbs`;
+}
+
+function validateProfileWeightInput(
+  field: Extract<EditableField, 'base_weight' | 'target_weight'>,
+  value: number | null,
+  profile: AthleteProfileRow | null,
+  latestWeight: { weight: number; date: string } | null,
+) {
+  if (value == null) return true;
+  if (value < 60 || value > 500) {
+    Alert.alert('Check body mass', 'Enter a body mass between 60 and 500 lb, or leave it blank.');
+    return false;
+  }
+
+  if (field === 'target_weight') {
+    const referenceWeight = latestWeight?.weight ?? profile?.base_weight ?? null;
+    if (referenceWeight != null && Number.isFinite(referenceWeight)) {
+      const dropLbs = referenceWeight - value;
+      const dropPct = dropLbs / referenceWeight;
+      if (dropLbs > 15 || dropPct > 0.1) {
+        Alert.alert(
+          'Use weight-class planning',
+          'That target needs a safety review before it changes your profile. Evaluate it in Weight Class so Athleticore can keep the plan cautious.',
+        );
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 function formatHeightLabel(heightInches: number | null | undefined) {
@@ -161,12 +200,18 @@ export function ProfileSettingsScreen() {
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [lastVersionTapAt, setLastVersionTapAt] = useState(0);
   const hasLoadedRef = useRef(false);
+  const loadSnapshotRequestRef = useRef(0);
   const internalDevSurfacesEnabled = isEngineReplayLabEnabled({
     dev: typeof __DEV__ !== 'undefined' && __DEV__,
     buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE,
   });
 
+  React.useEffect(() => () => {
+    loadSnapshotRequestRef.current += 1;
+  }, []);
+
   const loadSnapshot = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    const requestId = ++loadSnapshotRequestRef.current;
     if (mode === 'initial') setLoading(true);
     else setRefreshing(true);
     setError(null);
@@ -174,6 +219,7 @@ export function ProfileSettingsScreen() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
+        if (requestId !== loadSnapshotRequestRef.current) return;
         setSnapshot(null);
         setLoading(false);
         setRefreshing(false);
@@ -210,6 +256,7 @@ export function ProfileSettingsScreen() {
         }),
       ]);
 
+      if (requestId !== loadSnapshotRequestRef.current) return;
       setSnapshot({
         email: session.user.email ?? '',
         profile,
@@ -225,9 +272,11 @@ export function ProfileSettingsScreen() {
         performanceContext: buildUnifiedPerformanceViewModel(engineState?.unifiedPerformance),
       });
     } catch (loadError) {
+      if (requestId !== loadSnapshotRequestRef.current) return;
       logError('ProfileSettingsScreen.loadSnapshot', loadError);
       setError('Could not load your profile data right now.');
     } finally {
+      if (requestId !== loadSnapshotRequestRef.current) return;
       hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
@@ -243,6 +292,7 @@ export function ProfileSettingsScreen() {
 
       return () => {
         isActive = false;
+        loadSnapshotRequestRef.current += 1;
         task.cancel();
       };
     }, [loadSnapshot])
@@ -299,8 +349,8 @@ export function ProfileSettingsScreen() {
 
     try {
       if (field === 'fight_date') {
-        if (trimmed.length > 0 && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-          Alert.alert('Check date', 'Use the format YYYY-MM-DD.');
+        if (trimmed.length > 0 && !isValidLocalDateInput(trimmed)) {
+          Alert.alert('Check date', 'Use a real calendar date in YYYY-MM-DD format.');
           return;
         }
         const nextValue = trimmed.length > 0 ? trimmed : null;
@@ -312,6 +362,9 @@ export function ProfileSettingsScreen() {
         const nextValue = trimmed.length > 0 ? Number.parseFloat(trimmed) : null;
         if (trimmed.length > 0 && !Number.isFinite(nextValue)) {
           Alert.alert('Check number', 'Enter a numeric value.');
+          return;
+        }
+        if (!validateProfileWeightInput(field, nextValue, profile, latestWeight)) {
           return;
         }
         await updateField(field, nextValue);
@@ -806,6 +859,7 @@ export function ProfileSettingsScreen() {
             variant="glass"
             title="Account"
             subtitle={snapshot.email || 'Signed in'}
+            subtitleLines={2}
             backgroundTone="profile"
             backgroundScrimColor="rgba(10, 10, 10, 0.78)"
           >

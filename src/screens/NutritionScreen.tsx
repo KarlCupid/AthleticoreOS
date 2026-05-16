@@ -346,9 +346,10 @@ export function NutritionScreen() {
       return null;
     }
 
-    const waterTarget = Math.round(viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0);
+    const waterTarget = viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? null;
+    const waterTargetLabel = waterTarget != null ? `${Math.round(waterTarget)} oz` : 'target pending';
     const supportLabel = viewModel.dailyAthleteSummary?.fuelDirective.supportDomainLabel?.trim() ?? null;
-    const missionMeta = supportLabel ? `${supportLabel} - Water ${waterTarget} oz` : `${sessionPlan.priorityLabel} - Water ${waterTarget} oz`;
+    const missionMeta = supportLabel ? `${supportLabel} - Water ${waterTargetLabel}` : `${sessionPlan.priorityLabel} - Water ${waterTargetLabel}`;
 
     return (
       <>
@@ -622,7 +623,7 @@ export function NutritionScreen() {
         <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 4).duration(ANIMATION.normal)}>
           <HydrationTracker
             currentOz={viewModel.totals.water}
-            targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0}
+            targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? null}
             onQuickAdd={handleQuickAddWater}
           />
         </Animated.View>
@@ -691,7 +692,7 @@ export function NutritionScreen() {
       <Animated.View entering={FadeInDown.delay(STAGGER_DELAY * 7).duration(ANIMATION.normal)}>
         <HydrationTracker
           currentOz={viewModel.totals.water}
-          targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? 0}
+          targetOz={viewModel.dailyAthleteSummary?.hydrationDirective.waterTargetOz ?? null}
           onQuickAdd={handleQuickAddWater}
         />
       </Animated.View>

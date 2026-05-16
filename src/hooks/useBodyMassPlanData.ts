@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BodyMassDashboardData } from '../../lib/engine/types';
 import {
   getBodyMassDashboardData,
@@ -26,6 +26,8 @@ interface BodyMassPlanState {
 }
 
 export function useBodyMassPlanData(userId: string | null) {
+  const refreshRequestIdRef = useRef(0);
+  const mountedRef = useRef(true);
   const [state, setState] = useState<BodyMassPlanState>({
     loading: false,
     error: null,
@@ -34,8 +36,25 @@ export function useBodyMassPlanData(userId: string | null) {
     guidedBodyMass: buildGuidedBodyMassViewModel(null),
   });
 
+  useEffect(() => () => {
+    mountedRef.current = false;
+    refreshRequestIdRef.current += 1;
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (!userId) return;
+    const requestId = ++refreshRequestIdRef.current;
+    const isCurrentRequest = () => mountedRef.current && requestId === refreshRequestIdRef.current;
+
+    if (!userId) {
+      setState({
+        loading: false,
+        error: null,
+        data: null,
+        performanceContext: buildUnifiedPerformanceViewModel(null),
+        guidedBodyMass: buildGuidedBodyMassViewModel(null),
+      });
+      return;
+    }
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
@@ -58,8 +77,10 @@ export function useBodyMassPlanData(userId: string | null) {
         ? await getBodyMassDashboardData(userId)
         : dashboardData;
 
+      if (!isCurrentRequest()) return;
       setState({ loading: false, error: null, data: refreshedDashboardData, performanceContext, guidedBodyMass });
     } catch (err: any) {
+      if (!isCurrentRequest()) return;
       setState({
         loading: false,
         error: err.message ?? 'Could not load weight-class data',
@@ -77,6 +98,7 @@ export function useBodyMassPlanData(userId: string | null) {
   const abandon = useCallback(async (reason: 'fight_fell_through' | 'made_weight' | 'other' = 'other') => {
     if (!userId || !state.data?.activePlan) return;
     const planId = state.data.activePlan.id;
+    refreshRequestIdRef.current += 1;
     setState((prev) => ({
       ...prev,
       data: prev.data ? { ...prev.data, activePlan: null } : null,
