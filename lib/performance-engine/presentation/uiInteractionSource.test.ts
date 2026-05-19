@@ -62,6 +62,10 @@ assert('Onboarding submits through canonical coach intake', onboarding.includes(
 assert('Plan calendar actions are not placeholder alerts', !planCalendar.includes('Coming Soon') && !planCalendar.includes('will open here'));
 assert('Plan calendar Open Day opens the day detail surface', planCalendar.includes("navigation.navigate('DayDetail'") && planCalendar.includes('handleOpenDay'));
 assert('Plan calendar display uses the normalized data hook', planCalendar.includes('usePlanCalendarData') && planCalendarData.includes('buildPlanCalendarScheduleItems'));
+assert('Plan calendar header opens plan controls instead of old setup', planCalendar.includes('label="Plan controls"') && planCalendar.includes('setShowPlanTools(true)') && !planCalendar.includes('label="Adjust plan"'));
+assert('Plan calendar exposes direct generation and phase controls', planCalendar.includes("label={regenerating ? 'Generating' : 'Generate Week'}") && planCalendar.includes('label="Change Phase"') && planCalendar.includes('regenerateVisibleWeek'));
+assert('Plan calendar change phase opens a focused phase edit', planCalendar.includes("mode: 'phase'") && weeklySetup.includes('phaseOnlyMode') && weeklySetup.includes("'Update Phase'"));
+assert('Plan calendar quick actions avoid redundant weekly setup shortcuts', planCalendar.includes("navigation.navigate('WeeklyReview'") && !planCalendar.includes('label="Adjust Plan"') && !planCalendar.includes('label="Availability"') && !planCalendar.includes('label="Commitments"'));
 
 assert('Readiness gate avoids unsafe proceed copy', !readinessGate.includes('Proceed Anyway'));
 assert('Readiness gate adjustment passes the suggested alternative', readinessGate.includes('onSwitch(suggestion.alternative)'));

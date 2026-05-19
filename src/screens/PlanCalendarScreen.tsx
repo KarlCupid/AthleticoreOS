@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
+  Alert,
   ImageBackground,
   RefreshControl,
   ScrollView,
@@ -34,6 +35,7 @@ import {
   MetricTile,
   PlanActionButton,
   PlanSetupCard,
+  PlanToolsSheet,
   SegmentedViews,
   type PlanViewMode,
 } from './plan-calendar/PlanCalendarControls';
@@ -68,6 +70,7 @@ export function PlanCalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(todayLocalDate());
   const [currentMonth, setCurrentMonth] = useState(() => new Date(`${todayLocalDate()}T12:00:00`));
   const [visibleWeekStart, setVisibleWeekStart] = useState(() => startOfWeek(todayLocalDate()));
+  const [showPlanTools, setShowPlanTools] = useState(false);
 
   const {
     items: scheduleItems,
@@ -84,11 +87,13 @@ export function PlanCalendarScreen() {
     performanceContext,
     warnings,
     streak,
+    regenerating,
     loadData,
     refresh,
     cancelLoad,
     dismissWarning,
     rescheduleFirstMissedEntry,
+    regenerateVisibleWeek,
   } = usePlanCalendarData({ currentMonth, visibleWeekStart, selectedDate });
 
   useFocusEffect(
@@ -133,12 +138,58 @@ export function PlanCalendarScreen() {
     navigation.navigate('DayDetail', { date });
   }, [navigation, selectedDate]);
 
+  const handleOpenReview = useCallback(() => {
+    navigation.navigate('WeeklyReview');
+  }, [navigation]);
+
   const handleSetupPress = useCallback((initialPhaseKey?: 'objective' | 'availability' | 'commitments') => {
     navigation.navigate('WeeklyPlanSetup', initialPhaseKey ? {
       initialPhaseKey,
       source: 'plan',
     } : { source: 'plan' });
   }, [navigation]);
+
+  const handleChangePhase = useCallback(() => {
+    setShowPlanTools(false);
+    navigation.navigate('WeeklyPlanSetup', {
+      initialPhaseKey: 'objective',
+      mode: 'phase',
+      source: 'plan',
+    });
+  }, [navigation]);
+
+  const handleGenerateWeek = useCallback(() => {
+    if (regenerating) return;
+
+    Alert.alert(
+      'Generate new schedule?',
+      `Rebuild the week of ${formatShortMonthDay(visibleWeekStart)} around protected anchors and current readiness context.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Generate',
+          onPress: () => {
+            setShowPlanTools(false);
+            void regenerateVisibleWeek(visibleWeekStart).then((generated) => {
+              if (generated) {
+                Alert.alert('Schedule generated', 'Your week has been rebuilt around protected anchors.');
+              }
+            });
+          },
+        },
+      ],
+    );
+  }, [regenerateVisibleWeek, regenerating, visibleWeekStart]);
+
+  const handleOpenDayFromTools = useCallback(() => {
+    setShowPlanTools(false);
+    handleOpenDay();
+  }, [handleOpenDay]);
+
+  const handleOpenReviewFromTools = useCallback(() => {
+    setShowPlanTools(false);
+    handleOpenReview();
+  }, [handleOpenReview]);
 
   const handleSetupGym = useCallback(() => {
     parentNavigation?.navigate('Train', { screen: 'GymProfiles' });
@@ -187,8 +238,8 @@ export function PlanCalendarScreen() {
           rightAction={(
             <HeaderIconButton
               icon="tune-variant"
-              label="Adjust plan"
-              onPress={() => handleSetupPress('objective')}
+              label="Plan controls"
+              onPress={() => setShowPlanTools(true)}
             />
           )}
         >
@@ -246,10 +297,10 @@ export function PlanCalendarScreen() {
               <MetricTile icon="fire" label="Streak" value={streak > 0 ? String(streak) : '--'} tone={COLORS.warning} />
             </View>
             <View style={styles.actionsGrid}>
+              <PlanActionButton icon="calendar-refresh" label={regenerating ? 'Generating' : 'Generate Week'} onPress={handleGenerateWeek} />
+              <PlanActionButton icon="swap-horizontal" label="Change Phase" onPress={handleChangePhase} />
               <PlanActionButton icon="calendar-edit" label="Open Day" onPress={() => handleOpenDay()} />
-              <PlanActionButton icon="tune-variant" label="Adjust Plan" onPress={() => handleSetupPress('objective')} />
-              <PlanActionButton icon="clock-outline" label="Availability" onPress={() => handleSetupPress('availability')} />
-              <PlanActionButton icon="lock-outline" label="Commitments" onPress={() => handleSetupPress('commitments')} />
+              <PlanActionButton icon="clipboard-text-outline" label="Week Review" onPress={handleOpenReview} />
             </View>
           </Card>
         </Animated.View>
@@ -320,6 +371,15 @@ export function PlanCalendarScreen() {
           </Animated.View>
         ) : null}
       </ScrollView>
+      <PlanToolsSheet
+        visible={showPlanTools}
+        regenerating={regenerating}
+        onClose={() => setShowPlanTools(false)}
+        onGenerateWeek={handleGenerateWeek}
+        onChangePhase={handleChangePhase}
+        onOpenDay={handleOpenDayFromTools}
+        onOpenReview={handleOpenReviewFromTools}
+      />
     </>,
   );
 }

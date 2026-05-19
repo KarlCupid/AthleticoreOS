@@ -41,6 +41,7 @@ const WORKOUT_FOCUSES = new Set<WorkoutFocus>([
 const MEAL_TYPES = new Set<MealType>(['breakfast', 'lunch', 'dinner', 'snacks']);
 const ATHLETE_GOAL_MODES = new Set<AthleteGoalMode>(['fight_camp', 'build_phase']);
 const WEEKLY_SETUP_PHASES = new Set(['objective', 'availability', 'commitments']);
+const WEEKLY_SETUP_MODES = new Set(['full', 'phase']);
 const WEEKLY_SETUP_SOURCES = new Set(['dashboard', 'plan']);
 const GUIDED_ENTRY_SOURCES = new Set(['dashboard', 'train', 'day-detail', 'plan']);
 
@@ -149,6 +150,9 @@ export function resolveWeeklyPlanSetupParams(params: WeeklyPlanSetupParams): Wee
   const initialPhaseKey = typeof raw.initialPhaseKey === 'string' && WEEKLY_SETUP_PHASES.has(raw.initialPhaseKey)
     ? raw.initialPhaseKey as 'objective' | 'availability' | 'commitments'
     : undefined;
+  const mode = typeof raw.mode === 'string' && WEEKLY_SETUP_MODES.has(raw.mode)
+    ? raw.mode as 'full' | 'phase'
+    : undefined;
   const source = typeof raw.source === 'string' && WEEKLY_SETUP_SOURCES.has(raw.source)
     ? raw.source as 'dashboard' | 'plan'
     : undefined;
@@ -156,6 +160,7 @@ export function resolveWeeklyPlanSetupParams(params: WeeklyPlanSetupParams): Wee
   const result: NonNullable<WeeklyPlanSetupParams> = {};
   if (initialGoalMode) result.initialGoalMode = initialGoalMode;
   if (initialPhaseKey) result.initialPhaseKey = initialPhaseKey;
+  if (mode) result.mode = mode;
   if (source) result.source = source;
 
   return Object.keys(result).length > 0 ? result : undefined;

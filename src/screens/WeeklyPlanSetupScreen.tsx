@@ -235,8 +235,12 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
     );
   }
 
-  const isLastPhase = phaseIndex === SETUP_PHASES.length - 1;
-  const proceedDisabled = isLastPhase ? saving : !canProceedPhase(phaseIndex);
+  const phaseOnlyMode = routeParams?.mode === 'phase';
+  const isLastPhase = phaseOnlyMode || phaseIndex === SETUP_PHASES.length - 1;
+  const proceedDisabled = phaseOnlyMode ? saving || !canProceedPhase(phaseIndex) : isLastPhase ? saving : !canProceedPhase(phaseIndex);
+  const progressCount = phaseOnlyMode ? 'Phase edit' : `${phaseIndex + 1} of ${SETUP_PHASES.length}`;
+  const progressFill: `${number}%` = phaseOnlyMode ? '100%' : `${((phaseIndex + 1) / SETUP_PHASES.length) * 100}%`;
+  const submitLabel = phaseOnlyMode ? 'Update Phase' : isLastPhase ? 'Update Journey' : 'Continue';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -256,7 +260,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           >
             <Text style={styles.backButtonText}>{phaseIndex > 0 || navigation.canGoBack() ? 'Back' : ''}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Journey Planning</Text>
+          <Text style={styles.headerTitle}>{phaseOnlyMode ? 'Change Phase' : 'Journey Planning'}</Text>
           {navigation.canGoBack() ? (
             <View style={styles.headerRight} />
           ) : (
@@ -284,12 +288,12 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
           <View style={styles.progressShell}>
             <View style={styles.progressHeaderRow}>
               <Text style={styles.progressEyebrow}>{currentPhase.eyebrow}</Text>
-              <Text style={styles.progressCount}>{phaseIndex + 1} of {SETUP_PHASES.length}</Text>
+              <Text style={styles.progressCount}>{progressCount}</Text>
             </View>
             <Text style={styles.phaseTitle}>{currentPhase.title}</Text>
             <Text style={styles.phaseDescription}>{currentPhase.description}</Text>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${((phaseIndex + 1) / SETUP_PHASES.length) * 100}%` }]} />
+              <View style={[styles.progressFill, { width: progressFill }]} />
             </View>
           </View>
 
@@ -301,8 +305,8 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
             <TouchableOpacity
               testID="weekly-setup-submit"
               accessibilityRole="button"
-              accessibilityLabel={saving ? 'Saving journey plan' : isLastPhase ? 'Update journey plan' : 'Continue planning setup'}
-              accessibilityHint={isLastPhase ? 'Saves your journey planning setup.' : 'Moves to the next planning setup step.'}
+              accessibilityLabel={saving ? 'Saving journey plan' : phaseOnlyMode ? 'Update training phase' : isLastPhase ? 'Update journey plan' : 'Continue planning setup'}
+              accessibilityHint={phaseOnlyMode ? 'Saves the selected training phase.' : isLastPhase ? 'Saves your journey planning setup.' : 'Moves to the next planning setup step.'}
               accessibilityState={{ disabled: proceedDisabled, busy: saving }}
               style={[styles.saveButtonWrap, proceedDisabled && styles.saveButtonDisabled]} 
               onPress={isLastPhase ? handleSave : handleNextPhase} 
@@ -315,7 +319,7 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
                 end={{ x: 1, y: 0 }}
                 style={styles.saveButtonBg}
               >
-                 {saving ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.saveButtonText}>{isLastPhase ? 'Update Journey' : 'Continue'}</Text>}
+                 {saving ? <ActivityIndicator color={COLORS.text.inverse} /> : <Text style={styles.saveButtonText}>{submitLabel}</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </View>

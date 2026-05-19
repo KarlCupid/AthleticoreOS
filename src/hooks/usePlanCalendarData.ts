@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getActiveUserId } from '../../lib/api/athleteContextService';
+import { generateAndSaveBoxingWeeklyPlan } from '../../lib/api/boxingWeeklyPlanService';
 import { getDailyEngineState } from '../../lib/api/dailyPerformanceService';
 import { getDefaultGymProfile } from '../../lib/api/gymProfileService';
 import { getScheduledActivities, getTrainingStreakDays } from '../../lib/api/scheduleService';
@@ -142,6 +143,7 @@ export function usePlanCalendarData({
   selectedDate,
 }: UsePlanCalendarDataInput) {
   const [state, setState] = useState<PlanCalendarDataState>(() => initialState());
+  const [regenerating, setRegenerating] = useState(false);
   const loadRequestIdRef = useRef(0);
 
   useEffect(() => () => {
@@ -295,6 +297,50 @@ export function usePlanCalendarData({
     }
   }, [loadData, state.missedEntries, state.planEntries]);
 
+  const regenerateVisibleWeek = useCallback(async (weekStart: string = visibleWeekStart): Promise<boolean> => {
+    const userId = await getActiveUserId();
+    if (!userId) return false;
+
+    setRegenerating(true);
+    setState((prev) => ({
+      ...prev,
+      error: null,
+    }));
+
+    try {
+      const [planConfig, gymProfile] = await Promise.all([
+        getWeeklyPlanConfig(userId),
+        getDefaultGymProfile(userId),
+      ]);
+
+      if (!planConfig) {
+        throw new Error('Set up a plan before generating a workout schedule.');
+      }
+      if (!gymProfile) {
+        throw new Error('Set up a default gym profile before generating a workout schedule.');
+      }
+
+      const result = await generateAndSaveBoxingWeeklyPlan(userId, planConfig, gymProfile, weekStart);
+      if (result.entries.length === 0) {
+        throw new Error('Workout schedule generation completed without entries.');
+      }
+
+      await loadData({ forceRefresh: true, refresh: true });
+      return true;
+    } catch (error) {
+      logError('usePlanCalendarData.regenerateVisibleWeek', error, { weekStart });
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        refreshing: false,
+        error: getErrorMessage(error) || 'Could not generate a new workout schedule.',
+      }));
+      return false;
+    } finally {
+      setRegenerating(false);
+    }
+  }, [loadData, visibleWeekStart]);
+
   const selectedDayItems = useMemo(
     () => state.items.filter((item) => item.date === selectedDate),
     [selectedDate, state.items],
@@ -318,10 +364,12 @@ export function usePlanCalendarData({
     visibleWeekItems,
     activityDots,
     metrics,
+    regenerating,
     loadData,
     refresh,
     cancelLoad,
     dismissWarning,
     rescheduleFirstMissedEntry,
+    regenerateVisibleWeek,
   };
 }

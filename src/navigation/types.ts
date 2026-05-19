@@ -16,6 +16,7 @@ export type WeeklyPlanSetupParams =
   | {
     initialGoalMode?: AthleteGoalMode;
     initialPhaseKey?: 'objective' | 'availability' | 'commitments';
+    mode?: 'full' | 'phase';
     source?: 'dashboard' | 'plan';
   }
   | undefined;
