@@ -2,6 +2,7 @@ import {
   confidenceFromLevel,
   createAthleteJourneyState,
   createAthleteProfile,
+  createComposedSession,
   createFoodEntry,
   createMeasurementRange,
   createPhaseState,
@@ -15,6 +16,7 @@ import {
   type AthleteProfile,
   type AthleticorePhase,
   type BodyMassState,
+  type ComposedSession,
   type ProtectedAnchorInput,
   type TrackingEntry,
 } from '../index.ts';
@@ -159,6 +161,42 @@ function entry(input: {
   });
 }
 
+function plannedRoadworkSession(): ComposedSession {
+  return createComposedSession({
+    id: 'weekly-plan-roadwork-zone2',
+    family: 'roadwork',
+    source: 'engine_generated',
+    title: 'Roadwork aerobic base',
+    date: DATE,
+    durationMinutes: createMeasurementRange({
+      target: 40,
+      unit: 'minute',
+      confidence: CONFIDENCE,
+    }),
+    intensityRpe: createMeasurementRange({
+      target: 4,
+      unit: 'rpe',
+      confidence: CONFIDENCE,
+    }),
+    stressScore: 42,
+    tissueLoads: ['aerobic', 'lower'],
+    supportMetadata: {
+      athleticDevelopmentDomain: 'roadwork',
+      boxingSessionFamily: 'roadwork_zone2',
+      boxingSessionRole: 'roadwork_aerobic_base',
+      supportDomainLabel: 'Roadwork base',
+      expectedFuelPriority: 'roadwork_aerobic',
+      expectedCarbDemandClass: 'moderate',
+      expectedRecoveryDemandClass: 'low',
+      expectedHydrationDemandClass: 'moderate',
+      sessionEnergyDemandScore: 52,
+      sessionRecoveryDemandScore: 28,
+      plannedIntensity: 'low',
+    },
+    confidence: CONFIDENCE,
+  });
+}
+
 function run(input: {
   phase?: AthleticorePhase;
   anchors?: ProtectedAnchorInput[];
@@ -168,6 +206,7 @@ function run(input: {
   currentWeight?: number;
   athleteProfile?: AthleteProfile;
   acuteChronicWorkloadRatio?: number | null;
+  plannedSessions?: ComposedSession[];
 } = {}) {
   const currentAthlete = input.athleteProfile ?? athlete();
   const currentBodyMass = bodyMass(input.currentWeight ?? 170);
@@ -192,6 +231,7 @@ function run(input: {
     weekStartDate: WEEK_START,
     generatedAt: GENERATED_AT,
     protectedAnchors: input.anchors,
+    plannedSessions: input.plannedSessions,
     trackingEntries: input.trackingEntries,
     fightOpportunity: input.fight ?? null,
     bodyMassState: currentBodyMass,
@@ -457,6 +497,17 @@ console.log('\n-- unified performance engine --');
   assert('final output includes explanations', result.explanations.length > 0);
   assert('persistence plan is canonical only', result.persistencePlan.canonicalOnly);
   assert('no duplicate systems generate conflicting plans', result.persistencePlan.supersedes.some((item) => item.includes('retired standalone scheduler')));
+})();
+
+(() => {
+  const roadwork = plannedRoadworkSession();
+  const result = run({ phase: 'build', plannedSessions: [roadwork] });
+  const sessionIds = result.canonicalOutputs.composedSessions.map((session) => session.id);
+
+  assert('planned weekly sessions remain canonical in UPE', sessionIds.length === 1 && sessionIds.includes('weekly-plan-roadwork-zone2'));
+  assert('planned weekly sessions prevent unrelated default generation', !sessionIds.some((sessionId) => sessionId.startsWith('generated-')));
+  assert('planned support metadata drives fueling directives', result.nutrition.sessionFuelingDirectives.some((directive) => directive.sessionId === roadwork.id && directive.priority === 'medium'));
+  assert('planned support metadata survives canonical output', result.canonicalOutputs.composedSessions[0]?.supportMetadata?.athleticDevelopmentDomain === 'roadwork');
 })();
 
 (() => {

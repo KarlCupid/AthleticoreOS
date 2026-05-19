@@ -856,6 +856,7 @@ export interface BoxingWeekLayoutCandidate {
   dayIndex: number;
   score: number;
   stacked: boolean;
+  stackedWith?: 'protected_anchor' | 'generated_support' | undefined;
   hardIntent: boolean;
   rationale: string[];
   rejected?: boolean | undefined;

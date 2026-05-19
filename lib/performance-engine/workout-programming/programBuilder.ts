@@ -258,6 +258,29 @@ function canStackOnProtectedDay(input: {
   return input.day.sessions.every((session) => session.protectedAnchor ? session.protectedAnchor && sessionIsHard(session) ? input.intent.plannedIntensity !== 'moderate' : true : false);
 }
 
+function canStackOnGeneratedSupportDay(input: {
+  day: DayLoadState;
+  intent: PlannedSessionIntent;
+  durationMinutes: number;
+  allowSameDaySupportSessions: boolean;
+}): boolean {
+  if (input.day.sessions.length === 0) return false;
+  if (input.day.sessions.some((session) => session.protectedAnchor)) return false;
+  if (intentCountsAsHard(input.intent)) return false;
+  if (!LOW_LOAD_STACKING_ROLES.has(input.intent.role)) return false;
+  if (!input.allowSameDaySupportSessions && !input.intent.canStackWithProtected) return false;
+  if (input.day.sessions.some((session) => session.boxingSessionFamily === input.intent.family)) return false;
+
+  const hardDaySupportRoles = ['mobility_prehab', 'recovery_reset', 'recovery', 'accessory', 'maintenance'];
+  if (input.day.hardCount > 0 && !hardDaySupportRoles.includes(input.intent.role)) return false;
+
+  const maxMinutes = input.day.hardCount > 0 ? 90 : 105;
+  if (input.day.totalMinutes + input.durationMinutes > maxMinutes) return false;
+  if (input.day.sessions.length >= 3) return false;
+
+  return input.day.sessions.every((session) => !sessionIsHard(session) || hardDaySupportRoles.includes(input.intent.role));
+}
+
 function chooseDayForIntent(input: {
   availableDays: number[];
   weekSessions: GeneratedProgramSession[];
@@ -267,7 +290,7 @@ function chooseDayForIntent(input: {
   durationMinutes: number;
   track?: string | undefined;
   phase?: ProgramPhase | undefined;
-}): { dayIndex: number; stacked: boolean } | null {
+}): { dayIndex: number; stacked: boolean; stackedWith?: 'protected_anchor' | 'generated_support' | undefined } | null {
   const dayLoads = dayLoadsFromSessions(input.weekSessions);
   const candidateDays = input.availableDays.map((day) => dayLoads.get(day)).filter((day): day is DayLoadState => Boolean(day));
   const hardIntent = intentCountsAsHard(input.intent);
@@ -295,7 +318,7 @@ function chooseDayForIntent(input: {
       }
       if (stacked && !hardIntent && LOW_LOAD_STACKING_ROLES.has(input.intent.role)) {
         score -= 25;
-        rationale.push('Low-load boxing support may stack with an anchor when duration and load are safe.');
+        rationale.push('Low-load boxing support may stack with an existing support day when duration and load are safe.');
       }
       if (weekLoad >= 1_200 && day.sessions.length === 0 && [6, 7].includes(day.dayIndex) && !hardIntent) {
         score += 30;
@@ -338,7 +361,20 @@ function chooseDayForIntent(input: {
       durationMinutes: input.durationMinutes,
       allowSameDaySupportSessions: input.allowSameDaySupportSessions,
     })) {
-      return { dayIndex: day.dayIndex, stacked: true };
+      return { dayIndex: day.dayIndex, stacked: true, stackedWith: 'protected_anchor' };
+    }
+  }
+
+  for (const candidate of sorted) {
+    const day = dayLoads.get(candidate.dayIndex);
+    if (!day) continue;
+    if (canStackOnGeneratedSupportDay({
+      day,
+      intent: input.intent,
+      durationMinutes: input.durationMinutes,
+      allowSameDaySupportSessions: input.allowSameDaySupportSessions,
+    })) {
+      return { dayIndex: day.dayIndex, stacked: true, stackedWith: 'generated_support' };
     }
   }
 
@@ -1222,7 +1258,11 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
           ...workoutIntent.rationale,
           `${goalId} was selected as ${supportMeta.supportDomainLabel ?? supportDomainSourceLabel(supportMeta.athleticDevelopmentDomain)} for boxing in the ${phase} phase.`,
           supportMeta.boxingRelevance ?? '',
-          candidate.stacked ? 'This low-load support session safely stacks with a protected anchor instead of treating that day as closed.' : 'Placement respects weekly day load and hard/easy distribution.',
+          candidate.stacked
+            ? candidate.stackedWith === 'generated_support'
+              ? 'This short low-load support pairs with another Athleticore support session because total day load stayed safe.'
+              : 'This low-load support session safely stacks with a protected anchor instead of treating that day as closed.'
+            : 'Placement respects weekly day load and hard/easy distribution.',
           overHardBudget ? 'A hard support intent was downgraded because protected work already consumed the hard-session budget.' : '',
           adjacentHard ? 'A hard support intent was downgraded to avoid back-to-back high-fatigue days.' : '',
           workout.decisionTrace?.some((entry) => entry.step.includes('fallback') || entry.step.includes('rejected'))
@@ -1233,8 +1273,10 @@ export function generateWeeklyWorkoutProgram(input: ProgramBuilderInput): Genera
       if (!generatedSession.workout?.blocked && sessionIsHard(generatedSession)) {
         generatedHardCount += 1;
       }
-      if (candidate.stacked) {
+      if (candidate.stacked && candidate.stackedWith === 'protected_anchor') {
         generatedSession.rationale?.push('Protected boxing sessions count as load, not as automatic generated-session substitutions.');
+      } else if (candidate.stacked && candidate.stackedWith === 'generated_support') {
+        generatedSession.rationale?.push('Low-load support may be paired on one day to preserve strength, conditioning, mobility, and skill spread when available days are limited.');
       }
       if (workout.blocked && effectiveIntensity === 'hard') {
         const recoveryMeta = supportSessionMetadata({

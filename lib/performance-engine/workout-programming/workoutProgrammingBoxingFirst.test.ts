@@ -49,6 +49,7 @@ function baseProgram(input: {
   totalExposureTarget?: number;
   goalId?: string;
   safetyFlags?: string[];
+  buildPhaseGoalType?: BoxingTrainingContext['buildPhaseGoalType'];
 }): GeneratedProgram {
   const boxingTrainingContext: BoxingTrainingContext = {
     track: input.track,
@@ -57,6 +58,7 @@ function baseProgram(input: {
   if (input.fightCampWeeksOut != null) boxingTrainingContext.fightCampWeeksOut = input.fightCampWeeksOut;
   if (input.generatedSessionsPerWeek != null) boxingTrainingContext.generatedSessionsPerWeek = input.generatedSessionsPerWeek;
   if (input.totalExposureTarget != null) boxingTrainingContext.totalExposureTarget = input.totalExposureTarget;
+  if (input.buildPhaseGoalType != null) boxingTrainingContext.buildPhaseGoalType = input.buildPhaseGoalType;
   const request: Parameters<typeof generateWeeklyWorkoutProgram>[0] = {
     goalId: input.goalId ?? 'boxing_support',
     durationMinutes: 45,
@@ -309,6 +311,27 @@ console.log('\n-- workout programming boxing-first planner --');
   assert('B2 conditioning build includes low-load roadwork instead of recovery-only support', families.includes('roadwork_zone2') && generatedDomainCount(program, 'roadwork') >= 1);
   assert('B2 conditioning build creates future weeks for plan look-ahead', program.weeks.length === 4 && program.sessions.some((session) => session.weekIndex === 4));
   assert('B2 conditioning build validates', validateGeneratedProgram(program).valid);
+})();
+
+(() => {
+  const program = baseProgram({
+    track: 'amateur_open',
+    availableDays: [1, 3, 5],
+    generatedSessionsPerWeek: 3,
+    buildPhaseGoalType: 'conditioning',
+  });
+  const firstWeek = week(program);
+  const firstWeekGenerated = generatedSessions(program);
+  const domains = new Set(firstWeekGenerated.map((session) => session.athleticDevelopmentDomain));
+  const generatedSessionsByDay = new Map<number, number>();
+  for (const session of firstWeekGenerated) {
+    generatedSessionsByDay.set(session.dayIndex, (generatedSessionsByDay.get(session.dayIndex) ?? 0) + 1);
+  }
+
+  assert('B3 limited conditioning build places extra safe support beyond open day count', firstWeekGenerated.length > 3 && Array.from(generatedSessionsByDay.values()).some((count) => count > 1));
+  assert('B3 limited conditioning build keeps strength plus engine support spread', domains.has('strength') && (domains.has('roadwork') || domains.has('conditioning')) && (domains.has('mobility') || domains.has('durability') || domains.has('boxing_skill_support')));
+  assert('B3 limited conditioning build respects hard-day cap', firstWeek.hardDayCount <= (firstWeek.weeklyDose?.hardDayCap ?? 3));
+  assert('B3 limited conditioning build validates', validateGeneratedProgram(program).valid);
 })();
 
 (() => {

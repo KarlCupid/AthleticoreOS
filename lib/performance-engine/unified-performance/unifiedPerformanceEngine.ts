@@ -40,7 +40,12 @@ import { createExplanation, explainDecision, explainPlanAdjustment } from '../ex
 import { recommendPhaseForFightOpportunity } from '../phase-controller/phaseController.ts';
 import { transitionPerformancePhase } from '../phase-controller/phaseController.ts';
 import { snapshotFightOpportunity } from '../fight-opportunity/fightOpportunityEngine.ts';
-import { generateAdaptiveTrainingWeek } from '../adaptive-training/adaptiveTrainingEngine.ts';
+import {
+  buildWeeklyStressTopology,
+  convertSessionsToTrainingBlock,
+  generateAdaptiveTrainingWeek,
+  validateTrainingConflicts,
+} from '../adaptive-training/adaptiveTrainingEngine.ts';
 import { generateNutritionTarget } from '../nutrition-fueling/nutritionFuelingEngine.ts';
 import { resolveReadinessFromPerformanceState } from '../tracking-readiness/trackingReadinessEngine.ts';
 import { evaluateWeightClassPlanFromPerformanceState } from '../body-mass-weight-class/bodyMassWeightClassEngine.ts';
@@ -448,6 +453,77 @@ function shouldRestrictGeneratedHardTraining(flags: RiskFlag[], readiness: Readi
   )) || readiness.recommendedTrainingAdjustment.replaceWithMobility;
 }
 
+function uniqueComposedSessions(sessions: ComposedSession[]): ComposedSession[] {
+  const byId = new Map<string, ComposedSession>();
+  for (const session of sessions) {
+    const existing = byId.get(session.id);
+    if (!existing) {
+      byId.set(session.id, session);
+      continue;
+    }
+    if (session.protectedAnchor && !existing.protectedAnchor) {
+      byId.set(session.id, session);
+      continue;
+    }
+    if (session.supportMetadata && !existing.supportMetadata) {
+      byId.set(session.id, session);
+    }
+  }
+  return Array.from(byId.values());
+}
+
+function trainingFromPlannedSessions(input: {
+  performanceState: PerformanceState;
+  weekStartDate: ISODateString;
+  sessions: ComposedSession[];
+  generatedAt?: ISODateTimeString | null | undefined;
+}): AdaptiveTrainingWeekResult {
+  const topology = buildWeeklyStressTopology({
+    weekStartDate: input.weekStartDate,
+    sessions: input.sessions,
+  });
+  const conflicts = validateTrainingConflicts({
+    sessions: input.sessions,
+    topology,
+  });
+  const explanation = explainPlanAdjustment({
+    summary: 'Planned weekly training was preserved as the active training block.',
+    reasons: [
+      'A weekly planner snapshot was supplied to the Unified Performance Engine, so the engine kept those sessions instead of generating an unrelated default week.',
+      'Protected anchors and planned support work are evaluated through the same topology, conflict, nutrition, and risk layers.',
+      conflicts.some((conflict) => conflict.blocksPlan)
+        ? 'Blocking schedule conflicts were surfaced instead of silently approving the plan.'
+        : 'No blocking schedule conflicts were detected in the supplied training week.',
+    ],
+    blocked: conflicts.some((conflict) => conflict.blocksPlan),
+    confidence: ENGINE_CONFIDENCE,
+    generatedAt: input.generatedAt,
+  });
+  const converted = convertSessionsToTrainingBlock({
+    performanceState: input.performanceState,
+    sessions: input.sessions,
+    weekStartDate: input.weekStartDate,
+    explanation,
+  });
+  const trainingBlock: TrainingBlock = {
+    ...converted,
+    status: conflicts.some((conflict) => conflict.blocksPlan) ? 'planned' : 'active',
+  };
+
+  return {
+    trainingBlock,
+    composedSessions: input.sessions,
+    topology,
+    mergeScores: [],
+    conflicts,
+    explanations: [
+      trainingBlock.explanation,
+      topology.explanation,
+      ...conflicts.map((conflict) => conflict.explanation),
+    ].filter((item): item is Explanation => item !== null),
+  };
+}
+
 function summarizeConfidence(states: Array<ConfidenceValue | null | undefined>): ConfidenceValue {
   const scores = states
     .map((item) => item?.score)
@@ -541,14 +617,18 @@ export function runUnifiedPerformanceEngine(input: UnifiedPerformanceEngineInput
     anchors: input.protectedAnchors,
     generatedAt,
   });
+  const plannedTrainingSessions = uniqueComposedSessions([
+    ...anchorSessions,
+    ...(input.plannedSessions ?? []),
+  ]);
+  const hasPlannedTrainingSnapshot = (input.plannedSessions?.length ?? 0) > 0;
   const readinessSeedState = createPerformanceState({
     ...base.state,
-    composedSessions: [
-      ...anchorSessions,
+    composedSessions: uniqueComposedSessions([
       ...(input.completedSessions ?? []),
-      ...(input.plannedSessions ?? []),
+      ...plannedTrainingSessions,
       ...(base.state.composedSessions ?? []),
-    ],
+    ]),
     trackingEntries: input.trackingEntries ?? base.state.trackingEntries,
   });
   const readiness = resolveReadinessFromPerformanceState({
@@ -556,7 +636,7 @@ export function runUnifiedPerformanceEngine(input: UnifiedPerformanceEngineInput
     date: input.asOfDate,
     entries: input.trackingEntries ?? readinessSeedState.trackingEntries,
     completedSessions: input.completedSessions,
-    plannedSessions: [...anchorSessions, ...(input.plannedSessions ?? [])],
+    plannedSessions: plannedTrainingSessions,
     acuteChronicWorkloadRatio: input.acuteChronicWorkloadRatio,
     generatedAt,
   });
@@ -626,16 +706,23 @@ export function runUnifiedPerformanceEngine(input: UnifiedPerformanceEngineInput
     ]),
   });
   const restrictGeneratedHardTraining = shouldRestrictGeneratedHardTraining(stateBeforeTraining.riskFlags, stateBeforeTraining.readiness);
-  const training = generateAdaptiveTrainingWeek({
-    performanceState: stateBeforeTraining,
-    weekStartDate,
-    protectedAnchors: input.protectedAnchors,
-    existingSessions: input.existingSessions,
-    candidateSessions: restrictGeneratedHardTraining
-      ? generatedRecoveryCandidates(input.asOfDate)
-      : input.candidateSessions,
-    generatedAt,
-  });
+  const training = hasPlannedTrainingSnapshot
+    ? trainingFromPlannedSessions({
+      performanceState: stateBeforeTraining,
+      weekStartDate,
+      sessions: plannedTrainingSessions,
+      generatedAt,
+    })
+    : generateAdaptiveTrainingWeek({
+      performanceState: stateBeforeTraining,
+      weekStartDate,
+      protectedAnchors: input.protectedAnchors,
+      existingSessions: input.existingSessions,
+      candidateSessions: restrictGeneratedHardTraining
+        ? generatedRecoveryCandidates(input.asOfDate)
+        : input.candidateSessions,
+      generatedAt,
+    });
   const stateBeforeNutrition = createPerformanceState({
     ...stateBeforeTraining,
     activeTrainingBlock: training.trainingBlock,
@@ -645,8 +732,14 @@ export function runUnifiedPerformanceEngine(input: UnifiedPerformanceEngineInput
       ...training.explanations,
       restrictGeneratedHardTraining
         ? explainPlanAdjustment({
-          summary: 'Generated hard training was constrained by readiness or nutrition risk.',
-          reasons: ['The unified flow lets nutrition and readiness risk affect training before finalizing the plan.'],
+          summary: hasPlannedTrainingSnapshot
+            ? 'Readiness or nutrition risk was carried into final plan review for the supplied training week.'
+            : 'Generated hard training was constrained by readiness or nutrition risk.',
+          reasons: [
+            hasPlannedTrainingSnapshot
+              ? 'The supplied weekly plan stayed canonical, while risk remained visible to final status, nutrition, and explanations.'
+              : 'The unified flow lets nutrition and readiness risk affect training before finalizing the plan.',
+          ],
           confidence: ENGINE_CONFIDENCE,
           generatedAt,
         })
