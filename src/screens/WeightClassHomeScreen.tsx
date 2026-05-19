@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Platform, Alert,
+  RefreshControl, Platform, Alert,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,6 +15,7 @@ import {
 } from '../components/icons';
 import { Card } from '../components/Card';
 import { CommandScreen } from '../components/CommandScreen';
+import { ScreenLoadingState } from '../components/ScreenLoadingState';
 import { BodyMassSupportTimeline } from '../components/BodyMassSupportTimeline';
 import { BodyMassTrendChart } from '../components/BodyMassTrendChart';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
@@ -131,10 +132,14 @@ export function WeightClassHomeScreen() {
   // Loading
   if (userId === null || loading) {
     return (
-      <CommandScreen tone="bodyMass">
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-        </View>
+      <CommandScreen tone="bodyMass" useSafeArea>
+        <ScreenLoadingState
+          kicker="BODY MASS"
+          title="Loading body-mass support"
+          message="Checking the plan, recent weigh-ins, safety status, and weight-class context."
+          tone="bodyMass"
+          layout="bodyMass"
+        />
       </CommandScreen>
     );
   }

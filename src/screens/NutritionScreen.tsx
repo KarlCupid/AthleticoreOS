@@ -25,7 +25,7 @@ import { MealSection } from '../components/MealSection';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { CommandScreen } from '../components/CommandScreen';
-import { SkeletonLoader } from '../components/SkeletonLoader';
+import { ScreenLoadingState } from '../components/ScreenLoadingState';
 import { IconBarcode, IconScale } from '../components/icons';
 import { useFuelData } from '../hooks/useFuelData';
 import type { FuelHomeViewModel } from '../hooks/fuel/types';
@@ -310,15 +310,6 @@ export function NutritionScreen() {
       Alert.alert('Could not log water', 'Please try again.');
     }
   };
-
-  const renderLoading = () => (
-    <View style={styles.content}>
-      <SkeletonLoader width="100%" height={124} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
-      <SkeletonLoader width="100%" height={96} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
-      <SkeletonLoader width="100%" height={172} shape="rect" style={{ marginBottom: SPACING.md, borderRadius: RADIUS.xl }} />
-      <SkeletonLoader width="100%" height={124} shape="rect" style={{ borderRadius: RADIUS.xl }} />
-    </View>
-  );
 
   const renderErrorCard = () => {
     if (!error) {
@@ -748,6 +739,20 @@ export function NutritionScreen() {
     </>
   );
 
+  if (loading) {
+    return (
+      <CommandScreen tone="fuel" useSafeArea={true}>
+        <ScreenLoadingState
+          kicker="FUEL"
+          title="Loading fuel command"
+          message="Checking today's nutrition targets, logged meals, hydration, and safety context."
+          tone="fuel"
+          layout="fuel"
+        />
+      </CommandScreen>
+    );
+  }
+
   return (
     <CommandScreen tone="fuel" useSafeArea={true}>
       <Animated.View entering={FadeInDown.delay(0).duration(ANIMATION.normal)} style={styles.header}>
@@ -786,31 +791,27 @@ export function NutritionScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColor} />}
       >
-        {loading ? renderLoading() : (
-          <>
-            {renderErrorCard()}
-            <FuelCommandHero
-              viewModel={viewModel}
-              onLogMeal={() => navigation.navigate('FoodSearch', {
-                mealType: inferMealTypeForNow(),
-                date: viewModel.date,
-              })}
-              onScan={() => navigation.navigate('BarcodeScan', {
-                mealType: inferMealTypeForNow(),
-                date: viewModel.date,
-              })}
-              onBodyMass={() => navigation.navigate('WeightClassHome')}
-            />
-            <UnifiedJourneySummaryCard
-              summary={viewModel.performanceContext}
-              compact
-              showProtectedAnchors={false}
-              showBodyMass={Boolean(viewModel.performanceContext.bodyMass)}
-            />
-            {nutritionMode === 'quick' ? renderQuickMode() : renderDetailedMode()}
-            <View style={{ height: SPACING.xxl + 40 }} />
-          </>
-        )}
+        {renderErrorCard()}
+        <FuelCommandHero
+          viewModel={viewModel}
+          onLogMeal={() => navigation.navigate('FoodSearch', {
+            mealType: inferMealTypeForNow(),
+            date: viewModel.date,
+          })}
+          onScan={() => navigation.navigate('BarcodeScan', {
+            mealType: inferMealTypeForNow(),
+            date: viewModel.date,
+          })}
+          onBodyMass={() => navigation.navigate('WeightClassHome')}
+        />
+        <UnifiedJourneySummaryCard
+          summary={viewModel.performanceContext}
+          compact
+          showProtectedAnchors={false}
+          showBodyMass={Boolean(viewModel.performanceContext.bodyMass)}
+        />
+        {nutritionMode === 'quick' ? renderQuickMode() : renderDetailedMode()}
+        <View style={{ height: SPACING.xxl + 40 }} />
       </ScrollView>
     </CommandScreen>
   );

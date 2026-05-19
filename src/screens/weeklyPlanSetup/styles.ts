@@ -4,7 +4,6 @@ import { COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING, TAP_TARGETS, TYPOGRAPHY_
 
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   backButton: { minWidth: 64, minHeight: TAP_TARGETS.plan.min, paddingVertical: SPACING.xs, justifyContent: 'center' },
   backButtonText: { fontSize: 16, fontFamily: FONT_FAMILY.semiBold, color: COLORS.text.secondary },

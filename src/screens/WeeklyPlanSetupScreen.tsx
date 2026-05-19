@@ -20,6 +20,8 @@ import { COMMITMENT_DURATION_OPTIONS, SETUP_PHASES } from './weeklyPlanSetup/con
 import { AvailabilityPhase } from './weeklyPlanSetup/AvailabilityPhase';
 import { CommitmentsPhase } from './weeklyPlanSetup/CommitmentsPhase';
 import { ObjectivePhase } from './weeklyPlanSetup/ObjectivePhase';
+import { CommandScreen } from '../components/CommandScreen';
+import { ScreenLoadingState } from '../components/ScreenLoadingState';
 import { styles } from './weeklyPlanSetup/styles';
 import { useWeeklyPlanSetupController } from './weeklyPlanSetup/useWeeklyPlanSetupController';
 import { getSetupPhaseIndex } from './weeklyPlanSetup/utils';
@@ -221,9 +223,15 @@ export function WeeklyPlanSetupScreen({ onComplete }: WeeklyPlanSetupScreenProps
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      </View>
+      <CommandScreen tone="plan" useSafeArea>
+        <ScreenLoadingState
+          kicker="PLAN SETUP"
+          title="Loading setup"
+          message="Preparing goals, availability, protected workouts, and fight opportunity context."
+          tone="plan"
+          layout="form"
+        />
+      </CommandScreen>
     );
   }
 

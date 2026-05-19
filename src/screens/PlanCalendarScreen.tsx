@@ -25,7 +25,7 @@ import { Card } from '../components/Card';
 import { OvertrainingAlert } from '../components/OvertrainingAlert';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
-import { SkeletonLoader } from '../components/SkeletonLoader';
+import { ScreenLoadingState } from '../components/ScreenLoadingState';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { usePlanCalendarData } from '../hooks/usePlanCalendarData';
 import type { PlanStackParamList, RootTabParamList } from '../navigation/types';
@@ -166,17 +166,13 @@ export function PlanCalendarScreen() {
 
   if (isInitialLoading) {
     return renderShell(
-      <>
-        <View style={styles.header}>
-          <SkeletonLoader width={80} height={18} shape="rect" style={{ borderRadius: RADIUS.sm, marginBottom: SPACING.md }} />
-          <SkeletonLoader width="68%" height={34} shape="rect" style={{ borderRadius: RADIUS.lg }} />
-        </View>
-        <View style={styles.loadingContent}>
-          <SkeletonLoader width="100%" height={108} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.sm }} />
-          <SkeletonLoader width="100%" height={320} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.sm }} />
-          <SkeletonLoader width="100%" height={144} shape="rect" style={{ borderRadius: RADIUS.xl }} />
-        </View>
-      </>,
+      <ScreenLoadingState
+        kicker="PLAN"
+        title="Loading planning calendar"
+        message="Building your week around fixed sessions, availability, and recovery margins."
+        tone="plan"
+        layout="calendar"
+      />,
     );
   }
 
@@ -355,10 +351,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.xs,
     gap: SPACING.sm + 2,
-  },
-  loadingContent: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
   },
   metricsRow: {
     flexDirection: 'row',

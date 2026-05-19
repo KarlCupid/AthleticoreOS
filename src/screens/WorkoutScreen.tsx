@@ -20,6 +20,7 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenWrapper } from '../components/ScreenWrapper';
+import { ScreenLoadingState } from '../components/ScreenLoadingState';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { WorkoutAnalyticsTab } from '../components/WorkoutAnalyticsTab';
 import { WorkoutHistoryTab } from '../components/WorkoutHistoryTab';
@@ -397,18 +398,13 @@ export function WorkoutScreen() {
 
   if (loading) {
     return renderShell(
-      <>
-        <View style={styles.header}>
-          <SkeletonLoader width={72} height={18} shape="rect" style={{ borderRadius: RADIUS.sm }} />
-          <SkeletonLoader width="68%" height={38} shape="rect" style={{ marginTop: SPACING.md, borderRadius: RADIUS.lg }} />
-          <SkeletonLoader width="100%" height={46} shape="rect" style={{ marginTop: SPACING.md, borderRadius: RADIUS.lg }} />
-        </View>
-        <View style={styles.content}>
-          <SkeletonLoader width="100%" height={110} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.md }} />
-          <SkeletonLoader width="100%" height={280} shape="rect" style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.md }} />
-          <SkeletonLoader width="100%" height={120} shape="rect" style={{ borderRadius: RADIUS.xl }} />
-        </View>
-      </>,
+      <ScreenLoadingState
+        kicker="TRAIN"
+        title="Loading training floor"
+        message="Resolving today's session, protected anchors, readiness, and week context."
+        tone="train"
+        layout="training"
+      />,
     );
   }
 

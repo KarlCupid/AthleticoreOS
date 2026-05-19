@@ -68,7 +68,7 @@ export function SkeletonLoader({
         >
             <Animated.View style={[styles.shimmer, animatedStyle]}>
                 <LinearGradient
-                    colors={['transparent', 'rgba(255,255,255,0.12)', 'transparent']}
+                    colors={['transparent', 'rgba(255,255,255,0.18)', 'transparent']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.gradient}
@@ -80,7 +80,7 @@ export function SkeletonLoader({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'rgba(255, 255, 255, 0.04)', // Dark glass track
+        backgroundColor: 'rgba(245, 245, 240, 0.10)',
         overflow: 'hidden',
     },
     shimmer: {

@@ -16,10 +16,9 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
 import { Card } from "../components/Card";
 import { AnimatedPressable } from "../components/AnimatedPressable";
-import { SkeletonLoader } from "../components/SkeletonLoader";
 import { RadialProgress } from "../components/RadialProgress";
 import { WeightTrendCard } from "../components/WeightTrendCard";
-import { COLORS, RADIUS, SPACING, ANIMATION } from "../theme/theme";
+import { COLORS, SPACING, ANIMATION } from "../theme/theme";
 import {
   IconAlertTriangle,
   IconBell,
@@ -31,6 +30,8 @@ import { TodayMissionPanel } from "../components/dashboard/TodayMissionPanel";
 import { GuidedPhaseTransitionCard } from "../components/phases/GuidedPhaseTransitionCard";
 import { UnifiedJourneySummaryCard } from "../components/performance/UnifiedJourneySummaryCard";
 import { ExistingUserOverhaulIntroCard } from "../components/first-run/ExistingUserOverhaulIntroCard";
+import { CommandScreen } from "../components/CommandScreen";
+import { ScreenLoadingState } from "../components/ScreenLoadingState";
 import { ScreenWrapper } from "../components/ScreenWrapper";
 import type {
   TodayMissionAction,
@@ -504,42 +505,15 @@ export function DashboardScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.skeletonHero}>
-          <SkeletonLoader
-            width="60%"
-            height={22}
-            shape="text"
-            style={{ marginBottom: 8 }}
-          />
-          <SkeletonLoader
-            width="40%"
-            height={14}
-            shape="text"
-            style={{ marginBottom: 24 }}
-          />
-          <SkeletonLoader
-            width={80}
-            height={56}
-            shape="rect"
-            style={{ alignSelf: "center", marginBottom: 16 }}
-          />
-        </View>
-        <View style={styles.content}>
-          <SkeletonLoader
-            width="100%"
-            height={80}
-            borderRadius={RADIUS.xl}
-            style={{ marginBottom: SPACING.md }}
-          />
-          <SkeletonLoader
-            width="100%"
-            height={140}
-            borderRadius={RADIUS.xl}
-            style={{ marginBottom: SPACING.md }}
-          />
-        </View>
-      </View>
+      <CommandScreen tone="today" useSafeArea>
+        <ScreenLoadingState
+          kicker="TODAY"
+          title="Loading today's command center"
+          message="Syncing readiness, training, fuel, body-mass, and risk context."
+          tone="today"
+          layout="command"
+        />
+      </CommandScreen>
     );
   }
 

@@ -19,7 +19,9 @@ import { useNavigation } from '@react-navigation/native';
 
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { Card } from '../components/Card';
+import { CommandScreen } from '../components/CommandScreen';
 import { IconInfo } from '../components/icons';
+import { ScreenLoadingState } from '../components/ScreenLoadingState';
 import { UnifiedJourneySummaryCard } from '../components/performance/UnifiedJourneySummaryCard';
 import { CustomNumericInput } from '../components/CustomNumericInput';
 import { useLogScreenData } from '../hooks/useLogScreenData';
@@ -219,6 +221,20 @@ export function LogScreen() {
     canonicalConfidenceSummary: guidedReadiness.confidence.summary,
   }), [band, checkInput, guidedReadiness.confidence.summary]);
   const bottomActionClearance = Math.max(tabBarHeight, insets.bottom) + SPACING.lg;
+
+  if (logScreenData.loadingContext) {
+    return (
+      <CommandScreen tone="today" useSafeArea>
+        <ScreenLoadingState
+          kicker="CHECK-IN"
+          title="Loading check-in context"
+          message="Pulling yesterday's notes, today's training load, nutrition context, and readiness signals."
+          tone="today"
+          layout="form"
+        />
+      </CommandScreen>
+    );
+  }
 
   const setScaleValue = (key: CheckKey, value: number) => {
     setValues((prev) => ({ ...prev, [key]: value }));

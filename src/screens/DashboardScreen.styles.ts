@@ -687,13 +687,6 @@ export const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  // Skeleton loading
-  skeletonHero: {
-    backgroundColor: COLORS.surfaceSecondary,
-    padding: SPACING.xl,
-    paddingTop: SPACING.xxxl,
-  },
-
   // Chart Overrides for premium look
   chartContainer: {
     height: 200,
