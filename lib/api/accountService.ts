@@ -1,9 +1,16 @@
 import { supabase } from '../supabase';
 import { addMonitoringBreadcrumb } from '../observability/breadcrumbs';
 import { logError } from '../utils/logger';
+import { clearActiveDevAuthAccount, getActiveDevAuthAccountSnapshot } from './devAuthService';
 
 export async function signOutCurrentUser() {
   addMonitoringBreadcrumb('auth', 'sign_out_started');
+  if (getActiveDevAuthAccountSnapshot()) {
+    await clearActiveDevAuthAccount();
+    addMonitoringBreadcrumb('auth', 'dev_sign_out_succeeded');
+    return;
+  }
+
   const { error } = await supabase.auth.signOut();
   if (error) {
     logError('accountService.signOutCurrentUser', error, { accountOperation: 'sign_out' });

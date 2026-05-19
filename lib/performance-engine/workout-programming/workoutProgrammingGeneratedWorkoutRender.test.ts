@@ -296,6 +296,7 @@ function installRenderMocks(): void {
     if (request === '../components/AnimatedPressable') return { AnimatedPressable: View };
     if (request === '../components/ScreenHeader') return screenHeaderMock;
     if (request === '../components/ScreenWrapper') return { ScreenWrapper: simpleComponent() };
+    if (request === '../components/ScreenLoadingState') return { ScreenLoadingState: simpleComponent('Loading') };
     if (request === '../components/SkeletonLoader') return { SkeletonLoader: simpleComponent('Loading') };
     if (request === '../components/WorkoutAnalyticsTab') return { WorkoutAnalyticsTab: simpleComponent('Analytics') };
     if (request === '../components/WorkoutHistoryTab') return { WorkoutHistoryTab: simpleComponent('History') };

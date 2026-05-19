@@ -28,3 +28,7 @@ export function isInternalDevSurfaceEnabled({
 export function isEngineReplayLabEnabled(environment: DevSurfaceEnvironment): boolean {
   return isInternalDevSurfaceEnabled(environment);
 }
+
+export function isDevAuthShortcutEnabled(environment: DevSurfaceEnvironment): boolean {
+  return isInternalDevSurfaceEnabled(environment);
+}

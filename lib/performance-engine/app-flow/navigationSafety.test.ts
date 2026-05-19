@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { isEngineReplayLabEnabled } from '../../../src/config/devSurfaces.ts';
+import { isDevAuthShortcutEnabled, isEngineReplayLabEnabled } from '../../../src/config/devSurfaces.ts';
 import { shouldHideBottomNavForFocusedRouteName } from '../../../src/navigation/chrome.ts';
 import { appLinking } from '../../../src/navigation/linking.ts';
 import {
@@ -83,6 +83,13 @@ console.log('\n-- navigation safety and preview surface guards --');
     && isEngineReplayLabEnabled({ dev: true, buildProfile: 'preview' }) === false
     && isEngineReplayLabEnabled({ dev: true, buildProfile: 'production' }) === false
     && isEngineReplayLabEnabled({ dev: false, buildProfile: 'development' }) === false
+  ));
+
+  assert('developer auth shortcuts require dev mode and development build profile', (
+    isDevAuthShortcutEnabled({ dev: true, buildProfile: 'development' }) === true
+    && isDevAuthShortcutEnabled({ dev: true, buildProfile: 'preview' }) === false
+    && isDevAuthShortcutEnabled({ dev: true, buildProfile: 'production' }) === false
+    && isDevAuthShortcutEnabled({ dev: false, buildProfile: 'development' }) === false
   ));
 
   assert('standalone generated workout preview flags are not part of app-flow routing', (

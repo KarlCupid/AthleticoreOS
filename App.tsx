@@ -15,6 +15,18 @@ import {
 import { supabase } from './lib/supabase';
 import { getSupabaseAuthErrorCopy, parsePasswordRecoveryLink } from './lib/api/authUx';
 import {
+  DEV_AUTH_ACCOUNTS,
+  activateDevAuthAccount,
+  clearActiveDevAuthAccount,
+  createDevAuthEntryState,
+  createDevAuthSession,
+  getActiveDevAuthAccountSnapshot,
+  hydratePersistedDevAuthAccount,
+  subscribeDevAuthAccountChanges,
+  type DevAuthAccount,
+  type DevAuthAccountKey,
+} from './lib/api/devAuthService';
+import {
   createReadyAthleteJourneyAppEntryState,
   getAthleteJourneyAppEntryState,
   type AthleteJourneyAppEntryState,
@@ -29,6 +41,7 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { TabNavigator } from './src/navigation/TabNavigator';
 import { appLinking } from './src/navigation/linking';
+import { isDevAuthShortcutEnabled } from './src/config/devSurfaces';
 import { ReadinessThemeProvider } from './src/theme/ReadinessThemeContext';
 import { InteractionModeProvider } from './src/context/InteractionModeContext';
 import { APP_CHROME, COLORS, FONT_FAMILY, RADIUS, SHADOWS, SPACING } from './src/theme/theme';
@@ -86,9 +99,16 @@ export default function App() {
   const [authLoadAttempt, setAuthLoadAttempt] = useState(0);
   const [passwordRecoveryActive, setPasswordRecoveryActive] = useState(false);
   const [passwordRecoveryNotice, setPasswordRecoveryNotice] = useState<string | null>(null);
+  const [devAuthHydrated, setDevAuthHydrated] = useState(false);
+  const [devAuthSelectingKey, setDevAuthSelectingKey] = useState<DevAuthAccountKey | null>(null);
   const sessionUserIdRef = useRef<string | null>(null);
+  const devAuthAccountRef = useRef<DevAuthAccount | null>(null);
   const handledRecoveryUrlRef = useRef<string | null>(null);
   const navigationRef = useNavigationContainerRef();
+  const devAuthEnabled = isDevAuthShortcutEnabled({
+    dev: typeof __DEV__ !== 'undefined' && __DEV__,
+    buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE,
+  });
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -101,6 +121,73 @@ export default function App() {
     addMonitoringBreadcrumb('app', 'root_component_mounted');
     capturePreviewMonitoringTestError();
   }, []);
+
+  const applyDevAuthAccount = useCallback((account: DevAuthAccount | null) => {
+    devAuthAccountRef.current = account;
+    setDevAuthSelectingKey(null);
+
+    if (!account) {
+      if (!sessionUserIdRef.current) {
+        setCheckingAuth(false);
+        return;
+      }
+
+      setSession(null);
+      sessionUserIdRef.current = null;
+      setActiveAuthUserId(null);
+      setJourneyEntryState(null);
+      setJourneyLoadError(null);
+      setCheckingJourney(false);
+      setCheckingAuth(false);
+      addMonitoringBreadcrumb('auth', 'dev_session_cleared');
+      return;
+    }
+
+    const nextSession = createDevAuthSession(account);
+    sessionUserIdRef.current = nextSession.user.id;
+    setActiveAuthUserId(nextSession.user.id);
+    setSession(nextSession);
+    setAuthLoadError(null);
+    setJourneyLoadError(null);
+    setCheckingAuth(false);
+    setCheckingJourney(false);
+    setPasswordRecoveryActive(false);
+    setPasswordRecoveryNotice(null);
+    setJourneyEntryState(createDevAuthEntryState(account));
+    addMonitoringBreadcrumb('auth', 'dev_session_selected', {
+      accountKey: account.key,
+      entryStatus: account.entryStatus,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!devAuthEnabled) {
+      setDevAuthHydrated(true);
+      return;
+    }
+
+    let isActive = true;
+    const unsubscribe = subscribeDevAuthAccountChanges((account) => {
+      if (isActive) {
+        applyDevAuthAccount(account);
+      }
+    });
+
+    hydratePersistedDevAuthAccount()
+      .catch((error) => {
+        logWarn('App.devAuthHydration.failed', error);
+      })
+      .finally(() => {
+        if (isActive) {
+          setDevAuthHydrated(true);
+        }
+      });
+
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, [applyDevAuthAccount, devAuthEnabled]);
 
   const handlePasswordRecoveryLink = useCallback(async (url: string | null) => {
     if (!url || handledRecoveryUrlRef.current === url) {
@@ -187,6 +274,20 @@ export default function App() {
 
   useEffect(() => {
     let isActive = true;
+    const activeDevAccount = getActiveDevAuthAccountSnapshot();
+
+    if (devAuthEnabled && !devAuthHydrated) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    if (activeDevAccount) {
+      applyDevAuthAccount(activeDevAccount);
+      return () => {
+        isActive = false;
+      };
+    }
 
     setCheckingAuth(true);
     setAuthLoadError(null);
@@ -227,13 +328,16 @@ export default function App() {
     return () => {
       isActive = false;
     };
-  }, [authLoadAttempt]);
+  }, [applyDevAuthAccount, authLoadAttempt, devAuthEnabled, devAuthHydrated]);
 
   useEffect(() => {
     let isActive = true;
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!isActive) {
+        return;
+      }
+      if (devAuthAccountRef.current) {
         return;
       }
 
@@ -292,6 +396,13 @@ export default function App() {
   ), [entryStatus, passwordRecoveryActive, session]);
 
   const refreshJourneyEntryState = useCallback(async () => {
+    if (devAuthAccountRef.current) {
+      setCheckingJourney(false);
+      setJourneyLoadError(null);
+      setJourneyEntryState(createDevAuthEntryState(devAuthAccountRef.current));
+      return;
+    }
+
     if (!userId) {
       setCheckingJourney(false);
       setJourneyEntryState(null);
@@ -347,6 +458,11 @@ export default function App() {
   }, [userId]);
 
   const handleOnboardingComplete = useCallback((result: CoachIntakeResult) => {
+    if (devAuthAccountRef.current) {
+      const completedDevAccount = { ...devAuthAccountRef.current, entryStatus: 'ready' as const };
+      devAuthAccountRef.current = completedDevAccount;
+    }
+
     const entryState = createReadyAthleteJourneyAppEntryState({
       journey: result.journey,
       performanceState: result.performanceState,
@@ -392,6 +508,11 @@ export default function App() {
     setPasswordRecoveryNotice(null);
 
     addMonitoringBreadcrumb('auth', 'sign_out_started');
+    if (devAuthAccountRef.current) {
+      await clearActiveDevAuthAccount();
+      return;
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error) {
       logError('App.signOut', error, { authOperation: 'signOut' });
@@ -404,6 +525,19 @@ export default function App() {
     setActiveAuthUserId(null);
     addMonitoringBreadcrumb('auth', 'sign_out_succeeded');
   }, []);
+
+  const handleSelectDevAuthAccount = useCallback(async (key: DevAuthAccountKey) => {
+    if (!devAuthEnabled || devAuthSelectingKey) return;
+
+    setDevAuthSelectingKey(key);
+    try {
+      await activateDevAuthAccount(key);
+    } catch (error) {
+      logError('App.selectDevAuthAccount', error, { authOperation: 'devAuth' });
+      setDevAuthSelectingKey(null);
+      setPasswordRecoveryNotice('Developer account could not be opened. Try again.');
+    }
+  }, [devAuthEnabled, devAuthSelectingKey]);
 
   const handleNavigationReady = useCallback(() => {
     setCurrentMonitoringRoute(navigationRef.getCurrentRoute()?.name ?? 'unknown');
@@ -439,7 +573,12 @@ export default function App() {
   ) : checkingAuth ? (
     <AppLoadingScreen />
   ) : !session ? (
-    <AuthScreen notice={passwordRecoveryNotice} />
+    <AuthScreen
+      notice={passwordRecoveryNotice}
+      devAuthAccounts={devAuthEnabled ? DEV_AUTH_ACCOUNTS : []}
+      activeDevAuthAccountKey={devAuthSelectingKey}
+      onSelectDevAuthAccount={devAuthEnabled ? handleSelectDevAuthAccount : undefined}
+    />
   ) : entryStatus === null ? (
     <AppLoadingScreen />
   ) : entryStatus === 'needs_onboarding' ? (

@@ -28,6 +28,7 @@ import {
 } from '../../lib/api/authUx';
 import { addMonitoringBreadcrumb } from '../../lib/observability/breadcrumbs';
 import { logError } from '../../lib/utils/logger';
+import type { DevAuthAccount, DevAuthAccountKey } from '../../lib/api/devAuthService';
 import {
     APP_PRIVACY_POLICY_URL,
     APP_SUPPORT_EMAIL,
@@ -45,6 +46,9 @@ interface AuthScreenProps {
     passwordRecovery?: boolean;
     notice?: string | null;
     onPasswordRecoveryCompleted?: () => void;
+    devAuthAccounts?: readonly DevAuthAccount[];
+    activeDevAuthAccountKey?: DevAuthAccountKey | null;
+    onSelectDevAuthAccount?: ((key: DevAuthAccountKey) => void | Promise<void>) | undefined;
 }
 
 const BRAND_LOGO = require('../../assets/images/athleticore-logo.png');
@@ -53,6 +57,9 @@ export function AuthScreen({
     passwordRecovery = false,
     notice = null,
     onPasswordRecoveryCompleted,
+    devAuthAccounts = [],
+    activeDevAuthAccountKey = null,
+    onSelectDevAuthAccount,
 }: AuthScreenProps) {
     const insets = useSafeAreaInsets();
     const [mode, setMode] = useState<AuthMode>('signIn');
@@ -311,8 +318,15 @@ export function AuthScreen({
         setEmail(normalizeEmail(email));
     }
 
+    function handleDevAccountPress(key: DevAuthAccountKey) {
+        if (busy) return;
+        setFormMessage(null);
+        onSelectDevAuthAccount?.(key);
+    }
+
     const isResetRequest = mode === 'resetRequest';
     const isSignUp = mode === 'signUp';
+    const showDevAuthShortcuts = !passwordRecovery && !isResetRequest && !isSignUp && devAuthAccounts.length > 0 && onSelectDevAuthAccount;
     const title = passwordRecovery ? 'Set a new password' : isResetRequest ? 'Reset password' : isSignUp ? 'Create account' : 'Athleticore';
     const subtitle = passwordRecovery
         ? 'Choose a new password to finish recovery.'
@@ -694,6 +708,36 @@ export function AuthScreen({
                     </Animated.View>
                 ) : null}
 
+                {showDevAuthShortcuts ? (
+                    <Animated.View entering={FadeInDown.delay(340).duration(ANIMATION.normal).springify()} style={styles.devAuthPanel}>
+                        <View style={styles.devAuthHeaderRow}>
+                            <View style={styles.devAuthDivider} />
+                            <Text style={styles.devAuthHeader}>Dev login</Text>
+                            <View style={styles.devAuthDivider} />
+                        </View>
+                        <View style={styles.devAuthGrid}>
+                            {devAuthAccounts.map((account) => {
+                                const selected = account.key === activeDevAuthAccountKey;
+                                return (
+                                    <AnimatedPressable
+                                        key={account.key}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Use developer ${account.label} account`}
+                                        accessibilityHint={account.detail}
+                                        accessibilityState={{ disabled: busy, selected }}
+                                        style={[styles.devAuthButton, selected && styles.devAuthButtonActive, busy && styles.buttonDisabled]}
+                                        onPress={() => handleDevAccountPress(account.key)}
+                                        disabled={busy}
+                                    >
+                                        <Text style={[styles.devAuthButtonText, selected && styles.devAuthButtonTextActive]}>{account.label}</Text>
+                                        <Text style={[styles.devAuthButtonDetail, selected && styles.devAuthButtonDetailActive]}>{account.detail}</Text>
+                                    </AnimatedPressable>
+                                );
+                            })}
+                        </View>
+                    </Animated.View>
+                ) : null}
+
                 {!passwordRecovery ? (
                     <Animated.View entering={FadeInDown.delay(360).duration(ANIMATION.normal).springify()} style={styles.legalLinks}>
                         <AnimatedPressable accessibilityRole="link" accessibilityLabel="Privacy policy" onPress={openPrivacy}>
@@ -900,6 +944,68 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: FONT_FAMILY.semiBold,
         color: COLORS.readiness.prime,
+    },
+    devAuthPanel: {
+        marginTop: SPACING.lg,
+        gap: SPACING.md,
+    },
+    devAuthHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.sm,
+    },
+    devAuthDivider: {
+        flex: 1,
+        height: 1,
+        backgroundColor: COLORS.borderLight,
+    },
+    devAuthHeader: {
+        fontSize: 12,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.tertiary,
+        textTransform: 'uppercase',
+        letterSpacing: 0,
+    },
+    devAuthGrid: {
+        flexDirection: 'row',
+        gap: SPACING.sm,
+    },
+    devAuthButton: {
+        flex: 1,
+        minHeight: 58,
+        borderRadius: RADIUS.md,
+        borderWidth: 1,
+        borderColor: COLORS.borderLight,
+        backgroundColor: 'rgba(255, 255, 255, 0.06)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: SPACING.sm,
+        paddingVertical: SPACING.sm,
+    },
+    devAuthButtonActive: {
+        borderColor: COLORS.accent,
+        backgroundColor: `${COLORS.accent}18`,
+    },
+    devAuthButtonText: {
+        fontSize: 14,
+        lineHeight: 18,
+        fontFamily: FONT_FAMILY.semiBold,
+        color: COLORS.text.secondary,
+        textAlign: 'center',
+    },
+    devAuthButtonTextActive: {
+        color: COLORS.text.primary,
+    },
+    devAuthButtonDetail: {
+        marginTop: 2,
+        fontSize: 11,
+        lineHeight: 14,
+        fontFamily: FONT_FAMILY.regular,
+        color: COLORS.text.tertiary,
+        textAlign: 'center',
+    },
+    devAuthButtonDetailActive: {
+        color: COLORS.accent,
     },
     legalLinks: {
         flexDirection: 'row',
