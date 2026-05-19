@@ -1,5 +1,6 @@
 import { getSessionFamilyLabel } from '../sessionLabels.ts';
 import type {
+  ActivityType,
   PlanEntryStatus,
   ScheduleStatus,
   ScheduledActivityRow,
@@ -68,6 +69,68 @@ function isProtectedActivity(activity: ScheduledActivityRow): boolean {
     || activity.constraint_tier === 'mandatory'
     || activity.activity_type === 'boxing_practice'
     || activity.activity_type === 'sparring';
+}
+
+function entryEffectiveDate(entry: WeeklyPlanEntryRow): string {
+  return entry.rescheduled_to ?? entry.date;
+}
+
+function protectedActivityTypeForEntry(entry: WeeklyPlanEntryRow): ActivityType | null {
+  if (entry.session_type === 'boxing_practice' || entry.session_type === 'sparring') {
+    return entry.session_type;
+  }
+  if (entry.session_type === 'sc' || entry.session_type === 'running' || entry.session_type === 'road_work'
+    || entry.session_type === 'conditioning' || entry.session_type === 'active_recovery' || entry.session_type === 'rest'
+    || entry.session_type === 'other') {
+    return entry.session_type;
+  }
+  if (entry.session_family === 'sparring') return 'sparring';
+  if (entry.session_family === 'boxing_skill') return 'boxing_practice';
+  if (entry.session_family === 'strength') return 'sc';
+  if (entry.session_family === 'conditioning') return 'conditioning';
+  if (entry.session_family === 'recovery') return 'active_recovery';
+  if (entry.session_family === 'rest') return 'rest';
+  return null;
+}
+
+function normalizeAnchorLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/^fixed\s+/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function activityMatchesUnlinkedProtectedEntry(entry: WeeklyPlanEntryRow, activity: ScheduledActivityRow): boolean {
+  if (!isProtectedEntry(entry) || !isProtectedActivity(activity)) return false;
+  if (entryEffectiveDate(entry) !== activity.date) return false;
+
+  const entryActivityType = protectedActivityTypeForEntry(entry);
+  if (entryActivityType && entryActivityType === activity.activity_type) return true;
+
+  const entryLabel = normalizeAnchorLabel(labelForEntry(entry));
+  const activityLabel = normalizeAnchorLabel(labelForActivity(activity));
+  return entryLabel.length > 0 && entryLabel === activityLabel;
+}
+
+function scoreUnlinkedProtectedActivityMatch(entry: WeeklyPlanEntryRow, activity: ScheduledActivityRow): number {
+  let score = 0;
+  const entryActivityType = protectedActivityTypeForEntry(entry);
+  if (entryActivityType && entryActivityType === activity.activity_type) score += 8;
+  if (normalizeAnchorLabel(labelForEntry(entry)) === normalizeAnchorLabel(labelForActivity(activity))) score += 4;
+  if (entry.estimated_duration_min > 0 && activity.estimated_duration_min > 0) {
+    const durationDelta = Math.abs(entry.estimated_duration_min - activity.estimated_duration_min);
+    if (durationDelta === 0) score += 3;
+    else if (durationDelta <= 10) score += 2;
+    else if (durationDelta <= 20) score += 1;
+  }
+  if (entry.target_intensity != null && activity.expected_intensity != null) {
+    const intensityDelta = Math.abs(entry.target_intensity - activity.expected_intensity);
+    if (intensityDelta === 0) score += 2;
+    else if (intensityDelta <= 1) score += 1;
+  }
+  if (activity.start_time) score += 1;
+  return score;
 }
 
 function resolveStatus(
@@ -163,9 +226,16 @@ export function buildPlanCalendarScheduleItems(
 
   const usedActivityIds = new Set<string>();
   const items: PlanCalendarScheduleItem[] = entries.map((entry) => {
-    const linkedActivity = entry.scheduled_activity_id
+    let linkedActivity = entry.scheduled_activity_id
       ? activitiesById.get(entry.scheduled_activity_id) ?? activitiesByPlanEntryId.get(entry.id) ?? null
       : activitiesByPlanEntryId.get(entry.id) ?? null;
+
+    if (!linkedActivity) {
+      linkedActivity = activities
+        .filter((activity) => !usedActivityIds.has(activity.id))
+        .filter((activity) => activityMatchesUnlinkedProtectedEntry(entry, activity))
+        .sort((a, b) => scoreUnlinkedProtectedActivityMatch(entry, b) - scoreUnlinkedProtectedActivityMatch(entry, a))[0] ?? null;
+    }
 
     if (linkedActivity) {
       usedActivityIds.add(linkedActivity.id);

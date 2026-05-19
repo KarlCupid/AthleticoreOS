@@ -250,6 +250,74 @@ console.log('\n-- plan calendar schedule merge model --');
   assert('protected boxing/sparring anchor is preserved', items[0].protectedAnchor === true && items[0].label === 'Sparring');
 }
 
+{
+  const items = buildPlanCalendarScheduleItems(
+    [makeEntry({
+      id: 'unlinked-sparring-entry',
+      date: '2026-05-06',
+      session_type: 'sparring',
+      session_family: 'sparring',
+      placement_source: 'locked',
+      scheduled_activity_id: null,
+      estimated_duration_min: 60,
+      target_intensity: 8,
+    })],
+    [makeActivity({
+      id: 'unlinked-sparring-activity',
+      date: '2026-05-06',
+      activity_type: 'sparring',
+      custom_label: 'Sparring',
+      source: 'template',
+      start_time: '19:00:00',
+      estimated_duration_min: 60,
+      expected_intensity: 8,
+      athlete_locked: true,
+      constraint_tier: 'mandatory',
+      weekly_plan_entry_id: null,
+    })],
+  );
+
+  assert('unlinked protected plan entry and matching anchor render once', items.length === 1);
+  assert('unlinked protected anchor preserves both row ids', items[0].weeklyPlanEntryId === 'unlinked-sparring-entry' && items[0].scheduledActivityId === 'unlinked-sparring-activity');
+  assert('unlinked protected anchor keeps scheduled time and generated plan status', items[0].startTime === '19:00:00' && items[0].status === 'planned');
+}
+
+{
+  const items = buildPlanCalendarScheduleItems(
+    [makeEntry({
+      id: 'single-sparring-entry',
+      date: '2026-05-06',
+      session_type: 'sparring',
+      session_family: 'sparring',
+      placement_source: 'locked',
+      scheduled_activity_id: null,
+    })],
+    [
+      makeActivity({
+        id: 'first-sparring-activity',
+        date: '2026-05-06',
+        activity_type: 'sparring',
+        custom_label: 'Sparring',
+        source: 'template',
+        start_time: '19:00:00',
+        weekly_plan_entry_id: null,
+      }),
+      makeActivity({
+        id: 'second-sparring-activity',
+        date: '2026-05-06',
+        activity_type: 'sparring',
+        custom_label: 'Extra sparring',
+        source: 'manual',
+        start_time: '20:30:00',
+        weekly_plan_entry_id: null,
+      }),
+    ],
+  );
+
+  assert('extra same-day protected activity remains visible after one fallback match', items.length === 2);
+  assert('fallback match only consumes one scheduled anchor', items.some((item) => item.scheduledActivityId === 'second-sparring-activity'));
+}
+
 console.log('\n-- plan screen display source smoke --');
 
 {

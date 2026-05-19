@@ -52,6 +52,18 @@ function formatDuration(minutes: number | null | undefined): string {
   return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
+function formatStartTime(startTime: string | null | undefined): string | null {
+  if (!startTime) return null;
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(startTime);
+  if (!match) return startTime;
+  const hour = Number(match[1]);
+  const minute = match[2];
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return startTime;
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${minute} ${suffix}`;
+}
+
 function formatRailDuration(minutes: number, itemCount: number): string {
   if (itemCount === 0) return 'Rest';
   if (minutes <= 0) return `${itemCount} item${itemCount === 1 ? '' : 's'}`;
@@ -90,7 +102,7 @@ function tintForScheduleItem(item: PlanCalendarScheduleItem): string {
 
 function ScheduleItemRow({ item }: { item: PlanCalendarScheduleItem }) {
   const intensity = item.intensity ? ` / RPE ${item.intensity}` : '';
-  const time = item.startTime ? `${item.startTime} / ` : '';
+  const time = formatStartTime(item.startTime);
   return (
     <View style={styles.planEntryRow}>
       <View style={[styles.planEntryIcon, item.protectedAnchor && styles.planEntryIconLocked]}>
@@ -103,7 +115,7 @@ function ScheduleItemRow({ item }: { item: PlanCalendarScheduleItem }) {
       <View style={styles.planEntryCopy}>
         <Text style={styles.planEntryTitle} numberOfLines={1}>{item.label}</Text>
         <Text style={styles.planEntryMeta} numberOfLines={1}>
-          {time}{formatDuration(item.durationMin)}{intensity}
+          {time ? `${time} / ` : ''}{formatDuration(item.durationMin)}{intensity}
         </Text>
       </View>
       <Text style={[
@@ -213,7 +225,7 @@ function WeekRailDay({
 
 function WeekAgendaItem({ item }: { item: PlanCalendarScheduleItem }) {
   const intensity = item.intensity ? `RPE ${item.intensity}` : null;
-  const timing = [item.startTime, formatDuration(item.durationMin), intensity].filter(Boolean).join(' / ');
+  const timing = [formatStartTime(item.startTime), formatDuration(item.durationMin), intensity].filter(Boolean).join(' / ');
 
   return (
     <View style={[styles.weekAgendaItem, item.protectedAnchor && styles.weekAgendaItemAnchor]}>
